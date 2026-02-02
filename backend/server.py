@@ -581,6 +581,8 @@ Evaluations can be: "blunder", "mistake", "inaccuracy", "good", "excellent", "br
             {"$set": {"is_analyzed": True}}
         )
         
+        # Remove _id before returning (MongoDB mutates the doc)
+        analysis_doc.pop('_id', None)
         return analysis_doc
         
     except Exception as e:
