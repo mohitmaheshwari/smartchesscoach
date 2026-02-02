@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Layout from "@/components/Layout";
+import ChessBoardViewer from "@/components/ChessBoardViewer";
 import { toast } from "sonner";
 import { 
   ArrowLeft, 
@@ -15,8 +17,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Star,
-  Sparkles,
-  Zap
+  Sparkles
 } from "lucide-react";
 
 const GameAnalysis = ({ user }) => {
@@ -26,12 +27,11 @@ const GameAnalysis = ({ user }) => {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  const [selectedMove, setSelectedMove] = useState(null);
+  const [currentMoveNumber, setCurrentMoveNumber] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch game
         const gameResponse = await fetch(`${API}/games/${gameId}`, {
           credentials: 'include'
         });
@@ -41,7 +41,6 @@ const GameAnalysis = ({ user }) => {
         const gameData = await gameResponse.json();
         setGame(gameData);
 
-        // Try to fetch existing analysis
         try {
           const analysisResponse = await fetch(`${API}/analysis/${gameId}`, {
             credentials: 'include'
@@ -89,6 +88,10 @@ const GameAnalysis = ({ user }) => {
     }
   };
 
+  const handleMoveChange = (moveNumber, move) => {
+    setCurrentMoveNumber(moveNumber);
+  };
+
   const getEvalIcon = (evaluation) => {
     switch (evaluation) {
       case 'blunder': return <AlertTriangle className="w-4 h-4 text-red-500" />;
@@ -127,7 +130,7 @@ const GameAnalysis = ({ user }) => {
     <Layout user={user}>
       <div className="space-y-6" data-testid="game-analysis-page">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
@@ -170,29 +173,12 @@ const GameAnalysis = ({ user }) => {
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: PGN Display */}
+          {/* Left: Chess Board */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <span className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-xs font-bold">♟</span>
-                Game Moves
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[500px]">
-                <pre className="font-mono text-sm whitespace-pre-wrap p-4 bg-muted/50 rounded-lg">
-                  {game?.pgn}
-                </pre>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* Right: Analysis/Commentary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Brain className="w-5 h-5 text-primary" />
-                AI Coach Commentary
+                Interactive Board
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -205,78 +191,121 @@ const GameAnalysis = ({ user }) => {
                   <div className="text-center">
                     <p className="font-medium">Analyzing your game...</p>
                     <p className="text-sm text-muted-foreground">
-                      This may take a moment
+                      Using RAG to find similar patterns from your history
                     </p>
                   </div>
                 </div>
-              ) : analysis ? (
-                <div className="space-y-6">
-                  {/* Summary Stats */}
-                  <div className="grid grid-cols-4 gap-3">
-                    <div className="text-center p-3 rounded-lg bg-red-500/10">
-                      <p className="text-2xl font-bold text-red-500">{analysis.blunders}</p>
-                      <p className="text-xs text-muted-foreground">Blunders</p>
-                    </div>
-                    <div className="text-center p-3 rounded-lg bg-orange-500/10">
-                      <p className="text-2xl font-bold text-orange-500">{analysis.mistakes}</p>
-                      <p className="text-xs text-muted-foreground">Mistakes</p>
-                    </div>
-                    <div className="text-center p-3 rounded-lg bg-yellow-500/10">
-                      <p className="text-2xl font-bold text-yellow-500">{analysis.inaccuracies}</p>
-                      <p className="text-xs text-muted-foreground">Inaccuracies</p>
-                    </div>
-                    <div className="text-center p-3 rounded-lg bg-emerald-500/10">
-                      <p className="text-2xl font-bold text-emerald-500">{analysis.best_moves}</p>
-                      <p className="text-xs text-muted-foreground">Best Moves</p>
-                    </div>
-                  </div>
+              ) : (
+                <ChessBoardViewer
+                  pgn={game?.pgn || ""}
+                  userColor={game?.user_color || "white"}
+                  onMoveChange={handleMoveChange}
+                  commentary={analysis?.commentary || []}
+                />
+              )}
+            </CardContent>
+          </Card>
 
-                  {/* Overall Summary */}
-                  <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                        <Brain className="w-5 h-5 text-primary" />
+          {/* Right: Analysis/Commentary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" />
+                AI Coach Commentary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {analysis ? (
+                <Tabs defaultValue="summary" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="summary">Summary</TabsTrigger>
+                    <TabsTrigger value="moves">Move Analysis</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="summary" className="space-y-4 mt-4">
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="text-center p-3 rounded-lg bg-red-500/10">
+                        <p className="text-2xl font-bold text-red-500">{analysis.blunders}</p>
+                        <p className="text-xs text-muted-foreground">Blunders</p>
                       </div>
-                      <div>
-                        <p className="font-medium text-sm mb-1">Coach's Summary</p>
-                        <p className="text-sm text-muted-foreground">
-                          {analysis.overall_summary}
-                        </p>
+                      <div className="text-center p-3 rounded-lg bg-orange-500/10">
+                        <p className="text-2xl font-bold text-orange-500">{analysis.mistakes}</p>
+                        <p className="text-xs text-muted-foreground">Mistakes</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-yellow-500/10">
+                        <p className="text-2xl font-bold text-yellow-500">{analysis.inaccuracies}</p>
+                        <p className="text-xs text-muted-foreground">Inaccuracies</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-emerald-500/10">
+                        <p className="text-2xl font-bold text-emerald-500">{analysis.best_moves}</p>
+                        <p className="text-xs text-muted-foreground">Best Moves</p>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Move Commentary */}
-                  <ScrollArea className="h-[300px]">
-                    <div className="space-y-3">
-                      {analysis.commentary?.map((item, index) => (
-                        <div 
-                          key={index}
-                          className={`p-3 rounded-lg border-l-4 ${getEvalClass(item.evaluation)} cursor-pointer transition-all hover:scale-[1.01]`}
-                          onClick={() => setSelectedMove(selectedMove === index ? null : index)}
-                          data-testid={`move-comment-${index}`}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-sm font-medium">
-                                {item.move_number}. {item.move}
-                              </span>
-                              {getEvalIcon(item.evaluation)}
-                            </div>
-                            {item.evaluation && item.evaluation !== 'neutral' && (
-                              <Badge variant="outline" className="text-xs capitalize">
-                                {item.evaluation}
-                              </Badge>
-                            )}
-                          </div>
+                    {/* Overall Summary */}
+                    <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                          <Brain className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm mb-1">Coach's Summary</p>
                           <p className="text-sm text-muted-foreground">
-                            {item.comment}
+                            {analysis.overall_summary}
                           </p>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  </ScrollArea>
-                </div>
+
+                    {/* Identified Patterns */}
+                    {analysis.identified_patterns && analysis.identified_patterns.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Patterns Identified</p>
+                        <div className="flex flex-wrap gap-2">
+                          {analysis.identified_patterns.map((patternId, idx) => (
+                            <Badge key={idx} variant="outline">
+                              Pattern #{idx + 1}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="moves" className="mt-4">
+                    <ScrollArea className="h-[400px]">
+                      <div className="space-y-2">
+                        {analysis.commentary?.map((item, index) => (
+                          <div 
+                            key={index}
+                            className={`p-3 rounded-lg border-l-4 ${getEvalClass(item.evaluation)} cursor-pointer transition-all hover:scale-[1.01] ${
+                              currentMoveNumber === item.move_number ? 'ring-2 ring-primary' : ''
+                            }`}
+                            data-testid={`move-comment-${index}`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-sm font-medium">
+                                  {item.move_number}. {item.move}
+                                </span>
+                                {getEvalIcon(item.evaluation)}
+                              </div>
+                              {item.evaluation && item.evaluation !== 'neutral' && (
+                                <Badge variant="outline" className="text-xs capitalize">
+                                  {item.evaluation}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {item.comment}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+                </Tabs>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 space-y-4">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
