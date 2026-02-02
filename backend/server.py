@@ -457,8 +457,8 @@ async def get_user_mistake_context(user_id: str) -> str:
     return "\n".join(context_parts)
 
 @api_router.post("/analyze-game")
-async def analyze_game(req: AnalyzeGameRequest, user: User = Depends(get_current_user)):
-    """Analyze a game with AI coaching"""
+async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
+    """Analyze a game with AI coaching using RAG for deep context"""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     
     game = await db.games.find_one(
@@ -475,7 +475,9 @@ async def analyze_game(req: AnalyzeGameRequest, user: User = Depends(get_current
     if existing_analysis:
         return existing_analysis
     
-    mistake_context = await get_user_mistake_context(user.user_id)
+    # Use RAG to build rich context from similar games and patterns
+    logger.info(f"Building RAG context for game {req.game_id}")
+    rag_context = await build_rag_context(db, user.user_id, game)
     
     system_prompt = f"""You are a friendly, experienced chess coach who speaks like a human mentor, not a computer.
 Your student is {user.name}. They played as {game['user_color']} in this game.
