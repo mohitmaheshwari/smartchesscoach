@@ -598,6 +598,21 @@ Evaluations can be: "blunder", "mistake", "inaccuracy", "good", "excellent", "br
         
         # Remove _id before returning (MongoDB mutates the doc)
         analysis_doc.pop('_id', None)
+        
+        # Create RAG embeddings in background for future searches
+        background_tasks.add_task(create_game_embeddings, db, game, user.user_id)
+        background_tasks.add_task(create_analysis_embedding, db, analysis_doc, game, user.user_id)
+        
+        # Create embeddings for new patterns
+        for pattern_data in analysis_data.get("identified_patterns", []):
+            pattern = await db.mistake_patterns.find_one({
+                "user_id": user.user_id,
+                "category": pattern_data["category"],
+                "subcategory": pattern_data["subcategory"]
+            }, {"_id": 0})
+            if pattern:
+                background_tasks.add_task(create_pattern_embedding, db, pattern, user.user_id)
+        
         return analysis_doc
         
     except Exception as e:
