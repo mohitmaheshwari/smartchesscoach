@@ -187,12 +187,6 @@ const ChessBoardViewer = ({
           customSquareStyles={lastMoveSquares}
           arePiecesDraggable={false}
           animationDuration={0}
-          customBoardStyle={{
-            borderRadius: "8px",
-            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
-          }}
-          customDarkSquareStyle={{ backgroundColor: "#4F46E5" }}
-          customLightSquareStyle={{ backgroundColor: "#E0E7FF" }}
         />
       </div>
 
