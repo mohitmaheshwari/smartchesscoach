@@ -49,8 +49,8 @@ const GameAnalysis = ({ user }) => {
             const analysisData = await analysisResponse.json();
             setAnalysis(analysisData);
           }
-        } catch {
-          // No existing analysis
+        } catch (err) {
+          console.log('No analysis yet');
         }
       } catch (error) {
         console.error('Error fetching game:', error);
@@ -88,32 +88,28 @@ const GameAnalysis = ({ user }) => {
     }
   };
 
-  const handleMoveChange = (moveNumber, move) => {
+  const handleMoveChange = (moveNumber) => {
     setCurrentMoveNumber(moveNumber);
   };
 
   const getEvalIcon = (evaluation) => {
-    switch (evaluation) {
-      case 'blunder': return <AlertTriangle className="w-4 h-4 text-red-500" />;
-      case 'mistake': return <AlertCircle className="w-4 h-4 text-orange-500" />;
-      case 'inaccuracy': return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-      case 'good': return <CheckCircle2 className="w-4 h-4 text-blue-500" />;
-      case 'excellent': return <Star className="w-4 h-4 text-emerald-500" />;
-      case 'brilliant': return <Sparkles className="w-4 h-4 text-cyan-500" />;
-      default: return null;
-    }
+    if (evaluation === 'blunder') return <AlertTriangle className="w-4 h-4 text-red-500" />;
+    if (evaluation === 'mistake') return <AlertCircle className="w-4 h-4 text-orange-500" />;
+    if (evaluation === 'inaccuracy') return <AlertCircle className="w-4 h-4 text-yellow-500" />;
+    if (evaluation === 'good') return <CheckCircle2 className="w-4 h-4 text-blue-500" />;
+    if (evaluation === 'excellent') return <Star className="w-4 h-4 text-emerald-500" />;
+    if (evaluation === 'brilliant') return <Sparkles className="w-4 h-4 text-cyan-500" />;
+    return null;
   };
 
   const getEvalClass = (evaluation) => {
-    switch (evaluation) {
-      case 'blunder': return 'border-l-red-500 bg-red-500/5';
-      case 'mistake': return 'border-l-orange-500 bg-orange-500/5';
-      case 'inaccuracy': return 'border-l-yellow-500 bg-yellow-500/5';
-      case 'good': return 'border-l-blue-500 bg-blue-500/5';
-      case 'excellent': return 'border-l-emerald-500 bg-emerald-500/5';
-      case 'brilliant': return 'border-l-cyan-500 bg-cyan-500/5';
-      default: return 'border-l-muted-foreground';
-    }
+    if (evaluation === 'blunder') return 'border-l-red-500 bg-red-500/5';
+    if (evaluation === 'mistake') return 'border-l-orange-500 bg-orange-500/5';
+    if (evaluation === 'inaccuracy') return 'border-l-yellow-500 bg-yellow-500/5';
+    if (evaluation === 'good') return 'border-l-blue-500 bg-blue-500/5';
+    if (evaluation === 'excellent') return 'border-l-emerald-500 bg-emerald-500/5';
+    if (evaluation === 'brilliant') return 'border-l-cyan-500 bg-cyan-500/5';
+    return 'border-l-muted-foreground';
   };
 
   if (loading) {
@@ -125,6 +121,21 @@ const GameAnalysis = ({ user }) => {
       </Layout>
     );
   }
+
+  const gamePgn = game ? game.pgn : "";
+  const gameUserColor = game ? game.user_color : "white";
+  const gameWhite = game ? game.white_player : "White";
+  const gameBlack = game ? game.black_player : "Black";
+  const gamePlatform = game ? game.platform : "";
+  const gameResult = game ? game.result : "";
+  
+  const analysisCommentary = analysis ? analysis.commentary : [];
+  const analysisBlunders = analysis ? analysis.blunders : 0;
+  const analysisMistakes = analysis ? analysis.mistakes : 0;
+  const analysisInaccuracies = analysis ? analysis.inaccuracies : 0;
+  const analysisBestMoves = analysis ? analysis.best_moves : 0;
+  const analysisSummary = analysis ? analysis.overall_summary : "";
+  const analysisPatterns = analysis ? analysis.identified_patterns : [];
 
   return (
     <Layout user={user}>
@@ -142,10 +153,10 @@ const GameAnalysis = ({ user }) => {
             </Button>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">
-                {game?.white_player} vs {game?.black_player}
+                {gameWhite} vs {gameBlack}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {game?.platform} • {game?.result} • You played {game?.user_color}
+                {gamePlatform} • {gameResult} • You played {gameUserColor}
               </p>
             </div>
           </div>
@@ -191,16 +202,16 @@ const GameAnalysis = ({ user }) => {
                   <div className="text-center">
                     <p className="font-medium">Analyzing your game...</p>
                     <p className="text-sm text-muted-foreground">
-                      Using RAG to find similar patterns from your history
+                      Using RAG to find similar patterns
                     </p>
                   </div>
                 </div>
               ) : (
                 <ChessBoardViewer
-                  pgn={game?.pgn || ""}
-                  userColor={game?.user_color || "white"}
+                  pgn={gamePgn}
+                  userColor={gameUserColor}
                   onMoveChange={handleMoveChange}
-                  commentary={analysis?.commentary || []}
+                  commentary={analysisCommentary}
                 />
               )}
             </CardContent>
@@ -226,19 +237,19 @@ const GameAnalysis = ({ user }) => {
                     {/* Summary Stats */}
                     <div className="grid grid-cols-4 gap-3">
                       <div className="text-center p-3 rounded-lg bg-red-500/10">
-                        <p className="text-2xl font-bold text-red-500">{analysis.blunders}</p>
+                        <p className="text-2xl font-bold text-red-500">{analysisBlunders}</p>
                         <p className="text-xs text-muted-foreground">Blunders</p>
                       </div>
                       <div className="text-center p-3 rounded-lg bg-orange-500/10">
-                        <p className="text-2xl font-bold text-orange-500">{analysis.mistakes}</p>
+                        <p className="text-2xl font-bold text-orange-500">{analysisMistakes}</p>
                         <p className="text-xs text-muted-foreground">Mistakes</p>
                       </div>
                       <div className="text-center p-3 rounded-lg bg-yellow-500/10">
-                        <p className="text-2xl font-bold text-yellow-500">{analysis.inaccuracies}</p>
+                        <p className="text-2xl font-bold text-yellow-500">{analysisInaccuracies}</p>
                         <p className="text-xs text-muted-foreground">Inaccuracies</p>
                       </div>
                       <div className="text-center p-3 rounded-lg bg-emerald-500/10">
-                        <p className="text-2xl font-bold text-emerald-500">{analysis.best_moves}</p>
+                        <p className="text-2xl font-bold text-emerald-500">{analysisBestMoves}</p>
                         <p className="text-xs text-muted-foreground">Best Moves</p>
                       </div>
                     </div>
@@ -251,19 +262,17 @@ const GameAnalysis = ({ user }) => {
                         </div>
                         <div>
                           <p className="font-medium text-sm mb-1">Coach's Summary</p>
-                          <p className="text-sm text-muted-foreground">
-                            {analysis.overall_summary}
-                          </p>
+                          <p className="text-sm text-muted-foreground">{analysisSummary}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Identified Patterns */}
-                    {analysis.identified_patterns && analysis.identified_patterns.length > 0 && (
+                    {analysisPatterns.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-sm font-medium">Patterns Identified</p>
                         <div className="flex flex-wrap gap-2">
-                          {analysis.identified_patterns.map((patternId, idx) => (
+                          {analysisPatterns.map((patternId, idx) => (
                             <Badge key={idx} variant="outline">
                               Pattern #{idx + 1}
                             </Badge>
@@ -276,7 +285,7 @@ const GameAnalysis = ({ user }) => {
                   <TabsContent value="moves" className="mt-4">
                     <ScrollArea className="h-[400px]">
                       <div className="space-y-2">
-                        {analysis.commentary?.map((item, index) => (
+                        {analysisCommentary.map((item, index) => (
                           <div 
                             key={index}
                             className={`p-3 rounded-lg border-l-4 ${getEvalClass(item.evaluation)} cursor-pointer transition-all hover:scale-[1.01] ${
@@ -297,9 +306,7 @@ const GameAnalysis = ({ user }) => {
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-sm text-muted-foreground">
-                              {item.comment}
-                            </p>
+                            <p className="text-sm text-muted-foreground">{item.comment}</p>
                           </div>
                         ))}
                       </div>
