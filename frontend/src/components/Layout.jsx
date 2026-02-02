@@ -53,6 +53,12 @@ const Layout = ({ children, user }) => {
     }
   };
 
+  // Safe user data access
+  const userName = user && user.name ? user.name : "User";
+  const userEmail = user && user.email ? user.email : "";
+  const userPicture = user && user.picture ? user.picture : "";
+  const userInitial = userName.charAt(0);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -69,19 +75,22 @@ const Layout = ({ children, user }) => {
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-1">
-              {navigation.map((item) => (
-                <Link key={item.href} to={item.href}>
-                  <Button
-                    variant={isActive(item.href) ? "secondary" : "ghost"}
-                    size="sm"
-                    className="gap-2"
-                    data-testid={`nav-${item.name.toLowerCase().replace(' ', '-')}`}
-                  >
-                    <item.icon className="w-4 h-4" />
-                    {item.name}
-                  </Button>
-                </Link>
-              ))}
+              {navigation.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <Link key={item.href} to={item.href}>
+                    <Button
+                      variant={isActive(item.href) ? "secondary" : "ghost"}
+                      size="sm"
+                      className="gap-2"
+                      data-testid={`nav-${item.name.toLowerCase().replace(' ', '-')}`}
+                    >
+                      <IconComponent className="w-4 h-4" />
+                      {item.name}
+                    </Button>
+                  </Link>
+                );
+              })}
             </nav>
 
             {/* Right side */}
@@ -100,20 +109,20 @@ const Layout = ({ children, user }) => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-9 w-9 rounded-full" data-testid="user-menu-trigger">
                     <Avatar className="h-9 w-9">
-                      <AvatarImage src={user?.picture} alt={user?.name} />
-                      <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
+                      <AvatarImage src={userPicture} alt={userName} />
+                      <AvatarFallback>{userInitial}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="flex items-center gap-2 p-2">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user?.picture} alt={user?.name} />
-                      <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
+                      <AvatarImage src={userPicture} alt={userName} />
+                      <AvatarFallback>{userInitial}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">{user?.name}</span>
-                      <span className="text-xs text-muted-foreground truncate max-w-[150px]">{user?.email}</span>
+                      <span className="text-sm font-medium">{userName}</span>
+                      <span className="text-xs text-muted-foreground truncate max-w-[150px]">{userEmail}</span>
                     </div>
                   </div>
                   <DropdownMenuSeparator />
@@ -147,22 +156,25 @@ const Layout = ({ children, user }) => {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border/50 bg-background">
             <nav className="flex flex-col p-4 gap-2">
-              {navigation.map((item) => (
-                <Link 
-                  key={item.href} 
-                  to={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Button
-                    variant={isActive(item.href) ? "secondary" : "ghost"}
-                    className="w-full justify-start gap-2"
-                    data-testid={`mobile-nav-${item.name.toLowerCase().replace(' ', '-')}`}
+              {navigation.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <Link 
+                    key={item.href} 
+                    to={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
                   >
-                    <item.icon className="w-4 h-4" />
-                    {item.name}
-                  </Button>
-                </Link>
-              ))}
+                    <Button
+                      variant={isActive(item.href) ? "secondary" : "ghost"}
+                      className="w-full justify-start gap-2"
+                      data-testid={`mobile-nav-${item.name.toLowerCase().replace(' ', '-')}`}
+                    >
+                      <IconComponent className="w-4 h-4" />
+                      {item.name}
+                    </Button>
+                  </Link>
+                );
+              })}
             </nav>
           </div>
         )}
