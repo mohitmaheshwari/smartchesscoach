@@ -210,11 +210,12 @@ const ChessBoardViewer = ({
       {/* Chess Board */}
       <div className="relative aspect-square w-full max-w-[500px] mx-auto">
         <Chessboard
+          key={currentFen}
           position={currentFen}
           boardOrientation={boardOrientation}
           customSquareStyles={lastMoveSquares}
           arePiecesDraggable={false}
-          animationDuration={200}
+          animationDuration={0}
           customBoardStyle={{
             borderRadius: "8px",
             boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
