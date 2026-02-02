@@ -14,6 +14,7 @@ import {
   Import, 
   Target, 
   GraduationCap,
+  Swords,
   Settings,
   Sun,
   Moon,
