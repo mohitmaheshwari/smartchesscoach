@@ -9,6 +9,7 @@ import ImportGames from "@/pages/ImportGames";
 import GameAnalysis from "@/pages/GameAnalysis";
 import WeaknessTracker from "@/pages/WeaknessTracker";
 import Training from "@/pages/Training";
+import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
 
