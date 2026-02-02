@@ -570,6 +570,8 @@ Evaluations can be: "blunder", "mistake", "inaccuracy", "good", "excellent", "br
                 pattern_doc['first_seen'] = pattern_doc['first_seen'].isoformat()
                 pattern_doc['last_seen'] = pattern_doc['last_seen'].isoformat()
                 await db.mistake_patterns.insert_one(pattern_doc)
+                # Clear _id that MongoDB adds
+                pattern_doc.pop('_id', None)
                 analysis.identified_patterns.append(new_pattern.pattern_id)
         
         analysis_doc = analysis.model_dump()
