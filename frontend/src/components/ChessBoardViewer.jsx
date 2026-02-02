@@ -15,29 +15,57 @@ import {
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+// Convert FEN to position object that react-chessboard expects
+const fenToPositionObject = (fen) => {
+  const position = {};
+  const parts = fen.split(' ');
+  const rows = parts[0].split('/');
+  
+  for (let row = 0; row < 8; row++) {
+    let col = 0;
+    for (const char of rows[row]) {
+      if (char >= '1' && char <= '8') {
+        col += parseInt(char);
+      } else {
+        const file = String.fromCharCode(97 + col);
+        const rank = 8 - row;
+        const square = file + rank;
+        const color = char === char.toUpperCase() ? 'w' : 'b';
+        const piece = char.toUpperCase();
+        position[square] = color + piece;
+        col++;
+      }
+    }
+  }
+  
+  return position;
+};
+
 const ChessBoardViewer = ({ 
   pgn, 
   userColor = "white",
   onMoveChange,
   commentary = []
 }) => {
-  const [positions, setPositions] = useState([START_FEN]);
+  const [positionObject, setPositionObject] = useState(() => fenToPositionObject(START_FEN));
   const [moves, setMoves] = useState([]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [boardOrientation, setBoardOrientation] = useState(userColor);
   const [lastMoveSquares, setLastMoveSquares] = useState({});
+  const [allFens, setAllFens] = useState([START_FEN]);
 
   // Parse PGN and pre-calculate all positions
   useEffect(() => {
     if (!pgn) {
       setMoves([]);
-      setPositions([START_FEN]);
+      setAllFens([START_FEN]);
+      setPositionObject(fenToPositionObject(START_FEN));
       setCurrentMoveIndex(-1);
       return;
     }
     
-    console.log("ChessBoardViewer: Parsing PGN...");
+    console.log("Parsing PGN...");
     const tempGame = new Chess();
     
     try {
@@ -60,23 +88,24 @@ const ChessBoardViewer = ({
     }
     
     const history = tempGame.history({ verbose: true });
-    console.log("ChessBoardViewer: Parsed", history.length, "moves");
+    console.log("Parsed", history.length, "moves");
     
     // Pre-calculate all FEN positions
-    const allPositions = [START_FEN];
+    const fens = [START_FEN];
     const calcGame = new Chess();
     
     for (let i = 0; i < history.length; i++) {
       const m = history[i];
       calcGame.move({ from: m.from, to: m.to, promotion: m.promotion });
-      allPositions.push(calcGame.fen());
+      fens.push(calcGame.fen());
     }
     
-    console.log("ChessBoardViewer: Calculated", allPositions.length, "positions");
-    console.log("ChessBoardViewer: Last position:", allPositions[allPositions.length - 1]);
+    console.log("Calculated", fens.length, "FENs");
+    console.log("Final FEN:", fens[fens.length - 1]);
     
-    setPositions(allPositions);
+    setAllFens(fens);
     setMoves(history);
+    setPositionObject(fenToPositionObject(START_FEN));
     setCurrentMoveIndex(-1);
     setLastMoveSquares({});
   }, [pgn]);
@@ -85,19 +114,18 @@ const ChessBoardViewer = ({
     setBoardOrientation(userColor === "black" ? "black" : "white");
   }, [userColor]);
 
-  // Get current FEN based on move index
-  const currentFen = useMemo(() => {
-    const posIndex = currentMoveIndex + 1;
-    const fen = positions[posIndex] || START_FEN;
-    console.log("ChessBoardViewer: Rendering FEN for move", currentMoveIndex, ":", fen.split(' ')[0]);
-    return fen;
-  }, [currentMoveIndex, positions]);
-
   // Navigate to move
   const goToMove = useCallback((targetIndex) => {
     const clampedIndex = Math.max(-1, Math.min(targetIndex, moves.length - 1));
-    console.log("ChessBoardViewer: goToMove called with", targetIndex, "-> clamped to", clampedIndex);
+    const posIndex = clampedIndex + 1;
+    const fen = allFens[posIndex] || START_FEN;
     
+    console.log("goToMove:", clampedIndex, "FEN:", fen);
+    
+    const newPosition = fenToPositionObject(fen);
+    console.log("Position object keys:", Object.keys(newPosition).length);
+    
+    setPositionObject(newPosition);
     setCurrentMoveIndex(clampedIndex);
     
     if (clampedIndex >= 0 && moves[clampedIndex]) {
@@ -112,7 +140,7 @@ const ChessBoardViewer = ({
     if (onMoveChange) {
       onMoveChange(Math.floor((clampedIndex + 2) / 2), clampedIndex >= 0 ? moves[clampedIndex] : null);
     }
-  }, [moves, onMoveChange]);
+  }, [moves, allFens, onMoveChange]);
 
   // Auto-play
   useEffect(() => {
@@ -125,6 +153,7 @@ const ChessBoardViewer = ({
   }, [isPlaying, currentMoveIndex, moves.length, goToMove]);
 
   const goToStart = useCallback(() => {
+    setPositionObject(fenToPositionObject(START_FEN));
     setCurrentMoveIndex(-1);
     setLastMoveSquares({});
     setIsPlaying(false);
@@ -177,12 +206,17 @@ const ChessBoardViewer = ({
     return commentary.find(c => c.move_number === moveNum);
   }, [currentMoveIndex, commentary]);
 
+  // Create a unique key that changes with every position change
+  const boardKey = useMemo(() => {
+    return JSON.stringify(positionObject);
+  }, [positionObject]);
+
   return (
     <div className="space-y-4">
       <div className="relative aspect-square w-full max-w-[500px] mx-auto">
         <Chessboard
-          key={`board-${currentMoveIndex}`}
-          position={currentFen}
+          key={boardKey}
+          position={positionObject}
           boardOrientation={boardOrientation}
           customSquareStyles={lastMoveSquares}
           arePiecesDraggable={false}
