@@ -12,8 +12,7 @@ import {
   CheckCircle2, 
   ChevronRight,
   Gamepad2,
-  Target,
-  Clock
+  Target
 } from "lucide-react";
 
 const Dashboard = ({ user }) => {
@@ -40,18 +39,6 @@ const Dashboard = ({ user }) => {
     fetchStats();
   }, []);
 
-  const getEvalColor = (eval_type) => {
-    const colors = {
-      blunder: 'text-red-500 bg-red-500/10',
-      mistake: 'text-orange-500 bg-orange-500/10',
-      inaccuracy: 'text-yellow-500 bg-yellow-500/10',
-      good: 'text-blue-500 bg-blue-500/10',
-      excellent: 'text-emerald-500 bg-emerald-500/10',
-      brilliant: 'text-cyan-500 bg-cyan-500/10'
-    };
-    return colors[eval_type] || 'text-muted-foreground bg-muted';
-  };
-
   if (loading) {
     return (
       <Layout user={user}>
@@ -62,7 +49,13 @@ const Dashboard = ({ user }) => {
     );
   }
 
-  const hasGames = stats?.total_games > 0;
+  const hasGames = stats && stats.total_games > 0;
+  const topPatterns = stats && stats.top_patterns ? stats.top_patterns : [];
+  const recentGames = stats && stats.recent_games ? stats.recent_games : [];
+  const totalBlunders = stats && stats.stats ? stats.stats.total_blunders : 0;
+  const totalBestMoves = stats && stats.stats ? stats.stats.total_best_moves : 0;
+  const totalGames = stats ? stats.total_games : 0;
+  const analyzedGames = stats ? stats.analyzed_games : 0;
 
   return (
     <Layout user={user}>
@@ -70,7 +63,7 @@ const Dashboard = ({ user }) => {
         {/* Welcome Section */}
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">
-            Welcome back, {user?.name?.split(' ')[0] || 'Player'}
+            Welcome back, {user && user.name ? user.name.split(' ')[0] : 'Player'}
           </h1>
           <p className="text-muted-foreground">
             {hasGames 
@@ -113,7 +106,7 @@ const Dashboard = ({ user }) => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Games</p>
-                      <p className="text-3xl font-bold">{stats.total_games}</p>
+                      <p className="text-3xl font-bold">{totalGames}</p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                       <Gamepad2 className="w-6 h-6 text-primary" />
@@ -127,14 +120,14 @@ const Dashboard = ({ user }) => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Analyzed</p>
-                      <p className="text-3xl font-bold">{stats.analyzed_games}</p>
+                      <p className="text-3xl font-bold">{analyzedGames}</p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                     </div>
                   </div>
                   <Progress 
-                    value={(stats.analyzed_games / stats.total_games) * 100} 
+                    value={totalGames > 0 ? (analyzedGames / totalGames) * 100 : 0} 
                     className="mt-4 h-2"
                   />
                 </CardContent>
@@ -145,7 +138,7 @@ const Dashboard = ({ user }) => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Blunders</p>
-                      <p className="text-3xl font-bold text-red-500">{stats.stats?.total_blunders || 0}</p>
+                      <p className="text-3xl font-bold text-red-500">{totalBlunders}</p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center">
                       <AlertTriangle className="w-6 h-6 text-red-500" />
@@ -159,7 +152,7 @@ const Dashboard = ({ user }) => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Best Moves</p>
-                      <p className="text-3xl font-bold text-emerald-500">{stats.stats?.total_best_moves || 0}</p>
+                      <p className="text-3xl font-bold text-emerald-500">{totalBestMoves}</p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                       <Target className="w-6 h-6 text-emerald-500" />
@@ -185,8 +178,8 @@ const Dashboard = ({ user }) => {
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {stats.recent_games?.length > 0 ? (
-                    stats.recent_games.map((game) => (
+                  {recentGames.length > 0 ? (
+                    recentGames.map((game) => (
                       <div 
                         key={game.game_id}
                         className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
@@ -234,8 +227,8 @@ const Dashboard = ({ user }) => {
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {stats.top_patterns?.length > 0 ? (
-                    stats.top_patterns.map((pattern, index) => (
+                  {topPatterns.length > 0 ? (
+                    topPatterns.map((pattern, index) => (
                       <div 
                         key={pattern.pattern_id}
                         className="p-3 rounded-lg bg-muted/50"
