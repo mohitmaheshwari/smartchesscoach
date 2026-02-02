@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { Button } from "@/components/ui/button";
@@ -21,35 +21,28 @@ const ChessBoardViewer = ({
   onMoveChange,
   commentary = []
 }) => {
+  const [positions, setPositions] = useState([START_FEN]);
   const [moves, setMoves] = useState([]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [boardOrientation, setBoardOrientation] = useState(userColor);
   const [lastMoveSquares, setLastMoveSquares] = useState({});
-  const [renderKey, setRenderKey] = useState(0);
-  
-  // Store calculated positions
-  const positionsRef = useRef([START_FEN]);
-  const currentFenRef = useRef(START_FEN);
 
   // Parse PGN and pre-calculate all positions
   useEffect(() => {
     if (!pgn) {
       setMoves([]);
-      positionsRef.current = [START_FEN];
-      currentFenRef.current = START_FEN;
+      setPositions([START_FEN]);
       setCurrentMoveIndex(-1);
-      setRenderKey(k => k + 1);
       return;
     }
     
-    console.log("Parsing PGN and calculating positions...");
+    console.log("ChessBoardViewer: Parsing PGN...");
     const tempGame = new Chess();
     
     try {
       tempGame.loadPgn(pgn);
     } catch (e) {
-      // Clean PGN and retry
       const lines = pgn.split('\n');
       let movesText = '';
       for (const line of lines) {
@@ -67,43 +60,45 @@ const ChessBoardViewer = ({
     }
     
     const history = tempGame.history({ verbose: true });
-    console.log("Parsed", history.length, "moves");
+    console.log("ChessBoardViewer: Parsed", history.length, "moves");
     
     // Pre-calculate all FEN positions
-    const positions = [START_FEN];
+    const allPositions = [START_FEN];
     const calcGame = new Chess();
     
     for (let i = 0; i < history.length; i++) {
       const m = history[i];
       calcGame.move({ from: m.from, to: m.to, promotion: m.promotion });
-      positions.push(calcGame.fen());
+      allPositions.push(calcGame.fen());
     }
     
-    console.log("Pre-calculated", positions.length, "positions");
+    console.log("ChessBoardViewer: Calculated", allPositions.length, "positions");
+    console.log("ChessBoardViewer: Last position:", allPositions[allPositions.length - 1]);
     
-    positionsRef.current = positions;
-    currentFenRef.current = START_FEN;
+    setPositions(allPositions);
     setMoves(history);
     setCurrentMoveIndex(-1);
     setLastMoveSquares({});
-    setRenderKey(k => k + 1);
   }, [pgn]);
 
   useEffect(() => {
     setBoardOrientation(userColor === "black" ? "black" : "white");
   }, [userColor]);
 
-  // Navigate to move - just look up pre-calculated position
+  // Get current FEN based on move index
+  const currentFen = useMemo(() => {
+    const posIndex = currentMoveIndex + 1;
+    const fen = positions[posIndex] || START_FEN;
+    console.log("ChessBoardViewer: Rendering FEN for move", currentMoveIndex, ":", fen.split(' ')[0]);
+    return fen;
+  }, [currentMoveIndex, positions]);
+
+  // Navigate to move
   const goToMove = useCallback((targetIndex) => {
     const clampedIndex = Math.max(-1, Math.min(targetIndex, moves.length - 1));
-    const posIndex = clampedIndex + 1; // positions[0] is starting, positions[1] is after move 0, etc.
+    console.log("ChessBoardViewer: goToMove called with", targetIndex, "-> clamped to", clampedIndex);
     
-    const newFen = positionsRef.current[posIndex] || START_FEN;
-    console.log("Move", clampedIndex, "-> FEN:", newFen.substring(0, 40));
-    
-    currentFenRef.current = newFen;
     setCurrentMoveIndex(clampedIndex);
-    setRenderKey(k => k + 1);
     
     if (clampedIndex >= 0 && moves[clampedIndex]) {
       setLastMoveSquares({
@@ -130,11 +125,9 @@ const ChessBoardViewer = ({
   }, [isPlaying, currentMoveIndex, moves.length, goToMove]);
 
   const goToStart = useCallback(() => {
-    currentFenRef.current = START_FEN;
     setCurrentMoveIndex(-1);
     setLastMoveSquares({});
     setIsPlaying(false);
-    setRenderKey(k => k + 1);
   }, []);
 
   const goToEnd = useCallback(() => {
@@ -184,16 +177,12 @@ const ChessBoardViewer = ({
     return commentary.find(c => c.move_number === moveNum);
   }, [currentMoveIndex, commentary]);
 
-  // Get current FEN for rendering
-  const displayFen = currentFenRef.current;
-
   return (
     <div className="space-y-4">
       <div className="relative aspect-square w-full max-w-[500px] mx-auto">
         <Chessboard
-          key={renderKey}
-          id="game-viewer"
-          position={displayFen}
+          key={`board-${currentMoveIndex}`}
+          position={currentFen}
           boardOrientation={boardOrientation}
           customSquareStyles={lastMoveSquares}
           arePiecesDraggable={false}
