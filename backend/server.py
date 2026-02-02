@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, BackgroundTasks
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,6 +12,15 @@ from datetime import datetime, timezone, timedelta
 import httpx
 import re
 import io
+
+# Import RAG service
+from rag_service import (
+    build_rag_context,
+    create_game_embeddings,
+    create_pattern_embedding,
+    create_analysis_embedding,
+    process_user_games_for_rag
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
