@@ -36,6 +36,7 @@ const Layout = ({ children, user }) => {
     { name: 'Import Games', href: '/import', icon: Import },
     { name: 'Weaknesses', href: '/weaknesses', icon: Target },
     { name: 'Training', href: '/training', icon: GraduationCap },
+    { name: 'Challenge', href: '/challenge', icon: Swords },
   ];
 
   const isActive = (href) => location.pathname === href;
