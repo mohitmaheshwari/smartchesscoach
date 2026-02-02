@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { Button } from "@/components/ui/button";
@@ -21,29 +21,35 @@ const ChessBoardViewer = ({
   onMoveChange,
   commentary = []
 }) => {
-  const [currentFen, setCurrentFen] = useState(START_FEN);
   const [moves, setMoves] = useState([]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [boardOrientation, setBoardOrientation] = useState(userColor);
   const [lastMoveSquares, setLastMoveSquares] = useState({});
+  const [renderKey, setRenderKey] = useState(0);
+  
+  // Store calculated positions
+  const positionsRef = useRef([START_FEN]);
+  const currentFenRef = useRef(START_FEN);
 
-  // Parse PGN on mount
+  // Parse PGN and pre-calculate all positions
   useEffect(() => {
     if (!pgn) {
       setMoves([]);
-      setCurrentFen(START_FEN);
+      positionsRef.current = [START_FEN];
+      currentFenRef.current = START_FEN;
       setCurrentMoveIndex(-1);
+      setRenderKey(k => k + 1);
       return;
     }
     
-    console.log("ChessBoardViewer: Parsing PGN...");
+    console.log("Parsing PGN and calculating positions...");
     const tempGame = new Chess();
     
     try {
       tempGame.loadPgn(pgn);
     } catch (e) {
-      console.log("Full PGN failed, cleaning...");
+      // Clean PGN and retry
       const lines = pgn.split('\n');
       let movesText = '';
       for (const line of lines) {
@@ -55,101 +61,81 @@ const ChessBoardViewer = ({
       try {
         tempGame.loadPgn(movesText);
       } catch (e2) {
-        console.error("Failed to parse PGN:", e2);
+        console.error("Failed to parse PGN");
         return;
       }
     }
     
     const history = tempGame.history({ verbose: true });
-    console.log("ChessBoardViewer: Parsed", history.length, "moves");
+    console.log("Parsed", history.length, "moves");
+    
+    // Pre-calculate all FEN positions
+    const positions = [START_FEN];
+    const calcGame = new Chess();
+    
+    for (let i = 0; i < history.length; i++) {
+      const m = history[i];
+      calcGame.move({ from: m.from, to: m.to, promotion: m.promotion });
+      positions.push(calcGame.fen());
+    }
+    
+    console.log("Pre-calculated", positions.length, "positions");
+    
+    positionsRef.current = positions;
+    currentFenRef.current = START_FEN;
     setMoves(history);
-    setCurrentFen(START_FEN);
     setCurrentMoveIndex(-1);
     setLastMoveSquares({});
+    setRenderKey(k => k + 1);
   }, [pgn]);
 
-  // Update orientation
   useEffect(() => {
     setBoardOrientation(userColor === "black" ? "black" : "white");
   }, [userColor]);
 
-  // Calculate FEN for a given move index
-  const calculateFen = useCallback((targetIndex) => {
-    const tempGame = new Chess();
-    
-    for (let i = 0; i <= targetIndex && i < moves.length; i++) {
-      const m = moves[i];
-      try {
-        tempGame.move({ from: m.from, to: m.to, promotion: m.promotion });
-      } catch (e) {
-        console.error("Move error at index", i, ":", e);
-        break;
-      }
-    }
-    
-    return tempGame.fen();
-  }, [moves]);
-
-  // Navigate to move
+  // Navigate to move - just look up pre-calculated position
   const goToMove = useCallback((targetIndex) => {
-    if (targetIndex < -1) targetIndex = -1;
-    if (targetIndex >= moves.length) targetIndex = moves.length - 1;
+    const clampedIndex = Math.max(-1, Math.min(targetIndex, moves.length - 1));
+    const posIndex = clampedIndex + 1; // positions[0] is starting, positions[1] is after move 0, etc.
     
-    console.log("ChessBoardViewer: Going to move", targetIndex);
+    const newFen = positionsRef.current[posIndex] || START_FEN;
+    console.log("Move", clampedIndex, "-> FEN:", newFen.substring(0, 40));
     
-    let newFen;
-    if (targetIndex < 0) {
-      newFen = START_FEN;
-    } else {
-      newFen = calculateFen(targetIndex);
-    }
+    currentFenRef.current = newFen;
+    setCurrentMoveIndex(clampedIndex);
+    setRenderKey(k => k + 1);
     
-    console.log("ChessBoardViewer: New FEN:", newFen.split(' ')[0]);
-    
-    // Update state
-    setCurrentFen(newFen);
-    setCurrentMoveIndex(targetIndex);
-    
-    // Highlight last move
-    if (targetIndex >= 0 && moves[targetIndex]) {
+    if (clampedIndex >= 0 && moves[clampedIndex]) {
       setLastMoveSquares({
-        [moves[targetIndex].from]: { backgroundColor: "rgba(255, 255, 0, 0.5)" },
-        [moves[targetIndex].to]: { backgroundColor: "rgba(255, 255, 0, 0.5)" }
+        [moves[clampedIndex].from]: { backgroundColor: "rgba(255, 255, 0, 0.5)" },
+        [moves[clampedIndex].to]: { backgroundColor: "rgba(255, 255, 0, 0.5)" }
       });
     } else {
       setLastMoveSquares({});
     }
     
-    // Callback
     if (onMoveChange) {
-      const moveNum = Math.floor((targetIndex + 2) / 2);
-      onMoveChange(moveNum, targetIndex >= 0 ? moves[targetIndex] : null);
+      onMoveChange(Math.floor((clampedIndex + 2) / 2), clampedIndex >= 0 ? moves[clampedIndex] : null);
     }
-  }, [moves, calculateFen, onMoveChange]);
+  }, [moves, onMoveChange]);
 
   // Auto-play
   useEffect(() => {
-    if (!isPlaying) return;
-    if (currentMoveIndex >= moves.length - 1) {
-      setIsPlaying(false);
+    if (!isPlaying || currentMoveIndex >= moves.length - 1) {
+      if (currentMoveIndex >= moves.length - 1) setIsPlaying(false);
       return;
     }
-    
-    const timer = setTimeout(() => {
-      goToMove(currentMoveIndex + 1);
-    }, 800);
-    
+    const timer = setTimeout(() => goToMove(currentMoveIndex + 1), 600);
     return () => clearTimeout(timer);
   }, [isPlaying, currentMoveIndex, moves.length, goToMove]);
 
-  // Navigation functions
   const goToStart = useCallback(() => {
-    setCurrentFen(START_FEN);
+    currentFenRef.current = START_FEN;
     setCurrentMoveIndex(-1);
     setLastMoveSquares({});
     setIsPlaying(false);
-    if (onMoveChange) onMoveChange(0, null);
-  }, [onMoveChange]);
+    setRenderKey(k => k + 1);
+  }, []);
 
   const goToEnd = useCallback(() => {
     goToMove(moves.length - 1);
@@ -157,17 +143,12 @@ const ChessBoardViewer = ({
   }, [goToMove, moves.length]);
 
   const goBack = useCallback(() => {
-    if (currentMoveIndex <= 0) {
-      goToStart();
-    } else {
-      goToMove(currentMoveIndex - 1);
-    }
+    if (currentMoveIndex <= 0) goToStart();
+    else goToMove(currentMoveIndex - 1);
   }, [currentMoveIndex, goToMove, goToStart]);
 
   const goForward = useCallback(() => {
-    if (currentMoveIndex < moves.length - 1) {
-      goToMove(currentMoveIndex + 1);
-    }
+    if (currentMoveIndex < moves.length - 1) goToMove(currentMoveIndex + 1);
   }, [currentMoveIndex, moves.length, goToMove]);
 
   const togglePlay = useCallback(() => {
@@ -175,15 +156,14 @@ const ChessBoardViewer = ({
       goToStart();
       setTimeout(() => setIsPlaying(true), 100);
     } else {
-      setIsPlaying(prev => !prev);
+      setIsPlaying(p => !p);
     }
   }, [currentMoveIndex, moves.length, goToStart]);
 
   const flipBoard = useCallback(() => {
-    setBoardOrientation(prev => prev === "white" ? "black" : "white");
+    setBoardOrientation(p => p === "white" ? "black" : "white");
   }, []);
 
-  // Format move pairs for display
   const movePairs = useMemo(() => {
     const pairs = [];
     for (let i = 0; i < moves.length; i += 2) {
@@ -198,20 +178,22 @@ const ChessBoardViewer = ({
     return pairs;
   }, [moves]);
 
-  // Get commentary for current move
   const currentComment = useMemo(() => {
-    if (currentMoveIndex < 0 || !commentary || commentary.length === 0) return null;
+    if (currentMoveIndex < 0 || !commentary || !commentary.length) return null;
     const moveNum = Math.floor((currentMoveIndex + 2) / 2);
     return commentary.find(c => c.move_number === moveNum);
   }, [currentMoveIndex, commentary]);
 
+  // Get current FEN for rendering
+  const displayFen = currentFenRef.current;
+
   return (
     <div className="space-y-4">
-      {/* Chess Board */}
       <div className="relative aspect-square w-full max-w-[500px] mx-auto">
         <Chessboard
-          key={currentFen}
-          position={currentFen}
+          key={renderKey}
+          id="game-viewer"
+          position={displayFen}
           boardOrientation={boardOrientation}
           customSquareStyles={lastMoveSquares}
           arePiecesDraggable={false}
@@ -225,58 +207,27 @@ const ChessBoardViewer = ({
         />
       </div>
 
-      {/* Navigation Controls */}
       <div className="flex items-center justify-center gap-2">
-        <Button 
-          variant="outline" 
-          size="icon" 
-          onClick={goToStart} 
-          disabled={currentMoveIndex < 0}
-        >
+        <Button variant="outline" size="icon" onClick={goToStart} disabled={currentMoveIndex < 0}>
           <ChevronsLeft className="w-4 h-4" />
         </Button>
-        <Button 
-          variant="outline" 
-          size="icon" 
-          onClick={goBack} 
-          disabled={currentMoveIndex < 0}
-        >
+        <Button variant="outline" size="icon" onClick={goBack} disabled={currentMoveIndex < 0}>
           <ChevronLeft className="w-4 h-4" />
         </Button>
-        <Button 
-          variant="default" 
-          size="icon" 
-          onClick={togglePlay} 
-          disabled={moves.length === 0}
-        >
+        <Button variant="default" size="icon" onClick={togglePlay} disabled={moves.length === 0}>
           {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
         </Button>
-        <Button 
-          variant="outline" 
-          size="icon" 
-          onClick={goForward} 
-          disabled={currentMoveIndex >= moves.length - 1}
-        >
+        <Button variant="outline" size="icon" onClick={goForward} disabled={currentMoveIndex >= moves.length - 1}>
           <ChevronRight className="w-4 h-4" />
         </Button>
-        <Button 
-          variant="outline" 
-          size="icon" 
-          onClick={goToEnd} 
-          disabled={currentMoveIndex >= moves.length - 1}
-        >
+        <Button variant="outline" size="icon" onClick={goToEnd} disabled={currentMoveIndex >= moves.length - 1}>
           <ChevronsRight className="w-4 h-4" />
         </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={flipBoard}
-        >
+        <Button variant="ghost" size="icon" onClick={flipBoard}>
           <RotateCcw className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Move Slider */}
       {moves.length > 0 && (
         <div className="px-4">
           <Slider
@@ -284,14 +235,7 @@ const ChessBoardViewer = ({
             min={0}
             max={moves.length}
             step={1}
-            onValueChange={(values) => {
-              const idx = values[0] - 1;
-              if (idx < 0) {
-                goToStart();
-              } else {
-                goToMove(idx);
-              }
-            }}
+            onValueChange={(v) => v[0] <= 0 ? goToStart() : goToMove(v[0] - 1)}
           />
           <p className="text-center text-sm text-muted-foreground mt-2">
             Move {currentMoveIndex + 1} of {moves.length}
@@ -299,31 +243,26 @@ const ChessBoardViewer = ({
         </div>
       )}
 
-      {/* Move List */}
       {movePairs.length > 0 && (
         <div className="bg-muted/50 rounded-lg p-3 max-h-48 overflow-y-auto">
           <div className="grid grid-cols-[auto_1fr_1fr] gap-x-3 gap-y-1 text-sm font-mono">
-            {movePairs.map((pair) => (
-              <div key={pair.num} className="contents">
-                <span className="text-muted-foreground">{pair.num}.</span>
+            {movePairs.map((p) => (
+              <div key={p.num} className="contents">
+                <span className="text-muted-foreground">{p.num}.</span>
                 <button
                   type="button"
-                  className={`text-left px-1 rounded hover:bg-primary/20 transition-colors ${
-                    currentMoveIndex === pair.wIdx ? "bg-primary/30 font-bold" : ""
-                  }`}
-                  onClick={() => goToMove(pair.wIdx)}
+                  className={`text-left px-1 rounded hover:bg-primary/20 ${currentMoveIndex === p.wIdx ? "bg-primary/30 font-bold" : ""}`}
+                  onClick={() => goToMove(p.wIdx)}
                 >
-                  {pair.white}
+                  {p.white}
                 </button>
                 <button
                   type="button"
-                  className={`text-left px-1 rounded hover:bg-primary/20 transition-colors ${
-                    currentMoveIndex === pair.bIdx ? "bg-primary/30 font-bold" : ""
-                  }`}
-                  onClick={() => pair.black && goToMove(pair.bIdx)}
-                  disabled={!pair.black}
+                  className={`text-left px-1 rounded hover:bg-primary/20 ${currentMoveIndex === p.bIdx ? "bg-primary/30 font-bold" : ""}`}
+                  onClick={() => p.black && goToMove(p.bIdx)}
+                  disabled={!p.black}
                 >
-                  {pair.black}
+                  {p.black}
                 </button>
               </div>
             ))}
@@ -331,7 +270,6 @@ const ChessBoardViewer = ({
         </div>
       )}
 
-      {/* Current Move Commentary */}
       {currentComment && (
         <div className={`p-3 rounded-lg border-l-4 ${
           currentComment.evaluation === "blunder" ? "border-l-red-500 bg-red-500/10" :
