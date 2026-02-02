@@ -13,25 +13,31 @@ import {
   RotateCcw
 } from "lucide-react";
 
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 const ChessBoardViewer = ({ 
   pgn, 
   userColor = "white",
   onMoveChange,
   commentary = []
 }) => {
-  const [position, setPosition] = useState({});
+  const [currentFen, setCurrentFen] = useState(START_FEN);
   const [moves, setMoves] = useState([]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [boardOrientation, setBoardOrientation] = useState(userColor);
-  const [lastMove, setLastMove] = useState(null);
-  const [boardKey, setBoardKey] = useState(0);
+  const [lastMoveSquares, setLastMoveSquares] = useState({});
 
   // Parse PGN on mount
   useEffect(() => {
-    if (!pgn) return;
+    if (!pgn) {
+      setMoves([]);
+      setCurrentFen(START_FEN);
+      setCurrentMoveIndex(-1);
+      return;
+    }
     
-    console.log("Parsing PGN...");
+    console.log("ChessBoardViewer: Parsing PGN...");
     const tempGame = new Chess();
     
     try {
@@ -49,102 +55,101 @@ const ChessBoardViewer = ({
       try {
         tempGame.loadPgn(movesText);
       } catch (e2) {
-        console.error("Failed to parse PGN");
+        console.error("Failed to parse PGN:", e2);
         return;
       }
     }
     
     const history = tempGame.history({ verbose: true });
-    console.log("Parsed", history.length, "moves");
+    console.log("ChessBoardViewer: Parsed", history.length, "moves");
     setMoves(history);
-    
-    // Set initial position
-    const startGame = new Chess();
-    setPosition(fenToPosition(startGame.fen()));
+    setCurrentFen(START_FEN);
     setCurrentMoveIndex(-1);
-    setLastMove(null);
-    setBoardKey(k => k + 1);
+    setLastMoveSquares({});
   }, [pgn]);
 
+  // Update orientation
   useEffect(() => {
     setBoardOrientation(userColor === "black" ? "black" : "white");
   }, [userColor]);
 
-  // Convert FEN to position object for react-chessboard
-  const fenToPosition = (fen) => {
-    const game = new Chess(fen);
-    const board = game.board();
-    const pos = {};
-    
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = board[row][col];
-        if (piece) {
-          const file = String.fromCharCode(97 + col);
-          const rank = 8 - row;
-          const square = file + rank;
-          const color = piece.color === 'w' ? 'w' : 'b';
-          const type = piece.type.toUpperCase();
-          pos[square] = color + type;
-        }
-      }
-    }
-    return pos;
-  };
-
-  // Navigate to move
-  const goToMove = useCallback((targetIndex) => {
-    console.log("Going to move:", targetIndex);
-    
-    const newGame = new Chess();
+  // Calculate FEN for a given move index
+  const calculateFen = useCallback((targetIndex) => {
+    const tempGame = new Chess();
     
     for (let i = 0; i <= targetIndex && i < moves.length; i++) {
       const m = moves[i];
       try {
-        newGame.move({ from: m.from, to: m.to, promotion: m.promotion });
+        tempGame.move({ from: m.from, to: m.to, promotion: m.promotion });
       } catch (e) {
-        console.error("Move error:", i, e);
+        console.error("Move error at index", i, ":", e);
         break;
       }
     }
     
-    const newPosition = fenToPosition(newGame.fen());
-    console.log("New position squares:", Object.keys(newPosition).length);
+    return tempGame.fen();
+  }, [moves]);
+
+  // Navigate to move
+  const goToMove = useCallback((targetIndex) => {
+    if (targetIndex < -1) targetIndex = -1;
+    if (targetIndex >= moves.length) targetIndex = moves.length - 1;
     
-    setPosition(newPosition);
-    setCurrentMoveIndex(targetIndex);
-    setBoardKey(k => k + 1);
+    console.log("ChessBoardViewer: Going to move", targetIndex);
     
-    if (targetIndex >= 0 && moves[targetIndex]) {
-      setLastMove({ from: moves[targetIndex].from, to: moves[targetIndex].to });
+    let newFen;
+    if (targetIndex < 0) {
+      newFen = START_FEN;
     } else {
-      setLastMove(null);
+      newFen = calculateFen(targetIndex);
     }
     
-    if (onMoveChange) {
-      onMoveChange(Math.floor((targetIndex + 2) / 2), moves[targetIndex]);
+    console.log("ChessBoardViewer: New FEN:", newFen.split(' ')[0]);
+    
+    // Update state
+    setCurrentFen(newFen);
+    setCurrentMoveIndex(targetIndex);
+    
+    // Highlight last move
+    if (targetIndex >= 0 && moves[targetIndex]) {
+      setLastMoveSquares({
+        [moves[targetIndex].from]: { backgroundColor: "rgba(255, 255, 0, 0.5)" },
+        [moves[targetIndex].to]: { backgroundColor: "rgba(255, 255, 0, 0.5)" }
+      });
+    } else {
+      setLastMoveSquares({});
     }
-  }, [moves, onMoveChange]);
+    
+    // Callback
+    if (onMoveChange) {
+      const moveNum = Math.floor((targetIndex + 2) / 2);
+      onMoveChange(moveNum, targetIndex >= 0 ? moves[targetIndex] : null);
+    }
+  }, [moves, calculateFen, onMoveChange]);
 
   // Auto-play
   useEffect(() => {
-    if (!isPlaying || currentMoveIndex >= moves.length - 1) {
-      if (currentMoveIndex >= moves.length - 1) setIsPlaying(false);
+    if (!isPlaying) return;
+    if (currentMoveIndex >= moves.length - 1) {
+      setIsPlaying(false);
       return;
     }
     
-    const timer = setTimeout(() => goToMove(currentMoveIndex + 1), 800);
+    const timer = setTimeout(() => {
+      goToMove(currentMoveIndex + 1);
+    }, 800);
+    
     return () => clearTimeout(timer);
   }, [isPlaying, currentMoveIndex, moves.length, goToMove]);
 
+  // Navigation functions
   const goToStart = useCallback(() => {
-    const startGame = new Chess();
-    setPosition(fenToPosition(startGame.fen()));
+    setCurrentFen(START_FEN);
     setCurrentMoveIndex(-1);
-    setLastMove(null);
+    setLastMoveSquares({});
     setIsPlaying(false);
-    setBoardKey(k => k + 1);
-  }, []);
+    if (onMoveChange) onMoveChange(0, null);
+  }, [onMoveChange]);
 
   const goToEnd = useCallback(() => {
     goToMove(moves.length - 1);
@@ -170,22 +175,15 @@ const ChessBoardViewer = ({
       goToStart();
       setTimeout(() => setIsPlaying(true), 100);
     } else {
-      setIsPlaying(p => !p);
+      setIsPlaying(prev => !prev);
     }
   }, [currentMoveIndex, moves.length, goToStart]);
 
   const flipBoard = useCallback(() => {
-    setBoardOrientation(o => o === "white" ? "black" : "white");
+    setBoardOrientation(prev => prev === "white" ? "black" : "white");
   }, []);
 
-  const squareStyles = useMemo(() => {
-    if (!lastMove) return {};
-    return {
-      [lastMove.from]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
-      [lastMove.to]: { backgroundColor: "rgba(255, 255, 0, 0.4)" }
-    };
-  }, [lastMove]);
-
+  // Format move pairs for display
   const movePairs = useMemo(() => {
     const pairs = [];
     for (let i = 0; i < moves.length; i += 2) {
@@ -200,23 +198,23 @@ const ChessBoardViewer = ({
     return pairs;
   }, [moves]);
 
-  const currComment = useMemo(() => {
-    if (currentMoveIndex < 0 || !commentary.length) return null;
+  // Get commentary for current move
+  const currentComment = useMemo(() => {
+    if (currentMoveIndex < 0 || !commentary || commentary.length === 0) return null;
     const moveNum = Math.floor((currentMoveIndex + 2) / 2);
     return commentary.find(c => c.move_number === moveNum);
   }, [currentMoveIndex, commentary]);
 
   return (
     <div className="space-y-4">
+      {/* Chess Board */}
       <div className="relative aspect-square w-full max-w-[500px] mx-auto">
         <Chessboard
-          key={boardKey}
-          id="game-board"
-          position={position}
+          position={currentFen}
           boardOrientation={boardOrientation}
-          customSquareStyles={squareStyles}
+          customSquareStyles={lastMoveSquares}
           arePiecesDraggable={false}
-          animationDuration={150}
+          animationDuration={200}
           customBoardStyle={{
             borderRadius: "8px",
             boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
@@ -226,27 +224,58 @@ const ChessBoardViewer = ({
         />
       </div>
 
+      {/* Navigation Controls */}
       <div className="flex items-center justify-center gap-2">
-        <Button variant="outline" size="icon" onClick={goToStart} disabled={currentMoveIndex < 0}>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={goToStart} 
+          disabled={currentMoveIndex < 0}
+        >
           <ChevronsLeft className="w-4 h-4" />
         </Button>
-        <Button variant="outline" size="icon" onClick={goBack} disabled={currentMoveIndex < 0}>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={goBack} 
+          disabled={currentMoveIndex < 0}
+        >
           <ChevronLeft className="w-4 h-4" />
         </Button>
-        <Button variant="default" size="icon" onClick={togglePlay} disabled={moves.length === 0}>
+        <Button 
+          variant="default" 
+          size="icon" 
+          onClick={togglePlay} 
+          disabled={moves.length === 0}
+        >
           {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
         </Button>
-        <Button variant="outline" size="icon" onClick={goForward} disabled={currentMoveIndex >= moves.length - 1}>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={goForward} 
+          disabled={currentMoveIndex >= moves.length - 1}
+        >
           <ChevronRight className="w-4 h-4" />
         </Button>
-        <Button variant="outline" size="icon" onClick={goToEnd} disabled={currentMoveIndex >= moves.length - 1}>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={goToEnd} 
+          disabled={currentMoveIndex >= moves.length - 1}
+        >
           <ChevronsRight className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={flipBoard}>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={flipBoard}
+        >
           <RotateCcw className="w-4 h-4" />
         </Button>
       </div>
 
+      {/* Move Slider */}
       {moves.length > 0 && (
         <div className="px-4">
           <Slider
@@ -254,10 +283,13 @@ const ChessBoardViewer = ({
             min={0}
             max={moves.length}
             step={1}
-            onValueChange={(v) => {
-              const idx = v[0] - 1;
-              if (idx < 0) goToStart();
-              else goToMove(idx);
+            onValueChange={(values) => {
+              const idx = values[0] - 1;
+              if (idx < 0) {
+                goToStart();
+              } else {
+                goToMove(idx);
+              }
             }}
           />
           <p className="text-center text-sm text-muted-foreground mt-2">
@@ -266,26 +298,31 @@ const ChessBoardViewer = ({
         </div>
       )}
 
+      {/* Move List */}
       {movePairs.length > 0 && (
         <div className="bg-muted/50 rounded-lg p-3 max-h-48 overflow-y-auto">
           <div className="grid grid-cols-[auto_1fr_1fr] gap-x-3 gap-y-1 text-sm font-mono">
-            {movePairs.map((p) => (
-              <div key={p.num} className="contents">
-                <span className="text-muted-foreground">{p.num}.</span>
+            {movePairs.map((pair) => (
+              <div key={pair.num} className="contents">
+                <span className="text-muted-foreground">{pair.num}.</span>
                 <button
                   type="button"
-                  className={`text-left px-1 rounded hover:bg-primary/20 ${currentMoveIndex === p.wIdx ? "bg-primary/30 font-bold" : ""}`}
-                  onClick={() => goToMove(p.wIdx)}
+                  className={`text-left px-1 rounded hover:bg-primary/20 transition-colors ${
+                    currentMoveIndex === pair.wIdx ? "bg-primary/30 font-bold" : ""
+                  }`}
+                  onClick={() => goToMove(pair.wIdx)}
                 >
-                  {p.white}
+                  {pair.white}
                 </button>
                 <button
                   type="button"
-                  className={`text-left px-1 rounded hover:bg-primary/20 ${currentMoveIndex === p.bIdx ? "bg-primary/30 font-bold" : ""}`}
-                  onClick={() => p.black && goToMove(p.bIdx)}
-                  disabled={!p.black}
+                  className={`text-left px-1 rounded hover:bg-primary/20 transition-colors ${
+                    currentMoveIndex === pair.bIdx ? "bg-primary/30 font-bold" : ""
+                  }`}
+                  onClick={() => pair.black && goToMove(pair.bIdx)}
+                  disabled={!pair.black}
                 >
-                  {p.black}
+                  {pair.black}
                 </button>
               </div>
             ))}
@@ -293,17 +330,18 @@ const ChessBoardViewer = ({
         </div>
       )}
 
-      {currComment && (
+      {/* Current Move Commentary */}
+      {currentComment && (
         <div className={`p-3 rounded-lg border-l-4 ${
-          currComment.evaluation === "blunder" ? "border-l-red-500 bg-red-500/10" :
-          currComment.evaluation === "mistake" ? "border-l-orange-500 bg-orange-500/10" :
-          currComment.evaluation === "inaccuracy" ? "border-l-yellow-500 bg-yellow-500/10" :
-          currComment.evaluation === "good" ? "border-l-blue-500 bg-blue-500/10" :
-          currComment.evaluation === "excellent" ? "border-l-emerald-500 bg-emerald-500/10" :
-          currComment.evaluation === "brilliant" ? "border-l-cyan-500 bg-cyan-500/10" :
+          currentComment.evaluation === "blunder" ? "border-l-red-500 bg-red-500/10" :
+          currentComment.evaluation === "mistake" ? "border-l-orange-500 bg-orange-500/10" :
+          currentComment.evaluation === "inaccuracy" ? "border-l-yellow-500 bg-yellow-500/10" :
+          currentComment.evaluation === "good" ? "border-l-blue-500 bg-blue-500/10" :
+          currentComment.evaluation === "excellent" ? "border-l-emerald-500 bg-emerald-500/10" :
+          currentComment.evaluation === "brilliant" ? "border-l-cyan-500 bg-cyan-500/10" :
           "border-l-muted-foreground bg-muted/30"
         }`}>
-          <p className="text-sm">{currComment.comment}</p>
+          <p className="text-sm">{currentComment.comment}</p>
         </div>
       )}
     </div>
