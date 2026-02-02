@@ -755,6 +755,105 @@ async def root():
 async def health():
     return {"status": "healthy"}
 
+# ==================== CHALLENGE/PUZZLE ROUTES ====================
+
+class GeneratePuzzleRequest(BaseModel):
+    pattern_id: Optional[str] = None
+    category: str = "tactical"
+    subcategory: str = "general"
+
+@api_router.post("/generate-puzzle")
+async def generate_puzzle(req: GeneratePuzzleRequest, user: User = Depends(get_current_user)):
+    """Generate a puzzle based on user's weakness pattern"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    
+    # Get the pattern details if provided
+    pattern = None
+    if req.pattern_id:
+        pattern = await db.mistake_patterns.find_one(
+            {"pattern_id": req.pattern_id, "user_id": user.user_id},
+            {"_id": 0}
+        )
+    
+    # Build context for puzzle generation
+    weakness_context = ""
+    if pattern:
+        weakness_context = f"The player struggles with: {pattern['subcategory']} ({pattern['category']}). {pattern['description']}"
+    else:
+        weakness_context = f"Focus on {req.subcategory} in the {req.category} category."
+    
+    system_prompt = f"""You are a chess puzzle creator. Create a tactical puzzle for training.
+
+Player's weakness: {weakness_context}
+
+Create a puzzle that specifically targets this weakness. The puzzle should:
+1. Have a clear winning move or sequence
+2. Be instructive for the specific weakness
+3. Be solvable in 1-3 moves
+
+Respond in JSON format ONLY:
+{{
+    "title": "Short descriptive title",
+    "description": "Brief description of what to look for",
+    "fen": "Valid FEN position string",
+    "player_color": "white" or "black",
+    "solution_san": "The correct move in SAN notation (e.g., Nxf7)",
+    "solution": [{{"from": "e4", "to": "f7"}}],
+    "hint": "A subtle hint without giving away the answer",
+    "theme": "{req.subcategory}"
+}}
+
+Make sure the FEN is valid and the solution is correct for that position."""
+
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"puzzle_{user.user_id}_{uuid.uuid4().hex[:8]}",
+            system_message=system_prompt
+        ).with_model("openai", "gpt-5.2")
+        
+        response = await chat.send_message(UserMessage(
+            text=f"Generate a {req.category} puzzle focusing on {req.subcategory}"
+        ))
+        
+        import json
+        response_clean = response.strip()
+        if response_clean.startswith("```json"):
+            response_clean = response_clean[7:]
+        if response_clean.startswith("```"):
+            response_clean = response_clean[3:]
+        if response_clean.endswith("```"):
+            response_clean = response_clean[:-3]
+        
+        puzzle = json.loads(response_clean)
+        
+        # Store puzzle for tracking
+        puzzle_doc = {
+            "puzzle_id": f"puzzle_{uuid.uuid4().hex[:12]}",
+            "user_id": user.user_id,
+            "pattern_id": req.pattern_id,
+            **puzzle,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.puzzles.insert_one(puzzle_doc)
+        puzzle_doc.pop('_id', None)
+        
+        return puzzle_doc
+        
+    except Exception as e:
+        logger.error(f"Puzzle generation error: {e}")
+        # Return a fallback puzzle
+        return {
+            "title": "Tactical Training",
+            "description": f"Find the best move in this {req.subcategory} position",
+            "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
+            "player_color": "white",
+            "solution_san": "Qxf7#",
+            "solution": [{"from": "h5", "to": "f7"}],
+            "hint": "Look for a forcing move that attacks multiple pieces",
+            "theme": req.subcategory
+        }
+
 # ==================== RAG MANAGEMENT ROUTES ====================
 
 @api_router.post("/rag/process-games")
