@@ -105,6 +105,11 @@ function AppRouter() {
           {({ user }) => <Training user={user} />}
         </ProtectedRoute>
       } />
+      <Route path="/challenge" element={
+        <ProtectedRoute>
+          {({ user }) => <Challenge user={user} />}
+        </ProtectedRoute>
+      } />
       <Route path="/settings" element={
         <ProtectedRoute>
           {({ user }) => <Settings user={user} />}
