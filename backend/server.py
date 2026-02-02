@@ -755,6 +755,43 @@ async def root():
 async def health():
     return {"status": "healthy"}
 
+# ==================== RAG MANAGEMENT ROUTES ====================
+
+@api_router.post("/rag/process-games")
+async def process_games_for_rag(background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
+    """Process all user games to create RAG embeddings"""
+    # Start processing in background
+    background_tasks.add_task(process_user_games_for_rag, db, user.user_id, 100)
+    
+    return {
+        "message": "RAG processing started in background",
+        "status": "processing"
+    }
+
+@api_router.get("/rag/status")
+async def get_rag_status(user: User = Depends(get_current_user)):
+    """Get RAG processing status for user"""
+    game_embeddings = await db.game_embeddings.count_documents({"user_id": user.user_id})
+    pattern_embeddings = await db.pattern_embeddings.count_documents({"user_id": user.user_id})
+    analysis_embeddings = await db.analysis_embeddings.count_documents({"user_id": user.user_id})
+    total_games = await db.games.count_documents({"user_id": user.user_id})
+    total_patterns = await db.mistake_patterns.count_documents({"user_id": user.user_id})
+    total_analyses = await db.game_analyses.count_documents({"user_id": user.user_id})
+    
+    return {
+        "total_games": total_games,
+        "game_embeddings": game_embeddings,
+        "total_patterns": total_patterns,
+        "pattern_embeddings": pattern_embeddings,
+        "total_analyses": total_analyses,
+        "analysis_embeddings": analysis_embeddings,
+        "rag_coverage": {
+            "games": f"{(game_embeddings / max(total_games * 4, 1)) * 100:.1f}%",  # 4 chunks per game
+            "patterns": f"{(pattern_embeddings / max(total_patterns, 1)) * 100:.1f}%",
+            "analyses": f"{(analysis_embeddings / max(total_analyses, 1)) * 100:.1f}%"
+        }
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
