@@ -1348,6 +1348,109 @@ async def record_challenge_result_endpoint(
     
     return result
 
+# ==================== EMAIL NOTIFICATION SETTINGS ====================
+
+class EmailNotificationSettings(BaseModel):
+    game_analyzed: bool = True
+    weekly_summary: bool = True
+    weakness_alert: bool = True
+
+@api_router.get("/settings/email-notifications")
+async def get_email_notification_settings(user: User = Depends(get_current_user)):
+    """Get user's email notification preferences"""
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "email_notifications": 1, "email": 1}
+    )
+    
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Default settings if not set
+    default_settings = {
+        "game_analyzed": True,
+        "weekly_summary": True,
+        "weakness_alert": True
+    }
+    
+    return {
+        "email": user_doc.get("email", ""),
+        "notifications": user_doc.get("email_notifications", default_settings)
+    }
+
+@api_router.put("/settings/email-notifications")
+async def update_email_notification_settings(
+    settings: EmailNotificationSettings,
+    user: User = Depends(get_current_user)
+):
+    """Update user's email notification preferences"""
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {
+            "email_notifications": {
+                "game_analyzed": settings.game_analyzed,
+                "weekly_summary": settings.weekly_summary,
+                "weakness_alert": settings.weakness_alert
+            }
+        }}
+    )
+    
+    return {
+        "message": "Email notification settings updated",
+        "notifications": {
+            "game_analyzed": settings.game_analyzed,
+            "weekly_summary": settings.weekly_summary,
+            "weakness_alert": settings.weakness_alert
+        }
+    }
+
+@api_router.post("/settings/test-email")
+async def send_test_email(user: User = Depends(get_current_user)):
+    """Send a test email to verify email configuration"""
+    from email_service import send_email, is_email_configured
+    
+    if not is_email_configured():
+        raise HTTPException(
+            status_code=503, 
+            detail="Email service not configured. Please add SENDGRID_API_KEY to environment."
+        )
+    
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "email": 1, "name": 1}
+    )
+    
+    if not user_doc or not user_doc.get("email"):
+        raise HTTPException(status_code=400, detail="No email address found for user")
+    
+    subject = "🎯 Chess Coach AI - Test Email"
+    html_content = f"""
+    <html>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2>✅ Email Test Successful!</h2>
+            <p>Hey {user_doc.get('name', 'Chess Player')}!</p>
+            <p>Great news - your email notifications are working correctly.</p>
+            <p>You'll receive notifications when:</p>
+            <ul>
+                <li>New games are analyzed</li>
+                <li>Weekly progress summaries are ready</li>
+                <li>Recurring weaknesses are detected</li>
+            </ul>
+            <p>Keep improving your game! ♟️</p>
+            <p><em>— Your Chess Coach</em></p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    success = await send_email(user_doc["email"], subject, html_content)
+    
+    if success:
+        return {"message": "Test email sent successfully", "email": user_doc["email"]}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to send test email")
+
 @api_router.get("/dashboard-stats")
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
     """Get dashboard statistics including player profile for the current user"""
