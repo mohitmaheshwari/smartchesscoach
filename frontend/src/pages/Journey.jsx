@@ -57,6 +57,23 @@ const Journey = ({ user }) => {
     }
   };
 
+  const syncNow = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch(API + "/journey/sync-now", {
+        method: "POST",
+        credentials: "include"
+      });
+      if (!res.ok) throw new Error((await res.json()).detail);
+      toast.success("Sync started! New games will appear shortly.");
+      setTimeout(fetchDashboard, 5000);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout user={user}>
