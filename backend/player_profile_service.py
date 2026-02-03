@@ -835,7 +835,7 @@ def build_profile_context_for_prompt(profile: Dict[str, Any]) -> str:
     learning_style = profile.get('learning_style', 'concise')
     coaching_tone = profile.get('coaching_tone', 'encouraging')
     
-    context_parts.append(f"\nCOACHING PREFERENCES:")
+    context_parts.append("\nCOACHING PREFERENCES:")
     context_parts.append(f"  - Learning style: {learning_style.upper()} (keep explanations {'brief and actionable' if learning_style == 'concise' else 'detailed with examples'})")
     context_parts.append(f"  - Tone: {coaching_tone.upper()}")
     
