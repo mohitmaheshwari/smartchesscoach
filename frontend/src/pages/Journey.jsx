@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
-import { Loader2, Brain, TrendingUp, TrendingDown, Minus, CheckCircle2, Sparkles } from "lucide-react";
+import { Loader2, Brain, TrendingUp, TrendingDown, Minus, CheckCircle2, Sparkles, RefreshCw } from "lucide-react";
 
 const Journey = ({ user }) => {
   const [loading, setLoading] = useState(true);
@@ -15,6 +15,7 @@ const Journey = ({ user }) => {
   const [platform, setPlatform] = useState(null);
   const [username, setUsername] = useState("");
   const [linking, setLinking] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     fetchDashboard();
