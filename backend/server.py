@@ -37,6 +37,15 @@ from player_profile_service import (
     CoachingTone
 )
 
+# Import Coach Quality Score system (internal only)
+from cqs_service import (
+    calculate_cqs,
+    get_stricter_prompt_constraints,
+    should_accept_after_regenerations,
+    log_cqs_result,
+    MAX_REGENERATIONS
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
