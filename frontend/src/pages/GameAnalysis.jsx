@@ -16,8 +16,8 @@ import {
   AlertTriangle,
   AlertCircle,
   CheckCircle2,
-  Star,
-  Sparkles,
+  ChevronDown,
+  ChevronUp,
   Volume2,
   VolumeX,
   Mic
@@ -31,6 +31,7 @@ const GameAnalysis = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [currentMoveNumber, setCurrentMoveNumber] = useState(0);
+  const [expandedMoves, setExpandedMoves] = useState({});
   
   // Voice coaching state
   const [voiceLoading, setVoiceLoading] = useState(false);
@@ -63,36 +64,23 @@ const GameAnalysis = ({ user }) => {
     fetchData();
   }, [gameId, navigate]);
 
-  // Voice coaching functions
-  const playVoiceSummary = async (gameIdToPlay) => {
+  // Voice functions
+  const playVoiceSummary = async (gId) => {
     if (!voiceEnabled) return;
-    
     setVoiceLoading(true);
     try {
-      const url = API + "/tts/analysis-summary/" + gameIdToPlay;
-      const response = await fetch(url, {
-        method: "POST",
-        credentials: "include"
-      });
-      
-      if (!response.ok) {
-        throw new Error("Voice generation failed");
-      }
-      
+      const url = API + "/tts/analysis-summary/" + gId;
+      const response = await fetch(url, { method: "POST", credentials: "include" });
+      if (!response.ok) throw new Error("Voice failed");
       const data = await response.json();
-      
-      // Create audio from base64
       const audioSrc = "data:audio/mp3;base64," + data.audio_base64;
-      
       if (audioRef.current) {
         audioRef.current.src = audioSrc;
         audioRef.current.play();
         setIsPlaying(true);
       }
-      
-    } catch (error) {
-      console.error("Voice error:", error);
-      // Don't show error toast - voice is optional
+    } catch (e) {
+      console.error("Voice error:", e);
     } finally {
       setVoiceLoading(false);
     }
@@ -100,7 +88,6 @@ const GameAnalysis = ({ user }) => {
 
   const playMoveVoice = async (moveIndex) => {
     if (!voiceEnabled) return;
-    
     setVoiceLoading(true);
     try {
       const url = API + "/tts/move-explanation";
@@ -110,22 +97,16 @@ const GameAnalysis = ({ user }) => {
         credentials: "include",
         body: JSON.stringify({ game_id: gameId, move_index: moveIndex })
       });
-      
-      if (!response.ok) {
-        throw new Error("Voice generation failed");
-      }
-      
+      if (!response.ok) throw new Error("Voice failed");
       const data = await response.json();
       const audioSrc = "data:audio/mp3;base64," + data.audio_base64;
-      
       if (audioRef.current) {
         audioRef.current.src = audioSrc;
         audioRef.current.play();
         setIsPlaying(true);
       }
-      
-    } catch (error) {
-      console.error("Move voice error:", error);
+    } catch (e) {
+      console.error("Move voice error:", e);
     } finally {
       setVoiceLoading(false);
     }
@@ -156,19 +137,18 @@ const GameAnalysis = ({ user }) => {
       const data = await response.json();
       setAnalysis(data);
       toast.success("Analysis complete!");
-      
-      // Auto-play voice summary after analysis
       if (voiceEnabled) {
-        setTimeout(() => {
-          playVoiceSummary(gameId);
-        }, 500);
+        setTimeout(() => playVoiceSummary(gameId), 500);
       }
-      
     } catch (error) {
       toast.error(error.message || "Analysis failed");
     } finally {
       setAnalyzing(false);
     }
+  };
+
+  const toggleMoveExpanded = (index) => {
+    setExpandedMoves(prev => ({ ...prev, [index]: !prev[index] }));
   };
 
   if (loading) {
@@ -194,182 +174,158 @@ const GameAnalysis = ({ user }) => {
   const mistakes = analysis ? analysis.mistakes : 0;
   const inaccuracies = analysis ? analysis.inaccuracies : 0;
   const bestMoves = analysis ? analysis.best_moves : 0;
-  const summary = analysis ? analysis.overall_summary : "";
-  const keyLesson = analysis ? analysis.key_lesson : "";
+  
+  // New split summary format
+  const summaryP1 = analysis ? (analysis.summary_p1 || analysis.overall_summary || "") : "";
+  const summaryP2 = analysis ? (analysis.summary_p2 || "") : "";
   const improvementNote = analysis ? analysis.improvement_note : "";
+  const focusThisWeek = analysis ? (analysis.focus_this_week || analysis.key_lesson || "") : "";
   
-  // Get weaknesses - new format
   let weaknesses = [];
-  if (analysis && analysis.weaknesses) {
-    weaknesses = analysis.weaknesses;
-  }
+  if (analysis && analysis.weaknesses) weaknesses = analysis.weaknesses;
+  if (analysis && analysis.identified_weaknesses) weaknesses = analysis.identified_weaknesses;
   
-  // Get patterns - old format fallback  
   let patterns = [];
-  if (analysis && analysis.identified_patterns) {
-    patterns = analysis.identified_patterns;
-  }
-
-  const renderWeaknessBadge = (w, i) => {
-    let name = "Pattern #" + (i + 1);
-    if (w.display_name) {
-      name = w.display_name;
-    } else if (w.subcategory) {
-      name = w.subcategory.split("_").join(" ");
-    }
-    return (
-      <Badge key={i} variant="outline" className="text-xs capitalize">
-        {name}
-      </Badge>
-    );
-  };
-
-  const renderPatternBadge = (p, i) => {
-    return (
-      <Badge key={i} variant="outline" className="text-xs">
-        Pattern #{i + 1}
-      </Badge>
-    );
-  };
-
-  const renderWeaknessDetail = (w, i) => {
-    let name = w.subcategory ? w.subcategory.split("_").join(" ") : "";
-    if (w.display_name) name = w.display_name;
-    return (
-      <div key={i} className="p-2 rounded bg-muted/50 text-sm">
-        <span className="font-medium capitalize">{name}</span>
-        {w.description && (
-          <p className="text-muted-foreground text-xs mt-1">{w.description}</p>
-        )}
-        {w.coach_advice && (
-          <p className="text-emerald-600 dark:text-emerald-400 text-xs mt-1 font-medium">→ {w.coach_advice}</p>
-        )}
-        {!w.coach_advice && w.advice && (
-          <p className="text-blue-600 dark:text-blue-400 text-xs mt-1">{w.advice}</p>
-        )}
-      </div>
-    );
-  };
+  if (analysis && analysis.identified_patterns) patterns = analysis.identified_patterns;
 
   const getEvalColor = (ev) => {
     if (ev === "blunder") return "border-l-red-500 bg-red-500/5";
     if (ev === "mistake") return "border-l-orange-500 bg-orange-500/5";
     if (ev === "inaccuracy") return "border-l-yellow-500 bg-yellow-500/5";
-    if (ev === "good") return "border-l-blue-500 bg-blue-500/5";
-    if (ev === "excellent") return "border-l-emerald-500 bg-emerald-500/5";
-    if (ev === "brilliant") return "border-l-cyan-500 bg-cyan-500/5";
-    return "border-l-muted-foreground";
+    if (ev === "good" || ev === "solid") return "border-l-emerald-500 bg-emerald-500/5";
+    return "border-l-muted-foreground/30";
   };
 
   const getEvalIcon = (ev) => {
     if (ev === "blunder") return <AlertTriangle className="w-4 h-4 text-red-500" />;
     if (ev === "mistake") return <AlertCircle className="w-4 h-4 text-orange-500" />;
     if (ev === "inaccuracy") return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-    if (ev === "good") return <CheckCircle2 className="w-4 h-4 text-blue-500" />;
-    if (ev === "excellent") return <Star className="w-4 h-4 text-emerald-500" />;
-    if (ev === "brilliant") return <Sparkles className="w-4 h-4 text-cyan-500" />;
+    if (ev === "good" || ev === "solid") return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
     return null;
   };
+
+  const isMistake = (ev) => ev === "blunder" || ev === "mistake" || ev === "inaccuracy";
 
   const renderMoveComment = (item, index) => {
     const colorClass = getEvalColor(item.evaluation);
     const icon = getEvalIcon(item.evaluation);
     const isActive = currentMoveNumber === item.move_number;
+    const isExpanded = expandedMoves[index];
+    const showExpandable = isMistake(item.evaluation) && item.details;
+    
+    // Support both old and new field names
+    const intent = item.intent || item.player_intention || "";
+    const feedback = item.feedback || item.coach_response || item.comment || "";
+    const consider = item.consider || item.better_move || "";
+    const memoryNote = item.memory_note || item.memory_reference || "";
+    const details = item.details || item.explanation || {};
+    const rule = details.rule || details.one_repeatable_rule || "";
     
     return (
       <div 
         key={index}
         className={"p-3 rounded-lg border-l-4 " + colorClass + " " + (isActive ? "ring-2 ring-primary" : "")}
       >
+        {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm font-medium">
               {item.move_number}. {item.move}
             </span>
             {icon}
+            {item.evaluation && item.evaluation !== "neutral" && (
+              <Badge variant="outline" className="text-xs capitalize">
+                {item.evaluation}
+              </Badge>
+            )}
           </div>
-          {item.evaluation && item.evaluation !== "neutral" && (
-            <Badge variant="outline" className="text-xs capitalize">
-              {item.evaluation}
-            </Badge>
+          {voiceEnabled && feedback && (
+            <button
+              onClick={(e) => { e.stopPropagation(); playMoveVoice(index); }}
+              className="text-muted-foreground hover:text-primary p-1"
+              disabled={voiceLoading}
+            >
+              <Volume2 className="w-3 h-3" />
+            </button>
           )}
         </div>
         
-        {/* Memory Reference - Coach remembering past mistakes */}
-        {item.memory_reference && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 mb-2 font-medium">
-            ⚠️ {item.memory_reference}
+        {/* Memory Reference - Always visible when present */}
+        {memoryNote && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+            ⚠️ {memoryNote}
           </p>
         )}
         
-        {item.player_intention && (
-          <p className="text-sm text-blue-600 dark:text-blue-400 italic mb-2">
-            &ldquo;{item.player_intention}&rdquo;
+        {/* DEFAULT VIEW: Intent + Feedback + Rule */}
+        {intent && (
+          <p className="text-sm text-blue-600 dark:text-blue-400 italic mb-1">
+            {intent}
           </p>
         )}
         
-        {item.coach_response && (
-          <p className="text-sm text-muted-foreground mb-2">{item.coach_response}</p>
+        {feedback && (
+          <p className="text-sm text-muted-foreground mb-2">{feedback}</p>
         )}
         
-        {!item.coach_response && item.comment && (
-          <p className="text-sm text-muted-foreground mb-2">{item.comment}</p>
-        )}
-        
-        {item.better_move && (
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-2">
-            Better: {item.better_move}
+        {rule && (
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+            → {rule}
           </p>
         )}
         
-        {item.explanation && (
-          <div className="mt-2 pt-2 border-t border-muted space-y-1">
-            {item.explanation.thinking_error && (
-              <p className="text-xs">
-                <span className="font-medium text-red-500">Habit:</span>{" "}
-                <span className="text-muted-foreground">{item.explanation.thinking_error}</span>
+        {/* EXPAND TOGGLE - Only for mistakes with details */}
+        {showExpandable && (
+          <button
+            onClick={() => toggleMoveExpanded(index)}
+            className="mt-2 text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+          >
+            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {isExpanded ? "Less" : "More details"}
+          </button>
+        )}
+        
+        {/* EXPANDED VIEW - Additional details */}
+        {isExpanded && details && (
+          <div className="mt-2 pt-2 border-t border-muted/50 space-y-1 text-xs">
+            {details.thinking_pattern && details.thinking_pattern !== "solid_thinking" && (
+              <p className="text-muted-foreground">
+                <span className="text-orange-500">Pattern:</span> {details.thinking_pattern.split("_").join(" ")}
               </p>
             )}
-            {item.explanation.habit_category && (
-              <p className="text-xs">
-                <span className="font-medium text-orange-500">Category:</span>{" "}
-                <span className="text-muted-foreground capitalize">{item.explanation.habit_category.split("_").join(" ")}</span>
-              </p>
+            {details.habit_note && (
+              <p className="text-muted-foreground">{details.habit_note}</p>
             )}
-            {item.explanation.one_repeatable_rule && (
-              <p className="text-xs">
-                <span className="font-medium text-emerald-500">Rule:</span>{" "}
-                <span className="text-muted-foreground">{item.explanation.one_repeatable_rule}</span>
+            {consider && (
+              <p className="text-blue-500">
+                Consider: {consider}
               </p>
             )}
           </div>
         )}
-        
-        {/* Voice button for this move */}
-        {voiceEnabled && (item.coach_response || item.comment) && (
-          <button
-            onClick={(e) => { e.stopPropagation(); playMoveVoice(index); }}
-            className="mt-2 text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-            disabled={voiceLoading}
-          >
-            <Volume2 className="w-3 h-3" />
-            {voiceLoading ? "Loading..." : "Listen"}
-          </button>
-        )}
+      </div>
+    );
+  };
+
+  const renderWeakness = (w, i) => {
+    const name = w.subcategory ? w.subcategory.split("_").join(" ") : "pattern";
+    const desc = w.habit_description || w.description || "";
+    const tip = w.practice_tip || w.coach_advice || w.advice || "";
+    return (
+      <div key={i} className="p-2 rounded bg-muted/50 text-sm">
+        <span className="font-medium capitalize">{name}</span>
+        {desc && <p className="text-muted-foreground text-xs mt-1">{desc}</p>}
+        {tip && <p className="text-emerald-600 dark:text-emerald-400 text-xs mt-1">→ {tip}</p>}
       </div>
     );
   };
 
   return (
     <Layout user={user}>
-      {/* Hidden audio element for voice playback */}
-      <audio 
-        ref={audioRef} 
-        onEnded={() => setIsPlaying(false)}
-        onPause={() => setIsPlaying(false)}
-      />
+      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} onPause={() => setIsPlaying(false)} />
       
       <div className="space-y-6" data-testid="game-analysis-page">
+        {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -385,54 +341,37 @@ const GameAnalysis = ({ user }) => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Voice toggle */}
             <Button
               variant="outline"
               size="icon"
-              onClick={() => {
-                if (isPlaying) stopVoice();
-                setVoiceEnabled(!voiceEnabled);
-              }}
-              title={voiceEnabled ? "Disable voice coaching" : "Enable voice coaching"}
+              onClick={() => { if (isPlaying) stopVoice(); setVoiceEnabled(!voiceEnabled); }}
+              title={voiceEnabled ? "Disable voice" : "Enable voice"}
             >
-              {voiceEnabled ? (
-                <Volume2 className="w-4 h-4" />
-              ) : (
-                <VolumeX className="w-4 h-4" />
-              )}
+              {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </Button>
-            
-            {/* Stop button when playing */}
             {isPlaying && (
-              <Button variant="outline" size="sm" onClick={stopVoice}>
-                Stop
-              </Button>
+              <Button variant="outline" size="sm" onClick={stopVoice}>Stop</Button>
             )}
-            
             {!analysis && (
               <Button onClick={handleAnalyze} disabled={analyzing} className="glow-primary">
                 {analyzing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Analyzing...
-                  </>
+                  <><Loader2 className="w-4 h-4 animate-spin mr-2" />Analyzing...</>
                 ) : (
-                  <>
-                    <Brain className="w-4 h-4 mr-2" />
-                    Analyze with AI
-                  </>
+                  <><Brain className="w-4 h-4 mr-2" />Analyze with AI</>
                 )}
               </Button>
             )}
           </div>
         </div>
 
+        {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Board */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <span className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-xs font-bold">♟</span>
-                Interactive Board
+                Board
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -442,24 +381,20 @@ const GameAnalysis = ({ user }) => {
                     <div className="w-16 h-16 rounded-full border-4 border-primary border-t-transparent animate-spin" />
                     <Brain className="w-8 h-8 text-primary absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
                   </div>
-                  <p className="font-medium">Analyzing your game...</p>
+                  <p className="font-medium">Analyzing...</p>
                 </div>
               ) : (
-                <ChessBoardViewer
-                  pgn={pgn}
-                  userColor={userColor}
-                  onMoveChange={setCurrentMoveNumber}
-                  commentary={commentary}
-                />
+                <ChessBoardViewer pgn={pgn} userColor={userColor} onMoveChange={setCurrentMoveNumber} commentary={commentary} />
               )}
             </CardContent>
           </Card>
 
+          {/* Analysis */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Brain className="w-5 h-5 text-primary" />
-                AI Coach Commentary
+                Coach
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -467,99 +402,85 @@ const GameAnalysis = ({ user }) => {
                 <Tabs defaultValue="summary" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="summary">Summary</TabsTrigger>
-                    <TabsTrigger value="moves">Move Analysis</TabsTrigger>
+                    <TabsTrigger value="moves">Moves</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="summary" className="space-y-4 mt-4">
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="text-center p-3 rounded-lg bg-red-500/10">
-                        <p className="text-2xl font-bold text-red-500">{blunders}</p>
+                    {/* Stats */}
+                    <div className="grid grid-cols-4 gap-2">
+                      <div className="text-center p-2 rounded-lg bg-red-500/10">
+                        <p className="text-xl font-bold text-red-500">{blunders}</p>
                         <p className="text-xs text-muted-foreground">Blunders</p>
                       </div>
-                      <div className="text-center p-3 rounded-lg bg-orange-500/10">
-                        <p className="text-2xl font-bold text-orange-500">{mistakes}</p>
+                      <div className="text-center p-2 rounded-lg bg-orange-500/10">
+                        <p className="text-xl font-bold text-orange-500">{mistakes}</p>
                         <p className="text-xs text-muted-foreground">Mistakes</p>
                       </div>
-                      <div className="text-center p-3 rounded-lg bg-yellow-500/10">
-                        <p className="text-2xl font-bold text-yellow-500">{inaccuracies}</p>
+                      <div className="text-center p-2 rounded-lg bg-yellow-500/10">
+                        <p className="text-xl font-bold text-yellow-500">{inaccuracies}</p>
                         <p className="text-xs text-muted-foreground">Inaccuracies</p>
                       </div>
-                      <div className="text-center p-3 rounded-lg bg-emerald-500/10">
-                        <p className="text-2xl font-bold text-emerald-500">{bestMoves}</p>
-                        <p className="text-xs text-muted-foreground">Best Moves</p>
+                      <div className="text-center p-2 rounded-lg bg-emerald-500/10">
+                        <p className="text-xl font-bold text-emerald-500">{bestMoves}</p>
+                        <p className="text-xs text-muted-foreground">Good</p>
                       </div>
                     </div>
 
+                    {/* Coach Summary - Split into 2 paragraphs */}
                     <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                           <Brain className="w-5 h-5 text-primary" />
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="font-medium text-sm">Coach&apos;s Summary</p>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="font-medium text-sm">Coach</p>
                             {voiceEnabled && (
                               <button
                                 onClick={() => playVoiceSummary(gameId)}
                                 disabled={voiceLoading}
                                 className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
                               >
-                                {voiceLoading ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : isPlaying ? (
-                                  <Mic className="w-3 h-3 animate-pulse" />
-                                ) : (
-                                  <Volume2 className="w-3 h-3" />
-                                )}
-                                {isPlaying ? "Playing..." : "Listen"}
+                                {voiceLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : isPlaying ? <Mic className="w-3 h-3 animate-pulse" /> : <Volume2 className="w-3 h-3" />}
+                                {isPlaying ? "Playing" : "Listen"}
                               </button>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground">{summary}</p>
+                          {summaryP1 && <p className="text-sm text-muted-foreground mb-2">{summaryP1}</p>}
+                          {summaryP2 && <p className="text-sm text-muted-foreground">{summaryP2}</p>}
                         </div>
                       </div>
                     </div>
 
-                    {/* Improvement Note - Progress awareness */}
+                    {/* Improvement Note */}
                     {improvementNote && (
                       <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                        <p className="text-sm text-blue-600 dark:text-blue-400">
-                          📈 {improvementNote}
-                        </p>
+                        <p className="text-sm text-blue-600 dark:text-blue-400">📈 {improvementNote}</p>
                       </div>
                     )}
 
-                    {keyLesson && (
+                    {/* Focus This Week */}
+                    {focusThisWeek && (
                       <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                        <p className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                          <Sparkles className="w-4 h-4" />
-                          Focus This Week
-                        </p>
-                        <p className="text-sm mt-1">{keyLesson}</p>
+                        <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">Focus This Week</p>
+                        <p className="text-sm">{focusThisWeek}</p>
                       </div>
                     )}
 
-                    {(weaknesses.length > 0 || patterns.length > 0) && (
+                    {/* Habits to Work On */}
+                    {weaknesses.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-sm font-medium">Habits to Work On</p>
-                        <div className="flex flex-wrap gap-2">
-                          {weaknesses.length > 0 
-                            ? weaknesses.map(renderWeaknessBadge)
-                            : patterns.map(renderPatternBadge)
-                          }
+                        <div className="space-y-2">
+                          {weaknesses.map(renderWeakness)}
                         </div>
-                        {weaknesses.length > 0 && (
-                          <div className="mt-3 space-y-2">
-                            {weaknesses.map(renderWeaknessDetail)}
-                          </div>
-                        )}
                       </div>
                     )}
                   </TabsContent>
 
                   <TabsContent value="moves" className="mt-4">
                     <ScrollArea className="h-[400px]">
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {commentary.map(renderMoveComment)}
                       </div>
                     </ScrollArea>
@@ -571,8 +492,8 @@ const GameAnalysis = ({ user }) => {
                     <Brain className="w-8 h-8 text-primary" />
                   </div>
                   <p className="font-medium">Ready for Analysis</p>
-                  <p className="text-sm text-muted-foreground">
-                    Click &ldquo;Analyze with AI&rdquo; to get personalized coaching
+                  <p className="text-sm text-muted-foreground text-center">
+                    Click &ldquo;Analyze with AI&rdquo; to get coaching feedback
                   </p>
                 </div>
               )}
