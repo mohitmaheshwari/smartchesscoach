@@ -760,6 +760,177 @@ async def get_analysis(game_id: str, user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Analysis not found")
     return analysis
 
+# ==================== VOICE COACHING (TTS) ROUTES ====================
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = "onyx"  # Male coach voice - deep, authoritative
+
+@api_router.post("/tts/generate")
+async def generate_speech(req: TTSRequest, user: User = Depends(get_current_user)):
+    """Generate speech audio from text using OpenAI TTS"""
+    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    
+    if not req.text or len(req.text.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Text is required")
+    
+    # Limit text length (OpenAI TTS limit is 4096 chars)
+    text = req.text[:4000]
+    
+    try:
+        tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+        
+        # Generate speech as base64 for easy frontend use
+        audio_base64 = await tts.generate_speech_base64(
+            text=text,
+            model="tts-1",  # Standard quality for faster response
+            voice=req.voice,
+            speed=1.0
+        )
+        
+        return {
+            "audio_base64": audio_base64,
+            "format": "mp3",
+            "voice": req.voice
+        }
+        
+    except Exception as e:
+        logger.error(f"TTS generation error: {e}")
+        raise HTTPException(status_code=500, detail=f"Voice generation failed: {str(e)}")
+
+@api_router.post("/tts/analysis-summary/{game_id}")
+async def generate_analysis_voice(game_id: str, user: User = Depends(get_current_user)):
+    """Generate voice coaching for a game analysis summary"""
+    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    
+    # Get the analysis
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    # Check if we already have cached audio
+    if analysis.get("voice_audio_base64"):
+        return {
+            "audio_base64": analysis["voice_audio_base64"],
+            "format": "mp3",
+            "voice": "onyx",
+            "cached": True
+        }
+    
+    # Build the voice script
+    summary = analysis.get("overall_summary", "")
+    key_lesson = analysis.get("key_lesson", "")
+    
+    # Create a natural speaking script
+    voice_script = summary
+    if key_lesson:
+        voice_script += f" And here's the key lesson from this game: {key_lesson}"
+    
+    if not voice_script:
+        raise HTTPException(status_code=400, detail="No summary available for voice generation")
+    
+    try:
+        tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+        
+        audio_base64 = await tts.generate_speech_base64(
+            text=voice_script[:4000],
+            model="tts-1",
+            voice="onyx",  # Male coach voice
+            speed=0.95  # Slightly slower for coaching clarity
+        )
+        
+        # Cache the audio in the database
+        await db.game_analyses.update_one(
+            {"game_id": game_id},
+            {"$set": {"voice_audio_base64": audio_base64}}
+        )
+        
+        return {
+            "audio_base64": audio_base64,
+            "format": "mp3",
+            "voice": "onyx",
+            "cached": False
+        }
+        
+    except Exception as e:
+        logger.error(f"TTS analysis voice error: {e}")
+        raise HTTPException(status_code=500, detail=f"Voice generation failed: {str(e)}")
+
+class MoveVoiceRequest(BaseModel):
+    game_id: str
+    move_index: int
+
+@api_router.post("/tts/move-explanation")
+async def generate_move_voice(req: MoveVoiceRequest, user: User = Depends(get_current_user)):
+    """Generate voice explanation for a specific move"""
+    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    
+    analysis = await db.game_analyses.find_one(
+        {"game_id": req.game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    commentary = analysis.get("commentary", [])
+    if req.move_index < 0 or req.move_index >= len(commentary):
+        raise HTTPException(status_code=400, detail="Invalid move index")
+    
+    move = commentary[req.move_index]
+    
+    # Build voice script for this move
+    parts = []
+    
+    move_num = move.get("move_number", "")
+    move_name = move.get("move", "")
+    parts.append(f"Move {move_num}, {move_name}.")
+    
+    if move.get("player_intention"):
+        parts.append(f"I see what you were going for: {move['player_intention']}")
+    
+    if move.get("coach_response"):
+        parts.append(move["coach_response"])
+    elif move.get("comment"):
+        parts.append(move["comment"])
+    
+    if move.get("better_move"):
+        parts.append(f"A better option was {move['better_move']}.")
+    
+    explanation = move.get("explanation", {})
+    if explanation.get("one_repeatable_rule"):
+        parts.append(f"Remember: {explanation['one_repeatable_rule']}")
+    
+    voice_script = " ".join(parts)
+    
+    if not voice_script:
+        raise HTTPException(status_code=400, detail="No explanation available for this move")
+    
+    try:
+        tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+        
+        audio_base64 = await tts.generate_speech_base64(
+            text=voice_script[:4000],
+            model="tts-1",
+            voice="onyx",
+            speed=0.95
+        )
+        
+        return {
+            "audio_base64": audio_base64,
+            "format": "mp3",
+            "voice": "onyx",
+            "move_number": move_num
+        }
+        
+    except Exception as e:
+        logger.error(f"TTS move voice error: {e}")
+        raise HTTPException(status_code=500, detail=f"Voice generation failed: {str(e)}")
+
 # ==================== WEAKNESS/PATTERN ROUTES ====================
 
 @api_router.get("/patterns")
