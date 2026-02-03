@@ -834,14 +834,27 @@ async def record_challenge_result_endpoint(
 
 @api_router.get("/dashboard-stats")
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
-    """Get dashboard statistics for the current user"""
+    """Get dashboard statistics including player profile for the current user"""
     total_games = await db.games.count_documents({"user_id": user.user_id})
     analyzed_games = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
     
-    patterns = await db.mistake_patterns.find(
+    # Get player profile for coaching context
+    profile = await db.player_profiles.find_one(
         {"user_id": user.user_id},
         {"_id": 0}
-    ).sort("occurrences", -1).to_list(5)
+    )
+    
+    # Get top weaknesses from profile (with decay) instead of raw patterns
+    top_weaknesses = []
+    if profile:
+        top_weaknesses = profile.get("top_weaknesses", [])[:5]
+    else:
+        # Fallback to legacy patterns if no profile
+        patterns = await db.mistake_patterns.find(
+            {"user_id": user.user_id},
+            {"_id": 0}
+        ).sort("occurrences", -1).to_list(5)
+        top_weaknesses = patterns
     
     recent_games = await db.games.find(
         {"user_id": user.user_id},
@@ -857,10 +870,11 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     total_mistakes = sum(a.get('mistakes', 0) for a in analyses)
     total_best_moves = sum(a.get('best_moves', 0) for a in analyses)
     
-    return {
+    # Build response with profile data
+    response = {
         "total_games": total_games,
         "analyzed_games": analyzed_games,
-        "top_patterns": patterns,
+        "top_weaknesses": top_weaknesses,
         "recent_games": recent_games,
         "stats": {
             "total_blunders": total_blunders,
@@ -868,6 +882,21 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
             "total_best_moves": total_best_moves
         }
     }
+    
+    # Add profile summary if available
+    if profile:
+        response["profile_summary"] = {
+            "estimated_level": profile.get("estimated_level", "intermediate"),
+            "estimated_elo": profile.get("estimated_elo", 1200),
+            "improvement_trend": profile.get("improvement_trend", "stuck"),
+            "strengths": profile.get("strengths", [])[:3],
+            "learning_style": profile.get("learning_style", "concise"),
+            "coaching_tone": profile.get("coaching_tone", "encouraging"),
+            "challenges_solved": profile.get("challenges_solved", 0),
+            "challenges_attempted": profile.get("challenges_attempted", 0)
+        }
+    
+    return response
 
 @api_router.get("/training-recommendations")
 async def get_training_recommendations(user: User = Depends(get_current_user)):
