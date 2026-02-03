@@ -1061,10 +1061,9 @@ Make sure the FEN is valid and the solution is correct for that position."""
         ).with_model("openai", "gpt-5.2")
         
         response = await chat.send_message(UserMessage(
-            text=f"Generate a {req.category} puzzle focusing on {req.subcategory}"
+            text=f"Generate a {target_category} puzzle focusing on {target_subcategory.replace('_', ' ')}"
         ))
         
-        import json
         response_clean = response.strip()
         if response_clean.startswith("```json"):
             response_clean = response_clean[7:]
@@ -1075,11 +1074,15 @@ Make sure the FEN is valid and the solution is correct for that position."""
         
         puzzle = json.loads(response_clean)
         
-        # Store puzzle for tracking
+        # Store puzzle with target weakness for feedback loop
         puzzle_doc = {
             "puzzle_id": f"puzzle_{uuid.uuid4().hex[:12]}",
             "user_id": user.user_id,
             "pattern_id": req.pattern_id,
+            "target_category": target_category,
+            "target_subcategory": target_subcategory,
+            "solved": None,  # Will be updated when user submits result
+            "solve_time_seconds": None,
             **puzzle,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
@@ -1090,14 +1093,29 @@ Make sure the FEN is valid and the solution is correct for that position."""
         
     except Exception as e:
         logger.error(f"Puzzle generation error: {e}")
-        # Return a fallback puzzle
-        return {
+        # Return a fallback puzzle with proper tracking fields
+        fallback_puzzle = {
+            "puzzle_id": f"puzzle_{uuid.uuid4().hex[:12]}",
+            "user_id": user.user_id,
+            "target_category": target_category,
+            "target_subcategory": target_subcategory,
             "title": "Tactical Training",
-            "description": f"Find the best move in this {req.subcategory} position",
+            "description": f"Find the best move in this {target_subcategory.replace('_', ' ')} position",
             "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
             "player_color": "white",
             "solution_san": "Qxf7#",
             "solution": [{"from": "h5", "to": "f7"}],
+            "hint": "Look for a forcing move that attacks multiple pieces",
+            "theme": target_subcategory,
+            "explanation": {
+                "thinking_error": "Missing forcing moves that end the game",
+                "one_repeatable_rule": "Always check for checkmate threats first"
+            },
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.puzzles.insert_one(fallback_puzzle)
+        fallback_puzzle.pop('_id', None)
+        return fallback_puzzle
             "hint": "Look for a forcing move that attacks multiple pieces",
             "theme": req.subcategory
         }
