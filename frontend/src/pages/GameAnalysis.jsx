@@ -327,12 +327,31 @@ const GameAnalysis = ({ user }) => {
             )}
           </div>
         )}
+        
+        {/* Voice button for this move */}
+        {voiceEnabled && (item.coach_response || item.comment) && (
+          <button
+            onClick={(e) => { e.stopPropagation(); playMoveVoice(index); }}
+            className="mt-2 text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+            disabled={voiceLoading}
+          >
+            <Volume2 className="w-3 h-3" />
+            {voiceLoading ? "Loading..." : "Listen"}
+          </button>
+        )}
       </div>
     );
   };
 
   return (
     <Layout user={user}>
+      {/* Hidden audio element for voice playback */}
+      <audio 
+        ref={audioRef} 
+        onEnded={() => setIsPlaying(false)}
+        onPause={() => setIsPlaying(false)}
+      />
+      
       <div className="space-y-6" data-testid="game-analysis-page">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
