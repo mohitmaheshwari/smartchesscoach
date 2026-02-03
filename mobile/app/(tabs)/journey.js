@@ -301,6 +301,27 @@ export default function JourneyScreen() {
           </>
         )}
 
+        {/* Rating & Training Section */}
+        {hasAccount && gamesAnalyzed > 0 && (
+          <View style={styles.ratingSection}>
+            {/* Section Header */}
+            <View style={styles.ratingSectionHeader}>
+              <Ionicons name="trending-up" size={20} color={colors.accent} />
+              <Text style={[styles.ratingSectionTitle, { color: colors.text }]}>
+                Rating & Training
+              </Text>
+            </View>
+
+            {/* Rating Trajectory */}
+            {trajectoryData && <RatingTrajectoryCard data={trajectoryData} />}
+
+            {/* Training Cards */}
+            <TimeManagementCard data={timeData} />
+            <FastThinkingCard data={thinkingData} />
+            <PuzzleTrainerCard data={puzzleData} />
+          </View>
+        )}
+
         {/* Linked Accounts Footer */}
         {hasAccount && (
           <View style={styles.linkedAccounts}>
