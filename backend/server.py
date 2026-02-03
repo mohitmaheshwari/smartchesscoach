@@ -22,6 +22,21 @@ from rag_service import (
     process_user_games_for_rag
 )
 
+# Import Player Profile service
+from player_profile_service import (
+    get_or_create_profile,
+    update_profile_after_analysis,
+    record_challenge_result,
+    build_profile_context_for_prompt,
+    build_explanation_prompt_contract,
+    validate_explanation,
+    categorize_weakness,
+    normalize_weakness_key,
+    WEAKNESS_CATEGORIES,
+    LearningStyle,
+    CoachingTone
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
