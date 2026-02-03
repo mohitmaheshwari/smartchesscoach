@@ -1776,6 +1776,183 @@ Be specific and actionable. Respond in JSON format:
             ]
         }
 
+# ==================== RATING & TRAINING ENDPOINTS ====================
+
+@api_router.get("/rating/trajectory")
+async def get_rating_trajectory(user: User = Depends(get_current_user)):
+    """
+    Get rating prediction and trajectory for the user.
+    Includes platform ratings, projected ratings, and time to milestones.
+    """
+    # Get user data
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    chess_com_username = user_doc.get("chess_com_username")
+    lichess_username = user_doc.get("lichess_username")
+    
+    # Fetch platform ratings
+    platform_ratings = await fetch_platform_ratings(chess_com_username, lichess_username)
+    
+    # Get current best rating
+    current_rating = 1200  # Default
+    rating_source = "estimated"
+    
+    if platform_ratings.get('chess_com', {}).get('rapid'):
+        current_rating = platform_ratings['chess_com']['rapid']
+        rating_source = "chess_com_rapid"
+    elif platform_ratings.get('lichess', {}).get('rapid'):
+        current_rating = platform_ratings['lichess']['rapid']
+        rating_source = "lichess_rapid"
+    elif platform_ratings.get('chess_com', {}).get('blitz'):
+        current_rating = platform_ratings['chess_com']['blitz']
+        rating_source = "chess_com_blitz"
+    elif platform_ratings.get('lichess', {}).get('blitz'):
+        current_rating = platform_ratings['lichess']['blitz']
+        rating_source = "lichess_blitz"
+    
+    # Get game analyses for improvement velocity
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "blunders": 1, "mistakes": 1, "best_moves": 1, "analyzed_at": 1}
+    ).to_list(50)
+    
+    # Calculate improvement velocity
+    velocity = calculate_improvement_velocity(analyses)
+    
+    # Get weaknesses
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "top_weaknesses": 1, "estimated_elo": 1}
+    )
+    weaknesses = profile.get("top_weaknesses", []) if profile else []
+    
+    # If we don't have platform rating, use profile estimate
+    if rating_source == "estimated" and profile:
+        current_rating = profile.get("estimated_elo", 1200)
+    
+    # Generate trajectory prediction
+    trajectory = predict_rating_trajectory(current_rating, velocity, weaknesses)
+    
+    return {
+        "platform_ratings": platform_ratings,
+        "current_rating": current_rating,
+        "rating_source": rating_source,
+        "improvement_velocity": velocity,
+        "trajectory": trajectory,
+        "linked_accounts": {
+            "chess_com": chess_com_username,
+            "lichess": lichess_username
+        }
+    }
+
+@api_router.get("/training/time-management")
+async def get_time_management_analysis(user: User = Depends(get_current_user)):
+    """
+    Analyze time management patterns from recent games.
+    Shows clock usage, time trouble patterns, and recommendations.
+    """
+    # Get recent games with PGN
+    games = await db.games.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "pgn": 1, "user_color": 1, "time_control": 1, "result": 1}
+    ).sort("imported_at", -1).to_list(30)
+    
+    if not games:
+        return {
+            "has_data": False,
+            "message": "Import some games first to analyze your time management."
+        }
+    
+    # Analyze time usage
+    analysis = analyze_time_usage(games, user.user_id)
+    
+    return analysis
+
+@api_router.get("/training/fast-thinking")
+async def get_fast_thinking_analysis(user: User = Depends(get_current_user)):
+    """
+    Get analysis of calculation speed and pattern recognition.
+    Includes tips for thinking faster and spotting tactics.
+    """
+    # Get analyses with move-by-move data
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "move_by_move": 1, "analyzed_at": 1}
+    ).sort("analyzed_at", -1).to_list(20)
+    
+    # Generate calculation analysis
+    calc_analysis = generate_calculation_analysis(analyses)
+    
+    # Get weaknesses for targeted tips
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "top_weaknesses": 1}
+    )
+    weaknesses = profile.get("top_weaknesses", []) if profile else []
+    
+    # Add weakness-specific tips
+    if weaknesses and calc_analysis.get("has_data"):
+        top_weakness = weaknesses[0].get('subcategory', '')
+        calc_analysis["focus_weakness"] = top_weakness
+        calc_analysis["weakness_tip"] = f"Focus on spotting {top_weakness.replace('_', ' ')} patterns faster"
+    
+    return calc_analysis
+
+@api_router.get("/training/puzzles")
+async def get_training_puzzles(user: User = Depends(get_current_user), count: int = 5):
+    """
+    Get personalized puzzles based on weaknesses.
+    Puzzles are selected to target the player's specific weak areas.
+    """
+    # Get weaknesses
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "top_weaknesses": 1}
+    )
+    weaknesses = profile.get("top_weaknesses", []) if profile else []
+    
+    # Generate training session
+    session = generate_training_session(weaknesses, count)
+    
+    return session
+
+@api_router.post("/training/puzzles/{puzzle_index}/solve")
+async def submit_puzzle_solution(
+    puzzle_index: int,
+    solution: str,
+    time_taken_seconds: int,
+    user: User = Depends(get_current_user)
+):
+    """
+    Submit a puzzle solution and track progress.
+    """
+    # Record puzzle attempt
+    puzzle_attempt = {
+        "user_id": user.user_id,
+        "puzzle_index": puzzle_index,
+        "solution_submitted": solution,
+        "time_taken_seconds": time_taken_seconds,
+        "attempted_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.puzzle_attempts.insert_one(puzzle_attempt)
+    
+    # Update profile stats
+    await db.player_profiles.update_one(
+        {"user_id": user.user_id},
+        {
+            "$inc": {
+                "puzzles_attempted": 1,
+                "total_puzzle_time_seconds": time_taken_seconds
+            }
+        },
+        upsert=True
+    )
+    
+    return {
+        "message": "Solution recorded",
+        "time_taken_seconds": time_taken_seconds
+    }
+
 # ==================== BASIC ROUTES ====================
 
 @api_router.get("/")
