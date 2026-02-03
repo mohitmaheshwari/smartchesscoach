@@ -46,6 +46,15 @@ from cqs_service import (
     MAX_REGENERATIONS
 )
 
+# Import Journey Dashboard service
+from journey_service import (
+    generate_journey_dashboard_data,
+    run_background_sync,
+    fetch_recent_chesscom_games,
+    fetch_recent_lichess_games,
+    select_games_for_analysis
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
