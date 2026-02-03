@@ -367,21 +367,47 @@ const GameAnalysis = ({ user }) => {
               </p>
             </div>
           </div>
-          {!analysis && (
-            <Button onClick={handleAnalyze} disabled={analyzing} className="glow-primary">
-              {analyzing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Analyzing...
-                </>
+          <div className="flex items-center gap-2">
+            {/* Voice toggle */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                if (isPlaying) stopVoice();
+                setVoiceEnabled(!voiceEnabled);
+              }}
+              title={voiceEnabled ? "Disable voice coaching" : "Enable voice coaching"}
+            >
+              {voiceEnabled ? (
+                <Volume2 className="w-4 h-4" />
               ) : (
-                <>
-                  <Brain className="w-4 h-4 mr-2" />
-                  Analyze with AI
-                </>
+                <VolumeX className="w-4 h-4" />
               )}
             </Button>
-          )}
+            
+            {/* Stop button when playing */}
+            {isPlaying && (
+              <Button variant="outline" size="sm" onClick={stopVoice}>
+                Stop
+              </Button>
+            )}
+            
+            {!analysis && (
+              <Button onClick={handleAnalyze} disabled={analyzing} className="glow-primary">
+                {analyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="w-4 h-4 mr-2" />
+                    Analyze with AI
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
