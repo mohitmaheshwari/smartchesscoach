@@ -20,6 +20,113 @@ import {
   Sparkles
 } from "lucide-react";
 
+// Helper functions to avoid complex nested expressions
+function getWeaknessDisplayName(weakness, index) {
+  if (weakness.display_name) return weakness.display_name;
+  if (weakness.subcategory) return weakness.subcategory.replace(/_/g, ' ');
+  return 'Pattern #' + (index + 1);
+}
+
+function getEvalIcon(evaluation) {
+  if (evaluation === 'blunder') return <AlertTriangle className="w-4 h-4 text-red-500" />;
+  if (evaluation === 'mistake') return <AlertCircle className="w-4 h-4 text-orange-500" />;
+  if (evaluation === 'inaccuracy') return <AlertCircle className="w-4 h-4 text-yellow-500" />;
+  if (evaluation === 'good') return <CheckCircle2 className="w-4 h-4 text-blue-500" />;
+  if (evaluation === 'excellent') return <Star className="w-4 h-4 text-emerald-500" />;
+  if (evaluation === 'brilliant') return <Sparkles className="w-4 h-4 text-cyan-500" />;
+  return null;
+}
+
+function getEvalClass(evaluation) {
+  if (evaluation === 'blunder') return 'border-l-red-500 bg-red-500/5';
+  if (evaluation === 'mistake') return 'border-l-orange-500 bg-orange-500/5';
+  if (evaluation === 'inaccuracy') return 'border-l-yellow-500 bg-yellow-500/5';
+  if (evaluation === 'good') return 'border-l-blue-500 bg-blue-500/5';
+  if (evaluation === 'excellent') return 'border-l-emerald-500 bg-emerald-500/5';
+  if (evaluation === 'brilliant') return 'border-l-cyan-500 bg-cyan-500/5';
+  return 'border-l-muted-foreground';
+}
+
+function isMistakeType(evaluation) {
+  return evaluation === 'blunder' || evaluation === 'mistake' || evaluation === 'inaccuracy';
+}
+
+// Sub-components for cleaner code
+function MoveComment({ item, isActive }) {
+  const evalClass = getEvalClass(item.evaluation);
+  const evalIcon = getEvalIcon(item.evaluation);
+  const showExpanded = isMistakeType(item.evaluation);
+  
+  return (
+    <div 
+      className={`p-3 rounded-lg border-l-4 ${evalClass} cursor-pointer transition-all hover:scale-[1.01] ${isActive ? 'ring-2 ring-primary' : ''}`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-medium">
+            {item.move_number}. {item.move}
+          </span>
+          {evalIcon}
+        </div>
+        {item.evaluation && item.evaluation !== 'neutral' && (
+          <Badge variant="outline" className="text-xs capitalize">
+            {item.evaluation}
+          </Badge>
+        )}
+      </div>
+      
+      {item.player_intention && (
+        <p className="text-sm text-blue-600 dark:text-blue-400 italic mb-2">
+          &ldquo;{item.player_intention}&rdquo;
+        </p>
+      )}
+      
+      {item.coach_response && (
+        <p className="text-sm text-muted-foreground mb-2">{item.coach_response}</p>
+      )}
+      
+      {!item.coach_response && item.comment && (
+        <p className="text-sm text-muted-foreground mb-2">{item.comment}</p>
+      )}
+      
+      {item.better_move && (
+        <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+          Better: {item.better_move}
+        </p>
+      )}
+      
+      {item.explanation && showExpanded && (
+        <div className="mt-2 pt-2 border-t border-muted space-y-1">
+          {item.explanation.thinking_error && (
+            <p className="text-xs">
+              <span className="font-medium text-red-500">Thinking:</span>{' '}
+              <span className="text-muted-foreground">{item.explanation.thinking_error}</span>
+            </p>
+          )}
+          {item.explanation.one_repeatable_rule && (
+            <p className="text-xs">
+              <span className="font-medium text-emerald-500">Rule:</span>{' '}
+              <span className="text-muted-foreground">{item.explanation.one_repeatable_rule}</span>
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeaknessCard({ weakness, index }) {
+  const name = getWeaknessDisplayName(weakness, index);
+  return (
+    <div className="p-2 rounded bg-muted/50 text-sm">
+      <span className="font-medium capitalize">{name}</span>
+      {weakness.description && (
+        <p className="text-muted-foreground text-xs mt-1">{weakness.description}</p>
+      )}
+    </div>
+  );
+}
+
 const GameAnalysis = ({ user }) => {
   const { gameId } = useParams();
   const navigate = useNavigate();
@@ -32,7 +139,7 @@ const GameAnalysis = ({ user }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const gameResponse = await fetch(`${API}/games/${gameId}`, {
+        const gameResponse = await fetch(API + '/games/' + gameId, {
           credentials: 'include'
         });
         if (!gameResponse.ok) {
@@ -42,7 +149,7 @@ const GameAnalysis = ({ user }) => {
         setGame(gameData);
 
         try {
-          const analysisResponse = await fetch(`${API}/analysis/${gameId}`, {
+          const analysisResponse = await fetch(API + '/analysis/' + gameId, {
             credentials: 'include'
           });
           if (analysisResponse.ok) {
@@ -66,7 +173,7 @@ const GameAnalysis = ({ user }) => {
   const handleAnalyze = async () => {
     setAnalyzing(true);
     try {
-      const response = await fetch(`${API}/analyze-game`, {
+      const response = await fetch(API + '/analyze-game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -92,26 +199,6 @@ const GameAnalysis = ({ user }) => {
     setCurrentMoveNumber(moveNumber);
   };
 
-  const getEvalIcon = (evaluation) => {
-    if (evaluation === 'blunder') return <AlertTriangle className="w-4 h-4 text-red-500" />;
-    if (evaluation === 'mistake') return <AlertCircle className="w-4 h-4 text-orange-500" />;
-    if (evaluation === 'inaccuracy') return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-    if (evaluation === 'good') return <CheckCircle2 className="w-4 h-4 text-blue-500" />;
-    if (evaluation === 'excellent') return <Star className="w-4 h-4 text-emerald-500" />;
-    if (evaluation === 'brilliant') return <Sparkles className="w-4 h-4 text-cyan-500" />;
-    return null;
-  };
-
-  const getEvalClass = (evaluation) => {
-    if (evaluation === 'blunder') return 'border-l-red-500 bg-red-500/5';
-    if (evaluation === 'mistake') return 'border-l-orange-500 bg-orange-500/5';
-    if (evaluation === 'inaccuracy') return 'border-l-yellow-500 bg-yellow-500/5';
-    if (evaluation === 'good') return 'border-l-blue-500 bg-blue-500/5';
-    if (evaluation === 'excellent') return 'border-l-emerald-500 bg-emerald-500/5';
-    if (evaluation === 'brilliant') return 'border-l-cyan-500 bg-cyan-500/5';
-    return 'border-l-muted-foreground';
-  };
-
   if (loading) {
     return (
       <Layout user={user}>
@@ -122,6 +209,7 @@ const GameAnalysis = ({ user }) => {
     );
   }
 
+  // Extract data with safe defaults
   const gamePgn = game ? game.pgn : "";
   const gameUserColor = game ? game.user_color : "white";
   const gameWhite = game ? game.white_player : "White";
@@ -135,7 +223,14 @@ const GameAnalysis = ({ user }) => {
   const analysisInaccuracies = analysis ? analysis.inaccuracies : 0;
   const analysisBestMoves = analysis ? analysis.best_moves : 0;
   const analysisSummary = analysis ? analysis.overall_summary : "";
+  const analysisWeaknesses = analysis ? analysis.weaknesses : [];
   const analysisPatterns = analysis ? analysis.identified_patterns : [];
+  const keyLesson = analysis ? analysis.key_lesson : "";
+
+  // Determine what patterns to show
+  const hasWeaknesses = analysisWeaknesses && analysisWeaknesses.length > 0;
+  const hasPatterns = analysisPatterns && analysisPatterns.length > 0;
+  const showPatternSection = hasWeaknesses || hasPatterns;
 
   return (
     <Layout user={user}>
@@ -267,51 +362,44 @@ const GameAnalysis = ({ user }) => {
                       </div>
                     </div>
 
-                    {/* Identified Patterns */}
-                    {((analysis && analysis.weaknesses) || analysisPatterns).length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">Patterns Identified</p>
-                        <div className="flex flex-wrap gap-2">
-                          {(analysis && analysis.weaknesses ? analysis.weaknesses : []).map((weakness, idx) => (
-                            <Badge 
-                              key={idx} 
-                              variant="outline"
-                              className="text-xs capitalize"
-                            >
-                              {weakness.display_name || (weakness.subcategory ? weakness.subcategory.replace(/_/g, ' ') : 'Pattern #' + (idx + 1))}
-                            </Badge>
-                          ))}
-                          {/* Fallback for old data */}
-                          {(!analysis || !analysis.weaknesses) && analysisPatterns.map((patternId, idx) => (
-                            <Badge key={idx} variant="outline">
-                              Pattern #{idx + 1}
-                            </Badge>
-                          ))}
-                        </div>
-                        {/* Show weakness details */}
-                        {analysis && analysis.weaknesses && analysis.weaknesses.length > 0 && (
-                          <div className="mt-3 space-y-2">
-                            {analysis.weaknesses.map((w, idx) => (
-                              <div key={idx} className="p-2 rounded bg-muted/50 text-sm">
-                                <span className="font-medium capitalize">{w.display_name || (w.subcategory ? w.subcategory.replace(/_/g, ' ') : '')}</span>
-                                {w.description && (
-                                  <p className="text-muted-foreground text-xs mt-1">{w.description}</p>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
                     {/* Key Lesson */}
-                    {analysis.key_lesson && (
+                    {keyLesson && (
                       <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                         <p className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-2">
                           <Sparkles className="w-4 h-4" />
                           Key Lesson
                         </p>
-                        <p className="text-sm mt-1">{analysis.key_lesson}</p>
+                        <p className="text-sm mt-1">{keyLesson}</p>
+                      </div>
+                    )}
+
+                    {/* Identified Patterns */}
+                    {showPatternSection && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Patterns Identified</p>
+                        <div className="flex flex-wrap gap-2">
+                          {hasWeaknesses && analysisWeaknesses.map((weakness, idx) => (
+                            <Badge 
+                              key={idx} 
+                              variant="outline"
+                              className="text-xs capitalize"
+                            >
+                              {getWeaknessDisplayName(weakness, idx)}
+                            </Badge>
+                          ))}
+                          {!hasWeaknesses && analysisPatterns.map((patternId, idx) => (
+                            <Badge key={idx} variant="outline">
+                              Pattern #{idx + 1}
+                            </Badge>
+                          ))}
+                        </div>
+                        {hasWeaknesses && (
+                          <div className="mt-3 space-y-2">
+                            {analysisWeaknesses.map((w, idx) => (
+                              <WeaknessCard key={idx} weakness={w} index={idx} />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </TabsContent>
@@ -320,69 +408,11 @@ const GameAnalysis = ({ user }) => {
                     <ScrollArea className="h-[400px]">
                       <div className="space-y-3">
                         {analysisCommentary.map((item, index) => (
-                          <div 
-                            key={index}
-                            className={`p-3 rounded-lg border-l-4 ${getEvalClass(item.evaluation)} cursor-pointer transition-all hover:scale-[1.01] ${
-                              currentMoveNumber === item.move_number ? 'ring-2 ring-primary' : ''
-                            }`}
-                            data-testid={`move-comment-${index}`}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-sm font-medium">
-                                  {item.move_number}. {item.move}
-                                </span>
-                                {getEvalIcon(item.evaluation)}
-                              </div>
-                              {item.evaluation && item.evaluation !== 'neutral' && (
-                                <Badge variant="outline" className="text-xs capitalize">
-                                  {item.evaluation}
-                                </Badge>
-                              )}
-                            </div>
-                            
-                            {/* Player Intention - What they were trying to do */}
-                            {item.player_intention && (
-                              <p className="text-sm text-blue-600 dark:text-blue-400 italic mb-2">
-                                &ldquo;{item.player_intention}&rdquo;
-                              </p>
-                            )}
-                            
-                            {/* Coach Response - The main explanation */}
-                            {item.coach_response && (
-                              <p className="text-sm text-muted-foreground mb-2">{item.coach_response}</p>
-                            )}
-                            
-                            {/* Fallback to old comment field */}
-                            {!item.coach_response && item.comment && (
-                              <p className="text-sm text-muted-foreground mb-2">{item.comment}</p>
-                            )}
-                            
-                            {/* Better Move suggestion */}
-                            {item.better_move && (
-                              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                                Better: {item.better_move}
-                              </p>
-                            )}
-                            
-                            {/* Expanded Explanation for mistakes/blunders */}
-                            {item.explanation && (item.evaluation === 'blunder' || item.evaluation === 'mistake' || item.evaluation === 'inaccuracy') && (
-                              <div className="mt-2 pt-2 border-t border-muted space-y-1">
-                                {item.explanation.thinking_error && (
-                                  <p className="text-xs">
-                                    <span className="font-medium text-red-500">Thinking:</span>{' '}
-                                    <span className="text-muted-foreground">{item.explanation.thinking_error}</span>
-                                  </p>
-                                )}
-                                {item.explanation.one_repeatable_rule && (
-                                  <p className="text-xs">
-                                    <span className="font-medium text-emerald-500">Rule:</span>{' '}
-                                    <span className="text-muted-foreground">{item.explanation.one_repeatable_rule}</span>
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <MoveComment 
+                            key={index} 
+                            item={item} 
+                            isActive={currentMoveNumber === item.move_number}
+                          />
                         ))}
                       </div>
                     </ScrollArea>
