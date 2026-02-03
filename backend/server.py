@@ -299,6 +299,10 @@ async def mobile_google_auth(request: MobileAuthRequest):
     Authenticate mobile users with Google access token.
     Fetches user info from Google and creates/updates user.
     """
+    # Validate access token is not empty
+    if not request.access_token or not request.access_token.strip():
+        raise HTTPException(status_code=401, detail="Access token is required")
+    
     try:
         # Verify and get user info from Google
         async with httpx.AsyncClient() as client_http:
