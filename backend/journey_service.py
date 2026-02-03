@@ -411,6 +411,176 @@ async def generate_journey_dashboard_data(
     }
 
 
+# ==================== AUTO-ANALYSIS ====================
+
+async def auto_analyze_game(db, user_id: str, game_doc: Dict) -> Optional[Dict]:
+    """
+    Automatically analyze a game with AI coaching.
+    Returns the analysis document or None if analysis fails/skipped.
+    """
+    import os
+    import json
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    from player_profile_service import get_or_create_profile, update_profile_after_analysis
+    from rag_service import build_rag_context
+    from cqs_service import evaluate_analysis_quality, get_stricter_prompt_constraints
+    
+    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+    if not EMERGENT_LLM_KEY:
+        logger.error("EMERGENT_LLM_KEY not configured - skipping auto-analysis")
+        return None
+    
+    game_id = game_doc.get("game_id")
+    pgn = game_doc.get("pgn", "")
+    user_color = game_doc.get("user_color", "white")
+    
+    if not pgn or len(pgn) < 50:
+        logger.warning(f"Game {game_id} has invalid PGN - skipping analysis")
+        return None
+    
+    # Check if already analyzed
+    existing = await db.game_analyses.find_one({"game_id": game_id})
+    if existing:
+        logger.info(f"Game {game_id} already analyzed - skipping")
+        return None
+    
+    try:
+        # Get user info
+        user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "name": 1})
+        user_name = user_doc.get("name", "Player") if user_doc else "Player"
+        first_name = user_name.split()[0] if user_name else "friend"
+        
+        # Get profile and RAG context
+        profile = await get_or_create_profile(db, user_id, user_name)
+        rag_context = await build_rag_context(db, user_id, game_doc)
+        
+        # Build memory context
+        top_weaknesses = profile.get("top_weaknesses", [])[:3]
+        games_analyzed = profile.get("games_analyzed_count", 0)
+        
+        memory_callouts = []
+        for w in top_weaknesses:
+            subcat = w.get("subcategory", "").replace("_", " ")
+            count = w.get("occurrence_count", 0)
+            if count >= 2:
+                memory_callouts.append(f"- {subcat}: seen {count} times before")
+        
+        memory_section = ""
+        if memory_callouts:
+            memory_section = "COACH MEMORY:\n" + "\n".join(memory_callouts)
+        
+        # Simplified system prompt for auto-analysis
+        system_prompt = f"""You are an experienced chess coach analyzing a game.
+
+{first_name} played as {user_color}. Games analyzed: {games_analyzed}
+
+{memory_section}
+
+Respond with ONLY valid JSON:
+{{
+    "game_summary": "2-3 sentence summary",
+    "blunders": <number>,
+    "mistakes": <number>,
+    "best_moves": <number>,
+    "move_by_move": [
+        {{
+            "move_number": 1,
+            "move": "e4",
+            "evaluation": "good|solid|neutral|inaccuracy|mistake|blunder",
+            "thinking_pattern": "What was the thinking here",
+            "lesson": "Brief lesson if mistake",
+            "consider": "What to consider instead"
+        }}
+    ],
+    "identified_weaknesses": [
+        {{"category": "tactical", "subcategory": "fork_blindness", "habit_description": "Description"}}
+    ],
+    "identified_strengths": [
+        {{"category": "positional", "subcategory": "good_development", "description": "What they did well"}}
+    ],
+    "best_move_suggestions": [
+        {{"move_number": 10, "best_move": "Nf3", "reason": "Why this was better"}}
+    ],
+    "focus_this_week": "One thing to work on",
+    "voice_script": "30-second spoken summary"
+}}
+
+RULES:
+- NO engine language (stockfish, centipawns, +0.5)
+- Keep explanations SHORT
+- Strengths must be POSITIVE (good_development, solid_defense) - NEVER list weaknesses as strengths
+- For blunders, suggest the best_move
+"""
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"auto_analysis_{game_id}",
+            system_message=system_prompt
+        ).with_model("openai", "gpt-5.2")
+        
+        user_message = UserMessage(text=f"Analyze this game:\n\n{pgn}")
+        response = await chat.a_send_message(user_message)
+        
+        # Parse response
+        response_text = response.text.strip()
+        if response_text.startswith("```"):
+            response_text = response_text.split("```")[1]
+            if response_text.startswith("json"):
+                response_text = response_text[4:]
+        
+        analysis_data = json.loads(response_text)
+        
+        # Create analysis document
+        analysis_doc = {
+            "analysis_id": f"analysis_{game_id}",
+            "game_id": game_id,
+            "user_id": user_id,
+            "game_summary": analysis_data.get("game_summary", ""),
+            "blunders": analysis_data.get("blunders", 0),
+            "mistakes": analysis_data.get("mistakes", 0),
+            "best_moves": analysis_data.get("best_moves", 0),
+            "move_by_move": analysis_data.get("move_by_move", []),
+            "weaknesses": analysis_data.get("identified_weaknesses", []),
+            "identified_weaknesses": analysis_data.get("identified_weaknesses", []),
+            "strengths": analysis_data.get("identified_strengths", []),
+            "best_move_suggestions": analysis_data.get("best_move_suggestions", []),
+            "focus_this_week": analysis_data.get("focus_this_week", ""),
+            "voice_script_summary": analysis_data.get("voice_script", ""),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "auto_analyzed": True
+        }
+        
+        await db.game_analyses.insert_one(analysis_doc)
+        
+        # Mark game as analyzed
+        await db.games.update_one(
+            {"game_id": game_id},
+            {"$set": {"is_analyzed": True}}
+        )
+        
+        # Update player profile
+        await update_profile_after_analysis(
+            db,
+            user_id,
+            game_id,
+            analysis_data.get("blunders", 0),
+            analysis_data.get("mistakes", 0),
+            analysis_data.get("best_moves", 0),
+            analysis_data.get("identified_weaknesses", []),
+            analysis_data.get("identified_strengths", [])
+        )
+        
+        logger.info(f"Auto-analysis complete for game {game_id}")
+        return analysis_doc
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse AI response for game {game_id}: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Auto-analysis error for game {game_id}: {e}")
+        return None
+
+
 # ==================== BACKGROUND SYNC JOB ====================
 
 def extract_pgn_from_chesscom_game(game: Dict, username: str) -> Optional[str]:
