@@ -642,6 +642,13 @@ Games analyzed together: {games_analyzed}
             "description": "What they did well"
         }}
     ],
+    "best_move_suggestions": [
+        {{
+            "move_number": 15,
+            "best_move": "Nf3",
+            "reason": "Controls the center and prepares castling"
+        }}
+    ],
     "focus_this_week": "The ONE habit to work on",
     "voice_script": "30-second calm spoken summary"
 }}
@@ -654,6 +661,9 @@ Games analyzed together: {games_analyzed}
 5. "consider" field must be CONCEPTUAL, not "play Nf3"
 6. Keep everything SHORT - coaches don't over-explain
 7. Memory references are factual, never shaming
+8. STRENGTHS must be POSITIVE patterns only (e.g., "good_development", "solid_defense", "active_pieces")
+   NEVER list weaknesses as strengths. If no clear strength, leave empty array.
+9. For key blunders/mistakes, suggest the best_move that would have been better
 
 Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
 """
