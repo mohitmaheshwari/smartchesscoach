@@ -1207,9 +1207,11 @@ async def get_linked_accounts(user: User = Depends(get_current_user)):
 @api_router.post("/journey/sync-now")
 async def trigger_game_sync(background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
     """
-    Manually trigger game sync (for testing/demo purposes).
-    In production, this happens automatically every 6-12 hours.
+    Manually trigger game sync for the current user.
+    Runs the sync immediately in the background.
     """
+    from journey_service import sync_user_games
+    
     user_doc = await db.users.find_one(
         {"user_id": user.user_id},
         {"_id": 0}
@@ -1222,14 +1224,17 @@ async def trigger_game_sync(background_tasks: BackgroundTasks, user: User = Depe
     if not has_linked:
         raise HTTPException(status_code=400, detail="No chess accounts linked. Link an account first.")
     
-    # Note: In production, this would be a background job
-    # For now, we just update the sync timestamp to trigger on next poll
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$set": {"sync_requested": datetime.now(timezone.utc).isoformat()}}
-    )
+    # Run sync in background
+    async def do_sync():
+        try:
+            count = await sync_user_games(db, user.user_id, user_doc)
+            logger.info(f"Manual sync for user {user.user_id}: {count} games synced")
+        except Exception as e:
+            logger.error(f"Manual sync error for {user.user_id}: {e}")
     
-    return {"message": "Game sync requested. New games will be analyzed shortly."}
+    background_tasks.add_task(do_sync)
+    
+    return {"message": "Game sync started. New games will appear shortly."}
 
 # ==================== WEAKNESS/PATTERN ROUTES ====================
 
