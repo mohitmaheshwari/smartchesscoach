@@ -1,115 +1,145 @@
 # Chess Coach AI - Mobile App
 
-React Native (Expo) mobile app for the Chess Coach AI platform.
+A React Native (Expo) mobile application for the Chess Coach AI platform.
 
 ## Features
 
-- **Dashboard** - Overview of games, stats, and quick actions
-- **Journey** - Progress tracking with weakness trends and coach assessment
-- **Games** - Import and view games from Chess.com/Lichess
-- **Game Analysis** - AI-powered move-by-move analysis with best move suggestions
-- **Settings** - Theme toggle, email notifications, profile
+- **Interactive Chessboard**: WebView-based chess board for reviewing game positions
+- **Google Sign-In**: Secure authentication using expo-auth-session
+- **Push Notifications**: Get notified when your games are analyzed
+- **Game Analysis**: View AI-powered analysis of your chess games
+- **Journey Dashboard**: Track your improvement over time
+- **Dark/Light Theme**: System-aware theming
 
-## Tech Stack
+## Prerequisites
 
-- **Expo** (SDK 54)
-- **Expo Router** - File-based navigation
-- **React Native** - Cross-platform mobile
-- **Expo Secure Store** - Secure token storage
+- Node.js 18+
+- npm or yarn
+- Expo CLI (`npm install -g expo-cli`)
+- Expo Go app on your mobile device (for development)
+
+## Setup
+
+1. Install dependencies:
+```bash
+cd /app/mobile
+npm install
+```
+
+2. Start the development server:
+```bash
+npx expo start
+```
+
+3. Open the app:
+   - Scan the QR code with Expo Go (Android)
+   - Scan the QR code with Camera app (iOS)
+   - Or press `w` to open web version (requires additional dependencies)
 
 ## Project Structure
 
 ```
-mobile/
+/app/mobile/
 ├── app/                    # Expo Router screens
-│   ├── _layout.js          # Root layout with providers
-│   ├── index.js            # Entry point (auth check)
-│   ├── login.js            # Login screen
-│   ├── (tabs)/             # Tab navigator
-│   │   ├── _layout.js      # Tab configuration
-│   │   ├── dashboard.js    # Dashboard screen
-│   │   ├── journey.js      # Journey/progress screen
-│   │   ├── games.js        # Games list screen
-│   │   └── settings.js     # Settings screen
-│   └── game/
-│       └── [id].js         # Game analysis screen
+│   ├── (tabs)/            # Tab-based navigation
+│   │   ├── dashboard.js   # Dashboard screen
+│   │   ├── journey.js     # Journey tracking
+│   │   ├── games.js       # Games list
+│   │   └── settings.js    # User settings
+│   ├── game/              
+│   │   └── [id].js        # Game analysis with chessboard
+│   ├── login.js           # Google Sign-In
+│   ├── index.js           # Entry point
+│   └── _layout.js         # Root layout with providers
 ├── src/
-│   ├── constants/
-│   │   └── config.js       # API URL, colors, constants
+│   ├── components/
+│   │   └── ChessBoard.js  # WebView-based chessboard
 │   ├── context/
-│   │   ├── AuthContext.js  # Authentication state
-│   │   └── ThemeContext.js # Theme state (dark/light)
-│   └── services/
-│       └── api.js          # API service functions
-├── app.json                # Expo configuration
-└── package.json
+│   │   ├── AuthContext.js # Authentication state
+│   │   └── ThemeContext.js # Theme state
+│   ├── services/
+│   │   ├── api.js         # Backend API calls
+│   │   ├── googleAuth.js  # Google OAuth helpers
+│   │   └── notifications.js # Push notification setup
+│   └── constants/
+│       └── config.js      # App configuration
+├── assets/                 # App icons and images
+├── app.json               # Expo configuration
+└── package.json           # Dependencies
 ```
 
-## Setup
+## Key Technologies
 
-1. **Install dependencies:**
-   ```bash
-   cd mobile
-   npm install
-   ```
+- **Expo SDK 54**: Modern React Native development
+- **Expo Router**: File-based navigation
+- **expo-auth-session**: Google OAuth integration
+- **expo-notifications**: Push notification support
+- **react-native-webview**: Interactive chessboard rendering
+- **chess.js**: Chess game logic and PGN parsing
 
-2. **Configure API URL:**
-   Edit `src/constants/config.js`:
-   ```javascript
-   export const API_URL = 'https://your-backend-url/api';
-   ```
+## API Configuration
 
-3. **Run the app:**
-   ```bash
-   # Start Expo dev server
-   npm start
-   
-   # Or run on specific platform
-   npm run ios
-   npm run android
-   ```
+The mobile app connects to the same backend as the web app:
+- API URL: Configured in `src/constants/config.js`
+- Authentication: Bearer token stored in SecureStore
+
+## Google OAuth Setup
+
+For development, the app uses Expo's development client ID. For production:
+
+1. Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/)
+2. Add client IDs for iOS and Android
+3. Update `src/services/googleAuth.js` with your credentials
+
+## Push Notifications
+
+Push notifications require:
+1. A physical device (not supported in simulators)
+2. Proper permission grants from the user
+3. Valid Expo push token registration with backend
+
+The app automatically registers for push notifications when a user logs in.
 
 ## Building for Production
 
-### iOS (App Store)
+### Development Build
 ```bash
-eas build --platform ios
+npx expo prebuild
+npx expo run:ios   # or run:android
 ```
 
-### Android (Play Store)
+### Production Build (EAS)
 ```bash
+npm install -g eas-cli
+eas build --platform ios
 eas build --platform android
 ```
 
-## API Integration
+## Backend Endpoints Used
 
-The mobile app connects to the same backend API as the web app:
+- `POST /api/auth/google/mobile` - Mobile Google authentication
+- `GET /api/auth/me` - Current user info
+- `POST /api/auth/logout` - Sign out
+- `GET /api/dashboard-stats` - Dashboard statistics
+- `GET /api/journey` - Journey dashboard data
+- `GET /api/games` - User's games list
+- `GET /api/games/:id` - Single game details
+- `GET /api/analysis/:id` - Game analysis
+- `POST /api/notifications/register-device` - Register push token
 
-| Endpoint | Description |
-|----------|-------------|
-| `/api/auth/me` | Get current user |
-| `/api/dashboard-stats` | Dashboard statistics |
-| `/api/journey` | Journey dashboard data |
-| `/api/journey/linked-accounts` | Linked chess accounts |
-| `/api/games` | List of imported games |
-| `/api/games/:id` | Single game details |
-| `/api/analysis/:id` | Game analysis |
-| `/api/analyze-game` | Trigger AI analysis |
-| `/api/settings/email-notifications` | Email preferences |
+## Troubleshooting
 
-## Environment Variables
+### "Not authenticated" errors
+- Ensure you're logged in with Google
+- Check that the session token is properly stored
+- Try logging out and back in
 
-For production, set these in your EAS build:
+### Chessboard not rendering
+- Check WebView is properly installed
+- Ensure the device has internet connectivity
+- Try force-closing and reopening the app
 
-```bash
-eas secret:create --name API_URL --value "https://api.yourdomain.com/api"
-```
-
-## Features Roadmap
-
-- [ ] Interactive chessboard (react-native-chessboard)
-- [ ] Push notifications for new analysis
-- [ ] Offline mode with local caching
-- [ ] Voice coaching playback
-- [ ] Opening repertoire builder
-- [ ] Parent dashboard
+### Push notifications not working
+- Must be on a physical device
+- Grant notification permissions when prompted
+- Check backend logs for push token registration
