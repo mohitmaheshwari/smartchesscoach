@@ -629,13 +629,37 @@ async def update_profile_after_analysis(
     # Update weaknesses
     await update_weakness_tracking(db, user_id, identified_weaknesses, current_time)
     
-    # Update strengths if provided
+    # Negative keywords that indicate a weakness, not a strength
+    NEGATIVE_KEYWORDS = [
+        'blunder', 'miss', 'poor', 'weak', 'bad', 'not_', 'ignore', 'fail',
+        'neglect', 'losing', 'lost', 'dropped', 'hung', 'mistake', 'error',
+        'oversight', 'blind', 'inaccur', 'premature', 'early', 'late', 'slow',
+        'passive', 'cramped', 'trapped', 'fork_miss', 'pin_miss', 'skewer_miss',
+        'back_rank', 'one_move', 'hope_chess', 'time_trouble', 'tunnel_vision'
+    ]
+    
+    def is_valid_strength(subcategory: str) -> bool:
+        """Check if a subcategory represents a genuine strength, not a weakness."""
+        subcat_lower = subcategory.lower()
+        for neg in NEGATIVE_KEYWORDS:
+            if neg in subcat_lower:
+                return False
+        return True
+    
+    # Update strengths if provided (with validation)
     strengths = profile.get("strengths", [])
     if identified_strengths:
         for strength in identified_strengths:
+            subcategory = strength.get("subcategory", "general")
+            
+            # Skip if this looks like a weakness, not a strength
+            if not is_valid_strength(subcategory):
+                logger.warning(f"Filtered out invalid strength: {subcategory}")
+                continue
+            
             strength_key = normalize_weakness_key(
                 strength.get("category", "tactical"),
-                strength.get("subcategory", "general")
+                subcategory
             )
             
             # Check if strength already exists
@@ -649,7 +673,7 @@ async def update_profile_after_analysis(
             if not found:
                 strengths.append({
                     "category": strength.get("category"),
-                    "subcategory": strength.get("subcategory"),
+                    "subcategory": subcategory,
                     "evidence_count": 1
                 })
         
