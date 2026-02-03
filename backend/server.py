@@ -827,6 +827,9 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         # Remove _id before returning
         analysis_doc.pop('_id', None)
         
+        # IMPORTANT: Remove internal CQS data before returning to user
+        analysis_doc.pop('_cqs_internal', None)
+        
         # Step 5: UPDATE PLAYER PROFILE (CRITICAL - happens after every game)
         logger.info(f"Updating PlayerProfile for user {user.user_id}")
         background_tasks.add_task(
