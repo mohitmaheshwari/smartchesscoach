@@ -289,6 +289,89 @@ async def logout(request: Request, response: Response):
     response.delete_cookie(key="session_token", path="/")
     return {"message": "Logged out successfully"}
 
+class MobileAuthRequest(BaseModel):
+    """Request for mobile Google authentication"""
+    access_token: str
+
+@api_router.post("/auth/google/mobile")
+async def mobile_google_auth(request: MobileAuthRequest):
+    """
+    Authenticate mobile users with Google access token.
+    Fetches user info from Google and creates/updates user.
+    """
+    try:
+        # Verify and get user info from Google
+        async with httpx.AsyncClient() as client_http:
+            resp = await client_http.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {request.access_token}"}
+            )
+            
+            if resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid Google access token")
+            
+            google_data = resp.json()
+        
+        email = google_data.get("email")
+        name = google_data.get("name", email.split("@")[0])
+        picture = google_data.get("picture")
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not provided by Google")
+        
+        # Create or update user
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        session_token = f"mobile_session_{uuid.uuid4().hex}"
+        
+        existing_user = await db.users.find_one({"email": email}, {"_id": 0})
+        
+        if existing_user:
+            user_id = existing_user["user_id"]
+            await db.users.update_one(
+                {"user_id": user_id},
+                {"$set": {
+                    "name": name,
+                    "picture": picture,
+                    "last_login": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+        else:
+            user_doc = {
+                "user_id": user_id,
+                "email": email,
+                "name": name,
+                "picture": picture,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "chess_com_username": None,
+                "lichess_username": None
+            }
+            await db.users.insert_one(user_doc)
+        
+        # Create session
+        await db.user_sessions.delete_many({"user_id": user_id})
+        
+        session_doc = {
+            "user_id": user_id,
+            "session_token": session_token,
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "is_mobile": True
+        }
+        await db.user_sessions.insert_one(session_doc)
+        
+        user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+        
+        return {
+            "user": user_doc,
+            "session_token": session_token
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Mobile auth error: {e}")
+        raise HTTPException(status_code=500, detail="Authentication failed")
+
 # ==================== PLATFORM CONNECTION ROUTES ====================
 
 @api_router.post("/connect-platform")
