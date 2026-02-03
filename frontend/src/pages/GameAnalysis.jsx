@@ -344,7 +344,7 @@ const GameAnalysis = ({ user }) => {
                             {/* Player Intention - What they were trying to do */}
                             {item.player_intention && (
                               <p className="text-sm text-blue-600 dark:text-blue-400 italic mb-2">
-                                "{item.player_intention}"
+                                &ldquo;{item.player_intention}&rdquo;
                               </p>
                             )}
                             
