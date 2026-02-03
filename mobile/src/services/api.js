@@ -23,14 +23,14 @@ const fetchWithAuth = async (endpoint, options = {}) => {
     ...options.headers,
   };
   
+  // For mobile, we use Authorization header instead of cookie
   if (token) {
-    headers['Cookie'] = `session=${token}`;
+    headers['Authorization'] = `Bearer ${token}`;
   }
   
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
-    credentials: 'include',
   });
   
   return response;
