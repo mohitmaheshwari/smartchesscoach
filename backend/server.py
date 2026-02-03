@@ -627,7 +627,7 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "excellent", "brilliant
                         explanation["one_repeatable_rule"] = "Always scan the whole board before moving"
             validated_commentary.append(item)
         
-        # Map weaknesses to predefined categories
+        # Map weaknesses to predefined categories with full details
         categorized_weaknesses = []
         for w in analysis_data.get("identified_weaknesses", []) or analysis_data.get("identified_patterns", []):
             cat, subcat = categorize_weakness(
@@ -637,7 +637,9 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "excellent", "brilliant
             categorized_weaknesses.append({
                 "category": cat,
                 "subcategory": subcat,
-                "description": w.get("description", "")
+                "description": w.get("description", ""),
+                "advice": w.get("advice", ""),
+                "display_name": subcat.replace("_", " ").title()
             })
         
         analysis = GameAnalysis(
@@ -649,13 +651,14 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "excellent", "brilliant
             inaccuracies=analysis_data.get("inaccuracies", 0),
             best_moves=analysis_data.get("best_moves", 0),
             overall_summary=analysis_data.get("overall_summary", ""),
-            identified_patterns=[]
+            identified_patterns=[]  # Legacy field - will also store full data separately
         )
         
-        # Store voice script for future use
+        # Store voice script and key lesson for future use
         voice_script = analysis_data.get("voice_script_summary", "")
+        key_lesson = analysis_data.get("key_lesson", "")
         
-        # Update mistake_patterns collection (legacy support)
+        # Update mistake_patterns collection (legacy support for pattern IDs)
         for pattern_data in categorized_weaknesses:
             existing_pattern = await db.mistake_patterns.find_one({
                 "user_id": user.user_id,
@@ -690,8 +693,11 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "excellent", "brilliant
         
         analysis_doc = analysis.model_dump()
         analysis_doc['created_at'] = analysis_doc['created_at'].isoformat()
+        # Store full weakness data for frontend display
+        analysis_doc['weaknesses'] = categorized_weaknesses  # NEW: Full data, not just IDs
+        analysis_doc['strengths'] = analysis_data.get("identified_strengths", [])
+        analysis_doc['key_lesson'] = key_lesson
         analysis_doc['voice_script_summary'] = voice_script
-        analysis_doc['identified_strengths'] = analysis_data.get("identified_strengths", [])
         await db.game_analyses.insert_one(analysis_doc)
         
         await db.games.update_one(
