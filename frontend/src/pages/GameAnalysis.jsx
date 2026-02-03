@@ -303,8 +303,26 @@ const GameAnalysis = ({ user }) => {
             )}
           </div>
         )}
+        
+        {/* BEST MOVE SUGGESTION - Show for mistakes */}
+        {isMistake(item.evaluation) && getBestMoveForMove(item.move_number) && (
+          <div className="mt-2 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs">
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+              ✓ Better: <span className="font-mono">{getBestMoveForMove(item.move_number).best_move}</span>
+            </span>
+            {getBestMoveForMove(item.move_number).reason && (
+              <p className="text-muted-foreground mt-1">{getBestMoveForMove(item.move_number).reason}</p>
+            )}
+          </div>
+        )}
       </div>
     );
+  };
+
+  // Helper to get best move suggestion for a move number
+  const getBestMoveForMove = (moveNumber) => {
+    if (!analysis || !analysis.best_move_suggestions) return null;
+    return analysis.best_move_suggestions.find(s => s.move_number === moveNumber);
   };
 
   const renderWeakness = (w, i) => {
