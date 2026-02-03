@@ -291,6 +291,13 @@ const GameAnalysis = ({ user }) => {
           )}
         </div>
         
+        {/* Memory Reference - Coach remembering past mistakes */}
+        {item.memory_reference && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mb-2 font-medium">
+            ⚠️ {item.memory_reference}
+          </p>
+        )}
+        
         {item.player_intention && (
           <p className="text-sm text-blue-600 dark:text-blue-400 italic mb-2">
             &ldquo;{item.player_intention}&rdquo;
@@ -315,8 +322,14 @@ const GameAnalysis = ({ user }) => {
           <div className="mt-2 pt-2 border-t border-muted space-y-1">
             {item.explanation.thinking_error && (
               <p className="text-xs">
-                <span className="font-medium text-red-500">Thinking:</span>{" "}
+                <span className="font-medium text-red-500">Habit:</span>{" "}
                 <span className="text-muted-foreground">{item.explanation.thinking_error}</span>
+              </p>
+            )}
+            {item.explanation.habit_category && (
+              <p className="text-xs">
+                <span className="font-medium text-orange-500">Category:</span>{" "}
+                <span className="text-muted-foreground capitalize">{item.explanation.habit_category.split("_").join(" ")}</span>
               </p>
             )}
             {item.explanation.one_repeatable_rule && (
