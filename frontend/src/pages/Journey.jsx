@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,253 +6,153 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
-import { 
-  Loader2, 
-  Brain,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  CheckCircle2,
-  AlertCircle,
-  Link as LinkIcon,
-  Sparkles
-} from "lucide-react";
+import { Loader2, Brain, TrendingUp, TrendingDown, Minus, CheckCircle2, Sparkles } from "lucide-react";
 
 const Journey = ({ user }) => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState(null);
-  const [linkedAccounts, setLinkedAccounts] = useState({ chess_com: null, lichess: null });
-  const [linkingPlatform, setLinkingPlatform] = useState(null);
-  const [linkUsername, setLinkUsername] = useState("");
-  const [isLinking, setIsLinking] = useState(false);
+  const [accounts, setAccounts] = useState({ chess_com: null, lichess: null });
+  const [platform, setPlatform] = useState(null);
+  const [username, setUsername] = useState("");
+  const [linking, setLinking] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch linked accounts
-        const accountsRes = await fetch(API + "/journey/linked-accounts", { credentials: "include" });
-        if (accountsRes.ok) {
-          const accounts = await accountsRes.json();
-          setLinkedAccounts(accounts);
-        }
-
-        // Fetch journey dashboard
-        const dashRes = await fetch(API + "/journey", { credentials: "include" });
-        if (dashRes.ok) {
-          const data = await dashRes.json();
-          setDashboard(data);
-        }
-      } catch (error) {
-        console.error("Error loading journey:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    fetchDashboard();
   }, []);
 
-  const handleLinkAccount = async () => {
-    if (!linkUsername.trim()) {
-      toast.error("Please enter a username");
-      return;
-    }
-
-    setIsLinking(true);
+  const fetchDashboard = async () => {
     try {
-      const response = await fetch(API + "/journey/link-account", {
+      const res1 = await fetch(API + "/journey/linked-accounts", { credentials: "include" });
+      if (res1.ok) setAccounts(await res1.json());
+      
+      const res2 = await fetch(API + "/journey", { credentials: "include" });
+      if (res2.ok) setDashboard(await res2.json());
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const linkAccount = async () => {
+    if (!username.trim()) return toast.error("Enter username");
+    setLinking(true);
+    try {
+      const res = await fetch(API + "/journey/link-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          platform: linkingPlatform,
-          username: linkUsername.trim()
-        })
+        body: JSON.stringify({ platform: platform, username: username.trim() })
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Failed to link account");
-      }
-
-      const data = await response.json();
-      toast.success(data.message);
-      
-      // Update linked accounts
-      if (linkingPlatform === "chess.com") {
-        setLinkedAccounts(prev => ({ ...prev, chess_com: linkUsername }));
-      } else {
-        setLinkedAccounts(prev => ({ ...prev, lichess: linkUsername }));
-      }
-      
-      setLinkingPlatform(null);
-      setLinkUsername("");
-      
-      // Refresh dashboard
-      const dashRes = await fetch(API + "/journey", { credentials: "include" });
-      if (dashRes.ok) setDashboard(await dashRes.json());
-      
-    } catch (error) {
-      toast.error(error.message);
+      if (!res.ok) throw new Error((await res.json()).detail);
+      toast.success("Account linked!");
+      setPlatform(null);
+      setUsername("");
+      fetchDashboard();
+    } catch (e) {
+      toast.error(e.message);
     } finally {
-      setIsLinking(false);
+      setLinking(false);
     }
-  };
-
-  const getTrendIcon = (trend) => {
-    if (trend === "improving") return <TrendingDown className="w-4 h-4 text-emerald-500" />;
-    if (trend === "worsening") return <TrendingUp className="w-4 h-4 text-red-500" />;
-    return <Minus className="w-4 h-4 text-muted-foreground" />;
-  };
-
-  const getTrendLabel = (trend) => {
-    if (trend === "improving") return "Improving";
-    if (trend === "worsening") return "Needs work";
-    return "Stable";
-  };
-
-  const getStatusBadge = (status) => {
-    if (status === "improving") {
-      return <Badge className="bg-emerald-500/20 text-emerald-600 border-0">Improving</Badge>;
-    }
-    if (status === "needs_attention") {
-      return <Badge className="bg-red-500/20 text-red-600 border-0">Focus here</Badge>;
-    }
-    return <Badge className="bg-blue-500/20 text-blue-600 border-0">Stable</Badge>;
   };
 
   if (loading) {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <Loader2 className="w-8 h-8 animate-spin" />
         </div>
       </Layout>
     );
   }
 
-  const hasLinkedAccount = linkedAccounts.chess_com || linkedAccounts.lichess;
-  const gamesAnalyzed = dashboard ? dashboard.games_analyzed : 0;
+  const hasAccount = accounts.chess_com || accounts.lichess;
+  const games = dashboard ? dashboard.games_analyzed : 0;
+  const mode = dashboard ? dashboard.mode : "onboarding";
 
   return (
     <Layout user={user}>
-      <div className="space-y-6" data-testid="journey-page">
-        {/* Header */}
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Your Journey</h1>
-            <p className="text-sm text-muted-foreground">
-              Track your learning progress over time
-            </p>
+            <h1 className="text-2xl font-bold">Your Journey</h1>
+            <p className="text-sm text-muted-foreground">Track learning progress</p>
           </div>
-          {gamesAnalyzed > 0 && (
-            <Badge variant="outline" className="text-xs">
-              {gamesAnalyzed} games analyzed
-            </Badge>
-          )}
+          {games > 0 && <Badge variant="outline">{games} games</Badge>}
         </div>
 
-        {/* Link Accounts Section (if none linked) */}
-        {!hasLinkedAccount && (
+        {!hasAccount && (
           <Card className="border-dashed border-2">
-            <CardContent className="py-8">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <LinkIcon className="w-8 h-8 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">Connect Your Chess Account</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Link your Chess.com or Lichess account to start automatic coaching
-                  </p>
-                </div>
-                <div className="flex justify-center gap-3">
-                  <Button onClick={() => setLinkingPlatform("chess.com")} variant="outline">
-                    Chess.com
-                  </Button>
-                  <Button onClick={() => setLinkingPlatform("lichess")} variant="outline">
-                    Lichess
-                  </Button>
-                </div>
+            <CardContent className="py-8 text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Brain className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg">Connect Chess Account</h3>
+              <p className="text-sm text-muted-foreground">Link to start automatic coaching</p>
+              <div className="flex justify-center gap-3">
+                <Button onClick={() => setPlatform("chess.com")} variant="outline">Chess.com</Button>
+                <Button onClick={() => setPlatform("lichess")} variant="outline">Lichess</Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Link Account Dialog */}
-        {linkingPlatform && (
+        {platform && (
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Link {linkingPlatform}</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Link {platform}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <Input
-                placeholder={`Enter your ${linkingPlatform} username`}
-                value={linkUsername}
-                onChange={(e) => setLinkUsername(e.target.value)}
-                disabled={isLinking}
+                placeholder={"Enter " + platform + " username"}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={linking}
               />
               <div className="flex gap-2">
-                <Button onClick={handleLinkAccount} disabled={isLinking}>
-                  {isLinking ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Link Account
+                <Button onClick={linkAccount} disabled={linking}>
+                  {linking && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                  Link
                 </Button>
-                <Button variant="ghost" onClick={() => setLinkingPlatform(null)}>
-                  Cancel
-                </Button>
+                <Button variant="ghost" onClick={() => setPlatform(null)}>Cancel</Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Onboarding Message (0-4 games) */}
-        {dashboard && dashboard.mode === "onboarding" && (
+        {mode === "onboarding" && (
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="py-6">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
                   <Brain className="w-6 h-6 text-primary" />
                 </div>
                 <div>
                   <h3 className="font-semibold">Getting to Know Your Game</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {dashboard.weekly_assessment}
+                    {dashboard ? dashboard.weekly_assessment : "Play some games to get started."}
                   </p>
-                  {hasLinkedAccount && (
-                    <p className="text-xs text-muted-foreground mt-3">
-                      Your games are being analyzed automatically. Check back soon.
-                    </p>
-                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Main Dashboard (5+ games) */}
-        {dashboard && dashboard.mode !== "onboarding" && (
+        {mode !== "onboarding" && dashboard && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Coach's Weekly Assessment */}
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2">
                   <Brain className="w-5 h-5 text-primary" />
-                  Coach&apos;s Assessment
+                  Coach Assessment
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground leading-relaxed">
-                  {dashboard.weekly_assessment}
-                </p>
+                <p className="text-muted-foreground">{dashboard.weekly_assessment}</p>
               </CardContent>
             </Card>
 
-            {/* Current Focus Areas */}
             {dashboard.focus_areas && dashboard.focus_areas.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Focus Areas This Week</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle>Focus Areas</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {dashboard.focus_areas.map((area, i) => (
@@ -262,7 +161,13 @@ const Journey = ({ user }) => {
                           <p className="font-medium capitalize">{area.name}</p>
                           <p className="text-xs text-muted-foreground capitalize">{area.category}</p>
                         </div>
-                        {getStatusBadge(area.status)}
+                        <Badge className={
+                          area.status === "improving" ? "bg-emerald-500/20 text-emerald-600 border-0" :
+                          area.status === "needs_attention" ? "bg-red-500/20 text-red-600 border-0" :
+                          "bg-blue-500/20 text-blue-600 border-0"
+                        }>
+                          {area.status === "improving" ? "Improving" : area.status === "needs_attention" ? "Focus" : "Stable"}
+                        </Badge>
                       </div>
                     ))}
                   </div>
@@ -270,29 +175,29 @@ const Journey = ({ user }) => {
               </Card>
             )}
 
-            {/* Weakness Trends */}
             {dashboard.weakness_trends && dashboard.weakness_trends.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Habit Trends</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle>Habit Trends</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {dashboard.weakness_trends.map((trend, i) => (
+                    {dashboard.weakness_trends.map((t, i) => (
                       <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                        <div className="flex-1">
-                          <p className="font-medium capitalize">{trend.name}</p>
+                        <div>
+                          <p className="font-medium capitalize">{t.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {trend.occurrences_recent} recent vs {trend.occurrences_previous} before
+                            {t.occurrences_recent} recent vs {t.occurrences_previous} before
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          {getTrendIcon(trend.trend)}
-                          <span className={`text-xs ${
-                            trend.trend === "improving" ? "text-emerald-500" :
-                            trend.trend === "worsening" ? "text-red-500" : "text-muted-foreground"
-                          }`}>
-                            {getTrendLabel(trend.trend)}
+                          {t.trend === "improving" && <TrendingDown className="w-4 h-4 text-emerald-500" />}
+                          {t.trend === "worsening" && <TrendingUp className="w-4 h-4 text-red-500" />}
+                          {t.trend === "stable" && <Minus className="w-4 h-4 text-muted-foreground" />}
+                          <span className={
+                            t.trend === "improving" ? "text-xs text-emerald-500" :
+                            t.trend === "worsening" ? "text-xs text-red-500" :
+                            "text-xs text-muted-foreground"
+                          }>
+                            {t.trend === "improving" ? "Better" : t.trend === "worsening" ? "Work on" : "Steady"}
                           </span>
                         </div>
                       </div>
@@ -302,42 +207,34 @@ const Journey = ({ user }) => {
               </Card>
             )}
 
-            {/* Resolved Habits */}
             {dashboard.resolved_habits && dashboard.resolved_habits.length > 0 && (
               <Card className="bg-emerald-500/5 border-emerald-500/20">
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                    Resolved Habits
+                    Resolved
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    {dashboard.resolved_habits.map((habit, i) => (
-                      <p key={i} className="text-sm text-muted-foreground">
-                        {habit.message}
-                      </p>
-                    ))}
-                  </div>
+                  {dashboard.resolved_habits.map((h, i) => (
+                    <p key={i} className="text-sm text-muted-foreground">{h.message}</p>
+                  ))}
                 </CardContent>
               </Card>
             )}
 
-            {/* Strengths */}
             {dashboard.strengths && dashboard.strengths.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-amber-500" />
-                    Your Strengths
+                    Strengths
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
-                    {dashboard.strengths.map((strength, i) => (
-                      <Badge key={i} variant="outline" className="capitalize">
-                        {strength.name}
-                      </Badge>
+                    {dashboard.strengths.map((s, i) => (
+                      <Badge key={i} variant="outline" className="capitalize">{s.name}</Badge>
                     ))}
                   </div>
                 </CardContent>
@@ -346,40 +243,24 @@ const Journey = ({ user }) => {
           </div>
         )}
 
-        {/* Linked Accounts (if any) */}
-        {hasLinkedAccount && (
+        {hasAccount && (
           <Card>
-            <CardHeader>
-              <CardTitle className="text-sm text-muted-foreground">Linked Accounts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-4 text-sm">
-                {linkedAccounts.chess_com && (
-                  <div className="flex items-center gap-2">
+            <CardContent className="py-4">
+              <div className="flex gap-4 text-sm flex-wrap">
+                {accounts.chess_com && (
+                  <span className="flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span>Chess.com: {linkedAccounts.chess_com}</span>
-                  </div>
+                    Chess.com: {accounts.chess_com}
+                  </span>
                 )}
-                {linkedAccounts.lichess && (
-                  <div className="flex items-center gap-2">
+                {accounts.lichess && (
+                  <span className="flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span>Lichess: {linkedAccounts.lichess}</span>
-                  </div>
-                )}
-                {!linkedAccounts.chess_com && (
-                  <Button variant="ghost" size="sm" onClick={() => setLinkingPlatform("chess.com")}>
-                    + Add Chess.com
-                  </Button>
-                )}
-                {!linkedAccounts.lichess && (
-                  <Button variant="ghost" size="sm" onClick={() => setLinkingPlatform("lichess")}>
-                    + Add Lichess
-                  </Button>
+                    Lichess: {accounts.lichess}
+                  </span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Your games are analyzed automatically. No action needed.
-              </p>
+              <p className="text-xs text-muted-foreground mt-2">Games analyzed automatically</p>
             </CardContent>
           </Card>
         )}
