@@ -9,6 +9,7 @@ Build an AI coach based chess app that understands context and trains mistakes l
 - Auth: Google social login (Emergent OAuth)
 - Theme: Dark/Light toggle
 - Voice: OpenAI TTS for coaching
+- Email: SendGrid (API key to be added by user)
 
 ## Architecture
 - **Frontend**: React + TailwindCSS + Shadcn UI
@@ -16,6 +17,7 @@ Build an AI coach based chess app that understands context and trains mistakes l
 - **Database**: MongoDB with RAG embeddings + PlayerProfile
 - **AI**: GPT-5.2 via Emergent integrations
 - **Voice**: OpenAI TTS via Emergent LLM key
+- **Email**: SendGrid for notifications
 
 ## Core Requirements (Static)
 1. Import games from Chess.com/Lichess by username
@@ -31,9 +33,10 @@ Build an AI coach based chess app that understands context and trains mistakes l
 11. Voice coaching with OpenAI TTS
 12. Journey Dashboard - Track learning progress over time
 13. Background Game Sync - Automatic polling for new games
+14. Email Notifications - Game analyzed, weekly summary, weakness alerts
 
 ## Database Collections (9 total)
-1. users - User profiles + linked chess accounts
+1. users - User profiles + linked chess accounts + email preferences
 2. user_sessions - Auth sessions
 3. games - Imported chess games
 4. game_analyses - AI analysis results with explanation contract
@@ -60,6 +63,9 @@ Build an AI coach based chess app that understands context and trains mistakes l
 - **Background Game Sync** - Automatic polling every 6 hours
 - **Manual Sync** - "Sync Now" button for immediate sync
 - Account linking UI for Chess.com/Lichess
+- **Email Notifications** - Game analyzed, weekly summary, weakness alerts
+- **Email Settings UI** - Toggle notifications in Settings page
+- **Test Email** - Send test email to verify configuration
 
 ### Key API Endpoints
 - `/api/journey` - Journey Dashboard data
@@ -69,13 +75,14 @@ Build an AI coach based chess app that understands context and trains mistakes l
 - `/api/analyze-game` - AI game analysis
 - `/api/profile` - Player coaching profile
 - `/api/tts/generate` - Voice generation
+- `/api/settings/email-notifications` - GET/PUT email preferences
+- `/api/settings/test-email` - POST send test email
 
 ## P2 Features (Future)
 - Daily Challenge Mode (3 personalized puzzles daily)
 - Keyboard shortcuts for move navigation
 - Opening name detection
 - Move sound effects
-- User Settings Page (learning style, coaching tone)
 
 ## Key Files
 - `/app/backend/server.py` - Main API with all endpoints
@@ -83,8 +90,10 @@ Build an AI coach based chess app that understands context and trains mistakes l
 - `/app/backend/player_profile_service.py` - PlayerProfile & habit tracking
 - `/app/backend/cqs_service.py` - Coach Quality Score system
 - `/app/backend/journey_service.py` - Journey Dashboard & sync logic
+- `/app/backend/email_service.py` - Email notification service (SendGrid)
 - `/app/frontend/src/pages/Journey.jsx` - Journey Dashboard UI
 - `/app/frontend/src/pages/GameAnalysis.jsx` - Game analysis UI
+- `/app/frontend/src/pages/Settings.jsx` - Settings with email notifications
 - `/app/frontend/src/components/Layout.jsx` - Navigation layout
 
 ## Technical Notes
@@ -92,3 +101,13 @@ Build an AI coach based chess app that understands context and trains mistakes l
 - Background sync runs every 6 hours automatically
 - CQS system is internal only, not exposed to users
 - react-chessboard version locked at 4.6.0
+- SendGrid API key must be added by user for email notifications
+
+## Email Configuration (PENDING USER ACTION)
+To enable email notifications, add your SendGrid API key to `/app/backend/.env`:
+```
+SENDGRID_API_KEY=your_sendgrid_api_key_here
+SENDER_EMAIL=your_verified_sender@yourdomain.com
+```
+
+Get your API key from: https://app.sendgrid.com/settings/api_keys
