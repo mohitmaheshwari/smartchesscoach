@@ -473,8 +473,9 @@ async def get_user_mistake_context(user_id: str) -> str:
 
 @api_router.post("/analyze-game")
 async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
-    """Analyze a game with AI coaching using RAG for deep context"""
+    """Analyze a game with AI coaching using PlayerProfile + RAG + Strict Explanation Contract"""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
+    import json
     
     game = await db.games.find_one(
         {"game_id": req.game_id, "user_id": user.user_id},
@@ -490,50 +491,79 @@ async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTask
     if existing_analysis:
         return existing_analysis
     
-    # Use RAG to build rich context from similar games and patterns
+    # Step 1: Get or create PlayerProfile (FIRST-CLASS requirement)
+    logger.info(f"Loading PlayerProfile for user {user.user_id}")
+    profile = await get_or_create_profile(db, user.user_id, user.name)
+    profile_context = build_profile_context_for_prompt(profile)
+    
+    # Step 2: Build RAG context (SUPPORTS memory, doesn't define habits)
     logger.info(f"Building RAG context for game {req.game_id}")
     rag_context = await build_rag_context(db, user.user_id, game)
     
-    system_prompt = f"""You are a friendly, experienced chess coach who speaks like a human mentor, not a computer.
-Your student is {user.name}. They played as {game['user_color']} in this game.
+    # Step 3: Get strict explanation contract
+    explanation_contract = build_explanation_prompt_contract()
+    
+    # Step 4: Build the coaching prompt with all context
+    learning_style = profile.get("learning_style", "concise")
+    coaching_tone = profile.get("coaching_tone", "encouraging")
+    
+    system_prompt = f"""You are a personal chess coach for {user.name}. They played as {game['user_color']} in this game.
 
-=== PLAYER HISTORY (Retrieved via RAG) ===
+{profile_context}
+
+=== HISTORICAL CONTEXT (via RAG) ===
 {rag_context}
 
-Your coaching style:
-- Be conversational and encouraging, like a supportive coach
-- Reference their past mistakes naturally: "Remember how we talked about watching for pins? Here's another example..."
-- If you see similar patterns from their history above, mention them specifically: "I noticed you had a similar position in your game against X..."
-- Use simple language, avoid engine-speak like "0.3 advantage"
-- Focus on patterns they can learn, not just "this was bad"
-- If they made the same type of mistake before, gently remind them with specific examples from their history
-- Celebrate good moves genuinely
-- Keep commentary concise but insightful
+{explanation_contract}
 
-Analyze the game and provide:
-1. A list of move-by-move commentary (focus on critical moments, not every move)
-2. Count of blunders, mistakes, inaccuracies, and best moves
-3. An overall summary (2-3 sentences) that sounds like a coach talking to them, referencing their improvement journey
-4. Identify any mistake patterns (categories: tactical, positional, endgame, opening, time_management; 
-   subcategories: pinning, forks, center_control, one_move_blunder, piece_activity, king_safety, pawn_structure, etc.)
+=== PREDEFINED WEAKNESS CATEGORIES (USE ONLY THESE) ===
+Tactical: one_move_blunders, pin_blindness, fork_misses, skewer_blindness, back_rank_weakness, discovered_attack_misses, removal_of_defender_misses
+Strategic: center_control_neglect, poor_piece_activity, lack_of_plan, pawn_structure_damage, weak_square_creation, piece_coordination_issues
+King Safety: delayed_castling, exposing_own_king, king_walk_blunders, ignoring_king_safety_threats
+Opening Principles: premature_queen_moves, neglecting_development, moving_same_piece_twice, ignoring_center_control, not_castling_early
+Endgame Fundamentals: king_activity_neglect, pawn_race_errors, opposition_misunderstanding, rook_endgame_errors, stalemate_blunders
+Psychological: impulsive_moves, tunnel_vision, hope_chess, time_trouble_blunders, resignation_too_early, overconfidence
 
-Respond in JSON format:
+=== OUTPUT FORMAT (STRICT JSON) ===
 {{
     "commentary": [
-        {{"move_number": 1, "move": "e4", "comment": "...", "evaluation": "neutral"}},
-        ...
+        {{
+            "move_number": 1,
+            "move": "e4",
+            "evaluation": "neutral",
+            "explanation": {{
+                "thinking_error": "...",
+                "why_it_happened": "...",
+                "what_to_focus_on_next_time": "...",
+                "one_repeatable_rule": "..."
+            }}
+        }}
     ],
     "blunders": 0,
     "mistakes": 0,
     "inaccuracies": 0,
     "best_moves": 0,
-    "overall_summary": "...",
-    "identified_patterns": [
-        {{"category": "tactical", "subcategory": "pinning", "description": "..."}}
-    ]
+    "overall_summary": "2-3 sentences as a coach talking to them",
+    "identified_weaknesses": [
+        {{"category": "tactical", "subcategory": "pin_blindness", "description": "..."}}
+    ],
+    "identified_strengths": [
+        {{"category": "tactical", "subcategory": "fork_awareness", "description": "..."}}
+    ],
+    "voice_script_summary": "A 30-second speakable summary of this game"
 }}
 
-Evaluations can be: "blunder", "mistake", "inaccuracy", "good", "excellent", "brilliant", "neutral"
+CRITICAL RULES:
+1. Commentary should focus ONLY on critical moments (blunders, mistakes, brilliant moves)
+2. Each explanation must follow the strict 4-field contract
+3. Use ONLY predefined weakness categories above
+4. NO move lists in explanations
+5. NO engine language (centipawns, eval, +0.5)
+6. Keep explanations {'brief and actionable' if learning_style == 'concise' else 'detailed with examples'}
+7. Be {coaching_tone} in tone
+8. Reference player's TOP WEAKNESSES when relevant: {[w.get('subcategory', '') for w in profile.get('top_weaknesses', [])[:3]]}
+
+Evaluations: "blunder", "mistake", "inaccuracy", "good", "excellent", "brilliant", "neutral"
 """
 
     try:
@@ -546,7 +576,6 @@ Evaluations can be: "blunder", "mistake", "inaccuracy", "good", "excellent", "br
         user_message = UserMessage(text=f"Please analyze this game:\n\n{game['pgn']}")
         response = await chat.send_message(user_message)
         
-        import json
         response_clean = response.strip()
         if response_clean.startswith("```json"):
             response_clean = response_clean[7:]
@@ -557,10 +586,38 @@ Evaluations can be: "blunder", "mistake", "inaccuracy", "good", "excellent", "br
         
         analysis_data = json.loads(response_clean)
         
+        # Validate explanations against contract
+        validated_commentary = []
+        for item in analysis_data.get("commentary", []):
+            explanation = item.get("explanation", {})
+            if explanation:
+                is_valid, errors = validate_explanation(explanation)
+                if not is_valid:
+                    logger.warning(f"Explanation validation failed: {errors}")
+                    # Fix common issues
+                    if len(explanation.get("thinking_error", "")) < 10:
+                        explanation["thinking_error"] = "Move was made without full board awareness"
+                    if len(explanation.get("one_repeatable_rule", "")) < 10:
+                        explanation["one_repeatable_rule"] = "Always scan the whole board before moving"
+            validated_commentary.append(item)
+        
+        # Map weaknesses to predefined categories
+        categorized_weaknesses = []
+        for w in analysis_data.get("identified_weaknesses", []) or analysis_data.get("identified_patterns", []):
+            cat, subcat = categorize_weakness(
+                w.get("category", "tactical"),
+                w.get("subcategory", "one_move_blunders")
+            )
+            categorized_weaknesses.append({
+                "category": cat,
+                "subcategory": subcat,
+                "description": w.get("description", "")
+            })
+        
         analysis = GameAnalysis(
             game_id=req.game_id,
             user_id=user.user_id,
-            commentary=analysis_data.get("commentary", []),
+            commentary=validated_commentary,
             blunders=analysis_data.get("blunders", 0),
             mistakes=analysis_data.get("mistakes", 0),
             inaccuracies=analysis_data.get("inaccuracies", 0),
@@ -569,7 +626,11 @@ Evaluations can be: "blunder", "mistake", "inaccuracy", "good", "excellent", "br
             identified_patterns=[]
         )
         
-        for pattern_data in analysis_data.get("identified_patterns", []):
+        # Store voice script for future use
+        voice_script = analysis_data.get("voice_script_summary", "")
+        
+        # Update mistake_patterns collection (legacy support)
+        for pattern_data in categorized_weaknesses:
             existing_pattern = await db.mistake_patterns.find_one({
                 "user_id": user.user_id,
                 "category": pattern_data["category"],
@@ -598,12 +659,13 @@ Evaluations can be: "blunder", "mistake", "inaccuracy", "good", "excellent", "br
                 pattern_doc['first_seen'] = pattern_doc['first_seen'].isoformat()
                 pattern_doc['last_seen'] = pattern_doc['last_seen'].isoformat()
                 await db.mistake_patterns.insert_one(pattern_doc)
-                # Clear _id that MongoDB adds
                 pattern_doc.pop('_id', None)
                 analysis.identified_patterns.append(new_pattern.pattern_id)
         
         analysis_doc = analysis.model_dump()
         analysis_doc['created_at'] = analysis_doc['created_at'].isoformat()
+        analysis_doc['voice_script_summary'] = voice_script
+        analysis_doc['identified_strengths'] = analysis_data.get("identified_strengths", [])
         await db.game_analyses.insert_one(analysis_doc)
         
         await db.games.update_one(
@@ -611,15 +673,28 @@ Evaluations can be: "blunder", "mistake", "inaccuracy", "good", "excellent", "br
             {"$set": {"is_analyzed": True}}
         )
         
-        # Remove _id before returning (MongoDB mutates the doc)
+        # Remove _id before returning
         analysis_doc.pop('_id', None)
         
-        # Create RAG embeddings in background for future searches
+        # Step 5: UPDATE PLAYER PROFILE (CRITICAL - happens after every game)
+        logger.info(f"Updating PlayerProfile for user {user.user_id}")
+        background_tasks.add_task(
+            update_profile_after_analysis,
+            db,
+            user.user_id,
+            req.game_id,
+            analysis_data.get("blunders", 0),
+            analysis_data.get("mistakes", 0),
+            analysis_data.get("best_moves", 0),
+            categorized_weaknesses,
+            analysis_data.get("identified_strengths", [])
+        )
+        
+        # Create RAG embeddings in background (RAG supports memory, doesn't define habits)
         background_tasks.add_task(create_game_embeddings, db, game, user.user_id)
         background_tasks.add_task(create_analysis_embedding, db, analysis_doc, game, user.user_id)
         
-        # Create embeddings for new patterns
-        for pattern_data in analysis_data.get("identified_patterns", []):
+        for pattern_data in categorized_weaknesses:
             pattern = await db.mistake_patterns.find_one({
                 "user_id": user.user_id,
                 "category": pattern_data["category"],
