@@ -826,6 +826,7 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         analysis_doc['summary_p1'] = analysis_data.get("summary_p1", "")
         analysis_doc['summary_p2'] = analysis_data.get("summary_p2", "")
         analysis_doc['improvement_note'] = analysis_data.get("improvement_note", "")
+        analysis_doc['best_move_suggestions'] = analysis_data.get("best_move_suggestions", [])
         
         # CQS: Store internal metadata (NEVER exposed to users)
         analysis_doc['_cqs_internal'] = {
