@@ -396,7 +396,7 @@ const GameAnalysis = ({ user }) => {
                   <div className="text-center">
                     <p className="font-medium">Ready for Analysis</p>
                     <p className="text-sm text-muted-foreground">
-                      Click "Analyze with AI" to get personalized coaching feedback
+                      Click &ldquo;Analyze with AI&rdquo; to get personalized coaching feedback
                     </p>
                   </div>
                 </div>
