@@ -722,4 +722,19 @@ const createStyles = (colors) => StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
   },
+  ratingSection: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  ratingSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  ratingSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
 });
