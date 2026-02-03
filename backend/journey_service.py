@@ -745,8 +745,24 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
         {"$set": {"last_game_sync": datetime.now(timezone.utc).isoformat()}}
     )
     
-    # Send email notification if games were synced and user has email notifications enabled
+    # Send notifications if games were synced
     if analyzed_count > 0:
+        user_name = user_doc.get("name", "Chess Player").split()[0]
+        platform_name = "Chess.com" if chesscom_username else "Lichess"
+        
+        # Send push notification
+        try:
+            from server import send_push_notification
+            await send_push_notification(
+                user_id=user_id,
+                title="♟️ New Game Analyzed",
+                body=f"{analyzed_count} game{'s' if analyzed_count > 1 else ''} from {platform_name} analyzed. Tap to see insights!",
+                data={"type": "game_analyzed", "count": analyzed_count}
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send push notification: {e}")
+        
+        # Send email notification
         try:
             from email_service import send_game_analyzed_notification, is_email_configured
             
@@ -755,8 +771,6 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                 email_prefs = user_doc.get("email_notifications", {})
                 if email_prefs.get("game_analyzed", True):  # Default to True
                     user_email = user_doc.get("email")
-                    user_name = user_doc.get("name", "Chess Player")
-                    platform_name = "Chess.com" if chesscom_username else "Lichess"
                     
                     await send_game_analyzed_notification(
                         user_email=user_email,
