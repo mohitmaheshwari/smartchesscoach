@@ -63,6 +63,82 @@ const GameAnalysis = ({ user }) => {
     fetchData();
   }, [gameId, navigate]);
 
+  // Voice coaching functions
+  const playVoiceSummary = async (gameIdToPlay) => {
+    if (!voiceEnabled) return;
+    
+    setVoiceLoading(true);
+    try {
+      const url = API + "/tts/analysis-summary/" + gameIdToPlay;
+      const response = await fetch(url, {
+        method: "POST",
+        credentials: "include"
+      });
+      
+      if (!response.ok) {
+        throw new Error("Voice generation failed");
+      }
+      
+      const data = await response.json();
+      
+      // Create audio from base64
+      const audioSrc = "data:audio/mp3;base64," + data.audio_base64;
+      
+      if (audioRef.current) {
+        audioRef.current.src = audioSrc;
+        audioRef.current.play();
+        setIsPlaying(true);
+      }
+      
+    } catch (error) {
+      console.error("Voice error:", error);
+      // Don't show error toast - voice is optional
+    } finally {
+      setVoiceLoading(false);
+    }
+  };
+
+  const playMoveVoice = async (moveIndex) => {
+    if (!voiceEnabled) return;
+    
+    setVoiceLoading(true);
+    try {
+      const url = API + "/tts/move-explanation";
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ game_id: gameId, move_index: moveIndex })
+      });
+      
+      if (!response.ok) {
+        throw new Error("Voice generation failed");
+      }
+      
+      const data = await response.json();
+      const audioSrc = "data:audio/mp3;base64," + data.audio_base64;
+      
+      if (audioRef.current) {
+        audioRef.current.src = audioSrc;
+        audioRef.current.play();
+        setIsPlaying(true);
+      }
+      
+    } catch (error) {
+      console.error("Move voice error:", error);
+    } finally {
+      setVoiceLoading(false);
+    }
+  };
+
+  const stopVoice = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
   const handleAnalyze = async () => {
     setAnalyzing(true);
     try {
@@ -80,6 +156,14 @@ const GameAnalysis = ({ user }) => {
       const data = await response.json();
       setAnalysis(data);
       toast.success("Analysis complete!");
+      
+      // Auto-play voice summary after analysis
+      if (voiceEnabled) {
+        setTimeout(() => {
+          playVoiceSummary(gameId);
+        }, 500);
+      }
+      
     } catch (error) {
       toast.error(error.message || "Analysis failed");
     } finally {
