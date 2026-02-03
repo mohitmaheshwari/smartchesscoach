@@ -45,6 +45,12 @@ export default function JourneyScreen() {
   const [linking, setLinking] = useState(false);
   const [platform, setPlatform] = useState(null);
   const [username, setUsername] = useState('');
+  
+  // Rating & Training data
+  const [trajectoryData, setTrajectoryData] = useState(null);
+  const [timeData, setTimeData] = useState(null);
+  const [thinkingData, setThinkingData] = useState(null);
+  const [puzzleData, setPuzzleData] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -54,6 +60,18 @@ export default function JourneyScreen() {
       ]);
       setAccounts(accountsData);
       setDashboard(dashboardData);
+      
+      // Fetch rating data
+      const [trajectory, time, thinking, puzzles] = await Promise.all([
+        fetchWithAuth('/rating/trajectory'),
+        fetchWithAuth('/training/time-management'),
+        fetchWithAuth('/training/fast-thinking'),
+        fetchWithAuth('/training/puzzles?count=5'),
+      ]);
+      setTrajectoryData(trajectory);
+      setTimeData(time);
+      setThinkingData(thinking);
+      setPuzzleData(puzzles);
     } catch (error) {
       console.error('Failed to fetch journey data:', error);
     } finally {
