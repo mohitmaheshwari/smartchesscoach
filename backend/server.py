@@ -55,6 +55,17 @@ from journey_service import (
     select_games_for_analysis
 )
 
+# Import Rating & Training service
+from rating_service import (
+    predict_rating_trajectory,
+    calculate_improvement_velocity,
+    calculate_performance_rating,
+    analyze_time_usage,
+    generate_training_session,
+    generate_calculation_analysis,
+    fetch_platform_ratings
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
