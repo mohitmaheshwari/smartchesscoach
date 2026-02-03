@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Star,
-  Sparkles
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Mic
 } from "lucide-react";
 
 const GameAnalysis = ({ user }) => {
@@ -28,6 +31,12 @@ const GameAnalysis = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [currentMoveNumber, setCurrentMoveNumber] = useState(0);
+  
+  // Voice coaching state
+  const [voiceLoading, setVoiceLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
