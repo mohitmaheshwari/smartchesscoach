@@ -22,8 +22,12 @@ import {
   Sparkles,
   Target,
   TrendingUp,
-  CheckCircle2
+  CheckCircle2,
+  Clock,
+  Brain,
+  Zap
 } from "lucide-react";
+import { RatingTrajectory, TimeManagement, FastThinking, PuzzleTrainer } from "@/components/RatingTrajectory";
 
 const Journey = ({ user }) => {
   const [loading, setLoading] = useState(true);
