@@ -241,7 +241,10 @@ const GameAnalysis = ({ user }) => {
         {w.description && (
           <p className="text-muted-foreground text-xs mt-1">{w.description}</p>
         )}
-        {w.advice && (
+        {w.coach_advice && (
+          <p className="text-emerald-600 dark:text-emerald-400 text-xs mt-1 font-medium">→ {w.coach_advice}</p>
+        )}
+        {!w.coach_advice && w.advice && (
           <p className="text-blue-600 dark:text-blue-400 text-xs mt-1">{w.advice}</p>
         )}
       </div>
