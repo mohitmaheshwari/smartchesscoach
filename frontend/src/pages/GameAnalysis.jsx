@@ -517,11 +517,20 @@ const GameAnalysis = ({ user }) => {
                       </div>
                     </div>
 
+                    {/* Improvement Note - Progress awareness */}
+                    {improvementNote && (
+                      <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        <p className="text-sm text-blue-600 dark:text-blue-400">
+                          📈 {improvementNote}
+                        </p>
+                      </div>
+                    )}
+
                     {keyLesson && (
                       <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                         <p className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-2">
                           <Sparkles className="w-4 h-4" />
-                          Key Lesson
+                          Focus This Week
                         </p>
                         <p className="text-sm mt-1">{keyLesson}</p>
                       </div>
@@ -529,7 +538,7 @@ const GameAnalysis = ({ user }) => {
 
                     {(weaknesses.length > 0 || patterns.length > 0) && (
                       <div className="space-y-2">
-                        <p className="text-sm font-medium">Patterns Identified</p>
+                        <p className="text-sm font-medium">Habits to Work On</p>
                         <div className="flex flex-wrap gap-2">
                           {weaknesses.length > 0 
                             ? weaknesses.map(renderWeaknessBadge)
