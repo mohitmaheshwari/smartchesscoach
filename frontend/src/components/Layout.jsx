@@ -20,7 +20,8 @@ import {
   Moon,
   LogOut,
   Menu,
-  X
+  X,
+  TrendingUp
 } from "lucide-react";
 import { useState } from "react";
 import { API } from "@/App";
@@ -33,9 +34,9 @@ const Layout = ({ children, user }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Journey', href: '/journey', icon: TrendingUp },
     { name: 'Import Games', href: '/import', icon: Import },
     { name: 'Weaknesses', href: '/weaknesses', icon: Target },
-    { name: 'Training', href: '/training', icon: GraduationCap },
     { name: 'Challenge', href: '/challenge', icon: Swords },
   ];
 
