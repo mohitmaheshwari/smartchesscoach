@@ -1462,6 +1462,89 @@ async def send_test_email(user: User = Depends(get_current_user)):
     else:
         raise HTTPException(status_code=500, detail="Failed to send test email")
 
+# ==================== PUSH NOTIFICATIONS ====================
+
+class RegisterDeviceRequest(BaseModel):
+    push_token: str
+    platform: str  # 'ios' or 'android'
+
+@api_router.post("/notifications/register-device")
+async def register_push_device(request: RegisterDeviceRequest, user: User = Depends(get_current_user)):
+    """Register a device for push notifications"""
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {
+            "$set": {
+                "push_token": request.push_token,
+                "push_platform": request.platform,
+                "push_registered_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    return {"message": "Device registered for push notifications"}
+
+@api_router.delete("/notifications/unregister-device")
+async def unregister_push_device(user: User = Depends(get_current_user)):
+    """Unregister device from push notifications"""
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {
+            "$unset": {
+                "push_token": "",
+                "push_platform": "",
+                "push_registered_at": ""
+            }
+        }
+    )
+    return {"message": "Device unregistered from push notifications"}
+
+async def send_push_notification(user_id: str, title: str, body: str, data: dict = None):
+    """
+    Send push notification to a user via Expo Push API.
+    This is called when games are analyzed, etc.
+    """
+    import httpx
+    
+    user_doc = await db.users.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "push_token": 1, "email_notifications": 1}
+    )
+    
+    if not user_doc or not user_doc.get("push_token"):
+        return False
+    
+    push_token = user_doc["push_token"]
+    
+    # Check if user has notifications enabled
+    email_prefs = user_doc.get("email_notifications", {})
+    if not email_prefs.get("game_analyzed", True):
+        return False
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://exp.host/--/api/v2/push/send",
+                json={
+                    "to": push_token,
+                    "title": title,
+                    "body": body,
+                    "data": data or {},
+                    "sound": "default",
+                    "channelId": "analysis",
+                },
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"Push notification sent to user {user_id}")
+                return True
+            else:
+                logger.warning(f"Push notification failed: {response.text}")
+                return False
+    except Exception as e:
+        logger.error(f"Failed to send push notification: {e}")
+        return False
+
 @api_router.get("/dashboard-stats")
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
     """Get dashboard statistics including player profile for the current user"""
