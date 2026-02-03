@@ -649,26 +649,6 @@ Psychological: impulsive_moves, tunnel_vision, hope_chess, time_trouble_blunders
 7. Focus on THINKING, not the board position
 
 Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
-            "description": "What they did well"
-        }}
-    ],
-    "key_lesson": "The ONE thing to remember from this game (make it memorable)",
-    "voice_script_summary": "A 30-second speakable summary for voice coaching"
-}}
-
-=== CRITICAL RULES ===
-1. Focus ONLY on critical moments (blunders, mistakes, brilliant moves) - not every move
-2. For each mistake, ALWAYS include player_intention to show you understand what they were trying to do
-3. coach_response must be warm and conversational, not clinical
-4. Use ONLY predefined weakness categories - map to closest match
-5. NO move lists (1.e4 e5 2.Nf3...) in explanations
-6. NO engine language (centipawns, eval, +0.5)
-7. overall_summary MUST start with something positive
-8. key_lesson should be catchy and memorable
-
-Current player's top weaknesses to watch for: {[w.get('subcategory', '').replace('_', ' ') for w in profile.get('top_weaknesses', [])[:3]]}
-
-Evaluations: "blunder", "mistake", "inaccuracy", "good", "excellent", "brilliant", "neutral"
 """
 
     try:
