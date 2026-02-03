@@ -196,6 +196,7 @@ const GameAnalysis = ({ user }) => {
   const bestMoves = analysis ? analysis.best_moves : 0;
   const summary = analysis ? analysis.overall_summary : "";
   const keyLesson = analysis ? analysis.key_lesson : "";
+  const improvementNote = analysis ? analysis.improvement_note : "";
   
   // Get weaknesses - new format
   let weaknesses = [];
