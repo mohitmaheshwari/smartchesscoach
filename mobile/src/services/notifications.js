@@ -80,9 +80,8 @@ export async function savePushTokenToBackend(token, sessionToken) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Cookie': `session=${sessionToken}`,
+        'Authorization': `Bearer ${sessionToken}`,
       },
-      credentials: 'include',
       body: JSON.stringify({
         push_token: token,
         platform: Platform.OS,
