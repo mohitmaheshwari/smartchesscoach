@@ -478,8 +478,26 @@ const GameAnalysis = ({ user }) => {
                         <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                           <Brain className="w-5 h-5 text-primary" />
                         </div>
-                        <div>
-                          <p className="font-medium text-sm mb-1">Coach&apos;s Summary</p>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="font-medium text-sm">Coach&apos;s Summary</p>
+                            {voiceEnabled && (
+                              <button
+                                onClick={() => playVoiceSummary(gameId)}
+                                disabled={voiceLoading}
+                                className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                              >
+                                {voiceLoading ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : isPlaying ? (
+                                  <Mic className="w-3 h-3 animate-pulse" />
+                                ) : (
+                                  <Volume2 className="w-3 h-3" />
+                                )}
+                                {isPlaying ? "Playing..." : "Listen"}
+                              </button>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">{summary}</p>
                         </div>
                       </div>
