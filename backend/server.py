@@ -1054,6 +1054,183 @@ async def generate_move_voice(req: MoveVoiceRequest, user: User = Depends(get_cu
         logger.error(f"TTS move voice error: {e}")
         raise HTTPException(status_code=500, detail=f"Voice generation failed: {str(e)}")
 
+# ==================== JOURNEY DASHBOARD ROUTES ====================
+
+@api_router.get("/journey")
+async def get_journey_dashboard(user: User = Depends(get_current_user)):
+    """
+    Get Journey Dashboard data - proves learning over time.
+    
+    This is the primary surface where coaching results appear.
+    No manual analysis required - games are analyzed automatically.
+    """
+    # Get player profile
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not profile:
+        # Create profile if doesn't exist
+        profile = await get_or_create_profile(db, user.user_id, user.name)
+    
+    # Generate dashboard data
+    dashboard = await generate_journey_dashboard_data(db, user.user_id, profile)
+    
+    return dashboard
+
+@api_router.get("/journey/weekly-assessment")
+async def get_weekly_assessment(user: User = Depends(get_current_user)):
+    """Get coach's weekly assessment paragraph"""
+    from journey_service import generate_weekly_assessment
+    
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not profile:
+        return {
+            "assessment": "Link your Chess.com or Lichess account to start your coaching journey.",
+            "games_analyzed": 0
+        }
+    
+    recent_analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "_cqs_internal": 0}
+    ).sort("created_at", -1).limit(5).to_list(5)
+    
+    improvement_trend = profile.get("improvement_trend", "stuck")
+    
+    return {
+        "assessment": generate_weekly_assessment(profile, recent_analyses, improvement_trend),
+        "games_analyzed": profile.get("games_analyzed_count", 0),
+        "improvement_trend": improvement_trend
+    }
+
+@api_router.get("/journey/weakness-trends")
+async def get_weakness_trends(user: User = Depends(get_current_user)):
+    """Get weakness trend data - shows if habits are improving"""
+    from journey_service import calculate_weakness_trend
+    
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not profile:
+        return {"trends": [], "message": "Not enough data yet"}
+    
+    # Get recent analyses
+    recent_analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "weaknesses": 1, "identified_weaknesses": 1}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    top_weaknesses = profile.get("top_weaknesses", [])[:5]
+    recent_5 = recent_analyses[:5]
+    previous_5 = recent_analyses[5:10]
+    
+    trends = []
+    for w in top_weaknesses:
+        weakness_key = f"{w.get('category', '')}:{w.get('subcategory', '')}"
+        trend_data = calculate_weakness_trend(weakness_key, recent_5, previous_5)
+        
+        trends.append({
+            "name": w.get("subcategory", "").replace("_", " "),
+            "category": w.get("category", ""),
+            **trend_data
+        })
+    
+    return {"trends": trends}
+
+class LinkAccountRequest(BaseModel):
+    platform: str  # "chess.com" or "lichess"
+    username: str
+
+@api_router.post("/journey/link-account")
+async def link_chess_account(req: LinkAccountRequest, user: User = Depends(get_current_user)):
+    """
+    Link Chess.com or Lichess account for automatic game tracking.
+    This enables silent background analysis.
+    """
+    platform = req.platform.lower()
+    username = req.username.strip()
+    
+    if platform not in ["chess.com", "lichess"]:
+        raise HTTPException(status_code=400, detail="Invalid platform. Use 'chess.com' or 'lichess'")
+    
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+    
+    # Validate account exists
+    if platform == "chess.com":
+        games = await fetch_recent_chesscom_games(username)
+        if not games and games != []:
+            raise HTTPException(status_code=404, detail=f"Chess.com user '{username}' not found")
+        update_field = "chesscom_username"
+    else:
+        games = await fetch_recent_lichess_games(username)
+        update_field = "lichess_username"
+    
+    # Update user record
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {
+            update_field: username,
+            "last_game_sync": None  # Trigger initial sync
+        }}
+    )
+    
+    return {
+        "message": f"Account linked successfully. Your {platform} games will be analyzed automatically.",
+        "platform": platform,
+        "username": username
+    }
+
+@api_router.get("/journey/linked-accounts")
+async def get_linked_accounts(user: User = Depends(get_current_user)):
+    """Get user's linked chess accounts"""
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "chesscom_username": 1, "lichess_username": 1}
+    )
+    
+    if not user_doc:
+        return {"chess_com": None, "lichess": None}
+    
+    return {
+        "chess_com": user_doc.get("chesscom_username"),
+        "lichess": user_doc.get("lichess_username")
+    }
+
+@api_router.post("/journey/sync-now")
+async def trigger_game_sync(background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
+    """
+    Manually trigger game sync (for testing/demo purposes).
+    In production, this happens automatically every 6-12 hours.
+    """
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    has_linked = user_doc.get("chesscom_username") or user_doc.get("lichess_username")
+    if not has_linked:
+        raise HTTPException(status_code=400, detail="No chess accounts linked. Link an account first.")
+    
+    # Note: In production, this would be a background job
+    # For now, we just update the sync timestamp to trigger on next poll
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"sync_requested": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Game sync requested. New games will be analyzed shortly."}
+
 # ==================== WEAKNESS/PATTERN ROUTES ====================
 
 @api_router.get("/patterns")
