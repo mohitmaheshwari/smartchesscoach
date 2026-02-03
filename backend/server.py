@@ -731,6 +731,107 @@ async def get_patterns(user: User = Depends(get_current_user)):
     ).sort("occurrences", -1).to_list(50)
     return patterns
 
+# ==================== PLAYER PROFILE ROUTES ====================
+
+@api_router.get("/profile")
+async def get_player_profile(user: User = Depends(get_current_user)):
+    """Get the player's coaching profile"""
+    profile = await get_or_create_profile(db, user.user_id, user.name)
+    return profile
+
+@api_router.get("/profile/weaknesses")
+async def get_ranked_weaknesses(user: User = Depends(get_current_user)):
+    """Get player's top weaknesses with time decay applied"""
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not profile:
+        return {"top_weaknesses": [], "message": "No profile found. Analyze some games first."}
+    
+    return {
+        "top_weaknesses": profile.get("top_weaknesses", [])[:5],
+        "improvement_trend": profile.get("improvement_trend", "stuck"),
+        "games_analyzed": profile.get("games_analyzed_count", 0)
+    }
+
+@api_router.get("/profile/strengths")
+async def get_player_strengths(user: User = Depends(get_current_user)):
+    """Get player's identified strengths"""
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not profile:
+        return {"strengths": [], "message": "No profile found. Analyze some games first."}
+    
+    return {
+        "strengths": profile.get("strengths", []),
+        "estimated_level": profile.get("estimated_level", "intermediate"),
+        "estimated_elo": profile.get("estimated_elo", 1200)
+    }
+
+class UpdateCoachingPreferencesRequest(BaseModel):
+    learning_style: Optional[str] = None  # "concise" or "detailed"
+    coaching_tone: Optional[str] = None   # "firm", "encouraging", "balanced"
+
+@api_router.patch("/profile/preferences")
+async def update_coaching_preferences(
+    req: UpdateCoachingPreferencesRequest,
+    user: User = Depends(get_current_user)
+):
+    """Update coaching preferences (user override)"""
+    update_data = {"last_updated": datetime.now(timezone.utc).isoformat()}
+    
+    if req.learning_style:
+        if req.learning_style not in [LearningStyle.CONCISE.value, LearningStyle.DETAILED.value]:
+            raise HTTPException(status_code=400, detail="Invalid learning_style. Use 'concise' or 'detailed'")
+        update_data["learning_style"] = req.learning_style
+    
+    if req.coaching_tone:
+        if req.coaching_tone not in [CoachingTone.FIRM.value, CoachingTone.ENCOURAGING.value, CoachingTone.BALANCED.value]:
+            raise HTTPException(status_code=400, detail="Invalid coaching_tone. Use 'firm', 'encouraging', or 'balanced'")
+        update_data["coaching_tone"] = req.coaching_tone
+    
+    await db.player_profiles.update_one(
+        {"user_id": user.user_id},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Preferences updated", "updated": update_data}
+
+@api_router.get("/weakness-categories")
+async def get_weakness_categories():
+    """Get all predefined weakness categories"""
+    return {"categories": WEAKNESS_CATEGORIES}
+
+class RecordChallengeResultRequest(BaseModel):
+    weakness_category: str
+    weakness_subcategory: str
+    success: bool
+    puzzle_id: Optional[str] = None
+
+@api_router.post("/profile/challenge-result")
+async def record_challenge_result_endpoint(
+    req: RecordChallengeResultRequest,
+    user: User = Depends(get_current_user)
+):
+    """Record a challenge result and potentially resolve weakness"""
+    result = await record_challenge_result(
+        db,
+        user.user_id,
+        req.weakness_category,
+        req.weakness_subcategory,
+        req.success
+    )
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
 @api_router.get("/dashboard-stats")
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
     """Get dashboard statistics for the current user"""
