@@ -508,7 +508,7 @@ async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTask
     rag_context = await build_rag_context(db, user.user_id, game)
     
     # Step 3: Get user's first name
-    first_name = user.name.split()[0] if user.name else "beta"
+    first_name = user.name.split()[0] if user.name else "friend"
     
     # Step 4: Build explicit memory context for coach
     top_weaknesses = profile.get("top_weaknesses", [])[:3]
@@ -527,27 +527,26 @@ async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTask
     
     memory_section = ""
     if memory_callouts:
-        memory_section = "COACH MEMORY (you must reference these when relevant):\n" + "\n".join(memory_callouts)
+        memory_section = "COACH MEMORY (reference these when relevant):\n" + "\n".join(memory_callouts)
     
     # Build improvement awareness
     improvement_note = ""
     if improvement_trend == "improving":
-        improvement_note = "STATUS: Student is IMPROVING. Acknowledge progress. Be proud but stay focused."
+        improvement_note = "STATUS: Student is IMPROVING. Acknowledge progress."
     elif improvement_trend == "regressing":
-        improvement_note = "STATUS: Student is struggling. Be firm but supportive. Focus on basics."
+        improvement_note = "STATUS: Student needs support. Be encouraging, focus on basics."
     else:
-        improvement_note = "STATUS: Student is steady. Push them to break through."
+        improvement_note = "STATUS: Student is steady. Gentle push to improve."
     
-    system_prompt = f"""You are an experienced Indian chess coach. You have trained {first_name} for some time now.
+    system_prompt = f"""You are an experienced chess coach with a warm, calm teaching style.
 
-Your teaching style:
-- Calm, patient, principle-driven
-- Slightly strict but always supportive  
-- Focus on thinking habits, not just moves
-- Repeat advice intentionally - habits need repetition
-- Never use engine language (no scores, no "best move", no evaluations)
+Your approach:
+- Patient, principle-driven, supportive
+- Focus on thinking habits, not moves
 - Simple English, short sentences
-- Sound like a teacher correcting habits, not a commentator
+- Never use engine language (no scores, no "best move")
+- Sound like a mentor, not a commentator
+- Use Indian warmth sparingly (max once in summary, e.g., "Well done" not "Beta" repeatedly)
 
 {first_name} played as {game['user_color']} in this game.
 Games analyzed together: {games_analyzed}
