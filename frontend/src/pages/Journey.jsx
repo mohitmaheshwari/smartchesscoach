@@ -246,21 +246,35 @@ const Journey = ({ user }) => {
         {hasAccount && (
           <Card>
             <CardContent className="py-4">
-              <div className="flex gap-4 text-sm flex-wrap">
-                {accounts.chess_com && (
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    Chess.com: {accounts.chess_com}
-                  </span>
-                )}
-                {accounts.lichess && (
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    Lichess: {accounts.lichess}
-                  </span>
-                )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex gap-4 text-sm flex-wrap">
+                    {accounts.chess_com && (
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        Chess.com: {accounts.chess_com}
+                      </span>
+                    )}
+                    {accounts.lichess && (
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        Lichess: {accounts.lichess}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Games sync automatically every 6 hours</p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={syncNow}
+                  disabled={syncing}
+                  data-testid="sync-now-btn"
+                >
+                  {syncing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                  Sync Now
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">Games analyzed automatically</p>
             </CardContent>
           </Card>
         )}
