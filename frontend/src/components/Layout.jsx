@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,7 +14,6 @@ import {
   LayoutDashboard, 
   Import, 
   Target, 
-  GraduationCap,
   Swords,
   Settings,
   Sun,
@@ -35,8 +35,7 @@ const Layout = ({ children, user }) => {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Journey', href: '/journey', icon: TrendingUp },
-    { name: 'Import Games', href: '/import', icon: Import },
-    { name: 'Weaknesses', href: '/weaknesses', icon: Target },
+    { name: 'Import', href: '/import', icon: Import },
     { name: 'Challenge', href: '/challenge', icon: Swords },
   ];
 
@@ -54,37 +53,43 @@ const Layout = ({ children, user }) => {
     }
   };
 
-  // Safe user data access
-  const userName = user && user.name ? user.name : "User";
-  const userEmail = user && user.email ? user.email : "";
-  const userPicture = user && user.picture ? user.picture : "";
+  const userName = user?.name || "User";
+  const userEmail = user?.email || "";
+  const userPicture = user?.picture || "";
   const userInitial = userName.charAt(0);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14">
             {/* Logo */}
-            <Link to="/dashboard" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">E1</span>
+            <Link to="/dashboard" className="flex items-center gap-2.5 group">
+              <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center transition-transform group-hover:scale-105">
+                <span className="text-background font-heading font-bold text-xs">E1</span>
               </div>
-              <span className="font-bold text-lg tracking-tight hidden sm:block">Chess Coach</span>
+              <span className="font-heading font-semibold text-sm tracking-tight hidden sm:block">
+                Chess Coach
+              </span>
             </Link>
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-1">
               {navigation.map((item) => {
                 const IconComponent = item.icon;
+                const active = isActive(item.href);
                 return (
                   <Link key={item.href} to={item.href}>
                     <Button
-                      variant={isActive(item.href) ? "secondary" : "ghost"}
+                      variant="ghost"
                       size="sm"
-                      className="gap-2"
-                      data-testid={`nav-${item.name.toLowerCase().replace(' ', '-')}`}
+                      className={`gap-2 text-sm font-medium transition-colors ${
+                        active 
+                          ? 'bg-muted text-foreground' 
+                          : 'text-muted-foreground hover:text-foreground hover:bg-transparent'
+                      }`}
+                      data-testid={`nav-${item.name.toLowerCase()}`}
                     >
                       <IconComponent className="w-4 h-4" />
                       {item.name}
@@ -95,44 +100,65 @@ const Layout = ({ children, user }) => {
             </nav>
 
             {/* Right side */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={toggleTheme}
+                className="w-8 h-8 text-muted-foreground hover:text-foreground"
                 data-testid="header-theme-toggle"
               >
-                {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                <motion.div
+                  initial={false}
+                  animate={{ rotate: theme === "dark" ? 0 : 180 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                </motion.div>
               </Button>
 
               {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 rounded-full" data-testid="user-menu-trigger">
-                    <Avatar className="h-9 w-9">
+                  <Button 
+                    variant="ghost" 
+                    className="relative h-8 w-8 rounded-full" 
+                    data-testid="user-menu-trigger"
+                  >
+                    <Avatar className="h-8 w-8">
                       <AvatarImage src={userPicture} alt={userName} />
-                      <AvatarFallback>{userInitial}</AvatarFallback>
+                      <AvatarFallback className="text-xs font-medium bg-muted">
+                        {userInitial}
+                      </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-52">
                   <div className="flex items-center gap-2 p-2">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={userPicture} alt={userName} />
-                      <AvatarFallback>{userInitial}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{userInitial}</AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{userName}</span>
-                      <span className="text-xs text-muted-foreground truncate max-w-[150px]">{userEmail}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-medium truncate">{userName}</span>
+                      <span className="text-xs text-muted-foreground truncate">{userEmail}</span>
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/settings')} data-testid="menu-settings">
+                  <DropdownMenuItem 
+                    onClick={() => navigate('/settings')} 
+                    data-testid="menu-settings"
+                    className="cursor-pointer"
+                  >
                     <Settings className="w-4 h-4 mr-2" />
                     Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive" data-testid="menu-logout">
+                  <DropdownMenuItem 
+                    onClick={handleLogout} 
+                    className="text-destructive cursor-pointer focus:text-destructive" 
+                    data-testid="menu-logout"
+                  >
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign out
                   </DropdownMenuItem>
@@ -143,47 +169,62 @@ const Layout = ({ children, user }) => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden"
+                className="md:hidden w-8 h-8"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 data-testid="mobile-menu-toggle"
               >
-                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
               </Button>
             </div>
           </div>
         </div>
 
         {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-border/50 bg-background">
-            <nav className="flex flex-col p-4 gap-2">
-              {navigation.map((item) => {
-                const IconComponent = item.icon;
-                return (
-                  <Link 
-                    key={item.href} 
-                    to={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <Button
-                      variant={isActive(item.href) ? "secondary" : "ghost"}
-                      className="w-full justify-start gap-2"
-                      data-testid={`mobile-nav-${item.name.toLowerCase().replace(' ', '-')}`}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden border-t border-border bg-background overflow-hidden"
+            >
+              <nav className="flex flex-col p-4 gap-1">
+                {navigation.map((item) => {
+                  const IconComponent = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <Link 
+                      key={item.href} 
+                      to={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
                     >
-                      <IconComponent className="w-4 h-4" />
-                      {item.name}
-                    </Button>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-        )}
+                      <Button
+                        variant={active ? "secondary" : "ghost"}
+                        className="w-full justify-start gap-2"
+                        data-testid={`mobile-nav-${item.name.toLowerCase()}`}
+                      >
+                        <IconComponent className="w-4 h-4" />
+                        {item.name}
+                      </Button>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {children}
+        </motion.div>
       </main>
     </div>
   );
