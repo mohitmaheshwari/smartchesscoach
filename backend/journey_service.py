@@ -553,10 +553,21 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
             
             await db.games.insert_one(game_doc)
             logger.info(f"Auto-synced game {game_doc['game_id']} for user {user_id} from {platform}")
-            analyzed_count += 1
+            
+            # Auto-analyze the game with AI
+            try:
+                analysis_result = await auto_analyze_game(db, user_id, game_doc)
+                if analysis_result:
+                    logger.info(f"Auto-analyzed game {game_doc['game_id']} successfully")
+                    analyzed_count += 1
+                else:
+                    logger.warning(f"Auto-analysis skipped for game {game_doc['game_id']}")
+            except Exception as analysis_error:
+                logger.error(f"Auto-analysis failed for game {game_doc['game_id']}: {analysis_error}")
+                # Game is still imported even if analysis fails
             
         except Exception as e:
-            logger.error(f"Error auto-analyzing game for {user_id}: {e}")
+            logger.error(f"Error auto-syncing game for {user_id}: {e}")
     
     # Update last sync timestamp
     await db.users.update_one(
