@@ -673,15 +673,47 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
             user_message = UserMessage(text=f"Please analyze this game:\n\n{game['pgn']}")
             response = await chat.send_message(user_message)
         
-        response_clean = response.strip()
-        if response_clean.startswith("```json"):
-            response_clean = response_clean[7:]
-        if response_clean.startswith("```"):
-            response_clean = response_clean[3:]
-        if response_clean.endswith("```"):
-            response_clean = response_clean[:-3]
+            response_clean = response.strip()
+            if response_clean.startswith("```json"):
+                response_clean = response_clean[7:]
+            if response_clean.startswith("```"):
+                response_clean = response_clean[3:]
+            if response_clean.endswith("```"):
+                response_clean = response_clean[:-3]
+            
+            try:
+                analysis_data = json.loads(response_clean)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parse error on attempt {attempt + 1}: {e}")
+                continue
+            
+            # CQS: Evaluate quality
+            cqs_result = calculate_cqs(
+                analysis_data,
+                has_memory=has_memory,
+                memory_callouts=memory_callouts
+            )
+            cqs_scores.append(cqs_result["total_score"])
+            
+            # Log the result (internal only)
+            log_cqs_result(req.game_id, cqs_result, attempt + 1, not cqs_result["should_regenerate"])
+            
+            # Keep track of best result
+            if best_analysis_data is None or cqs_result["total_score"] > best_cqs_result["total_score"]:
+                best_analysis_data = analysis_data
+                best_cqs_result = cqs_result
+            
+            # Check if we should accept
+            if not cqs_result["should_regenerate"]:
+                break
+            
+            # If this is the last attempt, we'll use the best one
+            if attempt >= MAX_REGENERATIONS:
+                break
         
-        analysis_data = json.loads(response_clean)
+        # Use the best analysis data
+        analysis_data = best_analysis_data
+        cqs_result = best_cqs_result
         
         # Validate explanations against contract
         validated_commentary = []
