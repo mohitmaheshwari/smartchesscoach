@@ -12,6 +12,7 @@ import Training from "@/pages/Training";
 import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
+import Journey from "@/pages/Journey";
 
 // Components
 import { Toaster } from "@/components/ui/sonner";
