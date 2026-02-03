@@ -450,9 +450,9 @@ async def auto_analyze_game(db, user_id: str, game_doc: Dict) -> Optional[Dict]:
         user_name = user_doc.get("name", "Player") if user_doc else "Player"
         first_name = user_name.split()[0] if user_name else "friend"
         
-        # Get profile and RAG context
+        # Get profile
         profile = await get_or_create_profile(db, user_id, user_name)
-        rag_context = await build_rag_context(db, user_id, game_doc)
+        # Note: RAG context can be built here for future use if needed
         
         # Build memory context
         top_weaknesses = profile.get("top_weaknesses", [])[:3]
