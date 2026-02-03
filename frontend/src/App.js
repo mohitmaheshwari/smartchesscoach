@@ -116,6 +116,11 @@ function AppRouter() {
           {({ user }) => <Settings user={user} />}
         </ProtectedRoute>
       } />
+      <Route path="/journey" element={
+        <ProtectedRoute>
+          {({ user }) => <Journey user={user} />}
+        </ProtectedRoute>
+      } />
     </Routes>
   );
 }
