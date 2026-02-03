@@ -590,32 +590,6 @@ Psychological: impulsive_moves, tunnel_vision, hope_chess, time_trouble_blunders
 Current player's top weaknesses to watch for: {[w.get('subcategory', '').replace('_', ' ') for w in profile.get('top_weaknesses', [])[:3]]}
 
 Evaluations: "blunder", "mistake", "inaccuracy", "good", "excellent", "brilliant", "neutral"
-    ],
-    "blunders": 0,
-    "mistakes": 0,
-    "inaccuracies": 0,
-    "best_moves": 0,
-    "overall_summary": "2-3 sentences as a coach talking to them",
-    "identified_weaknesses": [
-        {{"category": "tactical", "subcategory": "pin_blindness", "description": "..."}}
-    ],
-    "identified_strengths": [
-        {{"category": "tactical", "subcategory": "fork_awareness", "description": "..."}}
-    ],
-    "voice_script_summary": "A 30-second speakable summary of this game"
-}}
-
-CRITICAL RULES:
-1. Commentary should focus ONLY on critical moments (blunders, mistakes, brilliant moves)
-2. Each explanation must follow the strict 4-field contract
-3. Use ONLY predefined weakness categories above
-4. NO move lists in explanations
-5. NO engine language (centipawns, eval, +0.5)
-6. Keep explanations {'brief and actionable' if learning_style == 'concise' else 'detailed with examples'}
-7. Be {coaching_tone} in tone
-8. Reference player's TOP WEAKNESSES when relevant: {[w.get('subcategory', '') for w in profile.get('top_weaknesses', [])[:3]]}
-
-Evaluations: "blunder", "mistake", "inaccuracy", "good", "excellent", "brilliant", "neutral"
 """
 
     try:
