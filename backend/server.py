@@ -984,32 +984,56 @@ class GeneratePuzzleRequest(BaseModel):
 
 @api_router.post("/generate-puzzle")
 async def generate_puzzle(req: GeneratePuzzleRequest, user: User = Depends(get_current_user)):
-    """Generate a puzzle based on user's weakness pattern"""
+    """Generate a puzzle based on user's weakness pattern from PlayerProfile"""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
+    import json
     
-    # Get the pattern details if provided
-    pattern = None
+    # Get player profile for context
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    # Determine which weakness to target
+    weakness_context = ""
+    target_category = req.category
+    target_subcategory = req.subcategory
+    
     if req.pattern_id:
+        # Use specified pattern
         pattern = await db.mistake_patterns.find_one(
             {"pattern_id": req.pattern_id, "user_id": user.user_id},
             {"_id": 0}
         )
-    
-    # Build context for puzzle generation
-    weakness_context = ""
-    if pattern:
-        weakness_context = f"The player struggles with: {pattern['subcategory']} ({pattern['category']}). {pattern['description']}"
+        if pattern:
+            target_category, target_subcategory = categorize_weakness(
+                pattern.get("category", "tactical"),
+                pattern.get("subcategory", "one_move_blunders")
+            )
+            weakness_context = f"The player struggles with: {target_subcategory.replace('_', ' ')} ({target_category}). {pattern.get('description', '')}"
+    elif profile and profile.get("top_weaknesses"):
+        # Use top weakness from profile
+        top_weakness = profile["top_weaknesses"][0]
+        target_category = top_weakness.get("category", "tactical")
+        target_subcategory = top_weakness.get("subcategory", "one_move_blunders")
+        weakness_context = f"Player's #1 weakness: {target_subcategory.replace('_', ' ')} ({target_category}). Score: {top_weakness.get('decayed_score', 1)}"
     else:
-        weakness_context = f"Focus on {req.subcategory} in the {req.category} category."
+        weakness_context = f"Focus on {req.subcategory.replace('_', ' ')} in the {req.category} category."
+    
+    # Get player level for difficulty calibration
+    player_level = "intermediate"
+    if profile:
+        player_level = profile.get("estimated_level", "intermediate")
     
     system_prompt = f"""You are a chess puzzle creator. Create a tactical puzzle for training.
 
-Player's weakness: {weakness_context}
+Player Level: {player_level.upper()}
+Target Weakness: {weakness_context}
 
 Create a puzzle that specifically targets this weakness. The puzzle should:
 1. Have a clear winning move or sequence
 2. Be instructive for the specific weakness
-3. Be solvable in 1-3 moves
+3. Difficulty appropriate for {player_level} level ({"1 move" if player_level == "beginner" else "1-3 moves"})
 
 Respond in JSON format ONLY:
 {{
@@ -1020,7 +1044,11 @@ Respond in JSON format ONLY:
     "solution_san": "The correct move in SAN notation (e.g., Nxf7)",
     "solution": [{{"from": "e4", "to": "f7"}}],
     "hint": "A subtle hint without giving away the answer",
-    "theme": "{req.subcategory}"
+    "theme": "{target_subcategory}",
+    "explanation": {{
+        "thinking_error": "What thinking error does this puzzle train against",
+        "one_repeatable_rule": "The rule this puzzle teaches"
+    }}
 }}
 
 Make sure the FEN is valid and the solution is correct for that position."""
