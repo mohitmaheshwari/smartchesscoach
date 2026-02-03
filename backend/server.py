@@ -139,6 +139,7 @@ class ImportGamesRequest(BaseModel):
 
 class AnalyzeGameRequest(BaseModel):
     game_id: str
+    force: bool = False  # Force re-analysis even if already analyzed
 
 class ConnectPlatformRequest(BaseModel):
     platform: str
