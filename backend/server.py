@@ -1116,9 +1116,6 @@ Make sure the FEN is valid and the solution is correct for that position."""
         await db.puzzles.insert_one(fallback_puzzle)
         fallback_puzzle.pop('_id', None)
         return fallback_puzzle
-            "hint": "Look for a forcing move that attacks multiple pieces",
-            "theme": req.subcategory
-        }
 
 # ==================== RAG MANAGEMENT ROUTES ====================
 
