@@ -8,12 +8,14 @@ Build an AI coach based chess app that understands context and trains mistakes l
 - Integrations: Chess.com + Lichess
 - Auth: Google social login (Emergent OAuth)
 - Theme: Dark/Light toggle
+- Voice: OpenAI TTS for coaching
 
 ## Architecture
 - **Frontend**: React + TailwindCSS + Shadcn UI
 - **Backend**: FastAPI + Motor (async MongoDB)
 - **Database**: MongoDB with RAG embeddings + PlayerProfile
 - **AI**: GPT-5.2 via Emergent integrations
+- **Voice**: OpenAI TTS via Emergent LLM key
 
 ## Core Requirements (Static)
 1. Import games from Chess.com/Lichess by username
@@ -22,12 +24,16 @@ Build an AI coach based chess app that understands context and trains mistakes l
 4. Memory system (RAG) for contextual coaching
 5. Dark/Light theme support
 6. Google OAuth authentication
-7. **PlayerProfile** - First-class coaching profile per user
-8. **Strict Explanation Contract** - No engine language, human-only advice
-9. **Deterministic Habit Tracking** - Rule-based with 30-day time decay
+7. PlayerProfile - First-class coaching profile per user
+8. Strict Explanation Contract - No engine language, human-only advice
+9. Deterministic Habit Tracking - Rule-based with 30-day time decay
+10. Coach Quality Score (CQS) - Internal quality gate for explanations
+11. Voice coaching with OpenAI TTS
+12. Journey Dashboard - Track learning progress over time
+13. Background Game Sync - Automatic polling for new games
 
 ## Database Collections (9 total)
-1. users - User profiles
+1. users - User profiles + linked chess accounts
 2. user_sessions - Auth sessions
 3. games - Imported chess games
 4. game_analyses - AI analysis results with explanation contract
@@ -35,57 +41,54 @@ Build an AI coach based chess app that understands context and trains mistakes l
 6. game_embeddings - RAG vectors for games
 7. pattern_embeddings - RAG vectors for patterns
 8. analysis_embeddings - RAG vectors for analyses
-9. **player_profiles** - First-class coaching profiles (NEW)
+9. player_profiles - First-class coaching profiles
 
-## Phase 1 Implementation (Dec 2025) ✅
-### PlayerProfile Collection
-- Stores estimated level, ranked weaknesses with decay, strengths
-- Learning style (concise/detailed), coaching tone (firm/encouraging/balanced)
-- Improvement trend tracking (improving/stuck/regressing)
-- Challenge mode success tracking for weakness resolution
+## Completed Features (Dec 2025)
 
-### Coaching Explanation Contract
-Every mistake explanation follows strict schema:
-- `thinking_error`: What mental mistake occurred
-- `why_it_happened`: Root cause
-- `what_to_focus_on_next_time`: Actionable focus
-- `one_repeatable_rule`: Simple rule to remember
-- **FORBIDDEN**: Move lists, engine language, centipawn scores
-
-### Deterministic Habit Tracking
-- 30-day decay window: `score = count × e^(-days/30)`
-- Predefined categories only (tactical, strategic, king_safety, opening_principles, endgame_fundamentals, psychological)
-- Weakness auto-resolves when challenge success > 70%
-
-### New API Endpoints
-- GET `/api/profile` - Full coaching profile
-- GET `/api/profile/weaknesses` - Top weaknesses with decay
-- GET `/api/profile/strengths` - Identified strengths
-- PATCH `/api/profile/preferences` - Update learning/tone preferences
-- POST `/api/profile/challenge-result` - Record puzzle result
-- GET `/api/weakness-categories` - All predefined categories
-
-## P0 Features (Done)
-- Game import from both platforms
-- AI analysis with context
+### P0 Features ✅
+- Game import from Chess.com and Lichess
+- AI analysis with Indian coach persona
 - RAG-based memory system
-- **PlayerProfile system with habit tracking**
-- **Strict coaching explanation contract**
+- PlayerProfile system with habit tracking
+- Strict coaching explanation contract
+- Interactive chessboard for game review
+- Voice coaching with OpenAI TTS
+- Coach Quality Score (CQS) internal gate
 
-## P1 Features (In Progress)
-- Interactive chess board visualization (has bug - awaiting verification)
-- Challenge mode feedback loop
-- Progress & reinforcement summaries
-- Voice-ready explanation fields
+### P1 Features ✅
+- **Journey Dashboard** - Shows weekly assessment, focus areas, weakness trends
+- **Background Game Sync** - Automatic polling every 6 hours
+- **Manual Sync** - "Sync Now" button for immediate sync
+- Account linking UI for Chess.com/Lichess
+
+### Key API Endpoints
+- `/api/journey` - Journey Dashboard data
+- `/api/journey/linked-accounts` - Get linked accounts
+- `/api/journey/link-account` - Link Chess.com/Lichess account
+- `/api/journey/sync-now` - Trigger manual game sync
+- `/api/analyze-game` - AI game analysis
+- `/api/profile` - Player coaching profile
+- `/api/tts/generate` - Voice generation
 
 ## P2 Features (Future)
-- Daily challenge mode (3 personalized puzzles)
+- Daily Challenge Mode (3 personalized puzzles daily)
 - Keyboard shortcuts for move navigation
 - Opening name detection
 - Move sound effects
+- User Settings Page (learning style, coaching tone)
 
 ## Key Files
 - `/app/backend/server.py` - Main API with all endpoints
 - `/app/backend/rag_service.py` - RAG pipeline
-- `/app/backend/player_profile_service.py` - PlayerProfile & habit tracking (NEW)
-- `/app/memory/PHASE1_SCHEMA_REVIEW.md` - Schema documentation for review
+- `/app/backend/player_profile_service.py` - PlayerProfile & habit tracking
+- `/app/backend/cqs_service.py` - Coach Quality Score system
+- `/app/backend/journey_service.py` - Journey Dashboard & sync logic
+- `/app/frontend/src/pages/Journey.jsx` - Journey Dashboard UI
+- `/app/frontend/src/pages/GameAnalysis.jsx` - Game analysis UI
+- `/app/frontend/src/components/Layout.jsx` - Navigation layout
+
+## Technical Notes
+- Babel visual-edits plugin disabled (was causing compilation errors)
+- Background sync runs every 6 hours automatically
+- CQS system is internal only, not exposed to users
+- react-chessboard version locked at 4.6.0
