@@ -1,20 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity, 
   ActivityIndicator,
-  Image,
-  Dimensions 
+  Dimensions,
+  Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '../src/context/ThemeContext';
 import { useAuth } from '../src/context/AuthContext';
-import { API_URL } from '../src/constants/config';
 import { Ionicons } from '@expo/vector-icons';
+import { useGoogleAuth, authenticateWithBackend } from '../src/services/googleAuth';
 
 const { width } = Dimensions.get('window');
 
@@ -23,24 +22,53 @@ export default function LoginScreen() {
   const { colors } = useTheme();
   const { login, refresh } = useAuth();
   const [loading, setLoading] = useState(false);
+  
+  // Google Auth hook
+  const { request, response, promptAsync } = useGoogleAuth();
+
+  // Handle Google auth response
+  useEffect(() => {
+    handleGoogleResponse();
+  }, [response]);
+
+  const handleGoogleResponse = async () => {
+    if (response?.type === 'success') {
+      setLoading(true);
+      try {
+        const { authentication } = response;
+        
+        if (authentication?.accessToken) {
+          // Exchange token with our backend
+          const user = await authenticateWithBackend(authentication.accessToken);
+          
+          if (user) {
+            login(user);
+            router.replace('/(tabs)/dashboard');
+          }
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
+        Alert.alert('Login Failed', error.message || 'Could not complete sign in. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    } else if (response?.type === 'error') {
+      Alert.alert('Login Error', response.error?.message || 'Authentication failed');
+    }
+  };
 
   const handleGoogleLogin = async () => {
-    setLoading(true);
+    if (!request) {
+      Alert.alert('Not Ready', 'Please wait while we prepare Google Sign In...');
+      return;
+    }
+    
     try {
-      // Open Google OAuth in browser
-      const result = await WebBrowser.openAuthSessionAsync(
-        `${API_URL}/auth/google`,
-        'chesscoach://'
-      );
-      
-      if (result.type === 'success') {
-        // Refresh auth state
-        await refresh();
-        router.replace('/(tabs)/dashboard');
-      }
+      setLoading(true);
+      await promptAsync();
     } catch (error) {
-      console.error('Login error:', error);
-    } finally {
+      console.error('Prompt error:', error);
+      Alert.alert('Error', 'Could not open Google Sign In');
       setLoading(false);
     }
   };
@@ -88,10 +116,11 @@ export default function LoginScreen() {
         {/* Login Button */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
-            style={styles.googleButton}
+            style={[styles.googleButton, !request && styles.googleButtonDisabled]}
             onPress={handleGoogleLogin}
-            disabled={loading}
+            disabled={loading || !request}
             activeOpacity={0.8}
+            testID="google-login-btn"
           >
             {loading ? (
               <ActivityIndicator color="#000" />
@@ -185,6 +214,9 @@ const createStyles = (colors) => StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     gap: 12,
+  },
+  googleButtonDisabled: {
+    opacity: 0.6,
   },
   googleButtonText: {
     color: '#000',
