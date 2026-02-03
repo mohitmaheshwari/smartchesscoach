@@ -268,16 +268,50 @@ const GameAnalysis = ({ user }) => {
                     </div>
 
                     {/* Identified Patterns */}
-                    {analysisPatterns.length > 0 && (
+                    {(analysis.weaknesses || analysisPatterns).length > 0 && (
                       <div className="space-y-2">
                         <p className="text-sm font-medium">Patterns Identified</p>
                         <div className="flex flex-wrap gap-2">
-                          {analysisPatterns.map((patternId, idx) => (
+                          {(analysis.weaknesses || []).map((weakness, idx) => (
+                            <Badge 
+                              key={idx} 
+                              variant="outline"
+                              className="text-xs capitalize"
+                            >
+                              {weakness.display_name || weakness.subcategory?.replace(/_/g, ' ') || `Pattern #${idx + 1}`}
+                            </Badge>
+                          ))}
+                          {/* Fallback for old data */}
+                          {!analysis.weaknesses && analysisPatterns.map((patternId, idx) => (
                             <Badge key={idx} variant="outline">
                               Pattern #{idx + 1}
                             </Badge>
                           ))}
                         </div>
+                        {/* Show weakness details */}
+                        {analysis.weaknesses && analysis.weaknesses.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {analysis.weaknesses.map((w, idx) => (
+                              <div key={idx} className="p-2 rounded bg-muted/50 text-sm">
+                                <span className="font-medium capitalize">{w.display_name || w.subcategory?.replace(/_/g, ' ')}</span>
+                                {w.description && (
+                                  <p className="text-muted-foreground text-xs mt-1">{w.description}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Key Lesson */}
+                    {analysis.key_lesson && (
+                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <p className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" />
+                          Key Lesson
+                        </p>
+                        <p className="text-sm mt-1">{analysis.key_lesson}</p>
                       </div>
                     )}
                   </TabsContent>
