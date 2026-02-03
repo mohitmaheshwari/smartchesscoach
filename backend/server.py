@@ -650,14 +650,28 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
 """
 
     try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"analysis_{req.game_id}",
-            system_message=system_prompt
-        ).with_model("openai", "gpt-5.2")
+        # CQS: Track regeneration attempts
+        cqs_scores = []
+        best_analysis_data = None
+        best_cqs_result = None
+        has_memory = len(memory_callouts) > 0
         
-        user_message = UserMessage(text=f"Please analyze this game:\n\n{game['pgn']}")
-        response = await chat.send_message(user_message)
+        for attempt in range(MAX_REGENERATIONS + 1):
+            # Build prompt with stricter constraints on regeneration
+            current_prompt = system_prompt
+            if attempt > 0:
+                stricter_rules = get_stricter_prompt_constraints(attempt)
+                current_prompt = system_prompt + "\n" + stricter_rules
+                logger.info(f"CQS: Regenerating analysis for {req.game_id}, attempt {attempt + 1}")
+            
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"analysis_{req.game_id}_{attempt}",
+                system_message=current_prompt
+            ).with_model("openai", "gpt-5.2")
+            
+            user_message = UserMessage(text=f"Please analyze this game:\n\n{game['pgn']}")
+            response = await chat.send_message(user_message)
         
         response_clean = response.strip()
         if response_clean.startswith("```json"):
