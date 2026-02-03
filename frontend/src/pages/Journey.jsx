@@ -1,12 +1,29 @@
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
-import { Loader2, Brain, TrendingUp, TrendingDown, Minus, CheckCircle2, Sparkles, RefreshCw } from "lucide-react";
+import { 
+  ProgressRing, 
+  StatusBadge, 
+  TrendIndicator, 
+  CoachMessage,
+  SectionHeader,
+  AnimatedList,
+  AnimatedItem
+} from "@/components/ui/premium";
+import { 
+  Loader2, 
+  RefreshCw, 
+  ChevronRight,
+  Sparkles,
+  Target,
+  TrendingUp,
+  CheckCircle2
+} from "lucide-react";
 
 const Journey = ({ user }) => {
   const [loading, setLoading] = useState(true);
@@ -65,7 +82,7 @@ const Journey = ({ user }) => {
         credentials: "include"
       });
       if (!res.ok) throw new Error((await res.json()).detail);
-      toast.success("Sync started! New games will appear shortly.");
+      toast.success("Sync started!");
       setTimeout(fetchDashboard, 5000);
     } catch (e) {
       toast.error(e.message);
@@ -78,223 +95,290 @@ const Journey = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin" />
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       </Layout>
     );
   }
 
   const hasAccount = accounts.chess_com || accounts.lichess;
-  const games = dashboard ? dashboard.games_analyzed : 0;
-  const mode = dashboard ? dashboard.mode : "onboarding";
+  const games = dashboard?.games_analyzed || 0;
+  const mode = dashboard?.mode || "onboarding";
 
   return (
     <Layout user={user}>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-8 max-w-4xl" data-testid="journey-page">
+        {/* Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-end justify-between"
+        >
           <div>
-            <h1 className="text-2xl font-bold">Your Journey</h1>
-            <p className="text-sm text-muted-foreground">Track learning progress</p>
+            <p className="label-caps mb-2">Your Progress</p>
+            <h1 className="text-3xl font-heading font-bold tracking-tight">Journey</h1>
           </div>
-          {games > 0 && <Badge variant="outline">{games} games</Badge>}
-        </div>
+          {games > 0 && (
+            <div className="text-right">
+              <p className="text-2xl font-heading font-semibold">{games}</p>
+              <p className="text-sm text-muted-foreground">games analyzed</p>
+            </div>
+          )}
+        </motion.div>
 
+        {/* Connect Account CTA */}
         {!hasAccount && (
-          <Card className="border-dashed border-2">
-            <CardContent className="py-8 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                <Brain className="w-8 h-8 text-primary" />
-              </div>
-              <h3 className="font-semibold text-lg">Connect Chess Account</h3>
-              <p className="text-sm text-muted-foreground">Link to start automatic coaching</p>
-              <div className="flex justify-center gap-3">
-                <Button onClick={() => setPlatform("chess.com")} variant="outline">Chess.com</Button>
-                <Button onClick={() => setPlatform("lichess")} variant="outline">Lichess</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {platform && (
-          <Card>
-            <CardHeader><CardTitle>Link {platform}</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                placeholder={"Enter " + platform + " username"}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={linking}
-              />
-              <div className="flex gap-2">
-                <Button onClick={linkAccount} disabled={linking}>
-                  {linking && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                  Link
-                </Button>
-                <Button variant="ghost" onClick={() => setPlatform(null)}>Cancel</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {mode === "onboarding" && (
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="py-6">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Brain className="w-6 h-6 text-primary" />
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card className="border-dashed border-2 border-muted-foreground/20">
+              <CardContent className="py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
+                  <Target className="w-7 h-7 text-muted-foreground" />
                 </div>
-                <div>
-                  <h3 className="font-semibold">Getting to Know Your Game</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {dashboard ? dashboard.weekly_assessment : "Play some games to get started."}
-                  </p>
+                <h3 className="font-heading font-semibold text-xl mb-2">Connect Your Chess Account</h3>
+                <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                  Link your account to start tracking progress and receive personalized coaching.
+                </p>
+                <div className="flex justify-center gap-3">
+                  <Button 
+                    onClick={() => setPlatform("chess.com")} 
+                    variant="outline"
+                    className="btn-scale"
+                    data-testid="link-chesscom-btn"
+                  >
+                    Chess.com
+                  </Button>
+                  <Button 
+                    onClick={() => setPlatform("lichess")} 
+                    variant="outline"
+                    className="btn-scale"
+                    data-testid="link-lichess-btn"
+                  >
+                    Lichess
+                  </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {mode !== "onboarding" && dashboard && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-primary" />
-                  Coach Assessment
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">{dashboard.weekly_assessment}</p>
               </CardContent>
             </Card>
-
-            {dashboard.focus_areas && dashboard.focus_areas.length > 0 && (
-              <Card>
-                <CardHeader><CardTitle>Focus Areas</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {dashboard.focus_areas.map((area, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                        <div>
-                          <p className="font-medium capitalize">{area.name}</p>
-                          <p className="text-xs text-muted-foreground capitalize">{area.category}</p>
-                        </div>
-                        <Badge className={
-                          area.status === "improving" ? "bg-emerald-500/20 text-emerald-600 border-0" :
-                          area.status === "needs_attention" ? "bg-red-500/20 text-red-600 border-0" :
-                          "bg-blue-500/20 text-blue-600 border-0"
-                        }>
-                          {area.status === "improving" ? "Improving" : area.status === "needs_attention" ? "Focus" : "Stable"}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {dashboard.weakness_trends && dashboard.weakness_trends.length > 0 && (
-              <Card>
-                <CardHeader><CardTitle>Habit Trends</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {dashboard.weakness_trends.map((t, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                        <div>
-                          <p className="font-medium capitalize">{t.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {t.occurrences_recent} recent vs {t.occurrences_previous} before
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {t.trend === "improving" && <TrendingDown className="w-4 h-4 text-emerald-500" />}
-                          {t.trend === "worsening" && <TrendingUp className="w-4 h-4 text-red-500" />}
-                          {t.trend === "stable" && <Minus className="w-4 h-4 text-muted-foreground" />}
-                          <span className={
-                            t.trend === "improving" ? "text-xs text-emerald-500" :
-                            t.trend === "worsening" ? "text-xs text-red-500" :
-                            "text-xs text-muted-foreground"
-                          }>
-                            {t.trend === "improving" ? "Better" : t.trend === "worsening" ? "Work on" : "Steady"}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {dashboard.resolved_habits && dashboard.resolved_habits.length > 0 && (
-              <Card className="bg-emerald-500/5 border-emerald-500/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                    Resolved
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {dashboard.resolved_habits.map((h, i) => (
-                    <p key={i} className="text-sm text-muted-foreground">{h.message}</p>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {dashboard.strengths && dashboard.strengths.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-amber-500" />
-                    Strengths
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {dashboard.strengths.map((s, i) => (
-                      <Badge key={i} variant="outline" className="capitalize">{s.name}</Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          </motion.div>
         )}
 
+        {/* Link Account Form */}
+        {platform && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+          >
+            <Card className="surface">
+              <CardContent className="py-6">
+                <p className="label-caps mb-4">Link {platform}</p>
+                <div className="flex gap-3">
+                  <Input
+                    placeholder={`Enter ${platform} username`}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    disabled={linking}
+                    className="max-w-xs"
+                    data-testid="username-input"
+                  />
+                  <Button onClick={linkAccount} disabled={linking} className="btn-scale">
+                    {linking && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                    Connect
+                  </Button>
+                  <Button variant="ghost" onClick={() => setPlatform(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Onboarding State */}
+        {mode === "onboarding" && hasAccount && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card className="surface border-l-4 border-l-accent">
+              <CardContent className="py-6">
+                <div className="flex items-start gap-4">
+                  <ProgressRing progress={Math.min(games * 20, 100)} size={64} strokeWidth={6} />
+                  <div className="flex-1">
+                    <p className="label-caps mb-1">Getting Started</p>
+                    <p className="text-foreground leading-relaxed">
+                      {dashboard?.weekly_assessment || "Play a few more games and I'll start identifying patterns in your play."}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Main Dashboard Content */}
+        {mode !== "onboarding" && dashboard && (
+          <AnimatedList className="space-y-6">
+            {/* Coach Assessment */}
+            <AnimatedItem>
+              <Card className="surface">
+                <CardContent className="py-6">
+                  <SectionHeader label="Coach's Assessment" />
+                  <CoachMessage message={dashboard.weekly_assessment} />
+                </CardContent>
+              </Card>
+            </AnimatedItem>
+
+            {/* Focus Areas & Trends Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Focus Areas */}
+              {dashboard.focus_areas?.length > 0 && (
+                <AnimatedItem>
+                  <Card className="surface h-full">
+                    <CardContent className="py-6">
+                      <SectionHeader label="Focus Areas" />
+                      <div className="space-y-3">
+                        {dashboard.focus_areas.map((area, i) => (
+                          <div 
+                            key={i} 
+                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                          >
+                            <div>
+                              <p className="font-medium capitalize">{area.name}</p>
+                              <p className="text-xs text-muted-foreground capitalize">{area.category}</p>
+                            </div>
+                            <StatusBadge status={area.status} />
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </AnimatedItem>
+              )}
+
+              {/* Weakness Trends */}
+              {dashboard.weakness_trends?.length > 0 && (
+                <AnimatedItem>
+                  <Card className="surface h-full">
+                    <CardContent className="py-6">
+                      <SectionHeader label="Habit Trends" />
+                      <div className="space-y-3">
+                        {dashboard.weakness_trends.map((t, i) => (
+                          <div 
+                            key={i} 
+                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                          >
+                            <div>
+                              <p className="font-medium capitalize">{t.name}</p>
+                              <p className="text-xs text-muted-foreground font-mono">
+                                {t.occurrences_recent} recent · {t.occurrences_previous} before
+                              </p>
+                            </div>
+                            <TrendIndicator trend={t.trend} />
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </AnimatedItem>
+              )}
+            </div>
+
+            {/* Resolved & Strengths Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Resolved Habits */}
+              {dashboard.resolved_habits?.length > 0 && (
+                <AnimatedItem>
+                  <Card className="surface border-l-4 border-l-emerald-500">
+                    <CardContent className="py-6">
+                      <SectionHeader 
+                        label="Resolved" 
+                        action={<CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                      />
+                      <div className="space-y-2">
+                        {dashboard.resolved_habits.map((h, i) => (
+                          <p key={i} className="text-sm text-muted-foreground">{h.message}</p>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </AnimatedItem>
+              )}
+
+              {/* Strengths */}
+              {dashboard.strengths?.length > 0 && (
+                <AnimatedItem>
+                  <Card className="surface">
+                    <CardContent className="py-6">
+                      <SectionHeader 
+                        label="Your Strengths" 
+                        action={<Sparkles className="w-4 h-4 text-amber-500" />}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        {dashboard.strengths.map((s, i) => (
+                          <span 
+                            key={i} 
+                            className="px-3 py-1.5 text-sm bg-muted rounded-md capitalize"
+                          >
+                            {s.name}
+                          </span>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </AnimatedItem>
+              )}
+            </div>
+          </AnimatedList>
+        )}
+
+        {/* Linked Accounts Footer */}
         {hasAccount && (
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex gap-4 text-sm flex-wrap">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="surface">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-6 text-sm">
                     {accounts.chess_com && (
-                      <span className="flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        Chess.com: {accounts.chess_com}
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        Chess.com: <span className="font-medium">{accounts.chess_com}</span>
                       </span>
                     )}
                     {accounts.lichess && (
-                      <span className="flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        Lichess: {accounts.lichess}
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        Lichess: <span className="font-medium">{accounts.lichess}</span>
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">Games sync automatically every 6 hours</p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={syncNow}
+                    disabled={syncing}
+                    className="text-muted-foreground hover:text-foreground"
+                    data-testid="sync-now-btn"
+                  >
+                    {syncing ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    Sync
+                  </Button>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={syncNow}
-                  disabled={syncing}
-                  data-testid="sync-now-btn"
-                >
-                  {syncing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                  Sync Now
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Games sync automatically every 6 hours
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
         )}
       </div>
     </Layout>
