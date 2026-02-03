@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,89 @@ import {
   Moon, 
   LogOut,
   User,
-  Palette
+  Palette,
+  Mail,
+  Loader2,
+  Send
 } from "lucide-react";
 
 const Settings = ({ user }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [emailSettings, setEmailSettings] = useState({
+    game_analyzed: true,
+    weekly_summary: true,
+    weakness_alert: true
+  });
+  const [loadingEmail, setLoadingEmail] = useState(true);
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+
+  useEffect(() => {
+    fetchEmailSettings();
+  }, []);
+
+  const fetchEmailSettings = async () => {
+    try {
+      const res = await fetch(API + "/settings/email-notifications", {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEmailSettings(data.notifications);
+      }
+    } catch (e) {
+      console.error("Failed to fetch email settings:", e);
+    } finally {
+      setLoadingEmail(false);
+    }
+  };
+
+  const updateEmailSetting = async (key, value) => {
+    const newSettings = { ...emailSettings, [key]: value };
+    setEmailSettings(newSettings);
+    setSavingEmail(true);
+    
+    try {
+      const res = await fetch(API + "/settings/email-notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(newSettings)
+      });
+      if (res.ok) {
+        toast.success("Email preferences saved");
+      } else {
+        throw new Error("Failed to save");
+      }
+    } catch (e) {
+      toast.error("Failed to save email preferences");
+      setEmailSettings(prev => ({ ...prev, [key]: !value }));
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const sendTestEmail = async () => {
+    setSendingTest(true);
+    try {
+      const res = await fetch(API + "/settings/test-email", {
+        method: "POST",
+        credentials: "include"
+      });
+      if (res.ok) {
+        toast.success("Test email sent! Check your inbox.");
+      } else {
+        const data = await res.json();
+        toast.error(data.detail || "Failed to send test email");
+      }
+    } catch (e) {
+      toast.error("Failed to send test email");
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -88,6 +164,99 @@ const Settings = ({ user }) => {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Email Notifications Card */}
+        <Card data-testid="email-notifications-card">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              Email Notifications
+            </CardTitle>
+            <CardDescription>Choose what emails you receive</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {loadingEmail ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="email-game-analyzed">Game Analyzed</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Get notified when new games are analyzed
+                    </p>
+                  </div>
+                  <Switch
+                    id="email-game-analyzed"
+                    checked={emailSettings.game_analyzed}
+                    onCheckedChange={(v) => updateEmailSetting("game_analyzed", v)}
+                    disabled={savingEmail}
+                    data-testid="email-game-analyzed-switch"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="email-weekly-summary">Weekly Summary</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receive a weekly progress report
+                    </p>
+                  </div>
+                  <Switch
+                    id="email-weekly-summary"
+                    checked={emailSettings.weekly_summary}
+                    onCheckedChange={(v) => updateEmailSetting("weekly_summary", v)}
+                    disabled={savingEmail}
+                    data-testid="email-weekly-summary-switch"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="email-weakness-alert">Weakness Alerts</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Get alerted when recurring patterns are detected
+                    </p>
+                  </div>
+                  <Switch
+                    id="email-weakness-alert"
+                    checked={emailSettings.weakness_alert}
+                    onCheckedChange={(v) => updateEmailSetting("weakness_alert", v)}
+                    disabled={savingEmail}
+                    data-testid="email-weakness-alert-switch"
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Test Email</p>
+                    <p className="text-sm text-muted-foreground">
+                      Send a test email to verify your settings
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={sendTestEmail}
+                    disabled={sendingTest}
+                    data-testid="send-test-email-btn"
+                  >
+                    {sendingTest ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Send className="w-4 h-4 mr-2" />
+                    )}
+                    Send Test
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
