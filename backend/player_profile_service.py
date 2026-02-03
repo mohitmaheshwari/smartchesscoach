@@ -8,10 +8,13 @@ This module provides:
 """
 
 import os
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import math
+
+logger = logging.getLogger(__name__)
 
 # ==================== CONSTANTS & ENUMS ====================
 
