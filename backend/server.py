@@ -868,7 +868,7 @@ async def get_analysis(game_id: str, user: User = Depends(get_current_user)):
     """Get analysis for a specific game"""
     analysis = await db.game_analyses.find_one(
         {"game_id": game_id, "user_id": user.user_id},
-        {"_id": 0}
+        {"_id": 0, "_cqs_internal": 0}  # Exclude internal CQS data
     )
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
