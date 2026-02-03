@@ -318,7 +318,7 @@ const GameAnalysis = ({ user }) => {
 
                   <TabsContent value="moves" className="mt-4">
                     <ScrollArea className="h-[400px]">
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {analysisCommentary.map((item, index) => (
                           <div 
                             key={index}
@@ -327,7 +327,7 @@ const GameAnalysis = ({ user }) => {
                             }`}
                             data-testid={`move-comment-${index}`}
                           >
-                            <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 <span className="font-mono text-sm font-medium">
                                   {item.move_number}. {item.move}
@@ -340,7 +340,48 @@ const GameAnalysis = ({ user }) => {
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-sm text-muted-foreground">{item.comment}</p>
+                            
+                            {/* Player Intention - What they were trying to do */}
+                            {item.player_intention && (
+                              <p className="text-sm text-blue-600 dark:text-blue-400 italic mb-2">
+                                "{item.player_intention}"
+                              </p>
+                            )}
+                            
+                            {/* Coach Response - The main explanation */}
+                            {item.coach_response && (
+                              <p className="text-sm text-muted-foreground mb-2">{item.coach_response}</p>
+                            )}
+                            
+                            {/* Fallback to old comment field */}
+                            {!item.coach_response && item.comment && (
+                              <p className="text-sm text-muted-foreground mb-2">{item.comment}</p>
+                            )}
+                            
+                            {/* Better Move suggestion */}
+                            {item.better_move && (
+                              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                Better: {item.better_move}
+                              </p>
+                            )}
+                            
+                            {/* Expanded Explanation for mistakes/blunders */}
+                            {item.explanation && (item.evaluation === 'blunder' || item.evaluation === 'mistake' || item.evaluation === 'inaccuracy') && (
+                              <div className="mt-2 pt-2 border-t border-muted space-y-1">
+                                {item.explanation.thinking_error && (
+                                  <p className="text-xs">
+                                    <span className="font-medium text-red-500">Thinking:</span>{' '}
+                                    <span className="text-muted-foreground">{item.explanation.thinking_error}</span>
+                                  </p>
+                                )}
+                                {item.explanation.one_repeatable_rule && (
+                                  <p className="text-xs">
+                                    <span className="font-medium text-emerald-500">Rule:</span>{' '}
+                                    <span className="text-muted-foreground">{item.explanation.one_repeatable_rule}</span>
+                                  </p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
