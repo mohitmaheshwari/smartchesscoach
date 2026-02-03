@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/context/ThemeContext';
 import { gamesAPI, analysisAPI } from '../../src/services/api';
 import { StatusColors } from '../../src/constants/config';
+import { ChessBoardViewer, MoveNavigation } from '../../src/components/ChessBoard';
 
 const { width } = Dimensions.get('window');
 
@@ -26,7 +27,7 @@ export default function GameAnalysisScreen() {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  const [currentMove, setCurrentMove] = useState(0);
+  const [currentMove, setCurrentMove] = useState(-1); // -1 = starting position
   const [expandedMoves, setExpandedMoves] = useState({});
 
   useEffect(() => {
@@ -81,7 +82,14 @@ export default function GameAnalysisScreen() {
     return evalColors[evaluation] || colors.textSecondary;
   };
 
+  // Navigation handlers
+  const goToFirst = () => setCurrentMove(-1);
+  const goToPrevious = () => setCurrentMove(prev => Math.max(-1, prev - 1));
+  const goToNext = () => setCurrentMove(prev => Math.min(moves.length - 1, prev + 1));
+  const goToLast = () => setCurrentMove(moves.length - 1);
+
   const styles = createStyles(colors);
+  const moves = analysis?.move_by_move || [];
 
   if (loading) {
     return (
@@ -106,8 +114,7 @@ export default function GameAnalysisScreen() {
     );
   }
 
-  const moves = analysis?.move_by_move || [];
-  const currentMoveData = moves[currentMove];
+  const currentMoveData = currentMove >= 0 && currentMove < moves.length ? moves[currentMove] : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -121,7 +128,7 @@ export default function GameAnalysisScreen() {
             {game.white_player} vs {game.black_player}
           </Text>
           <Text style={styles.headerMeta}>
-            {game.platform} • {game.result} • {game.user_color}
+            {game.platform} • {game.result} • You played {game.user_color}
           </Text>
         </View>
       </View>
@@ -130,56 +137,87 @@ export default function GameAnalysisScreen() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {/* Chessboard Placeholder */}
+        {/* Interactive Chessboard */}
         <View style={styles.boardContainer}>
-          <View style={styles.boardPlaceholder}>
-            <Ionicons name="grid" size={80} color={colors.textSecondary} />
-            <Text style={styles.boardPlaceholderText}>
-              Interactive board coming soon
-            </Text>
-            {currentMoveData && (
-              <View style={styles.currentMoveInfo}>
-                <Text style={styles.currentMoveNumber}>Move {currentMoveData.move_number}</Text>
-                <Text style={styles.currentMoveText}>{currentMoveData.move}</Text>
+          <ChessBoardViewer
+            pgn={game.pgn}
+            currentMoveIndex={currentMove}
+            userColor={game.user_color}
+          />
+          
+          {/* Move Navigation */}
+          <MoveNavigation
+            currentMove={currentMove + 1}
+            totalMoves={moves.length || 1}
+            onFirst={goToFirst}
+            onPrevious={goToPrevious}
+            onNext={goToNext}
+            onLast={goToLast}
+          />
+        </View>
+
+        {/* Current Move Analysis */}
+        {currentMoveData && (
+          <View style={styles.currentMoveCard}>
+            <View style={styles.currentMoveHeader}>
+              <View style={styles.currentMoveLeft}>
+                <Text style={styles.currentMoveNumber}>
+                  {currentMoveData.move_number}.
+                </Text>
+                <Text style={styles.currentMoveText}>
+                  {currentMoveData.move}
+                </Text>
+              </View>
+              <View style={[
+                styles.evalBadgeLarge,
+                { backgroundColor: `${getEvalColor(currentMoveData.evaluation)}20` }
+              ]}>
+                <Text style={[styles.evalTextLarge, { color: getEvalColor(currentMoveData.evaluation) }]}>
+                  {currentMoveData.evaluation}
+                </Text>
+              </View>
+            </View>
+            
+            {currentMoveData.lesson && (
+              <Text style={styles.currentMoveLesson}>{currentMoveData.lesson}</Text>
+            )}
+            
+            {currentMoveData.thinking_pattern && currentMoveData.thinking_pattern !== 'solid_thinking' && (
+              <View style={styles.patternBox}>
+                <Ionicons name="bulb-outline" size={16} color={StatusColors.warning} />
+                <Text style={styles.patternText}>
+                  {currentMoveData.thinking_pattern.replace(/_/g, ' ')}
+                </Text>
+              </View>
+            )}
+            
+            {currentMoveData.consider && (
+              <View style={styles.considerBox}>
+                <Ionicons name="arrow-forward-circle-outline" size={16} color={StatusColors.good} />
+                <Text style={styles.considerText}>{currentMoveData.consider}</Text>
+              </View>
+            )}
+            
+            {/* Best Move Suggestion */}
+            {['blunder', 'mistake', 'inaccuracy'].includes(currentMoveData.evaluation) && 
+              analysis?.best_move_suggestions?.find(s => s.move_number === currentMoveData.move_number) && (
+              <View style={styles.bestMoveBox}>
+                <Ionicons name="checkmark-circle" size={18} color={StatusColors.improving} />
+                <View style={styles.bestMoveContent}>
+                  <Text style={styles.bestMoveLabel}>Better move:</Text>
+                  <Text style={styles.bestMoveText}>
+                    {analysis.best_move_suggestions.find(s => s.move_number === currentMoveData.move_number).best_move}
+                  </Text>
+                  {analysis.best_move_suggestions.find(s => s.move_number === currentMoveData.move_number).reason && (
+                    <Text style={styles.bestMoveReason}>
+                      {analysis.best_move_suggestions.find(s => s.move_number === currentMoveData.move_number).reason}
+                    </Text>
+                  )}
+                </View>
               </View>
             )}
           </View>
-          
-          {/* Move Navigation */}
-          {moves.length > 0 && (
-            <View style={styles.moveNav}>
-              <TouchableOpacity 
-                style={styles.navButton}
-                onPress={() => setCurrentMove(0)}
-                disabled={currentMove === 0}
-              >
-                <Ionicons name="play-skip-back" size={20} color={currentMove === 0 ? colors.textSecondary : colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.navButton}
-                onPress={() => setCurrentMove(Math.max(0, currentMove - 1))}
-                disabled={currentMove === 0}
-              >
-                <Ionicons name="play-back" size={20} color={currentMove === 0 ? colors.textSecondary : colors.text} />
-              </TouchableOpacity>
-              <Text style={styles.moveCounter}>{currentMove + 1} / {moves.length}</Text>
-              <TouchableOpacity 
-                style={styles.navButton}
-                onPress={() => setCurrentMove(Math.min(moves.length - 1, currentMove + 1))}
-                disabled={currentMove === moves.length - 1}
-              >
-                <Ionicons name="play-forward" size={20} color={currentMove === moves.length - 1 ? colors.textSecondary : colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.navButton}
-                onPress={() => setCurrentMove(moves.length - 1)}
-                disabled={currentMove === moves.length - 1}
-              >
-                <Ionicons name="play-skip-forward" size={20} color={currentMove === moves.length - 1 ? colors.textSecondary : colors.text} />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        )}
 
         {!analysis ? (
           /* No Analysis - CTA */
@@ -228,7 +266,7 @@ export default function GameAnalysisScreen() {
                   <Text style={[styles.statValue, { color: StatusColors.excellent }]}>
                     {analysis.best_moves}
                   </Text>
-                  <Text style={styles.statLabel}>Best Moves</Text>
+                  <Text style={styles.statLabel}>Best</Text>
                 </View>
               </View>
             </View>
@@ -246,77 +284,39 @@ export default function GameAnalysisScreen() {
 
             {/* Move List */}
             <View style={styles.movesSection}>
-              <Text style={styles.sectionLabel}>MOVE ANALYSIS</Text>
-              {moves.slice(0, 20).map((move, index) => {
-                const isExpanded = expandedMoves[index];
-                const hasDetails = move.lesson || move.thinking_pattern;
-                const isMistake = ['blunder', 'mistake', 'inaccuracy'].includes(move.evaluation);
-                
-                return (
-                  <TouchableOpacity 
-                    key={index}
-                    style={[
-                      styles.moveItem,
-                      currentMove === index && styles.moveItemActive
-                    ]}
-                    onPress={() => {
-                      setCurrentMove(index);
-                      if (hasDetails) toggleMoveExpanded(index);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.moveHeader}>
-                      <View style={styles.moveLeft}>
-                        <Text style={styles.moveNumber}>{move.move_number}.</Text>
-                        <Text style={styles.moveText}>{move.move}</Text>
-                      </View>
-                      <View style={[
-                        styles.evalBadge,
-                        { backgroundColor: `${getEvalColor(move.evaluation)}20` }
+              <Text style={styles.sectionLabel}>ALL MOVES</Text>
+              <View style={styles.movesList}>
+                {moves.map((move, index) => {
+                  const isActive = currentMove === index;
+                  const isMistake = ['blunder', 'mistake', 'inaccuracy'].includes(move.evaluation);
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={index}
+                      style={[
+                        styles.moveChip,
+                        isActive && styles.moveChipActive,
+                        isMistake && styles.moveChipMistake,
+                        { borderColor: isActive ? colors.accent : colors.border }
+                      ]}
+                      onPress={() => setCurrentMove(index)}
+                    >
+                      <Text style={[
+                        styles.moveChipNumber,
+                        { color: colors.textSecondary }
                       ]}>
-                        <Text style={[styles.evalText, { color: getEvalColor(move.evaluation) }]}>
-                          {move.evaluation}
-                        </Text>
-                      </View>
-                    </View>
-                    
-                    {move.lesson && (
-                      <Text style={styles.moveLesson}>{move.lesson}</Text>
-                    )}
-                    
-                    {isExpanded && hasDetails && (
-                      <View style={styles.moveDetails}>
-                        {move.thinking_pattern && (
-                          <Text style={styles.movePattern}>
-                            Pattern: {move.thinking_pattern.replace(/_/g, ' ')}
-                          </Text>
-                        )}
-                        {move.consider && (
-                          <Text style={styles.moveConsider}>
-                            Consider: {move.consider}
-                          </Text>
-                        )}
-                      </View>
-                    )}
-                    
-                    {/* Best Move Suggestion */}
-                    {isMistake && analysis.best_move_suggestions?.find(s => s.move_number === move.move_number) && (
-                      <View style={styles.bestMoveBox}>
-                        <Ionicons name="checkmark-circle" size={14} color={StatusColors.improving} />
-                        <Text style={styles.bestMoveText}>
-                          Better: {analysis.best_move_suggestions.find(s => s.move_number === move.move_number).best_move}
-                        </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-              
-              {moves.length > 20 && (
-                <Text style={styles.moreMovesText}>
-                  + {moves.length - 20} more moves
-                </Text>
-              )}
+                        {move.move_number}.
+                      </Text>
+                      <Text style={[
+                        styles.moveChipText,
+                        { color: isMistake ? getEvalColor(move.evaluation) : colors.text }
+                      ]}>
+                        {move.move}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           </>
         )}
@@ -380,29 +380,32 @@ const createStyles = (colors) => StyleSheet.create({
   },
   boardContainer: {
     padding: 16,
+    alignItems: 'center',
   },
-  boardPlaceholder: {
-    width: width - 32,
-    height: width - 32,
+  currentMoveCard: {
+    margin: 16,
+    marginTop: 0,
     backgroundColor: colors.card,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  boardPlaceholderText: {
-    color: colors.textSecondary,
-    marginTop: 12,
-    fontSize: 14,
-  },
-  currentMoveInfo: {
-    marginTop: 16,
+  currentMoveHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  currentMoveLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   currentMoveNumber: {
-    fontSize: 12,
+    fontSize: 16,
     color: colors.textSecondary,
+    fontFamily: 'monospace',
   },
   currentMoveText: {
     fontSize: 24,
@@ -410,29 +413,83 @@ const createStyles = (colors) => StyleSheet.create({
     color: colors.text,
     fontFamily: 'monospace',
   },
-  moveNav: {
+  evalBadgeLarge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  evalTextLarge: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  currentMoveLesson: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  patternBox: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
     gap: 8,
+    padding: 12,
+    backgroundColor: `${StatusColors.warning}15`,
+    borderRadius: 8,
+    marginBottom: 8,
   },
-  navButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
+  patternText: {
+    fontSize: 13,
+    color: StatusColors.warning,
+    flex: 1,
+    textTransform: 'capitalize',
+  },
+  considerBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 12,
+    backgroundColor: `${StatusColors.good}15`,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  considerText: {
+    fontSize: 13,
+    color: StatusColors.good,
+    flex: 1,
+  },
+  bestMoveBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 14,
+    backgroundColor: `${StatusColors.improving}15`,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: `${StatusColors.improving}30`,
   },
-  moveCounter: {
+  bestMoveContent: {
+    flex: 1,
+  },
+  bestMoveLabel: {
+    fontSize: 11,
+    color: StatusColors.improving,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  bestMoveText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: StatusColors.improving,
+    fontFamily: 'monospace',
+  },
+  bestMoveReason: {
+    fontSize: 13,
     color: colors.textSecondary,
-    fontSize: 14,
-    marginHorizontal: 12,
-    minWidth: 60,
-    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 20,
   },
   noAnalysis: {
     alignItems: 'center',
@@ -537,87 +594,34 @@ const createStyles = (colors) => StyleSheet.create({
     padding: 16,
     paddingTop: 0,
   },
-  moveItem: {
-    backgroundColor: colors.card,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  moveItemActive: {
-    borderColor: colors.accent,
-  },
-  moveHeader: {
+  movesList: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  moveLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
   },
-  moveNumber: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontFamily: 'monospace',
-  },
-  moveText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    fontFamily: 'monospace',
-  },
-  evalBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  evalText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  moveLesson: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  moveDetails: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  movePattern: {
-    fontSize: 12,
-    color: StatusColors.warning,
-    marginBottom: 4,
-  },
-  moveConsider: {
-    fontSize: 12,
-    color: StatusColors.good,
-  },
-  bestMoveBox: {
+  moveChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
-    padding: 10,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderRadius: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    gap: 4,
   },
-  bestMoveText: {
-    fontSize: 13,
-    color: StatusColors.improving,
-    fontWeight: '500',
+  moveChipActive: {
+    backgroundColor: colors.muted,
   },
-  moreMovesText: {
-    textAlign: 'center',
-    color: colors.textSecondary,
+  moveChipMistake: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  moveChipNumber: {
+    fontSize: 11,
+    fontFamily: 'monospace',
+  },
+  moveChipText: {
     fontSize: 13,
-    marginTop: 8,
+    fontWeight: '600',
+    fontFamily: 'monospace',
   },
 });
