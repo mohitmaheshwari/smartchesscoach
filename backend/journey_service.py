@@ -413,12 +413,56 @@ async def generate_journey_dashboard_data(
 
 # ==================== BACKGROUND SYNC JOB ====================
 
+def extract_pgn_from_chesscom_game(game: Dict, username: str) -> Optional[str]:
+    """Extract PGN from Chess.com game data"""
+    pgn = game.get("pgn", "")
+    if not pgn:
+        return None
+    return pgn
+
+
+def extract_pgn_from_lichess_game(game: Dict, username: str) -> Optional[str]:
+    """Extract PGN from Lichess game data (with pgn field from API)"""
+    pgn = game.get("pgn", "")
+    if not pgn:
+        # Build PGN from moves if pgn not directly available
+        moves = game.get("moves", "")
+        if not moves:
+            return None
+        
+        # Build basic PGN
+        headers = []
+        if game.get("id"):
+            headers.append(f'[Site "https://lichess.org/{game.get("id")}"]')
+        if game.get("players"):
+            white = game.get("players", {}).get("white", {}).get("user", {}).get("name", "?")
+            black = game.get("players", {}).get("black", {}).get("user", {}).get("name", "?")
+            headers.append(f'[White "{white}"]')
+            headers.append(f'[Black "{black}"]')
+        if game.get("opening"):
+            headers.append(f'[Opening "{game.get("opening", {}).get("name", "")}"]')
+        
+        pgn = "\n".join(headers) + "\n\n" + moves
+    
+    return pgn
+
+
+def determine_user_color(game: Dict, platform: str, username: str) -> str:
+    """Determine which color the user played"""
+    if platform == "chess.com":
+        white_player = game.get("white", {}).get("username", "").lower()
+        return "white" if white_player == username.lower() else "black"
+    else:  # lichess
+        white_player = game.get("players", {}).get("white", {}).get("user", {}).get("name", "").lower()
+        return "white" if white_player == username.lower() else "black"
+
+
 async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
     """
     Sync and auto-analyze games for a single user.
     Returns number of games analyzed.
     """
-    from server import analyze_game_internal  # Import here to avoid circular
+    import uuid
     
     chesscom_username = user_doc.get("chesscom_username")
     lichess_username = user_doc.get("lichess_username")
@@ -456,25 +500,59 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
     
     for item in games_to_analyze:
         try:
-            # Check if already imported
             game_data = item["game"]
             platform = item["platform"]
+            username = item["username"]
             
-            # Generate unique identifier
+            # Generate unique identifier based on game URL
             if platform == "chess.com":
                 game_url = game_data.get("url", "")
+                pgn = extract_pgn_from_chesscom_game(game_data, username)
             else:
                 game_id = game_data.get("id", "")
                 game_url = f"https://lichess.org/{game_id}"
+                pgn = extract_pgn_from_lichess_game(game_data, username)
             
-            existing = await db.games.find_one({"url": game_url})
+            if not pgn:
+                logger.warning(f"No PGN found for game from {platform}")
+                continue
+            
+            # Check if already imported by URL or PGN
+            existing = await db.games.find_one({
+                "$or": [
+                    {"url": game_url, "user_id": user_id},
+                    {"pgn": pgn, "user_id": user_id}
+                ]
+            })
             if existing:
                 continue
             
-            # Import the game
-            # ... (would call the import logic here)
+            # Determine user's color
+            user_color = determine_user_color(game_data, platform, username)
             
-            logger.info(f"Auto-synced game for user {user_id} from {platform}")
+            # Create game record
+            game_doc = {
+                "game_id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "platform": platform,
+                "username": username,
+                "pgn": pgn,
+                "url": game_url,
+                "user_color": user_color,
+                "imported_at": datetime.now(timezone.utc).isoformat(),
+                "auto_synced": True  # Mark as auto-synced
+            }
+            
+            # Extract additional metadata
+            if platform == "chess.com":
+                game_doc["time_control"] = game_data.get("time_class", "")
+                game_doc["result"] = game_data.get("pgn", "").split("[Result ")[1].split("]")[0].strip('"') if "[Result " in game_data.get("pgn", "") else ""
+            else:
+                game_doc["time_control"] = game_data.get("speed", "")
+                game_doc["result"] = game_data.get("status", "")
+            
+            await db.games.insert_one(game_doc)
+            logger.info(f"Auto-synced game {game_doc['game_id']} for user {user_id} from {platform}")
             analyzed_count += 1
             
         except Exception as e:
