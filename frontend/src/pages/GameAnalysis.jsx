@@ -261,7 +261,7 @@ const GameAnalysis = ({ user }) => {
                           <Brain className="w-5 h-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium text-sm mb-1">Coach's Summary</p>
+                          <p className="font-medium text-sm mb-1">Coach&apos;s Summary</p>
                           <p className="text-sm text-muted-foreground">{analysisSummary}</p>
                         </div>
                       </div>
