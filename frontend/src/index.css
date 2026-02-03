@@ -1,4 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "@fontsource/outfit/400.css";
+@import "@fontsource/outfit/500.css";
+@import "@fontsource/outfit/600.css";
+@import "@fontsource/outfit/700.css";
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/600.css";
 
 @tailwind base;
 @tailwind components;
@@ -6,56 +12,50 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 222 47% 11%;
+    /* Light mode - Warm Paper */
+    --background: 240 5% 96%;
+    --foreground: 240 10% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 240 10% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 243 75% 59%;
+    --popover-foreground: 240 10% 10%;
+    --primary: 240 10% 10%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 43 74% 49%;
+    --secondary: 240 5% 92%;
+    --secondary-foreground: 240 10% 10%;
+    --muted: 240 5% 92%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 38 92% 50%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 243 75% 59%;
-    --radius: 0.75rem;
-    
-    /* Chess semantic colors */
-    --blunder: 0 84% 60%;
-    --mistake: 38 92% 50%;
-    --inaccuracy: 45 93% 55%;
-    --good: 217 91% 60%;
-    --excellent: 158 64% 52%;
-    --brilliant: 187 92% 42%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 240 10% 10%;
+    --radius: 0.5rem;
   }
 
   .dark {
-    --background: 0 0% 2%;
-    --foreground: 210 40% 98%;
-    --card: 220 13% 8%;
-    --card-foreground: 210 40% 98%;
-    --popover: 220 13% 8%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 243 75% 59%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217 19% 14%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 19% 14%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 43 74% 49%;
+    /* Dark mode - Obsidian */
+    --background: 0 0% 4%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 38 92% 50%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 217 19% 18%;
-    --input: 217 19% 18%;
-    --ring: 243 75% 59%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 0 0% 100%;
   }
 }
 
@@ -63,22 +63,43 @@
   * {
     @apply border-border;
   }
+  
+  html {
+    @apply scroll-smooth;
+  }
+  
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Manrope', system-ui, sans-serif;
+    font-feature-settings: "cv11", "ss01";
   }
+  
+  /* Headings use Outfit with tight tracking */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Outfit', system-ui, sans-serif;
+    @apply tracking-tighter font-semibold;
   }
+  
+  h1 { @apply text-3xl md:text-4xl font-bold; }
+  h2 { @apply text-2xl md:text-3xl; }
+  h3 { @apply text-xl md:text-2xl; }
+  h4 { @apply text-lg md:text-xl; }
+  
+  /* Mono for chess notation */
   code, pre, .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
 }
 
-/* Custom scrollbar */
+/* Uppercase labels - Linear style */
+.label-caps {
+  @apply text-xs font-medium uppercase tracking-widest text-muted-foreground;
+}
+
+/* Custom scrollbar - subtle */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -90,69 +111,85 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/40;
+  @apply bg-muted-foreground/30;
 }
 
-/* Chess evaluation colors */
-.eval-blunder {
-  @apply text-red-500;
+/* Card hover - subtle border change, no lift */
+.card-hover {
+  @apply transition-colors duration-200;
 }
-.eval-mistake {
-  @apply text-orange-500;
-}
-.eval-inaccuracy {
-  @apply text-yellow-500;
-}
-.eval-good {
-  @apply text-blue-500;
-}
-.eval-excellent {
-  @apply text-emerald-500;
-}
-.eval-brilliant {
-  @apply text-cyan-500;
+.card-hover:hover {
+  @apply border-muted-foreground/30;
 }
 
-/* Glass morphism */
-.glass {
-  @apply bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl;
+/* Button scale on hover */
+.btn-scale {
+  @apply transition-transform duration-150 ease-out;
+}
+.btn-scale:hover {
+  @apply scale-[1.02];
+}
+.btn-scale:active {
+  @apply scale-[0.98];
 }
 
-.glass-light {
-  @apply bg-white/60 backdrop-blur-xl border border-black/5 shadow-xl;
+/* Status indicator dots */
+.status-dot {
+  @apply w-2 h-2 rounded-full;
+}
+.status-improving {
+  @apply bg-emerald-500;
+}
+.status-stable {
+  @apply bg-zinc-400;
+}
+.status-attention {
+  @apply bg-amber-500;
 }
 
-/* Glow effects */
-.glow-primary {
-  box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
+/* Progress ring base styles */
+.progress-ring {
+  transform: rotate(-90deg);
+}
+.progress-ring-circle {
+  transition: stroke-dashoffset 0.5s ease-out;
 }
 
-.glow-accent {
-  box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+/* Chess evaluation colors - muted versions */
+.eval-blunder { color: #EF4444; }
+.eval-mistake { color: #F97316; }
+.eval-inaccuracy { color: #EAB308; }
+.eval-good { color: #3B82F6; }
+.eval-excellent { color: #10B981; }
+.eval-brilliant { color: #14B8A6; }
+
+/* Trend arrows */
+.trend-up { @apply text-emerald-500; }
+.trend-down { @apply text-amber-500; }
+.trend-stable { @apply text-muted-foreground; }
+
+/* Staggered fade-in animation */
+.animate-stagger > * {
+  @apply opacity-0 animate-fade-in;
+}
+.animate-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.animate-stagger > *:nth-child(2) { animation-delay: 50ms; }
+.animate-stagger > *:nth-child(3) { animation-delay: 100ms; }
+.animate-stagger > *:nth-child(4) { animation-delay: 150ms; }
+.animate-stagger > *:nth-child(5) { animation-delay: 200ms; }
+.animate-stagger > *:nth-child(6) { animation-delay: 250ms; }
+
+/* Focus visible ring */
+.focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
 
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+/* Remove glass effects - flat design only */
+.surface {
+  @apply bg-card border border-border rounded-lg;
 }
 
-.animate-fadeIn {
-  animation: fadeIn 0.5s ease-out forwards;
+/* Coach message styling */
+.coach-message {
+  @apply border-l-2 border-accent pl-4 py-2;
 }
-
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 15px rgba(79, 70, 229, 0.3); }
-  50% { box-shadow: 0 0 30px rgba(79, 70, 229, 0.5); }
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-/* Staggered animations */
-.stagger-1 { animation-delay: 0.1s; }
-.stagger-2 { animation-delay: 0.2s; }
-.stagger-3 { animation-delay: 0.3s; }
-.stagger-4 { animation-delay: 0.4s; }
-.stagger-5 { animation-delay: 0.5s; }
