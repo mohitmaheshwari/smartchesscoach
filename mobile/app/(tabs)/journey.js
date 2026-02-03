@@ -13,8 +13,27 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/context/ThemeContext';
-import { journeyAPI } from '../../src/services/api';
-import { StatusColors, TrendIcons } from '../../src/constants/config';
+import { journeyAPI, getSessionToken } from '../../src/services/api';
+import { StatusColors, TrendIcons, API_URL } from '../../src/constants/config';
+import { 
+  RatingTrajectoryCard, 
+  TimeManagementCard, 
+  FastThinkingCard, 
+  PuzzleTrainerCard 
+} from '../../src/components/RatingTrajectory';
+
+// Fetch helper
+const fetchWithAuth = async (endpoint) => {
+  const token = await getSessionToken();
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) return null;
+  return response.json();
+};
 
 export default function JourneyScreen() {
   const { colors } = useTheme();
