@@ -758,8 +758,8 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         )
         
         # Store voice script and key lesson for future use
-        voice_script = analysis_data.get("voice_script_summary", "")
-        key_lesson = analysis_data.get("key_lesson", "")
+        voice_script = analysis_data.get("voice_script", analysis_data.get("voice_script_summary", ""))
+        focus_week = analysis_data.get("focus_this_week", analysis_data.get("key_lesson", ""))
         
         # Update mistake_patterns collection (legacy support for pattern IDs)
         for pattern_data in categorized_weaknesses:
@@ -796,11 +796,27 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         
         analysis_doc = analysis.model_dump()
         analysis_doc['created_at'] = analysis_doc['created_at'].isoformat()
-        # Store full weakness data for frontend display
-        analysis_doc['weaknesses'] = categorized_weaknesses  # NEW: Full data, not just IDs
+        
+        # Store full data for frontend display
+        analysis_doc['weaknesses'] = categorized_weaknesses
+        analysis_doc['identified_weaknesses'] = categorized_weaknesses
         analysis_doc['strengths'] = analysis_data.get("identified_strengths", [])
-        analysis_doc['key_lesson'] = key_lesson
+        analysis_doc['focus_this_week'] = focus_week
+        analysis_doc['key_lesson'] = focus_week  # Backward compatibility
         analysis_doc['voice_script_summary'] = voice_script
+        analysis_doc['summary_p1'] = analysis_data.get("summary_p1", "")
+        analysis_doc['summary_p2'] = analysis_data.get("summary_p2", "")
+        analysis_doc['improvement_note'] = analysis_data.get("improvement_note", "")
+        
+        # CQS: Store internal metadata (NEVER exposed to users)
+        analysis_doc['_cqs_internal'] = {
+            "score": cqs_result["total_score"],
+            "breakdown": cqs_result["breakdown"],
+            "quality_level": cqs_result["quality_level"],
+            "regeneration_attempts": len(cqs_scores),
+            "all_scores": cqs_scores
+        }
+        
         await db.game_analyses.insert_one(analysis_doc)
         
         await db.games.update_one(
