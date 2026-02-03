@@ -489,6 +489,13 @@ async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTask
         {"game_id": req.game_id},
         {"_id": 0}
     )
+    
+    # If force re-analysis, delete old analysis first
+    if existing_analysis and req.force:
+        await db.game_analyses.delete_one({"game_id": req.game_id})
+        existing_analysis = None
+        logger.info(f"Force re-analysis requested for game {req.game_id}")
+    
     if existing_analysis:
         return existing_analysis
     
