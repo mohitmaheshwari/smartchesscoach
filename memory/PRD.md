@@ -20,72 +20,55 @@ Build an AI coach based chess app that understands context and trains mistakes l
 - **Voice**: OpenAI TTS
 - **Email**: SendGrid
 
-## Design System (Dec 2025)
-- **Typography**: Outfit (headings), Manrope (body)
-- **Theme**: Dark-first, warm paper light mode
-- **Animations**: Subtle micro-interactions via framer-motion
-- **Philosophy**: "Calm, disciplined, warm authority" - like a coach sitting next to you
-- **Colors**: Muted greens/ambers for status, no red panic colors
-- **Inspiration**: Linear, Stripe, Apple Fitness
-
-## Completed Features
+## Completed Features (Dec 2025)
 
 ### Core Features ✅
 - Game import from Chess.com/Lichess
-- AI analysis with Indian coach persona
+- AI analysis with coach persona
 - RAG-based memory system
-- PlayerProfile system with habit tracking
+- PlayerProfile with habit tracking
 - Interactive chessboard
 - Voice coaching (TTS)
 - Coach Quality Score (internal)
 
-### Journey & Dashboard ✅
-- Journey Dashboard with progress tracking
-- Status badges (Improving/Stable/Focus)
-- Trend indicators with arrows
-- Background game sync (6 hours)
-- Manual sync button
+### Auto-Analysis System ✅
+- **Background Sync**: Every 6 hours, automatically fetches new games
+- **Auto AI Analysis**: Games are automatically analyzed with GPT-5.2 when imported
+- **Best Move Suggestions**: AI suggests better moves for blunders/mistakes
+- **Profile Updates**: Player profile automatically updated with weaknesses
 
-### Email Notifications ✅
-- Game analyzed notifications
-- Weekly summary emails
-- Weakness alert emails
-- Settings UI for preferences
+### Bug Fixes (This Session) ✅
+- **Fixed Strengths Bug**: Added validation to filter out weakness patterns being incorrectly stored as strengths
+- **Cleared Bad Data**: Removed incorrectly classified "strengths" from profiles
+
+### New Features (This Session) ✅
+- **Best Move Display**: Move analysis now shows suggested better moves for mistakes
+- **Strength Validation**: AI prompt and backend validation ensure only positive patterns are stored as strengths
 
 ### Premium UI (Phase 1) ✅
-- Redesigned Journey page
-- Redesigned Dashboard page
-- New Layout with premium navigation
+- Redesigned Journey + Dashboard pages
 - Framer-motion animations
 - Premium components (ProgressRing, StatusBadge, TrendIndicator)
-- Dark/light theme with proper typography
+
+## Key API Endpoints
+- `/api/journey` - Journey Dashboard data
+- `/api/journey/sync-now` - Manual sync + auto-analysis
+- `/api/analyze-game` - Manual AI analysis with best move suggestions
+- `/api/settings/email-notifications` - Email preferences
 
 ## P2 Features (Future)
 - Daily Challenge Mode
-- Keyboard shortcuts for moves
-- Sound effects
-- Landing page redesign (Phase 3)
-- Game Analysis page cleanup (Phase 2)
-
-## Key Files
-- `/app/frontend/src/pages/Journey.jsx` - Premium Journey Dashboard
-- `/app/frontend/src/pages/Dashboard.jsx` - Premium Dashboard
-- `/app/frontend/src/components/Layout.jsx` - Navigation
-- `/app/frontend/src/components/ui/premium.jsx` - Premium components
-- `/app/frontend/src/index.css` - Design system CSS
-- `/app/frontend/tailwind.config.js` - Tailwind config
-- `/app/backend/server.py` - API endpoints
-- `/app/backend/email_service.py` - Email notifications
-
-## API Endpoints
-- `/api/journey` - Journey Dashboard data
-- `/api/journey/sync-now` - Manual sync
-- `/api/settings/email-notifications` - Email preferences
-- `/api/dashboard-stats` - Dashboard stats
-- `/api/analyze-game` - AI analysis
+- Phase 2: Game Analysis page redesign
+- Phase 3: Landing page redesign
 
 ## Technical Notes
-- Babel visual-edits plugin disabled
-- react-chessboard locked at 4.6.0
-- SendGrid API key needed for emails
-- Framer-motion for animations
+- `auto_analyze_game()` function in journey_service.py handles automatic analysis
+- Strength validation filters out patterns containing: blunder, miss, poor, weak, not_, ignore, etc.
+- Best move suggestions stored in `best_move_suggestions` array in analysis document
+- Background sync runs every 6 hours with MAX_GAMES_PER_DAY = 2
+
+## Key Files
+- `/app/backend/journey_service.py` - Auto-sync + auto-analysis logic
+- `/app/backend/player_profile_service.py` - Strength validation
+- `/app/backend/server.py` - API endpoints, AI prompts
+- `/app/frontend/src/pages/GameAnalysis.jsx` - Best move display
