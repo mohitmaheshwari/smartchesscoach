@@ -337,6 +337,32 @@ const Journey = ({ user }) => {
           </AnimatedList>
         )}
 
+        {/* Rating & Training Section */}
+        {hasAccount && games > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Section Header */}
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-amber-500" />
+              <h2 className="text-lg font-heading font-semibold">Rating Trajectory & Training</h2>
+            </div>
+
+            {/* Rating Trajectory - Full Width */}
+            <RatingTrajectory />
+
+            {/* Training Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <TimeManagement />
+              <FastThinking />
+              <PuzzleTrainer />
+            </div>
+          </motion.div>
+        )}
+
         {/* Linked Accounts Footer */}
         {hasAccount && (
           <motion.div
