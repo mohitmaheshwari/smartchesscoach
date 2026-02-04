@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Dimensions
+  Dimensions,
+  FlatList
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,7 +30,8 @@ export default function GameDetailScreen() {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  const [currentMove, setCurrentMove] = useState(-1); // -1 = starting position
+  const [currentMove, setCurrentMove] = useState(-1);
+  const [activeTab, setActiveTab] = useState('summary'); // 'summary' or 'moves'
 
   // Parse PGN to get all moves
   const parsedMoves = useMemo(() => {
@@ -39,12 +41,14 @@ export default function GameDetailScreen() {
       chess.loadPgn(game.pgn);
       return chess.history({ verbose: true });
     } catch (e) {
-      console.log('PGN parse error:', e);
       return [];
     }
   }, [game?.pgn]);
 
   const totalMoves = parsedMoves.length;
+
+  // Get move-by-move analysis data
+  const moveAnalysis = analysis?.move_by_move || [];
 
   useEffect(() => {
     loadGame();
@@ -85,21 +89,14 @@ export default function GameDetailScreen() {
     }
   };
 
-  // Move navigation functions
   const goToStart = () => setCurrentMove(-1);
   const goBack = () => setCurrentMove(prev => Math.max(-1, prev - 1));
   const goForward = () => setCurrentMove(prev => Math.min(totalMoves - 1, prev + 1));
   const goToEnd = () => setCurrentMove(totalMoves - 1);
 
-  // Get current move info
   const currentMoveInfo = currentMove >= 0 ? parsedMoves[currentMove] : null;
   const moveNumber = currentMove >= 0 ? Math.floor(currentMove / 2) + 1 : 0;
   const isWhiteMove = currentMove >= 0 ? currentMove % 2 === 0 : true;
-
-  // Get analysis for current move
-  const currentMoveAnalysis = analysis?.move_by_move?.find(
-    m => m.move_number === moveNumber && m.move === currentMoveInfo?.san
-  );
 
   const styles = createStyles(colors);
 
@@ -108,7 +105,6 @@ export default function GameDetailScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading game...</Text>
         </View>
       </SafeAreaView>
     );
@@ -118,7 +114,6 @@ export default function GameDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
           <Text style={styles.errorText}>Game not found</Text>
           <TouchableOpacity style={styles.btn} onPress={() => router.back()}>
             <Text style={styles.btnText}>Go Back</Text>
@@ -139,565 +134,331 @@ export default function GameDetailScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {game.white_player} vs {game.black_player}
           </Text>
-          <Text style={styles.headerMeta}>
-            {game.result} • {game.user_color}
-          </Text>
+          <Text style={styles.headerMeta}>{game.result} • {game.user_color}</Text>
         </View>
-        {analysis && (
+        {analysis?.stockfish_analysis?.accuracy && (
           <View style={styles.accuracyBadge}>
-            <Text style={styles.accuracyText}>
-              {analysis.stockfish_analysis?.accuracy || '--'}%
-            </Text>
+            <Text style={styles.accuracyText}>{analysis.stockfish_analysis.accuracy}%</Text>
           </View>
         )}
       </View>
 
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Chessboard */}
-        <View style={styles.boardContainer}>
-          <ChessBoardViewer
-            pgn={game.pgn}
-            currentMoveIndex={currentMove}
-            userColor={game.user_color}
-          />
-        </View>
-
-        {/* Move Navigation */}
-        <View style={styles.navContainer}>
-          <TouchableOpacity 
-            style={[styles.navBtn, currentMove <= -1 && styles.navBtnDisabled]} 
-            onPress={goToStart}
-            disabled={currentMove <= -1}
-          >
-            <Ionicons name="play-skip-back" size={20} color={currentMove <= -1 ? colors.textSecondary : colors.text} />
+      {/* Board + Navigation */}
+      <View style={styles.boardSection}>
+        <ChessBoardViewer
+          pgn={game.pgn}
+          currentMoveIndex={currentMove}
+          userColor={game.user_color}
+        />
+        
+        <View style={styles.navRow}>
+          <TouchableOpacity style={[styles.navBtn, currentMove <= -1 && styles.navBtnDisabled]} onPress={goToStart} disabled={currentMove <= -1}>
+            <Ionicons name="play-skip-back" size={18} color={currentMove <= -1 ? colors.textSecondary : colors.text} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.navBtn, currentMove <= -1 && styles.navBtnDisabled]} 
-            onPress={goBack}
-            disabled={currentMove <= -1}
-          >
-            <Ionicons name="chevron-back" size={24} color={currentMove <= -1 ? colors.textSecondary : colors.text} />
+          <TouchableOpacity style={[styles.navBtn, currentMove <= -1 && styles.navBtnDisabled]} onPress={goBack} disabled={currentMove <= -1}>
+            <Ionicons name="chevron-back" size={22} color={currentMove <= -1 ? colors.textSecondary : colors.text} />
           </TouchableOpacity>
-          
-          <View style={styles.moveCounter}>
-            <Text style={styles.moveCounterText}>
-              {currentMove + 1} / {totalMoves}
-            </Text>
-            {currentMoveInfo && (
-              <Text style={styles.currentMoveText}>
-                {moveNumber}. {!isWhiteMove && '...'}{currentMoveInfo.san}
-              </Text>
-            )}
+          <View style={styles.moveInfo}>
+            <Text style={styles.moveCount}>{currentMove + 1}/{totalMoves}</Text>
+            {currentMoveInfo && <Text style={styles.moveSan}>{moveNumber}.{!isWhiteMove && '..'}{currentMoveInfo.san}</Text>}
           </View>
-          
-          <TouchableOpacity 
-            style={[styles.navBtn, currentMove >= totalMoves - 1 && styles.navBtnDisabled]} 
-            onPress={goForward}
-            disabled={currentMove >= totalMoves - 1}
-          >
-            <Ionicons name="chevron-forward" size={24} color={currentMove >= totalMoves - 1 ? colors.textSecondary : colors.text} />
+          <TouchableOpacity style={[styles.navBtn, currentMove >= totalMoves - 1 && styles.navBtnDisabled]} onPress={goForward} disabled={currentMove >= totalMoves - 1}>
+            <Ionicons name="chevron-forward" size={22} color={currentMove >= totalMoves - 1 ? colors.textSecondary : colors.text} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.navBtn, currentMove >= totalMoves - 1 && styles.navBtnDisabled]} 
-            onPress={goToEnd}
-            disabled={currentMove >= totalMoves - 1}
-          >
-            <Ionicons name="play-skip-forward" size={20} color={currentMove >= totalMoves - 1 ? colors.textSecondary : colors.text} />
+          <TouchableOpacity style={[styles.navBtn, currentMove >= totalMoves - 1 && styles.navBtnDisabled]} onPress={goToEnd} disabled={currentMove >= totalMoves - 1}>
+            <Ionicons name="play-skip-forward" size={18} color={currentMove >= totalMoves - 1 ? colors.textSecondary : colors.text} />
           </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Current Move Analysis (if available) */}
-        {currentMoveAnalysis && (
-          <View style={[styles.moveAnalysisCard, { borderLeftColor: getEvalColor(currentMoveAnalysis.evaluation) }]}>
-            <View style={styles.moveAnalysisHeader}>
-              <View style={[styles.evalBadge, { backgroundColor: getEvalColor(currentMoveAnalysis.evaluation) + '20' }]}>
-                <Text style={[styles.evalText, { color: getEvalColor(currentMoveAnalysis.evaluation) }]}>
-                  {currentMoveAnalysis.evaluation}
-                </Text>
-              </View>
-              {currentMoveAnalysis.cp_loss > 0 && (
-                <Text style={styles.cpLoss}>-{(currentMoveAnalysis.cp_loss / 100).toFixed(1)}</Text>
-              )}
-            </View>
-            {currentMoveAnalysis.lesson && (
-              <Text style={styles.moveLesson}>{currentMoveAnalysis.lesson}</Text>
+      {/* Analyze Button (if no analysis) */}
+      {!analysis && (
+        <View style={styles.analyzeContainer}>
+          <TouchableOpacity 
+            style={[styles.analyzeBtn, analyzing && styles.analyzeBtnDisabled]}
+            onPress={handleAnalyze}
+            disabled={analyzing}
+          >
+            {analyzing ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : (
+              <Ionicons name="flash" size={18} color="#000" />
             )}
-            {currentMoveAnalysis.best_move && currentMoveAnalysis.best_move !== currentMoveInfo?.san && (
-              <View style={styles.bestMoveRow}>
-                <Ionicons name="bulb" size={16} color={StatusColors.good} />
-                <Text style={styles.bestMoveText}>Better: {currentMoveAnalysis.best_move}</Text>
-              </View>
-            )}
-          </View>
-        )}
+            <Text style={styles.analyzeBtnText}>{analyzing ? 'Analyzing...' : 'Analyze with AI'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-        {/* Analyze Button (if no analysis) */}
-        {!analysis && (
-          <View style={styles.analyzeSection}>
-            <View style={styles.analyzeIconContainer}>
-              <Ionicons name="analytics" size={32} color={colors.accent} />
-            </View>
-            <Text style={styles.analyzeTitle}>Get AI Analysis</Text>
-            <Text style={styles.analyzeDesc}>
-              Stockfish engine + AI coaching insights
-            </Text>
+      {/* Tabs (only if analysis exists) */}
+      {analysis && (
+        <>
+          <View style={styles.tabBar}>
             <TouchableOpacity 
-              style={[styles.analyzeBtn, analyzing && styles.analyzeBtnDisabled]}
-              onPress={handleAnalyze}
-              disabled={analyzing}
-              activeOpacity={0.8}
+              style={[styles.tab, activeTab === 'summary' && styles.tabActive]}
+              onPress={() => setActiveTab('summary')}
             >
-              {analyzing ? (
-                <>
-                  <ActivityIndicator size="small" color="#000" />
-                  <Text style={styles.analyzeBtnText}>Analyzing...</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="flash" size={18} color="#000" />
-                  <Text style={styles.analyzeBtnText}>Analyze Game</Text>
-                </>
+              <Ionicons name="document-text-outline" size={18} color={activeTab === 'summary' ? colors.accent : colors.textSecondary} />
+              <Text style={[styles.tabText, activeTab === 'summary' && styles.tabTextActive]}>Summary</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'moves' && styles.tabActive]}
+              onPress={() => setActiveTab('moves')}
+            >
+              <Ionicons name="list-outline" size={18} color={activeTab === 'moves' ? colors.accent : colors.textSecondary} />
+              <Text style={[styles.tabText, activeTab === 'moves' && styles.tabTextActive]}>Moves</Text>
+              {moveAnalysis.length > 0 && (
+                <View style={styles.tabBadge}>
+                  <Text style={styles.tabBadgeText}>{moveAnalysis.length}</Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
-        )}
 
-        {/* Analysis Summary */}
-        {analysis && (
-          <View style={styles.analysisContainer}>
-            {/* Stats Row */}
-            <View style={styles.statsRow}>
-              <View style={[styles.statBox, { backgroundColor: StatusColors.blunder + '15' }]}>
-                <Text style={[styles.statNumber, { color: StatusColors.blunder }]}>{analysis.blunders || 0}</Text>
-                <Text style={styles.statLabel}>Blunders</Text>
+          {/* Tab Content */}
+          {activeTab === 'summary' ? (
+            <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentInner}>
+              {/* Stats */}
+              <View style={styles.statsRow}>
+                <StatBox label="Blunders" value={analysis.blunders || 0} color={StatusColors.blunder} />
+                <StatBox label="Mistakes" value={analysis.mistakes || 0} color={StatusColors.mistake} />
+                <StatBox label="Inaccuracies" value={analysis.inaccuracies || 0} color={StatusColors.inaccuracy} />
+                <StatBox label="Best" value={analysis.best_moves || 0} color={StatusColors.excellent} />
               </View>
-              <View style={[styles.statBox, { backgroundColor: StatusColors.mistake + '15' }]}>
-                <Text style={[styles.statNumber, { color: StatusColors.mistake }]}>{analysis.mistakes || 0}</Text>
-                <Text style={styles.statLabel}>Mistakes</Text>
-              </View>
-              <View style={[styles.statBox, { backgroundColor: StatusColors.inaccuracy + '15' }]}>
-                <Text style={[styles.statNumber, { color: StatusColors.inaccuracy }]}>{analysis.inaccuracies || 0}</Text>
-                <Text style={styles.statLabel}>Inaccuracies</Text>
-              </View>
-              <View style={[styles.statBox, { backgroundColor: StatusColors.excellent + '15' }]}>
-                <Text style={[styles.statNumber, { color: StatusColors.excellent }]}>{analysis.best_moves || 0}</Text>
-                <Text style={styles.statLabel}>Best</Text>
-              </View>
-            </View>
 
-            {/* Coach Summary */}
-            {(analysis.overall_summary || analysis.summary_p1) && (
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryHeader}>
-                  <Ionicons name="person-circle" size={24} color={colors.accent} />
-                  <Text style={styles.summaryTitle}>Coach's Analysis</Text>
+              {/* Coach Summary */}
+              {(analysis.overall_summary || analysis.summary_p1) && (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <Ionicons name="chatbubble-ellipses" size={18} color={colors.accent} />
+                    <Text style={styles.cardTitle}>Coach's Analysis</Text>
+                  </View>
+                  <Text style={styles.cardText}>{analysis.summary_p1 || analysis.overall_summary}</Text>
+                  {analysis.summary_p2 && <Text style={[styles.cardText, { marginTop: 12 }]}>{analysis.summary_p2}</Text>}
                 </View>
-                <Text style={styles.summaryText}>
-                  {analysis.summary_p1 || analysis.overall_summary}
-                </Text>
-                {analysis.summary_p2 && (
-                  <Text style={[styles.summaryText, { marginTop: 12 }]}>
-                    {analysis.summary_p2}
-                  </Text>
-                )}
-              </View>
-            )}
+              )}
 
-            {/* Focus Area */}
-            {analysis.focus_this_week && (
-              <View style={styles.focusCard}>
-                <View style={styles.focusHeader}>
-                  <Ionicons name="flag" size={18} color="#f59e0b" />
-                  <Text style={styles.focusTitle}>Focus This Week</Text>
+              {/* Focus */}
+              {analysis.focus_this_week && (
+                <View style={[styles.card, styles.focusCard]}>
+                  <View style={styles.cardHeader}>
+                    <Ionicons name="flag" size={18} color="#f59e0b" />
+                    <Text style={[styles.cardTitle, { color: '#f59e0b' }]}>Focus This Week</Text>
+                  </View>
+                  <Text style={styles.cardText}>{analysis.focus_this_week}</Text>
                 </View>
-                <Text style={styles.focusText}>{analysis.focus_this_week}</Text>
-              </View>
-            )}
-
-            {/* Key Mistakes */}
-            {analysis.best_move_suggestions?.length > 0 && (
-              <View style={styles.mistakesCard}>
-                <Text style={styles.mistakesTitle}>Key Moments</Text>
-                {analysis.best_move_suggestions.slice(0, 5).map((mistake, idx) => (
-                  <TouchableOpacity 
-                    key={idx} 
-                    style={styles.mistakeRow}
-                    onPress={() => {
-                      // Find the move index
-                      const moveIdx = parsedMoves.findIndex(
-                        (m, i) => Math.floor(i / 2) + 1 === mistake.move_number && m.san === mistake.played_move
-                      );
-                      if (moveIdx >= 0) setCurrentMove(moveIdx);
-                    }}
-                  >
-                    <View style={[styles.mistakeBadge, { backgroundColor: getEvalColor(mistake.evaluation) + '20' }]}>
-                      <Text style={[styles.mistakeBadgeText, { color: getEvalColor(mistake.evaluation) }]}>
-                        {mistake.move_number}.
+              )}
+            </ScrollView>
+          ) : (
+            <FlatList
+              data={moveAnalysis}
+              keyExtractor={(item, idx) => `move-${idx}`}
+              style={styles.tabContent}
+              contentContainerStyle={styles.movesListContent}
+              renderItem={({ item, index }) => (
+                <TouchableOpacity 
+                  style={[
+                    styles.moveCard,
+                    { borderLeftColor: getEvalColor(item.evaluation) },
+                    currentMove === index && styles.moveCardActive
+                  ]}
+                  onPress={() => setCurrentMove(index)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.moveCardHeader}>
+                    <Text style={styles.moveCardNumber}>{item.move_number}.</Text>
+                    <Text style={styles.moveCardSan}>{item.move}</Text>
+                    <View style={[styles.evalPill, { backgroundColor: getEvalColor(item.evaluation) + '20' }]}>
+                      <Text style={[styles.evalPillText, { color: getEvalColor(item.evaluation) }]}>
+                        {item.evaluation || 'neutral'}
                       </Text>
                     </View>
-                    <View style={styles.mistakeInfo}>
-                      <Text style={styles.mistakeMove}>
-                        {mistake.played_move} → {mistake.best_move}
-                      </Text>
-                      {mistake.cp_loss > 0 && (
-                        <Text style={styles.mistakeCp}>-{(mistake.cp_loss / 100).toFixed(1)} pawns</Text>
-                      )}
+                    {item.cp_loss > 0 && (
+                      <Text style={styles.cpLossText}>-{(item.cp_loss / 100).toFixed(1)}</Text>
+                    )}
+                  </View>
+                  
+                  {item.lesson && (
+                    <Text style={styles.moveLesson}>{item.lesson}</Text>
+                  )}
+                  
+                  {item.thinking_pattern && item.thinking_pattern !== 'solid_thinking' && (
+                    <View style={styles.patternRow}>
+                      <Ionicons name="bulb-outline" size={14} color="#f59e0b" />
+                      <Text style={styles.patternText}>{item.thinking_pattern.replace(/_/g, ' ')}</Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-      </ScrollView>
+                  )}
+                  
+                  {item.consider && (
+                    <View style={styles.considerRow}>
+                      <Ionicons name="arrow-forward-circle-outline" size={14} color={StatusColors.good} />
+                      <Text style={styles.considerText}>{item.consider}</Text>
+                    </View>
+                  )}
+                  
+                  {item.best_move && item.best_move !== item.move && (
+                    <View style={styles.bestMoveRow}>
+                      <Ionicons name="checkmark-circle" size={14} color={StatusColors.excellent} />
+                      <Text style={styles.bestMoveText}>Better: <Text style={styles.bestMoveSan}>{item.best_move}</Text></Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptyMoves}>
+                  <Ionicons name="document-outline" size={40} color={colors.textSecondary} />
+                  <Text style={styles.emptyMovesText}>No move-by-move analysis available</Text>
+                </View>
+              }
+            />
+          )}
+        </>
+      )}
     </SafeAreaView>
   );
 }
 
-// Helper function
+// Stat Box Component
+const StatBox = ({ label, value, color }) => (
+  <View style={[statStyles.box, { backgroundColor: color + '15' }]}>
+    <Text style={[statStyles.value, { color }]}>{value}</Text>
+    <Text style={statStyles.label}>{label}</Text>
+  </View>
+);
+
+const statStyles = StyleSheet.create({
+  box: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8 },
+  value: { fontSize: 20, fontWeight: '700' },
+  label: { fontSize: 9, color: '#71717a', marginTop: 2, textTransform: 'uppercase' },
+});
+
 const getEvalColor = (evaluation) => {
-  const evalColors = {
+  const colors = {
     blunder: StatusColors.blunder,
     mistake: StatusColors.mistake,
     inaccuracy: StatusColors.inaccuracy,
     good: StatusColors.good,
     excellent: StatusColors.excellent,
     best: StatusColors.excellent,
+    neutral: '#71717a',
   };
-  return evalColors[evaluation] || '#71717a';
+  return colors[evaluation] || '#71717a';
 };
 
 const createStyles = (colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 16,
-    color: colors.textSecondary,
-    fontSize: 15,
-  },
-  errorText: {
-    marginTop: 16,
-    marginBottom: 24,
-    color: colors.textSecondary,
-    fontSize: 16,
-  },
-  btn: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: colors.card,
-    borderRadius: 10,
-  },
-  btnText: {
-    color: colors.text,
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { color: colors.textSecondary, marginBottom: 16 },
+  btn: { backgroundColor: colors.card, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  btnText: { color: colors.text, fontWeight: '500' },
+  
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     gap: 8,
   },
-  backBtn: {
-    padding: 6,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  headerMeta: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  accuracyBadge: {
-    backgroundColor: '#3b82f620',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  accuracyText: {
-    color: '#3b82f6',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  boardContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  navContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 8,
-  },
+  backBtn: { padding: 4 },
+  headerInfo: { flex: 1 },
+  headerTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
+  headerMeta: { fontSize: 11, color: colors.textSecondary, marginTop: 1 },
+  accuracyBadge: { backgroundColor: '#3b82f620', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  accuracyText: { color: '#3b82f6', fontWeight: '700', fontSize: 13 },
+
+  boardSection: { alignItems: 'center', paddingVertical: 12 },
+  navRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 6 },
   navBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
   },
-  navBtnDisabled: {
-    opacity: 0.4,
-  },
-  moveCounter: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    minWidth: 80,
-  },
-  moveCounterText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontFamily: 'monospace',
-  },
-  currentMoveText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 2,
-  },
-  moveAnalysisCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 14,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-  },
-  moveAnalysisHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
-  },
-  evalBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  evalText: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  cpLoss: {
-    fontSize: 13,
-    color: StatusColors.blunder,
-    fontWeight: '600',
-    fontFamily: 'monospace',
-  },
-  moveLesson: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  bestMoveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  bestMoveText: {
-    fontSize: 14,
-    color: StatusColors.good,
-    fontWeight: '500',
-  },
-  analyzeSection: {
-    alignItems: 'center',
-    margin: 16,
-    padding: 24,
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  analyzeIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.accent + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  analyzeTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  analyzeDesc: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 6,
-    marginBottom: 20,
-  },
+  navBtnDisabled: { opacity: 0.4 },
+  moveInfo: { alignItems: 'center', minWidth: 70, paddingHorizontal: 8 },
+  moveCount: { fontSize: 11, color: colors.textSecondary, fontFamily: 'monospace' },
+  moveSan: { fontSize: 15, fontWeight: '600', color: colors.text },
+
+  analyzeContainer: { paddingHorizontal: 16, paddingVertical: 12 },
   analyzeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f59e0b',
     paddingVertical: 14,
-    paddingHorizontal: 28,
     borderRadius: 12,
     gap: 8,
-    width: '100%',
   },
-  analyzeBtnDisabled: {
-    opacity: 0.6,
-  },
-  analyzeBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000',
-  },
-  analysisContainer: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  statsRow: {
+  analyzeBtnDisabled: { opacity: 0.6 },
+  analyzeBtnText: { fontSize: 15, fontWeight: '700', color: '#000' },
+
+  tabBar: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  statBox: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  statLabel: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 2,
-    textTransform: 'uppercase',
-  },
-  summaryCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  summaryTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  summaryText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
-  focusCard: {
-    backgroundColor: '#f59e0b10',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#f59e0b30',
-  },
-  focusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  focusTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#f59e0b',
-  },
-  focusText: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  mistakesCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  mistakesTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  mistakeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    gap: 10,
   },
-  mistakeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  mistakeBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  mistakeInfo: {
+  tab: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 6,
   },
-  mistakeMove: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '500',
+  tabActive: { borderBottomWidth: 2, borderBottomColor: colors.accent },
+  tabText: { fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
+  tabTextActive: { color: colors.accent },
+  tabBadge: { backgroundColor: colors.accent + '30', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10 },
+  tabBadgeText: { fontSize: 10, color: colors.accent, fontWeight: '600' },
+
+  tabContent: { flex: 1 },
+  tabContentInner: { padding: 16, gap: 12 },
+  movesListContent: { padding: 12, gap: 8 },
+
+  statsRow: { flexDirection: 'row', gap: 6 },
+
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  mistakeCp: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  cardTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
+  cardText: { fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
+  focusCard: { backgroundColor: '#f59e0b10', borderColor: '#f59e0b30' },
+
+  moveCard: {
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
+  moveCardActive: { borderColor: colors.accent },
+  moveCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  moveCardNumber: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  moveCardSan: { fontSize: 15, fontWeight: '700', color: colors.text },
+  evalPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  evalPillText: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
+  cpLossText: { fontSize: 12, color: StatusColors.blunder, fontWeight: '600', fontFamily: 'monospace', marginLeft: 'auto' },
+  
+  moveLesson: { fontSize: 13, color: colors.text, lineHeight: 20, marginBottom: 6 },
+  patternRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  patternText: { fontSize: 12, color: '#f59e0b', textTransform: 'capitalize' },
+  considerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 6 },
+  considerText: { fontSize: 12, color: StatusColors.good, flex: 1 },
+  bestMoveRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border },
+  bestMoveText: { fontSize: 12, color: colors.textSecondary },
+  bestMoveSan: { fontWeight: '700', color: StatusColors.excellent },
+
+  emptyMoves: { alignItems: 'center', paddingVertical: 40 },
+  emptyMovesText: { color: colors.textSecondary, marginTop: 12, fontSize: 14 },
 });
