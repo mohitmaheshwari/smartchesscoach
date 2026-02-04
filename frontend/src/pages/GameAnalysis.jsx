@@ -248,6 +248,12 @@ const GameAnalysis = ({ user }) => {
                 {item.evaluation}
               </Badge>
             )}
+            {/* Show CP loss for mistakes - from Stockfish */}
+            {isMistake(item.evaluation) && item.cp_loss > 0 && (
+              <span className="text-xs text-muted-foreground font-mono">
+                -{(item.cp_loss / 100).toFixed(1)}
+              </span>
+            )}
           </div>
           {voiceEnabled && feedback && (
             <button
