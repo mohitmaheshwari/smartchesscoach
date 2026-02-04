@@ -1126,6 +1126,27 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         background_tasks.add_task(create_game_embeddings, db, game, user.user_id)
         background_tasks.add_task(create_analysis_embedding, db, analysis_doc, game, user.user_id)
         
+        # GAMIFICATION: Award XP for game analysis
+        try:
+            await add_xp(user.user_id, "game_analyzed")
+            await increment_stat(user.user_id, "games_analyzed")
+            
+            # Bonus XP for high accuracy
+            accuracy = sf_stats.get("accuracy", 0)
+            if accuracy >= 90:
+                await add_xp(user.user_id, "accuracy_90_plus")
+            await update_best_accuracy(user.user_id, accuracy)
+            
+            # Award for no blunders
+            if sf_stats.get("blunders", 0) == 0:
+                await add_xp(user.user_id, "no_blunders")
+                await increment_stat(user.user_id, "no_blunders_games")
+            
+            # Update streak
+            await update_streak(user.user_id)
+        except Exception as gam_err:
+            logger.warning(f"Gamification update error (non-critical): {gam_err}")
+        
         for pattern_data in categorized_weaknesses:
             pattern = await db.mistake_patterns.find_one({
                 "user_id": user.user_id,
