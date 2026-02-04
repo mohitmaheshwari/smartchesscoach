@@ -1,7 +1,7 @@
 # Chess Coach AI - Product Requirements Document
 
 ## Original Problem Statement
-Build an AI chess coach app that understands the context of a user's games, remembers their mistakes like a human coach, and provides guidance in natural language. The goal is to replace human coaches. The app needs to integrate with Chess.com and Lichess, allowing users to import their games. The AI should understand the user's playing style and level, providing tailored training.
+Build an AI chess coach app that understands the context of a user's games, remembers their mistakes like a human coach, and provides guidance in natural language. The goal is to replace human coaches with accurate analysis and personalized coaching.
 
 ## User Persona
 Chess players (beginners to intermediate) who want personalized coaching without expensive human coaches. Target market: India (high chess popularity, price-sensitive market).
@@ -10,109 +10,108 @@ Chess players (beginners to intermediate) who want personalized coaching without
 - **Web App**: React + TailwindCSS + Shadcn UI ✅ Complete
 - **Mobile App**: React Native + Expo ✅ Core features implemented
 
+---
+
+## 🆕 MAJOR UPDATE: Stockfish Integration (February 2025)
+
+### The Problem
+Previously, the app relied on GPT to evaluate chess moves, which led to inaccurate analysis:
+- Moves rated "best" by Chess.com were sometimes flagged as mistakes
+- Blunder/mistake counts didn't match chess platform evaluations
+- Best move suggestions were sometimes incorrect
+
+### The Solution
+**Integrated Stockfish 15** - the world's strongest open-source chess engine (~3500 Elo):
+
+1. **Accurate Move Evaluation**: Every move is now evaluated by Stockfish at depth 18
+2. **Centipawn-Based Classification**: Moves are classified using industry-standard thresholds:
+   - Best: 0 cp loss
+   - Excellent: < 10 cp loss
+   - Good: 10-30 cp loss
+   - Inaccuracy: 30-100 cp loss
+   - Mistake: 100-300 cp loss
+   - Blunder: > 300 cp loss
+3. **Accurate Best Move Suggestions**: Stockfish provides the actual best moves
+4. **Accuracy Score**: Chess.com-style accuracy percentage (0-100%)
+5. **GPT for Coaching**: Stockfish provides the WHAT, GPT explains the WHY
+
+### New Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/analyze-position` | POST | Analyze a single FEN position |
+| `/api/best-moves` | POST | Get top N best moves for a position |
+
+### Architecture Change
+```
+BEFORE: PGN → GPT → (inaccurate) blunder/mistake counts
+
+AFTER:  PGN → Stockfish Engine → Accurate move evaluations
+               ↓
+             GPT Coach → Explains WHY mistakes happen
+                        → Provides habit-based coaching
+```
+
+---
+
 ## Architecture
-- **Backend**: FastAPI + Motor (async MongoDB)
-- **Database**: MongoDB (MongoDB Atlas Vector Search recommended for production RAG)
-- **AI**: GPT-5.2 via Emergent integrations (Emergent LLM Key)
+- **Backend**: FastAPI + Motor (async MongoDB) + **Stockfish 15**
+- **Database**: MongoDB 
+- **AI**: GPT-5.2 via Emergent integrations (for coaching commentary)
+- **Chess Engine**: Stockfish 15 (for accurate move evaluation)
 - **Voice**: OpenAI TTS
 - **Email**: SendGrid
 - **Auth**: Emergent-managed Google OAuth (web), expo-auth-session (mobile)
 
 ---
 
-## COMPLETED FEATURES (December 2025)
+## COMPLETED FEATURES
 
 ### Core Features ✅
 - Game import from Chess.com/Lichess
-- AI analysis with Indian chess coach persona (firm but supportive)
-- RAG-based memory system (hash-based embeddings in MongoDB)
-- PlayerProfile with habit tracking and weakness detection
+- **Stockfish-powered move analysis** (accurate to Chess.com/Lichess)
+- AI coaching with Indian chess coach persona
+- RAG-based memory system
+- PlayerProfile with habit tracking
 - Interactive chessboard (web and mobile)
 - Voice coaching (TTS)
-- Coach Quality Score (CQS) - internal quality evaluation
-- Best move suggestions for mistakes/blunders
+- Coach Quality Score (CQS)
+- **Accurate best move suggestions** (from Stockfish)
+
+### Rating & Training System ✅
+- Rating trajectory with projections
+- Time management analysis
+- Fast thinking/calculation training
+- Personalized puzzle trainer
 
 ### Auto-Analysis System ✅
-- Background sync (every 6 hours)
-- Automatic AI analysis on import
-- Email notifications after sync (SendGrid)
-- Push notifications (mobile) for new analysis
+- Background sync every 6 hours
+- Email notifications (SendGrid)
+- Push notifications (mobile)
 
-### Premium UI (Web) ✅
-- Redesigned Journey + Dashboard pages
-- Framer-motion animations
-- Dark-first theme (Linear/Stripe inspired)
-
-### Mobile App (React Native/Expo) ✅
-- Interactive chessboard with WebView (chess.js for logic)
-- Google OAuth authentication (expo-auth-session)
-- Push notification service (expo-notifications)
-- Dashboard, Journey, Games, Settings screens
-- Dark/light theme support (system-aware)
-
-### 🆕 Rating Trajectory & Training System ✅ (NEW)
-**Backend Endpoints:**
-- `GET /api/rating/trajectory` - Fetches platform ratings, projected ratings, time to milestone
-- `GET /api/training/time-management` - Analyzes clock usage from games
-- `GET /api/training/fast-thinking` - Calculation speed analysis with tips
-- `GET /api/training/puzzles` - Personalized puzzles based on weaknesses
-- `POST /api/training/puzzles/{index}/solve` - Track puzzle attempts
-
-**Features:**
-1. **Rating Trajectory Card**
-   - Current platform rating (Chess.com/Lichess Rapid/Blitz/Bullet)
-   - Projected ratings (1 month, 3 months, 6 months)
-   - Time to next milestone (1200 → 1400 → 1600, etc.)
-   - Rating potential from fixing specific weaknesses
-   - Improvement velocity tracking
-
-2. **Time Management Analysis**
-   - Clock usage breakdown by game phase (opening/middlegame/endgame)
-   - Time trouble detection
-   - Personalized recommendations
-
-3. **Fast Thinking / Calculation Training**
-   - Pattern recognition analysis
-   - Speed issue identification
-   - Targeted tips based on weaknesses
-   - Personalized puzzle trainer with weakness-based puzzles
+### Mobile App ✅
+- Google OAuth (expo-auth-session)
+- Interactive chessboard (WebView)
+- Push notifications
+- Full feature parity with web
 
 ---
 
-## API Endpoints Reference
+## Key API Endpoints
 
-### Authentication
+### Game Analysis
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/auth/session` | POST | Web OAuth session exchange |
-| `/api/auth/google/mobile` | POST | Mobile OAuth with Google access token |
-| `/api/auth/me` | GET | Get current user |
-| `/api/auth/logout` | POST | Sign out |
+| `/api/analyze-game` | POST | Full game analysis with Stockfish + GPT |
+| `/api/analyze-position` | POST | Single position evaluation |
+| `/api/best-moves` | POST | Top N moves for a position |
 
-### Rating & Training (NEW)
+### Rating & Training
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/rating/trajectory` | GET | Rating predictions & milestones |
 | `/api/training/time-management` | GET | Clock usage analysis |
 | `/api/training/fast-thinking` | GET | Calculation speed analysis |
 | `/api/training/puzzles` | GET | Personalized puzzles |
-| `/api/training/puzzles/{index}/solve` | POST | Track puzzle attempt |
-
-### Games & Analysis
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/games` | GET | User's games list |
-| `/api/games/:id` | GET | Single game details |
-| `/api/analysis/:id` | GET | AI analysis for game |
-| `/api/analyze-game` | POST | Trigger AI analysis |
-| `/api/import-games` | POST | Import from Chess.com/Lichess |
-
-### Journey & Dashboard
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/dashboard-stats` | GET | Dashboard statistics |
-| `/api/journey` | GET | Journey dashboard data |
-| `/api/journey/sync-now` | POST | Manual sync trigger |
 
 ---
 
@@ -121,72 +120,67 @@ Chess players (beginners to intermediate) who want personalized coaching without
 ```
 /app/
 ├── backend/
-│   ├── server.py            # Main FastAPI app, all API endpoints
-│   ├── rating_service.py    # NEW: Rating prediction, time analysis, puzzles
+│   ├── server.py              # Main FastAPI app
+│   ├── stockfish_service.py   # NEW: Stockfish engine integration
+│   ├── rating_service.py      # Rating prediction
 │   ├── player_profile_service.py
-│   ├── journey_service.py
-│   ├── email_service.py
-│   ├── cqs_service.py
-│   └── rag_service.py
+│   └── ...
 ├── frontend/
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Journey.jsx  # Includes Rating Trajectory components
-│   │   │   ├── Dashboard.jsx
-│   │   │   └── GameAnalysis.jsx
-│   │   └── components/
-│   │       └── RatingTrajectory.jsx  # NEW: Web rating components
+│   └── src/
+│       ├── pages/
+│       └── components/
+│           └── RatingTrajectory.jsx
 └── mobile/
-    ├── app/
-    │   ├── (tabs)/
-    │   │   ├── journey.js   # Includes Rating Trajectory components
-    │   │   └── ...
-    │   └── game/[id].js
     └── src/
         └── components/
             ├── ChessBoard.js
-            └── RatingTrajectory.js   # NEW: Mobile rating components
+            └── RatingTrajectory.js
 ```
 
 ---
 
-## Testing Status
-- Backend tests: 18/18 passed (iteration_7.json)
-- All new endpoints properly require authentication
-- Response structures verified via code review
+## Upcoming Tasks
 
----
+### P0 - High Priority
+1. **Parent Dashboard**: WhatsApp-sharable weekly reports
+2. **Hindi/Hinglish Coaching**: AI commentary in Hindi
 
-## Upcoming Tasks (P0 - High Priority)
-1. **Parent Dashboard**: Simplified view for parents with WhatsApp-sharable weekly reports
-2. **Hindi/Hinglish Coaching**: AI coach commentary in Hindi for Indian market
+### P1 - Medium Priority
+1. **Opening Repertoire Builder**
+2. **Offline Caching** (mobile)
 
-## Upcoming Tasks (P1 - Medium Priority)
-1. **Opening Repertoire Builder**: Build and practice personalized opening tree
-2. **Offline Caching**: Cache games and analysis for offline viewing (mobile)
-
-## Future Tasks (P2 - Lower Priority)
-1. **Freemium Model**: 5 free analyses/month, subscription for unlimited
-2. **"Coach Call"**: AI-generated weekly video summary
-3. **"Prepare for Opponent"**: Analyze opponent's games
-4. **Social Features**: Leaderboards, achievement sharing
-5. **B2B Academy Dashboard**: School/academy management
+### P2 - Lower Priority
+1. Freemium model
+2. "Coach Call" video summaries
+3. Social features
 
 ---
 
 ## 3rd Party Integrations
 
-| Integration | Status | Key Source |
-|-------------|--------|------------|
-| OpenAI GPT-5.2 | ✅ Active | Emergent LLM Key |
-| OpenAI TTS | ✅ Active | Emergent LLM Key |
-| Chess.com API | ✅ Active | Public API |
-| Lichess API | ✅ Active | Public API |
-| Google OAuth (Web) | ✅ Active | Emergent-managed |
-| Google OAuth (Mobile) | ✅ Active | expo-auth-session |
-| SendGrid Email | ⚠️ Needs key | Placeholder in .env |
-| Expo Push | ✅ Active | expo-notifications |
+| Integration | Status | Purpose |
+|-------------|--------|---------|
+| **Stockfish 15** | ✅ Active | Chess engine (move evaluation) |
+| OpenAI GPT-5.2 | ✅ Active | Coaching commentary |
+| OpenAI TTS | ✅ Active | Voice coaching |
+| Chess.com API | ✅ Active | Game imports |
+| Lichess API | ✅ Active | Game imports |
+| Google OAuth | ✅ Active | Authentication |
+| SendGrid | ⚠️ Needs key | Email notifications |
+| Expo Push | ✅ Active | Mobile notifications |
 
 ---
 
-Last Updated: December 2025
+## Stockfish Configuration
+
+- **Binary**: `/usr/games/stockfish`
+- **Version**: 15.1
+- **Default Depth**: 18 (good balance of speed/accuracy)
+- **Quick Depth**: 12 (for rapid analysis)
+- **Deep Depth**: 22 (for critical positions)
+- **Threads**: 1 (can increase for faster analysis)
+- **Hash**: 128 MB
+
+---
+
+Last Updated: February 2025
