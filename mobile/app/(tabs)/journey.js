@@ -58,15 +58,23 @@ export default function JourneyScreen() {
   const [timeData, setTimeData] = useState(null);
   const [thinkingData, setThinkingData] = useState(null);
   const [puzzleData, setPuzzleData] = useState(null);
+  
+  // Gamification data
+  const [progress, setProgress] = useState(null);
+  const [showXPToast, setShowXPToast] = useState(false);
+  const [xpToastData, setXpToastData] = useState({ xp: 0, action: '' });
+  const [dailyClaimed, setDailyClaimed] = useState(false);
 
   const fetchData = async () => {
     try {
-      const [accountsData, dashboardData] = await Promise.all([
+      const [accountsData, dashboardData, progressData] = await Promise.all([
         journeyAPI.getLinkedAccounts(),
-        journeyAPI.getDashboard()
+        journeyAPI.getDashboard(),
+        fetchWithAuth('/gamification/progress'),
       ]);
       setAccounts(accountsData);
       setDashboard(dashboardData);
+      setProgress(progressData);
       
       // Fetch rating data
       const [trajectory, time, thinking, puzzles] = await Promise.all([
@@ -83,6 +91,34 @@ export default function JourneyScreen() {
       console.error('Failed to fetch journey data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const claimDailyReward = async () => {
+    try {
+      const token = await getSessionToken();
+      const response = await fetch(`${API_URL}/gamification/daily-reward`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.claimed) {
+          setXpToastData({ xp: data.xp_earned + (data.streak?.xp_bonus || 0), action: 'Daily Reward' });
+          setShowXPToast(true);
+          setDailyClaimed(true);
+          setTimeout(() => setShowXPToast(false), 2500);
+          fetchData();
+        } else {
+          setDailyClaimed(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to claim daily reward:', error);
     }
   };
 
