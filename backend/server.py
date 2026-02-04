@@ -66,6 +66,13 @@ from rating_service import (
     fetch_platform_ratings
 )
 
+# Import Stockfish engine service
+from stockfish_service import (
+    analyze_game_with_stockfish,
+    get_position_evaluation,
+    get_best_moves_for_position
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
