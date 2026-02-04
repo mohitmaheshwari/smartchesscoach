@@ -21,6 +21,13 @@ import {
   FastThinkingCard, 
   PuzzleTrainerCard 
 } from '../../src/components/RatingTrajectory';
+import {
+  XPProgressBar,
+  StreakDisplay,
+  DailyRewardButton,
+  StatsGrid,
+  XPToast,
+} from '../../src/components/Gamification';
 
 // Fetch helper
 const fetchWithAuth = async (endpoint) => {
