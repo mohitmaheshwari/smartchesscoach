@@ -2050,6 +2050,42 @@ async def submit_puzzle_solution(
         "time_taken_seconds": time_taken_seconds
     }
 
+# ==================== STOCKFISH POSITION ANALYSIS ====================
+
+class PositionAnalysisRequest(BaseModel):
+    fen: str
+    depth: int = 18
+
+@api_router.post("/analyze-position")
+async def analyze_position(req: PositionAnalysisRequest, user: User = Depends(get_current_user)):
+    """
+    Analyze a single position using Stockfish.
+    Returns evaluation and best moves.
+    """
+    try:
+        result = get_position_evaluation(req.fen, depth=req.depth)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Analysis failed"))
+        return result
+    except Exception as e:
+        logger.error(f"Position analysis error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/best-moves")
+async def get_best_moves(req: PositionAnalysisRequest, num_moves: int = 3, user: User = Depends(get_current_user)):
+    """
+    Get the top N best moves for a position using Stockfish.
+    Useful for showing alternatives.
+    """
+    try:
+        result = get_best_moves_for_position(req.fen, num_moves=num_moves, depth=req.depth)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Analysis failed"))
+        return result
+    except Exception as e:
+        logger.error(f"Best moves analysis error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ==================== BASIC ROUTES ====================
 
 @api_router.get("/")
