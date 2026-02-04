@@ -25,9 +25,19 @@ import {
   CheckCircle2,
   Clock,
   Brain,
-  Zap
+  Zap,
+  Trophy,
+  Flame
 } from "lucide-react";
 import { RatingTrajectory, TimeManagement, FastThinking, PuzzleTrainer } from "@/components/RatingTrajectory";
+import { 
+  XPProgressBar, 
+  StreakDisplay, 
+  DailyRewardButton, 
+  StatsGrid,
+  XPToast,
+  LevelUpModal
+} from "@/components/Gamification";
 
 const Journey = ({ user }) => {
   const [loading, setLoading] = useState(true);
@@ -37,6 +47,12 @@ const Journey = ({ user }) => {
   const [username, setUsername] = useState("");
   const [linking, setLinking] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  
+  // Gamification state
+  const [progress, setProgress] = useState(null);
+  const [showXPToast, setShowXPToast] = useState(false);
+  const [xpToastData, setXpToastData] = useState({ xp: 0, action: '' });
+  const [dailyClaimed, setDailyClaimed] = useState(false);
 
   useEffect(() => {
     fetchDashboard();
@@ -44,15 +60,46 @@ const Journey = ({ user }) => {
 
   const fetchDashboard = async () => {
     try {
-      const res1 = await fetch(API + "/journey/linked-accounts", { credentials: "include" });
-      if (res1.ok) setAccounts(await res1.json());
+      const [res1, res2, res3] = await Promise.all([
+        fetch(API + "/journey/linked-accounts", { credentials: "include" }),
+        fetch(API + "/journey", { credentials: "include" }),
+        fetch(API + "/gamification/progress", { credentials: "include" })
+      ]);
       
-      const res2 = await fetch(API + "/journey", { credentials: "include" });
+      if (res1.ok) setAccounts(await res1.json());
       if (res2.ok) setDashboard(await res2.json());
+      if (res3.ok) setProgress(await res3.json());
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const claimDailyReward = async () => {
+    try {
+      const res = await fetch(API + "/gamification/daily-reward", {
+        method: "POST",
+        credentials: "include"
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.claimed) {
+          const totalXP = data.xp_earned + (data.streak?.xp_bonus || 0);
+          setXpToastData({ xp: totalXP, action: 'Daily Reward' });
+          setShowXPToast(true);
+          setDailyClaimed(true);
+          setTimeout(() => setShowXPToast(false), 2500);
+          toast.success(`Claimed ${totalXP} XP! 🎉`);
+          fetchDashboard();
+        } else {
+          setDailyClaimed(true);
+          toast.info("Already claimed today!");
+        }
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
