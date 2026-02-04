@@ -159,7 +159,7 @@ const Journey = ({ user }) => {
   return (
     <Layout user={user}>
       <div className="space-y-8 max-w-4xl" data-testid="journey-page">
-        {/* Header */}
+        {/* Header with Streak */}
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -169,10 +169,33 @@ const Journey = ({ user }) => {
             <p className="label-caps mb-2">Your Progress</p>
             <h1 className="text-3xl font-heading font-bold tracking-tight">Journey</h1>
           </div>
-          {games > 0 && (
-            <div className="text-right">
-              <p className="text-2xl font-heading font-semibold">{games}</p>
-              <p className="text-sm text-muted-foreground">games analyzed</p>
+          <div className="flex items-center gap-4">
+            {progress?.current_streak > 0 && (
+              <StreakDisplay streak={progress.current_streak} compact />
+            )}
+          </div>
+        </motion.div>
+        
+        {/* Gamification Section */}
+        {progress && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="space-y-4"
+          >
+            <div className="grid md:grid-cols-2 gap-4">
+              <XPProgressBar progress={progress} />
+              <StreakDisplay streak={progress.current_streak} />
+            </div>
+            
+            <div className="flex justify-center">
+              <DailyRewardButton onClaim={claimDailyReward} claimed={dailyClaimed} />
+            </div>
+            
+            <StatsGrid progress={progress} />
+          </motion.div>
+        )}
             </div>
           )}
         </motion.div>
