@@ -481,6 +481,9 @@ const Journey = ({ user }) => {
           </motion.div>
         )}
       </div>
+      
+      {/* XP Toast */}
+      <XPToast show={showXPToast} xp={xpToastData.xp} action={xpToastData.action} />
     </Layout>
   );
 };
