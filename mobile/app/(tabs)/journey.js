@@ -484,7 +484,10 @@ const createStyles = (colors) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  headerRight: {
+    alignItems: 'flex-end',
   },
   greeting: {
     fontSize: 11,
@@ -497,6 +500,13 @@ const createStyles = (colors) => StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     letterSpacing: -0.5,
+  },
+  section: {
+    marginBottom: 16,
+  },
+  dailyRewardSection: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
   gamesCount: {
     alignItems: 'flex-end',
