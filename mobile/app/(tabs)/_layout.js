@@ -26,15 +26,6 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="grid-outline" size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="journey"
         options={{
           title: 'Journey',
@@ -53,12 +44,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="achievements"
+        options={{
+          title: 'Badges',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="trophy-outline" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings-outline" size={22} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          href: null, // Hide from tab bar but keep accessible
         }}
       />
     </Tabs>
