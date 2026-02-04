@@ -237,31 +237,6 @@ export default function GameAnalysisScreen() {
               </View>
             )}
 
-        {!analysis ? (
-          /* No Analysis - CTA */
-          <View style={styles.noAnalysis}>
-            <Ionicons name="analytics-outline" size={48} color={colors.textSecondary} />
-            <Text style={styles.noAnalysisTitle}>Game not analyzed yet</Text>
-            <Text style={styles.noAnalysisText}>
-              Get AI coaching insights for this game
-            </Text>
-            <TouchableOpacity 
-              style={styles.analyzeButton}
-              onPress={handleAnalyze}
-              disabled={analyzing}
-            >
-              {analyzing ? (
-                <ActivityIndicator color={colors.background} />
-              ) : (
-                <>
-                  <Ionicons name="flash" size={20} color={colors.background} />
-                  <Text style={styles.analyzeButtonText}>Analyze Game</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
             {/* Stockfish Accuracy - NEW */}
             {analysis.stockfish_analysis?.accuracy && (
               <View style={styles.accuracyCard}>
