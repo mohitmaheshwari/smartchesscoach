@@ -415,6 +415,9 @@ export default function JourneyScreen() {
           </View>
         )}
       </ScrollView>
+      
+      {/* XP Toast */}
+      <XPToast visible={showXPToast} xp={xpToastData.xp} action={xpToastData.action} />
     </SafeAreaView>
   );
 }
