@@ -929,14 +929,16 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
                 "display_name": subcat.replace("_", " ").title()
             })
         
+        # Use STOCKFISH counts (accurate) instead of GPT guesses
+        sf_stats = stockfish_result.get("user_stats", {}) if stockfish_result else {}
         analysis = GameAnalysis(
             game_id=req.game_id,
             user_id=user.user_id,
             commentary=validated_commentary,
-            blunders=analysis_data.get("blunders", 0),
-            mistakes=analysis_data.get("mistakes", 0),
-            inaccuracies=analysis_data.get("inaccuracies", 0),
-            best_moves=analysis_data.get("best_moves", 0),
+            blunders=sf_stats.get("blunders", analysis_data.get("blunders", 0)),
+            mistakes=sf_stats.get("mistakes", analysis_data.get("mistakes", 0)),
+            inaccuracies=sf_stats.get("inaccuracies", analysis_data.get("inaccuracies", 0)),
+            best_moves=sf_stats.get("best_moves", analysis_data.get("best_moves", 0)),
             overall_summary=analysis_data.get("overall_summary", ""),
             identified_patterns=[]  # Legacy field - will also store full data separately
         )
@@ -991,7 +993,35 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         analysis_doc['summary_p1'] = analysis_data.get("summary_p1", "")
         analysis_doc['summary_p2'] = analysis_data.get("summary_p2", "")
         analysis_doc['improvement_note'] = analysis_data.get("improvement_note", "")
-        analysis_doc['best_move_suggestions'] = analysis_data.get("best_move_suggestions", [])
+        
+        # Use Stockfish best move suggestions (accurate) - merge with GPT's reasoning
+        stockfish_best_moves = []
+        if stockfish_move_data:
+            for m in stockfish_move_data:
+                # Get evaluation type safely
+                eval_type = m.get('evaluation', 'unknown')
+                if hasattr(eval_type, 'value'):
+                    eval_type = eval_type.value
+                    
+                if eval_type in ['blunder', 'mistake'] and m.get('best_move'):
+                    stockfish_best_moves.append({
+                        "move_number": m.get('move_number'),
+                        "played_move": m.get('move'),
+                        "best_move": m.get('best_move'),
+                        "cp_loss": m.get('cp_loss', 0),
+                        "evaluation": eval_type,
+                        "reason": f"Engine analysis shows this loses {m.get('cp_loss', 0)/100:.1f} pawns"
+                    })
+        analysis_doc['best_move_suggestions'] = stockfish_best_moves or analysis_data.get("best_move_suggestions", [])
+        
+        # Store Stockfish accuracy and detailed move analysis
+        if stockfish_result and stockfish_result.get("success"):
+            analysis_doc['stockfish_analysis'] = {
+                "accuracy": sf_stats.get("accuracy", 0),
+                "avg_cp_loss": sf_stats.get("avg_cp_loss", 0),
+                "excellent_moves": sf_stats.get("excellent_moves", 0),
+                "move_evaluations": stockfish_move_data
+            }
         
         # CQS: Store internal metadata (NEVER exposed to users)
         analysis_doc['_cqs_internal'] = {
