@@ -2301,6 +2301,62 @@ Make sure the FEN is valid and the solution is correct for that position."""
         fallback_puzzle.pop('_id', None)
         return fallback_puzzle
 
+# ==================== GAMIFICATION ROUTES ====================
+
+from gamification_service import (
+    get_user_progress,
+    add_xp,
+    update_streak,
+    increment_stat,
+    update_best_accuracy,
+    get_user_achievements,
+    check_and_award_achievements,
+    claim_daily_reward,
+    get_leaderboard,
+    LEVELS,
+    ACHIEVEMENTS,
+    XP_REWARDS
+)
+
+@api_router.get("/gamification/progress")
+async def get_progress(user: User = Depends(get_current_user)):
+    """Get user's XP, level, streak, and stats"""
+    progress = await get_user_progress(user.user_id)
+    return progress
+
+@api_router.get("/gamification/achievements")
+async def get_achievements(user: User = Depends(get_current_user)):
+    """Get all achievements with unlock status"""
+    achievements = await get_user_achievements(user.user_id)
+    return achievements
+
+@api_router.post("/gamification/daily-reward")
+async def claim_daily(user: User = Depends(get_current_user)):
+    """Claim daily login reward and update streak"""
+    result = await claim_daily_reward(user.user_id)
+    return result
+
+@api_router.get("/gamification/leaderboard")
+async def leaderboard(limit: int = 20, user: User = Depends(get_current_user)):
+    """Get XP leaderboard"""
+    leaders = await get_leaderboard(limit)
+    return {"leaderboard": leaders}
+
+@api_router.get("/gamification/levels")
+async def get_levels():
+    """Get all level definitions (public endpoint)"""
+    return {"levels": LEVELS}
+
+@api_router.get("/gamification/achievement-definitions")
+async def get_achievement_definitions():
+    """Get all achievement definitions (public endpoint)"""
+    return {"achievements": ACHIEVEMENTS}
+
+@api_router.get("/gamification/xp-rewards")
+async def get_xp_rewards():
+    """Get XP reward values (public endpoint)"""
+    return {"rewards": XP_REWARDS}
+
 # ==================== RAG MANAGEMENT ROUTES ====================
 
 @api_router.post("/rag/process-games")
