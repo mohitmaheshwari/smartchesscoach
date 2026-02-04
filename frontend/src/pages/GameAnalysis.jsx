@@ -175,6 +175,16 @@ const GameAnalysis = ({ user }) => {
   const inaccuracies = analysis ? analysis.inaccuracies : 0;
   const bestMoves = analysis ? analysis.best_moves : 0;
   
+  // Stockfish accuracy data
+  const stockfishData = analysis ? analysis.stockfish_analysis : null;
+  const accuracy = stockfishData ? stockfishData.accuracy : null;
+  const avgCpLoss = stockfishData ? stockfishData.avg_cp_loss : null;
+  const excellentMoves = stockfishData ? stockfishData.excellent_moves : 0;
+  const moveEvaluations = stockfishData ? stockfishData.move_evaluations : [];
+  
+  // Best move suggestions from Stockfish
+  const bestMoveSuggestions = analysis ? analysis.best_move_suggestions : [];
+  
   // New split summary format
   const summaryP1 = analysis ? (analysis.summary_p1 || analysis.overall_summary || "") : "";
   const summaryP2 = analysis ? (analysis.summary_p2 || "") : "";
