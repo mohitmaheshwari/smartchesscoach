@@ -196,9 +196,6 @@ const Journey = ({ user }) => {
             <StatsGrid progress={progress} />
           </motion.div>
         )}
-            </div>
-          )}
-        </motion.div>
 
         {/* Connect Account CTA */}
         {!hasAccount && (
