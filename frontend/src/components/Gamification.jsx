@@ -198,7 +198,7 @@ export const LevelUpModal = ({ show, levelInfo, onClose }) => {
             <div className="text-amber-400 text-sm font-medium mb-1">LEVEL UP!</div>
             <div className="text-2xl font-bold text-white mb-2">{levelInfo?.name}</div>
             <div className="text-zinc-400 text-sm mb-6">
-              You've reached Level {levelInfo?.level}
+              You&apos;ve reached Level {levelInfo?.level}
             </div>
             <button
               onClick={onClose}
@@ -208,28 +208,37 @@ export const LevelUpModal = ({ show, levelInfo, onClose }) => {
             </button>
           </motion.div>
           
-          {/* Confetti effect */}
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-3 h-3 rounded-full"
-              style={{
-                backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#ef4444'][i % 4],
-                left: `${Math.random() * 100}%`,
-                top: '-20px'
-              }}
-              animate={{
-                y: [0, window.innerHeight + 100],
-                x: [0, (Math.random() - 0.5) * 200],
-                rotate: [0, 360 * (Math.random() > 0.5 ? 1 : -1)]
-              }}
-              transition={{
-                duration: 2 + Math.random() * 2,
-                ease: "easeIn",
-                delay: Math.random() * 0.5
-              }}
-            />
-          ))}
+          {/* Confetti effect - using pre-calculated positions */}
+          {[...Array(20)].map((_, i) => {
+            // Pre-calculate positions based on index for deterministic rendering
+            const leftPos = ((i * 17) % 100);
+            const xOffset = ((i % 5) - 2) * 80;
+            const duration = 2 + (i % 3);
+            const delay = (i % 5) * 0.1;
+            const rotateDir = i % 2 === 0 ? 1 : -1;
+            
+            return (
+              <motion.div
+                key={i}
+                className="absolute w-3 h-3 rounded-full"
+                style={{
+                  backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#ef4444'][i % 4],
+                  left: `${leftPos}%`,
+                  top: '-20px'
+                }}
+                animate={{
+                  y: [0, 800],
+                  x: [0, xOffset],
+                  rotate: [0, 360 * rotateDir]
+                }}
+                transition={{
+                  duration: duration,
+                  ease: "easeIn",
+                  delay: delay
+                }}
+              />
+            );
+          })}
         </motion.div>
       )}
     </AnimatePresence>
