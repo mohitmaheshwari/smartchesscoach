@@ -434,6 +434,29 @@ const GameAnalysis = ({ user }) => {
                   </TabsList>
                   
                   <TabsContent value="summary" className="space-y-4 mt-4">
+                    {/* Stockfish Accuracy - NEW */}
+                    {accuracy !== null && (
+                      <div className="p-4 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center">
+                              <span className="text-xl font-bold text-blue-500">{accuracy}%</span>
+                            </div>
+                            <div>
+                              <p className="font-medium">Accuracy</p>
+                              <p className="text-xs text-muted-foreground">Powered by Stockfish 15</p>
+                            </div>
+                          </div>
+                          {avgCpLoss !== null && (
+                            <div className="text-right">
+                              <p className="text-sm font-medium">{avgCpLoss} cp</p>
+                              <p className="text-xs text-muted-foreground">Avg. loss</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Stats */}
                     <div className="grid grid-cols-4 gap-2">
                       <div className="text-center p-2 rounded-lg bg-red-500/10">
