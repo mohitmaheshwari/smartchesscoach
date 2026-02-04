@@ -28,3 +28,4 @@ emergentintegrations==0.1.0
 numpy==2.4.2
 scikit-learn==1.8.0
 sendgrid==6.12.5
+chess==1.11.2
