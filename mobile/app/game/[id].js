@@ -164,8 +164,34 @@ export default function GameAnalysisScreen() {
           />
         </View>
 
-        {/* Current Move Analysis - only show if analysis exists and has move data */}
-        {analysis && currentMoveData && (
+        {/* ALWAYS SHOW: Analyze button if no analysis */}
+        {!analysis && (
+          <View style={styles.noAnalysis}>
+            <Ionicons name="analytics-outline" size={48} color={colors.textSecondary} />
+            <Text style={styles.noAnalysisTitle}>Game not analyzed yet</Text>
+            <Text style={styles.noAnalysisText}>
+              Get AI coaching insights powered by Stockfish
+            </Text>
+            <TouchableOpacity 
+              style={styles.analyzeButton}
+              onPress={handleAnalyze}
+              disabled={analyzing}
+              testID="analyze-game-btn"
+            >
+              {analyzing ? (
+                <ActivityIndicator color={colors.background} />
+              ) : (
+                <>
+                  <Ionicons name="flash" size={20} color={colors.background} />
+                  <Text style={styles.analyzeButtonText}>Analyze Game</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Show analysis if available */}
+        {analysis && (
           <View style={styles.currentMoveCard}>
             <View style={styles.currentMoveHeader}>
               <View style={styles.currentMoveLeft}>
