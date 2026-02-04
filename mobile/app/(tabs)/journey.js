@@ -189,19 +189,35 @@ export default function JourneyScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Header with Streak */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>YOUR PROGRESS</Text>
             <Text style={styles.title}>Journey</Text>
           </View>
-          {gamesAnalyzed > 0 && (
-            <View style={styles.gamesCount}>
-              <Text style={styles.gamesNumber}>{gamesAnalyzed}</Text>
-              <Text style={styles.gamesLabel}>games analyzed</Text>
-            </View>
-          )}
+          <View style={styles.headerRight}>
+            <StreakDisplay streak={progress?.current_streak} compact />
+          </View>
         </View>
+        
+        {/* XP Progress */}
+        {progress && (
+          <View style={styles.section}>
+            <XPProgressBar progress={progress} />
+          </View>
+        )}
+        
+        {/* Daily Reward Button */}
+        <View style={styles.dailyRewardSection}>
+          <DailyRewardButton onClaim={claimDailyReward} claimed={dailyClaimed} />
+        </View>
+        
+        {/* Stats Grid */}
+        {progress && (
+          <View style={styles.section}>
+            <StatsGrid progress={progress} />
+          </View>
+        )}
 
         {/* Connect Account CTA */}
         {!hasAccount && (
