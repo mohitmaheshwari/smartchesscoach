@@ -597,7 +597,7 @@ async def get_user_mistake_context(user_id: str) -> str:
 
 @api_router.post("/analyze-game")
 async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
-    """Analyze a game with AI coaching using PlayerProfile + RAG + Strict Explanation Contract"""
+    """Analyze a game with Stockfish engine + AI coaching using PlayerProfile + RAG"""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     import json
     
@@ -621,6 +621,61 @@ async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTask
     
     if existing_analysis:
         return existing_analysis
+    
+    # ============ STEP 0: STOCKFISH ENGINE ANALYSIS (ACCURATE MOVE EVALUATION) ============
+    logger.info(f"Running Stockfish analysis for game {req.game_id}")
+    user_color = game.get('user_color', 'white')
+    
+    try:
+        stockfish_result = analyze_game_with_stockfish(
+            game['pgn'], 
+            user_color=user_color,
+            depth=18  # Good balance of speed and accuracy
+        )
+        
+        if not stockfish_result.get("success"):
+            logger.error(f"Stockfish analysis failed: {stockfish_result.get('error')}")
+            stockfish_result = None
+    except Exception as e:
+        logger.error(f"Stockfish analysis error: {e}")
+        stockfish_result = None
+    
+    # Extract Stockfish evaluations for GPT context
+    stockfish_context = ""
+    stockfish_move_data = []
+    if stockfish_result and stockfish_result.get("success"):
+        user_stats = stockfish_result.get("user_stats", {})
+        moves = stockfish_result.get("moves", [])
+        
+        # Build context for GPT
+        stockfish_context = f"""
+=== STOCKFISH ENGINE ANALYSIS (DEPTH 18) ===
+Player: {user_color}
+Accuracy: {user_stats.get('accuracy', 0)}%
+Blunders: {user_stats.get('blunders', 0)}
+Mistakes: {user_stats.get('mistakes', 0)}  
+Inaccuracies: {user_stats.get('inaccuracies', 0)}
+Best Moves: {user_stats.get('best_moves', 0)}
+Excellent Moves: {user_stats.get('excellent_moves', 0)}
+Average CP Loss: {user_stats.get('avg_cp_loss', 0)}
+
+=== MOVE-BY-MOVE ENGINE EVALUATION ===
+"""
+        # Include significant moves (blunders, mistakes, inaccuracies)
+        significant_moves = [m for m in moves if m.get('evaluation') in ['blunder', 'mistake', 'inaccuracy']]
+        for m in significant_moves[:10]:  # Limit to top 10 bad moves
+            eval_type = m.get('evaluation', 'unknown')
+            # Handle both string and enum types
+            if hasattr(eval_type, 'value'):
+                eval_type = eval_type.value
+            stockfish_context += f"""
+Move {m.get('move_number')}: {m.get('move')} ({eval_type.upper()})
+- CP Loss: {m.get('cp_loss', 0)} centipawns
+- Best was: {m.get('best_move')}
+- Eval before: {m.get('eval_before', 0)/100:.1f} → after: {m.get('eval_after', 0)/100:.1f}
+"""
+        stockfish_move_data = moves
+        logger.info(f"Stockfish: {user_stats.get('blunders', 0)} blunders, {user_stats.get('mistakes', 0)} mistakes, {user_stats.get('accuracy', 0)}% accuracy")
     
     # Step 1: Get or create PlayerProfile (FIRST-CLASS requirement)
     logger.info(f"Loading PlayerProfile for user {user.user_id}")
