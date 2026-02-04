@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -8,7 +8,6 @@ const { width } = Dimensions.get('window');
 // XP Progress Bar Component
 export const XPProgressBar = ({ progress, compact = false }) => {
   const { colors } = useTheme();
-  const animatedWidth = useRef(new Animated.Value(0)).current;
   
   const levelInfo = progress?.level_info;
   const currentLevel = levelInfo?.current_level;
@@ -16,28 +15,12 @@ export const XPProgressBar = ({ progress, compact = false }) => {
   const progressPercent = levelInfo?.progress_percent || 0;
   const xp = progress?.xp || 0;
   
-  useEffect(() => {
-    Animated.timing(animatedWidth, {
-      toValue: progressPercent,
-      duration: 1000,
-      useNativeDriver: false,
-    }).start();
-  }, [progressPercent]);
-  
   if (compact) {
     return (
       <View style={styles.compactContainer}>
         <Text style={styles.levelIcon}>{currentLevel?.icon}</Text>
         <View style={styles.compactBarBg}>
-          <Animated.View 
-            style={[
-              styles.compactBarFill,
-              { width: animatedWidth.interpolate({
-                inputRange: [0, 100],
-                outputRange: ['0%', '100%']
-              })}
-            ]}
-          />
+          <View style={[styles.compactBarFill, { width: `${progressPercent}%` }]} />
         </View>
         <Text style={[styles.compactPercent, { color: colors.textSecondary }]}>
           {Math.round(progressPercent)}%
@@ -67,15 +50,7 @@ export const XPProgressBar = ({ progress, compact = false }) => {
       </View>
       
       <View style={[styles.progressBarBg, { backgroundColor: colors.border }]}>
-        <Animated.View 
-          style={[
-            styles.progressBarFill,
-            { width: animatedWidth.interpolate({
-              inputRange: [0, 100],
-              outputRange: ['0%', '100%']
-            })}
-          ]}
-        />
+        <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
       </View>
       
       {nextLevel && (
@@ -92,18 +67,6 @@ export const XPProgressBar = ({ progress, compact = false }) => {
 export const StreakDisplay = ({ streak, compact = false }) => {
   const { colors } = useTheme();
   const currentStreak = streak || 0;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  
-  useEffect(() => {
-    if (currentStreak > 0) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.2, duration: 500, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-        ])
-      ).start();
-    }
-  }, [currentStreak]);
   
   if (compact) {
     return (
@@ -117,9 +80,7 @@ export const StreakDisplay = ({ streak, compact = false }) => {
   return (
     <View style={styles.streakCard}>
       <View style={styles.streakContent}>
-        <Animated.Text style={[styles.fireEmojiLarge, { transform: [{ scale: pulseAnim }] }]}>
-          🔥
-        </Animated.Text>
+        <Text style={styles.fireEmojiLarge}>🔥</Text>
         <View>
           <Text style={styles.streakNum}>{currentStreak}</Text>
           <Text style={styles.streakLabel}>Day Streak</Text>
@@ -212,8 +173,6 @@ export const AchievementCard = ({ achievement, onPress }) => {
 
 // Daily Reward Button
 export const DailyRewardButton = ({ onClaim, claimed, loading }) => {
-  const { colors } = useTheme();
-  
   return (
     <TouchableOpacity
       onPress={onClaim}
@@ -239,12 +198,12 @@ export const DailyRewardButton = ({ onClaim, claimed, loading }) => {
 export const StatsGrid = ({ progress }) => {
   const { colors } = useTheme();
   
-  const stats = [
+  const stats = useMemo(() => [
     { label: 'Games', value: progress?.games_analyzed || 0, icon: '📊' },
     { label: 'Puzzles', value: progress?.puzzles_solved || 0, icon: '🧩' },
     { label: 'Accuracy', value: `${progress?.best_accuracy || 0}%`, icon: '🎯' },
     { label: 'Best Streak', value: progress?.longest_streak || 0, icon: '🏆' },
-  ];
+  ], [progress]);
   
   return (
     <View style={styles.statsGrid}>
@@ -259,37 +218,15 @@ export const StatsGrid = ({ progress }) => {
   );
 };
 
-// XP Toast Component
+// XP Toast Component (simplified - no animations to avoid ref issues)
 export const XPToast = ({ visible, xp, action }) => {
-  const translateY = useRef(new Animated.Value(100)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(translateY, { toValue: 0, duration: 300, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-      ]).start();
-      
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(translateY, { toValue: -50, duration: 300, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-        ]).start();
-      }, 2000);
-    }
-  }, [visible]);
-  
   if (!visible) return null;
   
   return (
-    <Animated.View style={[
-      styles.xpToast,
-      { transform: [{ translateY }], opacity }
-    ]}>
+    <View style={styles.xpToast}>
       <Text style={styles.xpToastText}>+{xp} XP</Text>
       {action && <Text style={styles.xpToastAction}>• {action}</Text>}
-    </Animated.View>
+    </View>
   );
 };
 
