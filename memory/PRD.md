@@ -1,186 +1,154 @@
 # Chess Coach AI - Product Requirements Document
 
 ## Original Problem Statement
-Build an AI chess coach app that understands the context of a user's games, remembers their mistakes like a human coach, and provides guidance in natural language. The goal is to replace human coaches with accurate analysis and personalized coaching.
+Build a full-stack AI chess coach application that integrates with Chess.com and Lichess to import user games, understand playing style, remember mistakes, and provide human-like coaching commentary in the persona of a firm but supportive Indian chess coach.
 
-## User Persona
-Chess players (beginners to intermediate) who want personalized coaching without expensive human coaches. Target market: India (high chess popularity, price-sensitive market).
+## Target Audience
+- Kids (8-16) learning chess with parent oversight
+- Competitive adults looking to improve
+- Chess academies and schools (B2B)
 
-## Platforms
-- **Web App**: React + TailwindCSS + Shadcn UI ✅ Complete
-- **Mobile App**: React Native + Expo ✅ Core features implemented
+## Core Features
 
----
+### ✅ Implemented
+1. **User Authentication**
+   - Emergent-managed Google Auth (Web)
+   - Demo Login for mobile testing
+   - JWT session management
 
-## 🆕 MAJOR UPDATE: Stockfish Integration (February 2025)
+2. **Game Import & Analysis**
+   - Chess.com and Lichess integration
+   - Stockfish engine for accurate move evaluation
+   - GPT-powered coaching commentary
+   - Background auto-sync every 6 hours
 
-### The Problem
-Previously, the app relied on GPT to evaluate chess moves, which led to inaccurate analysis:
-- Moves rated "best" by Chess.com were sometimes flagged as mistakes
-- Blunder/mistake counts didn't match chess platform evaluations
-- Best move suggestions were sometimes incorrect
+3. **Journey Dashboard**
+   - Progress tracking
+   - Weakness pattern detection
+   - Strength identification
+   - Focus recommendations
 
-### The Solution
-**Integrated Stockfish 15** - the world's strongest open-source chess engine (~3500 Elo):
+4. **Gamification System** (NEW - Dec 2025)
+   - XP & Level System (20 levels: Pawn → Grandmaster)
+   - 25+ Achievements across 7 categories
+   - Daily streak tracking with bonuses
+   - Daily reward claims
+   - Leaderboard
+   - Auto XP for: game import (+5), analysis (+25), 90%+ accuracy (+30), no blunders (+20)
 
-1. **Accurate Move Evaluation**: Every move is now evaluated by Stockfish at depth 18
-2. **Centipawn-Based Classification**: Moves are classified using industry-standard thresholds:
-   - Best: 0 cp loss
-   - Excellent: < 10 cp loss
-   - Good: 10-30 cp loss
-   - Inaccuracy: 30-100 cp loss
-   - Mistake: 100-300 cp loss
-   - Blunder: > 300 cp loss
-3. **Accurate Best Move Suggestions**: Stockfish provides the actual best moves
-4. **Accuracy Score**: Chess.com-style accuracy percentage (0-100%)
-5. **GPT for Coaching**: Stockfish provides the WHAT, GPT explains the WHY
+5. **Mobile App** (React Native/Expo)
+   - Tab navigation: Journey → Games → Badges → Settings
+   - Game analysis with redesigned UX
+   - Gamification components
+   - Demo login flow
 
-### New Endpoints
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/analyze-position` | POST | Analyze a single FEN position |
-| `/api/best-moves` | POST | Get top N best moves for a position |
+6. **Rating & Training Backend**
+   - Rating trajectory prediction
+   - Time management analysis
+   - Fast thinking trainer
+   - Puzzle generation
 
-### Architecture Change
-```
-BEFORE: PGN → GPT → (inaccurate) blunder/mistake counts
+### 🔄 In Progress
+- Mobile Game Analysis UX refinements
+- Parent Dashboard
 
-AFTER:  PGN → Stockfish Engine → Accurate move evaluations
-               ↓
-             GPT Coach → Explains WHY mistakes happen
-                        → Provides habit-based coaching
-```
+### 📋 Planned (P1)
+- Puzzle Rush / Challenge Mode
+- Rating Prediction UI (frontend)
+- Time Management UI
+- Opening Repertoire Builder
+- Push notifications for streak reminders
 
----
+### 📋 Future (P2)
+- Freemium Model
+- "Coach Call" - AI-generated weekly video summary
+- "Prepare for Opponent" mode
+- Voice coaching on mobile
+- WhatsApp weekly reports
+- B2B Academy Dashboard
+- Hindi/Vernacular language support
 
-## Architecture
-- **Backend**: FastAPI + Motor (async MongoDB) + **Stockfish 15**
-- **Database**: MongoDB 
-- **AI**: GPT-5.2 via Emergent integrations (for coaching commentary)
-- **Chess Engine**: Stockfish 15 (for accurate move evaluation)
-- **Voice**: OpenAI TTS
-- **Email**: SendGrid
-- **Auth**: Emergent-managed Google OAuth (web), expo-auth-session (mobile)
-
----
-
-## COMPLETED FEATURES
-
-### Core Features ✅
-- Game import from Chess.com/Lichess
-- **Stockfish-powered move analysis** (accurate to Chess.com/Lichess)
-- AI coaching with Indian chess coach persona
-- RAG-based memory system
-- PlayerProfile with habit tracking
-- Interactive chessboard (web and mobile)
-- Voice coaching (TTS)
-- Coach Quality Score (CQS)
-- **Accurate best move suggestions** (from Stockfish)
-
-### Rating & Training System ✅
-- Rating trajectory with projections
-- Time management analysis
-- Fast thinking/calculation training
-- Personalized puzzle trainer
-
-### Auto-Analysis System ✅
-- Background sync every 6 hours
-- Email notifications (SendGrid)
-- Push notifications (mobile)
-
-### Mobile App ✅
-- Google OAuth (expo-auth-session)
-- Interactive chessboard (WebView)
-- Push notifications
-- Full feature parity with web
-
----
-
-## Key API Endpoints
-
-### Game Analysis
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/analyze-game` | POST | Full game analysis with Stockfish + GPT |
-| `/api/analyze-position` | POST | Single position evaluation |
-| `/api/best-moves` | POST | Top N moves for a position |
-
-### Rating & Training
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/rating/trajectory` | GET | Rating predictions & milestones |
-| `/api/training/time-management` | GET | Clock usage analysis |
-| `/api/training/fast-thinking` | GET | Calculation speed analysis |
-| `/api/training/puzzles` | GET | Personalized puzzles |
-
----
-
-## File Structure
+## Technical Architecture
 
 ```
 /app/
-├── backend/
-│   ├── server.py              # Main FastAPI app
-│   ├── stockfish_service.py   # NEW: Stockfish engine integration
-│   ├── rating_service.py      # Rating prediction
-│   ├── player_profile_service.py
-│   └── ...
-├── frontend/
+├── backend/                 # FastAPI + MongoDB
+│   ├── server.py           # Main API routes
+│   ├── gamification_service.py  # XP, achievements, streaks
+│   ├── stockfish_service.py     # Chess engine
+│   ├── rating_service.py        # Rating predictions
+│   ├── journey_service.py       # Dashboard logic
+│   └── player_profile_service.py
+├── frontend/               # React + Tailwind
 │   └── src/
-│       ├── pages/
-│       └── components/
-│           └── RatingTrajectory.jsx
-└── mobile/
-    └── src/
-        └── components/
-            ├── ChessBoard.js
-            └── RatingTrajectory.js
+│       ├── components/
+│       │   └── Gamification.jsx  # XP bar, achievements, etc.
+│       └── pages/
+│           └── Journey.jsx
+└── mobile/                 # React Native + Expo
+    ├── app/
+    │   ├── (tabs)/
+    │   │   ├── journey.js
+    │   │   ├── games.js
+    │   │   ├── achievements.js   # NEW
+    │   │   └── settings.js
+    │   └── game/[id].js
+    └── src/components/
+        └── Gamification.js
 ```
 
----
+## Key API Endpoints
 
-## Upcoming Tasks
+### Gamification
+- `GET /api/gamification/progress` - User XP, level, streak, stats
+- `GET /api/gamification/achievements` - All achievements with unlock status
+- `POST /api/gamification/daily-reward` - Claim daily login reward
+- `GET /api/gamification/leaderboard` - Top users by XP
 
-### P0 - High Priority
-1. **Parent Dashboard**: WhatsApp-sharable weekly reports
-2. **Hindi/Hinglish Coaching**: AI commentary in Hindi
+### Analysis
+- `POST /api/games/{id}/analyze` - Analyze game with Stockfish + GPT
+- `GET /api/analysis/{game_id}` - Get analysis results
 
-### P1 - Medium Priority
-1. **Opening Repertoire Builder**
-2. **Offline Caching** (mobile)
-
-### P2 - Lower Priority
-1. Freemium model
-2. "Coach Call" video summaries
-3. Social features
-
----
+### Journey
+- `GET /api/journey` - Dashboard data
+- `POST /api/journey/sync-now` - Manual game sync
 
 ## 3rd Party Integrations
+- **Stockfish** - Chess engine (local binary)
+- **OpenAI GPT-5.2** - Coaching commentary (via Emergent LLM Key)
+- **Chess.com API** - Game imports
+- **Lichess API** - Game imports
+- **Emergent Google Auth** - Web authentication
 
-| Integration | Status | Purpose |
-|-------------|--------|---------|
-| **Stockfish 15** | ✅ Active | Chess engine (move evaluation) |
-| OpenAI GPT-5.2 | ✅ Active | Coaching commentary |
-| OpenAI TTS | ✅ Active | Voice coaching |
-| Chess.com API | ✅ Active | Game imports |
-| Lichess API | ✅ Active | Game imports |
-| Google OAuth | ✅ Active | Authentication |
-| SendGrid | ⚠️ Needs key | Email notifications |
-| Expo Push | ✅ Active | Mobile notifications |
+## Database Collections
+- `users` - User accounts
+- `games` - Imported chess games
+- `game_analyses` - Analysis results with Stockfish data
+- `user_progress` - XP, level, streak, stats
+- `user_achievements` - Unlocked achievements
+- `mistake_patterns` - Detected weakness patterns
+- `player_profiles` - Player style and preferences
+
+## Level System
+| Level | Name | XP Required |
+|-------|------|-------------|
+| 1-3 | Pawn I-III | 0-250 |
+| 4-6 | Knight I-III | 500-1200 |
+| 7-9 | Bishop I-III | 1700-3000 |
+| 10-12 | Rook I-III | 4000-6500 |
+| 13-15 | Queen I-III | 8000-12500 |
+| 16-18 | King I-III | 15500-23000 |
+| 19 | Master | 28000 |
+| 20 | Grandmaster | 35000 |
+
+## Achievement Categories
+1. **Beginner** - First steps, curious mind, puzzle starter
+2. **Streak** - On fire (3d), Dedicated student (7d), Vishy's Apprentice (14d), Chess Warrior (30d)
+3. **Analysis** - Analyst (5), Deep thinker (25), Game scholar (100)
+4. **Accuracy** - Sharp player (80%), Precision master (90%), Computer-like (95%)
+5. **Quality** - Careful player, Blunder-free warrior, Fortress
+6. **Puzzles** - Tactical eye, Tactical tiger, Puzzle master, Speed demon
+7. **Level** - Rising star, Climbing ranks, Elite player, Grandmaster material
 
 ---
-
-## Stockfish Configuration
-
-- **Binary**: `/usr/games/stockfish`
-- **Version**: 15.1
-- **Default Depth**: 18 (good balance of speed/accuracy)
-- **Quick Depth**: 12 (for rapid analysis)
-- **Deep Depth**: 22 (for critical positions)
-- **Threads**: 1 (can increase for faster analysis)
-- **Hash**: 128 MB
-
----
-
-Last Updated: February 2025
+*Last Updated: December 2025*
