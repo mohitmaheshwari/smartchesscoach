@@ -39,6 +39,7 @@ export const StatusColors = {
   improving: '#10b981',
   stable: '#71717a',
   attention: '#f59e0b',
+  warning: '#f59e0b',
   blunder: '#ef4444',
   mistake: '#f97316',
   inaccuracy: '#eab308',
