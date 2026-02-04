@@ -1,293 +1,130 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, Text, Platform } from 'react-native';
-import { WebView } from 'react-native-webview';
+import React, { useState, useMemo } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { Chess } from 'chess.js';
 import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const BOARD_SIZE = width - 32;
+const SQUARE_SIZE = BOARD_SIZE / 8;
+
+// Chess piece Unicode symbols
+const PIECE_SYMBOLS = {
+  'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+  'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
+};
+
+const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
 /**
- * Interactive Chess Board Component using WebView
- * Displays a chessboard that can navigate through game moves
+ * Simple Chess Board Component (no WebView)
  */
 export const ChessBoardViewer = ({ 
   pgn, 
   currentMoveIndex = -1,
-  onMoveChange,
   userColor = 'white'
 }) => {
   const { colors } = useTheme();
-  const webviewRef = useRef(null);
-  const [isReady, setIsReady] = useState(false);
   
-  // Parse PGN and compute FEN for current position
-  const { fen, moves, currentMove } = useMemo(() => {
-    if (!pgn) {
-      return { 
-        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 
-        moves: [],
-        currentMove: null
-      };
-    }
+  // Parse PGN and get position at current move
+  const { board, currentMove } = useMemo(() => {
+    const chess = new Chess();
+    let history = [];
+    let currentMoveData = null;
     
     try {
-      const chess = new Chess();
-      chess.loadPgn(pgn);
-      
-      // Get all moves
-      const history = chess.history({ verbose: true });
-      
-      // Reset and replay to current position
-      chess.reset();
-      
-      const moveIdx = currentMoveIndex >= 0 ? Math.min(currentMoveIndex, history.length - 1) : -1;
-      
-      for (let i = 0; i <= moveIdx; i++) {
-        chess.move(history[i]);
-      }
-      
-      return { 
-        fen: chess.fen(), 
-        moves: history,
-        currentMove: moveIdx >= 0 ? history[moveIdx] : null
-      };
-    } catch (error) {
-      console.error('Failed to parse PGN:', error);
-      return { 
-        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 
-        moves: [],
-        currentMove: null
-      };
-    }
-  }, [pgn, currentMoveIndex]);
-
-  // Board colors based on theme
-  const lightSquare = colors.background === '#0a0a0a' ? '#e8e8e8' : '#f0d9b5';
-  const darkSquare = colors.background === '#0a0a0a' ? '#5d7a99' : '#b58863';
-  const highlightColor = 'rgba(255, 255, 0, 0.5)';
-  
-  const orientation = userColor === 'black' ? 'black' : 'white';
-
-  // HTML content for the chessboard
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-          display: flex; 
-          justify-content: center; 
-          align-items: center; 
-          background: transparent;
-          overflow: hidden;
-          touch-action: none;
-        }
-        .board-container {
-          width: ${BOARD_SIZE}px;
-          height: ${BOARD_SIZE}px;
-        }
-        .board {
-          display: grid;
-          grid-template-columns: repeat(8, 1fr);
-          width: 100%;
-          height: 100%;
-          border-radius: 8px;
-          overflow: hidden;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-        .square {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          font-size: ${BOARD_SIZE / 10}px;
-          user-select: none;
-          -webkit-user-select: none;
-        }
-        .light { background: ${lightSquare}; }
-        .dark { background: ${darkSquare}; }
-        .highlight { background: ${highlightColor} !important; }
-        .piece {
-          font-family: 'Arial Unicode MS', sans-serif;
-          text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-        }
-        .coord {
-          position: absolute;
-          font-size: 10px;
-          font-weight: 600;
-          opacity: 0.6;
-        }
-        .coord-file { bottom: 2px; right: 4px; }
-        .coord-rank { top: 2px; left: 4px; }
-        .square { position: relative; }
-      </style>
-    </head>
-    <body>
-      <div class="board-container">
-        <div class="board" id="board"></div>
-      </div>
-      <script>
-        const pieceSymbols = {
-          'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
-          'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
-        };
+      if (pgn) {
+        chess.loadPgn(pgn);
+        history = chess.history({ verbose: true });
+        chess.reset();
         
-        const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-        const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
-        
-        function fenToBoard(fen) {
-          const parts = fen.split(' ');
-          const position = parts[0];
-          const rows = position.split('/');
-          const board = [];
-          
-          for (const row of rows) {
-            const boardRow = [];
-            for (const char of row) {
-              if (char >= '1' && char <= '8') {
-                for (let i = 0; i < parseInt(char); i++) {
-                  boardRow.push('');
-                }
-              } else {
-                boardRow.push(char);
-              }
-            }
-            board.push(boardRow);
-          }
-          return board;
+        // Replay to current position
+        const moveIdx = currentMoveIndex >= 0 ? Math.min(currentMoveIndex, history.length - 1) : -1;
+        for (let i = 0; i <= moveIdx; i++) {
+          chess.move(history[i]);
         }
         
-        function renderBoard(fen, orientation, lastMove) {
-          const boardEl = document.getElementById('board');
-          boardEl.innerHTML = '';
-          
-          const board = fenToBoard(fen);
-          const isFlipped = orientation === 'black';
-          
-          // Get highlight squares from last move
-          const highlightSquares = [];
-          if (lastMove) {
-            highlightSquares.push(lastMove.from);
-            highlightSquares.push(lastMove.to);
-          }
-          
-          for (let r = 0; r < 8; r++) {
-            for (let f = 0; f < 8; f++) {
-              const displayR = isFlipped ? 7 - r : r;
-              const displayF = isFlipped ? 7 - f : f;
-              
-              const square = document.createElement('div');
-              const isLight = (displayR + displayF) % 2 === 0;
-              const squareName = files[displayF] + ranks[displayR];
-              
-              square.className = 'square ' + (isLight ? 'light' : 'dark');
-              
-              if (highlightSquares.includes(squareName)) {
-                square.classList.add('highlight');
-              }
-              
-              const piece = board[displayR][displayF];
-              if (piece) {
-                const pieceEl = document.createElement('span');
-                pieceEl.className = 'piece';
-                pieceEl.textContent = pieceSymbols[piece] || '';
-                square.appendChild(pieceEl);
-              }
-              
-              // Add coordinates on edge squares
-              if (f === 7) {
-                const rankCoord = document.createElement('span');
-                rankCoord.className = 'coord coord-rank';
-                rankCoord.style.color = isLight ? '${darkSquare}' : '${lightSquare}';
-                rankCoord.textContent = ranks[displayR];
-                square.appendChild(rankCoord);
-              }
-              if (r === 7) {
-                const fileCoord = document.createElement('span');
-                fileCoord.className = 'coord coord-file';
-                fileCoord.style.color = isLight ? '${darkSquare}' : '${lightSquare}';
-                fileCoord.textContent = files[displayF];
-                square.appendChild(fileCoord);
-              }
-              
-              boardEl.appendChild(square);
-            }
-          }
+        if (moveIdx >= 0 && moveIdx < history.length) {
+          currentMoveData = history[moveIdx];
         }
-        
-        // Initial render
-        window.updateBoard = function(fen, orientation, lastMove) {
-          renderBoard(fen, orientation, lastMove);
-        };
-        
-        // Signal ready
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
-      </script>
-    </body>
-    </html>
-  `;
-
-  // Update board when FEN changes
-  useEffect(() => {
-    if (isReady && webviewRef.current) {
-      const lastMoveData = currentMove ? JSON.stringify({ from: currentMove.from, to: currentMove.to }) : 'null';
-      webviewRef.current.injectJavaScript(`
-        window.updateBoard('${fen}', '${orientation}', ${lastMoveData});
-        true;
-      `);
-    }
-  }, [fen, orientation, currentMove, isReady]);
-
-  const handleMessage = (event) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'ready') {
-        setIsReady(true);
-        // Initial render
-        const lastMoveData = currentMove ? JSON.stringify({ from: currentMove.from, to: currentMove.to }) : 'null';
-        webviewRef.current?.injectJavaScript(`
-          window.updateBoard('${fen}', '${orientation}', ${lastMoveData});
-          true;
-        `);
       }
     } catch (e) {
-      console.log('WebView message:', event.nativeEvent.data);
+      console.log('PGN parse error:', e);
     }
+    
+    return { 
+      board: chess.board(),
+      currentMove: currentMoveData
+    };
+  }, [pgn, currentMoveIndex]);
+  
+  const isFlipped = userColor === 'black';
+  const lightSquare = '#f0d9b5';
+  const darkSquare = '#b58863';
+  const highlightColor = 'rgba(255, 255, 0, 0.5)';
+  
+  // Get highlighted squares from last move
+  const highlightSquares = currentMove ? [currentMove.from, currentMove.to] : [];
+  
+  const renderSquare = (row, col) => {
+    const displayRow = isFlipped ? 7 - row : row;
+    const displayCol = isFlipped ? 7 - col : col;
+    
+    const squareName = FILES[displayCol] + RANKS[displayRow];
+    const isLight = (displayRow + displayCol) % 2 === 0;
+    const isHighlighted = highlightSquares.includes(squareName);
+    
+    const piece = board[displayRow]?.[displayCol];
+    const pieceSymbol = piece ? PIECE_SYMBOLS[piece.color === 'w' ? piece.type.toUpperCase() : piece.type] : null;
+    
+    return (
+      <View 
+        key={`${row}-${col}`}
+        style={[
+          styles.square,
+          { 
+            backgroundColor: isHighlighted ? highlightColor : (isLight ? lightSquare : darkSquare),
+            width: SQUARE_SIZE,
+            height: SQUARE_SIZE,
+          }
+        ]}
+      >
+        {pieceSymbol && (
+          <Text style={[
+            styles.piece,
+            { 
+              color: piece.color === 'w' ? '#fff' : '#000',
+              textShadowColor: piece.color === 'w' ? '#000' : '#fff',
+            }
+          ]}>
+            {pieceSymbol}
+          </Text>
+        )}
+        
+        {/* Coordinates */}
+        {col === 0 && (
+          <Text style={[styles.coordRank, { color: isLight ? darkSquare : lightSquare }]}>
+            {RANKS[displayRow]}
+          </Text>
+        )}
+        {row === 7 && (
+          <Text style={[styles.coordFile, { color: isLight ? darkSquare : lightSquare }]}>
+            {FILES[displayCol]}
+          </Text>
+        )}
+      </View>
+    );
   };
-
+  
   return (
     <View style={styles.container}>
-      <WebView
-        ref={webviewRef}
-        source={{ html: htmlContent }}
-        style={[styles.webview, { width: BOARD_SIZE, height: BOARD_SIZE }]}
-        scrollEnabled={false}
-        bounces={false}
-        onMessage={handleMessage}
-        originWhitelist={['*']}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        overScrollMode="never"
-        scalesPageToFit={Platform.OS === 'android'}
-        setBuiltInZoomControls={false}
-      />
-      
-      {/* Current move indicator */}
-      {moves.length > 0 && currentMoveIndex >= 0 && currentMoveIndex < moves.length && (
-        <View style={[styles.moveIndicator, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.moveNumber, { color: colors.textSecondary }]}>
-            Move {Math.floor(currentMoveIndex / 2) + 1}
-            {currentMoveIndex % 2 === 0 ? '.' : '...'}
-          </Text>
-          <Text style={[styles.moveText, { color: colors.text }]}>
-            {moves[currentMoveIndex]?.san || ''}
-          </Text>
-        </View>
-      )}
+      <View style={[styles.board, { width: BOARD_SIZE, height: BOARD_SIZE }]}>
+        {Array(8).fill(0).map((_, row) => (
+          <View key={row} style={styles.row}>
+            {Array(8).fill(0).map((_, col) => renderSquare(row, col))}
+          </View>
+        ))}
+      </View>
     </View>
   );
 };
@@ -305,7 +142,7 @@ export const MoveNavigation = ({
 }) => {
   const { colors } = useTheme();
   const isAtStart = currentMove <= 0;
-  const isAtEnd = currentMove >= totalMoves - 1;
+  const isAtEnd = currentMove >= totalMoves;
   
   return (
     <View style={[styles.navContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -313,7 +150,6 @@ export const MoveNavigation = ({
         style={[styles.navButton, { borderColor: colors.border, opacity: isAtStart ? 0.4 : 1 }]}
         onPress={onFirst}
         disabled={isAtStart}
-        activeOpacity={0.7}
       >
         <Text style={[styles.navIcon, { color: colors.text }]}>⏮</Text>
       </TouchableOpacity>
@@ -322,14 +158,13 @@ export const MoveNavigation = ({
         style={[styles.navButton, { borderColor: colors.border, opacity: isAtStart ? 0.4 : 1 }]}
         onPress={onPrevious}
         disabled={isAtStart}
-        activeOpacity={0.7}
       >
         <Text style={[styles.navIcon, { color: colors.text }]}>◀</Text>
       </TouchableOpacity>
       
       <View style={styles.moveCounter}>
         <Text style={[styles.counterText, { color: colors.textSecondary }]}>
-          {Math.max(currentMove, 0) + 1} / {Math.max(totalMoves, 1)}
+          {currentMove} / {totalMoves}
         </Text>
       </View>
       
@@ -337,7 +172,6 @@ export const MoveNavigation = ({
         style={[styles.navButton, { borderColor: colors.border, opacity: isAtEnd ? 0.4 : 1 }]}
         onPress={onNext}
         disabled={isAtEnd}
-        activeOpacity={0.7}
       >
         <Text style={[styles.navIcon, { color: colors.text }]}>▶</Text>
       </TouchableOpacity>
@@ -346,7 +180,6 @@ export const MoveNavigation = ({
         style={[styles.navButton, { borderColor: colors.border, opacity: isAtEnd ? 0.4 : 1 }]}
         onPress={onLast}
         disabled={isAtEnd}
-        activeOpacity={0.7}
       >
         <Text style={[styles.navIcon, { color: colors.text }]}>⏭</Text>
       </TouchableOpacity>
@@ -358,30 +191,41 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
   },
-  webview: {
-    backgroundColor: 'transparent',
+  board: {
     borderRadius: 8,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  moveIndicator: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
+  row: {
     flexDirection: 'row',
+  },
+  square: {
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    position: 'relative',
   },
-  moveNumber: {
-    fontSize: 12,
+  piece: {
+    fontSize: SQUARE_SIZE * 0.7,
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
-  moveText: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  coordRank: {
+    position: 'absolute',
+    top: 2,
+    left: 3,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  coordFile: {
+    position: 'absolute',
+    bottom: 1,
+    right: 3,
+    fontSize: 10,
+    fontWeight: '600',
   },
   navContainer: {
     flexDirection: 'row',
@@ -410,6 +254,8 @@ const styles = StyleSheet.create({
   },
   counterText: {
     fontSize: 14,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontFamily: 'monospace',
   },
 });
+
+export default ChessBoardViewer;
