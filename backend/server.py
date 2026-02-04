@@ -614,6 +614,21 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
         await db.games.insert_one(doc)
         imported_count += 1
     
+    # GAMIFICATION: Award XP for importing games
+    if imported_count > 0:
+        try:
+            for _ in range(imported_count):
+                await add_xp(user.user_id, "game_imported")
+                await increment_stat(user.user_id, "games_imported")
+            
+            # First game achievement
+            if imported_count >= 1:
+                await check_and_award_achievements(user.user_id, "games_imported", imported_count)
+            
+            await update_streak(user.user_id)
+        except Exception as gam_err:
+            logger.warning(f"Gamification update error (non-critical): {gam_err}")
+    
     return {"imported": imported_count, "total_found": len(games_to_import)}
 
 @api_router.get("/games")
