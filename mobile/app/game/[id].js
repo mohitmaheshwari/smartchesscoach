@@ -156,8 +156,8 @@ export default function GameAnalysisScreen() {
           />
         </View>
 
-        {/* Current Move Analysis */}
-        {currentMoveData && (
+        {/* Current Move Analysis - only show if analysis exists and has move data */}
+        {analysis && currentMoveData && (
           <View style={styles.currentMoveCard}>
             <View style={styles.currentMoveHeader}>
               <View style={styles.currentMoveLeft}>
@@ -173,7 +173,7 @@ export default function GameAnalysisScreen() {
                 { backgroundColor: `${getEvalColor(currentMoveData.evaluation)}20` }
               ]}>
                 <Text style={[styles.evalTextLarge, { color: getEvalColor(currentMoveData.evaluation) }]}>
-                  {currentMoveData.evaluation}
+                  {currentMoveData.evaluation || 'neutral'}
                 </Text>
               </View>
             </View>
@@ -184,7 +184,7 @@ export default function GameAnalysisScreen() {
             
             {currentMoveData.thinking_pattern && currentMoveData.thinking_pattern !== 'solid_thinking' && (
               <View style={styles.patternBox}>
-                <Ionicons name="bulb-outline" size={16} color={StatusColors.warning} />
+                <Ionicons name="bulb-outline" size={16} color={StatusColors.attention} />
                 <Text style={styles.patternText}>
                   {currentMoveData.thinking_pattern.replace(/_/g, ' ')}
                 </Text>
@@ -195,25 +195,6 @@ export default function GameAnalysisScreen() {
               <View style={styles.considerBox}>
                 <Ionicons name="arrow-forward-circle-outline" size={16} color={StatusColors.good} />
                 <Text style={styles.considerText}>{currentMoveData.consider}</Text>
-              </View>
-            )}
-            
-            {/* Best Move Suggestion */}
-            {['blunder', 'mistake', 'inaccuracy'].includes(currentMoveData.evaluation) && 
-              analysis?.best_move_suggestions?.find(s => s.move_number === currentMoveData.move_number) && (
-              <View style={styles.bestMoveBox}>
-                <Ionicons name="checkmark-circle" size={18} color={StatusColors.improving} />
-                <View style={styles.bestMoveContent}>
-                  <Text style={styles.bestMoveLabel}>Better move:</Text>
-                  <Text style={styles.bestMoveText}>
-                    {analysis.best_move_suggestions.find(s => s.move_number === currentMoveData.move_number).best_move}
-                  </Text>
-                  {analysis.best_move_suggestions.find(s => s.move_number === currentMoveData.move_number).reason && (
-                    <Text style={styles.bestMoveReason}>
-                      {analysis.best_move_suggestions.find(s => s.move_number === currentMoveData.move_number).reason}
-                    </Text>
-                  )}
-                </View>
               </View>
             )}
           </View>
