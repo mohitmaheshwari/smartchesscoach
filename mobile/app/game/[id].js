@@ -192,47 +192,50 @@ export default function GameAnalysisScreen() {
 
         {/* Show analysis if available */}
         {analysis && (
-          <View style={styles.currentMoveCard}>
-            <View style={styles.currentMoveHeader}>
-              <View style={styles.currentMoveLeft}>
-                <Text style={styles.currentMoveNumber}>
-                  {currentMoveData.move_number}.
-                </Text>
-                <Text style={styles.currentMoveText}>
-                  {currentMoveData.move}
-                </Text>
+          <>
+            {/* Current Move Analysis - only show if analysis exists and has move data */}
+            {currentMoveData && (
+              <View style={styles.currentMoveCard}>
+                <View style={styles.currentMoveHeader}>
+                  <View style={styles.currentMoveLeft}>
+                    <Text style={styles.currentMoveNumber}>
+                      {currentMoveData.move_number}.
+                    </Text>
+                    <Text style={styles.currentMoveText}>
+                      {currentMoveData.move}
+                    </Text>
+                  </View>
+                  <View style={[
+                    styles.evalBadgeLarge,
+                    { backgroundColor: `${getEvalColor(currentMoveData.evaluation)}20` }
+                  ]}>
+                    <Text style={[styles.evalTextLarge, { color: getEvalColor(currentMoveData.evaluation) }]}>
+                      {currentMoveData.evaluation || 'neutral'}
+                    </Text>
+                  </View>
+                </View>
+                
+                {currentMoveData.lesson && (
+                  <Text style={styles.currentMoveLesson}>{currentMoveData.lesson}</Text>
+                )}
+                
+                {currentMoveData.thinking_pattern && currentMoveData.thinking_pattern !== 'solid_thinking' && (
+                  <View style={styles.patternBox}>
+                    <Ionicons name="bulb-outline" size={16} color={StatusColors.attention} />
+                    <Text style={styles.patternText}>
+                      {currentMoveData.thinking_pattern.replace(/_/g, ' ')}
+                    </Text>
+                  </View>
+                )}
+                
+                {currentMoveData.consider && (
+                  <View style={styles.considerBox}>
+                    <Ionicons name="arrow-forward-circle-outline" size={16} color={StatusColors.good} />
+                    <Text style={styles.considerText}>{currentMoveData.consider}</Text>
+                  </View>
+                )}
               </View>
-              <View style={[
-                styles.evalBadgeLarge,
-                { backgroundColor: `${getEvalColor(currentMoveData.evaluation)}20` }
-              ]}>
-                <Text style={[styles.evalTextLarge, { color: getEvalColor(currentMoveData.evaluation) }]}>
-                  {currentMoveData.evaluation || 'neutral'}
-                </Text>
-              </View>
-            </View>
-            
-            {currentMoveData.lesson && (
-              <Text style={styles.currentMoveLesson}>{currentMoveData.lesson}</Text>
             )}
-            
-            {currentMoveData.thinking_pattern && currentMoveData.thinking_pattern !== 'solid_thinking' && (
-              <View style={styles.patternBox}>
-                <Ionicons name="bulb-outline" size={16} color={StatusColors.attention} />
-                <Text style={styles.patternText}>
-                  {currentMoveData.thinking_pattern.replace(/_/g, ' ')}
-                </Text>
-              </View>
-            )}
-            
-            {currentMoveData.consider && (
-              <View style={styles.considerBox}>
-                <Ionicons name="arrow-forward-circle-outline" size={16} color={StatusColors.good} />
-                <Text style={styles.considerText}>{currentMoveData.consider}</Text>
-              </View>
-            )}
-          </View>
-        )}
 
         {!analysis ? (
           /* No Analysis - CTA */
