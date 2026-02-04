@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  FlatList
+  FlatList,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,11 +16,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Chess } from 'chess.js';
 import { useTheme } from '../../src/context/ThemeContext';
 import { gamesAPI, analysisAPI } from '../../src/services/api';
-import { ChessBoardViewer } from '../../src/components/ChessBoard';
+import { ChessBoardViewer, MoveNavigation } from '../../src/components/ChessBoard';
 import { StatusColors } from '../../src/constants/config';
 
 const { width, height } = Dimensions.get('window');
-const BOARD_SIZE = Math.min(width - 32, height * 0.38); // Smaller board
+// Board takes ~40% of screen height for optimal thumb reach
+const BOARD_SIZE = Math.min(width - 48, height * 0.38);
 
 export default function GameDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -34,7 +35,7 @@ export default function GameDetailScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [currentMove, setCurrentMove] = useState(-1);
 
-  // Parse PGN
+  // Parse PGN to get all moves
   const parsedMoves = useMemo(() => {
     if (!game?.pgn) return [];
     try {
@@ -49,7 +50,7 @@ export default function GameDetailScreen() {
   const totalMoves = parsedMoves.length;
   const moveAnalysis = analysis?.commentary || [];
 
-  // Create combined move data with analysis
+  // Combine moves with analysis data
   const movesWithAnalysis = useMemo(() => {
     return parsedMoves.map((move, idx) => {
       const moveNum = Math.floor(idx / 2) + 1;
@@ -66,24 +67,30 @@ export default function GameDetailScreen() {
         to: move.to,
         analysis: analysisItem,
         evaluation: analysisItem?.evaluation || 'neutral',
+        cpLoss: analysisItem?.centipawn_loss || 0,
       };
     });
   }, [parsedMoves, moveAnalysis]);
 
   const currentMoveData = currentMove >= 0 ? movesWithAnalysis[currentMove] : null;
 
+  // Load game data
   useEffect(() => {
     loadGame();
   }, [id]);
 
-  // Scroll to current move in the list
+  // Auto-scroll move list to current move
   useEffect(() => {
-    if (moveListRef.current && currentMove >= 0) {
-      moveListRef.current.scrollToIndex({ 
-        index: currentMove, 
-        animated: true,
-        viewPosition: 0.5 
-      });
+    if (moveListRef.current && currentMove >= 0 && movesWithAnalysis.length > 0) {
+      try {
+        moveListRef.current.scrollToIndex({ 
+          index: currentMove, 
+          animated: true,
+          viewPosition: 0.5 
+        });
+      } catch (e) {
+        // Fallback for out of range
+      }
     }
   }, [currentMove]);
 
@@ -110,7 +117,7 @@ export default function GameDetailScreen() {
       const result = await analysisAPI.analyzeGame(id);
       if (result?.game_id) {
         setAnalysis(result);
-        Alert.alert('Success', 'Game analyzed!');
+        Alert.alert('Analysis Complete', 'Your game has been analyzed!');
       }
     } catch (error) {
       Alert.alert('Error', error.message || 'Analysis failed');
@@ -119,25 +126,42 @@ export default function GameDetailScreen() {
     }
   };
 
-  const styles = createStyles(colors, BOARD_SIZE);
+  // Navigation handlers
+  const goToMove = useCallback((index) => {
+    setCurrentMove(Math.max(-1, Math.min(index, totalMoves - 1)));
+  }, [totalMoves]);
 
+  const handleSwipeLeft = useCallback(() => {
+    goToMove(currentMove + 1);
+  }, [currentMove, goToMove]);
+
+  const handleSwipeRight = useCallback(() => {
+    goToMove(currentMove - 1);
+  }, [currentMove, goToMove]);
+
+  const styles = createStyles(colors);
+
+  // Loading state
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={styles.loadingText}>Loading game...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
+  // Error state
   if (!game) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
-          <Text style={{ color: colors.textSecondary }}>Game not found</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={{ color: colors.text }}>Go Back</Text>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
+          <Text style={styles.errorText}>Game not found</Text>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Text style={styles.backBtnText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -146,228 +170,338 @@ export default function GameDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Compact Header */}
+      {/* Header - Compact */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={styles.headerBack}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+        
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerPlayers} numberOfLines={1}>
             {game.white_player} vs {game.black_player}
           </Text>
-          <Text style={styles.headerSub}>{game.result} • {game.user_color}</Text>
+          <Text style={styles.headerMeta}>
+            {game.result} • You played {game.user_color}
+          </Text>
         </View>
+
         {analysis?.stockfish_analysis?.accuracy && (
-          <View style={styles.accuracyPill}>
-            <Text style={styles.accuracyNum}>{analysis.stockfish_analysis.accuracy}%</Text>
+          <View style={styles.accuracyBadge}>
+            <Text style={styles.accuracyValue}>{Math.round(analysis.stockfish_analysis.accuracy)}%</Text>
+            <Text style={styles.accuracyLabel}>ACC</Text>
           </View>
         )}
       </View>
 
-      {/* Board Section - Fixed */}
-      <View style={styles.boardWrapper}>
-        <ChessBoardViewer
-          pgn={game.pgn}
-          currentMoveIndex={currentMove}
-          userColor={game.user_color}
+      {/* Main Content */}
+      <ScrollView 
+        style={styles.mainScroll}
+        contentContainerStyle={styles.mainContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Board Section */}
+        <View style={styles.boardSection}>
+          <ChessBoardViewer
+            pgn={game.pgn}
+            currentMoveIndex={currentMove}
+            userColor={game.user_color}
+            boardSize={BOARD_SIZE}
+            onSwipeLeft={handleSwipeLeft}
+            onSwipeRight={handleSwipeRight}
+          />
+          
+          {/* Swipe hint */}
+          <Text style={styles.swipeHint}>
+            <Ionicons name="swap-horizontal" size={12} color={colors.textSecondary} /> Swipe board to navigate
+          </Text>
+        </View>
+
+        {/* Move Navigation */}
+        <MoveNavigation
+          currentMove={currentMove}
+          totalMoves={totalMoves}
+          onFirst={() => goToMove(-1)}
+          onPrevious={() => goToMove(currentMove - 1)}
+          onNext={() => goToMove(currentMove + 1)}
+          onLast={() => goToMove(totalMoves - 1)}
         />
-      </View>
 
-      {/* Move Strip - Horizontal Scrollable */}
-      <View style={styles.moveStripContainer}>
-        <TouchableOpacity 
-          style={styles.navArrow} 
-          onPress={() => setCurrentMove(prev => Math.max(-1, prev - 1))}
-        >
-          <Ionicons name="chevron-back" size={20} color={currentMove <= -1 ? colors.border : colors.text} />
-        </TouchableOpacity>
-        
-        <FlatList
-          ref={moveListRef}
-          data={movesWithAnalysis}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => `move-${item.index}`}
-          contentContainerStyle={styles.moveStripContent}
-          getItemLayout={(data, index) => ({ length: 52, offset: 52 * index, index })}
-          onScrollToIndexFailed={() => {}}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.moveChip,
-                { backgroundColor: getEvalBg(item.evaluation, colors) },
-                currentMove === item.index && styles.moveChipActive
-              ]}
-              onPress={() => setCurrentMove(item.index)}
-            >
-              <Text style={[
-                styles.moveChipNum,
-                { color: currentMove === item.index ? colors.text : colors.textSecondary }
-              ]}>
-                {item.moveNumber}{item.isWhite ? '.' : '...'}
+        {/* Move Strip - Horizontal Scrollable */}
+        <View style={styles.moveStripWrapper}>
+          <FlatList
+            ref={moveListRef}
+            data={movesWithAnalysis}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => `move-${item.index}`}
+            contentContainerStyle={styles.moveStripContent}
+            getItemLayout={(_, index) => ({ length: 56, offset: 56 * index, index })}
+            onScrollToIndexFailed={() => {}}
+            ListHeaderComponent={
+              <TouchableOpacity
+                style={[
+                  styles.moveChip, 
+                  styles.startChip,
+                  currentMove === -1 && styles.moveChipActive
+                ]}
+                onPress={() => goToMove(-1)}
+              >
+                <Ionicons 
+                  name="flag" 
+                  size={16} 
+                  color={currentMove === -1 ? colors.accent : colors.textSecondary} 
+                />
+              </TouchableOpacity>
+            }
+            renderItem={({ item }) => {
+              const isSelected = currentMove === item.index;
+              const evalColor = getEvalColor(item.evaluation);
+              const hasBadMove = ['blunder', 'mistake', 'inaccuracy'].includes(item.evaluation);
+              
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.moveChip,
+                    { backgroundColor: hasBadMove ? evalColor + '18' : colors.card },
+                    isSelected && styles.moveChipActive,
+                  ]}
+                  onPress={() => goToMove(item.index)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.moveChipNum, { color: colors.textSecondary }]}>
+                    {item.isWhite ? item.moveNumber + '.' : ''}
+                  </Text>
+                  <Text style={[
+                    styles.moveChipSan,
+                    { color: hasBadMove ? evalColor : colors.text }
+                  ]}>
+                    {item.san}
+                  </Text>
+                  {hasBadMove && (
+                    <View style={[styles.moveChipDot, { backgroundColor: evalColor }]} />
+                  )}
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+
+        {/* Analysis Section */}
+        <View style={styles.analysisSection}>
+          {/* Not analyzed yet - Show CTA */}
+          {!analysis && (
+            <View style={styles.analyzeCard}>
+              <View style={styles.analyzeIconWrap}>
+                <Ionicons name="analytics" size={32} color={colors.accent} />
+              </View>
+              <Text style={styles.analyzeTitle}>Get AI Analysis</Text>
+              <Text style={styles.analyzeDesc}>
+                Stockfish engine analysis with personalized coaching feedback
               </Text>
-              <Text style={[
-                styles.moveChipSan,
-                { color: getEvalColor(item.evaluation) }
-              ]}>
-                {item.san}
-              </Text>
-            </TouchableOpacity>
-          )}
-          ListHeaderComponent={
-            <TouchableOpacity
-              style={[styles.moveChip, styles.startChip, currentMove === -1 && styles.moveChipActive]}
-              onPress={() => setCurrentMove(-1)}
-            >
-              <Ionicons name="flag" size={14} color={currentMove === -1 ? colors.accent : colors.textSecondary} />
-            </TouchableOpacity>
-          }
-        />
-        
-        <TouchableOpacity 
-          style={styles.navArrow}
-          onPress={() => setCurrentMove(prev => Math.min(totalMoves - 1, prev + 1))}
-        >
-          <Ionicons name="chevron-forward" size={20} color={currentMove >= totalMoves - 1 ? colors.border : colors.text} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Analysis Content - Scrollable */}
-      <ScrollView style={styles.analysisScroll} contentContainerStyle={styles.analysisContent}>
-        {/* No Analysis Yet */}
-        {!analysis && (
-          <View style={styles.analyzeCard}>
-            <Ionicons name="analytics" size={28} color={colors.accent} />
-            <Text style={styles.analyzeTitle}>Get AI Analysis</Text>
-            <TouchableOpacity 
-              style={styles.analyzeBtn}
-              onPress={handleAnalyze}
-              disabled={analyzing}
-            >
-              {analyzing ? (
-                <ActivityIndicator size="small" color="#000" />
-              ) : (
-                <Ionicons name="flash" size={16} color="#000" />
-              )}
-              <Text style={styles.analyzeBtnText}>{analyzing ? 'Analyzing...' : 'Analyze'}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Current Move Analysis */}
-        {analysis && currentMoveData?.analysis && (
-          <View style={[styles.moveDetailCard, { borderLeftColor: getEvalColor(currentMoveData.evaluation) }]}>
-            <View style={styles.moveDetailHeader}>
-              <Text style={styles.moveDetailNum}>
-                {currentMoveData.moveNumber}.{!currentMoveData.isWhite && '..'} {currentMoveData.san}
-              </Text>
-              <View style={[styles.evalBadge, { backgroundColor: getEvalColor(currentMoveData.evaluation) + '20' }]}>
-                <Text style={[styles.evalBadgeText, { color: getEvalColor(currentMoveData.evaluation) }]}>
-                  {currentMoveData.evaluation}
-                </Text>
-              </View>
-            </View>
-            
-            {currentMoveData.analysis.lesson && (
-              <Text style={styles.lessonText}>{currentMoveData.analysis.lesson}</Text>
-            )}
-            
-            {currentMoveData.analysis.thinking_pattern && currentMoveData.analysis.thinking_pattern !== 'solid_thinking' && (
-              <View style={styles.infoRow}>
-                <Ionicons name="bulb" size={14} color="#f59e0b" />
-                <Text style={styles.patternText}>{currentMoveData.analysis.thinking_pattern.replace(/_/g, ' ')}</Text>
-              </View>
-            )}
-            
-            {currentMoveData.analysis.consider && (
-              <View style={styles.infoRow}>
-                <Ionicons name="arrow-forward-circle" size={14} color={StatusColors.good} />
-                <Text style={styles.considerText}>{currentMoveData.analysis.consider}</Text>
-              </View>
-            )}
-            
-            {currentMoveData.analysis.best_move && currentMoveData.analysis.best_move !== currentMoveData.san && (
-              <View style={styles.bestMoveBox}>
-                <Ionicons name="checkmark-circle" size={16} color={StatusColors.excellent} />
-                <Text style={styles.bestMoveLabel}>Better move: </Text>
-                <Text style={styles.bestMoveSan}>{currentMoveData.analysis.best_move}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Starting position message */}
-        {analysis && currentMove === -1 && (
-          <View style={styles.startingCard}>
-            <Ionicons name="flag" size={24} color={colors.accent} />
-            <Text style={styles.startingText}>Starting position</Text>
-            <Text style={styles.startingHint}>Tap a move above to see analysis</Text>
-          </View>
-        )}
-
-        {/* No analysis for this move */}
-        {analysis && currentMove >= 0 && !currentMoveData?.analysis && (
-          <View style={styles.noAnalysisCard}>
-            <Text style={styles.noAnalysisMove}>
-              {currentMoveData?.moveNumber}.{!currentMoveData?.isWhite && '..'} {currentMoveData?.san}
-            </Text>
-            <Text style={styles.noAnalysisText}>No specific feedback for this move</Text>
-          </View>
-        )}
-
-        {/* Game Summary (below current move) */}
-        {analysis && (
-          <View style={styles.summarySection}>
-            {/* Stats Row */}
-            <View style={styles.statsRow}>
-              <View style={[styles.statBox, { backgroundColor: StatusColors.blunder + '15' }]}>
-                <Text style={[styles.statNum, { color: StatusColors.blunder }]}>{analysis.blunders || 0}</Text>
-                <Text style={styles.statLabel}>Blunders</Text>
-              </View>
-              <View style={[styles.statBox, { backgroundColor: StatusColors.mistake + '15' }]}>
-                <Text style={[styles.statNum, { color: StatusColors.mistake }]}>{analysis.mistakes || 0}</Text>
-                <Text style={styles.statLabel}>Mistakes</Text>
-              </View>
-              <View style={[styles.statBox, { backgroundColor: StatusColors.inaccuracy + '15' }]}>
-                <Text style={[styles.statNum, { color: StatusColors.inaccuracy }]}>{analysis.inaccuracies || 0}</Text>
-                <Text style={styles.statLabel}>Inaccuracies</Text>
-              </View>
-              <View style={[styles.statBox, { backgroundColor: StatusColors.excellent + '15' }]}>
-                <Text style={[styles.statNum, { color: StatusColors.excellent }]}>{analysis.best_moves || 0}</Text>
-                <Text style={styles.statLabel}>Best</Text>
-              </View>
-            </View>
-
-            {/* Coach Summary */}
-            {(analysis.summary_p1 || analysis.overall_summary) && (
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryTitle}>Coach's Summary</Text>
-                <Text style={styles.summaryText}>{analysis.summary_p1 || analysis.overall_summary}</Text>
-                {analysis.summary_p2 && (
-                  <Text style={[styles.summaryText, { marginTop: 10 }]}>{analysis.summary_p2}</Text>
+              <TouchableOpacity 
+                style={[styles.analyzeBtn, analyzing && styles.analyzeBtnDisabled]}
+                onPress={handleAnalyze}
+                disabled={analyzing}
+                activeOpacity={0.8}
+              >
+                {analyzing ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <Ionicons name="flash" size={18} color="#000" />
                 )}
-              </View>
-            )}
+                <Text style={styles.analyzeBtnText}>
+                  {analyzing ? 'Analyzing...' : 'Analyze Game'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-            {/* Focus */}
-            {analysis.focus_this_week && (
-              <View style={styles.focusCard}>
-                <Ionicons name="flag" size={16} color="#f59e0b" />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.focusLabel}>Focus This Week</Text>
-                  <Text style={styles.focusText}>{analysis.focus_this_week}</Text>
+          {/* Analysis available */}
+          {analysis && (
+            <>
+              {/* Current Move Detail */}
+              {currentMove === -1 ? (
+                <View style={styles.startingPosCard}>
+                  <Ionicons name="flag-outline" size={28} color={colors.accent} />
+                  <Text style={styles.startingPosTitle}>Starting Position</Text>
+                  <Text style={styles.startingPosHint}>
+                    Use the move strip or swipe the board to navigate through the game
+                  </Text>
                 </View>
+              ) : currentMoveData?.analysis ? (
+                <View style={[
+                  styles.moveDetailCard,
+                  { borderLeftColor: getEvalColor(currentMoveData.evaluation) }
+                ]}>
+                  {/* Move header */}
+                  <View style={styles.moveDetailHeader}>
+                    <View style={styles.moveDetailLeft}>
+                      <Text style={styles.moveDetailSan}>
+                        {currentMoveData.moveNumber}.{!currentMoveData.isWhite ? '..' : ''} {currentMoveData.san}
+                      </Text>
+                      <View style={[
+                        styles.evalPill,
+                        { backgroundColor: getEvalColor(currentMoveData.evaluation) + '20' }
+                      ]}>
+                        <Text style={[
+                          styles.evalPillText,
+                          { color: getEvalColor(currentMoveData.evaluation) }
+                        ]}>
+                          {currentMoveData.evaluation}
+                        </Text>
+                      </View>
+                    </View>
+                    {currentMoveData.cpLoss > 0 && (
+                      <Text style={styles.cpLossText}>
+                        -{currentMoveData.cpLoss} cp
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Lesson / Commentary */}
+                  {currentMoveData.analysis.lesson && (
+                    <Text style={styles.lessonText}>
+                      {currentMoveData.analysis.lesson}
+                    </Text>
+                  )}
+
+                  {/* Thinking pattern */}
+                  {currentMoveData.analysis.thinking_pattern && 
+                   currentMoveData.analysis.thinking_pattern !== 'solid_thinking' && (
+                    <View style={styles.patternRow}>
+                      <Ionicons name="bulb-outline" size={14} color="#f59e0b" />
+                      <Text style={styles.patternText}>
+                        {formatPattern(currentMoveData.analysis.thinking_pattern)}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Better move suggestion */}
+                  {currentMoveData.analysis.best_move && 
+                   currentMoveData.analysis.best_move !== currentMoveData.san && (
+                    <View style={styles.bestMoveRow}>
+                      <Ionicons name="checkmark-circle" size={16} color={StatusColors.excellent} />
+                      <Text style={styles.bestMoveLabel}>Better: </Text>
+                      <Text style={styles.bestMoveSan}>{currentMoveData.analysis.best_move}</Text>
+                    </View>
+                  )}
+
+                  {/* Consider alternative */}
+                  {currentMoveData.analysis.consider && (
+                    <View style={styles.considerRow}>
+                      <Ionicons name="arrow-forward-circle-outline" size={14} color={StatusColors.good} />
+                      <Text style={styles.considerText}>{currentMoveData.analysis.consider}</Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.noFeedbackCard}>
+                  <Text style={styles.noFeedbackMove}>
+                    {currentMoveData?.moveNumber}.{!currentMoveData?.isWhite ? '..' : ''} {currentMoveData?.san}
+                  </Text>
+                  <Text style={styles.noFeedbackText}>
+                    No specific issues with this move
+                  </Text>
+                </View>
+              )}
+
+              {/* Game Stats */}
+              <View style={styles.statsGrid}>
+                <StatBox 
+                  value={analysis.blunders || 0} 
+                  label="Blunders" 
+                  color={StatusColors.blunder}
+                />
+                <StatBox 
+                  value={analysis.mistakes || 0} 
+                  label="Mistakes" 
+                  color={StatusColors.mistake}
+                />
+                <StatBox 
+                  value={analysis.inaccuracies || 0} 
+                  label="Inaccuracies" 
+                  color={StatusColors.inaccuracy}
+                />
+                <StatBox 
+                  value={analysis.best_moves || 0} 
+                  label="Best" 
+                  color={StatusColors.excellent}
+                />
               </View>
-            )}
-          </View>
-        )}
+
+              {/* Coach Summary */}
+              {(analysis.summary_p1 || analysis.overall_summary) && (
+                <View style={styles.summaryCard}>
+                  <View style={styles.summaryHeader}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.accent} />
+                    <Text style={styles.summaryTitle}>Coach's Summary</Text>
+                  </View>
+                  <Text style={styles.summaryText}>
+                    {analysis.summary_p1 || analysis.overall_summary}
+                  </Text>
+                  {analysis.summary_p2 && (
+                    <Text style={[styles.summaryText, { marginTop: 8 }]}>
+                      {analysis.summary_p2}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Focus This Week */}
+              {analysis.focus_this_week && (
+                <View style={styles.focusCard}>
+                  <Ionicons name="flag" size={18} color="#f59e0b" />
+                  <View style={styles.focusContent}>
+                    <Text style={styles.focusLabel}>Focus This Week</Text>
+                    <Text style={styles.focusText}>{analysis.focus_this_week}</Text>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// Stat Box Component
+const StatBox = ({ value, label, color }) => {
+  const { colors } = useTheme();
+  return (
+    <View style={[statStyles.box, { backgroundColor: color + '12' }]}>
+      <Text style={[statStyles.value, { color }]}>{value}</Text>
+      <Text style={[statStyles.label, { color: colors.textSecondary }]}>{label}</Text>
+    </View>
+  );
+};
+
+const statStyles = StyleSheet.create({
+  box: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  value: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+});
+
+// Helper functions
 const getEvalColor = (evaluation) => {
-  const colors = {
+  const colorMap = {
     blunder: StatusColors.blunder,
     mistake: StatusColors.mistake,
     inaccuracy: StatusColors.inaccuracy,
@@ -375,62 +509,130 @@ const getEvalColor = (evaluation) => {
     excellent: StatusColors.excellent,
     best: StatusColors.excellent,
   };
-  return colors[evaluation] || '#71717a';
+  return colorMap[evaluation] || '#71717a';
 };
 
-const getEvalBg = (evaluation, colors) => {
-  if (['blunder', 'mistake', 'inaccuracy'].includes(evaluation)) {
-    return getEvalColor(evaluation) + '15';
-  }
-  return colors.card;
+const formatPattern = (pattern) => {
+  return pattern.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 
-const createStyles = (colors, boardSize) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
-  backButton: { padding: 12, backgroundColor: colors.card, borderRadius: 8 },
-  
+// Styles
+const createStyles = (colors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    padding: 24,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginTop: 8,
+  },
+  backBtn: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: colors.card,
+    borderRadius: 8,
+  },
+  backBtnText: {
+    color: colors.text,
+    fontWeight: '600',
+  },
+
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 10,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    gap: 8,
   },
-  headerCenter: { flex: 1 },
-  headerTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
-  headerSub: { fontSize: 11, color: colors.textSecondary },
-  accuracyPill: { backgroundColor: '#3b82f620', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  accuracyNum: { fontSize: 13, fontWeight: '700', color: '#3b82f6' },
-
-  boardWrapper: {
+  headerBack: {
+    padding: 4,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  headerPlayers: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  headerMeta: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  accuracyBadge: {
     alignItems: 'center',
-    paddingVertical: 8,
+    backgroundColor: '#3b82f615',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  accuracyValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#3b82f6',
+  },
+  accuracyLabel: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#3b82f6',
+    opacity: 0.7,
   },
 
-  moveStripContainer: {
-    flexDirection: 'row',
+  // Main scroll
+  mainScroll: {
+    flex: 1,
+  },
+  mainContent: {
+    paddingBottom: 32,
+  },
+
+  // Board section
+  boardSection: {
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  swipeHint: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 8,
+  },
+
+  // Move strip
+  moveStripWrapper: {
+    borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  navArrow: {
-    padding: 8,
+    borderColor: colors.border,
+    paddingVertical: 8,
   },
   moveStripContent: {
-    paddingHorizontal: 4,
-    gap: 4,
+    paddingHorizontal: 12,
+    gap: 6,
   },
   moveChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderRadius: 6,
     alignItems: 'center',
-    minWidth: 48,
-    borderWidth: 1,
+    minWidth: 50,
+    borderWidth: 1.5,
     borderColor: 'transparent',
   },
   moveChipActive: {
@@ -438,84 +640,194 @@ const createStyles = (colors, boardSize) => StyleSheet.create({
   },
   startChip: {
     backgroundColor: colors.card,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
   },
-  moveChipNum: { fontSize: 9, fontWeight: '500' },
-  moveChipSan: { fontSize: 13, fontWeight: '700' },
+  moveChipNum: {
+    fontSize: 9,
+    fontWeight: '500',
+  },
+  moveChipSan: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  moveChipDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
 
-  analysisScroll: { flex: 1 },
-  analysisContent: { padding: 12, gap: 12, paddingBottom: 30 },
+  // Analysis section
+  analysisSection: {
+    padding: 12,
+    gap: 12,
+  },
 
+  // Analyze CTA
   analyzeCard: {
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
     backgroundColor: colors.card,
     borderRadius: 12,
-    gap: 10,
     borderWidth: 1,
     borderColor: colors.border,
+    gap: 10,
   },
-  analyzeTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
+  analyzeIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.accent + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  analyzeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  analyzeDesc: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
   analyzeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f59e0b',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    gap: 8,
+  },
+  analyzeBtnDisabled: {
+    opacity: 0.7,
+  },
+  analyzeBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#000',
+  },
+
+  // Starting position
+  startingPosCard: {
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
     gap: 6,
   },
-  analyzeBtnText: { fontSize: 14, fontWeight: '700', color: '#000' },
+  startingPosTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  startingPosHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
 
+  // Move detail card
   moveDetailCard: {
     backgroundColor: colors.card,
     borderRadius: 10,
-    padding: 12,
-    borderLeftWidth: 4,
+    padding: 14,
     borderWidth: 1,
     borderColor: colors.border,
+    borderLeftWidth: 4,
   },
   moveDetailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  moveDetailNum: { fontSize: 16, fontWeight: '700', color: colors.text },
-  evalBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
-  evalBadgeText: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
-  
-  lessonText: { fontSize: 14, color: colors.text, lineHeight: 20, marginBottom: 8 },
-  
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 6 },
-  patternText: { fontSize: 13, color: '#f59e0b', flex: 1, textTransform: 'capitalize' },
-  considerText: { fontSize: 13, color: StatusColors.good, flex: 1 },
-  
-  bestMoveBox: {
+  moveDetailLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+  },
+  moveDetailSan: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  evalPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  evalPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  cpLossText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  lessonText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 21,
+  },
+  patternRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    gap: 6,
   },
-  bestMoveLabel: { fontSize: 13, color: colors.textSecondary },
-  bestMoveSan: { fontSize: 14, fontWeight: '700', color: StatusColors.excellent },
-
-  startingCard: {
+  patternText: {
+    fontSize: 13,
+    color: '#f59e0b',
+    fontWeight: '500',
+  },
+  bestMoveRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
-    backgroundColor: colors.card,
-    borderRadius: 10,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  startingText: { fontSize: 15, fontWeight: '600', color: colors.text },
-  startingHint: { fontSize: 12, color: colors.textSecondary },
+  bestMoveLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  bestMoveSan: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: StatusColors.excellent,
+  },
+  considerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 8,
+  },
+  considerText: {
+    fontSize: 13,
+    color: StatusColors.good,
+    flex: 1,
+    lineHeight: 18,
+  },
 
-  noAnalysisCard: {
+  // No feedback
+  noFeedbackCard: {
     alignItems: 'center',
     padding: 16,
     backgroundColor: colors.card,
@@ -523,36 +835,72 @@ const createStyles = (colors, boardSize) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  noAnalysisMove: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 4 },
-  noAnalysisText: { fontSize: 13, color: colors.textSecondary },
+  noFeedbackMove: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  noFeedbackText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
 
-  summarySection: { gap: 10, marginTop: 4 },
-  
-  statsRow: { flexDirection: 'row', gap: 6 },
-  statBox: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8 },
-  statNum: { fontSize: 18, fontWeight: '700' },
-  statLabel: { fontSize: 9, color: '#71717a', marginTop: 1, textTransform: 'uppercase' },
+  // Stats grid
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
 
+  // Summary card
   summaryCard: {
     backgroundColor: colors.card,
     borderRadius: 10,
-    padding: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  summaryTitle: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 8 },
-  summaryText: { fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  summaryText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
 
+  // Focus card
   focusCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: 12,
     backgroundColor: '#f59e0b10',
     borderRadius: 10,
-    padding: 12,
-    gap: 10,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#f59e0b30',
+    borderColor: '#f59e0b25',
   },
-  focusLabel: { fontSize: 11, fontWeight: '600', color: '#f59e0b', marginBottom: 2 },
-  focusText: { fontSize: 13, color: colors.text, lineHeight: 18 },
+  focusContent: {
+    flex: 1,
+  },
+  focusLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#f59e0b',
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
+  focusText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
+  },
 });
