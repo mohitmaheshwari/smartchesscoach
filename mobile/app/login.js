@@ -6,71 +6,81 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   Dimensions,
-  Alert
+  Alert,
+  TextInput,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../src/context/ThemeContext';
 import { useAuth } from '../src/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useGoogleAuth, authenticateWithBackend } from '../src/services/googleAuth';
+import * as SecureStore from 'expo-secure-store';
+import { API_URL } from '../src/constants/config';
 
 const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { login, refresh } = useAuth();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
-  
-  // Google Auth hook
-  const { request, response, promptAsync } = useGoogleAuth();
+  const [showDemoLogin, setShowDemoLogin] = useState(false);
+  const [demoEmail, setDemoEmail] = useState('');
 
-  // Handle Google auth response
-  useEffect(() => {
-    handleGoogleResponse();
-  }, [response]);
+  // Demo login - creates/logs in a test user
+  const handleDemoLogin = async () => {
+    if (!demoEmail || !demoEmail.includes('@')) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
 
-  const handleGoogleResponse = async () => {
-    if (response?.type === 'success') {
-      setLoading(true);
-      try {
-        const { authentication } = response;
-        
-        if (authentication?.accessToken) {
-          // Exchange token with our backend
-          const user = await authenticateWithBackend(authentication.accessToken);
-          
-          if (user) {
-            login(user);
-            router.replace('/(tabs)/dashboard');
-          }
-        }
-      } catch (error) {
-        console.error('Auth error:', error);
-        Alert.alert('Login Failed', error.message || 'Could not complete sign in. Please try again.');
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    try {
+      // Call demo login endpoint
+      const response = await fetch(`${API_URL}/auth/demo-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: demoEmail }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Demo login failed');
       }
-    } else if (response?.type === 'error') {
-      Alert.alert('Login Error', response.error?.message || 'Authentication failed');
+
+      const data = await response.json();
+      
+      // Store session token
+      if (data.session_token) {
+        await SecureStore.setItemAsync('session_token', data.session_token);
+      }
+
+      if (data.user) {
+        login(data.user);
+        router.replace('/(tabs)/dashboard');
+      }
+    } catch (error) {
+      console.error('Demo login error:', error);
+      Alert.alert('Login Failed', 'Could not complete demo login. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    if (!request) {
-      Alert.alert('Not Ready', 'Please wait while we prepare Google Sign In...');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      await promptAsync();
-    } catch (error) {
-      console.error('Prompt error:', error);
-      Alert.alert('Error', 'Could not open Google Sign In');
-      setLoading(false);
-    }
+  const handleGoogleLogin = () => {
+    // Show info about Google OAuth setup
+    Alert.alert(
+      'Google OAuth Setup Required',
+      'To use Google Sign-In, you need to:\n\n' +
+      '1. Create a project in Google Cloud Console\n' +
+      '2. Enable OAuth 2.0\n' +
+      '3. Add Android/iOS client IDs\n\n' +
+      'For now, use Demo Login to test the app.',
+      [
+        { text: 'Use Demo Login', onPress: () => setShowDemoLogin(true) },
+        { text: 'OK', style: 'cancel' }
+      ]
+    );
   };
 
   const styles = createStyles(colors);
@@ -93,7 +103,7 @@ export default function LoginScreen() {
         <View style={styles.features}>
           <FeatureItem 
             icon="analytics-outline" 
-            text="Analyzes your games from Chess.com & Lichess"
+            text="Analyzes your games with Stockfish engine"
             colors={colors}
           />
           <FeatureItem 
@@ -103,7 +113,7 @@ export default function LoginScreen() {
           />
           <FeatureItem 
             icon="trending-up-outline" 
-            text="Tracks your progress over time"
+            text="Tracks your progress and predicts rating"
             colors={colors}
           />
           <FeatureItem 
@@ -113,24 +123,86 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* Login Button */}
+        {/* Login Buttons */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={[styles.googleButton, !request && styles.googleButtonDisabled]}
-            onPress={handleGoogleLogin}
-            disabled={loading || !request}
-            activeOpacity={0.8}
-            testID="google-login-btn"
-          >
-            {loading ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <>
-                <Ionicons name="logo-google" size={20} color="#000" />
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {showDemoLogin ? (
+            <>
+              {/* Demo Login Form */}
+              <View style={styles.demoForm}>
+                <Text style={[styles.demoLabel, { color: colors.textSecondary }]}>
+                  Enter your email to continue:
+                </Text>
+                <TextInput
+                  style={[styles.demoInput, { 
+                    backgroundColor: colors.card, 
+                    color: colors.text,
+                    borderColor: colors.border 
+                  }]}
+                  placeholder="your@email.com"
+                  placeholderTextColor={colors.textSecondary}
+                  value={demoEmail}
+                  onChangeText={setDemoEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity 
+                  style={styles.demoButton}
+                  onPress={handleDemoLogin}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                  testID="demo-login-btn"
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#000" />
+                  ) : (
+                    <>
+                      <Ionicons name="enter-outline" size={20} color="#000" />
+                      <Text style={styles.demoButtonText}>Continue with Demo</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowDemoLogin(false)}>
+                  <Text style={[styles.backLink, { color: colors.accent }]}>
+                    ← Back to login options
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              {/* Google Login Button */}
+              <TouchableOpacity 
+                style={styles.googleButton}
+                onPress={handleGoogleLogin}
+                disabled={loading}
+                activeOpacity={0.8}
+                testID="google-login-btn"
+              >
+                {loading ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={20} color="#000" />
+                    <Text style={styles.googleButtonText}>Continue with Google</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              
+              {/* Demo Login Option */}
+              <TouchableOpacity 
+                style={[styles.demoOptionButton, { borderColor: colors.border }]}
+                onPress={() => setShowDemoLogin(true)}
+                activeOpacity={0.8}
+                testID="show-demo-btn"
+              >
+                <Ionicons name="flask-outline" size={20} color={colors.text} />
+                <Text style={[styles.demoOptionText, { color: colors.text }]}>
+                  Demo Login (for testing)
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
           
           <Text style={styles.disclaimer}>
             By continuing, you agree to our Terms of Service
@@ -214,14 +286,59 @@ const createStyles = (colors) => StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     gap: 12,
-  },
-  googleButtonDisabled: {
-    opacity: 0.6,
+    marginBottom: 12,
   },
   googleButtonText: {
     color: '#000',
     fontSize: 16,
     fontWeight: '600',
+  },
+  demoOptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  demoOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  demoForm: {
+    gap: 12,
+  },
+  demoLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  demoInput: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    fontSize: 16,
+  },
+  demoButton: {
+    backgroundColor: '#f59e0b',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 12,
+    marginTop: 8,
+  },
+  demoButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  backLink: {
+    textAlign: 'center',
+    marginTop: 16,
+    fontSize: 14,
   },
   disclaimer: {
     color: colors.textSecondary,
