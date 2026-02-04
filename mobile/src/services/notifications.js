@@ -120,10 +120,10 @@ export function addNotificationListeners(onNotificationReceived, onNotificationR
     }
   });
 
-  // Return cleanup function
+  // Return cleanup function - use .remove() method on subscription objects
   return () => {
-    Notifications.removeNotificationSubscription(receivedSubscription);
-    Notifications.removeNotificationSubscription(responseSubscription);
+    receivedSubscription.remove();
+    responseSubscription.remove();
   };
 }
 
