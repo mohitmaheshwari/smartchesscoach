@@ -47,8 +47,8 @@ export default function GameDetailScreen() {
 
   const totalMoves = parsedMoves.length;
 
-  // Get move-by-move analysis data
-  const moveAnalysis = analysis?.move_by_move || [];
+  // Get move-by-move analysis data (field is 'commentary' from backend)
+  const moveAnalysis = analysis?.commentary || analysis?.move_by_move || [];
 
   useEffect(() => {
     loadGame();
