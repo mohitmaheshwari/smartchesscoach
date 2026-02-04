@@ -394,6 +394,69 @@ async def mobile_google_auth(request: MobileAuthRequest):
         logger.error(f"Mobile auth error: {e}")
         raise HTTPException(status_code=500, detail="Authentication failed")
 
+class DemoLoginRequest(BaseModel):
+    """Request for demo login (testing only)"""
+    email: str
+
+@api_router.post("/auth/demo-login")
+async def demo_login(request: DemoLoginRequest):
+    """
+    Demo login for testing the mobile app without Google OAuth.
+    Creates or logs in a user with the provided email.
+    """
+    email = request.email.strip().lower()
+    
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Valid email required")
+    
+    # Create user ID from email
+    user_id = f"demo_{email.replace('@', '_').replace('.', '_')}"
+    session_token = f"demo_session_{uuid.uuid4().hex}"
+    name = email.split("@")[0].title()
+    
+    # Check if user exists
+    existing_user = await db.users.find_one({"email": email}, {"_id": 0})
+    
+    if existing_user:
+        user_id = existing_user["user_id"]
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}}
+        )
+    else:
+        user_doc = {
+            "user_id": user_id,
+            "email": email,
+            "name": name,
+            "picture": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "chess_com_username": None,
+            "lichess_username": None,
+            "is_demo": True
+        }
+        await db.users.insert_one(user_doc)
+    
+    # Create session
+    await db.user_sessions.delete_many({"user_id": user_id})
+    
+    session_doc = {
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "is_demo": True
+    }
+    await db.user_sessions.insert_one(session_doc)
+    
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    
+    logger.info(f"Demo login: {email}")
+    
+    return {
+        "user": user_doc,
+        "session_token": session_token
+    }
+
 # ==================== PLATFORM CONNECTION ROUTES ====================
 
 @api_router.post("/connect-platform")
