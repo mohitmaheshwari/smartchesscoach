@@ -244,6 +244,26 @@ export default function GameAnalysisScreen() {
           </View>
         ) : (
           <>
+            {/* Stockfish Accuracy - NEW */}
+            {analysis.stockfish_analysis?.accuracy && (
+              <View style={styles.accuracyCard}>
+                <View style={styles.accuracyHeader}>
+                  <View style={styles.accuracyCircle}>
+                    <Text style={styles.accuracyValue}>{analysis.stockfish_analysis.accuracy}%</Text>
+                  </View>
+                  <View style={styles.accuracyInfo}>
+                    <Text style={styles.accuracyTitle}>Accuracy</Text>
+                    <Text style={styles.accuracySubtitle}>Powered by Stockfish 15</Text>
+                  </View>
+                </View>
+                {analysis.stockfish_analysis.avg_cp_loss !== undefined && (
+                  <Text style={styles.avgCpLoss}>
+                    Avg. loss: {analysis.stockfish_analysis.avg_cp_loss} centipawns
+                  </Text>
+                )}
+              </View>
+            )}
+
             {/* Game Summary */}
             <View style={styles.summaryCard}>
               <Text style={styles.sectionLabel}>GAME SUMMARY</Text>
