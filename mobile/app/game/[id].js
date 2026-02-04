@@ -38,10 +38,13 @@ export default function GameAnalysisScreen() {
     try {
       const [gameData, analysisData] = await Promise.all([
         gamesAPI.getGame(id),
-        analysisAPI.getAnalysis(id)
+        analysisAPI.getAnalysis(id).catch(() => null)
       ]);
       setGame(gameData);
-      setAnalysis(analysisData);
+      // Only set analysis if it has actual data (not empty object)
+      setAnalysis(analysisData && analysisData.game_id ? analysisData : null);
+      console.log('Game loaded:', gameData?.game_id);
+      console.log('Analysis loaded:', analysisData ? 'yes' : 'no');
     } catch (error) {
       console.error('Failed to fetch game:', error);
       Alert.alert('Error', 'Failed to load game');
@@ -54,10 +57,15 @@ export default function GameAnalysisScreen() {
     setAnalyzing(true);
     try {
       const result = await analysisAPI.analyzeGame(id);
-      setAnalysis(result);
-      Alert.alert('Success', 'Game analyzed!');
+      if (result && result.game_id) {
+        setAnalysis(result);
+        Alert.alert('Success', 'Game analyzed!');
+      } else {
+        throw new Error('Analysis failed');
+      }
     } catch (error) {
-      Alert.alert('Error', error.message);
+      console.error('Analysis error:', error);
+      Alert.alert('Error', error.message || 'Failed to analyze game');
     } finally {
       setAnalyzing(false);
     }
