@@ -456,6 +456,10 @@ async def analyze_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
         total = data["wins"] + data["losses"] + data["draws"]
         if total > 0:
             win_rate = round(data["wins"] / total * 100, 1)
+            
+            # Get coaching info if available
+            coaching = get_opening_coaching(name, "white")
+            
             white_repertoire.append({
                 "name": name,
                 "games_played": total,
@@ -465,7 +469,8 @@ async def analyze_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
                 "win_rate": win_rate,
                 "mistakes_total": len(data["mistakes"]),
                 "mistakes_per_game": round(len(data["mistakes"]) / total, 2),
-                "common_mistakes": get_common_mistakes(data["mistakes"])
+                "common_mistakes": get_common_mistakes(data["mistakes"]),
+                "coaching": coaching  # Add coaching tips!
             })
     
     black_repertoire = []
@@ -473,6 +478,10 @@ async def analyze_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
         total = data["wins"] + data["losses"] + data["draws"]
         if total > 0:
             win_rate = round(data["wins"] / total * 100, 1)
+            
+            # Get coaching info if available
+            coaching = get_opening_coaching(name, "black")
+            
             black_repertoire.append({
                 "name": name,
                 "games_played": total,
@@ -482,7 +491,8 @@ async def analyze_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
                 "win_rate": win_rate,
                 "mistakes_total": len(data["mistakes"]),
                 "mistakes_per_game": round(len(data["mistakes"]) / total, 2),
-                "common_mistakes": get_common_mistakes(data["mistakes"])
+                "common_mistakes": get_common_mistakes(data["mistakes"]),
+                "coaching": coaching  # Add coaching tips!
             })
     
     # Sort by games played
