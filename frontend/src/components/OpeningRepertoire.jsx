@@ -257,7 +257,8 @@ const OpeningLesson = ({ lesson, onClose }) => {
       </div>
     </div>
   </motion.div>
-);
+  );
+};
 
 const OpeningRepertoire = () => {
   const [data, setData] = useState(null);
