@@ -419,7 +419,7 @@ async def generate_journey_dashboard_data(
 
 async def auto_analyze_game(db, user_id: str, game_doc: Dict) -> Optional[Dict]:
     """
-    Automatically analyze a game with AI coaching.
+    Automatically analyze a game with Stockfish for accuracy + AI coaching.
     Returns the analysis document or None if analysis fails/skipped.
     """
     import os
@@ -427,6 +427,7 @@ async def auto_analyze_game(db, user_id: str, game_doc: Dict) -> Optional[Dict]:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     from player_profile_service import get_or_create_profile, update_profile_after_analysis
     from rag_service import build_rag_context
+    from stockfish_service import analyze_game_with_stockfish, QUICK_DEPTH
     
     EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
     if not EMERGENT_LLM_KEY:
@@ -448,14 +449,26 @@ async def auto_analyze_game(db, user_id: str, game_doc: Dict) -> Optional[Dict]:
         return None
     
     try:
-        # Get user info
+        # STEP 1: Run Stockfish analysis for accurate move evaluation
+        logger.info(f"Running Stockfish analysis for game {game_id}...")
+        sf_result = analyze_game_with_stockfish(pgn, user_color, depth=QUICK_DEPTH)
+        
+        if not sf_result.get("success"):
+            logger.warning(f"Stockfish analysis failed for game {game_id}: {sf_result.get('error')}")
+            # Continue with GPT-only analysis if Stockfish fails
+            sf_stats = {"blunders": 0, "mistakes": 0, "inaccuracies": 0, "best_moves": 0, "accuracy": 0}
+            sf_moves = []
+        else:
+            sf_stats = sf_result.get("user_stats", {})
+            sf_moves = sf_result.get("moves", [])
+            logger.info(f"Stockfish analysis complete: {sf_stats.get('accuracy')}% accuracy, {sf_stats.get('blunders')} blunders")
+        
+        # STEP 2: Get user info and profile
         user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "name": 1})
         user_name = user_doc.get("name", "Player") if user_doc else "Player"
         first_name = user_name.split()[0] if user_name else "friend"
         
-        # Get profile
         profile = await get_or_create_profile(db, user_id, user_name)
-        # Note: RAG context can be built here for future use if needed
         
         # Build memory context
         top_weaknesses = profile.get("top_weaknesses", [])[:3]
