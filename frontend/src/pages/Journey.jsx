@@ -433,6 +433,23 @@ const Journey = ({ user }) => {
           </motion.div>
         )}
 
+        {/* Opening Repertoire Analysis */}
+        {hasAccount && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-heading font-semibold">Opening Repertoire Analysis</h2>
+            </div>
+            
+            <OpeningRepertoire />
+          </motion.div>
+        )}
+
         {/* Linked Accounts Footer */}
         {hasAccount && (
           <motion.div
