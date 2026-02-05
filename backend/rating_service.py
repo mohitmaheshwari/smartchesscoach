@@ -283,23 +283,15 @@ def generate_improvement_tips(trend: str, weaknesses: List[Dict]) -> List[str]:
 def parse_clock_times_from_pgn(pgn: str) -> List[Dict[str, Any]]:
     """
     Extract clock times from PGN comments.
-    Chess.com format: {[%clk 0:09:45]}
+    Chess.com format: {[%clk 0:15:00.9]} (with decimals)
     Lichess format: { [%clk 0:09:45] } or %clk inline
     """
     moves_with_time = []
     
-    # Find all clock annotations - multiple patterns
-    # Pattern 1: Standard [%clk H:MM:SS]
-    clock_pattern = r'\[%clk\s*(\d+):(\d+):(\d+)\]'
-    # Pattern 2: Also try without brackets for some formats
-    clock_pattern_alt = r'%clk\s*(\d+):(\d+):(\d+)'
+    # Pattern that handles decimals: [%clk H:MM:SS] or [%clk H:MM:SS.d]
+    clock_pattern = r'\[%clk\s*(\d+):(\d+):(\d+)(?:\.\d+)?\]'
     
-    # Try standard pattern first
     matches = re.findall(clock_pattern, pgn)
-    
-    # If no matches, try alternative pattern
-    if not matches:
-        matches = re.findall(clock_pattern_alt, pgn)
     
     move_num = 0
     for match in matches:
