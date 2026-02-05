@@ -577,6 +577,25 @@ RULES:
             analysis_data.get("identified_strengths", [])
         )
         
+        # GAMIFICATION: Award XP for auto-analyzed game
+        try:
+            from gamification_service import add_xp, increment_stat, update_best_accuracy, update_streak
+            
+            await add_xp(user_id, "game_analyzed")
+            await increment_stat(user_id, "games_analyzed")
+            
+            # Bonus for no blunders
+            if analysis_data.get("blunders", 0) == 0:
+                await add_xp(user_id, "no_blunders")
+                await increment_stat(user_id, "no_blunders_games")
+            
+            # Update streak
+            await update_streak(user_id)
+            
+            logger.info(f"Gamification updated for user {user_id}")
+        except Exception as gam_err:
+            logger.warning(f"Gamification error (non-critical): {gam_err}")
+        
         logger.info(f"Auto-analysis complete for game {game_id}")
         return analysis_doc
         
