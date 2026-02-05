@@ -596,15 +596,22 @@ RULES:
             await add_xp(user_id, "game_analyzed")
             await increment_stat(user_id, "games_analyzed")
             
+            # Update best accuracy
+            await update_best_accuracy(user_id, estimated_accuracy)
+            
+            # Bonus for high accuracy
+            if estimated_accuracy >= 90:
+                await add_xp(user_id, "accuracy_90_plus")
+            
             # Bonus for no blunders
-            if analysis_data.get("blunders", 0) == 0:
+            if blunders == 0:
                 await add_xp(user_id, "no_blunders")
                 await increment_stat(user_id, "no_blunders_games")
             
             # Update streak
             await update_streak(user_id)
             
-            logger.info(f"Gamification updated for user {user_id}")
+            logger.info(f"Gamification updated for user {user_id}: +25 XP, accuracy {estimated_accuracy}%")
         except Exception as gam_err:
             logger.warning(f"Gamification error (non-critical): {gam_err}")
         
