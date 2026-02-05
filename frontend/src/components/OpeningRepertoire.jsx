@@ -248,15 +248,15 @@ const OpeningLesson = ({ lesson, onClose }) => {
             </div>
           )}
         </div>
-      
-      {/* Footer */}
-      <div className="p-4 border-t border-border">
-        <Button onClick={onClose} className="w-full">
-          Got it, Coach! 
-        </Button>
+        
+        {/* Footer */}
+        <div className="p-4 border-t border-border">
+          <Button onClick={onClose} className="w-full">
+            Got it, Coach! 
+          </Button>
+        </div>
       </div>
-    </div>
-  </motion.div>
+    </motion.div>
   );
 };
 
