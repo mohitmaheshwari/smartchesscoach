@@ -178,8 +178,8 @@ const OpeningLesson = ({ lesson, onClose }) => {
             </div>
           </div>
         
-        {/* Main Idea */}
-        <div>
+          {/* Main Idea */}
+          <div>
           <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
             <Lightbulb className="w-4 h-4 text-yellow-500" />
             Main Idea
