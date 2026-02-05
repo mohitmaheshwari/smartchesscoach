@@ -4,8 +4,9 @@ Automatic Game Sync & Analysis Service
 Handles:
 1. Background polling for new games from Chess.com/Lichess
 2. Smart game selection (prefer rapid/classical, skip bullet)
-3. Silent auto-analysis (max 1-2 games/user/day)
+3. Silent auto-analysis (max 3 games/user/day)
 4. Journey Dashboard data generation
+5. Notifications when new analysis is ready
 """
 
 import asyncio
@@ -17,9 +18,10 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # Configuration
-SYNC_INTERVAL_HOURS = 12  # Poll every 12 hours
-MAX_GAMES_PER_DAY = 2     # Analyze max 2 games per user per day
-MIN_GAME_MOVES = 10       # Skip games with fewer moves
+SYNC_INTERVAL_HOURS = 4       # Poll every 4 hours
+MAX_GAMES_PER_DAY = 3         # Analyze max 3 games per user per day (cost-conscious)
+MIN_GAME_MOVES = 10           # Skip games with fewer moves
+INITIAL_IMPORT_MONTHS = 3     # Import last 3 months on first sync
 PREFERRED_TIME_CONTROLS = ["rapid", "classical", "correspondence"]
 SKIP_TIME_CONTROLS = ["bullet", "ultrabullet"]
 
