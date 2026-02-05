@@ -1488,9 +1488,14 @@ async def link_chess_account(req: LinkAccountRequest, user: User = Depends(get_c
     )
     
     return {
-        "message": f"Account linked successfully. Your {platform} games will be analyzed automatically.",
+        "message": f"Account linked successfully! We'll import your games from the last 3 months and auto-analyze up to 3 games per day.",
         "platform": platform,
-        "username": username
+        "username": username,
+        "import_info": {
+            "period": "Last 3 months",
+            "auto_analysis_limit": "3 games per day",
+            "sync_frequency": "Every 4 hours"
+        }
     }
 
 @api_router.get("/journey/linked-accounts")
