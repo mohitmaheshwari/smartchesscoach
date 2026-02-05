@@ -522,7 +522,7 @@ RULES:
         ).with_model("openai", "gpt-5.2")
         
         user_message = UserMessage(text=f"Analyze this game:\n\n{pgn}")
-        response = await chat.a_send_message(user_message)
+        response = await chat.send_message(user_message)
         
         # Parse response
         response_text = response.text.strip()
