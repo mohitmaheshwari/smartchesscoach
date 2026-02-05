@@ -139,6 +139,75 @@ const Layout = ({ children, user }) => {
 
             {/* Right side */}
             <div className="flex items-center gap-1">
+              {/* Notifications Bell */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-8 h-8 text-muted-foreground hover:text-foreground relative"
+                    data-testid="notifications-bell"
+                  >
+                    <Bell className="w-4 h-4" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-500 text-[10px] font-bold text-black rounded-full flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                    <span className="text-sm font-semibold">Notifications</span>
+                    {unreadCount > 0 && (
+                      <button 
+                        onClick={markAllRead}
+                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                      >
+                        <CheckCheck className="w-3 h-3" />
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  
+                  {notifications.length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground text-sm">
+                      <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                      No notifications yet
+                    </div>
+                  ) : (
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.map((notif, idx) => (
+                        <div 
+                          key={idx}
+                          className={`px-3 py-2.5 border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer transition-colors ${
+                            !notif.read ? 'bg-amber-500/5' : ''
+                          }`}
+                          onClick={() => {
+                            if (notif.type === 'game_analyzed') {
+                              navigate('/dashboard');
+                            }
+                          }}
+                        >
+                          <div className="flex items-start gap-2">
+                            {!notif.read && (
+                              <span className="w-2 h-2 mt-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                            )}
+                            <div className={!notif.read ? '' : 'ml-4'}>
+                              <p className="text-sm font-medium">{notif.title}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{notif.message}</p>
+                              <p className="text-[10px] text-muted-foreground/60 mt-1">
+                                {new Date(notif.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Button
                 variant="ghost"
                 size="icon"
