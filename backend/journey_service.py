@@ -632,11 +632,12 @@ RULES:
             await add_xp(user_id, "game_analyzed")
             await increment_stat(user_id, "games_analyzed")
             
-            # Update best accuracy
-            await update_best_accuracy(user_id, estimated_accuracy)
+            # Update best accuracy with REAL Stockfish accuracy
+            if accuracy > 0:
+                await update_best_accuracy(user_id, accuracy)
             
-            # Bonus for high accuracy
-            if estimated_accuracy >= 90:
+            # Bonus for high accuracy (90%+)
+            if accuracy >= 90:
                 await add_xp(user_id, "accuracy_90_plus")
             
             # Bonus for no blunders
@@ -647,11 +648,11 @@ RULES:
             # Update streak
             await update_streak(user_id)
             
-            logger.info(f"Gamification updated for user {user_id}: +25 XP, accuracy {estimated_accuracy}%")
+            logger.info(f"Gamification updated for user {user_id}: +25 XP, Stockfish accuracy {accuracy}%")
         except Exception as gam_err:
             logger.warning(f"Gamification error (non-critical): {gam_err}")
         
-        logger.info(f"Auto-analysis complete for game {game_id}")
+        logger.info(f"Auto-analysis complete for game {game_id} - Stockfish accuracy: {accuracy}%")
         return analysis_doc
         
     except json.JSONDecodeError as e:
