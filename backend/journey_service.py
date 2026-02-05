@@ -641,13 +641,16 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
     
     # Get last sync timestamp
     last_sync = user_doc.get("last_game_sync")
+    is_first_sync = last_sync is None
+    
     if last_sync:
         if isinstance(last_sync, str):
             last_sync = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
         since_timestamp = int(last_sync.timestamp())
     else:
-        # First sync - get games from last 7 days
-        since_timestamp = int((datetime.now(timezone.utc) - timedelta(days=7)).timestamp())
+        # First sync - import last 3 months of games
+        since_timestamp = int((datetime.now(timezone.utc) - timedelta(days=INITIAL_IMPORT_MONTHS * 30)).timestamp())
+        logger.info(f"First sync for {user_id} - importing last {INITIAL_IMPORT_MONTHS} months of games")
     
     games_to_analyze = []
     
