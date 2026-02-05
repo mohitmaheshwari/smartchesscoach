@@ -288,16 +288,18 @@ def parse_clock_times_from_pgn(pgn: str) -> List[Dict[str, Any]]:
     """
     moves_with_time = []
     
-    # Find all clock annotations
+    # Find all clock annotations - multiple patterns
+    # Pattern 1: Standard [%clk H:MM:SS]
     clock_pattern = r'\[%clk\s*(\d+):(\d+):(\d+)\]'
+    # Pattern 2: Also try without brackets for some formats
+    clock_pattern_alt = r'%clk\s*(\d+):(\d+):(\d+)'
     
-    # Split PGN into moves
-    move_section = pgn.split('\n\n')[-1] if '\n\n' in pgn else pgn
-    
-    # Find moves with clock times
-    move_pattern = r'(\d+)\.\s*(\S+)(?:\s*\{[^}]*\[%clk\s*(\d+):(\d+):(\d+)\][^}]*\})?'
-    
+    # Try standard pattern first
     matches = re.findall(clock_pattern, pgn)
+    
+    # If no matches, try alternative pattern
+    if not matches:
+        matches = re.findall(clock_pattern_alt, pgn)
     
     move_num = 0
     for match in matches:
@@ -312,12 +314,39 @@ def parse_clock_times_from_pgn(pgn: str) -> List[Dict[str, Any]]:
     
     return moves_with_time
 
+
+def extract_time_control_seconds(time_control: str) -> int:
+    """
+    Parse time control string to get initial time in seconds.
+    Examples: "600" (10 min), "180+2" (3 min + 2 sec increment), "600+5"
+    """
+    if not time_control:
+        return 0
+    
+    try:
+        # Handle increment format: "600+5"
+        if '+' in time_control:
+            base_time = int(time_control.split('+')[0])
+        elif '/' in time_control:
+            # Daily format: "1/86400"
+            parts = time_control.split('/')
+            base_time = int(parts[1]) if len(parts) > 1 else 0
+        else:
+            base_time = int(time_control)
+        return base_time
+    except (ValueError, IndexError):
+        return 0
+
+
 def analyze_time_usage(games: List[Dict], user_id: str) -> Dict[str, Any]:
     """
     Analyze time usage patterns across recent games.
+    Uses actual clock data from PGN annotations.
     """
     all_time_data = []
     games_with_time = 0
+    games_analyzed = 0
+    time_control_info = []
     
     for game in games[-20:]:  # Last 20 games
         pgn = game.get('pgn', '')
