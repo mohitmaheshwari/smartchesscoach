@@ -17,12 +17,47 @@ import {
   XCircle,
   ArrowRight
 } from "lucide-react";
+import InteractiveChessBoard from "./InteractiveChessBoard";
+
+// Opening move sequences for interactive board
+const OPENING_MOVES = {
+  "Italian Game": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5", "c3", "Nf6", "d4", "exd4", "cxd4", "Bb4+"],
+  "Ruy Lopez": ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O", "Be7", "Re1", "b5", "Bb3", "d6"],
+  "French Defense": ["e4", "e6", "d4", "d5", "e5", "c5", "c3", "Nc6", "Nf3", "Qb6", "Be2", "cxd4", "cxd4"],
+  "Caro-Kann Defense": ["e4", "c6", "d4", "d5", "e5", "Bf5", "Nf3", "e6", "Be2", "Nd7", "O-O", "Ne7"],
+  "Sicilian Defense": ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "a6"],
+  "Sicilian Alapin": ["e4", "c5", "c3", "d5", "exd5", "Qxd5", "d4", "Nc6", "Nf3", "Bg4", "Be2"],
+  "Queen's Gambit": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Be7", "e3", "O-O", "Nf3", "h6", "Bh4"],
+  "London System": ["d4", "d5", "Bf4", "Nf6", "e3", "c5", "c3", "Nc6", "Nd2", "e6", "Ngf3", "Bd6", "Bg3"],
+  "Scandinavian Defense": ["e4", "d5", "exd5", "Qxd5", "Nc3", "Qa5", "d4", "Nf6", "Nf3", "Bf5", "Bc4", "e6"],
+  "King's Indian Defense": ["d4", "Nf6", "c4", "g6", "Nc3", "Bg7", "e4", "d6", "Nf3", "O-O", "Be2", "e5"],
+  "Nimzo-Indian Defense": ["d4", "Nf6", "c4", "e6", "Nc3", "Bb4", "Qc2", "O-O", "a3", "Bxc3+", "Qxc3", "d5"],
+  "Open Game": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5"],
+  "Closed Game": ["d4", "d5", "c4", "e6", "Nc3", "Nf6"],
+};
 
 // Helper functions
 const getWinRateColor = (rate) => {
   if (rate >= 60) return "text-green-500";
   if (rate >= 40) return "text-amber-500";
   return "text-red-500";
+};
+
+// Get moves for an opening
+const getOpeningMoves = (openingName) => {
+  // Try exact match
+  if (OPENING_MOVES[openingName]) return OPENING_MOVES[openingName];
+  
+  // Try partial match
+  for (const [name, moves] of Object.entries(OPENING_MOVES)) {
+    if (openingName.toLowerCase().includes(name.toLowerCase()) ||
+        name.toLowerCase().includes(openingName.toLowerCase())) {
+      return moves;
+    }
+  }
+  
+  // Default basic moves
+  return ["e4", "e5", "Nf3", "Nc6"];
 };
 
 // Opening Card Component
