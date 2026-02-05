@@ -768,14 +768,22 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
         user_name = user_doc.get("name", "Chess Player").split()[0]
         platform_name = "Chess.com" if chesscom_username else "Lichess"
         
+        # Customize message for first sync vs regular sync
+        if is_first_sync:
+            title = "🎉 Welcome! Your Chess Profile is Ready"
+            message = f"We analyzed {analyzed_count} of your games from {platform_name}. Your personalized coaching insights are ready!"
+        else:
+            title = "♟️ New Game Analyzed"
+            message = f"{analyzed_count} game{'s' if analyzed_count > 1 else ''} from {platform_name} analyzed. Tap to see your insights!"
+        
         # Store in-app notification
         try:
             notification_doc = {
                 "user_id": user_id,
                 "type": "game_analyzed",
-                "title": "♟️ New Game Analyzed",
-                "message": f"{analyzed_count} game{'s' if analyzed_count > 1 else ''} from {platform_name} analyzed. Tap to see your insights!",
-                "data": {"count": analyzed_count, "platform": platform_name},
+                "title": title,
+                "message": message,
+                "data": {"count": analyzed_count, "platform": platform_name, "is_first_sync": is_first_sync},
                 "read": False,
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
