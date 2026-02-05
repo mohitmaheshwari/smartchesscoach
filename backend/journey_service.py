@@ -755,6 +755,22 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
         user_name = user_doc.get("name", "Chess Player").split()[0]
         platform_name = "Chess.com" if chesscom_username else "Lichess"
         
+        # Store in-app notification
+        try:
+            notification_doc = {
+                "user_id": user_id,
+                "type": "game_analyzed",
+                "title": "♟️ New Game Analyzed",
+                "message": f"{analyzed_count} game{'s' if analyzed_count > 1 else ''} from {platform_name} analyzed. Tap to see your insights!",
+                "data": {"count": analyzed_count, "platform": platform_name},
+                "read": False,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.notifications.insert_one(notification_doc)
+            logger.info(f"Created in-app notification for {user_id}: {analyzed_count} games analyzed")
+        except Exception as e:
+            logger.warning(f"Failed to create in-app notification: {e}")
+        
         # Send push notification
         try:
             from server import send_push_notification
