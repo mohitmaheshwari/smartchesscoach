@@ -71,53 +71,6 @@ const OpeningRepertoire = () => {
     return "bg-red-500/10";
   };
 
-  const OpeningCard = ({ opening, color }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="p-3 rounded-lg bg-card border border-border/50 hover:border-border transition-colors"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${color === 'white' ? 'bg-zinc-100' : 'bg-zinc-800 border border-zinc-600'}`} />
-            <h4 className="font-medium text-sm truncate">{opening.name}</h4>
-          </div>
-          <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-            <span>{opening.games_played} games</span>
-            <span className="text-green-500">{opening.wins}W</span>
-            <span className="text-red-500">{opening.losses}L</span>
-            {opening.draws > 0 && <span className="text-zinc-500">{opening.draws}D</span>}
-          </div>
-        </div>
-        
-        <div className="text-right">
-          <div className={`text-lg font-bold ${getWinRateColor(opening.win_rate)}`}>
-            {opening.win_rate}%
-          </div>
-          <div className="text-[10px] text-muted-foreground">win rate</div>
-        </div>
-      </div>
-      
-      {opening.mistakes_per_game > 0 && (
-        <div className="mt-2 pt-2 border-t border-border/50">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Mistakes/game</span>
-            <span className={opening.mistakes_per_game > 2 ? "text-red-500 font-medium" : "text-muted-foreground"}>
-              {opening.mistakes_per_game}
-            </span>
-          </div>
-          
-          {opening.common_mistakes?.length > 0 && opening.common_mistakes[0].examples?.length > 0 && (
-            <div className="mt-1.5 text-[10px] text-amber-500/80">
-              Common: {opening.common_mistakes[0].examples[0]?.lesson?.substring(0, 60) || opening.common_mistakes[0].type}...
-            </div>
-          )}
-        </div>
-      )}
-    </motion.div>
-  );
-
   return (
     <div className="space-y-6">
       {/* Coaching Focus Banner */}
