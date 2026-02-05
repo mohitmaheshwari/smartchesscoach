@@ -90,7 +90,9 @@ Build a full-stack AI chess coach application that integrates with Chess.com and
 ├── frontend/               # React + Tailwind
 │   └── src/
 │       ├── components/
-│       │   └── Gamification.jsx  # XP bar, achievements, etc.
+│       │   ├── Gamification.jsx        # XP bar, achievements, etc.
+│       │   ├── OpeningRepertoire.jsx   # Opening analysis & coaching
+│       │   └── InteractiveChessBoard.jsx # Visual move display
 │       └── pages/
 │           └── Journey.jsx
 └── mobile/                 # React Native + Expo
