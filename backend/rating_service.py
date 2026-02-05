@@ -342,21 +342,32 @@ def analyze_time_usage(games: List[Dict], user_id: str) -> Dict[str, Any]:
     """
     Analyze time usage patterns across recent games.
     Uses actual clock data from PGN annotations.
+    
+    Note: Clock data is only available in games where the platform 
+    records move times (typically rapid/classical with clock enabled).
     """
     all_time_data = []
     games_with_time = 0
-    games_analyzed = 0
+    games_checked = 0
     time_control_info = []
     
-    for game in games[-20:]:  # Last 20 games
+    for game in games[-30:]:  # Check last 30 games
+        games_checked += 1
         pgn = game.get('pgn', '')
         user_color = game.get('user_color', 'white')
+        time_control = game.get('time_control', '')
         
         clock_times = parse_clock_times_from_pgn(pgn)
         if not clock_times:
             continue
         
         games_with_time += 1
+        
+        # Track time control for context
+        if time_control:
+            initial_time = extract_time_control_seconds(time_control)
+            if initial_time > 0:
+                time_control_info.append(initial_time)
         
         # Filter to user's moves only
         user_moves = [t for t in clock_times if (t['is_white'] and user_color == 'white') or 
@@ -379,7 +390,9 @@ def analyze_time_usage(games: List[Dict], user_id: str) -> Dict[str, Any]:
     if not all_time_data:
         return {
             "has_data": False,
-            "message": "No clock data available in recent games. Play more timed games to get time analysis."
+            "games_checked": games_checked,
+            "games_with_clock": games_with_time,
+            "message": f"Checked {games_checked} recent games but found no clock data. Clock annotations are only available in timed games (rapid/classical) where the platform records move times. Try playing more rapid games on Chess.com or Lichess with the clock visible."
         }
     
     # Analyze by game phase
