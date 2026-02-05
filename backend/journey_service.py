@@ -537,15 +537,27 @@ RULES:
         
         analysis_data = json.loads(response_text)
         
+        # Calculate estimated accuracy from move quality
+        blunders = analysis_data.get("blunders", 0)
+        mistakes = analysis_data.get("mistakes", 0)
+        inaccuracies = analysis_data.get("inaccuracies", 0)
+        best_moves = analysis_data.get("best_moves", 0)
+        
+        penalty = (blunders * 15) + (mistakes * 8) + (inaccuracies * 3)
+        bonus = min(best_moves * 2, 15)
+        estimated_accuracy = max(30, min(100, 100 - penalty + bonus))
+        
         # Create analysis document
         analysis_doc = {
             "analysis_id": f"analysis_{game_id}",
             "game_id": game_id,
             "user_id": user_id,
             "game_summary": analysis_data.get("game_summary", ""),
-            "blunders": analysis_data.get("blunders", 0),
-            "mistakes": analysis_data.get("mistakes", 0),
-            "best_moves": analysis_data.get("best_moves", 0),
+            "blunders": blunders,
+            "mistakes": mistakes,
+            "inaccuracies": inaccuracies,
+            "best_moves": best_moves,
+            "accuracy": estimated_accuracy,
             "move_by_move": analysis_data.get("move_by_move", []),
             "weaknesses": analysis_data.get("identified_weaknesses", []),
             "identified_weaknesses": analysis_data.get("identified_weaknesses", []),
