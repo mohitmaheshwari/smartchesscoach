@@ -655,24 +655,36 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
     
     games_to_analyze = []
     
+    # Determine how many games to analyze
+    # First sync: analyze up to 15 games to build player profile
+    # Regular sync: analyze up to 3 games per day
+    max_games = INITIAL_GAMES_TO_ANALYZE if is_first_sync else MAX_GAMES_PER_DAY
+    games_per_platform = max_games // 2 + 1 if (chesscom_username and lichess_username) else max_games
+    
+    if is_first_sync:
+        logger.info(f"First sync for {user_id} - will analyze up to {max_games} games to build player profile")
+    
     # Fetch from Chess.com
     if chesscom_username:
         chesscom_games = await fetch_recent_chesscom_games(chesscom_username, since_timestamp)
-        selected = select_games_for_analysis(chesscom_games, "chess.com", 1)
+        selected = select_games_for_analysis(chesscom_games, "chess.com", games_per_platform)
         for g in selected:
             games_to_analyze.append({"game": g, "platform": "chess.com", "username": chesscom_username})
+        logger.info(f"Found {len(chesscom_games)} Chess.com games, selected {len(selected)} for analysis")
     
     # Fetch from Lichess
     if lichess_username:
         lichess_games = await fetch_recent_lichess_games(lichess_username, since_timestamp)
-        selected = select_games_for_analysis(lichess_games, "lichess", 1)
+        selected = select_games_for_analysis(lichess_games, "lichess", games_per_platform)
         for g in selected:
             games_to_analyze.append({"game": g, "platform": "lichess", "username": lichess_username})
+        logger.info(f"Found {len(lichess_games)} Lichess games, selected {len(selected)} for analysis")
     
     # Limit total games per sync
-    games_to_analyze = games_to_analyze[:MAX_GAMES_PER_DAY]
+    games_to_analyze = games_to_analyze[:max_games]
     
     analyzed_count = 0
+    imported_count = 0
     
     for item in games_to_analyze:
         try:
