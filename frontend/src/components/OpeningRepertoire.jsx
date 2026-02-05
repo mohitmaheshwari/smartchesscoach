@@ -109,49 +109,74 @@ const OpeningCard = ({ opening, color, onLearnMore }) => (
 );
 
 // Detailed Lesson Modal/Card
-const OpeningLesson = ({ lesson, onClose }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -20 }}
-    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-    onClick={onClose}
-  >
-    <div 
-      className="bg-background rounded-xl border border-border max-w-lg w-full max-h-[85vh] overflow-y-auto"
-      onClick={(e) => e.stopPropagation()}
+const OpeningLesson = ({ lesson, onClose }) => {
+  const openingMoves = getOpeningMoves(lesson.opening);
+  const flipBoard = lesson.color === 'black';
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+      onClick={onClose}
     >
-      {/* Header */}
-      <div className="p-4 border-b border-border bg-gradient-to-r from-amber-500/10 to-orange-500/10">
-        <div className="flex items-center gap-2 text-amber-500 text-sm font-medium mb-1">
-          <GraduationCap className="w-4 h-4" />
-          Coach&apos;s Lesson
-        </div>
-        <h2 className="text-xl font-bold">{lesson.opening}</h2>
-        <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-          <span className={`w-2 h-2 rounded-full ${lesson.color === 'white' ? 'bg-zinc-100' : 'bg-zinc-800 border border-zinc-600'}`} />
-          Playing as {lesson.color}
-          <span className="text-red-500 ml-2">{lesson.win_rate}% win rate</span>
-        </div>
-      </div>
-      
-      {/* Coach Intro */}
-      <div className="p-4 bg-muted/30">
-        <p className="text-sm italic text-foreground/80">&quot;{lesson.coach_intro}&quot;</p>
-      </div>
-      
-      {/* Main Content */}
-      <div className="p-4 space-y-4">
-        {/* Key Moves */}
-        <div>
-          <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
-            <Target className="w-4 h-4 text-primary" />
-            Key Moves
-          </h3>
-          <div className="bg-zinc-900 rounded-lg p-3 font-mono text-sm text-amber-400">
-            {lesson.key_moves}
+      <div 
+        className="bg-background rounded-xl border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-border bg-gradient-to-r from-amber-500/10 to-orange-500/10">
+          <div className="flex items-center gap-2 text-amber-500 text-sm font-medium mb-1">
+            <GraduationCap className="w-4 h-4" />
+            Coach&apos;s Lesson
+          </div>
+          <h2 className="text-xl font-bold">{lesson.opening}</h2>
+          <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+            <span className={`w-2 h-2 rounded-full ${lesson.color === 'white' ? 'bg-zinc-100' : 'bg-zinc-800 border border-zinc-600'}`} />
+            Playing as {lesson.color}
+            <span className="text-red-500 ml-2">{lesson.win_rate}% win rate</span>
           </div>
         </div>
+        
+        {/* Interactive Board Section */}
+        <div className="p-4 bg-zinc-900/50 border-b border-border">
+          <div className="flex items-center gap-2 mb-3 text-sm font-medium text-amber-400">
+            <Target className="w-4 h-4" />
+            Watch the Opening Moves
+          </div>
+          <div className="flex justify-center">
+            <InteractiveChessBoard
+              moves={openingMoves}
+              size={280}
+              autoPlay={false}
+              autoPlaySpeed={1200}
+              showMoveList={true}
+              flipBoard={flipBoard}
+            />
+          </div>
+          <p className="text-xs text-center text-muted-foreground mt-3">
+            Use the controls to step through each move, or press play to watch automatically
+          </p>
+        </div>
+        
+        {/* Coach Intro */}
+        <div className="p-4 bg-muted/30">
+          <p className="text-sm italic text-foreground/80">&quot;{lesson.coach_intro}&quot;</p>
+        </div>
+        
+        {/* Main Content */}
+        <div className="p-4 space-y-4">
+          {/* Key Moves - Text version */}
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+              <Target className="w-4 h-4 text-primary" />
+              Key Moves (Notation)
+            </h3>
+            <div className="bg-zinc-900 rounded-lg p-3 font-mono text-sm text-amber-400">
+              {lesson.key_moves}
+            </div>
+          </div>
         
         {/* Main Idea */}
         <div>
