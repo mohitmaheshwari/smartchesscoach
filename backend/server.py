@@ -2393,6 +2393,46 @@ async def get_xp_rewards():
     """Get XP reward values (public endpoint)"""
     return {"rewards": XP_REWARDS}
 
+# ==================== NOTIFICATIONS ROUTES ====================
+
+@api_router.get("/notifications")
+async def get_notifications(limit: int = 20, unread_only: bool = False, user: User = Depends(get_current_user)):
+    """Get user's in-app notifications"""
+    query = {"user_id": user.user_id}
+    if unread_only:
+        query["read"] = False
+    
+    notifications = await db.notifications.find(
+        query,
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Count unread
+    unread_count = await db.notifications.count_documents({"user_id": user.user_id, "read": False})
+    
+    return {
+        "notifications": notifications,
+        "unread_count": unread_count
+    }
+
+@api_router.post("/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str, user: User = Depends(get_current_user)):
+    """Mark a notification as read"""
+    result = await db.notifications.update_one(
+        {"user_id": user.user_id, "notification_id": notification_id},
+        {"$set": {"read": True}}
+    )
+    return {"success": result.modified_count > 0}
+
+@api_router.post("/notifications/read-all")
+async def mark_all_notifications_read(user: User = Depends(get_current_user)):
+    """Mark all notifications as read"""
+    result = await db.notifications.update_many(
+        {"user_id": user.user_id, "read": False},
+        {"$set": {"read": True}}
+    )
+    return {"success": True, "updated": result.modified_count}
+
 # ==================== RAG MANAGEMENT ROUTES ====================
 
 @api_router.post("/rag/process-games")
