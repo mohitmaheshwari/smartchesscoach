@@ -1,15 +1,21 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { 
   BookOpen, 
   AlertTriangle,
   Target,
   Loader2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  GraduationCap,
+  Lightbulb,
+  CheckCircle2,
+  XCircle,
+  ArrowRight
 } from "lucide-react";
 
 // Helper functions
@@ -19,8 +25,8 @@ const getWinRateColor = (rate) => {
   return "text-red-500";
 };
 
-// Opening Card Component - defined outside main component
-const OpeningCard = ({ opening, color }) => (
+// Opening Card Component
+const OpeningCard = ({ opening, color, onLearnMore }) => (
   <div className="p-3 rounded-lg bg-card border border-border/50 hover:border-border transition-colors">
     <div className="flex items-start justify-between gap-2">
       <div className="flex-1 min-w-0">
@@ -44,23 +50,153 @@ const OpeningCard = ({ opening, color }) => (
       </div>
     </div>
     
-    {opening.mistakes_per_game > 0 && (
-      <div className="mt-2 pt-2 border-t border-border/50">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Mistakes/game</span>
-          <span className={opening.mistakes_per_game > 2 ? "text-red-500 font-medium" : "text-muted-foreground"}>
-            {opening.mistakes_per_game}
-          </span>
-        </div>
+    {/* Coaching Tips Preview */}
+    {opening.coaching && (
+      <div className="mt-3 pt-3 border-t border-border/50">
+        <div className="text-xs text-muted-foreground mb-1">Simple Plan:</div>
+        <div className="text-xs text-primary font-medium">{opening.coaching.simple_plan}</div>
         
-        {opening.common_mistakes?.length > 0 && opening.common_mistakes[0].examples?.length > 0 && (
-          <div className="mt-1.5 text-[10px] text-amber-500/80">
-            Common: {opening.common_mistakes[0].examples[0]?.lesson?.substring(0, 60) || opening.common_mistakes[0].type}...
-          </div>
+        {opening.win_rate < 40 && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="mt-2 h-7 text-xs text-amber-500 hover:text-amber-400 p-0"
+            onClick={() => onLearnMore(opening)}
+          >
+            <GraduationCap className="w-3 h-3 mr-1" />
+            Learn how to fix this
+            <ArrowRight className="w-3 h-3 ml-1" />
+          </Button>
         )}
       </div>
     )}
   </div>
+);
+
+// Detailed Lesson Modal/Card
+const OpeningLesson = ({ lesson, onClose }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -20 }}
+    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+    onClick={onClose}
+  >
+    <div 
+      className="bg-background rounded-xl border border-border max-w-lg w-full max-h-[85vh] overflow-y-auto"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Header */}
+      <div className="p-4 border-b border-border bg-gradient-to-r from-amber-500/10 to-orange-500/10">
+        <div className="flex items-center gap-2 text-amber-500 text-sm font-medium mb-1">
+          <GraduationCap className="w-4 h-4" />
+          Coach&apos;s Lesson
+        </div>
+        <h2 className="text-xl font-bold">{lesson.opening}</h2>
+        <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+          <span className={`w-2 h-2 rounded-full ${lesson.color === 'white' ? 'bg-zinc-100' : 'bg-zinc-800 border border-zinc-600'}`} />
+          Playing as {lesson.color}
+          <span className="text-red-500 ml-2">{lesson.win_rate}% win rate</span>
+        </div>
+      </div>
+      
+      {/* Coach Intro */}
+      <div className="p-4 bg-muted/30">
+        <p className="text-sm italic text-foreground/80">&quot;{lesson.coach_intro}&quot;</p>
+      </div>
+      
+      {/* Main Content */}
+      <div className="p-4 space-y-4">
+        {/* Key Moves */}
+        <div>
+          <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+            <Target className="w-4 h-4 text-primary" />
+            Key Moves
+          </h3>
+          <div className="bg-zinc-900 rounded-lg p-3 font-mono text-sm text-amber-400">
+            {lesson.key_moves}
+          </div>
+        </div>
+        
+        {/* Main Idea */}
+        <div>
+          <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+            <Lightbulb className="w-4 h-4 text-yellow-500" />
+            Main Idea
+          </h3>
+          <p className="text-sm text-foreground/80">{lesson.main_idea}</p>
+        </div>
+        
+        {/* Must Know */}
+        {lesson.must_know?.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              You MUST Know This
+            </h3>
+            <ul className="space-y-2">
+              {lesson.must_know.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-sm">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
+        {/* Common Mistakes & Fixes */}
+        {lesson.common_mistakes?.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+              <XCircle className="w-4 h-4 text-red-500" />
+              Common Mistakes & How to Fix
+            </h3>
+            <div className="space-y-2">
+              {lesson.common_mistakes.map((m, idx) => (
+                <div key={idx} className="bg-red-500/5 border border-red-500/20 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-500 text-xs font-medium">MISTAKE:</span>
+                    <span className="text-sm">{m.mistake}</span>
+                  </div>
+                  <div className="flex items-start gap-2 mt-1.5">
+                    <span className="text-green-500 text-xs font-medium">FIX:</span>
+                    <span className="text-sm text-green-400">{m.fix}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Simple Plan */}
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-4">
+          <h3 className="text-sm font-semibold mb-2">📋 Simple Plan to Follow</h3>
+          <p className="text-base font-medium text-primary">{lesson.simple_plan}</p>
+        </div>
+        
+        {/* Homework */}
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-amber-500 mb-2">📝 Your Homework</h3>
+          <p className="text-sm">{lesson.homework}</p>
+        </div>
+        
+        {/* Practice Tip */}
+        {lesson.practice_tip && (
+          <div className="text-sm text-muted-foreground italic">
+            💡 Tip: {lesson.practice_tip}
+          </div>
+        )}
+      </div>
+      
+      {/* Footer */}
+      <div className="p-4 border-t border-border">
+        <Button onClick={onClose} className="w-full">
+          Got it, Coach! 
+        </Button>
+      </div>
+    </div>
+  </motion.div>
 );
 
 const OpeningRepertoire = () => {
@@ -68,6 +204,7 @@ const OpeningRepertoire = () => {
   const [loading, setLoading] = useState(true);
   const [expandedWhite, setExpandedWhite] = useState(true);
   const [expandedBlack, setExpandedBlack] = useState(true);
+  const [selectedLesson, setSelectedLesson] = useState(null);
 
   useEffect(() => {
     fetchRepertoire();
@@ -83,6 +220,29 @@ const OpeningRepertoire = () => {
       console.error("Failed to fetch opening repertoire:", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLearnMore = (opening) => {
+    // Find lesson for this opening
+    const lesson = data?.opening_lessons?.find(l => l.opening === opening.name);
+    if (lesson) {
+      setSelectedLesson(lesson);
+    } else if (opening.coaching) {
+      // Create a lesson from coaching data
+      setSelectedLesson({
+        opening: opening.name,
+        color: opening.coaching.color || "white",
+        win_rate: opening.win_rate,
+        coach_intro: `Let me teach you how to improve your ${opening.name}. With the right approach, you can turn this around!`,
+        key_moves: opening.coaching.key_moves,
+        main_idea: opening.coaching.main_idea,
+        must_know: opening.coaching.must_know,
+        common_mistakes: opening.coaching.common_mistakes,
+        simple_plan: opening.coaching.simple_plan,
+        practice_tip: opening.coaching.practice_tip,
+        homework: `Play 5 games with ${opening.name} focusing on: ${opening.coaching.simple_plan}`,
+      });
     }
   };
 
@@ -109,6 +269,51 @@ const OpeningRepertoire = () => {
 
   return (
     <div className="space-y-6">
+      {/* Opening Lessons - Show first if there are problem openings */}
+      {data.opening_lessons?.length > 0 && (
+        <Card className="border-amber-500/30 bg-gradient-to-r from-amber-500/5 to-orange-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-amber-500" />
+              Coach&apos;s Lessons for You
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-3">
+              {data.opening_lessons.map((lesson, idx) => (
+                <div 
+                  key={idx} 
+                  className="p-4 rounded-lg bg-background border border-border cursor-pointer hover:border-amber-500/50 transition-colors"
+                  onClick={() => setSelectedLesson(lesson)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${lesson.color === 'white' ? 'bg-zinc-100' : 'bg-zinc-800 border border-zinc-600'}`} />
+                        <h4 className="font-semibold">{lesson.opening}</h4>
+                        <Badge variant="destructive" className="text-[10px]">{lesson.win_rate}% win</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {lesson.diagnosis || lesson.coach_intro}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="sm" className="text-amber-500">
+                      Learn <ArrowRight className="w-3 h-3 ml-1" />
+                    </Button>
+                  </div>
+                  
+                  {/* Quick preview of simple plan */}
+                  <div className="mt-3 p-2 bg-muted/50 rounded text-xs">
+                    <span className="text-muted-foreground">Simple plan: </span>
+                    <span className="text-primary font-medium">{lesson.simple_plan}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Coaching Focus Banner */}
       {data.coaching_focus && data.coaching_focus.area !== "maintain" && (
         <motion.div
@@ -126,8 +331,8 @@ const OpeningRepertoire = () => {
         </motion.div>
       )}
 
-      {/* Problem Openings */}
-      {data.problem_openings?.length > 0 && (
+      {/* Problem Openings Alert */}
+      {data.problem_openings?.length > 0 && !data.opening_lessons?.length && (
         <Card className="border-red-500/20 bg-red-500/5">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -144,42 +349,6 @@ const OpeningRepertoire = () => {
                     <span className="text-sm font-medium">{problem.name}</span>
                   </div>
                   <span className="text-xs text-red-500">{problem.message}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recommendations */}
-      {data.recommendations?.length > 0 && (
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-primary" />
-              Personalized Recommendations
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-3">
-              {data.recommendations.map((rec, idx) => (
-                <div key={idx} className="p-3 rounded-lg bg-muted/30 border border-border/50">
-                  <div className="flex items-start gap-2">
-                    <Badge 
-                      variant={rec.priority === "high" ? "destructive" : rec.priority === "medium" ? "secondary" : "outline"}
-                      className="text-[10px] px-1.5 py-0"
-                    >
-                      {rec.priority}
-                    </Badge>
-                    <div className="flex-1">
-                      <p className="text-sm">{rec.message}</p>
-                      {rec.suggestion && (
-                        <p className="text-xs text-muted-foreground mt-1.5">
-                          💡 {rec.suggestion}
-                        </p>
-                      )}
-                    </div>
-                  </div>
                 </div>
               ))}
             </div>
@@ -224,7 +393,12 @@ const OpeningRepertoire = () => {
           <CardContent className="pt-0">
             <div className="space-y-2">
               {data.white_repertoire?.map((opening, idx) => (
-                <OpeningCard key={idx} opening={opening} color="white" />
+                <OpeningCard 
+                  key={idx} 
+                  opening={opening} 
+                  color="white" 
+                  onLearnMore={handleLearnMore}
+                />
               ))}
             </div>
           </CardContent>
@@ -252,12 +426,27 @@ const OpeningRepertoire = () => {
           <CardContent className="pt-0">
             <div className="space-y-2">
               {data.black_repertoire?.map((opening, idx) => (
-                <OpeningCard key={idx} opening={opening} color="black" />
+                <OpeningCard 
+                  key={idx} 
+                  opening={opening} 
+                  color="black" 
+                  onLearnMore={handleLearnMore}
+                />
               ))}
             </div>
           </CardContent>
         )}
       </Card>
+
+      {/* Lesson Modal */}
+      <AnimatePresence>
+        {selectedLesson && (
+          <OpeningLesson 
+            lesson={selectedLesson} 
+            onClose={() => setSelectedLesson(null)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
