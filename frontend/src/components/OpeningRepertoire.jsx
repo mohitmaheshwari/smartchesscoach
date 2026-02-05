@@ -180,74 +180,74 @@ const OpeningLesson = ({ lesson, onClose }) => {
         
           {/* Main Idea */}
           <div>
-          <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
-            <Lightbulb className="w-4 h-4 text-yellow-500" />
-            Main Idea
-          </h3>
-          <p className="text-sm text-foreground/80">{lesson.main_idea}</p>
-        </div>
-        
-        {/* Must Know */}
-        {lesson.must_know?.length > 0 && (
-          <div>
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
-              <CheckCircle2 className="w-4 h-4 text-green-500" />
-              You MUST Know This
+              <Lightbulb className="w-4 h-4 text-yellow-500" />
+              Main Idea
             </h3>
-            <ul className="space-y-2">
-              {lesson.must_know.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm text-foreground/80">{lesson.main_idea}</p>
           </div>
-        )}
         
-        {/* Common Mistakes & Fixes */}
-        {lesson.common_mistakes?.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
-              <XCircle className="w-4 h-4 text-red-500" />
-              Common Mistakes & How to Fix
-            </h3>
-            <div className="space-y-2">
-              {lesson.common_mistakes.map((m, idx) => (
-                <div key={idx} className="bg-red-500/5 border border-red-500/20 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <span className="text-red-500 text-xs font-medium">MISTAKE:</span>
-                    <span className="text-sm">{m.mistake}</span>
-                  </div>
-                  <div className="flex items-start gap-2 mt-1.5">
-                    <span className="text-green-500 text-xs font-medium">FIX:</span>
-                    <span className="text-sm text-green-400">{m.fix}</span>
-                  </div>
-                </div>
-              ))}
+          {/* Must Know */}
+          {lesson.must_know?.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                You MUST Know This
+              </h3>
+              <ul className="space-y-2">
+                {lesson.must_know.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
+          )}
+        
+          {/* Common Mistakes & Fixes */}
+          {lesson.common_mistakes?.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                <XCircle className="w-4 h-4 text-red-500" />
+                Common Mistakes & How to Fix
+              </h3>
+              <div className="space-y-2">
+                {lesson.common_mistakes.map((m, idx) => (
+                  <div key={idx} className="bg-red-500/5 border border-red-500/20 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-red-500 text-xs font-medium">MISTAKE:</span>
+                      <span className="text-sm">{m.mistake}</span>
+                    </div>
+                    <div className="flex items-start gap-2 mt-1.5">
+                      <span className="text-green-500 text-xs font-medium">FIX:</span>
+                      <span className="text-sm text-green-400">{m.fix}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        
+          {/* Simple Plan */}
+          <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-4">
+            <h3 className="text-sm font-semibold mb-2">📋 Simple Plan to Follow</h3>
+            <p className="text-base font-medium text-primary">{lesson.simple_plan}</p>
           </div>
-        )}
         
-        {/* Simple Plan */}
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-4">
-          <h3 className="text-sm font-semibold mb-2">📋 Simple Plan to Follow</h3>
-          <p className="text-base font-medium text-primary">{lesson.simple_plan}</p>
-        </div>
-        
-        {/* Homework */}
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-amber-500 mb-2">📝 Your Homework</h3>
-          <p className="text-sm">{lesson.homework}</p>
-        </div>
-        
-        {/* Practice Tip */}
-        {lesson.practice_tip && (
-          <div className="text-sm text-muted-foreground italic">
-            💡 Tip: {lesson.practice_tip}
+          {/* Homework */}
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-amber-500 mb-2">📝 Your Homework</h3>
+            <p className="text-sm">{lesson.homework}</p>
           </div>
-        )}
-      </div>
+        
+          {/* Practice Tip */}
+          {lesson.practice_tip && (
+            <div className="text-sm text-muted-foreground italic">
+              💡 Tip: {lesson.practice_tip}
+            </div>
+          )}
+        </div>
       
       {/* Footer */}
       <div className="p-4 border-t border-border">
