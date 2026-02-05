@@ -550,17 +550,29 @@ RULES:
         
         analysis_data = json.loads(response_text)
         
-        # Calculate estimated accuracy from move quality
-        blunders = analysis_data.get("blunders", 0)
-        mistakes = analysis_data.get("mistakes", 0)
-        inaccuracies = analysis_data.get("inaccuracies", 0)
-        best_moves = analysis_data.get("best_moves", 0)
+        # Use Stockfish stats for accuracy (prefer over GPT estimates)
+        blunders = sf_stats.get("blunders", analysis_data.get("blunders", 0))
+        mistakes = sf_stats.get("mistakes", analysis_data.get("mistakes", 0))
+        inaccuracies = sf_stats.get("inaccuracies", analysis_data.get("inaccuracies", 0))
+        best_moves = sf_stats.get("best_moves", 0) + sf_stats.get("excellent_moves", 0)
+        accuracy = sf_stats.get("accuracy", 0)
+        avg_cp_loss = sf_stats.get("avg_cp_loss", 0)
         
-        penalty = (blunders * 15) + (mistakes * 8) + (inaccuracies * 3)
-        bonus = min(best_moves * 2, 15)
-        estimated_accuracy = max(30, min(100, 100 - penalty + bonus))
+        # Merge Stockfish move data with GPT commentary
+        commentary = analysis_data.get("move_by_move", [])
+        for sf_move in sf_moves:
+            move_num = sf_move.get("move_number")
+            # Find matching GPT commentary
+            for comm in commentary:
+                if comm.get("move_number") == move_num:
+                    comm["centipawn_loss"] = sf_move.get("cp_loss", 0)
+                    comm["evaluation"] = sf_move.get("evaluation", "neutral")
+                    comm["best_move"] = sf_move.get("best_move", "")
+                    comm["eval_before"] = sf_move.get("eval_before", 0)
+                    comm["eval_after"] = sf_move.get("eval_after", 0)
+                    break
         
-        # Create analysis document
+        # Create analysis document with REAL Stockfish accuracy
         analysis_doc = {
             "analysis_id": f"analysis_{game_id}",
             "game_id": game_id,
@@ -570,8 +582,19 @@ RULES:
             "mistakes": mistakes,
             "inaccuracies": inaccuracies,
             "best_moves": best_moves,
-            "accuracy": estimated_accuracy,
-            "move_by_move": analysis_data.get("move_by_move", []),
+            "accuracy": accuracy,  # Real Stockfish accuracy
+            "avg_cp_loss": avg_cp_loss,
+            "stockfish_analysis": {
+                "accuracy": accuracy,
+                "blunders": blunders,
+                "mistakes": mistakes,
+                "inaccuracies": inaccuracies,
+                "best_moves": sf_stats.get("best_moves", 0),
+                "excellent_moves": sf_stats.get("excellent_moves", 0),
+                "avg_cp_loss": avg_cp_loss
+            },
+            "commentary": commentary,  # GPT commentary with Stockfish data merged
+            "move_by_move": commentary,  # Keep for backwards compatibility
             "weaknesses": analysis_data.get("identified_weaknesses", []),
             "identified_weaknesses": analysis_data.get("identified_weaknesses", []),
             "strengths": analysis_data.get("identified_strengths", []),
@@ -595,9 +618,9 @@ RULES:
             db,
             user_id,
             game_id,
-            analysis_data.get("blunders", 0),
-            analysis_data.get("mistakes", 0),
-            analysis_data.get("best_moves", 0),
+            blunders,
+            mistakes,
+            best_moves,
             analysis_data.get("identified_weaknesses", []),
             analysis_data.get("identified_strengths", [])
         )
