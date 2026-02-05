@@ -520,8 +520,87 @@ async def analyze_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
         "problem_openings": problem_openings,
         "total_opening_mistakes": len(all_opening_mistakes),
         "recommendations": recommendations,
-        "coaching_focus": get_coaching_focus(white_repertoire, black_repertoire, all_opening_mistakes)
+        "coaching_focus": get_coaching_focus(white_repertoire, black_repertoire, all_opening_mistakes),
+        "opening_lessons": generate_opening_lessons(problem_openings, white_repertoire, black_repertoire)
     }
+
+
+def get_opening_coaching(opening_name: str, color: str) -> Optional[Dict]:
+    """Get coaching tips for a specific opening"""
+    # Try exact match first
+    if opening_name in OPENING_COACHING:
+        return OPENING_COACHING[opening_name]
+    
+    # Try partial match
+    for name, coaching in OPENING_COACHING.items():
+        if name.lower() in opening_name.lower() or opening_name.lower() in name.lower():
+            return coaching
+    
+    # Generic coaching for unknown openings
+    if color == "white":
+        return {
+            "key_moves": "Focus on controlling the center",
+            "main_idea": "Develop pieces, control center, castle early",
+            "must_know": [
+                "Develop knights before bishops",
+                "Castle before move 10",
+                "Connect your rooks",
+            ],
+            "simple_plan": "Control center → Develop pieces → Castle → Attack!",
+            "practice_tip": "Focus on basic principles rather than memorizing moves.",
+        }
+    else:
+        return {
+            "key_moves": "Respond to White's opening sensibly",
+            "main_idea": "Equalize first, then look for counterplay",
+            "must_know": [
+                "Don't neglect development for pawn grabbing",
+                "Castle to safety",
+                "Look for counterattacking chances",
+            ],
+            "simple_plan": "Develop → Castle → Find counterplay!",
+            "practice_tip": "Focus on solid development before aggressive plans.",
+        }
+
+
+def generate_opening_lessons(problems: List, white_rep: List, black_rep: List) -> List[Dict]:
+    """Generate specific lessons for problem openings - Indian coach style!"""
+    lessons = []
+    
+    for problem in problems[:3]:  # Top 3 problem openings
+        opening_name = problem["name"]
+        color = problem["color"]
+        
+        # Find the repertoire entry
+        rep_list = white_rep if color == "white" else black_rep
+        opening_data = next((o for o in rep_list if o["name"] == opening_name), None)
+        
+        coaching = get_opening_coaching(opening_name, color)
+        
+        lesson = {
+            "opening": opening_name,
+            "color": color,
+            "win_rate": problem.get("win_rate", 0),
+            "games": problem.get("games", 0),
+            "coach_intro": f"Beta, let's fix your {opening_name}. I see you're struggling here - {problem.get('win_rate', 0)}% win rate is not acceptable! But don't worry, I will teach you.",
+            "key_moves": coaching.get("key_moves", ""),
+            "main_idea": coaching.get("main_idea", ""),
+            "must_know": coaching.get("must_know", []),
+            "common_mistakes": coaching.get("common_mistakes", []),
+            "simple_plan": coaching.get("simple_plan", ""),
+            "practice_tip": coaching.get("practice_tip", ""),
+            "homework": f"Play 5 games with {opening_name} this week. Focus ONLY on the simple plan: {coaching.get('simple_plan', 'Control center → Develop → Castle')}",
+        }
+        
+        # Add specific fix based on problem type
+        if problem.get("issue") == "low_win_rate":
+            lesson["diagnosis"] = f"Your win rate of {problem.get('win_rate')}% tells me you don't understand the key ideas. Let me explain simply..."
+        elif problem.get("issue") == "high_mistakes":
+            lesson["diagnosis"] = f"Too many mistakes in the opening! You're playing too fast or missing basic threats. Slow down and follow the plan."
+        
+        lessons.append(lesson)
+    
+    return lessons
 
 
 def get_common_mistakes(mistakes: List[Dict]) -> List[Dict]:
