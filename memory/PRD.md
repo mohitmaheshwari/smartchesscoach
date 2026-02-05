@@ -49,14 +49,22 @@ Build a full-stack AI chess coach application that integrates with Chess.com and
    - Puzzle generation
 
 ### 🔄 In Progress
-- Mobile Game Analysis UX refinements
 - Parent Dashboard
+- Mobile Game Analysis UX refinements
+
+### ✅ Recently Completed (Feb 2025)
+- **Interactive Chessboard in Opening Lessons** - Opening repertoire coaching modal now displays moves on an interactive chessboard with:
+  - Navigation controls (back, forward, play/pause, skip)
+  - Clickable move list to jump to any position
+  - Board flipping for black piece lessons
+  - Auto-play mode to watch moves automatically
+  - 13 openings with hardcoded move sequences
 
 ### 📋 Planned (P1)
 - Puzzle Rush / Challenge Mode
 - Rating Prediction UI (frontend)
 - Time Management UI
-- Opening Repertoire Builder
+- Opening Repertoire Builder (extend existing analysis into full builder)
 - Push notifications for streak reminders
 
 ### 📋 Future (P2)
