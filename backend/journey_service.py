@@ -524,8 +524,12 @@ RULES:
         user_message = UserMessage(text=f"Analyze this game:\n\n{pgn}")
         response = await chat.send_message(user_message)
         
-        # Parse response
-        response_text = response.text.strip()
+        # Parse response - handle both string and object response
+        if hasattr(response, 'text'):
+            response_text = response.text.strip()
+        else:
+            response_text = str(response).strip()
+        
         if response_text.startswith("```"):
             response_text = response_text.split("```")[1]
             if response_text.startswith("json"):
