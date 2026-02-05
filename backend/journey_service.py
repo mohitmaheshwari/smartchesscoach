@@ -425,7 +425,6 @@ async def auto_analyze_game(db, user_id: str, game_doc: Dict) -> Optional[Dict]:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     from player_profile_service import get_or_create_profile, update_profile_after_analysis
     from rag_service import build_rag_context
-    from cqs_service import evaluate_analysis_quality, get_stricter_prompt_constraints
     
     EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
     if not EMERGENT_LLM_KEY:
