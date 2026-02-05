@@ -27,7 +27,8 @@ import {
   Brain,
   Zap,
   Trophy,
-  Flame
+  Flame,
+  BookOpen
 } from "lucide-react";
 import { RatingTrajectory, TimeManagement, FastThinking, PuzzleTrainer } from "@/components/RatingTrajectory";
 import { 
@@ -38,6 +39,7 @@ import {
   XPToast,
   LevelUpModal
 } from "@/components/Gamification";
+import OpeningRepertoire from "@/components/OpeningRepertoire";
 
 const Journey = ({ user }) => {
   const [loading, setLoading] = useState(true);
@@ -47,6 +49,7 @@ const Journey = ({ user }) => {
   const [username, setUsername] = useState("");
   const [linking, setLinking] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
   
   // Gamification state
   const [progress, setProgress] = useState(null);
