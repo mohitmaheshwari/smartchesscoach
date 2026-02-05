@@ -2398,6 +2398,19 @@ async def get_xp_rewards():
     """Get XP reward values (public endpoint)"""
     return {"rewards": XP_REWARDS}
 
+# ==================== OPENING REPERTOIRE ROUTES ====================
+
+from opening_service import analyze_opening_repertoire
+
+@api_router.get("/openings/repertoire")
+async def get_opening_repertoire(user: User = Depends(get_current_user)):
+    """
+    Analyze user's opening repertoire from all their games.
+    Returns detailed stats, problem areas, and personalized coaching.
+    """
+    result = await analyze_opening_repertoire(db, user.user_id)
+    return result
+
 # ==================== NOTIFICATIONS ROUTES ====================
 
 @api_router.get("/notifications")
