@@ -1809,6 +1809,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 if reflection:
                     break
     
+    logger.info(f"Final reflection check: reflection={reflection is not None}, fen={reflection.get('fen', 'N/A')[:30] if reflection else 'N/A'}")
+    
     return {
         "has_data": True,
         "reflection": reflection,
