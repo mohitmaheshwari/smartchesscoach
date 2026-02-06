@@ -357,6 +357,7 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                     "move_number": m.move_number,
                     "move": m.move_san,
                     "move_uci": m.move_uci,
+                    "fen_before": m.fen_before,
                     "evaluation": m.classification,
                     "cp_loss": m.cp_loss,
                     "eval_before": m.eval_before,
