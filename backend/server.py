@@ -1709,88 +1709,85 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 "blunders": {"$gt": 0}
             },
             {"_id": 0, "game_id": 1, "commentary": 1, "blunders": 1, "user_color": 1}
-        ).sort("created_at", -1).limit(5).to_list(5)
+        ).sort("created_at", -1).limit(10).to_list(10)
         
-        # Find a suitable mistake for reconstruction
+        # Collect all valid mistakes for random selection
+        all_mistakes = []
         for analysis in recent_with_mistakes:
             commentary = analysis.get("commentary", [])
             if not commentary:
                 continue
-                
-            # Find the first blunder or significant mistake
             for move_data in commentary:
                 eval_type = str(move_data.get("evaluation", "")).lower()
-                if eval_type not in ["blunder", "mistake"]:
-                    continue
-                
-                move_number = move_data.get("move_number", 1)
-                user_move = move_data.get("move")
-                best_move = move_data.get("best_move") or move_data.get("consider")
-                
-                if not user_move or not best_move:
-                    continue
-                
-                # Get the game PGN to extract FEN
-                game = await db.games.find_one(
-                    {"game_id": analysis.get("game_id")},
-                    {"_id": 0, "pgn": 1, "user_color": 1}
-                )
-                
-                if not game or not game.get("pgn"):
-                    continue
-                
-                # Parse PGN and get position before the mistake
+                if eval_type in ["blunder", "mistake"]:
+                    user_move = move_data.get("move")
+                    best_move = move_data.get("best_move") or move_data.get("consider")
+                    if user_move and best_move and user_move != best_move:
+                        all_mistakes.append({
+                            "analysis": analysis,
+                            "move_data": move_data
+                        })
+        
+        # Randomly select one mistake
+        if all_mistakes:
+            random.shuffle(all_mistakes)
+            selected = all_mistakes[0]
+            analysis = selected["analysis"]
+            move_data = selected["move_data"]
+            
+            move_number = move_data.get("move_number", 1)
+            user_move = move_data.get("move")
+            best_move = move_data.get("best_move") or move_data.get("consider")
+            
+            # Get the game PGN
+            game = await db.games.find_one(
+                {"game_id": analysis.get("game_id")},
+                {"_id": 0, "pgn": 1, "user_color": 1}
+            )
+            
+            if game and game.get("pgn"):
                 try:
                     pgn_io = io.StringIO(game["pgn"])
                     chess_game = chess.pgn.read_game(pgn_io)
-                    if not chess_game:
-                        continue
-                    
-                    board = chess_game.board()
-                    current_move = 0
-                    target_half_move = (move_number - 1) * 2
-                    
-                    user_color = game.get("user_color") or analysis.get("user_color", "white")
-                    if user_color == "black":
-                        target_half_move += 1
-                    
-                    for node in chess_game.mainline():
-                        if current_move >= target_half_move:
-                            break
-                        board.push(node.move)
-                        current_move += 1
-                    
-                    fen = board.fen()
-                    player_to_move = "white" if board.turn else "black"
-                    
-                    # Get refutation using Stockfish
-                    refutation = get_refutation(fen, user_move)
-                    if not refutation:
-                        refutation = get_simple_refutation_fallback(fen, user_move, best_move)
-                    
-                    # Generate idea chain explanation using LLM
-                    idea_chain = None
-                    if refutation:
-                        idea_chain = await generate_idea_chain_explanation(
-                            fen, user_move, best_move, refutation, db
-                        )
-                    
-                    # Build candidates
-                    candidates = []
-                    if best_move:
-                        candidates.append({"move": best_move, "is_best": True, "is_user_move": False})
-                    if user_move and user_move != best_move:
-                        candidates.append({"move": user_move, "is_best": False, "is_user_move": True})
-                    
-                    # Add third option from legal moves
-                    if len(candidates) < 3:
-                        for lm in list(board.legal_moves)[:10]:
-                            san = board.san(lm)
-                            if san not in [c["move"] for c in candidates]:
-                                candidates.append({"move": san, "is_best": False, "is_user_move": False})
+                    if chess_game:
+                        board = chess_game.board()
+                        current_move = 0
+                        target_half_move = (move_number - 1) * 2
+                        
+                        user_color = game.get("user_color") or analysis.get("user_color", "white")
+                        if user_color == "black":
+                            target_half_move += 1
+                        
+                        for node in chess_game.mainline():
+                            if current_move >= target_half_move:
                                 break
-                    
-                    if len(candidates) >= 2:
+                            board.push(node.move)
+                            current_move += 1
+                        
+                        fen = board.fen()
+                        player_to_move = "white" if board.turn else "black"
+                        
+                        # Get refutation for wrong answer
+                        refutation = get_refutation(fen, user_move)
+                        if not refutation:
+                            refutation = get_simple_refutation_fallback(fen, user_move, best_move)
+                        
+                        # Generate idea chain for wrong answer
+                        idea_chain = None
+                        if refutation:
+                            idea_chain = await generate_idea_chain_explanation(
+                                fen, user_move, best_move, refutation, db
+                            )
+                        
+                        # Generate "why" options for correct answer verification
+                        # One correct reason, two plausible but wrong reasons
+                        why_options = await generate_why_options(fen, best_move, user_move, refutation, db)
+                        
+                        # Only TWO candidates: user's move and best move
+                        candidates = [
+                            {"move": best_move, "is_best": True, "is_user_move": False},
+                            {"move": user_move, "is_best": False, "is_user_move": True}
+                        ]
                         random.shuffle(candidates)
                         
                         pdr = {
@@ -1801,19 +1798,13 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                             "best_move": best_move,
                             "game_id": analysis.get("game_id"),
                             "move_number": move_number,
-                            # Refutation data for animation
                             "refutation": refutation,
-                            # Idea chain explanation
-                            "idea_chain": idea_chain
+                            "idea_chain": idea_chain,
+                            "why_options": why_options
                         }
-                        break
                         
                 except Exception as e:
                     logger.warning(f"PDR extraction error: {e}")
-                    continue
-            
-            if pdr:
-                break
                 
     except Exception as e:
         logger.error(f"Error building PDR: {e}")
