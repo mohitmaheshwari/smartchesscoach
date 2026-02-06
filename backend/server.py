@@ -1699,6 +1699,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         import chess
         import chess.pgn
         import io
+        import random
+        from pdr_service import get_refutation, generate_idea_chain_explanation, get_simple_refutation_fallback
         
         # Get recent game analyses with mistakes
         recent_with_mistakes = await db.game_analyses.find(
@@ -1725,7 +1727,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 user_move = move_data.get("move")
                 best_move = move_data.get("best_move") or move_data.get("consider")
                 
-                if not user_move:
+                if not user_move or not best_move:
                     continue
                 
                 # Get the game PGN to extract FEN
@@ -1746,14 +1748,12 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                     
                     board = chess_game.board()
                     current_move = 0
-                    target_half_move = (move_number - 1) * 2  # Position before this move
+                    target_half_move = (move_number - 1) * 2
                     
-                    # Determine user color from game or analysis
                     user_color = game.get("user_color") or analysis.get("user_color", "white")
                     if user_color == "black":
                         target_half_move += 1
                     
-                    # Navigate to position before the mistake
                     for node in chess_game.mainline():
                         if current_move >= target_half_move:
                             break
@@ -1763,51 +1763,35 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                     fen = board.fen()
                     player_to_move = "white" if board.turn else "black"
                     
-                    # Generate candidate moves
-                    # Candidate 1: Best move (from analysis)
-                    # Candidate 2: User's actual move
-                    # Candidate 3: A plausible alternative (if available)
+                    # Get refutation using Stockfish
+                    refutation = get_refutation(fen, user_move)
+                    if not refutation:
+                        refutation = get_simple_refutation_fallback(fen, user_move, best_move)
                     
+                    # Generate idea chain explanation using LLM
+                    idea_chain = None
+                    if refutation:
+                        idea_chain = await generate_idea_chain_explanation(
+                            fen, user_move, best_move, refutation, db
+                        )
+                    
+                    # Build candidates
                     candidates = []
-                    
-                    # Add best move
                     if best_move:
-                        candidates.append({
-                            "move": best_move,
-                            "is_best": True,
-                            "is_user_move": False
-                        })
-                    
-                    # Add user's actual move (if different from best)
+                        candidates.append({"move": best_move, "is_best": True, "is_user_move": False})
                     if user_move and user_move != best_move:
-                        candidates.append({
-                            "move": user_move,
-                            "is_best": False,
-                            "is_user_move": True
-                        })
+                        candidates.append({"move": user_move, "is_best": False, "is_user_move": True})
                     
-                    # Try to add a third plausible move from legal moves
+                    # Add third option from legal moves
                     if len(candidates) < 3:
-                        legal_moves = list(board.legal_moves)[:10]
-                        for lm in legal_moves:
+                        for lm in list(board.legal_moves)[:10]:
                             san = board.san(lm)
                             if san not in [c["move"] for c in candidates]:
-                                # Add a reasonable-looking move
-                                candidates.append({
-                                    "move": san,
-                                    "is_best": False,
-                                    "is_user_move": False
-                                })
+                                candidates.append({"move": san, "is_best": False, "is_user_move": False})
                                 break
                     
                     if len(candidates) >= 2:
-                        # Shuffle candidates so best isn't always first
-                        import random
                         random.shuffle(candidates)
-                        
-                        # Build habit context
-                        habit_name = correction.get("title", "tactical oversight") if correction else "tactical oversight"
-                        habit_context = correction.get("context", "") if correction else ""
                         
                         pdr = {
                             "fen": fen,
@@ -1817,10 +1801,10 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                             "best_move": best_move,
                             "game_id": analysis.get("game_id"),
                             "move_number": move_number,
-                            "habit_name": habit_name,
-                            "habit_context": habit_context,
-                            "feedback_correct": f"Good. This is the correction we are training. In your original game, you chose {user_move}. {habit_context} Continue this discipline.",
-                            "feedback_incorrect": f"You chose the same pattern again. This is the habit we are correcting. Before this move, you did not fully consider your opponent's reply. This small oversight affects your rating stability. Remember: What is my opponent's best reply?"
+                            # Refutation data for animation
+                            "refutation": refutation,
+                            # Idea chain explanation
+                            "idea_chain": idea_chain
                         }
                         break
                         
