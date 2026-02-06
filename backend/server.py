@@ -1551,8 +1551,10 @@ async def trigger_game_sync(background_tasks: BackgroundTasks, user: User = Depe
 @api_router.get("/coach/today")
 async def get_coach_today(user: User = Depends(get_current_user)):
     """
-    Get today's coaching focus - returns ONE active habit.
-    This is the discipline-first surface. Minimal, directive.
+    Get today's coaching focus - structured as:
+    1. Correct This (ONE dominant habit)
+    2. Keep Doing This (ONE strength/improvement)
+    3. Remember This Rule (carry-forward principle)
     """
     # Get player profile first - this is the source of truth
     profile = await db.player_profiles.find_one(
@@ -1570,66 +1572,126 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         
         if not has_account:
             return {
-                "has_active_habit": False,
-                "habit": None,
+                "has_data": False,
                 "message": "Link your chess account to get started"
             }
         return {
-            "has_active_habit": False,
-            "habit": None,
+            "has_data": False,
             "message": "Analyzing your games..."
         }
     
-    # Get top weakness as the active habit
+    # Get recent analyses for context
+    recent_analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "blunders": 1, "mistakes": 1, "accuracy": 1, "created_at": 1, 
+         "identified_weaknesses": 1, "strengths": 1, "weaknesses": 1}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    # Get top weakness as the correction
     top_weaknesses = profile.get("top_weaknesses", []) if profile else []
     
-    if not top_weaknesses:
-        if analysis_count == 0:
-            return {
-                "has_active_habit": False,
-                "habit": None,
-                "message": "Play some games and I'll identify what to work on"
-            }
-        return {
-            "has_active_habit": False,
-            "habit": None,
-            "message": "Great work! No major issues detected. Keep playing."
+    # ===== SECTION 1: CORRECT THIS =====
+    correction = None
+    if top_weaknesses:
+        top = top_weaknesses[0]
+        subcategory = top.get("subcategory", "").replace("_", " ").title()
+        occurrences = top.get("occurrence_count", 0)
+        
+        # Calculate recent frequency
+        recent_count = 0
+        total_recent = min(5, len(recent_analyses))
+        for analysis in recent_analyses[:5]:
+            weaknesses = analysis.get("identified_weaknesses", []) or analysis.get("weaknesses", [])
+            if isinstance(weaknesses, list):
+                for w in weaknesses:
+                    if isinstance(w, dict):
+                        if top.get("subcategory", "").lower() in str(w.get("subcategory", "")).lower():
+                            recent_count += 1
+                            break
+                    elif isinstance(w, str) and top.get("subcategory", "").lower() in w.lower():
+                        recent_count += 1
+                        break
+        
+        # Build context message
+        if recent_count > 0 and total_recent > 0:
+            context = f"This appeared in {recent_count} of your last {total_recent} games."
+        else:
+            context = f"This has occurred {occurrences} times in your recent games."
+        
+        correction = {
+            "title": subcategory,
+            "context": context,
+            "severity": "This remains your biggest rating leak." if occurrences > 5 else "Focus here to see improvement."
         }
     
-    # Return the top weakness as the ONE active habit
-    top = top_weaknesses[0]
+    # ===== SECTION 2: KEEP DOING THIS (Reinforcement) =====
+    reinforcement = None
     
-    # Generate a clear rule for this habit
+    # Check for strengths in profile
+    strengths = profile.get("strengths", []) if profile else []
+    improving_areas = profile.get("improving_areas", []) if profile else []
+    
+    # Look for genuine improvement or strength
+    if improving_areas:
+        area = improving_areas[0]
+        reinforcement = {
+            "title": area.get("name", "Positional Play").replace("_", " ").title(),
+            "context": "Recent games show improvement here.",
+            "trend": "Earlier this was unstable — now improving."
+        }
+    elif strengths:
+        strength = strengths[0] if isinstance(strengths[0], dict) else {"name": strengths[0]}
+        reinforcement = {
+            "title": strength.get("name", "Solid Play").replace("_", " ").title(),
+            "context": "You've maintained consistency in this area.",
+            "trend": "Keep this discipline."
+        }
+    else:
+        # Check recent analyses for any positive signals
+        recent_blunders = [a.get("blunders", 0) for a in recent_analyses[:3]]
+        if recent_blunders and sum(recent_blunders) == 0:
+            reinforcement = {
+                "title": "Clean Calculation",
+                "context": "Your last few games had no major blunders.",
+                "trend": "This focus is paying off."
+            }
+        elif len(recent_analyses) >= 2:
+            # Default neutral reinforcement
+            reinforcement = {
+                "title": "Steady Progress",
+                "context": "You maintained discipline this week.",
+                "trend": "Consistency builds long-term strength."
+            }
+    
+    # ===== SECTION 3: REMEMBER THIS RULE =====
     habit_rules = {
-        "premature_queen_moves": "Develop knights and bishops before moving your queen.",
-        "one_move_blunder": "Before every move, ask: Can my opponent capture something?",
-        "one_move_blunders": "Before every move, ask: Can my opponent capture something?",
-        "time_trouble": "Use at least 10 seconds on each move in the middlegame.",
-        "missed_tactics": "On every opponent move, check for loose pieces first.",
-        "weak_endgame": "In king and pawn endings, activate your king immediately.",
-        "opening_mistakes": "Focus on controlling the center with pawns and developing pieces.",
-        "piece_activity": "If a piece hasn't moved, find a good square for it.",
-        "king_safety": "Castle early. Don't delay unless you have a specific reason.",
-        "exposing_own_king": "Before moving, check if it weakens your king's safety.",
-        "pawn_structure": "Avoid creating doubled pawns unless you get compensation.",
-        "calculation_errors": "Calculate forcing moves (checks, captures) first.",
-        "tactical": "Before each move, look for tactics: checks, captures, threats.",
+        "one_move_blunders": "Before every move, ask:\n\"What can my opponent capture if I play this?\"",
+        "one_move_blunder": "Before every move, ask:\n\"What can my opponent capture if I play this?\"",
+        "premature_queen_moves": "Develop knights and bishops before your queen.\nEarly queen moves invite attacks.",
+        "time_trouble": "Use at least 10 seconds on each move.\nSpeed without thought is wasted calculation.",
+        "missed_tactics": "On every opponent move, check for loose pieces first.\nTactics hide in plain sight.",
+        "weak_endgame": "In king and pawn endings, activate your king immediately.\nThe king is a fighting piece in endgames.",
+        "opening_mistakes": "Control the center with pawns.\nDevelop pieces toward the center.",
+        "piece_activity": "If a piece hasn't moved, find a square for it.\nPassive pieces lose games.",
+        "king_safety": "Castle early unless you have a specific reason not to.\nAn exposed king invites disaster.",
+        "exposing_own_king": "Before moving, check if it weakens your king's protection.\nKing safety is non-negotiable.",
+        "pawn_structure": "Avoid doubled pawns unless you get clear compensation.\nPawn structure shapes the entire game.",
+        "calculation_errors": "Calculate forcing moves first: checks, captures, threats.\nForcing moves narrow the possibilities.",
     }
     
-    subcategory = top.get("subcategory", "").lower().replace(" ", "_")
-    rule = habit_rules.get(subcategory, f"Focus on avoiding {top.get('subcategory', 'this mistake')} in your games.")
+    rule = None
+    if top_weaknesses:
+        subcategory_key = top_weaknesses[0].get("subcategory", "").lower().replace(" ", "_")
+        rule = habit_rules.get(subcategory_key)
     
-    # Clean up the habit name
-    habit_name = top.get("subcategory", "Unknown").replace("_", " ").title()
+    if not rule:
+        rule = "Before every move, pause and ask:\n\"Is this move safe? What is my opponent's threat?\""
     
     return {
-        "has_active_habit": True,
-        "habit": {
-            "name": habit_name,
-            "category": top.get("category", ""),
-            "rule": rule,
-            "occurrences": top.get("occurrences", 0)
-        }
+        "has_data": True,
+        "correction": correction,
+        "reinforcement": reinforcement,
+        "rule": rule
     }
 
 
