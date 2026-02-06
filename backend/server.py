@@ -1688,8 +1688,93 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     if not rule:
         rule = "Before every move, pause and ask:\n\"Is this move safe? What is my opponent's threat?\""
     
+    # ===== SECTION 0: REFLECTION MOMENT =====
+    # Find the most critical thinking error from recent games
+    reflection = None
+    
+    # Get recent game analyses with critical moments
+    recent_with_moments = await db.game_analyses.find(
+        {
+            "user_id": user.user_id,
+            "$or": [
+                {"critical_moments": {"$exists": True, "$ne": []}},
+                {"blunders": {"$gt": 0}},
+                {"key_positions": {"$exists": True, "$ne": []}}
+            ]
+        },
+        {"_id": 0, "game_id": 1, "critical_moments": 1, "key_positions": 1, 
+         "blunders": 1, "accuracy": 1, "pgn": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(5).to_list(5)
+    
+    for analysis in recent_with_moments:
+        # Try to extract a critical moment
+        critical_moments = analysis.get("critical_moments", [])
+        key_positions = analysis.get("key_positions", [])
+        
+        moment = None
+        if critical_moments:
+            # Find the worst moment (highest eval swing)
+            for cm in critical_moments:
+                if cm.get("fen") and cm.get("type") in ["blunder", "mistake", "missed_tactic"]:
+                    moment = cm
+                    break
+        
+        if not moment and key_positions:
+            for kp in key_positions:
+                if kp.get("fen") and kp.get("type") in ["critical", "turning_point", "blunder"]:
+                    moment = kp
+                    break
+        
+        if moment:
+            # Build the reflection question based on the moment type
+            moment_type = moment.get("type", "mistake")
+            
+            questions = {
+                "blunder": "Pause here. Before this move — what was your opponent threatening?",
+                "missed_tactic": "Pause here. What forcing move did you miss in this position?",
+                "mistake": "Pause here. What did you overlook before making this move?",
+                "critical": "Pause here. This was a critical moment. What should you consider?",
+                "turning_point": "Pause here. The game changed here. What did you miss?"
+            }
+            
+            reflection = {
+                "fen": moment.get("fen"),
+                "question": questions.get(moment_type, "Pause here. What should you have considered?"),
+                "move_played": moment.get("move_played", moment.get("move")),
+                "threat_missed": moment.get("threat", moment.get("best_move")),
+                "explanation": moment.get("explanation", moment.get("comment", "This move allowed your opponent to gain an advantage.")),
+                "eval_before": moment.get("eval_before"),
+                "eval_after": moment.get("eval_after"),
+                "game_id": analysis.get("game_id")
+            }
+            break
+    
+    # If no critical moment found from stored data, try to generate from PGN
+    if not reflection and recent_analyses:
+        # Get a game with blunders
+        for analysis in recent_analyses:
+            if analysis.get("blunders", 0) > 0:
+                # Fetch the full game for PGN
+                game = await db.games.find_one(
+                    {"user_id": user.user_id},
+                    {"_id": 0, "pgn": 1, "game_id": 1}
+                )
+                if game and game.get("pgn"):
+                    # For now, create a placeholder that prompts reflection
+                    reflection = {
+                        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                        "question": "In your last game, you had a critical moment. Can you recall where you went wrong?",
+                        "move_played": None,
+                        "threat_missed": None,
+                        "explanation": "Review your recent game to identify the turning point.",
+                        "game_id": game.get("game_id"),
+                        "is_placeholder": True
+                    }
+                break
+    
     return {
         "has_data": True,
+        "reflection": reflection,
         "correction": correction,
         "reinforcement": reinforcement,
         "rule": rule
