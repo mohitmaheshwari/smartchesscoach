@@ -2177,7 +2177,8 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
     # Fetch rating data
     rating_data = {"current": None, "change": 0, "peak": None, "habit_correlation": None}
     
-    chess_com_user = user_doc.get("chess_com_username")
+    # Check both field naming conventions
+    chess_com_user = user_doc.get("chesscom_username") or user_doc.get("chess_com_username")
     lichess_user = user_doc.get("lichess_username")
     
     if chess_com_user or lichess_user:
