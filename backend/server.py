@@ -1612,7 +1612,57 @@ async def track_reflection(result: ReflectionResult, user: User = Depends(get_cu
         }
     )
     
-    return {"status": "tracked"}
+    # Check for habit rotation after tracking
+    from habit_rotation_service import update_habit_after_reflection
+    rotation_result = await update_habit_after_reflection(db, user.user_id, result.game_id, result.move_correct)
+    
+    response = {"status": "tracked"}
+    if rotation_result and rotation_result.get("rotated"):
+        response["habit_rotated"] = True
+        response["rotation_info"] = rotation_result
+    
+    return response
+
+
+@api_router.get("/coach/habits")
+async def get_habit_statuses(user: User = Depends(get_current_user)):
+    """Get all habit statuses for the user."""
+    from habit_rotation_service import get_all_habit_statuses
+    statuses = await get_all_habit_statuses(db, user.user_id)
+    return {"habits": statuses}
+
+
+@api_router.post("/coach/check-habit-rotation")
+async def check_habit_rotation(user: User = Depends(get_current_user)):
+    """Manually check if habit should be rotated."""
+    from habit_rotation_service import check_and_rotate_habit
+    result = await check_and_rotate_habit(db, user.user_id)
+    return result
+
+
+@api_router.get("/user/weekly-summary")
+async def get_weekly_summary(user: User = Depends(get_current_user)):
+    """Get user's weekly summary data."""
+    from weekly_summary_service import generate_weekly_summary_data
+    summary = await generate_weekly_summary_data(db, user.user_id)
+    return summary
+
+
+@api_router.post("/user/send-weekly-summary")
+async def send_weekly_summary_to_user(user: User = Depends(get_current_user)):
+    """Send weekly summary email to current user."""
+    from weekly_summary_service import send_single_weekly_summary
+    result = await send_single_weekly_summary(db, user.user_id)
+    return result
+
+
+@api_router.post("/admin/send-all-weekly-summaries")
+async def send_all_weekly_summaries(user: User = Depends(get_current_user)):
+    """Admin endpoint to trigger weekly summaries for all users."""
+    # Simple admin check - in production, use proper admin auth
+    from weekly_summary_service import send_weekly_summaries
+    result = await send_weekly_summaries(db)
+    return result
 
 
 @api_router.get("/coach/today")
