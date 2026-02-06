@@ -630,6 +630,48 @@ const Coach = ({ user }) => {
             <p className="text-muted-foreground">{coachData?.message || "Analyzing your games..."}</p>
           </motion.div>
         )}
+
+        {/* Go Play Reminder Modal */}
+        <Dialog open={showGoPlayModal} onOpenChange={setShowGoPlayModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-center">
+                <Target className="w-10 h-10 mx-auto mb-3 text-purple-500" />
+                Before You Play
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {/* Show the rule/plan */}
+              {coachData?.rule && (
+                <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                  <p className="text-xs text-purple-400 uppercase tracking-wider mb-2">Remember This</p>
+                  <p className="text-sm font-medium">{coachData.rule}</p>
+                </div>
+              )}
+              
+              {coachData?.next_game_plan && (
+                <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                  <p className="text-xs text-blue-400 uppercase tracking-wider mb-2">Your Plan</p>
+                  <p className="text-sm">{coachData.next_game_plan}</p>
+                </div>
+              )}
+              
+              <p className="text-center text-sm text-muted-foreground">
+                I'll be watching. Come back when you're done.
+              </p>
+              
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowGoPlayModal(false)}>
+                  Cancel
+                </Button>
+                <Button className="flex-1" onClick={confirmGoPlay}>
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open {accounts.chess_com ? "Chess.com" : "Lichess"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
