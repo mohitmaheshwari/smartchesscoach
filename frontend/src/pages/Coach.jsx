@@ -624,7 +624,7 @@ const Coach = ({ user }) => {
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
                 className="p-4 bg-muted/20 rounded-lg border border-border/40">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs text-muted-foreground uppercase tracking-wider">Last Game</span>
                     <span className="text-xs text-muted-foreground">vs {coachData.last_game.opponent}</span>
                     <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
@@ -633,6 +633,7 @@ const Coach = ({ user }) => {
                       "bg-blue-500/20 text-blue-400"
                     }`}>
                       {coachData.last_game.result}
+                      {coachData.last_game.termination && ` (${coachData.last_game.termination})`}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
