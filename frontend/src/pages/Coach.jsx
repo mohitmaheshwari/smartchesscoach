@@ -543,7 +543,7 @@ const Coach = ({ user }) => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             
             {/* PDR - Reflection Moment */}
-            {coachData.pdr && <DecisionReconstruction pdr={coachData.pdr} />}
+            {coachData.pdr && <DecisionReconstruction pdr={coachData.pdr} onResult={handlePDRResult} />}
             
             {/* Coach's Note */}
             {coachData.coach_note && (
@@ -586,7 +586,7 @@ const Coach = ({ user }) => {
               className="text-center pt-4">
               
               {sessionState === "idle" && (
-                <Button size="lg" className="h-14 px-10 text-lg font-semibold" onClick={handleGoPlay}>
+                <Button size="lg" className="h-14 px-10 text-lg font-semibold" onClick={handleGoPlayClick}>
                   <Play className="w-5 h-5 mr-2" />
                   Go Play. I'll watch this game.
                 </Button>
