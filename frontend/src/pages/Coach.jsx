@@ -669,12 +669,22 @@ const Coach = ({ user }) => {
                   </div>
                 )}
                 
-                {coachData.last_game.url && (
-                  <a href={coachData.last_game.url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-muted-foreground hover:text-foreground mt-3 inline-flex items-center gap-1">
-                    View full game <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
+                <div className="flex items-center gap-3 mt-3">
+                  {coachData.last_game.game_id && (
+                    <button 
+                      onClick={() => navigate(`/game/${coachData.last_game.game_id}`)}
+                      className="text-xs text-purple-400 hover:text-purple-300 inline-flex items-center gap-1"
+                    >
+                      View full analysis <ChevronRight className="w-3 h-3" />
+                    </button>
+                  )}
+                  {coachData.last_game.external_url && (
+                    <a href={coachData.last_game.external_url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                      Chess.com <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
               </motion.div>
             )}
             
