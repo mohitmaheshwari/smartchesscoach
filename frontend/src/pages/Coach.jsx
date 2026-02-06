@@ -373,6 +373,7 @@ const Coach = ({ user }) => {
   const [linking, setLinking] = useState(false);
   const [sessionState, setSessionState] = useState("idle"); // idle, playing, analyzing
   const [sessionResult, setSessionResult] = useState(null);
+  const [showGoPlayModal, setShowGoPlayModal] = useState(false);
 
   useEffect(() => { fetchCoachData(); }, []);
 
@@ -397,6 +398,20 @@ const Coach = ({ user }) => {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Track PDR reflection result
+  const handlePDRResult = async (result) => {
+    try {
+      await fetch(`${API}/coach/track-reflection`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(result)
+      });
+    } catch (e) {
+      console.error("Failed to track reflection:", e);
     }
   };
 
