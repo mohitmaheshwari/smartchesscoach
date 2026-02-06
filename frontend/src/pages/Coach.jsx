@@ -272,7 +272,7 @@ const DecisionReconstruction = ({ pdr, onResult }) => {
                     <p className="font-semibold text-emerald-500 mb-2">Excellent.</p>
                     <p className="text-sm text-muted-foreground mb-3">You understood the position.</p>
                     <p className="text-sm">In your game, you played <span className="font-mono text-red-400">{pdr.user_original_move}</span> instead.</p>
-                    <p className="text-sm font-medium mt-4">This is the discipline we're building.</p>
+                    <p className="text-sm font-medium mt-4">This is the discipline we&apos;re building.</p>
                   </div>
                 )}
                 
