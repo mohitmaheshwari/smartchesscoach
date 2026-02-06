@@ -4,6 +4,8 @@ import "@/App.css";
 
 // Pages
 import Landing from "@/pages/Landing";
+import Coach from "@/pages/Coach";
+import Progress from "@/pages/Progress";
 import Dashboard from "@/pages/Dashboard";
 import ImportGames from "@/pages/ImportGames";
 import GameAnalysis from "@/pages/GameAnalysis";
