@@ -1769,31 +1769,64 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         import random
         from pdr_service import get_refutation, generate_idea_chain_explanation, get_simple_refutation_fallback, generate_why_options
         
+        # Get dominant habit for preference
+        dominant_habit = None
+        if top_weaknesses:
+            dominant_habit = top_weaknesses[0].get("subcategory", "").lower()
+        
         # Get recent game analyses with mistakes
         recent_with_mistakes = await db.game_analyses.find(
             {
                 "user_id": user.user_id,
                 "blunders": {"$gt": 0}
             },
-            {"_id": 0, "game_id": 1, "commentary": 1, "blunders": 1, "user_color": 1}
+            {"_id": 0, "game_id": 1, "commentary": 1, "blunders": 1, "user_color": 1, 
+             "identified_weaknesses": 1, "weaknesses": 1}
         ).sort("created_at", -1).limit(10).to_list(10)
         
-        # Collect all valid mistakes for random selection
-        all_mistakes = []
+        # Collect all valid mistakes, categorized by habit alignment
+        habit_aligned_mistakes = []
+        other_mistakes = []
+        
         for analysis in recent_with_mistakes:
             commentary = analysis.get("commentary", [])
             if not commentary:
                 continue
+            
+            # Check if this analysis has the dominant habit
+            weaknesses = analysis.get("identified_weaknesses", []) or analysis.get("weaknesses", [])
+            has_dominant_habit = False
+            if dominant_habit and weaknesses:
+                for w in weaknesses:
+                    if isinstance(w, dict):
+                        if dominant_habit in str(w.get("subcategory", "")).lower():
+                            has_dominant_habit = True
+                            break
+                    elif isinstance(w, str) and dominant_habit in w.lower():
+                        has_dominant_habit = True
+                        break
+            
             for move_data in commentary:
                 eval_type = str(move_data.get("evaluation", "")).lower()
                 if eval_type in ["blunder", "mistake"]:
                     user_move = move_data.get("move")
                     best_move = move_data.get("best_move") or move_data.get("consider")
                     if user_move and best_move and user_move != best_move:
-                        all_mistakes.append({
+                        mistake_entry = {
                             "analysis": analysis,
                             "move_data": move_data
-                        })
+                        }
+                        if has_dominant_habit:
+                            habit_aligned_mistakes.append(mistake_entry)
+                        else:
+                            other_mistakes.append(mistake_entry)
+        
+        # Prefer habit-aligned mistakes (70% chance if available)
+        all_mistakes = []
+        if habit_aligned_mistakes and random.random() < 0.7:
+            all_mistakes = habit_aligned_mistakes
+        else:
+            all_mistakes = habit_aligned_mistakes + other_mistakes
         
         # Randomly select one mistake
         if all_mistakes:
