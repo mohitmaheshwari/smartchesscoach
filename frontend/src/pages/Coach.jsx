@@ -588,7 +588,7 @@ const Coach = ({ user }) => {
               {sessionState === "idle" && (
                 <Button size="lg" className="h-14 px-10 text-lg font-semibold" onClick={handleGoPlayClick}>
                   <Play className="w-5 h-5 mr-2" />
-                  Go Play. I'll watch this game.
+                  Go Play. I&apos;ll watch this game.
                 </Button>
               )}
               
