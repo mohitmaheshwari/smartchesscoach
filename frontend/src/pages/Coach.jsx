@@ -619,6 +619,41 @@ const Coach = ({ user }) => {
               </motion.div>
             )}
             
+            {/* Last Game Summary */}
+            {coachData.last_game && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                className="p-4 bg-muted/20 rounded-lg border border-border/40">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Last Game</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                      coachData.last_game.result === "Won" ? "bg-emerald-500/20 text-emerald-400" :
+                      coachData.last_game.result === "Lost" ? "bg-red-500/20 text-red-400" :
+                      "bg-blue-500/20 text-blue-400"
+                    }`}>
+                      {coachData.last_game.result}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{coachData.last_game.stats?.blunders || 0} blunders</span>
+                    <span>•</span>
+                    <span>{coachData.last_game.stats?.mistakes || 0} mistakes</span>
+                  </div>
+                </div>
+                <p className={`text-sm ${
+                  coachData.last_game.repeated_habit ? "text-amber-400" : "text-foreground"
+                }`}>
+                  {coachData.last_game.comment}
+                </p>
+                {coachData.last_game.url && (
+                  <a href={coachData.last_game.url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground hover:text-foreground mt-2 inline-flex items-center gap-1">
+                    View full game <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </motion.div>
+            )}
+            
             {/* Light Stats */}
             {coachData.light_stats && coachData.light_stats.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
