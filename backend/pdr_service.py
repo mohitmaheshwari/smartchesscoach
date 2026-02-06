@@ -261,3 +261,133 @@ def get_simple_refutation_fallback(fen: str, user_move: str, best_move: str) -> 
     except Exception as e:
         logger.error(f"Fallback refutation error: {e}")
         return None
+
+
+async def generate_why_options(fen: str, best_move: str, user_move: str, refutation: Dict, db) -> Dict:
+    """
+    Generate "why is this better" options to verify user understanding.
+    Returns one correct reason and two plausible but wrong reasons.
+    """
+    try:
+        from emergentintegrations.llm.chat import chat, UserMessage
+        
+        refutation_move = refutation.get("refutation_move", "") if refutation else ""
+        
+        prompt = f"""You are a chess coach creating a multiple choice question.
+
+Position (FEN): {fen}
+Correct move: {best_move}
+Wrong move the student played: {user_move}
+If they play {user_move}, opponent can reply: {refutation_move}
+
+Create 3 short reasons (max 12 words each) for why {best_move} is better:
+- ONE correct reason (the real tactical/strategic reason)
+- TWO plausible but wrong reasons (sound reasonable but aren't the main point)
+
+Format exactly like this:
+CORRECT: [the actual reason this move is good]
+WRONG1: [sounds reasonable but not the key reason]
+WRONG2: [sounds reasonable but not the key reason]
+
+Use simple language. No chess jargon. Think like an Indian chess coach explaining to a student."""
+
+        response = await chat(
+            api_key=os.environ.get("EMERGENT_API_KEY", ""),
+            messages=[UserMessage(content=prompt)],
+            model="gpt-4o-mini"
+        )
+        
+        text = response.content if hasattr(response, 'content') else str(response)
+        
+        correct_reason = ""
+        wrong_reasons = []
+        
+        for line in text.strip().split("\n"):
+            line = line.strip()
+            if line.startswith("CORRECT:"):
+                correct_reason = line.replace("CORRECT:", "").strip()
+            elif line.startswith("WRONG1:"):
+                wrong_reasons.append(line.replace("WRONG1:", "").strip())
+            elif line.startswith("WRONG2:"):
+                wrong_reasons.append(line.replace("WRONG2:", "").strip())
+        
+        if not correct_reason:
+            correct_reason = f"It avoids the opponent's threat and keeps the position solid."
+        if len(wrong_reasons) < 2:
+            wrong_reasons = [
+                "It develops a piece to a better square.",
+                "It controls more central squares."
+            ]
+        
+        # Shuffle options for presentation
+        import random
+        options = [
+            {"text": correct_reason, "is_correct": True},
+            {"text": wrong_reasons[0], "is_correct": False},
+            {"text": wrong_reasons[1], "is_correct": False}
+        ]
+        random.shuffle(options)
+        
+        # Also get the continuation line after best move for animation
+        best_line = get_best_continuation(fen, best_move)
+        
+        return {
+            "options": options,
+            "correct_explanation": correct_reason,
+            "best_line": best_line  # For animating on board when correct
+        }
+        
+    except Exception as e:
+        logger.error(f"Why options generation error: {e}")
+        return {
+            "options": [
+                {"text": "It avoids the opponent's immediate threat.", "is_correct": True},
+                {"text": "It activates a passive piece.", "is_correct": False},
+                {"text": "It prepares a pawn break.", "is_correct": False}
+            ],
+            "correct_explanation": "It avoids the opponent's immediate threat.",
+            "best_line": None
+        }
+
+
+def get_best_continuation(fen: str, best_move: str, depth: int = 3) -> Optional[List[str]]:
+    """
+    Get the best continuation line after the best move (for animation).
+    Returns list of moves in SAN notation.
+    """
+    if not STOCKFISH_AVAILABLE:
+        return None
+    
+    try:
+        stockfish = Stockfish(path=STOCKFISH_PATH, depth=12)
+        board = chess.Board(fen)
+        
+        # Make the best move
+        try:
+            move = board.parse_san(best_move)
+        except:
+            try:
+                move = chess.Move.from_uci(best_move)
+            except:
+                return None
+        
+        board.push(move)
+        line = [best_move]
+        
+        # Get next few moves
+        for _ in range(depth):
+            stockfish.set_fen_position(board.fen())
+            next_move = stockfish.get_best_move()
+            if not next_move:
+                break
+            
+            uci_move = chess.Move.from_uci(next_move)
+            san = board.san(uci_move)
+            line.append(san)
+            board.push(uci_move)
+        
+        return line if len(line) > 1 else None
+        
+    except Exception as e:
+        logger.error(f"Best continuation error: {e}")
+        return None
