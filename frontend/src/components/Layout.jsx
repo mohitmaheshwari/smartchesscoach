@@ -71,10 +71,10 @@ const Layout = ({ children, user }) => {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Journey', href: '/journey', icon: TrendingUp },
+    { name: 'Coach', href: '/coach', icon: Target },
+    { name: 'Progress', href: '/progress', icon: TrendingUp },
+    { name: 'Games', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Import', href: '/import', icon: Import },
-    { name: 'Challenge', href: '/challenge', icon: Swords },
   ];
 
   const isActive = (href) => location.pathname === href;
