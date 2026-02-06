@@ -1866,11 +1866,105 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         logger.error(f"Error building PDR: {e}")
         pdr = None
     
+    # ===== COACH'S NOTE (2 lines max, emotional framing) =====
+    coach_note = None
+    if top_weaknesses:
+        habit_name = top_weaknesses[0].get("subcategory", "").replace("_", " ").lower()
+        occurrences = top_weaknesses[0].get("occurrence_count", 0)
+        
+        if occurrences > 10:
+            coach_note = {
+                "line1": "Your positions are generally fine.",
+                "line2": f"Games are slipping due to {habit_name}. One fix, big improvement."
+            }
+        elif occurrences > 5:
+            coach_note = {
+                "line1": "You're playing solid chess.",
+                "line2": f"Focus on eliminating {habit_name} and you'll see results."
+            }
+        else:
+            coach_note = {
+                "line1": "Good progress this week.",
+                "line2": "Keep the discipline. Small improvements compound."
+            }
+    else:
+        coach_note = {
+            "line1": "Let's build a strong foundation.",
+            "line2": "Play mindfully. I'll help identify what to work on."
+        }
+    
+    # ===== LIGHT STATS (2-3 stats with trends) =====
+    light_stats = []
+    
+    # Blunders per game trend
+    recent_10 = recent_analyses[:10] if recent_analyses else []
+    older_10 = recent_analyses[10:20] if len(recent_analyses) > 10 else []
+    
+    if recent_10:
+        recent_blunders = sum(a.get("blunders", 0) for a in recent_10) / len(recent_10)
+        if older_10:
+            older_blunders = sum(a.get("blunders", 0) for a in older_10) / len(older_10)
+            trend = "down" if recent_blunders < older_blunders else ("up" if recent_blunders > older_blunders else "stable")
+            light_stats.append({
+                "label": "Blunders / game",
+                "value": f"{older_blunders:.1f} → {recent_blunders:.1f}",
+                "trend": trend
+            })
+        else:
+            light_stats.append({
+                "label": "Blunders / game",
+                "value": f"{recent_blunders:.1f}",
+                "trend": "stable"
+            })
+    
+    # Rating trend (if available)
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    chess_com_user = user_doc.get("chess_com_username") if user_doc else None
+    if chess_com_user:
+        try:
+            ratings = await fetch_platform_ratings(chess_com_user, None)
+            if ratings and "rapid" in ratings:
+                current = ratings["rapid"].get("current", 0)
+                if current:
+                    light_stats.append({
+                        "label": "Current rating",
+                        "value": str(current),
+                        "trend": "stable"
+                    })
+        except:
+            pass
+    
+    # ===== NEXT GAME PLAN (1-2 lines) =====
+    next_game_plan = None
+    if top_weaknesses:
+        habit = top_weaknesses[0].get("subcategory", "").lower()
+        
+        plans = {
+            "one_move_blunders": "Before each move, pause and ask: What can my opponent do if I play this?",
+            "premature_queen_moves": "First 10 moves: develop knights and bishops before the queen.",
+            "time_trouble": "After move 15, use at least 10 seconds per move. No rushing.",
+            "missed_tactics": "Each opponent move, check: Are any of my pieces loose?",
+            "weak_endgame": "When queens come off, activate your king immediately.",
+            "opening_mistakes": "Focus on controlling the center. e4/d4 pawns, then develop pieces.",
+            "exposing_own_king": "Before making a move, check if it weakens your king's safety.",
+        }
+        
+        next_game_plan = plans.get(habit, "Play slowly. Check opponent's threats before each move.")
+    else:
+        next_game_plan = "Focus on one thing: pause before each move and ask what your opponent wants."
+    
+    # ===== SESSION STATUS =====
+    from coach_session_service import get_session_status
+    session_status = await get_session_status(db, user.user_id)
+    
     return {
         "has_data": True,
         "pdr": pdr,
-        "correction": correction,
-        "reinforcement": reinforcement,
+        "coach_note": coach_note,
+        "light_stats": light_stats,
+        "next_game_plan": next_game_plan,
+        "session_status": session_status,
+        # Keep rule for carry-forward
         "rule": rule
     }
 
