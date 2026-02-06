@@ -66,10 +66,10 @@ const DecisionReconstruction = ({ pdr }) => {
       setExplanationStep(1);
     }, 300);
     
-    // Step 2: Show opponent's threat with arrow
+    // Step 2: Show opponent's threat with arrow (object format for react-chessboard)
     setTimeout(() => {
       setCustomArrows([
-        [ref.from_square, ref.threat_square, "rgba(255, 80, 80, 0.8)"]
+        { from: ref.from_square, to: ref.threat_square, color: "rgba(255, 80, 80, 0.9)" }
       ]);
       setHighlightSquares({
         [ref.threat_square]: { 
@@ -102,7 +102,7 @@ const DecisionReconstruction = ({ pdr }) => {
           const move = game.move(pdr.best_move);
           if (move) {
             setCustomArrows([
-              [move.from, move.to, "rgba(80, 200, 80, 0.8)"]
+              { from: move.from, to: move.to, color: "rgba(80, 200, 80, 0.9)" }
             ]);
             setHighlightSquares({
               [move.to]: { backgroundColor: "rgba(80, 200, 80, 0.5)" }
