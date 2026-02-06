@@ -1575,6 +1575,46 @@ async def get_coach_session_status(user: User = Depends(get_current_user)):
     return await get_session_status(db, user.user_id)
 
 
+class ReflectionResult(BaseModel):
+    """Track PDR reflection results"""
+    game_id: str
+    move_number: int
+    move_correct: bool
+    reason_correct: Optional[bool] = None
+    user_move: str
+    best_move: str
+
+
+@api_router.post("/coach/track-reflection")
+async def track_reflection(result: ReflectionResult, user: User = Depends(get_current_user)):
+    """Track PDR reflection results for stats"""
+    reflection_doc = {
+        "user_id": user.user_id,
+        "game_id": result.game_id,
+        "move_number": result.move_number,
+        "move_correct": result.move_correct,
+        "reason_correct": result.reason_correct,
+        "user_move": result.user_move,
+        "best_move": result.best_move,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.reflection_results.insert_one(reflection_doc)
+    
+    # Update user's reflection stats
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {
+            "$inc": {
+                "total_reflections": 1,
+                "correct_reflections": 1 if result.move_correct else 0
+            }
+        }
+    )
+    
+    return {"status": "tracked"}
+
+
 @api_router.get("/coach/today")
 async def get_coach_today(user: User = Depends(get_current_user)):
     """
