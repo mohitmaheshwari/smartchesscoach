@@ -172,17 +172,20 @@ const DecisionReconstruction = ({ pdr, onResult }) => {
     setSelectedMove(move);
     if (move.is_best) {
       setPhase("verify");
+      // Don't track yet - wait for reason selection
     } else {
       setPhase("result");
+      trackResult(false, null); // Wrong move
       startWrongAnswerAnimation();
     }
-  }, [startWrongAnswerAnimation]);
+  }, [startWrongAnswerAnimation, trackResult]);
   
   const handleReasonSelect = useCallback((option) => {
     setSelectedReason(option);
     setPhase("result");
+    trackResult(true, option.is_correct); // Correct move, track if reason was right
     if (option.is_correct) animateBestLine();
-  }, [animateBestLine]);
+  }, [animateBestLine, trackResult]);
   
   if (!pdr || !pdr.fen || !pdr.candidates || pdr.candidates.length < 2) return null;
   
