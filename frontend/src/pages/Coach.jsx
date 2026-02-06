@@ -404,7 +404,7 @@ const Coach = ({ user }) => {
   // Track PDR reflection result
   const handlePDRResult = async (result) => {
     try {
-      await fetch(`${API}/coach/track-reflection`, {
+      const res = await fetch(`${API}/coach/track-reflection`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
