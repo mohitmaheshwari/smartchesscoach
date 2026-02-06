@@ -29,7 +29,7 @@ const DecisionReconstruction = ({ pdr }) => {
   const [phase, setPhase] = useState("choose"); // choose -> verify -> result
   const [selectedMove, setSelectedMove] = useState(null);
   const [selectedReason, setSelectedReason] = useState(null);
-  const [currentFen, setCurrentFen] = useState(pdr?.fen);
+  const [currentFen, setCurrentFen] = useState(pdr?.fen || "start");
   const [customArrows, setCustomArrows] = useState([]);
   const [highlightSquares, setHighlightSquares] = useState({});
   const [explanationStep, setExplanationStep] = useState(0);
@@ -38,40 +38,19 @@ const DecisionReconstruction = ({ pdr }) => {
   
   // Reset state when pdr changes
   useEffect(() => {
-    setCurrentFen(pdr?.fen);
-    setPhase("choose");
-    setSelectedMove(null);
-    setSelectedReason(null);
-    setCustomArrows([]);
-    setHighlightSquares({});
-    setExplanationStep(0);
+    if (pdr?.fen) {
+      setCurrentFen(pdr.fen);
+      setPhase("choose");
+      setSelectedMove(null);
+      setSelectedReason(null);
+      setCustomArrows([]);
+      setHighlightSquares({});
+      setExplanationStep(0);
+    }
   }, [pdr?.fen]);
   
-  if (!pdr || !pdr.fen || !pdr.candidates || pdr.candidates.length < 2) return null;
-  
-  const handleMoveSelect = (move) => {
-    setSelectedMove(move);
-    
-    if (move.is_best) {
-      setPhase("verify");
-    } else {
-      setPhase("result");
-      // Start visual explanation for wrong answer
-      startWrongAnswerAnimation();
-    }
-  };
-  
-  const handleReasonSelect = (option) => {
-    setSelectedReason(option);
-    setPhase("result");
-    
-    if (option.is_correct) {
-      animateBestLine();
-    }
-  };
-  
   const startWrongAnswerAnimation = useCallback(() => {
-    if (!pdr.refutation) {
+    if (!pdr?.refutation) {
       setExplanationStep(5);
       return;
     }
@@ -115,20 +94,24 @@ const DecisionReconstruction = ({ pdr }) => {
     
     // Step 4: Show better move
     setTimeout(() => {
-      setCurrentFen(pdr.fen); // Reset to original position
-      // Show arrow for best move
-      try {
-        const game = new Chess(pdr.fen);
-        const move = game.move(pdr.best_move);
-        if (move) {
-          setCustomArrows([
-            [move.from, move.to, "rgba(80, 200, 80, 0.8)"]
-          ]);
-          setHighlightSquares({
-            [move.to]: { backgroundColor: "rgba(80, 200, 80, 0.5)" }
-          });
+      if (pdr?.fen) {
+        setCurrentFen(pdr.fen); // Reset to original position
+        // Show arrow for best move
+        try {
+          const game = new Chess(pdr.fen);
+          const move = game.move(pdr.best_move);
+          if (move) {
+            setCustomArrows([
+              [move.from, move.to, "rgba(80, 200, 80, 0.8)"]
+            ]);
+            setHighlightSquares({
+              [move.to]: { backgroundColor: "rgba(80, 200, 80, 0.5)" }
+            });
+          }
+        } catch (e) {
+          console.error(e);
         }
-      } catch (e) {}
+      }
       setExplanationStep(4);
     }, 4500);
     
@@ -141,8 +124,8 @@ const DecisionReconstruction = ({ pdr }) => {
   }, [pdr]);
   
   const animateBestLine = useCallback(() => {
-    const bestLine = pdr.why_options?.best_line;
-    if (!bestLine || bestLine.length < 1) return;
+    const bestLine = pdr?.why_options?.best_line;
+    if (!bestLine || bestLine.length < 1 || !pdr?.fen) return;
     
     setIsAnimating(true);
     
@@ -180,13 +163,38 @@ const DecisionReconstruction = ({ pdr }) => {
     }
   }, [pdr]);
   
-  const replayExplanation = () => {
-    setCurrentFen(pdr.fen);
-    setCustomArrows([]);
-    setHighlightSquares({});
-    setExplanationStep(0);
-    setTimeout(() => startWrongAnswerAnimation(), 300);
-  };
+  const replayExplanation = useCallback(() => {
+    if (pdr?.fen) {
+      setCurrentFen(pdr.fen);
+      setCustomArrows([]);
+      setHighlightSquares({});
+      setExplanationStep(0);
+      setTimeout(() => startWrongAnswerAnimation(), 300);
+    }
+  }, [pdr, startWrongAnswerAnimation]);
+  
+  const handleMoveSelect = useCallback((move) => {
+    setSelectedMove(move);
+    
+    if (move.is_best) {
+      setPhase("verify");
+    } else {
+      setPhase("result");
+      startWrongAnswerAnimation();
+    }
+  }, [startWrongAnswerAnimation]);
+  
+  const handleReasonSelect = useCallback((option) => {
+    setSelectedReason(option);
+    setPhase("result");
+    
+    if (option.is_correct) {
+      animateBestLine();
+    }
+  }, [animateBestLine]);
+  
+  // Early return after all hooks
+  if (!pdr || !pdr.fen || !pdr.candidates || pdr.candidates.length < 2) return null;
   
   const isCorrectMove = selectedMove?.is_best;
   const isCorrectReason = selectedReason?.is_correct;
