@@ -201,6 +201,7 @@ const DecisionReconstruction = ({ pdr }) => {
   const ideaChain = pdr.idea_chain;
   const refutation = pdr.refutation;
   const whyOptions = pdr.why_options;
+  const gameContext = pdr.game_context;
   
   return (
     <motion.section
@@ -208,11 +209,21 @@ const DecisionReconstruction = ({ pdr }) => {
       animate={{ opacity: 1, y: 0 }}
       className="mb-8"
     >
-      <div className="flex items-center gap-2 mb-3">
-        <Brain className="w-4 h-4 text-purple-500" />
-        <span className="text-xs font-medium uppercase tracking-wider text-purple-500">
-          Decision Moment
-        </span>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Brain className="w-4 h-4 text-purple-500" />
+          <span className="text-xs font-medium uppercase tracking-wider text-purple-500">
+            Decision Moment
+          </span>
+        </div>
+        {/* Game Context Badge */}
+        {gameContext && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>vs {gameContext.opponent || "Opponent"}</span>
+            <span className="text-muted-foreground/50">•</span>
+            <span className="capitalize">{gameContext.platform || "Chess.com"}</span>
+          </div>
+        )}
       </div>
       
       <Card className="border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-purple-600/10 overflow-hidden">
