@@ -1552,6 +1552,7 @@ async def trigger_game_sync(background_tasks: BackgroundTasks, user: User = Depe
 async def get_coach_today(user: User = Depends(get_current_user)):
     """
     Get today's coaching focus - structured as:
+    0. Reflection Moment (critical position from recent game)
     1. Correct This (ONE dominant habit)
     2. Keep Doing This (ONE strength/improvement)
     3. Remember This Rule (carry-forward principle)
