@@ -2280,12 +2280,33 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                     }
                     break
             
+            # Get termination reason
+            termination = most_recent_game.get("termination", "")
+            
+            # Generate human-readable termination text
+            termination_text = ""
+            if termination == "timeout":
+                termination_text = "lost on time" if lost else "opponent timed out"
+            elif termination == "resigned":
+                termination_text = "resigned" if lost else "opponent resigned"
+            elif termination == "checkmated":
+                termination_text = "checkmated" if lost else "checkmate"
+            elif termination == "won":
+                termination_text = ""
+            elif termination == "stalemate":
+                termination_text = "stalemate"
+            
             # Generate coach comment based on actual game outcome
             if blunders == 0:
                 if won:
                     comment = "Clean win! No blunders. This is the discipline we want."
                 elif lost:
-                    comment = "You lost but played clean — no blunders. Sometimes chess is like that."
+                    if termination == "timeout":
+                        comment = "You lost on time but played clean — no blunders. Time management is the issue here."
+                    elif termination == "resigned":
+                        comment = "You resigned but had no blunders. Was there a tactical shot you missed?"
+                    else:
+                        comment = "You lost but played clean — no blunders. Sometimes chess is like that."
                 else:
                     comment = "Solid draw, no blunders. Good focus."
             elif blunders == 1:
@@ -2304,6 +2325,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
             last_game = {
                 "opponent": opponent,
                 "result": "Won" if won else ("Lost" if lost else "Draw"),
+                "termination": termination_text,
                 "time_control": most_recent_game.get("time_control"),
                 "stats": {
                     "blunders": blunders,
