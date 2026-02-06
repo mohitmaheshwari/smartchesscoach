@@ -53,15 +53,25 @@ Metrics support the habit narrative, not replace it.
    - Auto-analysis (15 on first sync, 3/day ongoing)
    - Critical moment extraction for reflection training
 
-3. **Coach Mode** (Feb 2025)
+3. **Coach Mode - Personalized Decision Reconstruction (PDR)** (Feb 2025)
    - **Reflection Moment**: Interactive chessboard showing critical position from recent game
-     - Question before reveal: "What was your opponent threatening?"
-     - "I see it" / "Show me" buttons
-     - Reveals move played, better move, explanation, and rating impact
-   - **Correct This**: ONE dominant habit to fix with recent context
-   - **Keep Doing This**: ONE strength/improvement for reinforcement
-   - **Remember**: Carry-forward rule for the active habit
-   - "Go Play. I'll review." CTA
+     - Two move choices: User's original (wrong) move vs correct move
+     - Random puzzle selection from recent mistakes on each page load
+     - Board animations with arrows and highlights
+   - **Socratic Method (Correct Move)**: 
+     - "Good choice! But tell me — why is this better?"
+     - Three reason options (1 correct, 2 plausible but wrong)
+     - Shows real reason if wrong answer selected
+   - **Idea Chain Explanation (Wrong Move)**:
+     - Animated refutation on board
+     - 5-step explanation: Your Idea → Why It Felt Right → Opponent's Counter → Why It Works → Better Approach
+     - Rule summary at the end
+     - "Replay on board" button
+   - **Coach's Note**: 2-line emotional framing from mentor
+   - **Light Stats**: 2-3 key metrics with trends (blunders/game, rating trend)
+   - **Next Game Plan**: 1-2 line mental instruction
+   - **Game Context**: Opponent name, platform, link to full analysis
+   - **"Go Play. I'll watch this game."** CTA
 
 4. **Progress Dashboard**
    - Rating tracking with weekly change
