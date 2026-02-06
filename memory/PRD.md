@@ -47,18 +47,23 @@ Metrics support the habit narrative, not replace it.
 
 2. **Game Import & Analysis**
    - Chess.com and Lichess integration
-   - Stockfish engine for accurate move evaluation
+   - Stockfish engine for accurate move evaluation (with FEN extraction)
    - GPT-powered coaching commentary
    - Background auto-sync every 6 hours
    - Auto-analysis (15 on first sync, 3/day ongoing)
+   - Critical moment extraction for reflection training
 
-3. **Coach Mode** (NEW - Feb 2025)
-   - One active habit at a time
-   - Clear rule for each habit
+3. **Coach Mode** (Feb 2025)
+   - **Reflection Moment**: Interactive chessboard showing critical position from recent game
+     - Question before reveal: "What was your opponent threatening?"
+     - "I see it" / "Show me" buttons
+     - Reveals move played, better move, explanation, and rating impact
+   - **Correct This**: ONE dominant habit to fix with recent context
+   - **Keep Doing This**: ONE strength/improvement for reinforcement
+   - **Remember**: Carry-forward rule for the active habit
    - "Go Play. I'll review." CTA
-   - Minimal, discipline-first design
 
-4. **Progress Dashboard** (NEW - Feb 2025)
+4. **Progress Dashboard**
    - Rating tracking with weekly change
    - Accuracy trend (last 10 vs previous 10)
    - Blunder trend
