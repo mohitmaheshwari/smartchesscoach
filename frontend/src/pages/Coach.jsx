@@ -410,6 +410,17 @@ const Coach = ({ user }) => {
         credentials: "include",
         body: JSON.stringify(result)
       });
+      
+      if (res.ok) {
+        const data = await res.json();
+        // Check if habit was rotated
+        if (data.habit_rotated && data.rotation_info) {
+          toast.success(
+            `Great progress! You've mastered "${data.rotation_info.previous_habit}". Moving on to new focus area.`,
+            { duration: 5000 }
+          );
+        }
+      }
     } catch (e) {
       console.error("Failed to track reflection:", e);
     }
