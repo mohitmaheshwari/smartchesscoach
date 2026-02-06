@@ -157,10 +157,88 @@ async def end_play_session(db, user_id: str) -> Dict:
     
     return {
         "status": "analyzing",
-        "message": "Your game is being reviewed.",
+        "message": "Okay, let me take a look at this one...",
         "game_id": game_id,
         "opponent": recent_game.get("opponent"),
         "result": recent_game.get("result")
+    }
+
+
+def _build_game_feedback(analysis: Dict, dominant_habit: str, game: Dict) -> Dict:
+    """Build real feedback based on game analysis"""
+    if not analysis:
+        return {
+            "type": "neutral",
+            "message": "I've looked at your game.",
+            "detail": None
+        }
+    
+    blunders = analysis.get("blunders", 0)
+    mistakes = analysis.get("mistakes", 0)
+    best_moves = analysis.get("best_moves", 0)
+    result = game.get("result", "")
+    opponent = game.get("opponent", "your opponent")
+    
+    # Check if the dominant habit appeared in this game
+    repeated_habit = False
+    weaknesses = analysis.get("identified_weaknesses", [])
+    if dominant_habit and weaknesses:
+        for w in weaknesses:
+            w_name = w.get("subcategory", str(w)) if isinstance(w, dict) else str(w)
+            if dominant_habit.lower() in w_name.lower():
+                repeated_habit = True
+                break
+    
+    # Determine win/loss
+    won = "1-0" in result or "won" in result.lower()
+    lost = "0-1" in result or "lost" in result.lower()
+    draw = "1/2" in result or "draw" in result.lower()
+    
+    # Build feedback message
+    if blunders == 0 and mistakes <= 1:
+        # Great game!
+        if won:
+            message = f"Nice win against {opponent}! Clean game with no blunders."
+            feedback_type = "excellent"
+        elif draw:
+            message = f"Solid draw against {opponent}. No blunders — well played."
+            feedback_type = "good"
+        else:
+            message = f"No blunders this time. The loss wasn't about big mistakes."
+            feedback_type = "okay"
+        detail = "Your focus is paying off."
+        
+    elif blunders == 1:
+        if repeated_habit:
+            message = f"One blunder — and it was the same pattern: {dominant_habit.replace('_', ' ')}."
+            feedback_type = "repeated"
+            detail = "This is exactly what we're working on. Let's review it."
+        else:
+            message = f"One blunder slipped through, but it's not your usual pattern."
+            feedback_type = "okay"
+            detail = "Progress on your main habit. New puzzle incoming."
+            
+    else:
+        # Multiple blunders
+        if repeated_habit:
+            message = f"{blunders} blunders, including your usual pattern: {dominant_habit.replace('_', ' ')}."
+            feedback_type = "needs_work"
+            detail = "Let's slow down and work through this together."
+        else:
+            message = f"Tough game — {blunders} blunders. But not your dominant habit."
+            feedback_type = "okay"
+            detail = "Bad day at the office. Tomorrow we go again."
+    
+    return {
+        "type": feedback_type,
+        "message": message,
+        "detail": detail,
+        "stats": {
+            "blunders": blunders,
+            "mistakes": mistakes,
+            "best_moves": best_moves,
+            "repeated_habit": repeated_habit
+        }
     }
 
 
