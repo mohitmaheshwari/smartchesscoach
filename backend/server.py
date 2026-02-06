@@ -642,13 +642,27 @@ async def get_games(user: User = Depends(get_current_user)):
 
 @api_router.get("/games/{game_id}")
 async def get_game(game_id: str, user: User = Depends(get_current_user)):
-    """Get a specific game"""
+    """Get a specific game with player names extracted from PGN"""
+    import re
+    
     game = await db.games.find_one(
         {"game_id": game_id, "user_id": user.user_id},
         {"_id": 0}
     )
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Extract player names from PGN if not already present
+    pgn = game.get("pgn", "")
+    if pgn:
+        white_match = re.search(r'\[White "([^"]+)"\]', pgn)
+        black_match = re.search(r'\[Black "([^"]+)"\]', pgn)
+        game["white_player"] = white_match.group(1) if white_match else "White"
+        game["black_player"] = black_match.group(1) if black_match else "Black"
+    else:
+        game["white_player"] = "White"
+        game["black_player"] = "Black"
+    
     return game
 
 # ==================== AI ANALYSIS ROUTES ====================
