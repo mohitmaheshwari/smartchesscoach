@@ -1698,8 +1698,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     try:
         print(f"[COACH] Looking for reflection for user {user.user_id}", file=sys.stderr)
     
-    # Get recent game analyses with critical moments
-    recent_with_moments = await db.game_analyses.find(
+        # Get recent game analyses with critical moments
+        recent_with_moments = await db.game_analyses.find(
         {
             "user_id": user.user_id,
             "$or": [
