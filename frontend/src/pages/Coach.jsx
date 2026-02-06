@@ -117,7 +117,7 @@ const DecisionReconstruction = ({ pdr, onResult }) => {
             setCustomArrows([{ from: move.from, to: move.to, color: "rgba(80, 200, 80, 0.9)" }]);
             setHighlightSquares({ [move.to]: { backgroundColor: "rgba(80, 200, 80, 0.5)" } });
           }
-        } catch (e) {}
+        } catch (e) { /* ignore animation errors */ }
       }
       setExplanationStep(4);
     }, 4500);
