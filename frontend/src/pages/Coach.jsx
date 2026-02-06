@@ -143,7 +143,7 @@ const DecisionReconstruction = ({ pdr }) => {
           const move = game.move(bestLine[idx]);
           if (move) {
             setCurrentFen(game.fen());
-            setCustomArrows([[move.from, move.to, "rgba(80, 200, 80, 0.8)"]]);
+            setCustomArrows([{ from: move.from, to: move.to, color: "rgba(80, 200, 80, 0.9)" }]);
             setHighlightSquares({
               [move.from]: { backgroundColor: "rgba(80, 200, 80, 0.3)" },
               [move.to]: { backgroundColor: "rgba(80, 200, 80, 0.5)" }
