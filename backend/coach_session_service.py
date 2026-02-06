@@ -195,18 +195,28 @@ def _build_game_feedback(analysis: Dict, dominant_habit: str, game: Dict) -> Dic
     draw = "1/2" in result or "draw" in result.lower()
     
     # Build feedback message
-    if blunders == 0 and mistakes <= 1:
-        # Great game!
-        if won:
-            message = f"Nice win against {opponent}! Clean game with no blunders."
-            feedback_type = "excellent"
-        elif draw:
-            message = f"Solid draw against {opponent}. No blunders — well played."
-            feedback_type = "good"
+    if blunders == 0:
+        # No blunders - great!
+        if mistakes <= 1:
+            if won:
+                message = f"Nice win! Clean game with no blunders."
+                feedback_type = "excellent"
+            elif draw:
+                message = f"Solid draw. No blunders — well played."
+                feedback_type = "good"
+            else:
+                message = f"No blunders this time. The loss wasn't about big mistakes."
+                feedback_type = "okay"
+            detail = "Your focus is paying off."
         else:
-            message = f"No blunders this time. The loss wasn't about big mistakes."
-            feedback_type = "okay"
-        detail = "Your focus is paying off."
+            # No blunders but multiple mistakes
+            if won:
+                message = f"You won! A few inaccuracies, but no blunders. Good discipline."
+                feedback_type = "good"
+            else:
+                message = f"No blunders — that's progress. A few mistakes to learn from."
+                feedback_type = "okay"
+            detail = "The big errors are under control. Now we refine."
         
     elif blunders == 1:
         if repeated_habit:
