@@ -1691,127 +1691,153 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     if not rule:
         rule = "Before every move, pause and ask:\n\"Is this move safe? What is my opponent's threat?\""
     
-    # ===== SECTION 0: REFLECTION MOMENT =====
-    # Find the most critical thinking error from recent games
-    reflection = None
+    # ===== SECTION 0: PERSONALIZED DECISION RECONSTRUCTION (PDR) =====
+    # Transform passive analysis into active cognitive training
+    pdr = None
     
     try:
-        # Get recent game analyses with critical moments
-        recent_with_moments = await db.game_analyses.find(
+        import chess
+        import chess.pgn
+        import io
+        
+        # Get recent game analyses with mistakes
+        recent_with_mistakes = await db.game_analyses.find(
             {
                 "user_id": user.user_id,
-                "$or": [
-                    {"critical_moments": {"$exists": True, "$ne": []}},
-                    {"blunders": {"$gt": 0}},
-                    {"key_positions": {"$exists": True, "$ne": []}}
-                ]
+                "blunders": {"$gt": 0}
             },
-            {"_id": 0, "game_id": 1, "critical_moments": 1, "key_positions": 1, 
-             "blunders": 1, "accuracy": 1, "pgn": 1, "created_at": 1, "commentary": 1}
+            {"_id": 0, "game_id": 1, "commentary": 1, "blunders": 1, "user_color": 1}
         ).sort("created_at", -1).limit(5).to_list(5)
         
-        # First check for stored critical_moments
-        for analysis in recent_with_moments:
-            critical_moments = analysis.get("critical_moments", [])
-            key_positions = analysis.get("key_positions", [])
-            
-            moment = None
-            if critical_moments:
-                for cm in critical_moments:
-                    if cm.get("fen") and cm.get("type") in ["blunder", "mistake", "missed_tactic"]:
-                        moment = cm
-                        break
-            
-            if not moment and key_positions:
-                for kp in key_positions:
-                    if kp.get("fen") and kp.get("type") in ["critical", "turning_point", "blunder"]:
-                        moment = kp
-                        break
-            
-            if moment:
-                moment_type = moment.get("type", "mistake")
-                questions = {
-                    "blunder": "Pause here. Before this move — what was your opponent threatening?",
-                    "missed_tactic": "Pause here. What forcing move did you miss in this position?",
-                    "mistake": "Pause here. What did you overlook before making this move?",
-                    "critical": "Pause here. This was a critical moment. What should you consider?",
-                    "turning_point": "Pause here. The game changed here. What did you miss?"
-                }
+        # Find a suitable mistake for reconstruction
+        for analysis in recent_with_mistakes:
+            commentary = analysis.get("commentary", [])
+            if not commentary:
+                continue
                 
-                reflection = {
-                    "fen": moment.get("fen"),
-                    "question": questions.get(moment_type, "Pause here. What should you have considered?"),
-                    "move_played": moment.get("move_played", moment.get("move")),
-                    "best_move": moment.get("threat", moment.get("best_move")),
-                    "explanation": moment.get("explanation", moment.get("comment", "This move allowed your opponent to gain an advantage.")),
-                    "eval_before": moment.get("eval_before"),
-                    "eval_after": moment.get("eval_after"),
-                    "cp_loss": moment.get("cp_loss", 0),
-                    "game_id": analysis.get("game_id")
-                }
-                break
-        
-        # If no critical moment found, try to extract from commentary + PGN
-        if not reflection:
-            for analysis in recent_with_moments:
-                commentary = analysis.get("commentary", [])
-                blunders = analysis.get("blunders", 0)
+            # Find the first blunder or significant mistake
+            for move_data in commentary:
+                eval_type = str(move_data.get("evaluation", "")).lower()
+                if eval_type not in ["blunder", "mistake"]:
+                    continue
                 
-                if blunders > 0 and commentary:
-                    for move in commentary:
-                        eval_type = str(move.get("evaluation", "")).lower()
-                        if eval_type in ["blunder", "mistake"]:
-                            # Get FEN from PGN
-                            game = await db.games.find_one(
-                                {"game_id": analysis.get("game_id")},
-                                {"_id": 0, "pgn": 1}
-                            )
-                            
-                            fen = None
-                            if game and game.get("pgn"):
-                                try:
-                                    import chess
-                                    import chess.pgn
-                                    import io
-                                    pgn_io = io.StringIO(game["pgn"])
-                                    chess_game = chess.pgn.read_game(pgn_io)
-                                    if chess_game:
-                                        board = chess_game.board()
-                                        move_num = move.get("move_number", 1)
-                                        current = 0
-                                        for node in chess_game.mainline():
-                                            current += 1
-                                            if current >= (move_num * 2 - 1):
-                                                fen = board.fen()
-                                                break
-                                            board.push(node.move)
-                                except Exception as e:
-                                    logger.warning(f"Failed to extract FEN: {e}")
-                            
-                            if fen:
-                                reflection = {
-                                    "fen": fen,
-                                    "question": "Pause here. Before this move — what was your opponent threatening?" if eval_type == "blunder" else "Pause here. What did you overlook before making this move?",
-                                    "move_played": move.get("move"),
-                                    "best_move": move.get("best_move") or move.get("consider"),
-                                    "explanation": move.get("lesson") or move.get("thinking_pattern") or "This move allowed your opponent to gain an advantage.",
-                                    "eval_before": move.get("eval_before", 0),
-                                    "eval_after": move.get("eval_after", 0),
-                                    "cp_loss": move.get("centipawn_loss", move.get("cp_loss", 0)),
-                                    "game_id": analysis.get("game_id")
-                                }
+                move_number = move_data.get("move_number", 1)
+                user_move = move_data.get("move")
+                best_move = move_data.get("best_move") or move_data.get("consider")
+                
+                if not user_move:
+                    continue
+                
+                # Get the game PGN to extract FEN
+                game = await db.games.find_one(
+                    {"game_id": analysis.get("game_id")},
+                    {"_id": 0, "pgn": 1, "user_color": 1}
+                )
+                
+                if not game or not game.get("pgn"):
+                    continue
+                
+                # Parse PGN and get position before the mistake
+                try:
+                    pgn_io = io.StringIO(game["pgn"])
+                    chess_game = chess.pgn.read_game(pgn_io)
+                    if not chess_game:
+                        continue
+                    
+                    board = chess_game.board()
+                    current_move = 0
+                    target_half_move = (move_number - 1) * 2  # Position before this move
+                    
+                    # Determine user color from game or analysis
+                    user_color = game.get("user_color") or analysis.get("user_color", "white")
+                    if user_color == "black":
+                        target_half_move += 1
+                    
+                    # Navigate to position before the mistake
+                    for node in chess_game.mainline():
+                        if current_move >= target_half_move:
+                            break
+                        board.push(node.move)
+                        current_move += 1
+                    
+                    fen = board.fen()
+                    player_to_move = "white" if board.turn else "black"
+                    
+                    # Generate candidate moves
+                    # Candidate 1: Best move (from analysis)
+                    # Candidate 2: User's actual move
+                    # Candidate 3: A plausible alternative (if available)
+                    
+                    candidates = []
+                    
+                    # Add best move
+                    if best_move:
+                        candidates.append({
+                            "move": best_move,
+                            "is_best": True,
+                            "is_user_move": False
+                        })
+                    
+                    # Add user's actual move (if different from best)
+                    if user_move and user_move != best_move:
+                        candidates.append({
+                            "move": user_move,
+                            "is_best": False,
+                            "is_user_move": True
+                        })
+                    
+                    # Try to add a third plausible move from legal moves
+                    if len(candidates) < 3:
+                        legal_moves = list(board.legal_moves)[:10]
+                        for lm in legal_moves:
+                            san = board.san(lm)
+                            if san not in [c["move"] for c in candidates]:
+                                # Add a reasonable-looking move
+                                candidates.append({
+                                    "move": san,
+                                    "is_best": False,
+                                    "is_user_move": False
+                                })
                                 break
                     
-                    if reflection:
+                    if len(candidates) >= 2:
+                        # Shuffle candidates so best isn't always first
+                        import random
+                        random.shuffle(candidates)
+                        
+                        # Build habit context
+                        habit_name = correction.get("title", "tactical oversight") if correction else "tactical oversight"
+                        habit_context = correction.get("context", "") if correction else ""
+                        
+                        pdr = {
+                            "fen": fen,
+                            "player_color": player_to_move,
+                            "candidates": candidates,
+                            "user_original_move": user_move,
+                            "best_move": best_move,
+                            "game_id": analysis.get("game_id"),
+                            "move_number": move_number,
+                            "habit_name": habit_name,
+                            "habit_context": habit_context,
+                            "feedback_correct": f"Good. This is the correction we are training. In your original game, you chose {user_move}. {habit_context} Continue this discipline.",
+                            "feedback_incorrect": f"You chose the same pattern again. This is the habit we are correcting. Before this move, you did not fully consider your opponent's reply. This small oversight affects your rating stability. Remember: What is my opponent's best reply?"
+                        }
                         break
                         
+                except Exception as e:
+                    logger.warning(f"PDR extraction error: {e}")
+                    continue
+            
+            if pdr:
+                break
+                
     except Exception as e:
-        logger.error(f"Error building reflection: {e}")
-        reflection = None
+        logger.error(f"Error building PDR: {e}")
+        pdr = None
     
     return {
         "has_data": True,
-        "reflection": reflection,
+        "pdr": pdr,
         "correction": correction,
         "reinforcement": reinforcement,
         "rule": rule
