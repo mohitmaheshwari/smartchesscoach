@@ -1749,28 +1749,62 @@ async def get_coach_today(user: User = Depends(get_current_user)):
             }
             break
     
-    # If no critical moment found from stored data, try to generate from PGN
-    if not reflection and recent_analyses:
-        # Get a game with blunders
-        for analysis in recent_analyses:
-            if analysis.get("blunders", 0) > 0:
-                # Fetch the full game for PGN
-                game = await db.games.find_one(
-                    {"user_id": user.user_id},
-                    {"_id": 0, "pgn": 1, "game_id": 1}
-                )
-                if game and game.get("pgn"):
-                    # For now, create a placeholder that prompts reflection
-                    reflection = {
-                        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-                        "question": "In your last game, you had a critical moment. Can you recall where you went wrong?",
-                        "move_played": None,
-                        "threat_missed": None,
-                        "explanation": "Review your recent game to identify the turning point.",
-                        "game_id": game.get("game_id"),
-                        "is_placeholder": True
-                    }
-                break
+    # If no critical moment found from stored data, try to extract from commentary
+    if not reflection:
+        for analysis in recent_with_moments:
+            commentary = analysis.get("commentary", []) or analysis.get("move_by_move", [])
+            blunders = analysis.get("blunders", 0)
+            
+            if blunders > 0 and commentary:
+                # Find a blunder or mistake in the commentary
+                for move in commentary:
+                    eval_type = str(move.get("evaluation", "")).lower()
+                    if eval_type in ["blunder", "mistake"]:
+                        # Check if we have FEN
+                        fen = move.get("fen_before")
+                        if not fen:
+                            # Try to get from the game's PGN
+                            game = await db.games.find_one(
+                                {"game_id": analysis.get("game_id")},
+                                {"_id": 0, "pgn": 1}
+                            )
+                            if game and game.get("pgn"):
+                                # Extract position at this move number
+                                try:
+                                    import chess
+                                    import chess.pgn
+                                    import io
+                                    pgn_io = io.StringIO(game["pgn"])
+                                    chess_game = chess.pgn.read_game(pgn_io)
+                                    if chess_game:
+                                        board = chess_game.board()
+                                        move_num = move.get("move_number", 1)
+                                        current = 0
+                                        for node in chess_game.mainline():
+                                            current += 1
+                                            if current == (move_num * 2 - 1) or current == (move_num * 2):
+                                                fen = board.fen()
+                                                break
+                                            board.push(node.move)
+                                except Exception as e:
+                                    logger.warning(f"Failed to extract FEN from PGN: {e}")
+                        
+                        if fen:
+                            reflection = {
+                                "fen": fen,
+                                "question": "Pause here. Before this move — what was your opponent threatening?" if eval_type == "blunder" else "Pause here. What did you overlook before making this move?",
+                                "move_played": move.get("move"),
+                                "best_move": move.get("best_move") or move.get("consider"),
+                                "explanation": move.get("lesson") or move.get("thinking_pattern") or "This move allowed your opponent to gain an advantage.",
+                                "eval_before": move.get("eval_before", 0),
+                                "eval_after": move.get("eval_after", 0),
+                                "cp_loss": move.get("centipawn_loss", move.get("cp_loss", 0)),
+                                "game_id": analysis.get("game_id")
+                            }
+                            break
+                
+                if reflection:
+                    break
     
     return {
         "has_data": True,
