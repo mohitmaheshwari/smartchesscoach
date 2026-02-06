@@ -274,13 +274,16 @@ async def generate_why_options(fen: str, best_move: str, user_move: str, refutat
     Returns one correct reason and two plausible but wrong reasons.
     """
     try:
-        from emergentintegrations.llm.chat import chat, UserMessage
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        import uuid
+        import random
         
         refutation_move = refutation.get("refutation_move", "") if refutation else ""
         
-        prompt = f"""You are a chess coach creating a multiple choice question.
-
-Position (FEN): {fen}
+        system_prompt = """You are a chess coach creating a multiple choice question.
+Use simple language. No chess jargon. Think like an Indian chess coach explaining to a student."""
+        
+        user_prompt = f"""Position (FEN): {fen}
 Correct move: {best_move}
 Wrong move the student played: {user_move}
 If they play {user_move}, opponent can reply: {refutation_move}
@@ -292,17 +295,18 @@ Create 3 short reasons (max 12 words each) for why {best_move} is better:
 Format exactly like this:
 CORRECT: [the actual reason this move is good]
 WRONG1: [sounds reasonable but not the key reason]
-WRONG2: [sounds reasonable but not the key reason]
+WRONG2: [sounds reasonable but not the key reason]"""
 
-Use simple language. No chess jargon. Think like an Indian chess coach explaining to a student."""
-
-        response = await chat(
+        chat = LlmChat(
             api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
-            messages=[UserMessage(content=prompt)],
-            model="gpt-4o-mini"
-        )
+            session_id=f"pdr_why_{uuid.uuid4().hex[:8]}",
+            system_message=system_prompt
+        ).with_model("openai", "gpt-4o-mini")
         
-        text = response.content if hasattr(response, 'content') else str(response)
+        message = UserMessage(text=user_prompt)
+        response = await chat.send_message(message)
+        
+        text = response.strip() if isinstance(response, str) else str(response)
         
         correct_reason = ""
         wrong_reasons = []
@@ -325,7 +329,6 @@ Use simple language. No chess jargon. Think like an Indian chess coach explainin
             ]
         
         # Shuffle options for presentation
-        import random
         options = [
             {"text": correct_reason, "is_correct": True},
             {"text": wrong_reasons[0], "is_correct": False},
