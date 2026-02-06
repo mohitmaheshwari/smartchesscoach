@@ -1700,7 +1700,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         import chess.pgn
         import io
         import random
-        from pdr_service import get_refutation, generate_idea_chain_explanation, get_simple_refutation_fallback
+        from pdr_service import get_refutation, generate_idea_chain_explanation, get_simple_refutation_fallback, generate_why_options
         
         # Get recent game analyses with mistakes
         recent_with_mistakes = await db.game_analyses.find(
