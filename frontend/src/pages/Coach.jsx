@@ -37,7 +37,7 @@ import {
 // ============================================
 // PDR Component - Personalized Decision Reconstruction
 // ============================================
-const DecisionReconstruction = ({ pdr }) => {
+const DecisionReconstruction = ({ pdr, onResult }) => {
   const [phase, setPhase] = useState("choose");
   const [selectedMove, setSelectedMove] = useState(null);
   const [selectedReason, setSelectedReason] = useState(null);
@@ -59,6 +59,20 @@ const DecisionReconstruction = ({ pdr }) => {
       setExplanationStep(0);
     }
   }, [pdr?.fen]);
+  
+  // Track reflection result
+  const trackResult = useCallback((moveCorrect, reasonCorrect = null) => {
+    if (onResult && pdr?.game_id) {
+      onResult({
+        game_id: pdr.game_id,
+        move_number: pdr.move_number,
+        move_correct: moveCorrect,
+        reason_correct: reasonCorrect,
+        user_move: pdr.user_original_move,
+        best_move: pdr.best_move
+      });
+    }
+  }, [onResult, pdr]);
   
   const startWrongAnswerAnimation = useCallback(() => {
     if (!pdr?.refutation) {
