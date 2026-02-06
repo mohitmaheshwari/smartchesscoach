@@ -2177,8 +2177,14 @@ async def get_coach_today(user: User = Depends(get_current_user)):
             
             # Build coach comment about last game
             result = last_game_doc.get("result", "")
-            won = "1-0" in result or "won" in result.lower()
-            lost = "0-1" in result or "lost" in result.lower()
+            # Determine win/loss from user's perspective
+            if user_color == "white":
+                won = result == "1-0"
+                lost = result == "0-1"
+            else:
+                won = result == "0-1"
+                lost = result == "1-0"
+            draw = "1/2" in result
             
             # Check if repeated habit
             repeated_habit = False
