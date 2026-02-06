@@ -2155,47 +2155,45 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     session_status = await get_session_status(db, user.user_id)
     
     # ===== LAST GAME SUMMARY =====
+    # Get the most recently PLAYED game that has been analyzed
     last_game = None
-    if recent_analyses:
-        last_analysis = recent_analyses[0]
-        last_game_doc = await db.games.find_one(
-            {"game_id": last_analysis.get("game_id")},
-            {"_id": 0, "opponent": 1, "result": 1, "date": 1, "time_control": 1, "platform": 1, "url": 1, "white": 1, "black": 1, "user_color": 1, "pgn": 1, "username": 1}
+    
+    # First get the most recent analyzed game
+    most_recent_game = await db.games.find_one(
+        {"user_id": user.user_id, "is_analyzed": True},
+        {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "time_control": 1, 
+         "platform": 1, "url": 1, "pgn": 1}
+    )
+    
+    if most_recent_game:
+        # Get the analysis for this specific game
+        last_analysis = await db.game_analyses.find_one(
+            {"game_id": most_recent_game.get("game_id"), "user_id": user.user_id},
+            {"_id": 0, "blunders": 1, "mistakes": 1, "accuracy": 1, "commentary": 1, "identified_weaknesses": 1}
         )
         
-        if last_game_doc:
+        if last_analysis:
             blunders = last_analysis.get("blunders", 0)
             mistakes = last_analysis.get("mistakes", 0)
             accuracy = last_analysis.get("accuracy", 0)
             
-            # Get opponent name - try multiple sources
-            user_color = last_game_doc.get("user_color", "white")
-            username = last_game_doc.get("username", "")
+            # Get opponent name from PGN
+            user_color = most_recent_game.get("user_color", "white")
             opponent = "Opponent"
             
-            # First check direct fields
-            if user_color == "white":
-                opponent = last_game_doc.get("black") or last_game_doc.get("opponent") or opponent
-            else:
-                opponent = last_game_doc.get("white") or last_game_doc.get("opponent") or opponent
-            
-            # If still "Opponent", try parsing from PGN
-            if opponent == "Opponent" and last_game_doc.get("pgn"):
+            if most_recent_game.get("pgn"):
                 import re
-                pgn = last_game_doc["pgn"]
+                pgn = most_recent_game["pgn"]
                 white_match = re.search(r'\[White "([^"]+)"\]', pgn)
                 black_match = re.search(r'\[Black "([^"]+)"\]', pgn)
                 if white_match and black_match:
-                    white_name = white_match.group(1)
-                    black_name = black_match.group(1)
                     if user_color == "white":
-                        opponent = black_name
+                        opponent = black_match.group(1)
                     else:
-                        opponent = white_name
+                        opponent = white_match.group(1)
             
-            # Build coach comment about last game
-            result = last_game_doc.get("result", "")
             # Determine win/loss from user's perspective
+            result = most_recent_game.get("result", "")
             if user_color == "white":
                 won = result == "1-0"
                 lost = result == "0-1"
@@ -2215,28 +2213,45 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                         repeated_habit = True
                         break
             
-            # Generate coach comment
+            # Find the critical mistake from this game's commentary
+            critical_moment = None
+            commentary = last_analysis.get("commentary", [])
+            for move_data in commentary:
+                eval_type = str(move_data.get("evaluation", "")).lower()
+                if eval_type in ["blunder", "mistake"]:
+                    critical_moment = {
+                        "move_number": move_data.get("move_number"),
+                        "move": move_data.get("move"),
+                        "best_move": move_data.get("best_move") or move_data.get("consider"),
+                        "explanation": move_data.get("explanation", "")[:150]
+                    }
+                    break
+            
+            # Generate coach comment based on actual game outcome
             if blunders == 0:
                 if won:
                     comment = "Clean win! No blunders. This is the discipline we want."
+                elif lost:
+                    comment = "You lost but played clean — no blunders. Sometimes chess is like that."
                 else:
-                    comment = "No blunders — solid play. The result doesn't always show it."
+                    comment = "Solid draw, no blunders. Good focus."
             elif blunders == 1:
-                if repeated_habit:
-                    comment = f"One blunder, and it was the same pattern — {habit_name.replace('_', ' ')}. Let's fix this."
+                if critical_moment:
+                    comment = f"One blunder on move {critical_moment['move_number']}. {critical_moment['explanation'][:80]}..."
+                elif repeated_habit:
+                    comment = f"One blunder — same pattern: {habit_name.replace('_', ' ')}. Let's fix this."
                 else:
-                    comment = "One slip-up, but it's not your usual habit. Progress."
+                    comment = "One slip-up. Let's see what happened."
             else:
                 if repeated_habit:
-                    comment = f"Tough game. {blunders} blunders, including your old pattern. We'll work on it."
+                    comment = f"{blunders} blunders, including your old pattern. We need to work on this."
                 else:
-                    comment = f"{blunders} blunders this time. Not your usual issue — just a rough game."
+                    comment = f"{blunders} blunders. Rough game — let's review."
             
             last_game = {
                 "opponent": opponent,
                 "result": "Won" if won else ("Lost" if lost else "Draw"),
-                "date": last_game_doc.get("date"),
-                "time_control": last_game_doc.get("time_control"),
+                "time_control": most_recent_game.get("time_control"),
                 "stats": {
                     "blunders": blunders,
                     "mistakes": mistakes,
@@ -2244,7 +2259,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 },
                 "comment": comment,
                 "repeated_habit": repeated_habit,
-                "url": last_game_doc.get("url")
+                "url": most_recent_game.get("url"),
+                "critical_moment": critical_moment
             }
     
     return {
@@ -2255,7 +2271,6 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         "next_game_plan": next_game_plan,
         "session_status": session_status,
         "last_game": last_game,
-        # Keep rule for carry-forward
         "rule": rule
     }
 
