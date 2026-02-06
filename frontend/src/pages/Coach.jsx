@@ -437,8 +437,14 @@ const Coach = ({ user }) => {
     }
   };
 
-  const handleGoPlay = async () => {
-    // Start session
+  // Show reminder modal before Go Play
+  const handleGoPlayClick = () => {
+    setShowGoPlayModal(true);
+  };
+
+  // Actually start the session and open chess platform
+  const confirmGoPlay = async () => {
+    setShowGoPlayModal(false);
     try {
       await fetch(`${API}/coach/start-session`, {
         method: "POST",
