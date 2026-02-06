@@ -2158,11 +2158,14 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     # Get the most recently PLAYED game that has been analyzed
     last_game = None
     
-    # First get the most recent analyzed game
-    most_recent_game = await db.games.find_one(
+    # First get the most recent analyzed game - SORTED by imported_at
+    most_recent_games = await db.games.find(
         {"user_id": user.user_id, "is_analyzed": True},
         {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "time_control": 1, 
          "platform": 1, "url": 1, "pgn": 1}
+    ).sort("imported_at", -1).limit(1).to_list(1)
+    
+    most_recent_game = most_recent_games[0] if most_recent_games else None
     )
     
     if most_recent_game:
