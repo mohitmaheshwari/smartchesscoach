@@ -657,7 +657,7 @@ const Coach = ({ user }) => {
               )}
               
               <p className="text-center text-sm text-muted-foreground">
-                I'll be watching. Come back when you're done.
+                I&apos;ll be watching. Come back when you&apos;re done.
               </p>
               
               <div className="flex gap-3 pt-2">
