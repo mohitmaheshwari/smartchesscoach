@@ -157,8 +157,8 @@ const Coach = ({ user }) => {
           </motion.div>
         )}
 
-        {/* Account Linked - Show Coach Mode */}
-        {hasAccount && (
+        {/* Show Coach Mode when we have data (not needing account link) */}
+        {!needsAccountLink && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
