@@ -2261,7 +2261,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 },
                 "comment": comment,
                 "repeated_habit": repeated_habit,
-                "url": most_recent_game.get("url"),
+                "game_id": most_recent_game.get("game_id"),
+                "external_url": most_recent_game.get("url"),
                 "critical_moment": critical_moment
             }
     
