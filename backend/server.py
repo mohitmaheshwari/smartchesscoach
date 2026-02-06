@@ -1739,10 +1739,11 @@ async def get_coach_today(user: User = Depends(get_current_user)):
             user_move = move_data.get("move")
             best_move = move_data.get("best_move") or move_data.get("consider")
             
-            # Get the game PGN
+            # Get the game with full details
             game = await db.games.find_one(
                 {"game_id": analysis.get("game_id")},
-                {"_id": 0, "pgn": 1, "user_color": 1}
+                {"_id": 0, "pgn": 1, "user_color": 1, "opponent": 1, "platform": 1, 
+                 "date": 1, "time_control": 1, "result": 1, "url": 1, "white": 1, "black": 1}
             )
             
             if game and game.get("pgn"):
@@ -1780,7 +1781,6 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                             )
                         
                         # Generate "why" options for correct answer verification
-                        # One correct reason, two plausible but wrong reasons
                         why_options = await generate_why_options(fen, best_move, user_move, refutation, db)
                         
                         # Only TWO candidates: user's move and best move
@@ -1789,6 +1789,25 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                             {"move": user_move, "is_best": False, "is_user_move": True}
                         ]
                         random.shuffle(candidates)
+                        
+                        # Build game context
+                        opponent = game.get("opponent") or (
+                            game.get("black") if user_color == "white" else game.get("white")
+                        )
+                        platform = game.get("platform", "chess.com")
+                        game_date = game.get("date", "")
+                        time_control = game.get("time_control", "")
+                        result = game.get("result", "")
+                        
+                        # Build game URL for full analysis link
+                        game_url = game.get("url", "")
+                        if not game_url and platform:
+                            # Construct URL if not stored
+                            game_id_str = str(analysis.get("game_id", ""))
+                            if "chess.com" in platform.lower():
+                                game_url = f"https://www.chess.com/game/live/{game_id_str}"
+                            elif "lichess" in platform.lower():
+                                game_url = f"https://lichess.org/{game_id_str}"
                         
                         pdr = {
                             "fen": fen,
@@ -1800,7 +1819,17 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                             "move_number": move_number,
                             "refutation": refutation,
                             "idea_chain": idea_chain,
-                            "why_options": why_options
+                            "why_options": why_options,
+                            # Game context
+                            "game_context": {
+                                "opponent": opponent,
+                                "platform": platform,
+                                "date": game_date,
+                                "time_control": time_control,
+                                "result": result,
+                                "game_url": game_url,
+                                "analysis_url": f"/game/{analysis.get('game_id')}"
+                            }
                         }
                         
                 except Exception as e:
