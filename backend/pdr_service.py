@@ -122,7 +122,7 @@ async def generate_idea_chain_explanation(
         }
     """
     try:
-        from emergentintegrations.llm.chat import chat, UserMessage
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
         
         refutation_move = refutation.get("refutation_move", "")
         is_check = refutation.get("is_check", False)
@@ -133,40 +133,37 @@ async def generate_idea_chain_explanation(
         check_text = " with check" if is_check else ""
         capture_text = f", winning the {captured_piece}" if is_capture and captured_piece else ""
         
-        prompt = f"""You are a calm, experienced chess coach explaining a mistake to a student.
-
-Position (FEN): {fen}
+        system_prompt = """You are a calm, experienced chess coach explaining a mistake to a student.
+Use simple language. No engine jargon. Sound like a mentor, not a computer.
+Keep each explanation under 15 words."""
+        
+        user_prompt = f"""Position (FEN): {fen}
 Student played: {user_move}
 Opponent's punishing reply: {refutation_move}{check_text}{capture_text}
 Better move was: {best_move}
 
-Generate a simple explanation with these exact 6 parts (keep each under 15 words):
-
-1. YOUR_PLAN: What the student was trying to achieve with their move
-2. WHY_FELT_RIGHT: Why this seemed like a reasonable idea
-3. OPPONENT_COUNTER: What the opponent can now do (mention the refutation move)
-4. WHY_IT_WORKS: Why the opponent's reply is strong
-5. BETTER_PLAN: What the better move achieves
-6. RULE: A simple rule to remember for next time
+Generate a simple explanation with these exact 6 parts:
 
 Format your response exactly like this:
-YOUR_PLAN: [explanation]
-WHY_FELT_RIGHT: [explanation]
-OPPONENT_COUNTER: [explanation]
-WHY_IT_WORKS: [explanation]
-BETTER_PLAN: [explanation]
-RULE: [rule]
+YOUR_PLAN: [What the student was trying to achieve with their move]
+WHY_FELT_RIGHT: [Why this seemed like a reasonable idea]
+OPPONENT_COUNTER: [What the opponent can now do - mention {refutation_move}]
+WHY_IT_WORKS: [Why the opponent's reply is strong]
+BETTER_PLAN: [What {best_move} achieves]
+RULE: [A simple rule to remember for next time]"""
 
-Use simple language. No engine jargon. Sound like a mentor, not a computer."""
-
-        response = await chat(
+        import uuid
+        chat = LlmChat(
             api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
-            messages=[UserMessage(content=prompt)],
-            model="gpt-4o-mini"
-        )
+            session_id=f"pdr_idea_{uuid.uuid4().hex[:8]}",
+            system_message=system_prompt
+        ).with_model("openai", "gpt-4o-mini")
+        
+        message = UserMessage(text=user_prompt)
+        response = await chat.send_message(message)
         
         # Parse response
-        text = response.content if hasattr(response, 'content') else str(response)
+        text = response.strip() if isinstance(response, str) else str(response)
         
         result = {
             "your_plan": "",
@@ -191,6 +188,14 @@ Use simple language. No engine jargon. Sound like a mentor, not a computer."""
                 result["better_plan"] = line.replace("BETTER_PLAN:", "").strip()
             elif line.startswith("RULE:"):
                 result["rule"] = line.replace("RULE:", "").strip()
+        
+        # Ensure we have all fields
+        if not result["your_plan"]:
+            result["your_plan"] = f"You played {user_move}, perhaps to simplify or gain material."
+        if not result["opponent_counter"]:
+            result["opponent_counter"] = f"But now your opponent has {refutation_move}."
+        if not result["rule"]:
+            result["rule"] = "Before each move, ask: what is my opponent's best reply?"
         
         return result
         
