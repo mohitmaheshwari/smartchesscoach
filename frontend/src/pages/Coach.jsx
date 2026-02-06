@@ -14,19 +14,23 @@ import {
   ChevronRight,
   Link as LinkIcon,
   ExternalLink,
-  AlertCircle,
-  CheckCircle,
-  Lightbulb,
   Brain,
   ArrowRight,
   HelpCircle,
+  RotateCcw,
+  TrendingDown,
+  TrendingUp,
+  Minus,
   Play,
-  RotateCcw
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
 
-// PDR Component with Visual Explanation
+// ============================================
+// PDR Component - Personalized Decision Reconstruction
+// ============================================
 const DecisionReconstruction = ({ pdr }) => {
-  const [phase, setPhase] = useState("choose"); // choose -> verify -> result
+  const [phase, setPhase] = useState("choose");
   const [selectedMove, setSelectedMove] = useState(null);
   const [selectedReason, setSelectedReason] = useState(null);
   const [currentFen, setCurrentFen] = useState(pdr?.fen || "start");
@@ -36,7 +40,6 @@ const DecisionReconstruction = ({ pdr }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [lineIndex, setLineIndex] = useState(0);
   
-  // Reset state when pdr changes
   useEffect(() => {
     if (pdr?.fen) {
       setCurrentFen(pdr.fen);
@@ -58,7 +61,6 @@ const DecisionReconstruction = ({ pdr }) => {
     setIsAnimating(true);
     const ref = pdr.refutation;
     
-    // Step 1: Show user's move with arrow
     setTimeout(() => {
       setCurrentFen(ref.fen_after_user_move);
       setCustomArrows([]);
@@ -66,61 +68,42 @@ const DecisionReconstruction = ({ pdr }) => {
       setExplanationStep(1);
     }, 300);
     
-    // Step 2: Show opponent's threat with arrow (object format for react-chessboard)
     setTimeout(() => {
       setCustomArrows([
         { from: ref.from_square, to: ref.threat_square, color: "rgba(255, 80, 80, 0.9)" }
       ]);
       setHighlightSquares({
-        [ref.threat_square]: { 
-          backgroundColor: "rgba(255, 50, 50, 0.6)",
-          boxShadow: "inset 0 0 10px rgba(255,0,0,0.5)"
-        }
+        [ref.threat_square]: { backgroundColor: "rgba(255, 50, 50, 0.6)" }
       });
       setExplanationStep(2);
     }, 1500);
     
-    // Step 3: Play refutation move
     setTimeout(() => {
       setCurrentFen(ref.fen_after_refutation);
       setCustomArrows([]);
-      setHighlightSquares({
-        [ref.threat_square]: { 
-          backgroundColor: "rgba(255, 50, 50, 0.7)",
-        }
-      });
+      setHighlightSquares({ [ref.threat_square]: { backgroundColor: "rgba(255, 50, 50, 0.7)" } });
       setExplanationStep(3);
     }, 3000);
     
-    // Step 4: Show better move
     setTimeout(() => {
       if (pdr?.fen) {
-        setCurrentFen(pdr.fen); // Reset to original position
-        // Show arrow for best move
+        setCurrentFen(pdr.fen);
         try {
           const game = new Chess(pdr.fen);
           const move = game.move(pdr.best_move);
           if (move) {
-            setCustomArrows([
-              { from: move.from, to: move.to, color: "rgba(80, 200, 80, 0.9)" }
-            ]);
-            setHighlightSquares({
-              [move.to]: { backgroundColor: "rgba(80, 200, 80, 0.5)" }
-            });
+            setCustomArrows([{ from: move.from, to: move.to, color: "rgba(80, 200, 80, 0.9)" }]);
+            setHighlightSquares({ [move.to]: { backgroundColor: "rgba(80, 200, 80, 0.5)" } });
           }
-        } catch (e) {
-          console.error(e);
-        }
+        } catch (e) {}
       }
       setExplanationStep(4);
     }, 4500);
     
-    // Step 5: Show full explanation
     setTimeout(() => {
       setIsAnimating(false);
       setExplanationStep(5);
     }, 6000);
-    
   }, [pdr]);
   
   const animateBestLine = useCallback(() => {
@@ -128,17 +111,12 @@ const DecisionReconstruction = ({ pdr }) => {
     if (!bestLine || bestLine.length < 1 || !pdr?.fen) return;
     
     setIsAnimating(true);
-    
     try {
       const game = new Chess(pdr.fen);
       let idx = 0;
       
       const playNext = () => {
-        if (idx >= bestLine.length) {
-          setIsAnimating(false);
-          return;
-        }
-        
+        if (idx >= bestLine.length) { setIsAnimating(false); return; }
         try {
           const move = game.move(bestLine[idx]);
           if (move) {
@@ -152,15 +130,10 @@ const DecisionReconstruction = ({ pdr }) => {
           }
           idx++;
           setTimeout(playNext, 1200);
-        } catch (e) {
-          setIsAnimating(false);
-        }
+        } catch (e) { setIsAnimating(false); }
       };
-      
       setTimeout(playNext, 500);
-    } catch (e) {
-      setIsAnimating(false);
-    }
+    } catch (e) { setIsAnimating(false); }
   }, [pdr]);
   
   const replayExplanation = useCallback(() => {
@@ -175,7 +148,6 @@ const DecisionReconstruction = ({ pdr }) => {
   
   const handleMoveSelect = useCallback((move) => {
     setSelectedMove(move);
-    
     if (move.is_best) {
       setPhase("verify");
     } else {
@@ -187,13 +159,9 @@ const DecisionReconstruction = ({ pdr }) => {
   const handleReasonSelect = useCallback((option) => {
     setSelectedReason(option);
     setPhase("result");
-    
-    if (option.is_correct) {
-      animateBestLine();
-    }
+    if (option.is_correct) animateBestLine();
   }, [animateBestLine]);
   
-  // Early return after all hooks
   if (!pdr || !pdr.fen || !pdr.candidates || pdr.candidates.length < 2) return null;
   
   const isCorrectMove = selectedMove?.is_best;
@@ -204,31 +172,21 @@ const DecisionReconstruction = ({ pdr }) => {
   const gameContext = pdr.game_context;
   
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-8"
-    >
+    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Brain className="w-4 h-4 text-purple-500" />
-          <span className="text-xs font-medium uppercase tracking-wider text-purple-500">
-            Decision Moment
-          </span>
+          <span className="text-xs font-medium uppercase tracking-wider text-purple-500">Reflection Moment</span>
         </div>
-        {/* Game Context Badge */}
         {gameContext && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>vs {gameContext.opponent || "Opponent"}</span>
-            <span className="text-muted-foreground/50">•</span>
-            <span className="capitalize">{gameContext.platform || "Chess.com"}</span>
+          <div className="text-xs text-muted-foreground">
+            vs {gameContext.opponent || "Opponent"} • {gameContext.platform || "Chess.com"}
           </div>
         )}
       </div>
       
-      <Card className="border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-purple-600/10 overflow-hidden">
+      <Card className="border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-purple-600/10">
         <CardContent className="py-6">
-          {/* Chessboard with arrows */}
           <div className="flex justify-center mb-6">
             <div className="w-[300px] h-[300px] rounded-lg overflow-hidden shadow-lg">
               <Chessboard
@@ -246,189 +204,90 @@ const DecisionReconstruction = ({ pdr }) => {
           </div>
           
           <AnimatePresence mode="wait">
-            {/* PHASE 1: Choose Move */}
             {phase === "choose" && (
-              <motion.div key="choose" initial={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="choose" exit={{ opacity: 0 }}>
                 <div className="text-center mb-6 px-4">
-                  <p className="text-sm text-muted-foreground mb-2">Pause here.</p>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    You are <span className="font-semibold text-foreground">{pdr.player_color}</span>.
-                  </p>
-                  <p className="text-lg font-medium">What would you play?</p>
+                  <p className="text-muted-foreground mb-2">Pause here.</p>
+                  <p className="text-lg font-medium">Before you move — what would you play?</p>
                 </div>
-                
                 <div className="flex justify-center gap-4">
-                  {pdr.candidates.map((candidate, idx) => (
-                    <Button
-                      key={idx}
-                      variant="outline"
-                      size="lg"
-                      onClick={() => handleMoveSelect(candidate)}
-                      className="min-w-[100px] font-mono text-xl hover:bg-purple-500/10 hover:border-purple-500/50 h-14"
-                    >
-                      {candidate.move}
+                  {pdr.candidates.map((c, i) => (
+                    <Button key={i} variant="outline" size="lg" onClick={() => handleMoveSelect(c)}
+                      className="min-w-[100px] font-mono text-xl h-14 hover:bg-purple-500/10">
+                      {c.move}
                     </Button>
                   ))}
                 </div>
               </motion.div>
             )}
             
-            {/* PHASE 2: Verify Understanding */}
             {phase === "verify" && whyOptions && (
               <motion.div key="verify" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="text-center mb-4">
-                  <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-3">
-                    <HelpCircle className="w-5 h-5 text-emerald-500" />
-                  </div>
-                  <p className="font-semibold text-emerald-500 mb-2">
-                    Good choice: <span className="font-mono">{pdr.best_move}</span>
-                  </p>
-                  <p className="text-sm text-muted-foreground">But tell me — why is this better?</p>
+                  <HelpCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                  <p className="font-semibold text-emerald-500">Good choice: <span className="font-mono">{pdr.best_move}</span></p>
+                  <p className="text-sm text-muted-foreground mt-1">But tell me — why is this better?</p>
                 </div>
-                
                 <div className="space-y-2 max-w-sm mx-auto">
-                  {whyOptions.options.map((option, idx) => (
-                    <Button
-                      key={idx}
-                      variant="outline"
-                      className="w-full justify-start text-left h-auto py-3 px-4 hover:bg-purple-500/10"
-                      onClick={() => handleReasonSelect(option)}
-                    >
-                      <span className="text-sm">{option.text}</span>
+                  {whyOptions.options.map((o, i) => (
+                    <Button key={i} variant="outline" className="w-full justify-start text-left h-auto py-3 px-4"
+                      onClick={() => handleReasonSelect(o)}>
+                      <span className="text-sm">{o.text}</span>
                     </Button>
                   ))}
                 </div>
               </motion.div>
             )}
             
-            {/* PHASE 3: Result */}
             {phase === "result" && (
               <motion.div key="result" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="px-4">
-                
-                {/* CORRECT MOVE + CORRECT REASON */}
                 {isCorrectMove && isCorrectReason && (
                   <div className="text-center">
-                    <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle className="w-6 h-6 text-emerald-500" />
-                    </div>
+                    <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
                     <p className="font-semibold text-emerald-500 mb-2">Excellent.</p>
-                    <p className="text-sm text-muted-foreground mb-3">You understood the position correctly.</p>
-                    <p className="text-sm mb-4">
-                      In your game, you played <span className="font-mono font-semibold text-red-400">{pdr.user_original_move}</span> instead.
-                    </p>
-                    {whyOptions?.best_line && lineIndex > 0 && (
-                      <div className="p-3 bg-emerald-500/10 rounded-lg mb-4">
-                        <p className="text-xs text-emerald-400 mb-1">The line:</p>
-                        <p className="font-mono text-sm">{whyOptions.best_line.slice(0, lineIndex).join(" ")}</p>
-                      </div>
-                    )}
-                    <p className="text-sm font-medium">This is the discipline we are building.</p>
+                    <p className="text-sm text-muted-foreground mb-3">You understood the position.</p>
+                    <p className="text-sm">In your game, you played <span className="font-mono text-red-400">{pdr.user_original_move}</span> instead.</p>
+                    <p className="text-sm font-medium mt-4">This is the discipline we're building.</p>
                   </div>
                 )}
                 
-                {/* CORRECT MOVE + WRONG REASON */}
                 {isCorrectMove && !isCorrectReason && (
                   <div className="text-center">
-                    <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4">
-                      <AlertCircle className="w-6 h-6 text-amber-500" />
-                    </div>
+                    <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
                     <p className="font-semibold text-amber-500 mb-2">Right move, but...</p>
-                    <p className="text-sm text-muted-foreground mb-4">Your reasoning needs work.</p>
-                    <div className="p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/20 mb-4">
-                      <p className="text-sm font-medium text-emerald-400 mb-1">The real reason:</p>
-                      <p className="text-sm">{whyOptions?.correct_explanation}</p>
+                    <div className="p-3 bg-emerald-500/10 rounded-lg mt-3">
+                      <p className="text-sm"><strong>The real reason:</strong> {whyOptions?.correct_explanation}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Getting the move right is good. Understanding WHY makes it stick.
-                    </p>
                   </div>
                 )}
                 
-                {/* WRONG MOVE - Visual Explanation */}
                 {!isCorrectMove && (
                   <div className="space-y-4">
-                    {/* Step indicator */}
                     {isAnimating && (
-                      <div className="flex justify-center items-center gap-2 text-sm text-purple-400">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>
-                          {explanationStep === 1 && "You played " + pdr.user_original_move + "..."}
-                          {explanationStep === 2 && "But now your opponent threatens..."}
-                          {explanationStep === 3 && refutation?.refutation_move + "!"}
-                          {explanationStep === 4 && "Better was " + pdr.best_move}
-                        </span>
+                      <div className="text-center text-sm text-purple-400">
+                        <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                        {explanationStep === 1 && `You played ${pdr.user_original_move}...`}
+                        {explanationStep === 2 && "But your opponent threatens..."}
+                        {explanationStep === 3 && `${refutation?.refutation_move}!`}
+                        {explanationStep === 4 && `Better was ${pdr.best_move}`}
                       </div>
                     )}
                     
-                    {/* Full explanation after animation */}
                     {explanationStep >= 5 && ideaChain && (
-                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                        {/* Replay button */}
-                        <div className="flex justify-center">
-                          <Button variant="ghost" size="sm" onClick={replayExplanation} className="text-xs">
-                            <RotateCcw className="w-3 h-3 mr-1" /> Replay on board
-                          </Button>
-                        </div>
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                        <Button variant="ghost" size="sm" onClick={replayExplanation} className="w-full text-xs">
+                          <RotateCcw className="w-3 h-3 mr-1" /> Replay on board
+                        </Button>
                         
-                        {/* Idea Chain */}
-                        <div className="space-y-3 p-4 bg-background/50 rounded-lg">
-                          <StepItem 
-                            num="1" 
-                            label="Your plan" 
-                            text={ideaChain.your_plan}
-                            move={pdr.user_original_move}
-                          />
-                          
-                          <div className="flex justify-center">
-                            <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          
-                          <StepItem 
-                            num="2" 
-                            label="Why it felt right" 
-                            text={ideaChain.why_felt_right}
-                          />
-                          
-                          <div className="flex justify-center">
-                            <ArrowRight className="w-4 h-4 text-red-400" />
-                          </div>
-                          
-                          <StepItem 
-                            num="3" 
-                            label="But opponent plays" 
-                            text={ideaChain.opponent_counter}
-                            move={refutation?.refutation_move}
-                            variant="danger"
-                          />
-                          
-                          <div className="flex justify-center">
-                            <ArrowRight className="w-4 h-4 text-red-400" />
-                          </div>
-                          
-                          <StepItem 
-                            num="4" 
-                            label="Why it hurts" 
-                            text={ideaChain.why_it_works}
-                            variant="danger"
-                          />
-                          
-                          <div className="flex justify-center">
-                            <ArrowRight className="w-4 h-4 text-emerald-400" />
-                          </div>
-                          
-                          <StepItem 
-                            num="5" 
-                            label="Better was" 
-                            text={ideaChain.better_plan}
-                            move={pdr.best_move}
-                            variant="success"
-                          />
-                        </div>
+                        <IdeaStep num="1" label="Your Idea" text={ideaChain.your_plan} move={pdr.user_original_move} />
+                        <IdeaStep num="2" label="Why It Felt Right" text={ideaChain.why_felt_right} />
+                        <IdeaStep num="3" label="Opponent's Counter" text={ideaChain.opponent_counter} move={refutation?.refutation_move} variant="danger" />
+                        <IdeaStep num="4" label="Why That Works" text={ideaChain.why_it_works} variant="danger" />
+                        <IdeaStep num="5" label="Better Approach" text={ideaChain.better_plan} move={pdr.best_move} variant="success" />
                         
-                        {/* Rule */}
-                        <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                          <p className="text-xs text-blue-400 uppercase tracking-wider mb-1">Remember</p>
-                          <p className="text-sm font-medium">{ideaChain.rule}</p>
+                        <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 mt-4">
+                          <p className="text-xs text-blue-400 uppercase mb-1">Rule</p>
+                          <p className="text-sm">{ideaChain.rule}</p>
                         </div>
                       </motion.div>
                     )}
@@ -438,45 +297,17 @@ const DecisionReconstruction = ({ pdr }) => {
             )}
           </AnimatePresence>
           
-          {/* Game Context Footer */}
           {gameContext && phase === "result" && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-6 pt-4 border-t border-border/50 flex items-center justify-between text-xs"
-            >
-              <div className="text-muted-foreground">
-                {gameContext.date && <span>{gameContext.date}</span>}
-                {gameContext.time_control && (
-                  <span className="ml-2">• {gameContext.time_control}</span>
-                )}
-                {gameContext.result && (
-                  <span className="ml-2">• {gameContext.result}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
+            <div className="mt-4 pt-4 border-t border-border/50 flex justify-between text-xs text-muted-foreground">
+              <span>{gameContext.date} {gameContext.time_control && `• ${gameContext.time_control}`}</span>
+              <div className="flex gap-3">
                 {gameContext.game_url && (
-                  <a 
-                    href={gameContext.game_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-purple-400 hover:text-purple-300 flex items-center gap-1"
-                  >
-                    View on {gameContext.platform || "Chess.com"}
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
-                {gameContext.analysis_url && (
-                  <a 
-                    href={gameContext.analysis_url}
-                    className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                  >
-                    Full Analysis
-                    <ChevronRight className="w-3 h-3" />
+                  <a href={gameContext.game_url} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 flex items-center gap-1">
+                    View on {gameContext.platform}<ExternalLink className="w-3 h-3" />
                   </a>
                 )}
               </div>
-            </motion.div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -484,34 +315,29 @@ const DecisionReconstruction = ({ pdr }) => {
   );
 };
 
-// Step item component for idea chain
-const StepItem = ({ num, label, text, move, variant }) => {
+const IdeaStep = ({ num, label, text, move, variant }) => {
   const colors = {
-    danger: { bg: "bg-red-500/10", border: "border-red-500/20", text: "text-red-400" },
-    success: { bg: "bg-emerald-500/10", border: "border-emerald-500/20", text: "text-emerald-400" },
-    default: { bg: "bg-muted/50", border: "border-border", text: "text-muted-foreground" }
+    danger: "border-red-500/30 bg-red-500/5",
+    success: "border-emerald-500/30 bg-emerald-500/5",
   };
-  const c = colors[variant] || colors.default;
+  const moveColors = { danger: "text-red-400", success: "text-emerald-400" };
   
   return (
-    <div className={`p-3 rounded-lg ${c.bg} border ${c.border}`}>
-      <div className="flex items-start gap-3">
-        <div className={`w-6 h-6 rounded-full bg-background flex items-center justify-center flex-shrink-0 ${c.text}`}>
-          <span className="text-xs font-bold">{num}</span>
-        </div>
-        <div className="flex-1">
-          <p className={`text-xs uppercase tracking-wider mb-1 ${c.text}`}>{label}</p>
-          <p className="text-sm">
-            {move && <span className={`font-mono font-bold ${c.text} mr-1`}>{move}</span>}
-            {text}
-          </p>
-        </div>
-      </div>
+    <div className={`p-3 rounded-lg border ${colors[variant] || "border-border bg-muted/30"}`}>
+      <p className={`text-xs uppercase tracking-wider mb-1 ${variant === "danger" ? "text-red-400" : variant === "success" ? "text-emerald-400" : "text-muted-foreground"}`}>
+        {num}. {label}
+      </p>
+      <p className="text-sm">
+        {move && <span className={`font-mono font-bold mr-1 ${moveColors[variant] || "text-foreground"}`}>{move}</span>}
+        {text}
+      </p>
     </div>
   );
 };
 
+// ============================================
 // Main Coach Component
+// ============================================
 const Coach = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -520,10 +346,10 @@ const Coach = ({ user }) => {
   const [platform, setPlatform] = useState(null);
   const [username, setUsername] = useState("");
   const [linking, setLinking] = useState(false);
+  const [sessionState, setSessionState] = useState("idle"); // idle, playing, analyzing
+  const [sessionResult, setSessionResult] = useState(null);
 
-  useEffect(() => {
-    fetchCoachData();
-  }, []);
+  useEffect(() => { fetchCoachData(); }, []);
 
   const fetchCoachData = async () => {
     try {
@@ -531,11 +357,19 @@ const Coach = ({ user }) => {
         fetch(`${API}/coach/today`, { credentials: "include" }),
         fetch(`${API}/journey/linked-accounts`, { credentials: "include" })
       ]);
-      
-      if (coachRes.ok) setCoachData(await coachRes.json());
+      if (coachRes.ok) {
+        const data = await coachRes.json();
+        setCoachData(data);
+        // Check session status
+        if (data.session_status?.status === "playing") {
+          setSessionState("playing");
+        } else if (data.session_status?.status === "pending" || data.session_status?.status === "analyzing") {
+          setSessionState("analyzing");
+        }
+      }
       if (accountsRes.ok) setAccounts(await accountsRes.json());
     } catch (e) {
-      console.error("Failed to fetch coach data:", e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -552,7 +386,7 @@ const Coach = ({ user }) => {
         body: JSON.stringify({ platform, username: username.trim() })
       });
       if (!res.ok) throw new Error((await res.json()).detail);
-      toast.success("Account linked. Games will sync shortly.");
+      toast.success("Account linked.");
       setPlatform(null);
       setUsername("");
       fetchCoachData();
@@ -563,9 +397,51 @@ const Coach = ({ user }) => {
     }
   };
 
-  const handleGoPlay = () => {
-    const url = accounts.chess_com ? "https://chess.com/play/online" : "https://lichess.org";
-    window.open(url, "_blank");
+  const handleGoPlay = async () => {
+    // Start session
+    try {
+      await fetch(`${API}/coach/start-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ platform: accounts.chess_com ? "chess.com" : "lichess" })
+      });
+      setSessionState("playing");
+      
+      // Open chess platform
+      const url = accounts.chess_com ? "https://chess.com/play/online" : "https://lichess.org";
+      window.open(url, "_blank");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDonePlaying = async () => {
+    setSessionState("analyzing");
+    try {
+      const res = await fetch(`${API}/coach/end-session`, {
+        method: "POST",
+        credentials: "include"
+      });
+      const data = await res.json();
+      setSessionResult(data);
+      
+      if (data.status === "analyzing" || data.status === "already_analyzed") {
+        toast.success(data.message);
+        // Refresh data after a delay
+        setTimeout(() => {
+          fetchCoachData();
+          setSessionState("idle");
+          setSessionResult(null);
+        }, 5000);
+      } else {
+        toast.info(data.message);
+        setSessionState("idle");
+      }
+    } catch (e) {
+      toast.error("Failed to end session");
+      setSessionState("idle");
+    }
   };
 
   if (loading) {
@@ -583,18 +459,17 @@ const Coach = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-xl mx-auto" data-testid="coach-page">
+      <div className="max-w-xl mx-auto py-6" data-testid="coach-page">
         
+        {/* Link Account State */}
         {needsAccountLink && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-12">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
             <Card className="border-2 border-dashed border-muted-foreground/20">
               <CardContent className="py-16 text-center">
-                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
-                  <LinkIcon className="w-8 h-8 text-muted-foreground" />
-                </div>
+                <LinkIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h2 className="font-heading font-semibold text-2xl mb-3">Link Your Chess Account</h2>
                 <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
-                  Connect your Chess.com or Lichess account so I can analyze your games and coach you.
+                  Connect your Chess.com or Lichess account so I can analyze your games.
                 </p>
                 {!platform ? (
                   <div className="flex justify-center gap-3">
@@ -603,7 +478,6 @@ const Coach = ({ user }) => {
                   </div>
                 ) : (
                   <div className="max-w-xs mx-auto space-y-3">
-                    <p className="text-sm text-muted-foreground mb-2">Enter your {platform} username</p>
                     <Input placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} disabled={linking} />
                     <div className="flex gap-2">
                       <Button onClick={linkAccount} disabled={linking} className="flex-1">
@@ -618,78 +492,96 @@ const Coach = ({ user }) => {
           </motion.div>
         )}
 
+        {/* Main Coach Mode */}
+        {hasData && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            
+            {/* PDR - Reflection Moment */}
+            {coachData.pdr && <DecisionReconstruction pdr={coachData.pdr} />}
+            
+            {/* Coach's Note */}
+            {coachData.coach_note && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                className="text-center py-4 px-6 bg-muted/30 rounded-lg border border-border/50">
+                <p className="text-sm text-foreground">{coachData.coach_note.line1}</p>
+                <p className="text-sm text-muted-foreground">{coachData.coach_note.line2}</p>
+              </motion.div>
+            )}
+            
+            {/* Light Stats */}
+            {coachData.light_stats && coachData.light_stats.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                className="flex justify-center gap-6">
+                {coachData.light_stats.map((stat, i) => (
+                  <div key={i} className="text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="text-lg font-semibold">{stat.value}</span>
+                      {stat.trend === "down" && <TrendingDown className="w-4 h-4 text-emerald-500" />}
+                      {stat.trend === "up" && <TrendingUp className="w-4 h-4 text-red-500" />}
+                      {stat.trend === "stable" && <Minus className="w-4 h-4 text-muted-foreground" />}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+            
+            {/* Next Game Plan */}
+            {coachData.next_game_plan && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                className="p-4 bg-blue-500/5 rounded-lg border border-blue-500/20">
+                <p className="text-xs text-blue-400 uppercase tracking-wider mb-1">Next Game Plan</p>
+                <p className="text-sm">{coachData.next_game_plan}</p>
+              </motion.div>
+            )}
+            
+            {/* Play Session Button */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+              className="text-center pt-4">
+              
+              {sessionState === "idle" && (
+                <Button size="lg" className="h-14 px-10 text-lg font-semibold" onClick={handleGoPlay}>
+                  <Play className="w-5 h-5 mr-2" />
+                  Go Play. I'll watch this game.
+                </Button>
+              )}
+              
+              {sessionState === "playing" && (
+                <Button size="lg" variant="outline" className="h-14 px-10 text-lg font-semibold" onClick={handleDonePlaying}>
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  Done Playing
+                </Button>
+              )}
+              
+              {sessionState === "analyzing" && (
+                <div className="py-4">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-500" />
+                  <p className="text-sm text-muted-foreground">
+                    {sessionResult?.message || "Your game is being reviewed..."}
+                  </p>
+                </div>
+              )}
+              
+              <p className="text-xs text-muted-foreground mt-3">
+                {accounts.chess_com ? "Chess.com" : "Lichess"} games auto-analyzed
+              </p>
+            </motion.div>
+
+            {/* View Progress Link */}
+            <div className="text-center">
+              <button onClick={() => navigate("/progress")}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1">
+                View Progress<ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Loading/Analyzing State */}
         {!needsAccountLink && !hasData && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-16 text-center">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">{coachData?.message || "Analyzing your games..."}</p>
-          </motion.div>
-        )}
-
-        {hasData && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8">
-            {coachData.pdr && <DecisionReconstruction pdr={coachData.pdr} />}
-
-            <div className="space-y-6">
-              {coachData.correction && (
-                <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertCircle className="w-4 h-4 text-amber-500" />
-                    <span className="text-xs font-medium uppercase tracking-wider text-amber-500">Correct This</span>
-                  </div>
-                  <Card className="border-amber-500/20 bg-amber-500/5">
-                    <CardContent className="py-6">
-                      <h2 className="font-heading font-bold text-xl mb-2">{coachData.correction.title}</h2>
-                      <p className="text-muted-foreground text-sm mb-2">{coachData.correction.context}</p>
-                      <p className="text-sm text-foreground/80">{coachData.correction.severity}</p>
-                    </CardContent>
-                  </Card>
-                </motion.section>
-              )}
-
-              {coachData.reinforcement && (
-                <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                    <span className="text-xs font-medium uppercase tracking-wider text-emerald-500">Keep Doing This</span>
-                  </div>
-                  <Card className="border-emerald-500/20 bg-emerald-500/5">
-                    <CardContent className="py-6">
-                      <h2 className="font-heading font-bold text-xl mb-2">{coachData.reinforcement.title}</h2>
-                      <p className="text-muted-foreground text-sm mb-2">{coachData.reinforcement.context}</p>
-                      <p className="text-sm text-foreground/80">{coachData.reinforcement.trend}</p>
-                    </CardContent>
-                  </Card>
-                </motion.section>
-              )}
-
-              {coachData.rule && (
-                <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Lightbulb className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-medium uppercase tracking-wider text-blue-500">Remember</span>
-                  </div>
-                  <Card className="border-blue-500/20 bg-gradient-to-br from-blue-500/5 to-blue-600/10">
-                    <CardContent className="py-8 text-center">
-                      <p className="text-lg font-medium whitespace-pre-line leading-relaxed">{coachData.rule}</p>
-                    </CardContent>
-                  </Card>
-                </motion.section>
-              )}
-
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="pt-4 text-center">
-                <Button size="lg" className="h-14 px-12 text-lg font-semibold" onClick={handleGoPlay}>
-                  Go Play. I'll review.
-                  <ExternalLink className="w-5 h-5 ml-2" />
-                </Button>
-                <p className="text-xs text-muted-foreground mt-3">Games auto-analyzed from Chess.com / Lichess</p>
-              </motion.div>
-
-              <div className="text-center pt-4">
-                <button onClick={() => navigate("/progress")} className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1">
-                  View Progress<ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
           </motion.div>
         )}
       </div>
