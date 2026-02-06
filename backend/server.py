@@ -1694,7 +1694,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     # ===== SECTION 0: REFLECTION MOMENT =====
     # Find the most critical thinking error from recent games
     reflection = None
-    print(f"[DEBUG] Looking for reflection moment for user {user.user_id}")
+    print(f"[COACH] Looking for reflection for user {user.user_id}", file=sys.stderr)
     
     # Get recent game analyses with critical moments
     recent_with_moments = await db.game_analyses.find(
