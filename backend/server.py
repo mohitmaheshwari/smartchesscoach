@@ -1782,7 +1782,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                                         current = 0
                                         for node in chess_game.mainline():
                                             current += 1
-                                            if current == (move_num * 2 - 1) or current == (move_num * 2):
+                                            if current >= (move_num * 2 - 1):
                                                 fen = board.fen()
                                                 break
                                             board.push(node.move)
