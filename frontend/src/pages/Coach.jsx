@@ -16,23 +16,56 @@ import {
   AlertCircle,
   CheckCircle,
   Lightbulb,
-  Brain
+  Brain,
+  ArrowRight
 } from "lucide-react";
 
-// PDR - Personalized Decision Reconstruction Component
+// PDR - Personalized Decision Reconstruction Component with Animation
 const DecisionReconstruction = ({ pdr }) => {
   const [selectedMove, setSelectedMove] = useState(null);
   const [revealed, setRevealed] = useState(false);
+  const [currentFen, setCurrentFen] = useState(pdr?.fen);
+  const [animationStep, setAnimationStep] = useState(0);
+  const [highlightSquares, setHighlightSquares] = useState({});
+  
+  useEffect(() => {
+    setCurrentFen(pdr?.fen);
+  }, [pdr?.fen]);
   
   if (!pdr || !pdr.fen || !pdr.candidates || pdr.candidates.length < 2) return null;
   
   const handleMoveSelect = (move) => {
     setSelectedMove(move);
     setRevealed(true);
+    
+    // If wrong answer and we have refutation, animate it
+    if (!move.is_best && pdr.refutation) {
+      // Step 1: Show position after user's move
+      setTimeout(() => {
+        setCurrentFen(pdr.refutation.fen_after_user_move);
+        setAnimationStep(1);
+      }, 500);
+      
+      // Step 2: Highlight the threat square and show refutation
+      setTimeout(() => {
+        setHighlightSquares({
+          [pdr.refutation.from_square]: { backgroundColor: "rgba(255, 100, 100, 0.5)" },
+          [pdr.refutation.threat_square]: { backgroundColor: "rgba(255, 50, 50, 0.7)" }
+        });
+        setAnimationStep(2);
+      }, 1500);
+      
+      // Step 3: Show position after refutation
+      setTimeout(() => {
+        setCurrentFen(pdr.refutation.fen_after_refutation);
+        setAnimationStep(3);
+      }, 2500);
+    }
   };
   
   const isCorrect = selectedMove?.is_best;
-  const choseOriginalMistake = selectedMove?.is_user_move;
+  const ideaChain = pdr.idea_chain;
+  const refutation = pdr.refutation;
   
   return (
     <motion.section
@@ -49,14 +82,15 @@ const DecisionReconstruction = ({ pdr }) => {
       
       <Card className="border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-purple-600/10 overflow-hidden">
         <CardContent className="py-6">
-          {/* Chessboard */}
+          {/* Chessboard with animation */}
           <div className="flex justify-center mb-6">
             <div className="w-[280px] h-[280px] rounded-lg overflow-hidden shadow-lg">
               <Chessboard
-                position={pdr.fen}
+                position={currentFen}
                 boardWidth={280}
                 arePiecesDraggable={false}
                 boardOrientation={pdr.player_color === "black" ? "black" : "white"}
+                customSquareStyles={highlightSquares}
                 customBoardStyle={{
                   borderRadius: "8px",
                 }}
@@ -104,74 +138,143 @@ const DecisionReconstruction = ({ pdr }) => {
                 key="feedback"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-center px-4"
+                className="px-4"
               >
-                {/* Result Icon */}
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                  isCorrect ? "bg-emerald-500/20" : "bg-amber-500/20"
-                }`}>
-                  {isCorrect ? (
-                    <CheckCircle className="w-6 h-6 text-emerald-500" />
-                  ) : (
-                    <AlertCircle className="w-6 h-6 text-amber-500" />
-                  )}
-                </div>
-                
-                {/* Feedback Text */}
-                <div className="space-y-3">
-                  {isCorrect ? (
-                    <>
-                      <p className="font-semibold text-emerald-500">Good.</p>
-                      <p className="text-sm text-muted-foreground">
-                        This is the correction we are training.
-                      </p>
-                      <p className="text-sm">
-                        In your original game, you chose <span className="font-mono font-semibold text-red-400">{pdr.user_original_move}</span>.
-                      </p>
-                      {pdr.habit_context && (
-                        <p className="text-sm text-muted-foreground">{pdr.habit_context}</p>
-                      )}
-                      <p className="text-sm font-medium mt-4">Continue this discipline.</p>
-                    </>
-                  ) : choseOriginalMistake ? (
-                    <>
-                      <p className="font-semibold text-amber-500">You chose the same pattern again.</p>
-                      <p className="text-sm text-muted-foreground">
-                        This is the habit we are correcting.
-                      </p>
-                      <p className="text-sm">
-                        Before this move, you did not fully consider your opponent's reply.
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        This small oversight affects your rating stability.
-                      </p>
-                      <div className="mt-4 p-3 bg-background/50 rounded-lg">
-                        <p className="text-sm font-medium">Remember:</p>
-                        <p className="text-sm italic">"What is my opponent's best reply?"</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-semibold text-amber-500">Not quite.</p>
-                      <p className="text-sm text-muted-foreground">
-                        The stronger move was <span className="font-mono font-semibold text-emerald-400">{pdr.best_move}</span>.
-                      </p>
-                      <p className="text-sm">
-                        In your original game, you played <span className="font-mono font-semibold text-red-400">{pdr.user_original_move}</span>.
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Take a moment to understand why this position required careful calculation.
-                      </p>
-                    </>
-                  )}
-                </div>
-                
-                {/* Show what the best move was */}
-                {!isCorrect && (
-                  <div className="mt-4 pt-4 border-t border-border/50">
-                    <p className="text-xs text-muted-foreground">
-                      Better was: <span className="font-mono text-emerald-400">{pdr.best_move}</span>
+                {isCorrect ? (
+                  /* Correct Answer Feedback */
+                  <div className="text-center">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="w-6 h-6 text-emerald-500" />
+                    </div>
+                    <p className="font-semibold text-emerald-500 mb-2">Good.</p>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      This is the correction we are training.
                     </p>
+                    <p className="text-sm mb-4">
+                      In your original game, you chose{" "}
+                      <span className="font-mono font-semibold text-red-400">{pdr.user_original_move}</span>.
+                    </p>
+                    <p className="text-sm font-medium">Continue this discipline.</p>
+                  </div>
+                ) : (
+                  /* Wrong Answer - Idea Chain Explanation */
+                  <div className="space-y-4">
+                    {/* Animation Status */}
+                    {animationStep > 0 && animationStep < 3 && (
+                      <div className="text-center text-sm text-amber-500 mb-4">
+                        <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                        {animationStep === 1 && "After your move..."}
+                        {animationStep === 2 && "Your opponent replies..."}
+                      </div>
+                    )}
+                    
+                    {/* Refutation Move Highlight */}
+                    {refutation && animationStep >= 2 && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-center p-3 bg-red-500/10 rounded-lg border border-red-500/20"
+                      >
+                        <p className="text-sm text-muted-foreground">Opponent plays:</p>
+                        <p className="font-mono text-xl font-bold text-red-400">
+                          {refutation.refutation_move}
+                          {refutation.is_check && <span className="text-red-500">+</span>}
+                        </p>
+                        {refutation.is_capture && refutation.captured_piece && (
+                          <p className="text-xs text-red-400/80 mt-1">
+                            Winning the {refutation.captured_piece}
+                          </p>
+                        )}
+                      </motion.div>
+                    )}
+                    
+                    {/* Idea Chain - Only show after animation completes */}
+                    {ideaChain && animationStep >= 3 && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="space-y-3 pt-4 border-t border-border/50"
+                      >
+                        {/* Your Plan */}
+                        <div className="flex items-start gap-2">
+                          <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs">1</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider">Your plan</p>
+                            <p className="text-sm">{ideaChain.your_plan}</p>
+                          </div>
+                        </div>
+                        
+                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-auto" />
+                        
+                        {/* Why It Felt Right */}
+                        <div className="flex items-start gap-2">
+                          <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs">2</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider">Why it felt right</p>
+                            <p className="text-sm">{ideaChain.why_felt_right}</p>
+                          </div>
+                        </div>
+                        
+                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-auto" />
+                        
+                        {/* Opponent's Counter */}
+                        <div className="flex items-start gap-2">
+                          <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs text-red-400">3</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-red-400 uppercase tracking-wider">Opponent's counter</p>
+                            <p className="text-sm text-red-400">{ideaChain.opponent_counter}</p>
+                          </div>
+                        </div>
+                        
+                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-auto" />
+                        
+                        {/* Why It Works */}
+                        <div className="flex items-start gap-2">
+                          <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs text-red-400">4</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-red-400 uppercase tracking-wider">Why it works</p>
+                            <p className="text-sm">{ideaChain.why_it_works}</p>
+                          </div>
+                        </div>
+                        
+                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-auto" />
+                        
+                        {/* Better Plan */}
+                        <div className="flex items-start gap-2">
+                          <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-xs text-emerald-400">5</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-emerald-400 uppercase tracking-wider">Better plan</p>
+                            <p className="text-sm">
+                              <span className="font-mono font-semibold text-emerald-400">{pdr.best_move}</span>
+                              {" "}{ideaChain.better_plan}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Rule */}
+                        <div className="mt-4 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                          <p className="text-xs text-blue-400 uppercase tracking-wider mb-1">Remember</p>
+                          <p className="text-sm font-medium">{ideaChain.rule}</p>
+                        </div>
+                      </motion.div>
+                    )}
+                    
+                    {/* Loading state while waiting for animation */}
+                    {(!ideaChain || animationStep < 3) && animationStep > 0 && (
+                      <div className="flex justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
