@@ -160,7 +160,7 @@ RULE: [rule]
 Use simple language. No engine jargon. Sound like a mentor, not a computer."""
 
         response = await chat(
-            api_key=os.environ.get("EMERGENT_API_KEY", ""),
+            api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
             messages=[UserMessage(content=prompt)],
             model="gpt-4o-mini"
         )
@@ -292,7 +292,7 @@ WRONG2: [sounds reasonable but not the key reason]
 Use simple language. No chess jargon. Think like an Indian chess coach explaining to a student."""
 
         response = await chat(
-            api_key=os.environ.get("EMERGENT_API_KEY", ""),
+            api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
             messages=[UserMessage(content=prompt)],
             model="gpt-4o-mini"
         )
