@@ -16,15 +16,23 @@ import {
   AlertCircle,
   CheckCircle,
   Lightbulb,
-  Eye,
-  EyeOff
+  Brain
 } from "lucide-react";
 
-// Reflection Moment Component
-const ReflectionMoment = ({ reflection }) => {
+// PDR - Personalized Decision Reconstruction Component
+const DecisionReconstruction = ({ pdr }) => {
+  const [selectedMove, setSelectedMove] = useState(null);
   const [revealed, setRevealed] = useState(false);
   
-  if (!reflection || !reflection.fen || reflection.is_placeholder) return null;
+  if (!pdr || !pdr.fen || !pdr.candidates || pdr.candidates.length < 2) return null;
+  
+  const handleMoveSelect = (move) => {
+    setSelectedMove(move);
+    setRevealed(true);
+  };
+  
+  const isCorrect = selectedMove?.is_best;
+  const choseOriginalMistake = selectedMove?.is_user_move;
   
   return (
     <motion.section
@@ -33,9 +41,9 @@ const ReflectionMoment = ({ reflection }) => {
       className="mb-8"
     >
       <div className="flex items-center gap-2 mb-3">
-        <Eye className="w-4 h-4 text-purple-500" />
+        <Brain className="w-4 h-4 text-purple-500" />
         <span className="text-xs font-medium uppercase tracking-wider text-purple-500">
-          Reflection Moment
+          Decision Moment
         </span>
       </div>
       
@@ -45,9 +53,10 @@ const ReflectionMoment = ({ reflection }) => {
           <div className="flex justify-center mb-6">
             <div className="w-[280px] h-[280px] rounded-lg overflow-hidden shadow-lg">
               <Chessboard
-                position={reflection.fen}
+                position={pdr.fen}
                 boardWidth={280}
                 arePiecesDraggable={false}
+                boardOrientation={pdr.player_color === "black" ? "black" : "white"}
                 customBoardStyle={{
                   borderRadius: "8px",
                 }}
@@ -57,71 +66,113 @@ const ReflectionMoment = ({ reflection }) => {
             </div>
           </div>
           
-          {/* Question */}
-          <p className="text-center text-lg font-medium mb-6 px-4">
-            {reflection.question}
-          </p>
-          
-          {/* Buttons */}
           <AnimatePresence mode="wait">
             {!revealed ? (
               <motion.div
-                key="buttons"
+                key="question"
                 initial={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex justify-center gap-3"
               >
-                <Button
-                  variant="outline"
-                  onClick={() => setRevealed(true)}
-                  className="gap-2"
-                >
-                  <EyeOff className="w-4 h-4" />
-                  I see it
-                </Button>
-                <Button
-                  onClick={() => setRevealed(true)}
-                  className="gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  Show me
-                </Button>
+                {/* Question */}
+                <div className="text-center mb-6 px-4">
+                  <p className="text-sm text-muted-foreground mb-2">Pause here.</p>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    You are <span className="font-semibold text-foreground">{pdr.player_color}</span>.
+                  </p>
+                  <p className="text-lg font-medium">
+                    Before you move — what would you play?
+                  </p>
+                </div>
+                
+                {/* Move Buttons */}
+                <div className="flex flex-wrap justify-center gap-3">
+                  {pdr.candidates.map((candidate, idx) => (
+                    <Button
+                      key={idx}
+                      variant="outline"
+                      size="lg"
+                      onClick={() => handleMoveSelect(candidate)}
+                      className="min-w-[80px] font-mono text-lg hover:bg-purple-500/10 hover:border-purple-500/50"
+                    >
+                      {candidate.move}
+                    </Button>
+                  ))}
+                </div>
               </motion.div>
             ) : (
               <motion.div
-                key="revealed"
+                key="feedback"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="space-y-4 border-t border-purple-500/20 pt-4 mt-4"
+                className="text-center px-4"
               >
-                {/* What you played */}
-                {reflection.move_played && (
-                  <div className="text-center">
-                    <span className="text-sm text-muted-foreground">You played: </span>
-                    <span className="font-mono font-bold text-red-400">{reflection.move_played}</span>
+                {/* Result Icon */}
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                  isCorrect ? "bg-emerald-500/20" : "bg-amber-500/20"
+                }`}>
+                  {isCorrect ? (
+                    <CheckCircle className="w-6 h-6 text-emerald-500" />
+                  ) : (
+                    <AlertCircle className="w-6 h-6 text-amber-500" />
+                  )}
+                </div>
+                
+                {/* Feedback Text */}
+                <div className="space-y-3">
+                  {isCorrect ? (
+                    <>
+                      <p className="font-semibold text-emerald-500">Good.</p>
+                      <p className="text-sm text-muted-foreground">
+                        This is the correction we are training.
+                      </p>
+                      <p className="text-sm">
+                        In your original game, you chose <span className="font-mono font-semibold text-red-400">{pdr.user_original_move}</span>.
+                      </p>
+                      {pdr.habit_context && (
+                        <p className="text-sm text-muted-foreground">{pdr.habit_context}</p>
+                      )}
+                      <p className="text-sm font-medium mt-4">Continue this discipline.</p>
+                    </>
+                  ) : choseOriginalMistake ? (
+                    <>
+                      <p className="font-semibold text-amber-500">You chose the same pattern again.</p>
+                      <p className="text-sm text-muted-foreground">
+                        This is the habit we are correcting.
+                      </p>
+                      <p className="text-sm">
+                        Before this move, you did not fully consider your opponent's reply.
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        This small oversight affects your rating stability.
+                      </p>
+                      <div className="mt-4 p-3 bg-background/50 rounded-lg">
+                        <p className="text-sm font-medium">Remember:</p>
+                        <p className="text-sm italic">"What is my opponent's best reply?"</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-semibold text-amber-500">Not quite.</p>
+                      <p className="text-sm text-muted-foreground">
+                        The stronger move was <span className="font-mono font-semibold text-emerald-400">{pdr.best_move}</span>.
+                      </p>
+                      <p className="text-sm">
+                        In your original game, you played <span className="font-mono font-semibold text-red-400">{pdr.user_original_move}</span>.
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Take a moment to understand why this position required careful calculation.
+                      </p>
+                    </>
+                  )}
+                </div>
+                
+                {/* Show what the best move was */}
+                {!isCorrect && (
+                  <div className="mt-4 pt-4 border-t border-border/50">
+                    <p className="text-xs text-muted-foreground">
+                      Better was: <span className="font-mono text-emerald-400">{pdr.best_move}</span>
+                    </p>
                   </div>
-                )}
-                
-                {/* Better move */}
-                {reflection.best_move && (
-                  <div className="text-center">
-                    <span className="text-sm text-muted-foreground">Better was: </span>
-                    <span className="font-mono font-bold text-green-400">{reflection.best_move}</span>
-                  </div>
-                )}
-                
-                {/* Explanation */}
-                {reflection.explanation && (
-                  <p className="text-sm text-muted-foreground text-center px-4">
-                    {reflection.explanation}
-                  </p>
-                )}
-                
-                {/* Impact */}
-                {reflection.cp_loss > 0 && (
-                  <p className="text-xs text-center text-muted-foreground/70">
-                    This cost approximately {Math.round(reflection.cp_loss / 100 * 10) / 10} points of advantage.
-                  </p>
                 )}
               </motion.div>
             )}
@@ -301,9 +352,9 @@ const Coach = ({ user }) => {
             animate={{ opacity: 1 }}
             className="mt-8"
           >
-            {/* Section 0: Reflection Moment */}
-            {coachData.reflection && (
-              <ReflectionMoment reflection={coachData.reflection} />
+            {/* PDR - Decision Reconstruction */}
+            {coachData.pdr && (
+              <DecisionReconstruction pdr={coachData.pdr} />
             )}
 
             <div className="space-y-6">
