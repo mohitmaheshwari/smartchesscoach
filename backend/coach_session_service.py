@@ -62,7 +62,11 @@ async def end_play_session(db, user_id: str) -> Dict:
     # Find games imported after session start
     # First, trigger a quick sync to get latest games
     from journey_service import sync_user_games
-    await sync_user_games(db, user_id)
+    
+    # Get user doc for sync
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if user_doc:
+        await sync_user_games(db, user_id, user_doc)
     
     # Find the most recent game after session start
     if started_at:
