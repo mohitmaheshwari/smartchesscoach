@@ -633,14 +633,14 @@ const Coach = ({ user }) => {
 
         {/* Go Play Reminder Modal */}
         <Dialog open={showGoPlayModal} onOpenChange={setShowGoPlayModal}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md" aria-describedby="go-play-description">
             <DialogHeader>
               <DialogTitle className="text-center">
                 <Target className="w-10 h-10 mx-auto mb-3 text-purple-500" />
                 Before You Play
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div id="go-play-description" className="space-y-4 py-4">
               {/* Show the rule/plan */}
               {coachData?.rule && (
                 <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
