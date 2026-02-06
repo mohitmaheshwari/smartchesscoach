@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
@@ -19,21 +19,32 @@ import {
   Lightbulb,
   Brain,
   ArrowRight,
-  HelpCircle
+  HelpCircle,
+  Play,
+  RotateCcw
 } from "lucide-react";
 
-// PDR Component with Socratic verification
+// PDR Component with Visual Explanation
 const DecisionReconstruction = ({ pdr }) => {
   const [phase, setPhase] = useState("choose"); // choose -> verify -> result
   const [selectedMove, setSelectedMove] = useState(null);
   const [selectedReason, setSelectedReason] = useState(null);
   const [currentFen, setCurrentFen] = useState(pdr?.fen);
-  const [animationStep, setAnimationStep] = useState(0);
+  const [customArrows, setCustomArrows] = useState([]);
   const [highlightSquares, setHighlightSquares] = useState({});
+  const [explanationStep, setExplanationStep] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
   const [lineIndex, setLineIndex] = useState(0);
   
+  // Reset state when pdr changes
   useEffect(() => {
     setCurrentFen(pdr?.fen);
+    setPhase("choose");
+    setSelectedMove(null);
+    setSelectedReason(null);
+    setCustomArrows([]);
+    setHighlightSquares({});
+    setExplanationStep(0);
   }, [pdr?.fen]);
   
   if (!pdr || !pdr.fen || !pdr.candidates || pdr.candidates.length < 2) return null;
@@ -42,12 +53,11 @@ const DecisionReconstruction = ({ pdr }) => {
     setSelectedMove(move);
     
     if (move.is_best) {
-      // Correct move - ask WHY
       setPhase("verify");
     } else {
-      // Wrong move - show refutation
       setPhase("result");
-      animateRefutation();
+      // Start visual explanation for wrong answer
+      startWrongAnswerAnimation();
     }
   };
   
@@ -56,76 +66,126 @@ const DecisionReconstruction = ({ pdr }) => {
     setPhase("result");
     
     if (option.is_correct) {
-      // They understand! Animate the good line
       animateBestLine();
     }
-    // If wrong reason, just show explanation (no animation needed)
   };
   
-  const animateRefutation = () => {
-    if (!pdr.refutation) return;
+  const startWrongAnswerAnimation = useCallback(() => {
+    if (!pdr.refutation) {
+      setExplanationStep(5);
+      return;
+    }
     
-    // Step 1: Show position after user's move
-    setTimeout(() => {
-      setCurrentFen(pdr.refutation.fen_after_user_move);
-      setAnimationStep(1);
-    }, 500);
+    setIsAnimating(true);
+    const ref = pdr.refutation;
     
-    // Step 2: Highlight threat
+    // Step 1: Show user's move with arrow
     setTimeout(() => {
+      setCurrentFen(ref.fen_after_user_move);
+      setCustomArrows([]);
+      setHighlightSquares({});
+      setExplanationStep(1);
+    }, 300);
+    
+    // Step 2: Show opponent's threat with arrow
+    setTimeout(() => {
+      setCustomArrows([
+        [ref.from_square, ref.threat_square, "rgba(255, 80, 80, 0.8)"]
+      ]);
       setHighlightSquares({
-        [pdr.refutation.from_square]: { backgroundColor: "rgba(255, 100, 100, 0.5)" },
-        [pdr.refutation.threat_square]: { backgroundColor: "rgba(255, 50, 50, 0.7)" }
+        [ref.threat_square]: { 
+          backgroundColor: "rgba(255, 50, 50, 0.6)",
+          boxShadow: "inset 0 0 10px rgba(255,0,0,0.5)"
+        }
       });
-      setAnimationStep(2);
+      setExplanationStep(2);
     }, 1500);
     
-    // Step 3: Show position after refutation
+    // Step 3: Play refutation move
     setTimeout(() => {
-      setCurrentFen(pdr.refutation.fen_after_refutation);
-      setAnimationStep(3);
-    }, 2500);
-  };
-  
-  const animateBestLine = () => {
-    const bestLine = pdr.why_options?.best_line;
-    if (!bestLine || bestLine.length < 2) return;
+      setCurrentFen(ref.fen_after_refutation);
+      setCustomArrows([]);
+      setHighlightSquares({
+        [ref.threat_square]: { 
+          backgroundColor: "rgba(255, 50, 50, 0.7)",
+        }
+      });
+      setExplanationStep(3);
+    }, 3000);
     
-    // Animate through the best line
+    // Step 4: Show better move
+    setTimeout(() => {
+      setCurrentFen(pdr.fen); // Reset to original position
+      // Show arrow for best move
+      try {
+        const game = new Chess(pdr.fen);
+        const move = game.move(pdr.best_move);
+        if (move) {
+          setCustomArrows([
+            [move.from, move.to, "rgba(80, 200, 80, 0.8)"]
+          ]);
+          setHighlightSquares({
+            [move.to]: { backgroundColor: "rgba(80, 200, 80, 0.5)" }
+          });
+        }
+      } catch (e) {}
+      setExplanationStep(4);
+    }, 4500);
+    
+    // Step 5: Show full explanation
+    setTimeout(() => {
+      setIsAnimating(false);
+      setExplanationStep(5);
+    }, 6000);
+    
+  }, [pdr]);
+  
+  const animateBestLine = useCallback(() => {
+    const bestLine = pdr.why_options?.best_line;
+    if (!bestLine || bestLine.length < 1) return;
+    
+    setIsAnimating(true);
+    
     try {
       const game = new Chess(pdr.fen);
-      let moveIdx = 0;
+      let idx = 0;
       
       const playNext = () => {
-        if (moveIdx >= bestLine.length) return;
+        if (idx >= bestLine.length) {
+          setIsAnimating(false);
+          return;
+        }
         
         try {
-          game.move(bestLine[moveIdx]);
-          setCurrentFen(game.fen());
-          
-          // Highlight the move
-          const history = game.history({ verbose: true });
-          const lastMove = history[history.length - 1];
-          if (lastMove) {
+          const move = game.move(bestLine[idx]);
+          if (move) {
+            setCurrentFen(game.fen());
+            setCustomArrows([[move.from, move.to, "rgba(80, 200, 80, 0.8)"]]);
             setHighlightSquares({
-              [lastMove.from]: { backgroundColor: "rgba(100, 200, 100, 0.4)" },
-              [lastMove.to]: { backgroundColor: "rgba(100, 200, 100, 0.6)" }
+              [move.from]: { backgroundColor: "rgba(80, 200, 80, 0.3)" },
+              [move.to]: { backgroundColor: "rgba(80, 200, 80, 0.5)" }
             });
+            setLineIndex(idx + 1);
           }
-          
-          setLineIndex(moveIdx + 1);
-          moveIdx++;
-          
-          setTimeout(playNext, 1000);
+          idx++;
+          setTimeout(playNext, 1200);
         } catch (e) {
-          console.error("Move error:", e);
+          setIsAnimating(false);
         }
       };
       
       setTimeout(playNext, 500);
     } catch (e) {
-      console.error("Animation error:", e);
+      setIsAnimating(false);
     }
+  }, [pdr]);
+  
+  const replayExplanation = () => {
+    setCurrentFen(pdr.fen);
+    setCustomArrows([]);
+    setHighlightSquares({});
+    setExplanationStep(0);
+    setTimeout(() => startWrongAnswerAnimation(), 300);
   };
   
   const isCorrectMove = selectedMove?.is_best;
@@ -149,14 +209,15 @@ const DecisionReconstruction = ({ pdr }) => {
       
       <Card className="border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-purple-600/10 overflow-hidden">
         <CardContent className="py-6">
-          {/* Chessboard */}
+          {/* Chessboard with arrows */}
           <div className="flex justify-center mb-6">
-            <div className="w-[280px] h-[280px] rounded-lg overflow-hidden shadow-lg">
+            <div className="w-[300px] h-[300px] rounded-lg overflow-hidden shadow-lg">
               <Chessboard
                 position={currentFen}
-                boardWidth={280}
+                boardWidth={300}
                 arePiecesDraggable={false}
                 boardOrientation={pdr.player_color === "black" ? "black" : "white"}
+                customArrows={customArrows}
                 customSquareStyles={highlightSquares}
                 customBoardStyle={{ borderRadius: "8px" }}
                 customDarkSquareStyle={{ backgroundColor: "#4a4a4a" }}
@@ -168,11 +229,7 @@ const DecisionReconstruction = ({ pdr }) => {
           <AnimatePresence mode="wait">
             {/* PHASE 1: Choose Move */}
             {phase === "choose" && (
-              <motion.div
-                key="choose"
-                initial={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
+              <motion.div key="choose" initial={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="text-center mb-6 px-4">
                   <p className="text-sm text-muted-foreground mb-2">Pause here.</p>
                   <p className="text-sm text-muted-foreground mb-3">
@@ -188,7 +245,7 @@ const DecisionReconstruction = ({ pdr }) => {
                       variant="outline"
                       size="lg"
                       onClick={() => handleMoveSelect(candidate)}
-                      className="min-w-[90px] font-mono text-xl hover:bg-purple-500/10 hover:border-purple-500/50"
+                      className="min-w-[100px] font-mono text-xl hover:bg-purple-500/10 hover:border-purple-500/50 h-14"
                     >
                       {candidate.move}
                     </Button>
@@ -197,23 +254,17 @@ const DecisionReconstruction = ({ pdr }) => {
               </motion.div>
             )}
             
-            {/* PHASE 2: Verify Understanding (only for correct move) */}
+            {/* PHASE 2: Verify Understanding */}
             {phase === "verify" && whyOptions && (
-              <motion.div
-                key="verify"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
+              <motion.div key="verify" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="text-center mb-4">
                   <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-3">
                     <HelpCircle className="w-5 h-5 text-emerald-500" />
                   </div>
                   <p className="font-semibold text-emerald-500 mb-2">
-                    Good choice: {pdr.best_move}
+                    Good choice: <span className="font-mono">{pdr.best_move}</span>
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    But tell me — why is this better?
-                  </p>
+                  <p className="text-sm text-muted-foreground">But tell me — why is this better?</p>
                 </div>
                 
                 <div className="space-y-2 max-w-sm mx-auto">
@@ -233,12 +284,8 @@ const DecisionReconstruction = ({ pdr }) => {
             
             {/* PHASE 3: Result */}
             {phase === "result" && (
-              <motion.div
-                key="result"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="px-4"
-              >
+              <motion.div key="result" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="px-4">
+                
                 {/* CORRECT MOVE + CORRECT REASON */}
                 {isCorrectMove && isCorrectReason && (
                   <div className="text-center">
@@ -246,20 +293,17 @@ const DecisionReconstruction = ({ pdr }) => {
                       <CheckCircle className="w-6 h-6 text-emerald-500" />
                     </div>
                     <p className="font-semibold text-emerald-500 mb-2">Excellent.</p>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      You understood the position correctly.
-                    </p>
+                    <p className="text-sm text-muted-foreground mb-3">You understood the position correctly.</p>
                     <p className="text-sm mb-4">
-                      In your original game, you played{" "}
-                      <span className="font-mono font-semibold text-red-400">{pdr.user_original_move}</span>{" "}
-                      instead.
+                      In your game, you played <span className="font-mono font-semibold text-red-400">{pdr.user_original_move}</span> instead.
                     </p>
                     {whyOptions?.best_line && lineIndex > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        The line continues: {whyOptions.best_line.slice(0, lineIndex).join(" ")}
-                      </p>
+                      <div className="p-3 bg-emerald-500/10 rounded-lg mb-4">
+                        <p className="text-xs text-emerald-400 mb-1">The line:</p>
+                        <p className="font-mono text-sm">{whyOptions.best_line.slice(0, lineIndex).join(" ")}</p>
+                      </div>
                     )}
-                    <p className="text-sm font-medium mt-4">This is the discipline we are building.</p>
+                    <p className="text-sm font-medium">This is the discipline we are building.</p>
                   </div>
                 )}
                 
@@ -270,9 +314,7 @@ const DecisionReconstruction = ({ pdr }) => {
                       <AlertCircle className="w-6 h-6 text-amber-500" />
                     </div>
                     <p className="font-semibold text-amber-500 mb-2">Right move, but...</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Your reasoning was not quite right.
-                    </p>
+                    <p className="text-sm text-muted-foreground mb-4">Your reasoning needs work.</p>
                     <div className="p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/20 mb-4">
                       <p className="text-sm font-medium text-emerald-400 mb-1">The real reason:</p>
                       <p className="text-sm">{whyOptions?.correct_explanation}</p>
@@ -283,71 +325,93 @@ const DecisionReconstruction = ({ pdr }) => {
                   </div>
                 )}
                 
-                {/* WRONG MOVE - Show refutation + idea chain */}
+                {/* WRONG MOVE - Visual Explanation */}
                 {!isCorrectMove && (
                   <div className="space-y-4">
-                    {/* Animation Status */}
-                    {animationStep > 0 && animationStep < 3 && (
-                      <div className="text-center text-sm text-amber-500 mb-4">
-                        <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
-                        {animationStep === 1 && "After your move..."}
-                        {animationStep === 2 && "Your opponent replies..."}
+                    {/* Step indicator */}
+                    {isAnimating && (
+                      <div className="flex justify-center items-center gap-2 text-sm text-purple-400">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>
+                          {explanationStep === 1 && "You played " + pdr.user_original_move + "..."}
+                          {explanationStep === 2 && "But now your opponent threatens..."}
+                          {explanationStep === 3 && refutation?.refutation_move + "!"}
+                          {explanationStep === 4 && "Better was " + pdr.best_move}
+                        </span>
                       </div>
                     )}
                     
-                    {/* Refutation Move */}
-                    {refutation && animationStep >= 2 && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-center p-3 bg-red-500/10 rounded-lg border border-red-500/20"
-                      >
-                        <p className="text-sm text-muted-foreground">Opponent plays:</p>
-                        <p className="font-mono text-xl font-bold text-red-400">
-                          {refutation.refutation_move}
-                          {refutation.is_check && "+"}
-                        </p>
-                        {refutation.is_capture && refutation.captured_piece && (
-                          <p className="text-xs text-red-400/80 mt-1">
-                            Winning the {refutation.captured_piece}
-                          </p>
-                        )}
-                      </motion.div>
-                    )}
-                    
-                    {/* Idea Chain */}
-                    {ideaChain && animationStep >= 3 && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="space-y-3 pt-4 border-t border-border/50"
-                      >
-                        <IdeaChainStep num="1" label="Your plan" text={ideaChain.your_plan} />
-                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-auto" />
-                        <IdeaChainStep num="2" label="Why it felt right" text={ideaChain.why_felt_right} />
-                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-auto" />
-                        <IdeaChainStep num="3" label="Opponent's counter" text={ideaChain.opponent_counter} variant="danger" />
-                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-auto" />
-                        <IdeaChainStep num="4" label="Why it works" text={ideaChain.why_it_works} variant="danger" />
-                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-auto" />
-                        <IdeaChainStep 
-                          num="5" 
-                          label="Better plan" 
-                          text={<><span className="font-mono font-semibold text-emerald-400">{pdr.best_move}</span> {ideaChain.better_plan}</>} 
-                          variant="success" 
-                        />
+                    {/* Full explanation after animation */}
+                    {explanationStep >= 5 && ideaChain && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                        {/* Replay button */}
+                        <div className="flex justify-center">
+                          <Button variant="ghost" size="sm" onClick={replayExplanation} className="text-xs">
+                            <RotateCcw className="w-3 h-3 mr-1" /> Replay on board
+                          </Button>
+                        </div>
                         
-                        <div className="mt-4 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                        {/* Idea Chain */}
+                        <div className="space-y-3 p-4 bg-background/50 rounded-lg">
+                          <StepItem 
+                            num="1" 
+                            label="Your plan" 
+                            text={ideaChain.your_plan}
+                            move={pdr.user_original_move}
+                          />
+                          
+                          <div className="flex justify-center">
+                            <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                          
+                          <StepItem 
+                            num="2" 
+                            label="Why it felt right" 
+                            text={ideaChain.why_felt_right}
+                          />
+                          
+                          <div className="flex justify-center">
+                            <ArrowRight className="w-4 h-4 text-red-400" />
+                          </div>
+                          
+                          <StepItem 
+                            num="3" 
+                            label="But opponent plays" 
+                            text={ideaChain.opponent_counter}
+                            move={refutation?.refutation_move}
+                            variant="danger"
+                          />
+                          
+                          <div className="flex justify-center">
+                            <ArrowRight className="w-4 h-4 text-red-400" />
+                          </div>
+                          
+                          <StepItem 
+                            num="4" 
+                            label="Why it hurts" 
+                            text={ideaChain.why_it_works}
+                            variant="danger"
+                          />
+                          
+                          <div className="flex justify-center">
+                            <ArrowRight className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          
+                          <StepItem 
+                            num="5" 
+                            label="Better was" 
+                            text={ideaChain.better_plan}
+                            move={pdr.best_move}
+                            variant="success"
+                          />
+                        </div>
+                        
+                        {/* Rule */}
+                        <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
                           <p className="text-xs text-blue-400 uppercase tracking-wider mb-1">Remember</p>
                           <p className="text-sm font-medium">{ideaChain.rule}</p>
                         </div>
                       </motion.div>
-                    )}
-                    
-                    {animationStep > 0 && animationStep < 3 && (
-                      <div className="flex justify-center py-4">
-                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                      </div>
                     )}
                   </div>
                 )}
@@ -360,32 +424,34 @@ const DecisionReconstruction = ({ pdr }) => {
   );
 };
 
-// Helper component for idea chain steps
-const IdeaChainStep = ({ num, label, text, variant }) => {
+// Step item component for idea chain
+const StepItem = ({ num, label, text, move, variant }) => {
   const colors = {
-    danger: "bg-red-500/20 text-red-400",
-    success: "bg-emerald-500/20 text-emerald-400",
-    default: "bg-muted"
+    danger: { bg: "bg-red-500/10", border: "border-red-500/20", text: "text-red-400" },
+    success: { bg: "bg-emerald-500/10", border: "border-emerald-500/20", text: "text-emerald-400" },
+    default: { bg: "bg-muted/50", border: "border-border", text: "text-muted-foreground" }
   };
-  const labelColors = {
-    danger: "text-red-400",
-    success: "text-emerald-400",
-    default: "text-muted-foreground"
-  };
+  const c = colors[variant] || colors.default;
   
   return (
-    <div className="flex items-start gap-2">
-      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${colors[variant] || colors.default}`}>
-        <span className={`text-xs ${variant ? labelColors[variant] : ""}`}>{num}</span>
-      </div>
-      <div>
-        <p className={`text-xs uppercase tracking-wider ${labelColors[variant] || labelColors.default}`}>{label}</p>
-        <p className="text-sm">{text}</p>
+    <div className={`p-3 rounded-lg ${c.bg} border ${c.border}`}>
+      <div className="flex items-start gap-3">
+        <div className={`w-6 h-6 rounded-full bg-background flex items-center justify-center flex-shrink-0 ${c.text}`}>
+          <span className="text-xs font-bold">{num}</span>
+        </div>
+        <div className="flex-1">
+          <p className={`text-xs uppercase tracking-wider mb-1 ${c.text}`}>{label}</p>
+          <p className="text-sm">
+            {move && <span className={`font-mono font-bold ${c.text} mr-1`}>{move}</span>}
+            {text}
+          </p>
+        </div>
       </div>
     </div>
   );
 };
 
+// Main Coach Component
 const Coach = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -438,9 +504,7 @@ const Coach = ({ user }) => {
   };
 
   const handleGoPlay = () => {
-    const url = accounts.chess_com 
-      ? "https://chess.com/play/online" 
-      : "https://lichess.org";
+    const url = accounts.chess_com ? "https://chess.com/play/online" : "https://lichess.org";
     window.open(url, "_blank");
   };
 
@@ -461,7 +525,6 @@ const Coach = ({ user }) => {
     <Layout user={user}>
       <div className="max-w-xl mx-auto" data-testid="coach-page">
         
-        {/* No Account Linked */}
         {needsAccountLink && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-12">
             <Card className="border-2 border-dashed border-muted-foreground/20">
@@ -473,7 +536,6 @@ const Coach = ({ user }) => {
                 <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
                   Connect your Chess.com or Lichess account so I can analyze your games and coach you.
                 </p>
-                
                 {!platform ? (
                   <div className="flex justify-center gap-3">
                     <Button onClick={() => setPlatform("chess.com")} variant="outline" size="lg">Chess.com</Button>
@@ -496,7 +558,6 @@ const Coach = ({ user }) => {
           </motion.div>
         )}
 
-        {/* Analyzing State */}
         {!needsAccountLink && !hasData && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-16 text-center">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mx-auto mb-4" />
@@ -504,7 +565,6 @@ const Coach = ({ user }) => {
           </motion.div>
         )}
 
-        {/* Main Coach Mode */}
         {hasData && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8">
             {coachData.pdr && <DecisionReconstruction pdr={coachData.pdr} />}
