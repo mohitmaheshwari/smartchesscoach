@@ -258,9 +258,11 @@ const Coach = ({ user }) => {
             </div>
 
             {/* Connected Account Info */}
-            <div className="text-center text-xs text-muted-foreground/60">
-              Connected: {accounts.chess_com || accounts.lichess}
-            </div>
+            {(accounts.chess_com || accounts.lichess) && (
+              <div className="text-center text-xs text-muted-foreground/60">
+                Connected: {accounts.chess_com || accounts.lichess}
+              </div>
+            )}
           </motion.div>
         )}
       </div>
