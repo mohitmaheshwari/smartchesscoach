@@ -83,6 +83,16 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/coach" element={
+        <ProtectedRoute>
+          {({ user }) => <Coach user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/progress" element={
+        <ProtectedRoute>
+          {({ user }) => <Progress user={user} />}
+        </ProtectedRoute>
+      } />
       <Route path="/dashboard" element={
         <ProtectedRoute>
           {({ user }) => <Dashboard user={user} />}
