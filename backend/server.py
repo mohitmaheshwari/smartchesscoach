@@ -1696,88 +1696,79 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     reflection = None
     
     try:
-        print(f"[COACH] Looking for reflection for user {user.user_id}", file=sys.stderr)
-    
         # Get recent game analyses with critical moments
         recent_with_moments = await db.game_analyses.find(
-        {
-            "user_id": user.user_id,
-            "$or": [
-                {"critical_moments": {"$exists": True, "$ne": []}},
-                {"blunders": {"$gt": 0}},
-                {"key_positions": {"$exists": True, "$ne": []}}
-            ]
-        },
-        {"_id": 0, "game_id": 1, "critical_moments": 1, "key_positions": 1, 
-         "blunders": 1, "accuracy": 1, "pgn": 1, "created_at": 1}
-    ).sort("created_at", -1).limit(5).to_list(5)
-    
-    for analysis in recent_with_moments:
-        # Try to extract a critical moment
-        critical_moments = analysis.get("critical_moments", [])
-        key_positions = analysis.get("key_positions", [])
+            {
+                "user_id": user.user_id,
+                "$or": [
+                    {"critical_moments": {"$exists": True, "$ne": []}},
+                    {"blunders": {"$gt": 0}},
+                    {"key_positions": {"$exists": True, "$ne": []}}
+                ]
+            },
+            {"_id": 0, "game_id": 1, "critical_moments": 1, "key_positions": 1, 
+             "blunders": 1, "accuracy": 1, "pgn": 1, "created_at": 1, "commentary": 1}
+        ).sort("created_at", -1).limit(5).to_list(5)
         
-        moment = None
-        if critical_moments:
-            # Find the worst moment (highest eval swing)
-            for cm in critical_moments:
-                if cm.get("fen") and cm.get("type") in ["blunder", "mistake", "missed_tactic"]:
-                    moment = cm
-                    break
-        
-        if not moment and key_positions:
-            for kp in key_positions:
-                if kp.get("fen") and kp.get("type") in ["critical", "turning_point", "blunder"]:
-                    moment = kp
-                    break
-        
-        if moment:
-            # Build the reflection question based on the moment type
-            moment_type = moment.get("type", "mistake")
-            
-            questions = {
-                "blunder": "Pause here. Before this move — what was your opponent threatening?",
-                "missed_tactic": "Pause here. What forcing move did you miss in this position?",
-                "mistake": "Pause here. What did you overlook before making this move?",
-                "critical": "Pause here. This was a critical moment. What should you consider?",
-                "turning_point": "Pause here. The game changed here. What did you miss?"
-            }
-            
-            reflection = {
-                "fen": moment.get("fen"),
-                "question": questions.get(moment_type, "Pause here. What should you have considered?"),
-                "move_played": moment.get("move_played", moment.get("move")),
-                "threat_missed": moment.get("threat", moment.get("best_move")),
-                "explanation": moment.get("explanation", moment.get("comment", "This move allowed your opponent to gain an advantage.")),
-                "eval_before": moment.get("eval_before"),
-                "eval_after": moment.get("eval_after"),
-                "game_id": analysis.get("game_id")
-            }
-            break
-    
-    print(f"[COACH] After critical_moments: reflection={reflection is not None}", file=sys.stderr)
-    
-    # If no critical moment found from stored data, try to extract from commentary
-    if not reflection:
+        # First check for stored critical_moments
         for analysis in recent_with_moments:
-            commentary = analysis.get("commentary", []) or analysis.get("move_by_move", [])
-            blunders = analysis.get("blunders", 0)
+            critical_moments = analysis.get("critical_moments", [])
+            key_positions = analysis.get("key_positions", [])
             
-            if blunders > 0 and commentary:
-                # Find a blunder or mistake in the commentary
-                for move in commentary:
-                    eval_type = str(move.get("evaluation", "")).lower()
-                    if eval_type in ["blunder", "mistake"]:
-                        # Check if we have FEN
-                        fen = move.get("fen_before")
-                        if not fen:
-                            # Try to get from the game's PGN
+            moment = None
+            if critical_moments:
+                for cm in critical_moments:
+                    if cm.get("fen") and cm.get("type") in ["blunder", "mistake", "missed_tactic"]:
+                        moment = cm
+                        break
+            
+            if not moment and key_positions:
+                for kp in key_positions:
+                    if kp.get("fen") and kp.get("type") in ["critical", "turning_point", "blunder"]:
+                        moment = kp
+                        break
+            
+            if moment:
+                moment_type = moment.get("type", "mistake")
+                questions = {
+                    "blunder": "Pause here. Before this move — what was your opponent threatening?",
+                    "missed_tactic": "Pause here. What forcing move did you miss in this position?",
+                    "mistake": "Pause here. What did you overlook before making this move?",
+                    "critical": "Pause here. This was a critical moment. What should you consider?",
+                    "turning_point": "Pause here. The game changed here. What did you miss?"
+                }
+                
+                reflection = {
+                    "fen": moment.get("fen"),
+                    "question": questions.get(moment_type, "Pause here. What should you have considered?"),
+                    "move_played": moment.get("move_played", moment.get("move")),
+                    "best_move": moment.get("threat", moment.get("best_move")),
+                    "explanation": moment.get("explanation", moment.get("comment", "This move allowed your opponent to gain an advantage.")),
+                    "eval_before": moment.get("eval_before"),
+                    "eval_after": moment.get("eval_after"),
+                    "cp_loss": moment.get("cp_loss", 0),
+                    "game_id": analysis.get("game_id")
+                }
+                break
+        
+        # If no critical moment found, try to extract from commentary + PGN
+        if not reflection:
+            for analysis in recent_with_moments:
+                commentary = analysis.get("commentary", [])
+                blunders = analysis.get("blunders", 0)
+                
+                if blunders > 0 and commentary:
+                    for move in commentary:
+                        eval_type = str(move.get("evaluation", "")).lower()
+                        if eval_type in ["blunder", "mistake"]:
+                            # Get FEN from PGN
                             game = await db.games.find_one(
                                 {"game_id": analysis.get("game_id")},
                                 {"_id": 0, "pgn": 1}
                             )
+                            
+                            fen = None
                             if game and game.get("pgn"):
-                                # Extract position at this move number
                                 try:
                                     import chess
                                     import chess.pgn
@@ -1795,28 +1786,27 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                                                 break
                                             board.push(node.move)
                                 except Exception as e:
-                                    logger.warning(f"Failed to extract FEN from PGN: {e}")
+                                    logger.warning(f"Failed to extract FEN: {e}")
+                            
+                            if fen:
+                                reflection = {
+                                    "fen": fen,
+                                    "question": "Pause here. Before this move — what was your opponent threatening?" if eval_type == "blunder" else "Pause here. What did you overlook before making this move?",
+                                    "move_played": move.get("move"),
+                                    "best_move": move.get("best_move") or move.get("consider"),
+                                    "explanation": move.get("lesson") or move.get("thinking_pattern") or "This move allowed your opponent to gain an advantage.",
+                                    "eval_before": move.get("eval_before", 0),
+                                    "eval_after": move.get("eval_after", 0),
+                                    "cp_loss": move.get("centipawn_loss", move.get("cp_loss", 0)),
+                                    "game_id": analysis.get("game_id")
+                                }
+                                break
+                    
+                    if reflection:
+                        break
                         
-                        if fen:
-                            reflection = {
-                                "fen": fen,
-                                "question": "Pause here. Before this move — what was your opponent threatening?" if eval_type == "blunder" else "Pause here. What did you overlook before making this move?",
-                                "move_played": move.get("move"),
-                                "best_move": move.get("best_move") or move.get("consider"),
-                                "explanation": move.get("lesson") or move.get("thinking_pattern") or "This move allowed your opponent to gain an advantage.",
-                                "eval_before": move.get("eval_before", 0),
-                                "eval_after": move.get("eval_after", 0),
-                                "cp_loss": move.get("centipawn_loss", move.get("cp_loss", 0)),
-                                "game_id": analysis.get("game_id")
-                            }
-                            break
-                
-                if reflection:
-                    break
-    
-    print(f"[COACH] Final: reflection={reflection is not None}, fen={reflection.get('fen', 'N/A')[:30] if reflection else 'NONE'}", file=sys.stderr)
     except Exception as e:
-        print(f"[COACH] ERROR in reflection: {e}", file=sys.stderr)
+        logger.error(f"Error building reflection: {e}")
         reflection = None
     
     return {
