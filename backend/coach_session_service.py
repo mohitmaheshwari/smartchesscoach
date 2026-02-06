@@ -102,10 +102,34 @@ async def end_play_session(db, user_id: str) -> Dict:
     )
     
     if existing_analysis:
+        # Get the actual analysis to show real feedback
+        full_analysis = await db.game_analyses.find_one(
+            {"game_id": game_id},
+            {"_id": 0, "blunders": 1, "mistakes": 1, "best_moves": 1, 
+             "identified_weaknesses": 1, "commentary": 1}
+        )
+        
+        # Get user's dominant habit to check if repeated
+        profile = await db.player_profiles.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "top_weaknesses": 1}
+        )
+        
+        dominant_habit = None
+        if profile and profile.get("top_weaknesses"):
+            w = profile["top_weaknesses"][0]
+            dominant_habit = w.get("subcategory", str(w)) if isinstance(w, dict) else str(w)
+        
+        # Build real feedback
+        feedback = _build_game_feedback(full_analysis, dominant_habit, recent_game)
+        
         return {
             "status": "already_analyzed",
-            "message": "Your last game has been reviewed.",
-            "game_id": game_id
+            "message": feedback["message"],
+            "game_id": game_id,
+            "opponent": recent_game.get("opponent"),
+            "result": recent_game.get("result"),
+            "feedback": feedback
         }
     
     # Queue for priority analysis
