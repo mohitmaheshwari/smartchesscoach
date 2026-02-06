@@ -23,8 +23,16 @@ import {
   Minus,
   Play,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  X,
+  Target
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // ============================================
 // PDR Component - Personalized Decision Reconstruction
