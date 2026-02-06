@@ -1750,6 +1750,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
             }
             break
     
+    logger.info(f"After critical_moments check: reflection={reflection is not None}")
+    
     # If no critical moment found from stored data, try to extract from commentary
     if not reflection:
         for analysis in recent_with_moments:
