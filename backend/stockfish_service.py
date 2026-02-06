@@ -58,6 +58,7 @@ class MoveEvaluation:
     move_san: str           # Standard algebraic notation (e.g., "Nf3")
     move_uci: str           # UCI notation (e.g., "g1f3")
     player: str             # "white" or "black"
+    fen_before: str         # FEN position before the move
     eval_before: int        # Centipawn evaluation before the move (from white's perspective)
     eval_after: int         # Centipawn evaluation after the move
     cp_loss: int            # Centipawn loss (always positive, 0 = best move)
