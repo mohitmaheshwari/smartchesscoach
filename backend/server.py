@@ -1568,6 +1568,51 @@ async def end_coach_session(user: User = Depends(get_current_user)):
     return result
 
 
+@api_router.get("/coach/analysis-status/{game_id}")
+async def get_analysis_status(game_id: str, user: User = Depends(get_current_user)):
+    """Poll for analysis completion and get real feedback"""
+    from coach_session_service import _build_game_feedback
+    
+    # Check if analysis exists
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "blunders": 1, "mistakes": 1, "best_moves": 1, "identified_weaknesses": 1}
+    )
+    
+    if not analysis:
+        # Check queue status
+        queue_item = await db.analysis_queue.find_one(
+            {"game_id": game_id},
+            {"_id": 0, "status": 1}
+        )
+        if queue_item and queue_item.get("status") == "failed":
+            return {"status": "failed", "message": "Analysis failed. Try importing again."}
+        return {"status": "pending", "message": "Still analyzing..."}
+    
+    # Get game details
+    game = await db.games.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "opponent": 1, "result": 1}
+    )
+    
+    # Get dominant habit
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "top_weaknesses": 1}
+    )
+    dominant_habit = None
+    if profile and profile.get("top_weaknesses"):
+        w = profile["top_weaknesses"][0]
+        dominant_habit = w.get("subcategory", str(w)) if isinstance(w, dict) else str(w)
+    
+    feedback = _build_game_feedback(analysis, dominant_habit, game or {})
+    
+    return {
+        "status": "complete",
+        "feedback": feedback
+    }
+
+
 @api_router.get("/coach/session-status")
 async def get_coach_session_status(user: User = Depends(get_current_user)):
     """Get current session status"""
