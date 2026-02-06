@@ -1812,7 +1812,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 if reflection:
                     break
     
-    print(f"[DEBUG] Final reflection: has_fen={reflection.get('fen', 'N/A')[:30] if reflection else 'None'}")
+    print(f"[COACH] Final: reflection={reflection is not None}, fen={reflection.get('fen', 'N/A')[:30] if reflection else 'NONE'}", file=sys.stderr)
     
     return {
         "has_data": True,
