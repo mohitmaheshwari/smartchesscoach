@@ -605,6 +605,36 @@ RULES:
             "auto_analyzed": True
         }
         
+        # STEP 3: Extract critical moments for Coach Reflection
+        critical_moments = []
+        for move_data in commentary:
+            eval_type = move_data.get("evaluation", "").lower()
+            if eval_type in ["blunder", "mistake"]:
+                # Find the FEN for this position from Stockfish moves
+                move_num = move_data.get("move_number")
+                fen = None
+                for sf_move in sf_moves:
+                    if sf_move.get("move_number") == move_num:
+                        fen = sf_move.get("fen_before", sf_move.get("fen"))
+                        break
+                
+                if fen:
+                    critical_moments.append({
+                        "type": eval_type,
+                        "move_number": move_num,
+                        "fen": fen,
+                        "move_played": move_data.get("move"),
+                        "best_move": move_data.get("best_move", move_data.get("consider")),
+                        "explanation": move_data.get("lesson", move_data.get("thinking_pattern", "")),
+                        "eval_before": move_data.get("eval_before", 0),
+                        "eval_after": move_data.get("eval_after", 0),
+                        "cp_loss": move_data.get("centipawn_loss", 0)
+                    })
+        
+        # Sort by centipawn loss to find worst moment
+        critical_moments.sort(key=lambda x: x.get("cp_loss", 0), reverse=True)
+        analysis_doc["critical_moments"] = critical_moments[:3]  # Keep top 3 worst moments
+        
         await db.game_analyses.insert_one(analysis_doc)
         
         # Mark game as analyzed
