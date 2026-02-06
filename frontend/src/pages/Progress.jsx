@@ -241,9 +241,19 @@ const Progress = ({ user }) => {
                             ACTIVE
                           </span>
                         )}
+                        {habit.reflection_stats?.status === "improving" && (
+                          <span className="text-[10px] bg-emerald-500 text-black px-1.5 py-0.5 rounded font-semibold">
+                            IMPROVING
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {habit.occurrences_recent} occurrences recently
+                        {habit.reflection_stats?.total > 0 && (
+                          <span className="ml-2">
+                            • Reflections: {habit.reflection_stats.correct}/{habit.reflection_stats.total}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <TrendBadge trend={habit.trend} />
