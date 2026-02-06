@@ -76,14 +76,14 @@ const Coach = ({ user }) => {
     );
   }
 
-  const hasAccount = accounts.chess_com || accounts.lichess;
   const hasHabit = coachData?.has_active_habit;
+  const needsAccountLink = coachData?.message === "Link your chess account to get started";
 
   return (
     <Layout user={user}>
       <div className="max-w-xl mx-auto" data-testid="coach-page">
         {/* No Account Linked State */}
-        {!hasAccount && (
+        {needsAccountLink && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
