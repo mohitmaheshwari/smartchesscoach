@@ -611,12 +611,35 @@ const Coach = ({ user }) => {
               )}
               
               {sessionState === "analyzing" && (
-                <div className="py-4">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-500" />
-                  <p className="text-sm text-muted-foreground">
-                    {sessionResult?.message || "Your game is being reviewed..."}
-                  </p>
-                </div>
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }} 
+                  animate={{ opacity: 1, y: 0 }}
+                  className="py-6 px-8 bg-muted/30 rounded-xl border border-border/50 max-w-md mx-auto"
+                >
+                  <div className="flex items-center justify-center gap-3 mb-4">
+                    <div className="relative">
+                      <Brain className="w-8 h-8 text-purple-500" />
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full animate-pulse"></span>
+                    </div>
+                    <span className="text-lg font-medium">Reviewing your game...</span>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm text-muted-foreground text-center">
+                    <p className="text-foreground">
+                      {sessionResult?.status === "already_analyzed" 
+                        ? "I've already reviewed this one." 
+                        : "Okay, let me take a look."}
+                    </p>
+                    <p>Hope you won that one.</p>
+                    <p className="text-purple-400">
+                      Checking if you repeated the old patterns...
+                    </p>
+                  </div>
+                  
+                  <div className="mt-4 flex justify-center">
+                    <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+                  </div>
+                </motion.div>
               )}
               
               <p className="text-xs text-muted-foreground mt-3">
