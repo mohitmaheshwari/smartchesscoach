@@ -372,6 +372,7 @@ const GameAnalysis = ({ user }) => {
               </h1>
               <p className="text-sm text-muted-foreground">
                 {platform} • {result} • You played {userColor}
+                {termination && <span className="ml-2 text-amber-400">• {termination}</span>}
               </p>
             </div>
           </div>
