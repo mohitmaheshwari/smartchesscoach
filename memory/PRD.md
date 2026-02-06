@@ -187,9 +187,23 @@ Metrics support the habit narrative, not replace it.
 - `player_profiles` - Weaknesses, strengths, habits, trends
 - `coach_sessions` - Play session tracking (Go Play / Done Playing)
 - `analysis_queue` - Priority game analysis queue
-- `player_profiles` - Weaknesses, strengths, habits
 - `notifications` - Refined notification system
 
 ---
-*Last Updated: February 2025*
+
+## Changelog
+
+### February 6, 2025
+- **PDR Feature Complete** - Personalized Decision Reconstruction fully implemented
+  - Two-move choice interface (user's move vs correct move)
+  - Socratic "why is this better?" verification for correct answers
+  - 5-step Idea Chain explanation for wrong answers with LLM-generated content
+  - Board animations with arrows and highlights for refutations
+  - Random puzzle selection from recent analyzed games
+- **LLM Integration Fixed** - Updated pdr_service.py to use correct EMERGENT_LLM_KEY and LlmChat pattern
+- **Stockfish Installed** - Chess engine available at /usr/games/stockfish for accurate refutation analysis
+- **Backend Tests Added** - 14 test cases for PDR feature at /app/backend/tests/test_pdr_coach.py
+
+---
+*Last Updated: February 6, 2025*
 *Philosophy: Hide intelligence, don't remove it. The system watches. It speaks when it matters.*
