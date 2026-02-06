@@ -194,6 +194,28 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 6, 2025 (Update 3) - Backlog Features
+- **PDR Phase 2: Auto-Rotate Habits**
+  - New service: `habit_rotation_service.py`
+  - Tracks consecutive correct answers per habit
+  - Auto-rotates when user demonstrates mastery (4+ consecutive OR 6/8 total correct)
+  - Shows toast notification: "Great progress! You've mastered {habit}. Moving on to new focus area."
+  - Endpoints: `GET /api/coach/habits`, `POST /api/coach/check-habit-rotation`
+- **Weekly Email Summaries**
+  - New service: `weekly_summary_service.py`
+  - Generates personalized weekly assessment based on:
+    - Games analyzed this week
+    - Blunder trend comparison
+    - Reflection success rate
+    - Top weakness/strength
+  - Endpoints: `GET /api/user/weekly-summary`, `POST /api/user/send-weekly-summary`
+  - Email requires SendGrid API key in `.env`
+- **Progress Page Enhancements**
+  - Shows "Reflections: X/Y" for each habit
+  - Displays "IMPROVING" badge when habit is progressing
+  - Shows mastered habits in "Resolved" section
+- **Bug Fix**: Fixed missing `res` variable in Coach.jsx handlePDRResult
+
 ### February 6, 2025 (Update 2)
 - **Go Play Reminder Modal** - Shows "Before You Play" dialog with:
   - "Remember This" (rule) in purple box
