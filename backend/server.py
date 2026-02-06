@@ -1548,6 +1548,33 @@ async def trigger_game_sync(background_tasks: BackgroundTasks, user: User = Depe
 
 # ==================== COACH MODE ROUTES ====================
 
+@api_router.post("/coach/start-session")
+async def start_coach_session(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Start a play session - user is going to play"""
+    from coach_session_service import start_play_session
+    platform = data.get("platform", "chess.com")
+    result = await start_play_session(db, user.user_id, platform)
+    return result
+
+
+@api_router.post("/coach/end-session")
+async def end_coach_session(user: User = Depends(get_current_user)):
+    """End play session - user finished playing, find and analyze their game"""
+    from coach_session_service import end_play_session
+    result = await end_play_session(db, user.user_id)
+    return result
+
+
+@api_router.get("/coach/session-status")
+async def get_coach_session_status(user: User = Depends(get_current_user)):
+    """Get current session status"""
+    from coach_session_service import get_session_status
+    return await get_session_status(db, user.user_id)
+
+
 @api_router.get("/coach/today")
 async def get_coach_today(user: User = Depends(get_current_user)):
     """
