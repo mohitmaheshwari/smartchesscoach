@@ -188,10 +188,26 @@ Metrics support the habit narrative, not replace it.
 - `coach_sessions` - Play session tracking (Go Play / Done Playing)
 - `analysis_queue` - Priority game analysis queue
 - `notifications` - Refined notification system
+- `reflection_results` - PDR reflection tracking (move_correct, reason_correct)
 
 ---
 
 ## Changelog
+
+### February 6, 2025 (Update 2)
+- **Go Play Reminder Modal** - Shows "Before You Play" dialog with:
+  - "Remember This" (rule) in purple box
+  - "Your Plan" (next game plan) in blue box
+  - Cancel/Open Chess.com buttons
+- **Reflection Tracking** - POST `/api/coach/track-reflection` endpoint:
+  - Saves PDR results to `reflection_results` collection
+  - Increments user's `total_reflections` and `correct_reflections` counters
+- **Enhanced Light Stats** - Now shows up to 3 stats:
+  - Blunders/game with trend arrow
+  - Rating (30d) with trend
+  - Reflection success rate (e.g., 4/5)
+- **Habit-Aligned PDR Selection** - 70% preference for mistakes matching dominant habit
+- **Accessibility Fix** - Added aria-describedby to Go Play modal
 
 ### February 6, 2025
 - **PDR Feature Complete** - Personalized Decision Reconstruction fully implemented
