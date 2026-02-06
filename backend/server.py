@@ -2154,6 +2154,71 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     from coach_session_service import get_session_status
     session_status = await get_session_status(db, user.user_id)
     
+    # ===== LAST GAME SUMMARY =====
+    last_game = None
+    if recent_analyses:
+        last_analysis = recent_analyses[0]
+        last_game_doc = await db.games.find_one(
+            {"game_id": last_analysis.get("game_id")},
+            {"_id": 0, "opponent": 1, "result": 1, "date": 1, "time_control": 1, "platform": 1, "url": 1, "white": 1, "black": 1}
+        )
+        
+        if last_game_doc:
+            blunders = last_analysis.get("blunders", 0)
+            mistakes = last_analysis.get("mistakes", 0)
+            accuracy = last_analysis.get("accuracy", 0)
+            
+            # Get opponent name
+            opponent = last_game_doc.get("opponent") or "Opponent"
+            
+            # Build coach comment about last game
+            result = last_game_doc.get("result", "")
+            won = "1-0" in result or "won" in result.lower()
+            lost = "0-1" in result or "lost" in result.lower()
+            
+            # Check if repeated habit
+            repeated_habit = False
+            habit_name = top_weaknesses[0].get("subcategory", "") if top_weaknesses else ""
+            weaknesses = last_analysis.get("identified_weaknesses", [])
+            if habit_name and weaknesses:
+                for w in weaknesses:
+                    w_name = w.get("subcategory", str(w)) if isinstance(w, dict) else str(w)
+                    if habit_name.lower() in w_name.lower():
+                        repeated_habit = True
+                        break
+            
+            # Generate coach comment
+            if blunders == 0:
+                if won:
+                    comment = "Clean win! No blunders. This is the discipline we want."
+                else:
+                    comment = "No blunders — solid play. The result doesn't always show it."
+            elif blunders == 1:
+                if repeated_habit:
+                    comment = f"One blunder, and it was the same pattern — {habit_name.replace('_', ' ')}. Let's fix this."
+                else:
+                    comment = "One slip-up, but it's not your usual habit. Progress."
+            else:
+                if repeated_habit:
+                    comment = f"Tough game. {blunders} blunders, including your old pattern. We'll work on it."
+                else:
+                    comment = f"{blunders} blunders this time. Not your usual issue — just a rough game."
+            
+            last_game = {
+                "opponent": opponent,
+                "result": "Won" if won else ("Lost" if lost else "Draw"),
+                "date": last_game_doc.get("date"),
+                "time_control": last_game_doc.get("time_control"),
+                "stats": {
+                    "blunders": blunders,
+                    "mistakes": mistakes,
+                    "accuracy": accuracy
+                },
+                "comment": comment,
+                "repeated_habit": repeated_habit,
+                "url": last_game_doc.get("url")
+            }
+    
     return {
         "has_data": True,
         "pdr": pdr,
@@ -2161,6 +2226,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         "light_stats": light_stats,
         "next_game_plan": next_game_plan,
         "session_status": session_status,
+        "last_game": last_game,
         # Keep rule for carry-forward
         "rule": rule
     }
