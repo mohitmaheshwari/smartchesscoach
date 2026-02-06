@@ -1488,7 +1488,7 @@ async def link_chess_account(req: LinkAccountRequest, user: User = Depends(get_c
     )
     
     return {
-        "message": f"Account linked successfully! We'll import your games from the last 3 months and auto-analyze up to 3 games per day.",
+        "message": "Account linked successfully! We'll import your games from the last 3 months and auto-analyze up to 3 games per day.",
         "platform": platform,
         "username": username,
         "import_info": {
