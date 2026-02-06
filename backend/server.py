@@ -1749,7 +1749,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     # Get recent analyses for context
     recent_analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
-        {"_id": 0, "blunders": 1, "mistakes": 1, "accuracy": 1, "created_at": 1, 
+        {"_id": 0, "game_id": 1, "blunders": 1, "mistakes": 1, "accuracy": 1, "created_at": 1, 
          "identified_weaknesses": 1, "strengths": 1, "weaknesses": 1}
     ).sort("created_at", -1).limit(10).to_list(10)
     
