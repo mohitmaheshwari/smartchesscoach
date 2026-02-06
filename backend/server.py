@@ -1753,7 +1753,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
             }
             break
     
-    print(f"[DEBUG] After critical_moments check: reflection={reflection is not None}")
+    print(f"[COACH] After critical_moments: reflection={reflection is not None}", file=sys.stderr)
     
     # If no critical moment found from stored data, try to extract from commentary
     if not reflection:
