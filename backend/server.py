@@ -642,7 +642,7 @@ async def get_games(user: User = Depends(get_current_user)):
 
 @api_router.get("/games/{game_id}")
 async def get_game(game_id: str, user: User = Depends(get_current_user)):
-    """Get a specific game with player names extracted from PGN"""
+    """Get a specific game with player names and termination reason"""
     import re
     
     game = await db.games.find_one(
@@ -659,9 +659,46 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
         black_match = re.search(r'\[Black "([^"]+)"\]', pgn)
         game["white_player"] = white_match.group(1) if white_match else "White"
         game["black_player"] = black_match.group(1) if black_match else "Black"
+        
+        # Also try to extract termination from PGN if not stored
+        if not game.get("termination"):
+            term_match = re.search(r'\[Termination "([^"]+)"\]', pgn)
+            if term_match:
+                game["termination"] = term_match.group(1).lower()
     else:
         game["white_player"] = "White"
         game["black_player"] = "Black"
+    
+    # Generate human-readable termination text
+    termination = game.get("termination", "")
+    user_color = game.get("user_color", "white")
+    result = game.get("result", "")
+    
+    # Determine if user won or lost
+    if user_color == "white":
+        user_won = result == "1-0"
+    else:
+        user_won = result == "0-1"
+    
+    termination_text = ""
+    if termination == "timeout":
+        termination_text = "You lost on time" if not user_won else "Opponent lost on time"
+    elif termination == "resigned":
+        termination_text = "You resigned" if not user_won else "Opponent resigned"
+    elif termination == "checkmated":
+        termination_text = "You got checkmated" if not user_won else "You checkmated opponent"
+    elif termination == "won":
+        termination_text = "You won" if user_won else "You lost"
+    elif termination == "stalemate":
+        termination_text = "Draw by stalemate"
+    elif termination == "repetition":
+        termination_text = "Draw by repetition"
+    elif termination == "insufficient_material":
+        termination_text = "Draw - insufficient material"
+    elif termination == "draw_agreed":
+        termination_text = "Draw by agreement"
+    
+    game["termination_text"] = termination_text
     
     return game
 
