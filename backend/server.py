@@ -2251,12 +2251,13 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
         try:
             ratings = await fetch_platform_ratings(chess_com_user, lichess_user)
             if ratings:
-                # Get the primary rating (rapid or blitz)
+                # Get rating from chess_com or lichess
+                platform_data = ratings.get("chess_com") or ratings.get("lichess") or {}
                 for category in ["rapid", "blitz", "bullet"]:
-                    if category in ratings and ratings[category].get("current"):
-                        rating_data["current"] = ratings[category]["current"]
-                        rating_data["peak"] = ratings[category].get("best", rating_data["current"])
-                        # Calculate weekly change from games
+                    rating_val = platform_data.get(category)
+                    if rating_val:
+                        rating_data["current"] = rating_val
+                        rating_data["peak"] = rating_val  # We don't have historical peak easily
                         break
         except Exception as e:
             logger.warning(f"Failed to fetch ratings: {e}")
