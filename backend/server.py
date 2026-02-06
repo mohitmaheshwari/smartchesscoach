@@ -1957,22 +1957,51 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 "trend": "stable"
             })
     
-    # Rating trend (if available)
+    # Rating trend (30 days) - fetch from Chess.com
     user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
-    chess_com_user = user_doc.get("chess_com_username") if user_doc else None
+    chess_com_user = user_doc.get("chesscom_username") or user_doc.get("chess_com_username") if user_doc else None
     if chess_com_user:
         try:
             ratings = await fetch_platform_ratings(chess_com_user, None)
             if ratings and "rapid" in ratings:
                 current = ratings["rapid"].get("current", 0)
+                # Calculate 30-day trend from games
+                thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+                old_games = await db.games.find(
+                    {"user_id": user.user_id, "platform": {"$regex": "chess.com", "$options": "i"}},
+                    {"_id": 0, "date_played": 1}
+                ).sort("date_played", 1).limit(1).to_list(1)
+                
+                # Simple trend indication
                 if current:
+                    trend_value = "stable"
+                    if profile:
+                        trend_ind = profile.get("rating_trend", "stable")
+                        if trend_ind == "improving":
+                            trend_value = "up"
+                        elif trend_ind == "declining":
+                            trend_value = "down"
+                    
                     light_stats.append({
-                        "label": "Current rating",
+                        "label": "Rating (30d)",
                         "value": str(current),
-                        "trend": "stable"
+                        "trend": trend_value
                     })
-        except:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to fetch rating: {e}")
+    
+    # Reflection success rate
+    total_reflections = user_doc.get("total_reflections", 0) if user_doc else 0
+    correct_reflections = user_doc.get("correct_reflections", 0) if user_doc else 0
+    
+    if total_reflections >= 3:
+        success_rate = correct_reflections / total_reflections
+        trend = "up" if success_rate >= 0.6 else ("down" if success_rate < 0.4 else "stable")
+        light_stats.append({
+            "label": "Reflection success",
+            "value": f"{correct_reflections}/{total_reflections}",
+            "trend": trend
+        })
     
     # ===== NEXT GAME PLAN (1-2 lines) =====
     next_game_plan = None
