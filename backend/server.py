@@ -2166,7 +2166,6 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     ).sort("imported_at", -1).limit(1).to_list(1)
     
     most_recent_game = most_recent_games[0] if most_recent_games else None
-    )
     
     if most_recent_game:
         # Get the analysis for this specific game
