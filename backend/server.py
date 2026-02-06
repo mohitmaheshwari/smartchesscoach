@@ -2219,6 +2219,33 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
                 "message": f"Fixed: {r.get('name', '')}",
                 "resolved_at": r.get("resolved_at")
             })
+        
+        # Also include habits resolved via PDR rotation
+        rotated_habits = profile.get("resolved_habits", [])
+        for r in rotated_habits:
+            stats = r.get("final_stats", {})
+            resolved_habits.append({
+                "name": r.get("habit", "").replace("_", " ").title(),
+                "message": f"Mastered via reflection ({stats.get('correct_attempts', 0)}/{stats.get('total_attempts', 0)} correct)",
+                "resolved_at": r.get("resolved_at")
+            })
+    
+    # Get PDR reflection stats for habits
+    from habit_rotation_service import get_all_habit_statuses
+    habit_statuses = await get_all_habit_statuses(db, user.user_id)
+    
+    # Enrich habits with reflection stats
+    for habit in habits:
+        habit_name_lower = habit["name"].lower().replace(" ", "_")
+        for status in habit_statuses:
+            if status.get("habit", "").lower() == habit_name_lower:
+                habit["reflection_stats"] = {
+                    "correct": status.get("correct_attempts", 0),
+                    "total": status.get("total_attempts", 0),
+                    "consecutive": status.get("consecutive_correct", 0),
+                    "status": status.get("status", "active")
+                }
+                break
     
     # Correlate rating to habit if possible
     if rating_data.get("change") and rating_data["change"] > 0 and habits:
