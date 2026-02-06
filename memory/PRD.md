@@ -173,8 +173,9 @@ Metrics support the habit narrative, not replace it.
 - Weekly summaries
 
 ## 3rd Party Integrations
-- **Stockfish** - Chess engine (local binary)
-- **OpenAI GPT** - Coaching commentary (via Emergent LLM Key)
+- **Stockfish** - Chess engine (local binary at /usr/games/stockfish)
+- **OpenAI GPT-4o-mini** - Idea chain explanations, why options (via Emergent LLM Key)
+- **OpenAI GPT-5.2** - Full game analysis coaching commentary (via Emergent LLM Key)
 - **Chess.com API** - Game imports
 - **Lichess API** - Game imports
 - **Emergent Google Auth** - Web authentication
@@ -183,6 +184,9 @@ Metrics support the habit narrative, not replace it.
 - `users` - User accounts + linked platforms
 - `games` - Imported chess games
 - `game_analyses` - Analysis results
+- `player_profiles` - Weaknesses, strengths, habits, trends
+- `coach_sessions` - Play session tracking (Go Play / Done Playing)
+- `analysis_queue` - Priority game analysis queue
 - `player_profiles` - Weaknesses, strengths, habits
 - `notifications` - Refined notification system
 
