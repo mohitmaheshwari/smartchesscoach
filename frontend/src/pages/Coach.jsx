@@ -437,6 +437,47 @@ const DecisionReconstruction = ({ pdr }) => {
               </motion.div>
             )}
           </AnimatePresence>
+          
+          {/* Game Context Footer */}
+          {gameContext && phase === "result" && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-6 pt-4 border-t border-border/50 flex items-center justify-between text-xs"
+            >
+              <div className="text-muted-foreground">
+                {gameContext.date && <span>{gameContext.date}</span>}
+                {gameContext.time_control && (
+                  <span className="ml-2">• {gameContext.time_control}</span>
+                )}
+                {gameContext.result && (
+                  <span className="ml-2">• {gameContext.result}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {gameContext.game_url && (
+                  <a 
+                    href={gameContext.game_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                  >
+                    View on {gameContext.platform || "Chess.com"}
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+                {gameContext.analysis_url && (
+                  <a 
+                    href={gameContext.analysis_url}
+                    className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  >
+                    Full Analysis
+                    <ChevronRight className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+            </motion.div>
+          )}
         </CardContent>
       </Card>
     </motion.section>
