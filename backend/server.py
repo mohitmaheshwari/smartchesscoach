@@ -1554,24 +1554,26 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     Get today's coaching focus - returns ONE active habit.
     This is the discipline-first surface. Minimal, directive.
     """
-    # Check if user has linked accounts
-    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
-    has_account = bool(user_doc.get("chess_com_username") or user_doc.get("lichess_username"))
-    
-    if not has_account:
-        return {
-            "has_active_habit": False,
-            "habit": None,
-            "message": "Link your chess account to get started"
-        }
-    
-    # Get player profile
+    # Get player profile first - this is the source of truth
     profile = await db.player_profiles.find_one(
         {"user_id": user.user_id},
         {"_id": 0}
     )
     
-    if not profile:
+    # Check if we have any analyses
+    analysis_count = await db.game_analyses.count_documents({"user_id": user.user_id})
+    
+    # If no profile and no analyses, prompt to link account
+    if not profile and analysis_count == 0:
+        user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+        has_account = bool(user_doc.get("chess_com_username") or user_doc.get("lichess_username"))
+        
+        if not has_account:
+            return {
+                "has_active_habit": False,
+                "habit": None,
+                "message": "Link your chess account to get started"
+            }
         return {
             "has_active_habit": False,
             "habit": None,
@@ -1579,11 +1581,9 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         }
     
     # Get top weakness as the active habit
-    top_weaknesses = profile.get("top_weaknesses", [])
+    top_weaknesses = profile.get("top_weaknesses", []) if profile else []
     
     if not top_weaknesses:
-        # Check if we have any analyses
-        analysis_count = await db.game_analyses.count_documents({"user_id": user.user_id})
         if analysis_count == 0:
             return {
                 "has_active_habit": False,
