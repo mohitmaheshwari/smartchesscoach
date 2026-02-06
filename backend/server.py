@@ -2160,7 +2160,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         last_analysis = recent_analyses[0]
         last_game_doc = await db.games.find_one(
             {"game_id": last_analysis.get("game_id")},
-            {"_id": 0, "opponent": 1, "result": 1, "date": 1, "time_control": 1, "platform": 1, "url": 1, "white": 1, "black": 1}
+            {"_id": 0, "opponent": 1, "result": 1, "date": 1, "time_control": 1, "platform": 1, "url": 1, "white": 1, "black": 1, "user_color": 1}
         )
         
         if last_game_doc:
@@ -2168,8 +2168,12 @@ async def get_coach_today(user: User = Depends(get_current_user)):
             mistakes = last_analysis.get("mistakes", 0)
             accuracy = last_analysis.get("accuracy", 0)
             
-            # Get opponent name
-            opponent = last_game_doc.get("opponent") or "Opponent"
+            # Get opponent name from white/black based on user color
+            user_color = last_game_doc.get("user_color", "white")
+            if user_color == "white":
+                opponent = last_game_doc.get("black") or last_game_doc.get("opponent") or "Opponent"
+            else:
+                opponent = last_game_doc.get("white") or last_game_doc.get("opponent") or "Opponent"
             
             # Build coach comment about last game
             result = last_game_doc.get("result", "")
