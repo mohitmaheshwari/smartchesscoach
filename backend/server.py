@@ -2160,7 +2160,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         last_analysis = recent_analyses[0]
         last_game_doc = await db.games.find_one(
             {"game_id": last_analysis.get("game_id")},
-            {"_id": 0, "opponent": 1, "result": 1, "date": 1, "time_control": 1, "platform": 1, "url": 1, "white": 1, "black": 1, "user_color": 1}
+            {"_id": 0, "opponent": 1, "result": 1, "date": 1, "time_control": 1, "platform": 1, "url": 1, "white": 1, "black": 1, "user_color": 1, "pgn": 1, "username": 1}
         )
         
         if last_game_doc:
@@ -2168,12 +2168,30 @@ async def get_coach_today(user: User = Depends(get_current_user)):
             mistakes = last_analysis.get("mistakes", 0)
             accuracy = last_analysis.get("accuracy", 0)
             
-            # Get opponent name from white/black based on user color
+            # Get opponent name - try multiple sources
             user_color = last_game_doc.get("user_color", "white")
+            username = last_game_doc.get("username", "")
+            opponent = "Opponent"
+            
+            # First check direct fields
             if user_color == "white":
-                opponent = last_game_doc.get("black") or last_game_doc.get("opponent") or "Opponent"
+                opponent = last_game_doc.get("black") or last_game_doc.get("opponent") or opponent
             else:
-                opponent = last_game_doc.get("white") or last_game_doc.get("opponent") or "Opponent"
+                opponent = last_game_doc.get("white") or last_game_doc.get("opponent") or opponent
+            
+            # If still "Opponent", try parsing from PGN
+            if opponent == "Opponent" and last_game_doc.get("pgn"):
+                import re
+                pgn = last_game_doc["pgn"]
+                white_match = re.search(r'\[White "([^"]+)"\]', pgn)
+                black_match = re.search(r'\[Black "([^"]+)"\]', pgn)
+                if white_match and black_match:
+                    white_name = white_match.group(1)
+                    black_name = black_match.group(1)
+                    if user_color == "white":
+                        opponent = black_name
+                    else:
+                        opponent = white_name
             
             # Build coach comment about last game
             result = last_game_doc.get("result", "")
