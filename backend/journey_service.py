@@ -613,9 +613,13 @@ RULES:
                 # Find the FEN for this position from Stockfish moves
                 move_num = move_data.get("move_number")
                 fen = None
+                best_move = None
+                cp_loss = 0
                 for sf_move in sf_moves:
                     if sf_move.get("move_number") == move_num:
-                        fen = sf_move.get("fen_before", sf_move.get("fen"))
+                        fen = sf_move.get("fen_before")
+                        best_move = sf_move.get("best_move")
+                        cp_loss = sf_move.get("cp_loss", 0)
                         break
                 
                 if fen:
@@ -624,11 +628,11 @@ RULES:
                         "move_number": move_num,
                         "fen": fen,
                         "move_played": move_data.get("move"),
-                        "best_move": move_data.get("best_move", move_data.get("consider")),
+                        "best_move": best_move or move_data.get("consider"),
                         "explanation": move_data.get("lesson", move_data.get("thinking_pattern", "")),
                         "eval_before": move_data.get("eval_before", 0),
                         "eval_after": move_data.get("eval_after", 0),
-                        "cp_loss": move_data.get("centipawn_loss", 0)
+                        "cp_loss": cp_loss
                     })
         
         # Sort by centipawn loss to find worst moment
