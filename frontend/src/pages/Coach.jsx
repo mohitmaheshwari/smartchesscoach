@@ -473,6 +473,50 @@ const Coach = ({ user }) => {
     }
   };
 
+  // Poll for analysis completion
+  const pollAnalysisStatus = useCallback(async (gameId) => {
+    let attempts = 0;
+    const maxAttempts = 30; // 30 seconds max
+    
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
+        setSessionState("idle");
+        setSessionResult(null);
+        toast.info("Analysis is taking longer than expected. Check back soon.", { duration: 4000 });
+        return;
+      }
+      
+      try {
+        const res = await fetch(`${API}/coach/analysis-status/${gameId}`, {
+          credentials: "include"
+        });
+        const data = await res.json();
+        
+        if (data.status === "complete") {
+          setSessionResult(prev => ({ ...prev, feedback: data.feedback }));
+          // Show the feedback for a moment, then transition
+          setTimeout(() => {
+            fetchCoachData();
+            setSessionState("idle");
+            setSessionResult(null);
+          }, 3000);
+        } else if (data.status === "failed") {
+          setSessionState("idle");
+          toast.error(data.message || "Analysis failed", { duration: 4000 });
+        } else {
+          // Still pending, poll again
+          attempts++;
+          setTimeout(poll, 1000);
+        }
+      } catch (e) {
+        attempts++;
+        setTimeout(poll, 1000);
+      }
+    };
+    
+    poll();
+  }, [fetchCoachData]);
+
   const handleDonePlaying = async () => {
     setSessionState("analyzing");
     try {
@@ -483,21 +527,19 @@ const Coach = ({ user }) => {
       const data = await res.json();
       setSessionResult(data);
       
-      if (data.status === "analyzing" || data.status === "already_analyzed") {
-        // Keep analyzing state visible for a bit, then refresh with new PDR
+      if (data.status === "already_analyzed") {
+        // Game already analyzed - show the real feedback immediately
+        // Keep it visible for a bit so user can read it
         setTimeout(() => {
           fetchCoachData();
           setSessionState("idle");
           setSessionResult(null);
-          // Show a coach message based on result
-          if (data.status === "already_analyzed") {
-            toast.success("Your game is ready. Let's see what happened.", { duration: 3000 });
-          } else {
-            toast.success("Analysis complete. New reflection moment waiting.", { duration: 3000 });
-          }
         }, 4000);
+      } else if (data.status === "analyzing") {
+        // New game being analyzed - poll for completion
+        pollAnalysisStatus(data.game_id);
       } else if (data.status === "no_game") {
-        // No game found - give friendly message
+        // No game found
         setTimeout(() => {
           setSessionState("idle");
           setSessionResult(null);
