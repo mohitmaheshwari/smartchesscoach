@@ -307,11 +307,17 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 
                 # Only include analysis for the user's moves
                 if (user_color == "white" and is_white_move) or (user_color == "black" and not is_white_move):
+                    # Get FEN before this move (need to undo and redo)
+                    board.pop()
+                    fen_before = board.fen()
+                    board.push(move)
+                    
                     move_eval = MoveEvaluation(
                         move_number=(move_number + 1) // 2,
                         move_san=move_san,
                         move_uci=move.uci(),
                         player=player,
+                        fen_before=fen_before,
                         eval_before=prev_eval,
                         eval_after=current_eval,
                         cp_loss=cp_loss,
