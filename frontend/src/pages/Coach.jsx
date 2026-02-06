@@ -670,29 +670,86 @@ const Coach = ({ user }) => {
                   animate={{ opacity: 1, y: 0 }}
                   className="py-6 px-8 bg-muted/30 rounded-xl border border-border/50 max-w-md mx-auto"
                 >
-                  <div className="flex items-center justify-center gap-3 mb-4">
-                    <div className="relative">
-                      <Brain className="w-8 h-8 text-purple-500" />
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full animate-pulse"></span>
-                    </div>
-                    <span className="text-lg font-medium">Reviewing your game...</span>
-                  </div>
-                  
-                  <div className="space-y-2 text-sm text-muted-foreground text-center">
-                    <p className="text-foreground">
-                      {sessionResult?.status === "already_analyzed" 
-                        ? "I've already reviewed this one." 
-                        : "Okay, let me take a look."}
-                    </p>
-                    <p>Hope you won that one.</p>
-                    <p className="text-purple-400">
-                      Checking if you repeated the old patterns...
-                    </p>
-                  </div>
-                  
-                  <div className="mt-4 flex justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
-                  </div>
+                  {/* Show real feedback when available */}
+                  {sessionResult?.feedback ? (
+                    <>
+                      <div className="flex items-center justify-center gap-3 mb-4">
+                        {sessionResult.feedback.type === "excellent" && (
+                          <CheckCircle className="w-8 h-8 text-emerald-500" />
+                        )}
+                        {sessionResult.feedback.type === "good" && (
+                          <CheckCircle className="w-8 h-8 text-emerald-400" />
+                        )}
+                        {sessionResult.feedback.type === "okay" && (
+                          <Brain className="w-8 h-8 text-blue-400" />
+                        )}
+                        {sessionResult.feedback.type === "repeated" && (
+                          <AlertCircle className="w-8 h-8 text-amber-500" />
+                        )}
+                        {sessionResult.feedback.type === "needs_work" && (
+                          <AlertCircle className="w-8 h-8 text-red-400" />
+                        )}
+                        <span className="text-lg font-medium">
+                          {sessionResult.feedback.type === "excellent" ? "Great game!" : 
+                           sessionResult.feedback.type === "repeated" ? "Hmm, same pattern..." : 
+                           "Game reviewed."}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-3 text-center">
+                        <p className={`text-sm font-medium ${
+                          sessionResult.feedback.type === "excellent" ? "text-emerald-400" :
+                          sessionResult.feedback.type === "repeated" ? "text-amber-400" :
+                          sessionResult.feedback.type === "needs_work" ? "text-red-400" :
+                          "text-foreground"
+                        }`}>
+                          {sessionResult.feedback.message}
+                        </p>
+                        {sessionResult.feedback.detail && (
+                          <p className="text-sm text-muted-foreground">
+                            {sessionResult.feedback.detail}
+                          </p>
+                        )}
+                        {sessionResult.feedback.stats && (
+                          <div className="flex justify-center gap-4 pt-2 text-xs text-muted-foreground">
+                            <span>Blunders: {sessionResult.feedback.stats.blunders}</span>
+                            <span>Mistakes: {sessionResult.feedback.stats.mistakes}</span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Still analyzing */}
+                      <div className="flex items-center justify-center gap-3 mb-4">
+                        <div className="relative">
+                          <Brain className="w-8 h-8 text-purple-500" />
+                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full animate-pulse"></span>
+                        </div>
+                        <span className="text-lg font-medium">Reviewing your game...</span>
+                      </div>
+                      
+                      <div className="space-y-2 text-sm text-muted-foreground text-center">
+                        <p className="text-foreground">
+                          {sessionResult?.opponent 
+                            ? `Looking at your game against ${sessionResult.opponent}...` 
+                            : "Okay, let me take a look."}
+                        </p>
+                        <p>
+                          {sessionResult?.result?.includes("1-0") ? "Congrats on the win!" : 
+                           sessionResult?.result?.includes("0-1") ? "Tough loss — let's learn from it." : 
+                           "Hope it went well."}
+                        </p>
+                        <p className="text-purple-400">
+                          Checking if you repeated the old patterns...
+                        </p>
+                      </div>
+                      
+                      <div className="mt-4 flex justify-center">
+                        <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+                      </div>
+                    </>
+                  )}
                 </motion.div>
               )}
               
