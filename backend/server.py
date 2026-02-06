@@ -1603,14 +1603,17 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     habit_rules = {
         "premature_queen_moves": "Develop knights and bishops before moving your queen.",
         "one_move_blunder": "Before every move, ask: Can my opponent capture something?",
+        "one_move_blunders": "Before every move, ask: Can my opponent capture something?",
         "time_trouble": "Use at least 10 seconds on each move in the middlegame.",
         "missed_tactics": "On every opponent move, check for loose pieces first.",
         "weak_endgame": "In king and pawn endings, activate your king immediately.",
         "opening_mistakes": "Focus on controlling the center with pawns and developing pieces.",
         "piece_activity": "If a piece hasn't moved, find a good square for it.",
         "king_safety": "Castle early. Don't delay unless you have a specific reason.",
+        "exposing_own_king": "Before moving, check if it weakens your king's safety.",
         "pawn_structure": "Avoid creating doubled pawns unless you get compensation.",
         "calculation_errors": "Calculate forcing moves (checks, captures) first.",
+        "tactical": "Before each move, look for tactics: checks, captures, threats.",
     }
     
     subcategory = top.get("subcategory", "").lower().replace(" ", "_")
