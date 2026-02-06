@@ -484,19 +484,31 @@ const Coach = ({ user }) => {
       setSessionResult(data);
       
       if (data.status === "analyzing" || data.status === "already_analyzed") {
-        toast.success(data.message);
-        // Refresh data after a delay
+        // Keep analyzing state visible for a bit, then refresh with new PDR
         setTimeout(() => {
           fetchCoachData();
           setSessionState("idle");
           setSessionResult(null);
-        }, 5000);
+          // Show a coach message based on result
+          if (data.status === "already_analyzed") {
+            toast.success("Your game is ready. Let's see what happened.", { duration: 3000 });
+          } else {
+            toast.success("Analysis complete. New reflection moment waiting.", { duration: 3000 });
+          }
+        }, 4000);
+      } else if (data.status === "no_game") {
+        // No game found - give friendly message
+        setTimeout(() => {
+          setSessionState("idle");
+          setSessionResult(null);
+          toast.info("No new game found yet. Did you finish the game?", { duration: 4000 });
+        }, 2000);
       } else {
         toast.info(data.message);
         setSessionState("idle");
       }
     } catch (e) {
-      toast.error("Failed to end session");
+      toast.error("Couldn't connect. Try again?");
       setSessionState("idle");
     }
   };
