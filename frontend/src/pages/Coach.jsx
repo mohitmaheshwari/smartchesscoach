@@ -10,9 +10,11 @@ import { toast } from "sonner";
 import { 
   Loader2, 
   ChevronRight,
-  Target,
   Link as LinkIcon,
-  ExternalLink
+  ExternalLink,
+  AlertCircle,
+  CheckCircle,
+  Lightbulb
 } from "lucide-react";
 
 const Coach = ({ user }) => {
@@ -55,7 +57,7 @@ const Coach = ({ user }) => {
         body: JSON.stringify({ platform, username: username.trim() })
       });
       if (!res.ok) throw new Error((await res.json()).detail);
-      toast.success("Account linked! Games will sync shortly.");
+      toast.success("Account linked. Games will sync shortly.");
       setPlatform(null);
       setUsername("");
       fetchCoachData();
@@ -64,6 +66,13 @@ const Coach = ({ user }) => {
     } finally {
       setLinking(false);
     }
+  };
+
+  const handleGoPlay = () => {
+    const url = accounts.chess_com 
+      ? "https://chess.com/play/online" 
+      : "https://lichess.org";
+    window.open(url, "_blank");
   };
 
   if (loading) {
@@ -76,12 +85,13 @@ const Coach = ({ user }) => {
     );
   }
 
-  const hasHabit = coachData?.has_active_habit;
   const needsAccountLink = coachData?.message === "Link your chess account to get started";
+  const hasData = coachData?.has_data;
 
   return (
     <Layout user={user}>
       <div className="max-w-xl mx-auto" data-testid="coach-page">
+        
         {/* No Account Linked State */}
         {needsAccountLink && (
           <motion.div
@@ -107,7 +117,6 @@ const Coach = ({ user }) => {
                       onClick={() => setPlatform("chess.com")} 
                       variant="outline"
                       size="lg"
-                      className="gap-2"
                       data-testid="link-chesscom-btn"
                     >
                       Chess.com
@@ -116,7 +125,6 @@ const Coach = ({ user }) => {
                       onClick={() => setPlatform("lichess")} 
                       variant="outline"
                       size="lg"
-                      className="gap-2"
                       data-testid="link-lichess-btn"
                     >
                       Lichess
@@ -157,98 +165,133 @@ const Coach = ({ user }) => {
           </motion.div>
         )}
 
-        {/* Show Coach Mode when we have data (not needing account link) */}
-        {!needsAccountLink && (
+        {/* Analyzing State */}
+        {!needsAccountLink && !hasData && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-8 space-y-8"
+            className="mt-16 text-center"
           >
-            {/* Coach's Focus */}
-            <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground uppercase tracking-wider">
-                Today&apos;s Focus
-              </p>
-              <div className="h-px w-16 bg-border mx-auto" />
-            </div>
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              {coachData?.message || "Analyzing your games..."}
+            </p>
+          </motion.div>
+        )}
 
-            {hasHabit ? (
-              <>
-                {/* Active Habit Card */}
-                <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/80">
-                  <CardContent className="py-12 px-8 text-center">
-                    <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-6">
-                      <Target className="w-6 h-6 text-amber-500" />
-                    </div>
-                    
-                    <h1 className="font-heading font-bold text-2xl md:text-3xl mb-4 text-foreground">
-                      {coachData.habit?.name}
-                    </h1>
-                    
-                    <p className="text-muted-foreground text-lg max-w-md mx-auto leading-relaxed">
-                      {coachData.habit?.rule}
+        {/* Main Coach Mode */}
+        {hasData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-8 space-y-6"
+          >
+            {/* Section 1: Correct This */}
+            {coachData.correction && (
+              <motion.section
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertCircle className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-amber-500">
+                    Correct This
+                  </span>
+                </div>
+                <Card className="border-amber-500/20 bg-amber-500/5">
+                  <CardContent className="py-6">
+                    <h2 className="font-heading font-bold text-xl mb-2">
+                      {coachData.correction.title}
+                    </h2>
+                    <p className="text-muted-foreground text-sm mb-2">
+                      {coachData.correction.context}
+                    </p>
+                    <p className="text-sm text-foreground/80">
+                      {coachData.correction.severity}
                     </p>
                   </CardContent>
                 </Card>
-
-                {/* Go Play Button */}
-                <div className="text-center">
-                  <Button
-                    size="lg"
-                    className="h-14 px-12 text-lg font-semibold gap-2"
-                    onClick={() => {
-                      // Open chess platform in new tab
-                      const url = accounts.chess_com 
-                        ? `https://chess.com/play/online` 
-                        : `https://lichess.org`;
-                      window.open(url, '_blank');
-                    }}
-                    data-testid="go-play-btn"
-                  >
-                    Go Play. I&apos;ll review.
-                    <ExternalLink className="w-5 h-5" />
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Your games will be analyzed automatically
-                  </p>
-                </div>
-              </>
-            ) : (
-              /* No Active Habit Yet */
-              <Card className="border-0 shadow-lg">
-                <CardContent className="py-12 px-8 text-center">
-                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
-                    <Target className="w-6 h-6 text-muted-foreground" />
-                  </div>
-                  
-                  <h2 className="font-heading font-semibold text-xl mb-3">
-                    Analyzing Your Games
-                  </h2>
-                  
-                  <p className="text-muted-foreground max-w-sm mx-auto mb-6">
-                    I&apos;m reviewing your recent games to identify what to focus on. Play a few more games and check back soon.
-                  </p>
-
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const url = accounts.chess_com 
-                        ? `https://chess.com/play/online` 
-                        : `https://lichess.org`;
-                      window.open(url, '_blank');
-                    }}
-                  >
-                    Play Some Games
-                    <ExternalLink className="w-4 h-4 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
+              </motion.section>
             )}
 
+            {/* Section 2: Keep Doing This */}
+            {coachData.reinforcement && (
+              <motion.section
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-emerald-500">
+                    Keep Doing This
+                  </span>
+                </div>
+                <Card className="border-emerald-500/20 bg-emerald-500/5">
+                  <CardContent className="py-6">
+                    <h2 className="font-heading font-bold text-xl mb-2">
+                      {coachData.reinforcement.title}
+                    </h2>
+                    <p className="text-muted-foreground text-sm mb-2">
+                      {coachData.reinforcement.context}
+                    </p>
+                    <p className="text-sm text-foreground/80">
+                      {coachData.reinforcement.trend}
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.section>
+            )}
+
+            {/* Section 3: Remember This Rule */}
+            {coachData.rule && (
+              <motion.section
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Lightbulb className="w-4 h-4 text-blue-500" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-blue-500">
+                    Remember
+                  </span>
+                </div>
+                <Card className="border-blue-500/20 bg-gradient-to-br from-blue-500/5 to-blue-600/10">
+                  <CardContent className="py-8 text-center">
+                    <p className="text-lg font-medium whitespace-pre-line leading-relaxed">
+                      {coachData.rule}
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.section>
+            )}
+
+            {/* Action Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="pt-4 text-center"
+            >
+              <Button
+                size="lg"
+                className="h-14 px-12 text-lg font-semibold"
+                onClick={handleGoPlay}
+                data-testid="go-play-btn"
+              >
+                Go Play. I'll review.
+                <ExternalLink className="w-5 h-5 ml-2" />
+              </Button>
+              <p className="text-xs text-muted-foreground mt-3">
+                Games auto-analyzed from Chess.com / Lichess
+              </p>
+            </motion.div>
+
             {/* View Progress Link */}
-            <div className="text-center">
+            <div className="text-center pt-4">
               <button
-                onClick={() => navigate('/progress')}
+                onClick={() => navigate("/progress")}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
                 data-testid="view-progress-link"
               >
@@ -256,13 +299,6 @@ const Coach = ({ user }) => {
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-
-            {/* Connected Account Info */}
-            {(accounts.chess_com || accounts.lichess) && (
-              <div className="text-center text-xs text-muted-foreground/60">
-                Connected: {accounts.chess_com || accounts.lichess}
-              </div>
-            )}
           </motion.div>
         )}
       </div>
