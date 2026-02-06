@@ -168,6 +168,7 @@ const GameAnalysis = ({ user }) => {
   const blackPlayer = game ? game.black_player : "Black";
   const platform = game ? game.platform : "";
   const result = game ? game.result : "";
+  const termination = game ? game.termination_text : "";
   
   const commentary = analysis ? analysis.commentary : [];
   const blunders = analysis ? analysis.blunders : 0;
