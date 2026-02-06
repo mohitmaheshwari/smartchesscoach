@@ -34,9 +34,9 @@ const AuthCallback = () => {
 
         const user = await response.json();
         
-        // Clear the hash and navigate to dashboard with user data
-        window.history.replaceState(null, '', '/dashboard');
-        navigate('/dashboard', { replace: true, state: { user } });
+        // Clear the hash and navigate to coach with user data
+        window.history.replaceState(null, '', '/coach');
+        navigate('/coach', { replace: true, state: { user } });
       } catch (error) {
         console.error('Auth error:', error);
         navigate('/');
