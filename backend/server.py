@@ -1546,6 +1546,202 @@ async def trigger_game_sync(background_tasks: BackgroundTasks, user: User = Depe
     
     return {"message": "Game sync started. New games will appear shortly."}
 
+# ==================== COACH MODE ROUTES ====================
+
+@api_router.get("/coach/today")
+async def get_coach_today(user: User = Depends(get_current_user)):
+    """
+    Get today's coaching focus - returns ONE active habit.
+    This is the discipline-first surface. Minimal, directive.
+    """
+    # Check if user has linked accounts
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    has_account = bool(user_doc.get("chess_com_username") or user_doc.get("lichess_username"))
+    
+    if not has_account:
+        return {
+            "has_active_habit": False,
+            "habit": None,
+            "message": "Link your chess account to get started"
+        }
+    
+    # Get player profile
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not profile:
+        return {
+            "has_active_habit": False,
+            "habit": None,
+            "message": "Analyzing your games..."
+        }
+    
+    # Get top weakness as the active habit
+    top_weaknesses = profile.get("top_weaknesses", [])
+    
+    if not top_weaknesses:
+        # Check if we have any analyses
+        analysis_count = await db.game_analyses.count_documents({"user_id": user.user_id})
+        if analysis_count == 0:
+            return {
+                "has_active_habit": False,
+                "habit": None,
+                "message": "Play some games and I'll identify what to work on"
+            }
+        return {
+            "has_active_habit": False,
+            "habit": None,
+            "message": "Great work! No major issues detected. Keep playing."
+        }
+    
+    # Return the top weakness as the ONE active habit
+    top = top_weaknesses[0]
+    
+    # Generate a clear rule for this habit
+    habit_rules = {
+        "premature_queen_moves": "Develop knights and bishops before moving your queen.",
+        "one_move_blunder": "Before every move, ask: Can my opponent capture something?",
+        "time_trouble": "Use at least 10 seconds on each move in the middlegame.",
+        "missed_tactics": "On every opponent move, check for loose pieces first.",
+        "weak_endgame": "In king and pawn endings, activate your king immediately.",
+        "opening_mistakes": "Focus on controlling the center with pawns and developing pieces.",
+        "piece_activity": "If a piece hasn't moved, find a good square for it.",
+        "king_safety": "Castle early. Don't delay unless you have a specific reason.",
+        "pawn_structure": "Avoid creating doubled pawns unless you get compensation.",
+        "calculation_errors": "Calculate forcing moves (checks, captures) first.",
+    }
+    
+    subcategory = top.get("subcategory", "").lower().replace(" ", "_")
+    rule = habit_rules.get(subcategory, f"Focus on avoiding {top.get('subcategory', 'this mistake')} in your games.")
+    
+    # Clean up the habit name
+    habit_name = top.get("subcategory", "Unknown").replace("_", " ").title()
+    
+    return {
+        "has_active_habit": True,
+        "habit": {
+            "name": habit_name,
+            "category": top.get("category", ""),
+            "rule": rule,
+            "occurrences": top.get("occurrences", 0)
+        }
+    }
+
+
+@api_router.get("/progress")
+async def get_progress_metrics(user: User = Depends(get_current_user)):
+    """
+    Get progress metrics for the /progress page.
+    Shows rating, accuracy, blunders, and habit trends.
+    """
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    
+    # Fetch rating data
+    rating_data = {"current": None, "change": 0, "peak": None, "habit_correlation": None}
+    
+    chess_com_user = user_doc.get("chess_com_username")
+    lichess_user = user_doc.get("lichess_username")
+    
+    if chess_com_user or lichess_user:
+        try:
+            ratings = await fetch_platform_ratings(chess_com_user, lichess_user)
+            if ratings:
+                # Get the primary rating (rapid or blitz)
+                for category in ["rapid", "blitz", "bullet"]:
+                    if category in ratings and ratings[category].get("current"):
+                        rating_data["current"] = ratings[category]["current"]
+                        rating_data["peak"] = ratings[category].get("best", rating_data["current"])
+                        # Calculate weekly change from games
+                        break
+        except Exception as e:
+            logger.warning(f"Failed to fetch ratings: {e}")
+    
+    # Get recent analyses for accuracy and blunders
+    recent_analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "accuracy": 1, "blunders": 1, "mistakes": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(20).to_list(20)
+    
+    # Calculate accuracy trend
+    accuracy_data = {"current": None, "previous": None, "trend": "stable"}
+    if recent_analyses:
+        recent_10 = [a.get("accuracy", 0) for a in recent_analyses[:10] if a.get("accuracy")]
+        previous_10 = [a.get("accuracy", 0) for a in recent_analyses[10:20] if a.get("accuracy")]
+        
+        if recent_10:
+            accuracy_data["current"] = round(sum(recent_10) / len(recent_10), 1)
+        if previous_10:
+            accuracy_data["previous"] = round(sum(previous_10) / len(previous_10), 1)
+        
+        if accuracy_data["current"] and accuracy_data["previous"]:
+            diff = accuracy_data["current"] - accuracy_data["previous"]
+            if diff > 2:
+                accuracy_data["trend"] = "improving"
+            elif diff < -2:
+                accuracy_data["trend"] = "worsening"
+    
+    # Calculate blunder trend
+    blunders_data = {"avg_per_game": None, "total": 0, "trend": "stable"}
+    if recent_analyses:
+        recent_blunders = [a.get("blunders", 0) for a in recent_analyses[:10]]
+        previous_blunders = [a.get("blunders", 0) for a in recent_analyses[10:20]]
+        
+        if recent_blunders:
+            blunders_data["total"] = sum(recent_blunders)
+            blunders_data["avg_per_game"] = round(sum(recent_blunders) / len(recent_blunders), 1)
+        
+        if recent_blunders and previous_blunders:
+            recent_avg = sum(recent_blunders) / len(recent_blunders)
+            prev_avg = sum(previous_blunders) / len(previous_blunders)
+            if recent_avg < prev_avg - 0.3:
+                blunders_data["trend"] = "improving"
+            elif recent_avg > prev_avg + 0.3:
+                blunders_data["trend"] = "worsening"
+    
+    # Get habits from profile
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    habits = []
+    resolved_habits = []
+    
+    if profile:
+        top_weaknesses = profile.get("top_weaknesses", [])
+        for i, w in enumerate(top_weaknesses[:5]):
+            habits.append({
+                "name": w.get("subcategory", "").replace("_", " ").title(),
+                "category": w.get("category", ""),
+                "occurrences_recent": w.get("occurrences", 0),
+                "trend": "stable",  # Could calculate from history
+                "is_active": i == 0  # Only first one is active
+            })
+        
+        # Get resolved weaknesses
+        resolved = profile.get("resolved_weaknesses", [])
+        for r in resolved[:5]:
+            resolved_habits.append({
+                "name": r.get("name", ""),
+                "message": f"Fixed: {r.get('name', '')}",
+                "resolved_at": r.get("resolved_at")
+            })
+    
+    # Correlate rating to habit if possible
+    if rating_data.get("change") and rating_data["change"] > 0 and habits:
+        rating_data["habit_correlation"] = f"Reduced {habits[0]['name'].lower()} may have contributed."
+    
+    return {
+        "rating": rating_data,
+        "accuracy": accuracy_data,
+        "blunders": blunders_data,
+        "habits": habits,
+        "resolved_habits": resolved_habits
+    }
+
+
 # ==================== WEAKNESS/PATTERN ROUTES ====================
 
 @api_router.get("/patterns")
