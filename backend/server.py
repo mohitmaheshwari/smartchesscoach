@@ -1557,6 +1557,9 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     2. Keep Doing This (ONE strength/improvement)
     3. Remember This Rule (carry-forward principle)
     """
+    import sys
+    print(f"[COACH] API called for user {user.user_id}", file=sys.stderr)
+    
     # Get player profile first - this is the source of truth
     profile = await db.player_profiles.find_one(
         {"user_id": user.user_id},
