@@ -426,6 +426,28 @@ const Coach = ({ user }) => {
     }
   };
 
+  // Retry analysis when Stockfish failed
+  const retryAnalysis = async (gameId) => {
+    toast.info("Retrying analysis...");
+    try {
+      const res = await fetch(`${API}/analyze-game`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ game_id: gameId, force: true })
+      });
+      if (res.ok) {
+        toast.success("Analysis complete!");
+        fetchCoachData();
+      } else {
+        const err = await res.json();
+        toast.error(err.detail || "Analysis failed");
+      }
+    } catch (e) {
+      toast.error("Analysis failed. Please try again.");
+    }
+  };
+
   const linkAccount = async () => {
     if (!username.trim()) return toast.error("Enter username");
     setLinking(true);
