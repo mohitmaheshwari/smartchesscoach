@@ -25,9 +25,11 @@ TTS_VOICE = "alloy"
 # =============================================================================
 
 STOCKFISH_PATH = "/usr/games/stockfish"
-STOCKFISH_DEPTH = 15              # Analysis depth (12-18 recommended)
+STOCKFISH_DEPTH = 18              # Main analysis depth (15-20 recommended)
+STOCKFISH_QUICK_DEPTH = 12        # Quick analysis depth
 STOCKFISH_PV_DEPTH = 12           # Depth for principal variation
 STOCKFISH_PV_LENGTH = 5           # Number of moves in PV line
+STOCKFISH_MAX_RETRIES = 3         # Retry attempts if analysis fails
 
 # =============================================================================
 # GAME SYNC CONFIGURATION  
@@ -35,11 +37,12 @@ STOCKFISH_PV_LENGTH = 5           # Number of moves in PV line
 
 # First sync (new user)
 FIRST_SYNC_MAX_GAMES = 15         # Max games to analyze on first sync
-FIRST_SYNC_MONTHS = 3             # How far back to look
+FIRST_SYNC_MONTHS = 3             # How far back to look (months)
 
 # Daily sync
 DAILY_SYNC_MAX_GAMES = 3          # Max games to analyze per day
-SYNC_INTERVAL_HOURS = 4           # Background sync interval
+SYNC_INTERVAL_HOURS = 4           # Background sync interval (hours)
+BACKGROUND_SYNC_INTERVAL_SECONDS = 6 * 60 * 60  # Full background sync (6 hours)
 
 # Game preferences
 PREFERRED_TIME_CONTROLS = ["rapid", "classical", "blitz"]
@@ -65,3 +68,35 @@ CP_THRESHOLDS = {
 COACH_STYLE = "calm_mentor"       # Coach personality
 MAX_HABITS_TO_TRACK = 5           # Max habits to track per user
 PDR_CANDIDATE_MOVES = 2           # Number of candidate moves in PDR (2 or 3)
+
+# =============================================================================
+# HABIT ROTATION SETTINGS
+# =============================================================================
+
+HABIT_CONSECUTIVE_CORRECT = 4     # Correct PDR answers in a row to rotate
+HABIT_TOTAL_CORRECT = 6           # Total correct out of last 8 attempts
+HABIT_MIN_ATTEMPTS = 5            # Minimum attempts before rotation
+
+# =============================================================================
+# QUALITY CONTROL (CQS) SETTINGS
+# =============================================================================
+
+CQS_ACCEPT_THRESHOLD = 80         # Score to accept commentary
+CQS_WARNING_THRESHOLD = 70        # Score for warning
+CQS_REJECT_THRESHOLD = 70         # Score to reject (retry)
+CQS_CRITICAL_THRESHOLD = 60       # Absolute minimum acceptable
+CQS_MAX_REGENERATIONS = 2         # Max retry attempts
+
+# =============================================================================
+# SESSION & AUTH SETTINGS
+# =============================================================================
+
+SESSION_EXPIRY_DAYS = 7           # Login session duration
+COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60  # Cookie expiry (7 days)
+PLAY_SESSION_LOOKBACK_HOURS = 2   # Hours to look back for recent games
+
+# =============================================================================
+# DEFAULT VALUES
+# =============================================================================
+
+DEFAULT_RATING = 1200             # Default rating for new users
