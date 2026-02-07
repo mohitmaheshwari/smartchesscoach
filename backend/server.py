@@ -2398,14 +2398,25 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
     # Get recent analyses for accuracy and blunders
     recent_analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
-        {"_id": 0, "accuracy": 1, "blunders": 1, "mistakes": 1, "created_at": 1}
+        {"_id": 0, "accuracy": 1, "blunders": 1, "mistakes": 1, "created_at": 1, 
+         "stockfish_failed": 1, "stockfish_analysis": 1}
     ).sort("created_at", -1).limit(20).to_list(20)
     
-    # Calculate accuracy trend
+    # Filter out analyses where Stockfish failed - only use accurate data
+    valid_analyses = [a for a in recent_analyses if not a.get("stockfish_failed", False)]
+    
+    # Calculate accuracy trend (only from valid Stockfish analyses)
     accuracy_data = {"current": None, "previous": None, "trend": "stable"}
-    if recent_analyses:
-        recent_10 = [a.get("accuracy", 0) for a in recent_analyses[:10] if a.get("accuracy")]
-        previous_10 = [a.get("accuracy", 0) for a in recent_analyses[10:20] if a.get("accuracy")]
+    if valid_analyses:
+        # Get accuracy from stockfish_analysis if available, else top-level
+        def get_accuracy(a):
+            sf = a.get("stockfish_analysis", {})
+            if sf and sf.get("accuracy"):
+                return sf.get("accuracy")
+            return a.get("accuracy", 0)
+        
+        recent_10 = [get_accuracy(a) for a in valid_analyses[:10] if get_accuracy(a) > 0]
+        previous_10 = [get_accuracy(a) for a in valid_analyses[10:20] if get_accuracy(a) > 0]
         
         if recent_10:
             accuracy_data["current"] = round(sum(recent_10) / len(recent_10), 1)
