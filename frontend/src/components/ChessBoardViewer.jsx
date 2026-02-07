@@ -142,6 +142,31 @@ const ChessBoardViewer = forwardRef(({
     }
   }, [moves, allFens, onMoveChange]);
 
+  // Expose goToMoveNumber to parent via ref
+  // This allows clicking on move comments to jump to that position
+  const goToMoveNumber = useCallback((moveNumber, isBlackMove = false) => {
+    // moveNumber is 1-indexed (1, 2, 3...)
+    // Convert to 0-indexed array index
+    // White's move 1 = index 0, Black's move 1 = index 1
+    // White's move 2 = index 2, Black's move 2 = index 3
+    const targetIndex = (moveNumber - 1) * 2 + (isBlackMove ? 1 : 0);
+    goToMove(targetIndex);
+  }, [goToMove]);
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    goToMove,
+    goToMoveNumber,
+    goToStart: () => {
+      setPositionObject(fenToPositionObject(START_FEN));
+      setCurrentMoveIndex(-1);
+      setLastMoveSquares({});
+      setIsPlaying(false);
+    },
+    goToEnd: () => goToMove(moves.length - 1),
+    getCurrentMoveIndex: () => currentMoveIndex
+  }), [goToMove, goToMoveNumber, moves.length, currentMoveIndex]);
+
   // Auto-play
   useEffect(() => {
     if (!isPlaying || currentMoveIndex >= moves.length - 1) {
