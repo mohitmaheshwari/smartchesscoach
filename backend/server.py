@@ -3533,7 +3533,7 @@ import asyncio
 
 # Global variable to track the background task
 _background_sync_task = None
-BACKGROUND_SYNC_INTERVAL_SECONDS = 6 * 60 * 60  # 6 hours
+# Using BACKGROUND_SYNC_INTERVAL_SECONDS from config.py  # 6 hours
 
 async def background_sync_loop():
     """
