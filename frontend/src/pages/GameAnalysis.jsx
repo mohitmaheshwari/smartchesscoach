@@ -219,18 +219,17 @@ const GameAnalysis = ({ user }) => {
   const isMistake = (ev) => ev === "blunder" || ev === "mistake" || ev === "inaccuracy";
 
   // Jump to move on the board when clicking a move comment
-  const handleMoveClick = (moveNumber, move) => {
+  const handleMoveClick = (moveNumber, move, commentaryIndex) => {
     if (boardRef.current) {
-      // Determine if this is a black move by checking the move notation
-      // In commentary, move_number is the full move number (1, 2, 3...)
-      // We need to figure out if this was white's or black's move
-      // Check the move's ply or position in the original game
-      const moveIndex = commentary.findIndex(m => m.move_number === moveNumber && m.move === move);
-      if (moveIndex !== -1) {
-        // Each commentary item corresponds to one ply (half-move)
-        // We can use the index to calculate the board position
-        boardRef.current.goToMove(moveIndex);
-      }
+      // Commentary only contains USER's moves
+      // For Black: user moves are at odd indices (1, 3, 5...)
+      // For White: user moves are at even indices (0, 2, 4...)
+      const isBlack = userColor === "black";
+      const boardIndex = isBlack 
+        ? (commentaryIndex * 2) + 1  // Black moves: 1, 3, 5, 7...
+        : (commentaryIndex * 2);      // White moves: 0, 2, 4, 6...
+      
+      boardRef.current.goToMove(boardIndex);
     }
   };
 
