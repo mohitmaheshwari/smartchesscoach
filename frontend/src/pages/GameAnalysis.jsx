@@ -38,6 +38,7 @@ const GameAnalysis = ({ user }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const audioRef = useRef(null);
+  const boardRef = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
