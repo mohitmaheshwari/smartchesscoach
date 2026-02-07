@@ -197,7 +197,10 @@ Metrics support the habit narrative, not replace it.
 ### February 7, 2025 - Light Stats & Bug Fixes
 - **Light Stats Fix**: Fixed Rating (30d) not showing by correcting `fetch_platform_ratings` result parsing
   - Now correctly accesses `ratings['chess_com']['rapid']` instead of `ratings['rapid']`
-  - All 3 stats now display: Blunders/game, Rating (30d), Reflection success
+- **Rating Removed from Coach Mode (Option C)**: Per user request, rating no longer shows in Coach mode
+  - Coach page now shows only: Blunders/game trend, Reflection success rate
+  - Rating remains available on Progress page only
+  - Aligns with PRD philosophy: "Coach Mode does NOT show: Rating, Accuracy, Charts"
 - **Most Recent Game Logic Fix**: Fixed recurring bug in `coach_session_service.py`
   - Changed sort field from non-existent `date` to `imported_at`
   - Added opponent extraction from PGN White/Black headers
