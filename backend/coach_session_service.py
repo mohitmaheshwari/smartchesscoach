@@ -6,6 +6,9 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional
 import logging
 
+# Import centralized config
+from config import PLAY_SESSION_LOOKBACK_HOURS
+
 logger = logging.getLogger(__name__)
 
 
