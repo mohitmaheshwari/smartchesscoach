@@ -194,6 +194,19 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 7, 2025 - Light Stats & Bug Fixes
+- **Light Stats Fix**: Fixed Rating (30d) not showing by correcting `fetch_platform_ratings` result parsing
+  - Now correctly accesses `ratings['chess_com']['rapid']` instead of `ratings['rapid']`
+  - All 3 stats now display: Blunders/game, Rating (30d), Reflection success
+- **Most Recent Game Logic Fix**: Fixed recurring bug in `coach_session_service.py`
+  - Changed sort field from non-existent `date` to `imported_at`
+  - Added opponent extraction from PGN White/Black headers
+  - This fixes the fragile "most recent game" identification that caused incorrect game data to be displayed
+- **Game Termination Display**: Verified termination reason displays correctly on both:
+  - Coach page "Last Game" summary (e.g., "lost on time")
+  - Game Analysis page header (e.g., "You lost on time" in amber color)
+- **Testing**: 16/16 backend tests passed, all features verified working
+
 ### February 6, 2025 (Update 3) - Backlog Features
 - **PDR Phase 2: Auto-Rotate Habits**
   - New service: `habit_rotation_service.py`
