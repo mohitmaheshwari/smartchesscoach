@@ -195,21 +195,21 @@ Metrics support the habit narrative, not replace it.
 ## Changelog
 
 ### February 7, 2025 - Light Stats & Bug Fixes
+- **Critical Fix: Stockfish-Only Analysis** (per user requirement)
+  - GPT is ONLY for commentary text, NEVER for blunder/mistake counts
+  - Stockfish is the sole source of truth for move evaluation
+  - Added 3x retry mechanism for Stockfish failures
+  - Added `stockfish_failed` flag to track incomplete analyses
+  - Shows warning banner when Stockfish fails: "Engine analysis failed. Stats may be inaccurate."
+  - Added "Retry" button to re-run analysis
 - **Light Stats Fix**: Fixed Rating (30d) not showing by correcting `fetch_platform_ratings` result parsing
-  - Now correctly accesses `ratings['chess_com']['rapid']` instead of `ratings['rapid']`
 - **Rating Removed from Coach Mode (Option C)**: Per user request, rating no longer shows in Coach mode
   - Coach page now shows only: Blunders/game trend, Reflection success rate
   - Rating remains available on Progress page only
-  - Aligns with PRD philosophy: "Coach Mode does NOT show: Rating, Accuracy, Charts"
-- **Fixed Blunder/Mistake Count Bug**: Coach page was showing 0 blunders even when analysis had blunders
-  - Root cause: Stockfish returning 0s was overriding GPT commentary counts
-  - Fix: Added fallback to count from commentary when Stockfish data is invalid (all zeros)
-  - Ran migration script to fix 7 existing analyses with incorrect counts
 - **Most Recent Game Logic Fix**: Fixed recurring bug in `coach_session_service.py`
   - Changed sort field from non-existent `date` to `imported_at`
   - Added opponent extraction from PGN White/Black headers
 - **Game Termination Display**: Verified termination reason displays correctly on both pages
-- **Testing**: All features verified working
 
 ### February 6, 2025 (Update 3) - Backlog Features
 - **PDR Phase 2: Auto-Rotate Habits**
