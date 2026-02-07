@@ -201,14 +201,15 @@ Metrics support the habit narrative, not replace it.
   - Coach page now shows only: Blunders/game trend, Reflection success rate
   - Rating remains available on Progress page only
   - Aligns with PRD philosophy: "Coach Mode does NOT show: Rating, Accuracy, Charts"
+- **Fixed Blunder/Mistake Count Bug**: Coach page was showing 0 blunders even when analysis had blunders
+  - Root cause: Stockfish returning 0s was overriding GPT commentary counts
+  - Fix: Added fallback to count from commentary when Stockfish data is invalid (all zeros)
+  - Ran migration script to fix 7 existing analyses with incorrect counts
 - **Most Recent Game Logic Fix**: Fixed recurring bug in `coach_session_service.py`
   - Changed sort field from non-existent `date` to `imported_at`
   - Added opponent extraction from PGN White/Black headers
-  - This fixes the fragile "most recent game" identification that caused incorrect game data to be displayed
-- **Game Termination Display**: Verified termination reason displays correctly on both:
-  - Coach page "Last Game" summary (e.g., "lost on time")
-  - Game Analysis page header (e.g., "You lost on time" in amber color)
-- **Testing**: 16/16 backend tests passed, all features verified working
+- **Game Termination Display**: Verified termination reason displays correctly on both pages
+- **Testing**: All features verified working
 
 ### February 6, 2025 (Update 3) - Backlog Features
 - **PDR Phase 2: Auto-Rotate Habits**
