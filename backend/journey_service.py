@@ -20,7 +20,7 @@ import httpx
 from config import (
     LLM_PROVIDER, LLM_MODEL,
     FIRST_SYNC_MAX_GAMES, DAILY_SYNC_MAX_GAMES, 
-    SYNC_INTERVAL_HOURS, MIN_GAME_MOVES
+    SYNC_INTERVAL_HOURS, MIN_GAME_MOVES, FIRST_SYNC_MONTHS
 )
 
 logger = logging.getLogger(__name__)
