@@ -5,6 +5,7 @@ import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Layout from "@/components/Layout";
+import StatsDetailModal from "@/components/StatsDetailModal";
 import { 
   StatCard,
   ProgressRing,
