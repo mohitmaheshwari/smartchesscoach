@@ -421,7 +421,13 @@ const GameAnalysis = ({ user }) => {
                   <p className="font-medium">Analyzing...</p>
                 </div>
               ) : (
-                <ChessBoardViewer pgn={pgn} userColor={userColor} onMoveChange={setCurrentMoveNumber} commentary={commentary} />
+                <ChessBoardViewer 
+                  ref={boardRef}
+                  pgn={pgn} 
+                  userColor={userColor} 
+                  onMoveChange={setCurrentMoveNumber} 
+                  commentary={commentary} 
+                />
               )}
             </CardContent>
           </Card>
