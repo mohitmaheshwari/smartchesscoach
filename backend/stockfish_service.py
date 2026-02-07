@@ -361,6 +361,28 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                     # Get FEN before this move (need to undo and redo)
                     board.pop()
                     fen_before = board.fen()
+                    
+                    # For mistakes/inaccuracies/blunders, get PV lines to explain WHY
+                    pv_after_played = []
+                    pv_after_best = []
+                    threat_after_played = None
+                    
+                    is_bad_move = classification in [MoveClassification.INACCURACY, MoveClassification.MISTAKE, MoveClassification.BLUNDER]
+                    
+                    if is_bad_move:
+                        # Get PV after the best move (what SHOULD have happened)
+                        best_board = board.copy()
+                        best_board.push(best_move)
+                        pv_after_best = engine.get_principal_variation(best_board, depth=12, pv_length=4)
+                        
+                        # Get PV after the played move (shows the PROBLEM)
+                        played_board = board.copy()
+                        played_board.push(move)
+                        pv_after_played = engine.get_principal_variation(played_board, depth=12, pv_length=4)
+                        
+                        # Get the immediate threat after the played move
+                        threat_after_played = engine.get_threat(played_board, depth=12)
+                    
                     board.push(move)
                     
                     move_eval = MoveEvaluation(
@@ -378,7 +400,10 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         is_mate_before=prev_mate is not None,
                         is_mate_after=current_mate is not None,
                         mate_in_before=prev_mate,
-                        mate_in_after=current_mate
+                        mate_in_after=current_mate,
+                        pv_after_played=pv_after_played,
+                        pv_after_best=pv_after_best,
+                        threat_after_played=threat_after_played
                     )
                     moves_analysis.append(move_eval)
                 
