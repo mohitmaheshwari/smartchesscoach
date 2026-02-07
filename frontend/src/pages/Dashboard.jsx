@@ -360,6 +360,13 @@ const Dashboard = ({ user }) => {
           </AnimatedList>
         )}
       </div>
+
+      {/* Stats Detail Modal */}
+      <StatsDetailModal 
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        type={modalType}
+      />
     </Layout>
   );
 };
