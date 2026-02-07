@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Configuration (from config.py)
 MAX_GAMES_PER_DAY = DAILY_SYNC_MAX_GAMES
 INITIAL_GAMES_TO_ANALYZE = FIRST_SYNC_MAX_GAMES
-INITIAL_IMPORT_MONTHS = 3     # Import last 3 months on first sync
+from config import FIRST_SYNC_MONTHS as INITIAL_IMPORT_MONTHS     # Import last 3 months on first sync
 PREFERRED_TIME_CONTROLS = ["rapid", "classical", "correspondence"]
 SKIP_TIME_CONTROLS = ["bullet", "ultrabullet"]
 
