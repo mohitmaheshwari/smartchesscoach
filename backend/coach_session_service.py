@@ -76,9 +76,9 @@ async def end_play_session(db, user_id: str) -> Dict:
         try:
             start_dt = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
         except:
-            start_dt = datetime.now(timezone.utc) - timedelta(hours=2)
+            start_dt = datetime.now(timezone.utc) - timedelta(hours=PLAY_SESSION_LOOKBACK_HOURS)
     else:
-        start_dt = datetime.now(timezone.utc) - timedelta(hours=2)
+        start_dt = datetime.now(timezone.utc) - timedelta(hours=PLAY_SESSION_LOOKBACK_HOURS)
     
     # Look for the most recent game (sorted by imported_at descending)
     recent_game = await db.games.find_one(
