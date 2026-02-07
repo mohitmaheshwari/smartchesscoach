@@ -643,6 +643,14 @@ const Coach = ({ user }) => {
                   </div>
                 </div>
                 
+                {/* Warning if Stockfish analysis failed */}
+                {coachData.last_game.analysis_warning && (
+                  <div className="mb-2 p-2 bg-amber-500/10 rounded border border-amber-500/30 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                    <p className="text-xs text-amber-400">{coachData.last_game.analysis_warning}</p>
+                  </div>
+                )}
+                
                 <p className={`text-sm ${
                   coachData.last_game.repeated_habit ? "text-amber-400" : 
                   coachData.last_game.result === "Lost" ? "text-red-300" : "text-foreground"
