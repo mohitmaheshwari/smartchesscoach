@@ -218,6 +218,22 @@ const GameAnalysis = ({ user }) => {
 
   const isMistake = (ev) => ev === "blunder" || ev === "mistake" || ev === "inaccuracy";
 
+  // Jump to move on the board when clicking a move comment
+  const handleMoveClick = (moveNumber, move) => {
+    if (boardRef.current) {
+      // Determine if this is a black move by checking the move notation
+      // In commentary, move_number is the full move number (1, 2, 3...)
+      // We need to figure out if this was white's or black's move
+      // Check the move's ply or position in the original game
+      const moveIndex = commentary.findIndex(m => m.move_number === moveNumber && m.move === move);
+      if (moveIndex !== -1) {
+        // Each commentary item corresponds to one ply (half-move)
+        // We can use the index to calculate the board position
+        boardRef.current.goToMove(moveIndex);
+      }
+    }
+  };
+
   const renderMoveComment = (item, index) => {
     const colorClass = getEvalColor(item.evaluation);
     const icon = getEvalIcon(item.evaluation);
@@ -236,7 +252,8 @@ const GameAnalysis = ({ user }) => {
     return (
       <div 
         key={index}
-        className={"p-3 rounded-lg border-l-4 " + colorClass + " " + (isActive ? "ring-2 ring-primary" : "")}
+        onClick={() => handleMoveClick(item.move_number, item.move)}
+        className={"p-3 rounded-lg border-l-4 cursor-pointer transition-all hover:ring-1 hover:ring-primary/50 " + colorClass + " " + (isActive ? "ring-2 ring-primary" : "")}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
