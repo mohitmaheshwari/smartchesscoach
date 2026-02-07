@@ -77,6 +77,30 @@ const Progress = ({ user }) => {
     }
   };
 
+  const [retrying, setRetrying] = useState(false);
+  
+  const retryFailedAnalyses = async () => {
+    setRetrying(true);
+    try {
+      // Retry each failed game
+      const failedIds = data?.failed_analyses || [];
+      for (const gameId of failedIds) {
+        await fetch(`${API}/analyze-game`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ game_id: gameId, force: true })
+        });
+      }
+      // Refresh data after retrying
+      setTimeout(fetchProgress, 2000);
+    } catch (e) {
+      console.error("Failed to retry analyses:", e);
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout user={user}>
