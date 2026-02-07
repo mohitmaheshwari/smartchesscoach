@@ -284,7 +284,7 @@ async def create_session(request: Request, response: Response):
     session_doc = {
         "user_id": user_id,
         "session_token": session_token,
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat(),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.user_sessions.insert_one(session_doc)
@@ -296,7 +296,7 @@ async def create_session(request: Request, response: Response):
         secure=True,
         samesite="none",
         path="/",
-        max_age=7 * 24 * 60 * 60
+        max_age=COOKIE_MAX_AGE_SECONDS
     )
     
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
@@ -452,7 +452,7 @@ async def demo_login(request: DemoLoginRequest):
     session_doc = {
         "user_id": user_id,
         "session_token": session_token,
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat(),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "is_demo": True
     }
@@ -768,14 +768,14 @@ async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTask
     user_color = game.get('user_color', 'white')
     
     stockfish_result = None
-    max_stockfish_retries = 3
+    max_stockfish_retries = STOCKFISH_MAX_RETRIES
     
     for attempt in range(max_stockfish_retries):
         try:
             stockfish_result = analyze_game_with_stockfish(
                 game['pgn'], 
                 user_color=user_color,
-                depth=18  # Good balance of speed and accuracy
+                depth=STOCKFISH_DEPTH  # Good balance of speed and accuracy
             )
             
             if stockfish_result and stockfish_result.get("success"):
@@ -3023,7 +3023,7 @@ async def get_rating_trajectory(user: User = Depends(get_current_user)):
     platform_ratings = await fetch_platform_ratings(chess_com_username, lichess_username)
     
     # Get current best rating
-    current_rating = 1200  # Default
+    current_rating = DEFAULT_RATING  # Default
     rating_source = "estimated"
     
     if platform_ratings.get('chess_com', {}).get('rapid'):
