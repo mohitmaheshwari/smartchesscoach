@@ -2349,7 +2349,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 "repeated_habit": repeated_habit,
                 "game_id": most_recent_game.get("game_id"),
                 "external_url": most_recent_game.get("url"),
-                "critical_moment": critical_moment
+                "critical_moment": critical_moment,
+                "analysis_warning": "Engine analysis failed. Stats may be inaccurate." if stockfish_failed else None
             }
     
     return {
