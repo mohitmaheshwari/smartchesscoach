@@ -150,6 +150,43 @@ const Progress = ({ user }) => {
           </Button>
         </div>
 
+        {/* Failed Analyses Warning */}
+        {data?.failed_analysis_count > 0 && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">
+                      {data.failed_analysis_count} game{data.failed_analysis_count > 1 ? 's' : ''} need re-analysis
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Engine analysis failed. Stats may be incomplete.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={retryFailedAnalyses}
+                  disabled={retrying}
+                  className="border-amber-500/30 hover:bg-amber-500/10"
+                >
+                  {retrying ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
+                  Retry Analysis
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Rating Section */}
         <Card>
           <CardHeader className="pb-2">
