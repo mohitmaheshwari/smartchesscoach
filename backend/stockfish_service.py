@@ -69,6 +69,10 @@ class MoveEvaluation:
     is_mate_after: bool     # Is there a forced mate after this move?
     mate_in_before: Optional[int]  # Mate in X moves (before)
     mate_in_after: Optional[int]   # Mate in X moves (after)
+    # NEW: Principal variations for understanding WHY moves are good/bad
+    pv_after_played: List[str] = None    # What happens after the move you played
+    pv_after_best: List[str] = None      # What would happen after the best move
+    threat_after_played: str = None       # The immediate threat you face after your move
 
 @dataclass
 class GameAnalysis:
