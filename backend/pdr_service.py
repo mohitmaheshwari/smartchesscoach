@@ -159,7 +159,7 @@ RULE: [A simple rule to remember for next time]"""
             api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
             session_id=f"pdr_idea_{uuid.uuid4().hex[:8]}",
             system_message=system_prompt
-        ).with_model("openai", "gpt-4o-mini")
+        ).with_model(LLM_PROVIDER, LLM_MODEL)
         
         message = UserMessage(text=user_prompt)
         response = await chat.send_message(message)
@@ -303,7 +303,7 @@ WRONG2: [sounds reasonable but not the key reason]"""
             api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
             session_id=f"pdr_why_{uuid.uuid4().hex[:8]}",
             system_message=system_prompt
-        ).with_model("openai", "gpt-4o-mini")
+        ).with_model(LLM_PROVIDER, LLM_MODEL)
         
         message = UserMessage(text=user_prompt)
         response = await chat.send_message(message)
