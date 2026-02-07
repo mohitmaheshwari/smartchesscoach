@@ -752,22 +752,44 @@ async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTask
         return existing_analysis
     
     # ============ STEP 0: STOCKFISH ENGINE ANALYSIS (ACCURATE MOVE EVALUATION) ============
+    # Stockfish is the ONLY source of truth for blunders/mistakes/accuracy
+    # We retry up to 3 times if it fails
     logger.info(f"Running Stockfish analysis for game {req.game_id}")
     user_color = game.get('user_color', 'white')
     
-    try:
-        stockfish_result = analyze_game_with_stockfish(
-            game['pgn'], 
-            user_color=user_color,
-            depth=18  # Good balance of speed and accuracy
-        )
-        
-        if not stockfish_result.get("success"):
-            logger.error(f"Stockfish analysis failed: {stockfish_result.get('error')}")
+    stockfish_result = None
+    max_stockfish_retries = 3
+    
+    for attempt in range(max_stockfish_retries):
+        try:
+            stockfish_result = analyze_game_with_stockfish(
+                game['pgn'], 
+                user_color=user_color,
+                depth=18  # Good balance of speed and accuracy
+            )
+            
+            if stockfish_result and stockfish_result.get("success"):
+                # Verify we actually got data
+                user_stats = stockfish_result.get("user_stats", {})
+                if user_stats.get("accuracy", 0) > 0 or len(stockfish_result.get("moves", [])) > 0:
+                    logger.info(f"Stockfish analysis succeeded on attempt {attempt + 1}")
+                    break
+                else:
+                    logger.warning(f"Stockfish returned empty data on attempt {attempt + 1}, retrying...")
+                    stockfish_result = None
+            else:
+                logger.warning(f"Stockfish analysis failed on attempt {attempt + 1}: {stockfish_result.get('error') if stockfish_result else 'No result'}")
+                stockfish_result = None
+        except Exception as e:
+            logger.error(f"Stockfish analysis error on attempt {attempt + 1}: {e}")
             stockfish_result = None
-    except Exception as e:
-        logger.error(f"Stockfish analysis error: {e}")
-        stockfish_result = None
+        
+        if attempt < max_stockfish_retries - 1:
+            import asyncio
+            await asyncio.sleep(1)  # Brief pause before retry
+    
+    if not stockfish_result or not stockfish_result.get("success"):
+        logger.error(f"Stockfish analysis failed after {max_stockfish_retries} attempts for game {req.game_id}")
     
     # Extract Stockfish evaluations for GPT context
     stockfish_context = ""
