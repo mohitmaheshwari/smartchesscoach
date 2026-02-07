@@ -327,6 +327,8 @@ const ChessBoardViewer = forwardRef(({
       )}
     </div>
   );
-};
+});
+
+ChessBoardViewer.displayName = "ChessBoardViewer";
 
 export default ChessBoardViewer;
