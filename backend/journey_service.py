@@ -537,7 +537,7 @@ RULES:
             api_key=EMERGENT_LLM_KEY,
             session_id=f"auto_analysis_{game_id}",
             system_message=system_prompt
-        ).with_model("openai", "gpt-4o-mini")
+        ).with_model(LLM_PROVIDER, LLM_MODEL)
         
         user_message = UserMessage(text=f"Analyze this game:\n\n{pgn}")
         response = await chat.send_message(user_message)
