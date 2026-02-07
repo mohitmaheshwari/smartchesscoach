@@ -2136,41 +2136,11 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 "trend": "stable"
             })
     
-    # Rating trend (30 days) - fetch from Chess.com
-    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
-    chess_com_user = user_doc.get("chesscom_username") or user_doc.get("chess_com_username") if user_doc else None
-    if chess_com_user:
-        try:
-            ratings = await fetch_platform_ratings(chess_com_user, None)
-            chess_com_ratings = ratings.get("chess_com", {}) if ratings else {}
-            if chess_com_ratings and chess_com_ratings.get("rapid"):
-                current = chess_com_ratings.get("rapid", 0)
-                # Calculate 30-day trend from games
-                thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
-                old_games = await db.games.find(
-                    {"user_id": user.user_id, "platform": {"$regex": "chess.com", "$options": "i"}},
-                    {"_id": 0, "date_played": 1}
-                ).sort("date_played", 1).limit(1).to_list(1)
-                
-                # Simple trend indication
-                if current:
-                    trend_value = "stable"
-                    if profile:
-                        trend_ind = profile.get("rating_trend", "stable")
-                        if trend_ind == "improving":
-                            trend_value = "up"
-                        elif trend_ind == "declining":
-                            trend_value = "down"
-                    
-                    light_stats.append({
-                        "label": "Rating (30d)",
-                        "value": str(current),
-                        "trend": trend_value
-                    })
-        except Exception as e:
-            logger.warning(f"Failed to fetch rating: {e}")
+    # NOTE: Rating intentionally NOT shown in Coach mode (Option C)
+    # Rating is available on Progress page only - keeps Coach mode discipline-focused
     
     # Reflection success rate
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
     total_reflections = user_doc.get("total_reflections", 0) if user_doc else 0
     correct_reflections = user_doc.get("correct_reflections", 0) if user_doc else 0
     
