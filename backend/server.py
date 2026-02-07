@@ -1058,16 +1058,38 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
                 "display_name": subcat.replace("_", " ").title()
             })
         
-        # Use STOCKFISH counts (accurate) instead of GPT guesses
+        # Use STOCKFISH counts if valid, otherwise fall back to GPT analysis or count from commentary
         sf_stats = stockfish_result.get("user_stats", {}) if stockfish_result else {}
+        
+        # Check if Stockfish data is valid (not all zeros with 0 accuracy)
+        stockfish_valid = sf_stats.get("accuracy", 0) > 0 or sf_stats.get("blunders", 0) > 0 or sf_stats.get("mistakes", 0) > 0
+        
+        # If Stockfish failed, count from commentary as fallback
+        if not stockfish_valid:
+            commentary_blunders = sum(1 for m in validated_commentary if str(m.get("evaluation", "")).lower() == "blunder")
+            commentary_mistakes = sum(1 for m in validated_commentary if str(m.get("evaluation", "")).lower() == "mistake")
+            commentary_inaccuracies = sum(1 for m in validated_commentary if str(m.get("evaluation", "")).lower() == "inaccuracy")
+            commentary_good = sum(1 for m in validated_commentary if str(m.get("evaluation", "")).lower() in ["good", "solid", "best"])
+            
+            final_blunders = commentary_blunders or analysis_data.get("blunders", 0)
+            final_mistakes = commentary_mistakes or analysis_data.get("mistakes", 0)
+            final_inaccuracies = commentary_inaccuracies or analysis_data.get("inaccuracies", 0)
+            final_best = commentary_good or analysis_data.get("best_moves", 0)
+            logger.info(f"Stockfish invalid, using commentary counts: {final_blunders} blunders, {final_mistakes} mistakes")
+        else:
+            final_blunders = sf_stats.get("blunders", 0)
+            final_mistakes = sf_stats.get("mistakes", 0)
+            final_inaccuracies = sf_stats.get("inaccuracies", 0)
+            final_best = sf_stats.get("best_moves", 0)
+        
         analysis = GameAnalysis(
             game_id=req.game_id,
             user_id=user.user_id,
             commentary=validated_commentary,
-            blunders=sf_stats.get("blunders", analysis_data.get("blunders", 0)),
-            mistakes=sf_stats.get("mistakes", analysis_data.get("mistakes", 0)),
-            inaccuracies=sf_stats.get("inaccuracies", analysis_data.get("inaccuracies", 0)),
-            best_moves=sf_stats.get("best_moves", analysis_data.get("best_moves", 0)),
+            blunders=final_blunders,
+            mistakes=final_mistakes,
+            inaccuracies=final_inaccuracies,
+            best_moves=final_best,
             overall_summary=analysis_data.get("overall_summary", ""),
             identified_patterns=[]  # Legacy field - will also store full data separately
         )
