@@ -41,12 +41,12 @@ const fenToPositionObject = (fen) => {
   return position;
 };
 
-const ChessBoardViewer = ({ 
+const ChessBoardViewer = forwardRef(({ 
   pgn, 
   userColor = "white",
   onMoveChange,
   commentary = []
-}) => {
+}, ref) => {
   const [positionObject, setPositionObject] = useState(() => fenToPositionObject(START_FEN));
   const [moves, setMoves] = useState([]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
