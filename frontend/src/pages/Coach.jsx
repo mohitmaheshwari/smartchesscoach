@@ -667,9 +667,17 @@ const Coach = ({ user }) => {
                 
                 {/* Warning if Stockfish analysis failed */}
                 {coachData.last_game.analysis_warning && (
-                  <div className="mb-2 p-2 bg-amber-500/10 rounded border border-amber-500/30 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                    <p className="text-xs text-amber-400">{coachData.last_game.analysis_warning}</p>
+                  <div className="mb-2 p-2 bg-amber-500/10 rounded border border-amber-500/30 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      <p className="text-xs text-amber-400">{coachData.last_game.analysis_warning}</p>
+                    </div>
+                    <button 
+                      onClick={() => retryAnalysis(coachData.last_game.game_id)}
+                      className="text-xs text-amber-400 hover:text-amber-300 underline"
+                    >
+                      Retry
+                    </button>
                   </div>
                 )}
                 
