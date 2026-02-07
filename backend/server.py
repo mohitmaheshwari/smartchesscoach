@@ -1035,7 +1035,7 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
                 api_key=EMERGENT_LLM_KEY,
                 session_id=f"analysis_{req.game_id}_{attempt}",
                 system_message=current_prompt
-            ).with_model("openai", "gpt-5.2")
+            ).with_model("openai", "gpt-4o-mini")
             
             user_message = UserMessage(text=f"Please analyze this game:\n\n{game['pgn']}")
             response = await chat.send_message(user_message)
@@ -2967,7 +2967,7 @@ Be specific and actionable. Respond in JSON format:
         {"title": "...", "description": "...", "priority": "high/medium/low", "estimated_time": "15 mins"}
     ]
 }"""
-        ).with_model("openai", "gpt-5.2")
+        ).with_model("openai", "gpt-4o-mini")
         
         response = await chat.send_message(UserMessage(
             text=f"Create training recommendations for a player with these weakness patterns:\n{patterns_text}"
@@ -3302,7 +3302,7 @@ Make sure the FEN is valid and the solution is correct for that position."""
             api_key=EMERGENT_LLM_KEY,
             session_id=f"puzzle_{user.user_id}_{uuid.uuid4().hex[:8]}",
             system_message=system_prompt
-        ).with_model("openai", "gpt-5.2")
+        ).with_model("openai", "gpt-4o-mini")
         
         response = await chat.send_message(UserMessage(
             text=f"Generate a {target_category} puzzle focusing on {target_subcategory.replace('_', ' ')}"
