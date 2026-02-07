@@ -10,12 +10,14 @@ import logging
 from typing import Dict, Optional, List
 import os
 
+# Import centralized config
+from config import LLM_PROVIDER, LLM_MODEL, STOCKFISH_PATH
+
 logger = logging.getLogger(__name__)
 
 # Try to import Stockfish
 try:
     from stockfish import Stockfish
-    STOCKFISH_PATH = "/usr/games/stockfish"
     STOCKFISH_AVAILABLE = os.path.exists(STOCKFISH_PATH)
 except ImportError:
     STOCKFISH_AVAILABLE = False
