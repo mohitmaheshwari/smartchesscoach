@@ -2233,13 +2233,15 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         # Get the analysis for this specific game
         last_analysis = await db.game_analyses.find_one(
             {"game_id": most_recent_game.get("game_id"), "user_id": user.user_id},
-            {"_id": 0, "blunders": 1, "mistakes": 1, "accuracy": 1, "commentary": 1, "identified_weaknesses": 1}
+            {"_id": 0, "blunders": 1, "mistakes": 1, "accuracy": 1, "commentary": 1, 
+             "identified_weaknesses": 1, "stockfish_failed": 1, "stockfish_error": 1}
         )
         
         if last_analysis:
             blunders = last_analysis.get("blunders", 0)
             mistakes = last_analysis.get("mistakes", 0)
             accuracy = last_analysis.get("accuracy", 0)
+            stockfish_failed = last_analysis.get("stockfish_failed", False)
             
             # Get opponent name from PGN
             user_color = most_recent_game.get("user_color", "white")
