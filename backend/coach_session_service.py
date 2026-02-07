@@ -139,7 +139,7 @@ async def end_play_session(db, user_id: str) -> Dict:
             "status": "already_analyzed",
             "message": feedback["message"],
             "game_id": game_id,
-            "opponent": recent_game.get("opponent"),
+            "opponent": opponent,
             "result": recent_game.get("result"),
             "feedback": feedback
         }
@@ -171,7 +171,7 @@ async def end_play_session(db, user_id: str) -> Dict:
         "status": "analyzing",
         "message": "Okay, let me take a look at this one...",
         "game_id": game_id,
-        "opponent": recent_game.get("opponent"),
+        "opponent": opponent,
         "result": recent_game.get("result")
     }
 
