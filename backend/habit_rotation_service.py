@@ -11,12 +11,14 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
 
-logger = logging.getLogger(__name__)
+# Import centralized config
+from config import (
+    HABIT_CONSECUTIVE_CORRECT as CONSECUTIVE_CORRECT_THRESHOLD,
+    HABIT_TOTAL_CORRECT as TOTAL_CORRECT_THRESHOLD,
+    HABIT_MIN_ATTEMPTS as MIN_ATTEMPTS_FOR_ROTATION
+)
 
-# Thresholds for habit improvement
-CONSECUTIVE_CORRECT_THRESHOLD = 4  # Correct PDR answers in a row for same habit
-TOTAL_CORRECT_THRESHOLD = 6  # Total correct out of last 8 attempts
-MIN_ATTEMPTS_FOR_ROTATION = 5  # Minimum attempts before considering rotation
+logger = logging.getLogger(__name__)
 
 
 async def get_habit_performance(db, user_id: str, habit: str) -> Dict[str, Any]:
