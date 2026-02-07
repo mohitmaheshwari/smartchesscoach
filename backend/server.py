@@ -1016,12 +1016,16 @@ Games analyzed together: {games_analyzed}
 2. NO flashy commentary: no "Amazing!", "Brilliant!", "What a blunder!"
 3. ONE lesson per mistake only
 4. "Good/solid" moves NEVER get negative thinking_pattern
-5. "consider" field must be CONCEPTUAL, not "play Nf3"
-6. Keep everything SHORT - coaches don't over-explain
-7. Memory references are factual, never shaming
-8. STRENGTHS must be POSITIVE patterns only (e.g., "good_development", "solid_defense", "active_pieces")
+5. For MISTAKES: "consider" must reference the BETTER MOVE from Stockfish data and explain WHY using the PV line
+6. For GOOD moves: "consider" should be null
+7. Keep everything focused - coaches explain using actual moves, not vague principles
+8. Memory references are factual, never shaming
+9. STRENGTHS must be POSITIVE patterns only (e.g., "good_development", "solid_defense", "active_pieces")
    NEVER list weaknesses as strengths. If no clear strength, leave empty array.
-9. For key blunders/mistakes, suggest the best_move that would have been better
+10. For key blunders/mistakes, the "feedback" MUST mention:
+    - The THREAT move opponent has (from OPPONENT'S THREAT in data)
+    - What happens after (from LINE AFTER YOUR MOVE)
+    Example: "After Qxb4, White has Bb5+ check. After Kf7, Ng5+ continues the attack."
 
 Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
 """
