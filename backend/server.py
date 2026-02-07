@@ -968,12 +968,12 @@ Games analyzed together: {games_analyzed}
             "move": "h6",
             "evaluation": "inaccuracy",
             "intent": "What you were thinking (1 short sentence)",
-            "feedback": "Coach feedback (1-2 sentences max)",
-            "consider": "Conceptual suggestion, not a specific move (null if move was good)",
+            "feedback": "Coach feedback using CONCRETE lines from Stockfish data - mention the threat move and what happens (2-3 sentences)",
+            "consider": "The better move and WHY it's better (use the PV line to explain)",
             "memory_note": "Brief memory reference if this matches past weakness (null otherwise)",
             "details": {{
                 "thinking_pattern": "ONLY for mistakes: rushing, tunnel_vision, hope_chess, etc. For good moves: solid_thinking or null",
-                "habit_note": "Why this thinking happens (null for good moves)",
+                "threat_line": "The EXACT threat from Stockfish (e.g., 'exd5 Qxd5 Nc3')",
                 "rule": "A principle for future games"
             }}
         }}
