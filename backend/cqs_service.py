@@ -19,14 +19,16 @@ import re
 import logging
 from typing import Dict, Any, List, Optional, Tuple
 
-logger = logging.getLogger(__name__)
+# Import centralized config
+from config import (
+    CQS_ACCEPT_THRESHOLD as ACCEPT_THRESHOLD,
+    CQS_WARNING_THRESHOLD as WARNING_THRESHOLD,
+    CQS_REJECT_THRESHOLD as REJECT_THRESHOLD,
+    CQS_CRITICAL_THRESHOLD as CRITICAL_THRESHOLD,
+    CQS_MAX_REGENERATIONS as MAX_REGENERATIONS
+)
 
-# Quality thresholds
-ACCEPT_THRESHOLD = 80
-WARNING_THRESHOLD = 70
-REJECT_THRESHOLD = 70
-CRITICAL_THRESHOLD = 60
-MAX_REGENERATIONS = 2
+logger = logging.getLogger(__name__)
 
 # Predefined weakness categories for validation
 VALID_HABIT_CATEGORIES = {
