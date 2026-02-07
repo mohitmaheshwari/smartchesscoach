@@ -166,6 +166,53 @@ class StockfishEngine:
         
         return result.move, 0, None
     
+    def get_principal_variation(self, board: chess.Board, depth: int = DEFAULT_DEPTH, pv_length: int = 5) -> List[str]:
+        """
+        Get the principal variation (best line of play) from current position.
+        
+        Returns:
+            List of moves in SAN notation (e.g., ["Bb5+", "Kf7", "Ng5+"])
+        """
+        if not self.engine:
+            raise RuntimeError("Engine not started")
+        
+        try:
+            info = self.engine.analyse(board, chess.engine.Limit(depth=depth))
+            pv_moves = info.get("pv", [])
+            
+            # Convert to SAN notation
+            pv_san = []
+            temp_board = board.copy()
+            for move in pv_moves[:pv_length]:
+                pv_san.append(temp_board.san(move))
+                temp_board.push(move)
+            
+            return pv_san
+        except Exception as e:
+            logger.error(f"Failed to get PV: {e}")
+            return []
+    
+    def get_threat(self, board: chess.Board, depth: int = DEFAULT_DEPTH) -> Optional[str]:
+        """
+        Get the main threat in the position (opponent's best response).
+        
+        Returns:
+            The threatening move in SAN notation, or None
+        """
+        if not self.engine:
+            raise RuntimeError("Engine not started")
+        
+        try:
+            # Get opponent's best move (which is the threat)
+            info = self.engine.analyse(board, chess.engine.Limit(depth=depth))
+            pv = info.get("pv", [])
+            if pv:
+                return board.san(pv[0])
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get threat: {e}")
+            return None
+    
     def classify_move(self, cp_loss: int, missed_mate: bool = False) -> str:
         """Classify a move based on centipawn loss"""
         if missed_mate:
