@@ -893,7 +893,24 @@ Your approach:
 
 IMPORTANT: I have already analyzed this game with Stockfish (world's best chess engine).
 The engine data below is ACCURATE - trust it completely for move evaluations.
-Your job is to provide COACHING INSIGHT on WHY these mistakes happen and HOW to fix them.
+
+=== HOW TO EXPLAIN MISTAKES ===
+For INACCURACIES/MISTAKES/BLUNDERS, Stockfish provides:
+- OPPONENT'S THREAT: The move that punishes your mistake
+- LINE AFTER YOUR MOVE: What happens next (shows the problem)
+- LINE AFTER BEST MOVE: What would have happened with the better choice
+
+YOUR JOB: Turn these concrete lines into human coaching:
+1. Explain what THREAT you missed (use the exact threat move from data)
+2. Show WHY it hurts (use the line to explain consequences)
+3. Compare to the better move (what you avoid by playing correctly)
+
+Example transformation:
+ENGINE DATA: Move 7: Qxb4 (INACCURACY), THREAT: Bb5+, LINE: Bb5+ Kf7 Ng5+
+YOUR EXPLANATION: "You grabbed the pawn with Qxb4, but White has Bb5+ check. After Kf7 forced, Ng5+ comes with another attack. Your king gets stuck in the center - that's the real cost of taking that pawn."
+
+DO NOT make up chess analysis. ONLY use the lines provided.
+If no line is provided, give a general principle explanation.
 
 {stockfish_context}
 
