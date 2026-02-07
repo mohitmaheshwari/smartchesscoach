@@ -28,6 +28,13 @@ const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState(null);
+
+  const openStatsModal = (type) => {
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
