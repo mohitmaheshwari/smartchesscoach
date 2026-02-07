@@ -2142,8 +2142,9 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     if chess_com_user:
         try:
             ratings = await fetch_platform_ratings(chess_com_user, None)
-            if ratings and "rapid" in ratings:
-                current = ratings["rapid"].get("current", 0)
+            chess_com_ratings = ratings.get("chess_com", {}) if ratings else {}
+            if chess_com_ratings and chess_com_ratings.get("rapid"):
+                current = chess_com_ratings.get("rapid", 0)
                 # Calculate 30-day trend from games
                 thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
                 old_games = await db.games.find(
