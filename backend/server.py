@@ -819,12 +819,27 @@ Average CP Loss: {user_stats.get('avg_cp_loss', 0)}
             # Handle both string and enum types
             if hasattr(eval_type, 'value'):
                 eval_type = eval_type.value
+            
             stockfish_context += f"""
 Move {m.get('move_number')}: {m.get('move')} ({eval_type.upper()})
 - CP Loss: {m.get('cp_loss', 0)} centipawns
 - Best was: {m.get('best_move')}
-- Eval before: {m.get('eval_before', 0)/100:.1f} → after: {m.get('eval_after', 0)/100:.1f}
-"""
+- Eval before: {m.get('eval_before', 0)/100:.1f} → after: {m.get('eval_after', 0)/100:.1f}"""
+            
+            # Add PV lines for mistakes (these explain WHY it's bad)
+            if eval_type.lower() in ['inaccuracy', 'mistake', 'blunder']:
+                threat = m.get('threat')
+                pv_played = m.get('pv_after_played', [])
+                pv_best = m.get('pv_after_best', [])
+                
+                if threat:
+                    stockfish_context += f"\n- OPPONENT'S THREAT: {threat}"
+                if pv_played:
+                    stockfish_context += f"\n- LINE AFTER YOUR MOVE: {' '.join(pv_played)}"
+                if pv_best:
+                    stockfish_context += f"\n- LINE AFTER BEST MOVE: {m.get('best_move')} {' '.join(pv_best)}"
+            
+            stockfish_context += "\n"
         stockfish_move_data = moves
         logger.info(f"Stockfish: {user_stats.get('blunders', 0)} blunders, {user_stats.get('mistakes', 0)} mistakes, {user_stats.get('accuracy', 0)}% accuracy")
     
