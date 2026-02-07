@@ -133,7 +133,7 @@ const Dashboard = ({ user }) => {
           </motion.div>
         ) : (
           <AnimatedList className="space-y-6">
-            {/* Stats Row */}
+            {/* Stats Row - Clickable */}
             <AnimatedItem>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard 
@@ -141,7 +141,11 @@ const Dashboard = ({ user }) => {
                   value={totalGames}
                   icon={Gamepad2}
                 />
-                <Card className="surface p-4 card-hover">
+                <Card 
+                  className="surface p-4 card-hover cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all"
+                  onClick={() => openStatsModal("analyzed")}
+                  data-testid="analyzed-stat-card"
+                >
                   <div className="flex items-center gap-4">
                     <ProgressRing 
                       progress={analysisProgress} 
@@ -155,16 +159,36 @@ const Dashboard = ({ user }) => {
                     </div>
                   </div>
                 </Card>
-                <StatCard 
-                  label="Blunders" 
-                  value={totalBlunders}
-                  icon={AlertTriangle}
-                />
-                <StatCard 
-                  label="Best Moves" 
-                  value={totalBestMoves}
-                  icon={Zap}
-                />
+                <Card 
+                  className="surface p-4 card-hover cursor-pointer hover:ring-1 hover:ring-red-500/50 transition-all"
+                  onClick={() => openStatsModal("blunders")}
+                  data-testid="blunders-stat-card"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                    </div>
+                    <div>
+                      <p className="label-caps mb-1">Blunders</p>
+                      <p className="text-xl font-heading font-semibold">{totalBlunders}</p>
+                    </div>
+                  </div>
+                </Card>
+                <Card 
+                  className="surface p-4 card-hover cursor-pointer hover:ring-1 hover:ring-amber-500/50 transition-all"
+                  onClick={() => openStatsModal("best-moves")}
+                  data-testid="best-moves-stat-card"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                      <Zap className="w-5 h-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="label-caps mb-1">Best Moves</p>
+                      <p className="text-xl font-heading font-semibold">{totalBestMoves}</p>
+                    </div>
+                  </div>
+                </Card>
               </div>
             </AnimatedItem>
 
