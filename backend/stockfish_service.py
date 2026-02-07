@@ -444,7 +444,11 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                     "mate_info": {
                         "before": m.mate_in_before,
                         "after": m.mate_in_after
-                    } if m.is_mate_before or m.is_mate_after else None
+                    } if m.is_mate_before or m.is_mate_after else None,
+                    # PV data for explaining WHY moves are good/bad
+                    "pv_after_played": m.pv_after_played,   # Line showing the problem
+                    "pv_after_best": m.pv_after_best,       # Line showing better continuation  
+                    "threat": m.threat_after_played         # Immediate threat opponent has
                 }
                 for m in moves_analysis
             ],
