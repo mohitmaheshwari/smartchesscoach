@@ -83,7 +83,7 @@ async def end_play_session(db, user_id: str) -> Dict:
             "user_id": user_id,
             "platform": {"$regex": platform, "$options": "i"}
         },
-        {"_id": 0, "game_id": 1, "imported_at": 1, "opponent": 1, "result": 1, 
+        {"_id": 0, "game_id": 1, "imported_at": 1, "pgn": 1, "result": 1, 
          "termination": 1, "user_color": 1, "user_result": 1},
         sort=[("imported_at", -1)]
     )
@@ -93,6 +93,17 @@ async def end_play_session(db, user_id: str) -> Dict:
             "status": "no_game",
             "message": "No completed game detected yet. Keep playing!"
         }
+    
+    # Extract opponent from PGN
+    opponent = "Opponent"
+    user_color = recent_game.get("user_color", "white")
+    pgn = recent_game.get("pgn", "")
+    if pgn:
+        import re
+        white_match = re.search(r'\[White "([^"]+)"\]', pgn)
+        black_match = re.search(r'\[Black "([^"]+)"\]', pgn)
+        if white_match and black_match:
+            opponent = black_match.group(1) if user_color == "white" else white_match.group(1)
     
     game_id = recent_game.get("game_id")
     
