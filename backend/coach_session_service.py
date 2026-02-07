@@ -211,22 +211,22 @@ def _build_game_feedback(analysis: Dict, dominant_habit: str, game: Dict) -> Dic
         # No blunders - great!
         if mistakes <= 1:
             if won:
-                message = f"Nice win! Clean game with no blunders."
+                message = "Nice win! Clean game with no blunders."
                 feedback_type = "excellent"
             elif draw:
-                message = f"Solid draw. No blunders — well played."
+                message = "Solid draw. No blunders — well played."
                 feedback_type = "good"
             else:
-                message = f"No blunders this time. The loss wasn't about big mistakes."
+                message = "No blunders this time. The loss wasn't about big mistakes."
                 feedback_type = "okay"
             detail = "Your focus is paying off."
         else:
             # No blunders but multiple mistakes
             if won:
-                message = f"You won! A few inaccuracies, but no blunders. Good discipline."
+                message = "You won! A few inaccuracies, but no blunders. Good discipline."
                 feedback_type = "good"
             else:
-                message = f"No blunders — that's progress. A few mistakes to learn from."
+                message = "No blunders — that's progress. A few mistakes to learn from."
                 feedback_type = "okay"
             detail = "The big errors are under control. Now we refine."
         
@@ -236,7 +236,7 @@ def _build_game_feedback(analysis: Dict, dominant_habit: str, game: Dict) -> Dic
             feedback_type = "repeated"
             detail = "This is exactly what we're working on. Let's review it."
         else:
-            message = f"One blunder slipped through, but it's not your usual pattern."
+            message = "One blunder slipped through, but it's not your usual pattern."
             feedback_type = "okay"
             detail = "Progress on your main habit. New puzzle incoming."
             
