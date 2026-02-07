@@ -195,21 +195,23 @@ Metrics support the habit narrative, not replace it.
 ## Changelog
 
 ### February 7, 2025 - Light Stats & Bug Fixes
+- **Fixed Stockfish Not Installed**: Installed Stockfish 15.1 binary at `/usr/games/stockfish`
+- **Re-analyzed All Failed Games**: Fixed 6 games that had failed Stockfish analysis
+  - All 26 analyses now have valid Stockfish data (0 failures)
 - **Critical Fix: Stockfish-Only Analysis** (per user requirement)
   - GPT is ONLY for commentary text, NEVER for blunder/mistake counts
   - Stockfish is the sole source of truth for move evaluation
   - Added 3x retry mechanism for Stockfish failures
   - Added `stockfish_failed` flag to track incomplete analyses
-  - Shows warning banner when Stockfish fails: "Engine analysis failed. Stats may be inaccurate."
-  - Added "Retry" button to re-run analysis
-- **Light Stats Fix**: Fixed Rating (30d) not showing by correcting `fetch_platform_ratings` result parsing
-- **Rating Removed from Coach Mode (Option C)**: Per user request, rating no longer shows in Coach mode
-  - Coach page now shows only: Blunders/game trend, Reflection success rate
-  - Rating remains available on Progress page only
-- **Most Recent Game Logic Fix**: Fixed recurring bug in `coach_session_service.py`
-  - Changed sort field from non-existent `date` to `imported_at`
-  - Added opponent extraction from PGN White/Black headers
-- **Game Termination Display**: Verified termination reason displays correctly on both pages
+- **Fixed Fake Accuracy Bug**: Progress page was showing 94.6% (included 5 fake 100% accuracies)
+  - Now correctly shows ~73% based on real Stockfish data
+  - Filter excludes failed analyses from stats calculations
+- **Added Retry UI**:
+  - Coach page: Warning banner + "Retry" button for failed analysis
+  - Progress page: Card showing failed analysis count with "Retry Analysis" button
+- **Rating Removed from Coach Mode (Option C)**: Per user request
+- **Most Recent Game Logic Fix**: Changed sort field from `date` to `imported_at`
+- **Game Termination Display**: Verified on both Coach and Game Analysis pages
 
 ### February 6, 2025 (Update 3) - Backlog Features
 - **PDR Phase 2: Auto-Rotate Habits**
