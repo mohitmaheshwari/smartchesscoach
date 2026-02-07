@@ -15,7 +15,8 @@ import {
   Zap,
   Clock,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from "lucide-react";
 
 // Simple trend indicator
