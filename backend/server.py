@@ -2512,12 +2512,24 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
     if rating_data.get("change") and rating_data["change"] > 0 and habits:
         rating_data["habit_correlation"] = f"Reduced {habits[0]['name'].lower()} may have contributed."
     
+    # Check for any failed analyses that need retry
+    failed_analyses = await db.game_analyses.find(
+        {"user_id": user.user_id, "stockfish_failed": True},
+        {"_id": 0, "game_id": 1}
+    ).to_list(10)
+    
+    failed_game_ids = [f["game_id"] for f in failed_analyses]
+    
     return {
         "rating": rating_data,
         "accuracy": accuracy_data,
         "blunders": blunders_data,
         "habits": habits,
-        "resolved_habits": resolved_habits
+        "resolved_habits": resolved_habits,
+        "failed_analyses": failed_game_ids,
+        "failed_analysis_count": len(failed_game_ids),
+        "valid_analysis_count": valid_count,
+        "total_analysis_count": len(recent_analyses)
     }
 
 
