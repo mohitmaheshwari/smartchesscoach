@@ -13,6 +13,9 @@ import httpx
 import re
 import io
 
+# Import centralized config
+from config import LLM_PROVIDER, LLM_MODEL, TTS_MODEL, TTS_VOICE
+
 # Import RAG service
 from rag_service import (
     build_rag_context,
