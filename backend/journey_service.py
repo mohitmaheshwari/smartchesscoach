@@ -16,13 +16,18 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 import httpx
 
+# Import centralized config
+from config import (
+    LLM_PROVIDER, LLM_MODEL,
+    FIRST_SYNC_MAX_GAMES, DAILY_SYNC_MAX_GAMES, 
+    SYNC_INTERVAL_HOURS, MIN_GAME_MOVES
+)
+
 logger = logging.getLogger(__name__)
 
-# Configuration
-SYNC_INTERVAL_HOURS = 4       # Poll every 4 hours
-MAX_GAMES_PER_DAY = 3         # Analyze max 3 games per user per day (cost-conscious)
-INITIAL_GAMES_TO_ANALYZE = 15 # Analyze up to 15 games on first sync to build player profile
-MIN_GAME_MOVES = 10           # Skip games with fewer moves
+# Configuration (from config.py)
+MAX_GAMES_PER_DAY = DAILY_SYNC_MAX_GAMES
+INITIAL_GAMES_TO_ANALYZE = FIRST_SYNC_MAX_GAMES
 INITIAL_IMPORT_MONTHS = 3     # Import last 3 months on first sync
 PREFERRED_TIME_CONTROLS = ["rapid", "classical", "correspondence"]
 SKIP_TIME_CONTROLS = ["bullet", "ultrabullet"]
