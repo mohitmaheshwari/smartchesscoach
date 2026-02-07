@@ -77,14 +77,15 @@ async def end_play_session(db, user_id: str) -> Dict:
     else:
         start_dt = datetime.now(timezone.utc) - timedelta(hours=2)
     
-    # Look for games that ended after session started
+    # Look for the most recent game (sorted by imported_at descending)
     recent_game = await db.games.find_one(
         {
             "user_id": user_id,
             "platform": {"$regex": platform, "$options": "i"}
         },
-        {"_id": 0, "game_id": 1, "date": 1, "opponent": 1, "result": 1},
-        sort=[("date", -1)]
+        {"_id": 0, "game_id": 1, "imported_at": 1, "opponent": 1, "result": 1, 
+         "termination": 1, "user_color": 1, "user_result": 1},
+        sort=[("imported_at", -1)]
     )
     
     if not recent_game:
