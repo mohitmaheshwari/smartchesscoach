@@ -2430,11 +2430,11 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
             elif diff < -2:
                 accuracy_data["trend"] = "worsening"
     
-    # Calculate blunder trend
+    # Calculate blunder trend (only from valid Stockfish analyses)
     blunders_data = {"avg_per_game": None, "total": 0, "trend": "stable"}
-    if recent_analyses:
-        recent_blunders = [a.get("blunders", 0) for a in recent_analyses[:10]]
-        previous_blunders = [a.get("blunders", 0) for a in recent_analyses[10:20]]
+    if valid_analyses:
+        recent_blunders = [a.get("blunders", 0) for a in valid_analyses[:10]]
+        previous_blunders = [a.get("blunders", 0) for a in valid_analyses[10:20]]
         
         if recent_blunders:
             blunders_data["total"] = sum(recent_blunders)
@@ -2447,6 +2447,10 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
                 blunders_data["trend"] = "improving"
             elif recent_avg > prev_avg + 0.3:
                 blunders_data["trend"] = "worsening"
+    
+    # Track how many valid vs failed analyses
+    valid_count = len(valid_analyses)
+    failed_count = len(recent_analyses) - valid_count
     
     # Get habits from profile
     profile = await db.player_profiles.find_one(
