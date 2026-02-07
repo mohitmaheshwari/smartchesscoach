@@ -1136,6 +1136,11 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         analysis_doc['summary_p2'] = analysis_data.get("summary_p2", "")
         analysis_doc['improvement_note'] = analysis_data.get("improvement_note", "")
         
+        # Mark if Stockfish analysis failed - user can retry
+        analysis_doc['stockfish_failed'] = analysis_incomplete
+        if analysis_incomplete:
+            analysis_doc['stockfish_error'] = "Stockfish engine analysis failed. Stats may be inaccurate. Please retry analysis."
+        
         # Use Stockfish best move suggestions (accurate) - merge with GPT's reasoning
         stockfish_best_moves = []
         if stockfish_move_data:
