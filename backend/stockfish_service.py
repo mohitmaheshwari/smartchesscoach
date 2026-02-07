@@ -20,13 +20,13 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
+# Import centralized config
+from config import STOCKFISH_PATH, STOCKFISH_DEPTH, CP_THRESHOLDS as CONFIG_CP_THRESHOLDS
+
 logger = logging.getLogger(__name__)
 
-# Stockfish binary path
-STOCKFISH_PATH = "/usr/games/stockfish"
-
 # Analysis depth - higher = more accurate but slower
-DEFAULT_DEPTH = 18  # Good balance of speed and accuracy
+DEFAULT_DEPTH = STOCKFISH_DEPTH
 QUICK_DEPTH = 12    # For rapid analysis
 DEEP_DEPTH = 22     # For critical positions
 
