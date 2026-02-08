@@ -2418,12 +2418,12 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     
     for analysis in recent_analyses:
         # Check if analysis has actual data (not just empty)
-        has_data = (
-            analysis.get("commentary") and len(analysis.get("commentary", [])) > 0
-        ) or (
-            analysis.get("blunders", 0) > 0 or analysis.get("mistakes", 0) > 0
-        ) or (
-            analysis.get("accuracy", 0) > 0
+        # Accept if: has commentary OR has any blunders/mistakes OR has accuracy
+        has_data = bool(
+            (analysis.get("commentary") and len(analysis.get("commentary", [])) > 0) or
+            (analysis.get("blunders") is not None and analysis.get("blunders") >= 0) or
+            (analysis.get("mistakes") is not None and analysis.get("mistakes") >= 0) or
+            (analysis.get("accuracy") is not None and analysis.get("accuracy") > 0)
         )
         
         if has_data:
