@@ -25,7 +25,8 @@ import {
   CheckCircle,
   AlertCircle,
   X,
-  Target
+  Target,
+  BookOpen
 } from "lucide-react";
 import {
   Dialog,
@@ -33,9 +34,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MistakeMastery from "@/components/MistakeMastery";
 
 // ============================================
-// PDR Component - Personalized Decision Reconstruction
+// PDR Component - Personalized Decision Reconstruction (Legacy)
 // ============================================
 const DecisionReconstruction = ({ pdr, onResult }) => {
   const [phase, setPhase] = useState("choose");
