@@ -194,6 +194,33 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 8, 2025 - Training System Refactor (Major Update)
+- **REMOVED: Legacy PDR System** - The old Personalized Decision Reconstruction system has been completely removed
+  - Removed from `/api/coach/today` response (no more `pdr` key)
+  - Removed DecisionReconstruction component from Coach.jsx
+  - Removed tabs between "Mistake Mastery" and "Legacy PDR"
+  - Coach page now shows only the unified Mistake Mastery system
+- **ENHANCED: Mistake Mastery with Socratic "Why?" Question**
+  - After a correct answer, users are now asked "Why is this move better?"
+  - Backend generates context-aware options based on habit tags
+  - One correct option + two plausible distractors
+  - Provides explanation after reveal
+  - New endpoint: `GET /api/training/card/{card_id}/why`
+- **NEW: Playable Move Variations on Chessboard**
+  - ChessBoardViewer now exposes `playVariation(fen, movesArray, color)` method
+  - Animates through moves with highlighted squares (800ms per move)
+  - MistakeMastery: "Play Threat" and "Play Best" buttons animate variations
+  - GameAnalysis: "Play" button next to better move suggestions
+  - `pv` field now included in `best_move_suggestions` for playback
+- **Files Modified**:
+  - `backend/server.py` - Removed PDR from /coach/today, added /training/card/{card_id}/why endpoint
+  - `backend/mistake_card_service.py` - Added `generate_why_question()` function
+  - `frontend/src/pages/Coach.jsx` - Removed DecisionReconstruction and tabs
+  - `frontend/src/components/MistakeMastery.jsx` - Added Why phase with backend integration
+  - `frontend/src/components/ChessBoardViewer.jsx` - Added `playVariation` method
+  - `frontend/src/pages/GameAnalysis.jsx` - Added Play button for variations
+- **Testing**: 13/13 backend tests pass, frontend verified via Playwright
+
 ### February 8, 2025 - Chess Journey Progress Dashboard (Major Feature)
 - **NEW FEATURE: Comprehensive Chess Journey Dashboard** - Complete progress tracking system
   - **Rating Progression**: Started rating → Current → Peak with trend indicators and history chart
