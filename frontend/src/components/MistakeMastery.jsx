@@ -599,16 +599,32 @@ const MistakeMastery = ({ token, onComplete }) => {
                   {currentCard.explanation && <div className="p-3 rounded bg-muted/50"><p className="text-sm">{currentCard.explanation}</p></div>}
                   <div className="space-y-2">
                     {currentCard.threat_line?.length > 0 && (
-                      <div className="p-3 rounded bg-red-500/5 border border-red-500/20">
-                        <p className="text-xs text-muted-foreground mb-1">After your move (click "Play Threat" to see on board):</p>
-                        <p className="font-mono text-sm text-red-400">{currentCard.threat_line.slice(0, 5).join(" ")}</p>
-                      </div>
+                      <button 
+                        onClick={() => playMovesOnBoard(currentCard.threat_line, 'threat', currentCard.user_move)}
+                        className="w-full p-3 rounded bg-red-500/5 border border-red-500/20 text-left hover:bg-red-500/10 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs text-red-400 font-medium">After {currentCard.user_move}</p>
+                          <span className="text-xs text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            <Play className="w-3 h-3" /> Click to play
+                          </span>
+                        </div>
+                        <p className="font-mono text-sm text-red-400">{currentCard.user_move} {currentCard.threat_line.slice(0, 4).join(" ")}</p>
+                      </button>
                     )}
                     {currentCard.better_line?.length > 0 && (
-                      <div className="p-3 rounded bg-emerald-500/5 border border-emerald-500/20">
-                        <p className="text-xs text-muted-foreground mb-1">Better line (click "Play Best" to see on board):</p>
-                        <p className="font-mono text-sm text-emerald-400">{currentCard.better_line.slice(0, 5).join(" ")}</p>
-                      </div>
+                      <button 
+                        onClick={() => playMovesOnBoard(currentCard.better_line, 'better', currentCard.correct_move)}
+                        className="w-full p-3 rounded bg-emerald-500/5 border border-emerald-500/20 text-left hover:bg-emerald-500/10 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs text-emerald-400 font-medium">Best continuation</p>
+                          <span className="text-xs text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            <Play className="w-3 h-3" /> Click to play
+                          </span>
+                        </div>
+                        <p className="font-mono text-sm text-emerald-400">{currentCard.correct_move} {currentCard.better_line.slice(0, 4).join(" ")}</p>
+                      </button>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
