@@ -535,8 +535,9 @@ const GameAnalysis = ({ user }) => {
             <CardContent>
               {analysis ? (
                 <Tabs defaultValue="summary" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="summary">Summary</TabsTrigger>
+                    <TabsTrigger value="strategy">Strategy</TabsTrigger>
                     <TabsTrigger value="moves">Moves</TabsTrigger>
                   </TabsList>
                   
