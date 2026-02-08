@@ -169,10 +169,10 @@ def calculate_phase_mastery(analyses: List[Dict]) -> Dict:
     for i, analysis in enumerate(analyses):
         phase_data = analysis.get("phase_analysis", {})
         phases = phase_data.get("phases", [])
-        final_phase = phase_data.get("final_phase", "middlegame")
+        # final_phase available for future use
+        _ = phase_data.get("final_phase", "middlegame")
         
-        # Get commentary to count mistakes per phase
-        commentary = analysis.get("commentary", [])
+        # Get stockfish move evaluations for counting mistakes per phase
         sf_moves = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
         
         # Count blunders/mistakes by move number ranges
