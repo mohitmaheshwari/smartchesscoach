@@ -196,6 +196,11 @@ const GameAnalysis = ({ user }) => {
   const improvementNote = analysis ? analysis.improvement_note : "";
   const focusThisWeek = analysis ? (analysis.focus_this_week || analysis.key_lesson || "") : "";
   
+  // Phase-aware strategic coaching (NEW)
+  const phaseAnalysis = analysis ? analysis.phase_analysis : null;
+  const strategicLesson = analysis ? analysis.strategic_lesson : null;
+  const phaseTheory = analysis ? analysis.phase_theory : null;
+  
   let weaknesses = [];
   if (analysis && analysis.weaknesses) weaknesses = analysis.weaknesses;
   if (analysis && analysis.identified_weaknesses) weaknesses = analysis.identified_weaknesses;
