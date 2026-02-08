@@ -470,9 +470,9 @@ const MistakeMastery = ({ token, onComplete }) => {
                 </div>
                 <span className="text-sm text-muted-foreground">
                   Move {currentCard.move_number} • 
-                  {currentCard.evaluation === "blunder" && " Blunder"}
-                  {currentCard.evaluation === "mistake" && " Mistake"}
-                  {currentCard.evaluation === "inaccuracy" && " Inaccuracy"}
+                  {currentCard.evaluation === "blunder" && " Discipline broke here"}
+                  {currentCard.evaluation === "mistake" && " Discipline slipped"}
+                  {currentCard.evaluation === "inaccuracy" && " Could be sharper"}
                   {" (-"}{(currentCard.cp_loss / 100).toFixed(1)}{")"}
                 </span>
               </div>
