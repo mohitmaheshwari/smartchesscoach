@@ -2417,12 +2417,9 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     most_recent_game = None
     
     for analysis in recent_analyses:
-        # Check if analysis has actual data (not just empty)
-        # Accept if: has sufficient commentary (Stockfish actually ran)
+        # Check if analysis has actual data - require at least 3 moves in commentary
         commentary_length = len(analysis.get("commentary", []))
-        has_data = commentary_length >= 3  # At least 3 moves analyzed
-        
-        print(f"[COACH] Checking analysis {analysis.get('game_id')[:20]}... commentary={commentary_length}, has_data={has_data}", file=sys.stderr)
+        has_data = commentary_length >= 3
         
         if has_data:
             # Get the corresponding game
