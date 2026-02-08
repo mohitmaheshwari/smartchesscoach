@@ -54,7 +54,7 @@ const TrendIndicator = ({ trend, size = "sm" }) => {
   );
 };
 
-// Phase mastery bar component
+// Phase mastery bar component - renamed to Game Discipline
 const PhaseMasteryBar = ({ phase, data }) => {
   const phaseIcons = {
     opening: BookOpen,
@@ -72,13 +72,13 @@ const PhaseMasteryBar = ({ phase, data }) => {
           <span className="font-medium">{displayName}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono">{data.mastery_pct}%</span>
           <TrendIndicator trend={data.trend} />
         </div>
       </div>
       <ProgressBar value={data.mastery_pct} className="h-2" />
       <p className="text-xs text-muted-foreground">
-        {data.blunders_per_game} blunders/game • {data.games_analyzed} games analyzed
+        {data.blunders_per_game > 1 ? `${data.blunders_per_game} discipline breaks/game` : 
+         data.blunders_per_game > 0 ? "Occasional slip" : "Discipline holding"} • {data.games_analyzed} games
       </p>
     </div>
   );
