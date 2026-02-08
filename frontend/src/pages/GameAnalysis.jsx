@@ -295,7 +295,7 @@ const GameAnalysis = ({ user }) => {
               ev === "mistake" ? "bg-orange-500/20 text-orange-500" :
               "bg-yellow-500/20 text-yellow-500"
             }`}>
-              {ev}
+              {ev === "blunder" ? "Discipline broke" : ev === "mistake" ? "Slipped" : "Imprecise"}
             </span>
           )}
         </div>
