@@ -24,7 +24,8 @@ import {
   BookOpen,
   Target,
   Lightbulb,
-  TrendingUp
+  TrendingUp,
+  Play
 } from "lucide-react";
 
 const GameAnalysis = ({ user }) => {
