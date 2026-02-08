@@ -200,6 +200,30 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 8, 2025 - Indian-First Language Reframe
+- **Discipline-focused language throughout the app:**
+  - "Blunder" → "Discipline broke here"
+  - "Mistake" → "Slipped" / "Discipline slipped"
+  - "Best move" → "The disciplined move"
+  - "Habit Progress" → "Correction Progress"
+  - "mastered" → "fixed"
+- **Rating-consequence framing:**
+  - "This habit is costing rating"
+  - "Still leaking rating"
+  - "Fixed — no longer a rating leak"
+- **Progress page renamed sections:**
+  - "Phase Mastery" → "Game Discipline"
+  - "Habit Journey" → "Habits Fixed / Habits Pending"
+  - "Insights" → "Coach's Observations"
+  - "Rating Progression" → "Rating Stability"
+  - "Your Improvement" → "Then vs Now"
+- **Trend indicators simplified:**
+  - "Declining" → "Needs Attention"
+  - Removed raw percentages where possible
+- **Game Analysis updates:**
+  - Badges now say "Discipline broke" / "Slipped" / "Imprecise"
+  - "The disciplined move was..." framing
+
 ### February 8, 2025 - Personalized Training Context
 - **Added opponent name and user color to training cards** 
   - Shows "vs [opponent]" and White/Black badge below chessboard
