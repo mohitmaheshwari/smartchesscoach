@@ -53,24 +53,23 @@ Metrics support the habit narrative, not replace it.
    - Auto-analysis (15 on first sync, 3/day ongoing)
    - Critical moment extraction for reflection training
 
-3. **Coach Mode - Personalized Decision Reconstruction (PDR)** (Feb 2025)
-   - **Reflection Moment**: Interactive chessboard showing critical position from recent game
-     - Two move choices: User's original (wrong) move vs correct move
-     - Random puzzle selection from recent mistakes on each page load
-     - Board animations with arrows and highlights
-   - **Socratic Method (Correct Move)**: 
-     - "Good choice! But tell me — why is this better?"
-     - Three reason options (1 correct, 2 plausible but wrong)
-     - Shows real reason if wrong answer selected
-   - **Idea Chain Explanation (Wrong Move)**:
-     - Animated refutation on board
-     - 5-step explanation: Your Idea → Why It Felt Right → Opponent's Counter → Why It Works → Better Approach
-     - Rule summary at the end
-     - "Replay on board" button
+3. **Coach Mode - Mistake Mastery (Unified Training System)** (Feb 2025)
+   - **Mistake Cards**: Every blunder/mistake from games becomes a training card
+   - **Spaced Repetition**: SM-2 algorithm for optimal learning intervals
+   - **Habit Classification**: 10 habit categories (back_rank_weakness, hanging_pieces, etc.)
+   - **Socratic "Why?" Follow-up**: After correct answer, asks "Why is this move better?"
+     - Three options (1 correct, 2 plausible distractors)
+     - Contextual explanation based on habit tags
+   - **Playable Variations**: 
+     - "Play Threat" - Shows what opponent would do after wrong move
+     - "Play Best" - Shows the correct continuation
+     - Animated on board with highlighted squares
+   - **Three Training Modes**:
+     1. Post-Game Debrief: Critical moment immediately after game import
+     2. Daily Training: Due cards from active habit
+     3. All Caught Up: No cards due
    - **Coach's Note**: 2-line emotional framing from mentor
-   - **Light Stats**: 2-3 key metrics with trends (blunders/game, rating trend)
-   - **Next Game Plan**: 1-2 line mental instruction
-   - **Game Context**: Opponent name, platform, link to full analysis
+   - **Light Stats**: Key metrics with trends
    - **"Go Play. I'll watch this game."** CTA
 
 4. **Progress Dashboard**
