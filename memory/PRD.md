@@ -200,6 +200,20 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 8, 2025 - UX Improvements for Mistake Mastery
+- **Fixed Habit Progress Layout** - Text no longer breaks; proper spacing with `gap-4` and `whitespace-nowrap`
+- **Interactive Move Preview in Question Phase** - Both move options now have "Preview" buttons
+  - Clicking Preview shows what happens after that move
+  - User can explore both options BEFORE submitting answer
+- **Step-Through Navigation Controls** - Arrow buttons to navigate move sequences
+  - SkipBack (|<), ChevronLeft (<), Play/Pause, ChevronRight (>), SkipForward (>|)
+  - Reset button returns to original position
+  - Move counter shows current position in line (e.g., "Move 2/5")
+- **Clickable Variation Cards** - In feedback phase, variation cards are now clickable buttons
+  - Shows "Click to play" hint on hover
+  - Plays the full line with step controls
+- **Testing**: 7/7 frontend features verified via Playwright
+
 ### February 8, 2025 - Training System Refactor (Major Update)
 - **REMOVED: Legacy PDR System** - The old Personalized Decision Reconstruction system has been completely removed
   - Removed from `/api/coach/today` response (no more `pdr` key)
