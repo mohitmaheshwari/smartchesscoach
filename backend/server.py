@@ -2414,6 +2414,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
          "commentary": 1, "identified_weaknesses": 1}
     ).sort("created_at", -1).limit(5).to_list(5)
     
+    print(f"[COACH] Found {len(recent_analyses)} recent analyses", file=sys.stderr)
+    
     # Find the first one that has actual analysis data
     last_analysis = None
     most_recent_game = None
