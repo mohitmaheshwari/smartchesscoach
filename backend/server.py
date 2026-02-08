@@ -2545,6 +2545,84 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     }
 
 
+# ==================== MISTAKE MASTERY SYSTEM ROUTES ====================
+
+@api_router.get("/training/session")
+async def get_training_session_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get the current training session.
+    Returns either:
+    - Post-Game Debrief (if user just played a game)
+    - Daily Training (cards due for review)
+    - All Caught Up (no cards due)
+    """
+    session = await get_training_session(db, user.user_id)
+    return session
+
+
+@api_router.get("/training/due-cards")
+async def get_due_cards_endpoint(user: User = Depends(get_current_user), limit: int = 5):
+    """Get cards due for review today."""
+    cards = await get_due_cards(db, user.user_id, limit=limit)
+    return {"cards": cards, "count": len(cards)}
+
+
+@api_router.get("/training/card/{card_id}")
+async def get_training_card(card_id: str, user: User = Depends(get_current_user)):
+    """Get a specific training card."""
+    card = await get_card_by_id(db, card_id, user.user_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    return card
+
+
+class CardAttemptRequest(BaseModel):
+    card_id: str
+    correct: bool
+
+
+@api_router.post("/training/attempt")
+async def record_training_attempt(req: CardAttemptRequest, user: User = Depends(get_current_user)):
+    """
+    Record an attempt on a training card.
+    Updates spaced repetition schedule based on correctness.
+    """
+    result = await record_card_attempt(db, req.card_id, user.user_id, req.correct)
+    if result.get("error"):
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
+@api_router.get("/training/progress")
+async def get_training_progress(user: User = Depends(get_current_user)):
+    """Get user's habit mastery progress."""
+    progress = await get_user_habit_progress(db, user.user_id)
+    stats = await get_training_stats(db, user.user_id)
+    return {
+        "habits": progress,
+        "stats": stats
+    }
+
+
+class SetActiveHabitRequest(BaseModel):
+    habit_key: str
+
+
+@api_router.post("/training/set-habit")
+async def set_training_habit(req: SetActiveHabitRequest, user: User = Depends(get_current_user)):
+    """Manually set the active habit to focus on."""
+    result = await set_active_habit(db, user.user_id, req.habit_key)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@api_router.get("/training/habits")
+async def get_available_habits(user: User = Depends(get_current_user)):
+    """Get all available habit definitions."""
+    return {"habits": HABIT_DEFINITIONS}
+
+
 @api_router.get("/progress")
 async def get_progress_metrics(user: User = Depends(get_current_user)):
     """
