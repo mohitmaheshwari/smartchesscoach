@@ -200,6 +200,16 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 8, 2025 - Personalized Training Context
+- **Added opponent name and user color to training cards** 
+  - Shows "vs [opponent]" and White/Black badge below chessboard
+  - Backend extracts from PGN headers when direct field unavailable
+  - Migrated 36+ existing cards with opponent/color data
+- **Preview shows only single move** - Preview button in question phase shows just that one move, not the full line
+- **Full continuation after answer** - Step-through controls and full lines only appear after submitting answer
+- **Better move feedback** - Shows "Better move: [correct]" with "(you played [wrong])" for incorrect answers
+- **Testing**: 11/11 backend tests + 5/5 frontend features verified
+
 ### February 8, 2025 - UX Improvements for Mistake Mastery
 - **Fixed Habit Progress Layout** - Text no longer breaks; proper spacing with `gap-4` and `whitespace-nowrap`
 - **Interactive Move Preview in Question Phase** - Both move options now have "Preview" buttons
