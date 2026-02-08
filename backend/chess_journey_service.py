@@ -448,15 +448,155 @@ def calculate_habit_journey(profile: Dict, cards: List[Dict], analyses: List[Dic
 def calculate_opening_repertoire(games: List[Dict], analyses: List[Dict]) -> Dict:
     """
     Calculate opening repertoire with win rates.
+    Extracts opening names from ECO codes in PGN.
     """
+    import re
+    
+    # ECO code to Opening name mapping (common openings)
+    ECO_TO_OPENING = {
+        # A - Flank openings
+        "A00": "Uncommon Opening",
+        "A01": "Nimzowitsch-Larsen Attack",
+        "A02": "Bird's Opening",
+        "A04": "Reti Opening",
+        "A10": "English Opening",
+        "A20": "English Opening",
+        "A30": "English Opening",
+        "A40": "Queen's Pawn Game",
+        "A45": "Trompowsky Attack",
+        "A46": "Queen's Pawn Game",
+        "A80": "Dutch Defense",
+        
+        # B - Semi-Open Games
+        "B00": "Uncommon King's Pawn",
+        "B01": "Scandinavian Defense",
+        "B02": "Alekhine's Defense",
+        "B06": "Modern Defense",
+        "B07": "Pirc Defense",
+        "B10": "Caro-Kann Defense",
+        "B12": "Caro-Kann Defense",
+        "B20": "Sicilian Defense",
+        "B21": "Sicilian: Smith-Morra",
+        "B22": "Sicilian: Alapin",
+        "B23": "Sicilian: Closed",
+        "B30": "Sicilian Defense",
+        "B40": "Sicilian Defense",
+        "B50": "Sicilian Defense",
+        "B60": "Sicilian: Richter-Rauzer",
+        "B70": "Sicilian: Dragon",
+        "B80": "Sicilian: Scheveningen",
+        "B90": "Sicilian: Najdorf",
+        
+        # C - Open Games
+        "C00": "French Defense",
+        "C01": "French Defense",
+        "C02": "French: Advance",
+        "C10": "French: Rubinstein",
+        "C20": "King's Pawn Game",
+        "C21": "Center Game",
+        "C23": "Bishop's Opening",
+        "C24": "Bishop's Opening",
+        "C25": "Vienna Game",
+        "C30": "King's Gambit",
+        "C40": "King's Knight Opening",
+        "C41": "Philidor Defense",
+        "C42": "Petrov's Defense",
+        "C44": "Scotch Game",
+        "C45": "Scotch Game",
+        "C46": "Three Knights",
+        "C47": "Four Knights",
+        "C50": "Italian Game",
+        "C51": "Evans Gambit",
+        "C52": "Evans Gambit",
+        "C53": "Italian: Giuoco Piano",
+        "C54": "Italian: Giuoco Piano",
+        "C55": "Italian: Two Knights",
+        "C56": "Italian: Two Knights",
+        "C57": "Italian: Traxler",
+        "C60": "Ruy Lopez",
+        "C65": "Ruy Lopez: Berlin",
+        "C70": "Ruy Lopez",
+        "C80": "Ruy Lopez: Open",
+        "C84": "Ruy Lopez: Closed",
+        "C90": "Ruy Lopez: Closed",
+        
+        # D - Closed Games
+        "D00": "Queen's Pawn Game",
+        "D01": "Veresov Attack",
+        "D02": "London System",
+        "D03": "Torre Attack",
+        "D04": "Colle System",
+        "D06": "Queen's Gambit",
+        "D10": "Slav Defense",
+        "D20": "Queen's Gambit Accepted",
+        "D30": "Queen's Gambit Declined",
+        "D35": "Queen's Gambit: Exchange",
+        "D37": "Queen's Gambit Declined",
+        "D43": "Semi-Slav Defense",
+        "D50": "Queen's Gambit Declined",
+        "D70": "Grunfeld Defense",
+        "D80": "Grunfeld Defense",
+        "D90": "Grunfeld Defense",
+        
+        # E - Indian Defenses
+        "E00": "Catalan Opening",
+        "E04": "Catalan: Open",
+        "E10": "Indian Defense",
+        "E12": "Queen's Indian",
+        "E15": "Queen's Indian",
+        "E20": "Nimzo-Indian Defense",
+        "E30": "Nimzo-Indian Defense",
+        "E40": "Nimzo-Indian Defense",
+        "E60": "King's Indian Defense",
+        "E70": "King's Indian Defense",
+        "E80": "King's Indian: Samisch",
+        "E90": "King's Indian: Classical",
+    }
+    
+    def get_opening_from_eco(eco_code: str) -> str:
+        """Get opening name from ECO code, with fallback to code prefix"""
+        if not eco_code:
+            return "Unknown Opening"
+        
+        # Try exact match first
+        if eco_code in ECO_TO_OPENING:
+            return ECO_TO_OPENING[eco_code]
+        
+        # Try prefix match (e.g., B90 -> B9 -> B)
+        for prefix_len in [2, 1]:
+            prefix = eco_code[:prefix_len]
+            for code, name in ECO_TO_OPENING.items():
+                if code.startswith(prefix):
+                    return name
+        
+        # Return generic based on first letter
+        first_letter = eco_code[0] if eco_code else "?"
+        letter_map = {
+            "A": "Flank Opening",
+            "B": "Semi-Open Game",
+            "C": "Open Game",
+            "D": "Closed Game",
+            "E": "Indian Defense"
+        }
+        return letter_map.get(first_letter, "Unknown Opening")
+    
     # Group games by opening and color
     white_openings = defaultdict(lambda: {"wins": 0, "losses": 0, "draws": 0, "total": 0})
     black_openings = defaultdict(lambda: {"wins": 0, "losses": 0, "draws": 0, "total": 0})
     
     for game in games:
-        opening = game.get("opening", "Unknown Opening")
-        if not opening or opening == "?":
-            opening = "Unknown Opening"
+        # Try to get opening from stored field first
+        opening = game.get("opening")
+        
+        # If not stored, extract from PGN ECO code
+        if not opening or opening == "?" or opening == "Unknown Opening":
+            pgn = game.get("pgn", "")
+            eco_match = re.search(r'\[ECO "([A-E]\d{2})"\]', pgn)
+            if eco_match:
+                eco_code = eco_match.group(1)
+                opening = get_opening_from_eco(eco_code)
+            else:
+                opening = "Unknown Opening"
         
         # Simplify opening name (take first part)
         opening = opening.split(":")[0].split(",")[0].strip()
@@ -489,7 +629,7 @@ def calculate_opening_repertoire(games: List[Dict], analyses: List[Dict]) -> Dic
     def process_openings(openings_dict):
         result = []
         for name, stats in openings_dict.items():
-            if stats["total"] >= 2:  # Only show openings with 2+ games
+            if stats["total"] >= 1:  # Show openings with 1+ games
                 win_rate = round((stats["wins"] / stats["total"]) * 100) if stats["total"] > 0 else 0
                 result.append({
                     "name": name,
@@ -498,7 +638,7 @@ def calculate_opening_repertoire(games: List[Dict], analyses: List[Dict]) -> Dic
                     "losses": stats["losses"],
                     "draws": stats["draws"],
                     "win_rate": win_rate,
-                    "trend": "stable"  # TODO: Calculate trend from early vs late games
+                    "trend": "stable"
                 })
         result.sort(key=lambda x: x["games"], reverse=True)
         return result[:5]  # Top 5
