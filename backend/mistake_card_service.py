@@ -721,7 +721,6 @@ async def generate_why_question(db, card: Dict) -> Dict:
     explanation = card.get("explanation", "")
     threat_line = card.get("threat_line", [])
     better_line = card.get("better_line", [])
-    cp_loss = card.get("cp_loss", 0)
     
     # Habit-based correct reasons
     habit_correct_reasons = {
