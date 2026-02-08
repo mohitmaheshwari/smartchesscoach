@@ -463,8 +463,9 @@ const MistakeMastery = ({ token, onComplete }) => {
                   </div>
                   <div className="flex gap-2">
                     {result === "correct" && (
-                      <Button variant="outline" onClick={goToWhyPhase} className="flex-1 gap-2">
-                        <Brain className="w-4 h-4" /> Why is this better?
+                      <Button variant="outline" onClick={goToWhyPhase} disabled={loadingWhy} className="flex-1 gap-2">
+                        {loadingWhy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />} 
+                        Why is this better?
                       </Button>
                     )}
                     <Button onClick={nextCard} className={`gap-2 ${result === "correct" ? "flex-1" : "w-full"}`}>
