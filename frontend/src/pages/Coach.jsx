@@ -1,32 +1,25 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Chessboard } from "react-chessboard";
-import { Chess } from "chess.js";
 import { 
   Loader2, 
   ChevronRight,
   Link as LinkIcon,
   ExternalLink,
   Brain,
-  ArrowRight,
-  HelpCircle,
-  RotateCcw,
   TrendingDown,
   TrendingUp,
   Minus,
   Play,
   CheckCircle,
   AlertCircle,
-  X,
-  Target,
-  BookOpen
+  Target
 } from "lucide-react";
 import {
   Dialog,
@@ -34,7 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MistakeMastery from "@/components/MistakeMastery";
 
 // ============================================
