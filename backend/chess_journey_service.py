@@ -56,7 +56,7 @@ async def get_chess_journey(db, user_id: str) -> Dict[str, Any]:
         "member_since": user.get("created_at"),
         "total_games_analyzed": len(analyses),
         "total_games_imported": len(games),
-        "rating_progression": await get_rating_progression(db, user_id, user, analyses),
+        "rating_progression": await get_rating_progression(db, user_id, user, games),
         "phase_mastery": calculate_phase_mastery(analyses),
         "improvement_metrics": calculate_improvement_metrics(analyses),
         "habit_journey": calculate_habit_journey(profile, cards, analyses),
