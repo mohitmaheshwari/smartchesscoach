@@ -2442,7 +2442,6 @@ async def get_coach_today(user: User = Depends(get_current_user)):
             blunders = last_analysis.get("blunders", 0)
             mistakes = last_analysis.get("mistakes", 0)
             accuracy = last_analysis.get("accuracy", 0)
-            stockfish_failed = last_analysis.get("stockfish_failed", False)
             
             # Get opponent name from PGN
             user_color = most_recent_game.get("user_color", "white")
