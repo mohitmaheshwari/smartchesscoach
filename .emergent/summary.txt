@@ -1,216 +1,161 @@
-<analysis>**original_problem_statement**:
-The user wants to build a chess coaching application that analyzes games from a user's Chess.com account and provides human-like coaching.
+<analysis>**original_problem_statement:**
+The user's core request is to build a chess coaching application that provides deep, personalized training.
 
-**PRODUCT REQUIREMENTS:**
-- **Game Analysis:** Analyze games using Stockfish for accuracy and move evaluation, and an LLM for human-like commentary.
-- **Coach Page:** Display light stats (e.g., blunder trends), a Post-Game Debrief (PDR) puzzle from a recent game, and a summary of the last game played.
-- **Journey/Progress Page:** Show trends for stats like accuracy.
-- **Game Analysis View:**
-    - Display the full game board.
-    - List all moves (user and opponent), with detailed commentary on key moves (blunders, mistakes, etc.).
-    - Moves in the list must be clickable, and the board should update to that position.
-- **Coaching Quality:** The user is very specific that the coaching should be high-quality.
-    - Explanations for bad moves must be concrete, showing the exact threat and line of play (using Stockfish's Principal Variation data), not vague, hallucinatory text from the LLM. The LLM's only role is to format these facts into a calm mentor tone.
-    - The coach should provide strategic, phase-aware advice (e.g., endgame theory) and not just tactical, move-by-move corrections.
-- **Dashboard:** Display summary stats (total blunders, best moves) which are clickable to show a detailed list.
-- **Configuration:** The application should be easily configurable, with settings like the LLM model name stored in a central location.
+Initial Feature:
+- Implement Phase-aware coaching with rating-adaptive language. The strategic concepts and language should adapt to player ratings from 800 to 2000 Elo.
+
+Revised/New Features based on feedback:
+1.  **Replace the old reflection moment (PDR) system.** The user found it generic.
+2.  **Build a Mistake Mastery System**: A more advanced training system based on spaced repetition (Anki-style) for a user's own mistakes, focusing on one habit at a time until it's mastered.
+3.  **Build a Chess Journey Dashboard**: A new progress page that shows a player's evolution over time (Then vs. Now). It must track trends in rating, phase-specific performance (opening/middlegame/endgame), habit improvement, and opening repertoire success.
+4.  **Make analysis interactive**: Allow users (especially 1300-rated players) to play out suggested move variations directly on the chessboard instead of just reading notation.
+5.  **Refine the Mistake Mastery system**: Remove the old PDR system entirely and merge its one useful feature—the Socratic why is this move better? question—into the new Mistake Mastery flow.
+
+Bug Reports:
+- The Strategy tab was empty for analyzed games.
+- The Analyzed, Best Moves, and Blunders tabs in the game list were not working.
+- The progress page was showing a fake, estimated rating instead of the user's actual rating.
+- The progress page UI showed messy decimal numbers for metric changes.
+- The opening repertoire section showed Unknown Opening or cryptic ECO codes.
+
+PRODUCT REQUIREMENTS:
+- All chess analysis (move evaluations, best moves, threats) MUST come from Stockfish.
+- LLMs (like GPT-4o-mini) are ONLY to be used for formatting and adjusting the tone of Stockfish's factual output.
+- The application should feel like a serious, effective coaching tool, not a toy.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The application is a full-stack web app with a React frontend and a Python (Flask) backend. It connects to a MongoDB database. Users can link their Chess.com account, and the app automatically syncs and analyzes their games. The analysis uses Stockfish to find inaccuracies/mistakes/blunders and extracts the Principal Variation (the concrete line of play). This data is then passed to  with a specific prompt that instructs it to use the Stockfish facts to generate commentary in a calm mentor tone.
-
-The main pages are implemented:
--   **Coach Page:** Shows a PDR puzzle and last game summary.
--   **Journey/Progress Page:** Shows accuracy and blunder trends, and allows re-trying failed analyses.
--   **Game Analysis Page:** Shows the board, a full list of moves for both players, and detailed commentary. Moves in the list are clickable and correctly update the board position.
--   **Dashboard:** Shows clickable summary stats that open a modal with detailed lists of blunders, best moves, etc.
-
-All major bugs reported by the user have been fixed, including incorrect accuracy stats, broken PDR puzzles, and move-clicking issues. The codebase has been refactored to use a central  file for all key settings.
+The application has a React frontend and a Python/FastAPI backend. Key implemented features include:
+- **Phase-Aware Coaching**: The backend analyzes games, identifies the game phase (Opening, Middlegame, Endgame), and provides rating-adaptive strategic advice, which is displayed in a Strategy tab in the game analysis view.
+- **Mistake Mastery System**: A full-fledged spaced repetition system is in place. It extracts mistakes from games, creates mistake cards, and serves them to the user in a dedicated training UI on the Coach page.
+- **Chess Journey Dashboard**: The old static progress page has been replaced by a dynamic dashboard showing a user's long-term progress in rating, phase performance, habit mastery, and opening repertoire.
+- **Data Integrity**: The system correctly uses Stockfish for analysis, and the user's real Chess.com rating is now extracted from game PGNs. The opening names are correctly identified by mapping ECO codes from a separate JSON file.
+- **Bug Fixes**: All user-reported bugs (empty Strategy tab, broken game list tabs, fake rating, UI glitches, unknown openings) have been resolved.
 
 **Last working item**:
-*   **Last item agent was working on**: The agent was about to start implementing **phase-aware coaching**. The user requested that the analysis should include strategic advice based on the game phase (Opening, Middlegame, Endgame), such as teaching key endgame principles if the game reached an endgame. This goes beyond the current move-by-move tactical feedback.
-*   **Status**: NOT STARTED
-*   **Agent Testing Done**: N
-*   **Which testing method agent to use?**: both
-*   **User Testing Done**: N
+    - Last item agent was working: The agent was planning to refactor the training system based on user feedback. The task involves three main parts: 1) Removing the old and now-redundant Legacy PDR system. 2) Merging the Socratic why is this better? follow-up question into the new Mistake Mastery system. 3) Making the computer's suggested move variations (threat lines) playable/animated on the chessboard for easier visualization.
+    - Status: NOT STARTED
+    - Agent Testing Done: N
+    - User Testing Done: N
+    - Which testing method agent to use? both
 
 **All Pending/In progress Issue list**:
-There are no known pending issues or bugs. The main focus is on the new feature request.
+There are no outstanding bugs. The primary pending work is the feature implementation described in Last working item and In progress Task List.
 
 **In progress Task List**:
--   **Task 1**: Implement Phase-Aware Coaching (Priority: P0)
-    -   **Where to resume**: The agent was viewing . The next step is to modify the analysis pipeline to:
-        1.  **Detect Game Phase:** Add logic to determine if a move or game section is in the opening, middlegame, or endgame (e.g., based on move number or piece count).
-        2.  **Generate Strategic Summary:** Update the LLM prompt to include the game phase and instruct it to provide a high-level strategic summary and relevant principles (e.g., In this King and Pawn endgame, the key principle is King activity...).
-        3.  **Update API & Frontend:** Modify the analysis API endpoint () to include this new strategic summary and display it on the Game Analysis page.
-    -   **What will be achieved with this?**: The coaching will become much more valuable and human-like, teaching the user transferable strategic concepts instead of just correcting individual tactical errors.
-    -   **Status**: NOT STARTED
-    -   **Should Test frontend/backend/both after fix?**: both
-    -   **Blocked on something**: No.
+  - Task 1:  Refactor the training system to be more interactive and unified (P0)
+
+ Task Detail:
+  - Task 1: 
+     - Where to resume: The agent needs to start the implementation. The plan is:
+        1.  **Backend**: Search the codebase for all components related to the Legacy PDR and remove them from  and any related services.
+        2.  **Backend**: Modify  and the  endpoints to include logic for a Socratic why? follow-up question after a correct answer.
+        3.  **Frontend**: Modify the chessboard component used in  and  to accept and animate a sequence of moves (the principal variation or threat line).
+     - What will be achieved with this? This will create a single, superior training system, remove confusing and redundant UI, and significantly improve the user experience by making complex analysis easy to understand on the board.
+     - Status:  NOT STARTED
+     - Should Test frontend/backend/both after fix? both
+     - Blocked on something: Nothing.
 
 **Upcoming and Future Tasks**
-*   **Upcoming Tasks**:
-    *   **(P1) Add a Third Candidate Move to PDR**: Enhance the Post-Game Debrief puzzle by offering three move choices instead of two, making it more challenging.
-    *   **(P2) Tighten Habit-Alignment in PDR**: Improve the PDR generation logic to always select a puzzle that directly relates to the user's most dominant negative habit.
-*   **Future Tasks**:
-    *   **(P1) Weekly Summary via WhatsApp**: Implement sending weekly progress summaries via WhatsApp, as the user (with an Indian context) believes it will have higher engagement than email. This would require integration with a WhatsApp API provider.
-    - **(P2) Weekly Summary Emails**: The original plan was for email summaries, which is currently blocked on the user providing a .
+There are no other upcoming or future tasks explicitly requested by the user beyond the completion of the training system refactor.
 
 **Completed work in this session**
--   **Stockfish-Powered Explanations**: Reworked the analysis pipeline to use Stockfish's Principal Variation (PV) data as the factual basis for LLM commentary, ensuring explanations are accurate and concrete. This was a major focus. (, ).
--   **Centralized Configuration**: Created a  file and refactored the entire application to use it for all settings, including LLM model names and analysis parameters.
--   **Clickable Dashboard Stats**: Implemented clickable stat cards on the dashboard that open a modal showing detailed lists of all blunders, best moves, or analyzed games. (New endpoints in , new , updates to ).
--   **Full Game Move List**: Updated the Game Analysis page to show moves from both the user and the opponent, providing complete context. (, ).
--   **Bug Fix - Clickable Moves**: Fixed a critical bug where clicking a move in the analysis list would jump to the wrong position on the board. ().
--   **Bug Fix - Data Integrity**: Resolved numerous data-related bugs caused by failed Stockfish analyses, including incorrect accuracy/blunder stats and non-functional PDR puzzles. This involved adding  flags, creating retry mechanisms, and re-analyzing the user's game history.
--   **LLM Model Switch**: Changed the LLM from  to the more cost-effective  for generating commentary, as per user's request.
+- **Phase-Aware Coaching Implementation (DONE)**: Enhanced , integrated into , and added a Strategy tab to .
+- **Mistake Mastery System (DONE)**: Created  for spaced repetition logic, added new training endpoints to , and built the UI in .
+- **Chess Journey Dashboard (DONE)**: Created  for comprehensive progress metrics and built the new UI in .
+- **API Routing Fix (DONE)**: Reordered routes in  to fix the issue where a dynamic route () was incorrectly catching specific routes like .
+- **Real Rating Fix (DONE)**: Updated  to parse actual user ratings from PGN headers instead of using a flawed estimation formula.
+- **Opening Name Fix (DONE)**: Updated  to correctly look up opening names from ECO codes found in the PGN, handling various edge cases.
+- **ECO Mapping Refactor (DONE)**: Moved the hardcoded ECO-to-opening dictionary into a separate, manageable  file.
+- **UI Polish (DONE)**: Updated  to display simple Improving/Declining text instead of long, ugly decimal percentages.
 
 **Earlier issues found/mentioned but not fixed**
-None. The agent was diligent in addressing all issues raised by the user during the session.
+All issues that were found or mentioned by the user during this session have been addressed and fixed.
 
 **Known issue recurrence from previous fork**
-- **Issue recurrence in previous fork**: The Most Recent Game logic was a recurring bug. The agent identified the root cause (sorting by the wrong timestamp field) and fixed it in . This issue should now be resolved.
-- **Recurrence count**: 1
-- **Status**: RESOLVED
+N/A
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Backend**: Python (Flask)
--   **Frontend**: JavaScript (React)
--   **Database**: MongoDB
--   **Chess Engine**: Stockfish (installed in the environment)
--   **LLM Integration**: Uses OpenAI API () for commentary generation based on facts from Stockfish.
--   **Architecture**: Monolithic backend with a service layer to separate business logic.
+- **Backend**: Python (v3.11), FastAPI, Pydantic, Motor (async MongoDB driver).
+- **Frontend**: JavaScript, React, Tailwind CSS, Vite.
+- **Database**: MongoDB.
+- **Chess Engine**: Stockfish, integrated via the  library.
+- **Key Algorithms**: SM-2 spaced repetition algorithm for the Mistake Mastery system.
 
 **key DB schema**
--   ****: Stores game data, including PGN, timestamps, and player info.
--   ****: Stores detailed analysis for each game, including accuracy, blunder/mistake counts,  flag, and the  array containing move-specific feedback.
--   ****: Manages user accounts and linked chess profiles.
--   ****: Aggregates user stats and identified habits for coaching.
+  - **games**: Stores imported games. Includes PGN data which contains crucial headers like , , and .
+  - **analyses**: Caches the results of Stockfish analysis for a game. Now includes  objects.
+  - **mistake_cards**: Stores individual training items for the spaced repetition system. Fields: , , , , , , .
+  - **users**: Stores user profile information.
 
 **changes in tech stack**
--   The LLM for commentary was changed from  to  for better cost-effectiveness. The model is now defined in .
+No changes to the fundamental tech stack.
 
 **All files of reference**
--   ****: Newly created to centralize application settings. A major improvement for maintainability.
--   ****: The main Flask application file. Heavily modified to add new endpoints, fix logic, and use the central config.
--   ****: Core of the analysis engine. Modified to extract Principal Variation (PV) lines.
--   ****: The main user interface for viewing a game analysis. Heavily modified to implement the full move list and fix the clickable-move bug.
--   ****: Modified to support clickable stats.
--   ****: A new component for displaying detailed data lists.
+- **Created:**
+  - : Implements the spaced repetition logic for the Mistake Mastery feature.
+  - : Computes all data needed for the new comprehensive progress dashboard.
+  - : A new data file to cleanly separate opening name data from code.
+  - : A new page component for the user's progress dashboard.
+  - : A new component for the interactive training UI.
+- **Updated Significantly:**
+  - : Added numerous endpoints for the new features, fixed a critical routing bug, and integrated the new services.
+  - : Was refactored to remove the old PDR system and embed the new  component.
+  - : Routing was updated to direct  to the new  page.
 
 **Areas that need refactoring**:
--   The  file is still very large and contains dozens of endpoints. It could be broken down into smaller Flask Blueprints for better organization as the application grows.
+- **Legacy PDR Removal**: Code related to the old Personalized Decision Reconstruction feature is now obsolete and needs to be surgically removed from the backend () and frontend to avoid confusion and code rot.
+- **Chessboard Component**: The frontend chessboard component will need significant refactoring to support the new requirement of playing/animating move sequences on the board.
 
 **key api endpoints**
--   : Provides all data needed for the main Coach page.
--   : Retrieves the full, detailed analysis for a specific game.
--   : Gets aggregate data for the Progress/Journey page.
--   : Manually triggers game synchronization with Chess.com.
--   : New endpoints to power the clickable dashboard stats.
+- : Retrieves the current training session (either a post-game debrief or daily review).
+- : Submits a user's answer to a mistake card and updates its spaced repetition state.
+- : Provides all the calculated data for the comprehensive Chess Journey dashboard.
+- : (Fixed) Returns a list of all games that have been analyzed.
+- : (Fixed) Returns a list of games containing blunders.
+- : (Fixed) Returns a list of games containing best moves.
 
 **Critical Info for New Agent**
--   **User's Core Philosophy**: The user is adamant that the LLM should **only** be used for **tone and formatting**, not for generating chess analysis. All chess-related facts (like why a move is bad) *must* come from Stockfish's data (especially the Principal Variation lines). Do not deviate from this principle.
--   **Stockfish in Emergent Environment**: The Stockfish binary, installed via apt 2.6.1 (arm64)
-Usage: apt-get [options] command
-       apt-get [options] install|remove pkg1 [pkg2 ...]
-       apt-get [options] source pkg1 [pkg2 ...]
-
-apt-get is a command line interface for retrieval of packages
-and information about them from authenticated sources and
-for installation, upgrade and removal of packages together
-with their dependencies.
-
-Most used commands:
-  update - Retrieve new lists of packages
-  upgrade - Perform an upgrade
-  install - Install new packages (pkg is libc6 not libc6.deb)
-  reinstall - Reinstall packages (pkg is libc6 not libc6.deb)
-  remove - Remove packages
-  purge - Remove packages and config files
-  autoremove - Remove automatically all unused packages
-  dist-upgrade - Distribution upgrade, see apt-get(8)
-  dselect-upgrade - Follow dselect selections
-  build-dep - Configure build-dependencies for source packages
-  satisfy - Satisfy dependency strings
-  clean - Erase downloaded archive files
-  autoclean - Erase old downloaded archive files
-  check - Verify that there are no broken dependencies
-  source - Download source archives
-  download - Download the binary package into the current directory
-  changelog - Download and display the changelog for the given package
-
-See apt-get(8) for more information about the available commands.
-Configuration options and syntax is detailed in apt.conf(5).
-Information about how to configure sources can be found in sources.list(5).
-Package and version choices can be expressed via apt_preferences(5).
-Security details are available in apt-secure(8).
-                                        This APT has Super Cow Powers., is **not persistent** across forks in this environment. If you encounter analysis failures, the first step is to check if Stockfish is installed () and reinstall it if necessary (Hit:1 http://deb.debian.org/debian bookworm InRelease
-Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
-Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [48.0 kB]
-Hit:4 https://deb.nodesource.com/node_20.x nodistro InRelease
-Get:5 https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 InRelease [3005 B]
-Get:6 http://deb.debian.org/debian-security bookworm-security/main arm64 Packages [289 kB]
-Get:7 https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0/multiverse amd64 Packages [103 kB]
-Get:8 https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0/multiverse arm64 Packages [101 kB]
-Fetched 599 kB in 2s (315 kB/s)
-Reading package lists...
-Reading package lists...
-Building dependency tree...
-Reading state information...
-Suggested packages:
-  polyglot xboard | scid
-The following NEW packages will be installed:
-  stockfish
-0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.
-Need to get 21.9 MB of archives.
-After this operation, 47.4 MB of additional disk space will be used.
-Get:1 http://deb.debian.org/debian bookworm/main arm64 stockfish arm64 15.1-4 [21.9 MB]
-Fetched 21.9 MB in 0s (76.0 MB/s)
-Selecting previously unselected package stockfish.
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 37768 files and directories currently installed.)
-Preparing to unpack .../stockfish_15.1-4_arm64.deb ...
-Unpacking stockfish (15.1-4) ...
-Setting up stockfish (15.1-4) ...).
--   **Configuration is Centralized**: Before hardcoding any value (LLM model, number of games to sync, etc.), check . All such settings should reside there.
+- **User's Vision is Key**: The user has a very clear and strong vision for the product. It must be a *serious coaching tool*. All decisions should align with this principle. Chess logic comes from Stockfish, not LLMs.
+- **Current Priority**: The immediate and highest priority task is to refactor the training system: remove the old PDR, add the why? question to the new system, and, most importantly, make threat lines playable on the board.
+- **Database Name**: Be aware that the application connects to the database specified in the  file (). Mismatches in the DB name have caused debugging issues in the past.
+- **Authentication**: The app uses Google OAuth. This means you cannot simply navigate to pages with Playwright; you must use the provided login credentials or test API endpoints directly.
 
 **documents and test reports created in this job**
--    was updated multiple times.
--    was generated by the testing agent.
+- 
+- 
+- Test reports were generated by the testing agent for  and , but are not persisted as artifacts.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **Request:** Clear all data and explain the new user flow. **Status:** Completed.
-2.  **Request:** Confirm the app analyzes the *last* 15 games. **Status:** Completed.
-3.  **Request:** Ask if a Chess.com API key is needed. **Status:** Completed (No).
-4.  **Request:** Discuss the best LLM model choice, considering cost vs. quality. **Status:** Completed, switched to .
-5.  **Request:** Centralize configuration into a single file. **Status:** Completed.
-6.  **Bug Report:** Analysis commentary is still generic and not using the Stockfish data. **Status:** Fixed by correcting the LLM prompt.
-7.  **Request:** Make dashboard stats clickable to show detailed lists. **Status:** Completed.
-8.  **Bug Report:** Clicking a move jumps to the wrong board position, and opponent's moves are missing. **Status:** Fixed.
-9.  **Frustration:** User reports multiple things are broken again (PDR, commentary). **Status:** Diagnosed as a data issue from testing shortcuts and fixed by re-running a full analysis.
-10. **Request:** Provide strategic, phase-aware coaching (e.g., endgame theory), not just tactical corrections. **Status:** **PENDING**. This is the current main task.
+1.  **user**:  - User asked for assurance that chess data comes from Stockfish, not LLMs. (Resolved)
+2.  **user**:  - User inquired about how opening names were stored. (Resolved)
+3.  **user**:  - User requested the opening mapping be moved to a JSON file. (Completed)
+4.  **user**:  - User asked for a comparison of the two training systems. (Resolved)
+5.  **user**:  - **PENDING**. This is the key directive for the next agent. It combines removing the old system, enhancing the new one, and adding a major interactive feature (playable lines).
 
 **Project Health Check:**
-*   **Broken**: None. All known bugs and issues have been resolved.
-*   **Mocked**: None.
+- **Broken**: Nothing is critically broken.
+- **Mocked**: No mocked parts remain; the fake rating calculation was replaced with real data.
+- **Redundant**: The legacy PDR system is now redundant and slated for removal.
 
 **3rd Party Integrations**
-*   **OpenAI GPT-4o-mini**: Used for generating coaching commentary. Uses the Emergent LLM Key.
-*   **Chess.com API**: Public API used to fetch user games. No key required.
-*   **Stockfish**: Open-source chess engine.
+- **Stockfish**: The core chess engine for all game analysis and move evaluation.
+- **OpenAI GPT-4o-mini**: Used exclusively to format Stockfish's output into human-readable text and adjust tone. Uses Emergent LLM Key.
+- **Chess.com API**: The source of the PGN game data that is imported into the application.
+- **Google OAuth**: Handles user authentication.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES
--   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: []
--   **Known regressions**: None
+  - Testing agent used after significant changes: YES
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: , 
+  - Known regressions: None
 
 **Credentials to test flow:**
--   The application uses a test Chess.com account  for fetching games.
--   Authentication can be done via a demo user or Google OAuth.
+The user  (user_id: ) has games with real rating data in the database, making it a good account for testing the Chess Journey page. The  account has also been used extensively.
 
 **What agent forgot to execute**
--   The agent suggested creating a startup script to automatically install Stockfish if it's missing (to handle the Emergent environment resetting packages). However, this script was never implemented. The next agent will likely have to manually install Stockfish again upon encountering analysis failures.</analysis>
+The agent correctly captured the final user request but did not begin implementation. The next fork must start executing the plan to refactor the training system.</analysis>
