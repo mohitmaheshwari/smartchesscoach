@@ -203,8 +203,15 @@ async def extract_mistake_cards_from_analysis(
     phase_analysis = analysis.get("phase_analysis", {})
     phases = phase_analysis.get("phases", [])
     
-    # User color available for future use in context
-    _ = game.get("user_color", "white")
+    # Get user color and opponent info for personalization
+    user_color = game.get("user_color", "white")
+    opponent = game.get("opponent", "")
+    if not opponent:
+        # Try to extract from white/black fields
+        if user_color == "white":
+            opponent = game.get("black", "")
+        else:
+            opponent = game.get("white", "")
     
     for move in move_evaluations:
         # Get evaluation type safely
