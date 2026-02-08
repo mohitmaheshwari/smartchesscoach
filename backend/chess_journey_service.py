@@ -168,26 +168,6 @@ async def get_rating_progression(db, user_id: str, user: Dict, games: List[Dict]
         "trend": trend,
         "total_games": len(rating_data)
     }
-        
-        # Calculate weekly change
-        weekly_change = 0
-        if len(rating_history) >= 2:
-            weekly_change = rating_history[-1].get("rating", 0) - rating_history[-2].get("rating", 0)
-    else:
-        first_rating = current_rating or 1200
-        last_rating = current_rating or 1200
-        peak_rating = current_rating or 1200
-        weekly_change = 0
-    
-    return {
-        "started_at": first_rating,
-        "current": last_rating,
-        "change": last_rating - first_rating,
-        "peak": peak_rating,
-        "weekly_change": weekly_change,
-        "history": rating_history[-12:],  # Last 12 data points
-        "trend": "improving" if last_rating > first_rating else ("declining" if last_rating < first_rating else "stable")
-    }
 
 
 def calculate_phase_mastery(analyses: List[Dict]) -> Dict:
