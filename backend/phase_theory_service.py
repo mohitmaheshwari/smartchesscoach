@@ -734,9 +734,18 @@ def generate_strategic_lesson(phase: str, endgame_info: Dict, user_mistakes: Lis
     return lesson
 
 
-def analyze_game_phases(pgn_string: str, user_color: str = "white") -> Dict[str, any]:
+def analyze_game_phases(pgn_string: str, user_color: str = "white", rating: int = 1200) -> Dict[str, any]:
     """
     Analyze the entire game and provide phase-by-phase breakdown with theory.
+    RATING-ADAPTIVE: All content adjusts to player's rating level.
+    
+    Args:
+        pgn_string: The PGN of the game
+        user_color: "white" or "black"
+        rating: Player's chess rating (800-2200+)
+    
+    Returns:
+        Complete phase analysis with rating-adapted strategic lessons
     """
     try:
         pgn_io = io.StringIO(pgn_string)
@@ -749,8 +758,11 @@ def analyze_game_phases(pgn_string: str, user_color: str = "white") -> Dict[str,
         phases = []
         current_phase = "opening"
         phase_start_move = 1
+        phase_start_fen = board.fen()
         
         move_number = 1
+        phase_transitions = []
+        
         for i, move in enumerate(game.mainline_moves()):
             board.push(move)
             is_white_move = (i % 2 == 0)
@@ -760,19 +772,32 @@ def analyze_game_phases(pgn_string: str, user_color: str = "white") -> Dict[str,
             new_phase = detect_game_phase(board, move_number)
             
             if new_phase != current_phase:
+                # Record the phase transition
+                transition_fen = board.fen()
                 phases.append({
                     "phase": current_phase,
                     "start_move": phase_start_move,
-                    "end_move": move_number - 1
+                    "end_move": move_number - 1 if new_phase != current_phase else move_number,
+                    "duration_moves": (move_number - 1) - phase_start_move + 1,
+                    "start_fen": phase_start_fen
+                })
+                phase_transitions.append({
+                    "from_phase": current_phase,
+                    "to_phase": new_phase,
+                    "at_move": move_number,
+                    "transition_fen": transition_fen
                 })
                 current_phase = new_phase
                 phase_start_move = move_number
+                phase_start_fen = transition_fen
         
         # Add final phase
         phases.append({
             "phase": current_phase,
             "start_move": phase_start_move,
-            "end_move": move_number
+            "end_move": move_number,
+            "duration_moves": move_number - phase_start_move + 1,
+            "start_fen": phase_start_fen
         })
         
         # Detect final endgame type if applicable
@@ -780,22 +805,62 @@ def analyze_game_phases(pgn_string: str, user_color: str = "white") -> Dict[str,
         if current_phase == "endgame":
             endgame_info = detect_endgame_type(board)
         
-        # Get theory for the final phase
-        final_theory = get_phase_theory(current_phase, endgame_info)
+        # Get RATING-ADAPTIVE theory for the final phase
+        final_theory = get_phase_theory(current_phase, endgame_info, rating)
         
-        # Generate strategic lesson
+        # Generate RATING-ADAPTIVE strategic lesson
         result = game.headers.get("Result", "*")
-        lesson = generate_strategic_lesson(current_phase, endgame_info or {}, [], user_color, result)
+        lesson = generate_strategic_lesson(current_phase, endgame_info or {}, [], user_color, result, rating)
+        
+        # Generate a simple phase summary for display
+        phase_summary = generate_phase_summary(phases, current_phase, endgame_info, rating)
         
         return {
             "phases": phases,
+            "phase_transitions": phase_transitions,
             "final_phase": current_phase,
             "endgame_info": endgame_info,
             "theory": final_theory,
             "strategic_lesson": lesson,
-            "total_moves": move_number
+            "total_moves": move_number,
+            "phase_summary": phase_summary,
+            "rating_bracket": get_rating_bracket(rating)
         }
         
     except Exception as e:
         logger.error(f"Error analyzing game phases: {e}")
         return {"error": str(e)}
+
+
+def generate_phase_summary(phases: List[Dict], final_phase: str, endgame_info: Dict, rating: int) -> str:
+    """
+    Generate a human-readable phase summary for display.
+    """
+    bracket = get_rating_bracket(rating)
+    
+    if len(phases) == 1:
+        if final_phase == "opening":
+            return "The game ended during the opening phase."
+        elif final_phase == "middlegame":
+            return "The game was decided in the middlegame, before reaching an endgame."
+    
+    # Build the summary
+    parts = []
+    for phase in phases:
+        phase_name = phase["phase"].capitalize()
+        duration = phase["duration_moves"]
+        parts.append(f"{phase_name} (moves {phase['start_move']}-{phase['end_move']})")
+    
+    summary = "This game went through: " + " → ".join(parts) + "."
+    
+    # Add endgame-specific info
+    if final_phase == "endgame" and endgame_info:
+        eg_type = endgame_info.get("type", "complex")
+        if eg_type == "pawn_ending":
+            summary += " The game reached a pure pawn ending - king activity was crucial."
+        elif eg_type == "rook_ending":
+            summary += " The game reached a rook ending - activity and technique determined the result."
+        elif eg_type == "minor_piece_ending":
+            summary += " The game reached a minor piece ending."
+    
+    return summary
