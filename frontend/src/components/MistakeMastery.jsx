@@ -476,7 +476,7 @@ const MistakeMastery = ({ token, onComplete }) => {
                   {" (-"}{(currentCard.cp_loss / 100).toFixed(1)}{")"}
                 </span>
               </div>
-              {(phase === "feedback" || phase === "question") && playbackPositions.length > 0 && (
+              {phase === "feedback" && playbackPositions.length > 0 && (
                 <div className="flex items-center justify-center gap-1 flex-wrap">
                   <Button variant="outline" size="sm" onClick={goToStart} disabled={playbackIndex === 0} className="h-8 w-8 p-0">
                     <SkipBack className="w-3 h-3" />
@@ -507,7 +507,7 @@ const MistakeMastery = ({ token, onComplete }) => {
                   </Button>
                 </div>
               )}
-              {playbackPositions.length > 0 && (
+              {phase === "feedback" && playbackPositions.length > 0 && (
                 <div className="text-center">
                   <span className={`text-xs px-2 py-1 rounded ${
                     playbackType === 'threat' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'
