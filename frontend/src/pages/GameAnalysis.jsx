@@ -637,6 +637,149 @@ const GameAnalysis = ({ user }) => {
                     )}
                   </TabsContent>
 
+                  {/* STRATEGY TAB - Phase-Aware Coaching */}
+                  <TabsContent value="strategy" className="space-y-4 mt-4">
+                    {strategicLesson ? (
+                      <>
+                        {/* Game Phase Summary */}
+                        {phaseAnalysis && (
+                          <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20">
+                            <div className="flex items-center gap-2 mb-2">
+                              <TrendingUp className="w-4 h-4 text-purple-500" />
+                              <p className="font-medium text-sm">Game Phases</p>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {phaseAnalysis.phase_summary || `This game reached the ${phaseAnalysis.final_phase || 'middlegame'} phase.`}
+                            </p>
+                            {phaseAnalysis.phases && phaseAnalysis.phases.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-3">
+                                {phaseAnalysis.phases.map((p, i) => (
+                                  <span 
+                                    key={i} 
+                                    className={`text-xs px-2 py-1 rounded ${
+                                      p.phase === 'opening' ? 'bg-green-500/20 text-green-400' :
+                                      p.phase === 'middlegame' ? 'bg-yellow-500/20 text-yellow-400' :
+                                      'bg-blue-500/20 text-blue-400'
+                                    }`}
+                                  >
+                                    {p.phase.charAt(0).toUpperCase() + p.phase.slice(1)} ({p.start_move}-{p.end_move})
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Strategic Lesson */}
+                        <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Lightbulb className="w-4 h-4 text-amber-500" />
+                            <p className="font-medium text-sm">{strategicLesson.lesson_title || "Strategic Lesson"}</p>
+                            {strategicLesson.rating_bracket && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 capitalize">
+                                {strategicLesson.rating_bracket}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* One Sentence Takeaway - Main message */}
+                          {strategicLesson.one_sentence_takeaway && (
+                            <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-3">
+                              {strategicLesson.one_sentence_takeaway}
+                            </p>
+                          )}
+                          
+                          {/* What to Remember */}
+                          {strategicLesson.what_to_remember && strategicLesson.what_to_remember.length > 0 && (
+                            <div className="space-y-1.5 mb-3">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Remember</p>
+                              {strategicLesson.what_to_remember.slice(0, 4).map((item, i) => (
+                                <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                                  <span className="text-amber-500 mt-0.5">•</span>
+                                  <span>{item}</span>
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Next Step - Actionable */}
+                          {strategicLesson.next_step && (
+                            <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 mt-3">
+                              <p className="text-xs font-medium text-emerald-500 mb-1">Next Step</p>
+                              <p className="text-sm text-emerald-600 dark:text-emerald-400">{strategicLesson.next_step}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Phase Theory - Key Principles */}
+                        {phaseTheory && phaseTheory.key_principles && phaseTheory.key_principles.length > 0 && (
+                          <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <BookOpen className="w-4 h-4 text-blue-500" />
+                              <p className="font-medium text-sm">{phaseTheory.phase?.charAt(0).toUpperCase() + phaseTheory.phase?.slice(1) || "Phase"} Principles</p>
+                            </div>
+                            
+                            {/* Key Concept - Highlighted */}
+                            {phaseTheory.key_concept && (
+                              <div className="p-2 rounded bg-blue-500/20 mb-3">
+                                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                                  {phaseTheory.key_concept}
+                                </p>
+                              </div>
+                            )}
+                            
+                            {/* Principles List */}
+                            <div className="space-y-1.5">
+                              {phaseTheory.key_principles.slice(0, 5).map((principle, i) => (
+                                <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                                  <span className="text-blue-500 font-mono text-xs mt-0.5">{i + 1}.</span>
+                                  <span>{principle}</span>
+                                </p>
+                              ))}
+                            </div>
+                            
+                            {/* One Thing to Remember */}
+                            {phaseTheory.one_thing_to_remember && (
+                              <div className="mt-3 pt-3 border-t border-blue-500/20">
+                                <p className="text-xs text-muted-foreground">
+                                  <span className="text-blue-500 font-medium">One thing to remember:</span>{" "}
+                                  {phaseTheory.one_thing_to_remember}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Theory to Study */}
+                        {strategicLesson.theory_to_study && strategicLesson.theory_to_study.length > 0 && (
+                          <div className="p-3 rounded-lg bg-muted/50">
+                            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                              <Target className="w-3 h-3" />
+                              Recommended Study
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {strategicLesson.theory_to_study.map((topic, i) => (
+                                <span key={i} className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground">
+                                  {topic}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <BookOpen className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground">
+                          Strategic analysis not available for this game.
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Re-analyze the game to get phase-aware coaching.
+                        </p>
+                      </div>
+                    )}
+                  </TabsContent>
+
                   <TabsContent value="moves" className="mt-4">
                     <ScrollArea className="h-[400px]">
                       <div className="space-y-1">
