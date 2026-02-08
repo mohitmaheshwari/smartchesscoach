@@ -83,6 +83,15 @@ from stockfish_service import (
     get_best_moves_for_position
 )
 
+# Import Phase Theory service for strategic coaching
+from phase_theory_service import (
+    analyze_game_phases,
+    get_phase_theory,
+    detect_game_phase,
+    detect_endgame_type,
+    get_rating_bracket
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
