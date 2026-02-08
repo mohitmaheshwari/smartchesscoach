@@ -207,6 +207,13 @@ const MistakeMastery = ({ token, onComplete }) => {
   const handleWhyAnswer = (optionId) => {
     setSelectedWhy(optionId);
     setWhyRevealed(true);
+    
+    // Play the better line on the board if the answer was correct
+    const selectedOption = getWhyOptions().find(o => o.id === optionId);
+    if (selectedOption?.is_correct && (whyData?.better_line?.length > 0 || currentCard?.better_line?.length > 0)) {
+      const lineToPlay = whyData?.better_line || currentCard?.better_line;
+      setTimeout(() => playMovesOnBoard(lineToPlay, 'better'), 500);
+    }
   };
 
   const nextCard = () => {
