@@ -90,16 +90,10 @@ const MetricComparison = ({ label, then, now, improved }) => {
     <div className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
       <span className="text-muted-foreground">{label}</span>
       <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">{then}</span>
+        <span className="text-sm text-muted-foreground line-through">{then}</span>
         <ArrowRight className="w-4 h-4 text-muted-foreground" />
         <span className="font-mono font-medium">{now}</span>
-        <span className={`text-xs px-2 py-0.5 rounded ${
-          improved 
-            ? 'bg-emerald-500/10 text-emerald-500' 
-            : 'bg-red-500/10 text-red-500'
-        }`}>
-          {improved ? 'Improving' : 'Declining'}
-        </span>
+        <TrendIndicator trend={improved ? "improving" : "declining"} />
       </div>
     </div>
   );
