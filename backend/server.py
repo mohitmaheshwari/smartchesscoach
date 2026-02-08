@@ -104,6 +104,7 @@ from mistake_card_service import (
     set_active_habit,
     get_training_stats,
     get_card_by_id,
+    generate_why_question,
     HABIT_DEFINITIONS
 )
 
