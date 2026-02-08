@@ -2398,18 +2398,20 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     session_status = await get_session_status(db, user.user_id)
     
     # ===== LAST GAME SUMMARY =====
-    # Get the most recently PLAYED game that has been SUCCESSFULLY analyzed
+    # Get the most recently PLAYED game that has been FULLY analyzed
+    # FULL analysis means: Stockfish ran (move_evaluations exists) AND commentary exists
     last_game = None
     
-    # First get the most recent analyzed game - SORTED by created_at
-    # We'll filter for games where analysis exists and Stockfish succeeded
+    # First get the most recent FULLY analyzed game
+    # Must have move_evaluations (Stockfish ran) - this is the key requirement
     recent_analyses = await db.game_analyses.find(
         {
             "user_id": user.user_id,
-            "stockfish_failed": {"$ne": True}  # Exclude failed analyses
+            "stockfish_failed": {"$ne": True},
+            "move_evaluations": {"$exists": True, "$not": {"$size": 0}}  # MUST have Stockfish data
         },
         {"_id": 0, "game_id": 1, "blunders": 1, "mistakes": 1, "accuracy": 1, 
-         "commentary": 1, "identified_weaknesses": 1}
+         "commentary": 1, "identified_weaknesses": 1, "move_evaluations": 1}
     ).sort("created_at", -1).limit(5).to_list(5)
     
     # Find the first one that has actual analysis data
@@ -2417,11 +2419,9 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     most_recent_game = None
     
     for analysis in recent_analyses:
-        # Check if analysis has actual data - require at least 3 moves in commentary
-        commentary_length = len(analysis.get("commentary", []))
-        has_data = commentary_length >= 3
-        
-        if has_data:
+        # Verify it has real Stockfish data
+        move_evals = analysis.get("move_evaluations", [])
+        if len(move_evals) >= 3:  # At least 3 moves evaluated by Stockfish
             # Get the corresponding game
             game = await db.games.find_one(
                 {"game_id": analysis.get("game_id"), "user_id": user.user_id},
