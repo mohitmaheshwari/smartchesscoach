@@ -518,14 +518,14 @@ const ChessJourney = ({ user }) => {
           </Card>
         </motion.div>
 
-        {/* Insights */}
+        {/* Insights - Renamed to Coach's Observations */}
         {insights && insights.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Zap className="w-5 h-5 text-primary" />
-                  Insights
+                  Coach&apos;s Observations
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
