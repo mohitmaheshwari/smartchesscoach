@@ -265,14 +265,14 @@ const ChessJourney = ({ user }) => {
           </Card>
         </motion.div>
 
-        {/* Rating Progression */}
+        {/* Rating Progression - Renamed to Rating Stability */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-primary" />
-                  Rating Progression
+                  Rating Stability
                 </CardTitle>
                 <TrendIndicator trend={rating_progression.trend} size="md" />
               </div>
