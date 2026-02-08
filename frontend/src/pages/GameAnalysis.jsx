@@ -420,7 +420,7 @@ const GameAnalysis = ({ user }) => {
           <div className="mt-2 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs">
             <div className="flex items-center justify-between">
               <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                ✓ Better: <span className="font-mono">{getBestMoveForMove(item.move_number).best_move}</span>
+                The disciplined move: <span className="font-mono">{getBestMoveForMove(item.move_number).best_move}</span>
               </span>
               {getBestMoveForMove(item.move_number).pv && (
                 <Button 
