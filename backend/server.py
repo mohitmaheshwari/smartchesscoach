@@ -1323,6 +1323,62 @@ async def get_analysis(game_id: str, user: User = Depends(get_current_user)):
     )
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    # Also get the game to extract full move list
+    game = await db.games.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "pgn": 1, "user_color": 1}
+    )
+    
+    if game and game.get("pgn"):
+        # Parse PGN to get all moves
+        import chess.pgn
+        import io
+        try:
+            pgn_io = io.StringIO(game["pgn"])
+            chess_game = chess.pgn.read_game(pgn_io)
+            if chess_game:
+                full_moves = []
+                board = chess_game.board()
+                move_number = 1
+                for i, move in enumerate(chess_game.mainline_moves()):
+                    fen_before = board.fen()
+                    san = board.san(move)
+                    is_white = (i % 2 == 0)
+                    
+                    # Find if this move has commentary (user's move)
+                    user_color = game.get("user_color", "white")
+                    is_user_move = (is_white and user_color == "white") or (not is_white and user_color == "black")
+                    
+                    # Look up evaluation from commentary
+                    evaluation = "neutral"
+                    feedback = None
+                    if is_user_move:
+                        for c in analysis.get("commentary", []):
+                            if c.get("move_number") == (move_number if is_white else move_number) and c.get("move") == san:
+                                evaluation = c.get("evaluation", "neutral")
+                                feedback = c.get("feedback")
+                                break
+                    
+                    full_moves.append({
+                        "ply": i,
+                        "move_number": move_number if is_white else move_number,
+                        "move": san,
+                        "fen": fen_before,
+                        "is_white": is_white,
+                        "is_user_move": is_user_move,
+                        "evaluation": evaluation if is_user_move else "opponent",
+                        "feedback": feedback
+                    })
+                    
+                    board.push(move)
+                    if not is_white:
+                        move_number += 1
+                
+                analysis["full_moves"] = full_moves
+        except Exception as e:
+            logger.warning(f"Failed to parse PGN for full moves: {e}")
+    
     return analysis
 
 # ==================== VOICE COACHING (TTS) ROUTES ====================
