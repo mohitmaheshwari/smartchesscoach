@@ -466,35 +466,65 @@ const MistakeMastery = ({ token, onComplete }) => {
                   {" (-"}{(currentCard.cp_loss / 100).toFixed(1)}{")"}
                 </span>
               </div>
-              {phase === "feedback" && (
+              {(phase === "feedback" || phase === "question") && playbackPositions.length > 0 && (
+                <div className="flex items-center justify-center gap-1 flex-wrap">
+                  <Button variant="outline" size="sm" onClick={goToStart} disabled={playbackIndex === 0} className="h-8 w-8 p-0">
+                    <SkipBack className="w-3 h-3" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={stepBackward} disabled={playbackIndex === 0} className="h-8 w-8 p-0">
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  {isPlaying ? (
+                    <Button variant="outline" size="sm" onClick={() => setIsPlaying(false)} className="gap-1 h-8">
+                      <Pause className="w-3 h-3" /> Pause
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => setIsPlaying(true)} 
+                      disabled={playbackIndex >= playbackPositions.length - 1} className="gap-1 h-8">
+                      <Play className="w-3 h-3" /> Play
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={stepForward} 
+                    disabled={playbackIndex >= playbackPositions.length - 1} className="h-8 w-8 p-0">
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={goToEnd} 
+                    disabled={playbackIndex >= playbackPositions.length - 1} className="h-8 w-8 p-0">
+                    <SkipForward className="w-3 h-3" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={resetBoard} className="gap-1 h-8 ml-2">
+                    <RotateCw className="w-3 h-3" /> Reset
+                  </Button>
+                </div>
+              )}
+              {playbackPositions.length > 0 && (
+                <div className="text-center">
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    playbackType === 'threat' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'
+                  }`}>
+                    {playbackType === 'threat' ? 'After your move' : 'Better line'}: Move {playbackIndex}/{playbackPositions.length - 1}
+                  </span>
+                </div>
+              )}
+              {phase === "feedback" && playbackPositions.length === 0 && (
                 <div className="flex items-center justify-center gap-2">
                   <Button variant="outline" size="sm" onClick={resetBoard} className="gap-1">
                     <RotateCw className="w-3 h-3" /> Reset
                   </Button>
-                  {!isPlaying && currentCard.threat_line?.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={() => playMovesOnBoard(currentCard.threat_line, 'threat')}
+                  {currentCard.threat_line?.length > 0 && (
+                    <Button variant="outline" size="sm" 
+                      onClick={() => playMovesOnBoard(currentCard.threat_line, 'threat', currentCard.user_move)}
                       className="gap-1 text-red-500 border-red-500/30 hover:bg-red-500/10">
-                      <Play className="w-3 h-3" /> Play Threat
+                      <Play className="w-3 h-3" /> Your Move
                     </Button>
                   )}
-                  {!isPlaying && currentCard.better_line?.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={() => playMovesOnBoard(currentCard.better_line, 'better')}
+                  {currentCard.better_line?.length > 0 && (
+                    <Button variant="outline" size="sm" 
+                      onClick={() => playMovesOnBoard(currentCard.better_line, 'better', currentCard.correct_move)}
                       className="gap-1 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10">
-                      <Play className="w-3 h-3" /> Play Best
+                      <Play className="w-3 h-3" /> Best Move
                     </Button>
                   )}
-                  {isPlaying && (
-                    <Button variant="outline" size="sm" onClick={() => setIsPlaying(false)} className="gap-1">
-                      <Pause className="w-3 h-3" /> Pause
-                    </Button>
-                  )}
-                </div>
-              )}
-              {isPlaying && (
-                <div className="text-center">
-                  <span className={`text-xs px-2 py-1 rounded ${playbackType === 'threat' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                    Playing {playbackType} line: {playbackIndex}/{playbackMoves.length}
-                  </span>
                 </div>
               )}
             </div>
