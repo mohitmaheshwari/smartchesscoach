@@ -83,6 +83,11 @@ Metrics support the habit narrative, not replace it.
    - Weakness pattern detection
    - Decay logic
    - Trend analysis
+
+6. **Data Integrity Safeguards** (Feb 2025)
+   - `DATA_MODEL.md` documents correct field paths for Stockfish data
+   - Regression tests in `tests/test_coach_endpoint.py` (5 tests)
+   - Critical rule: Use `stockfish_analysis.move_evaluations`, NOT top-level fields
    - All intelligence preserved, selectively surfaced
 
 6. **Opening Repertoire Analysis**
