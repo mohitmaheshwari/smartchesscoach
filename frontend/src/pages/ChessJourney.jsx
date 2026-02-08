@@ -366,10 +366,10 @@ const ChessJourney = ({ user }) => {
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-primary" />
-                  Your Improvement
+                  Then vs Now
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  First {improvement_metrics.early_games_count} games vs Last {improvement_metrics.recent_games_count} games
+                  What used to go wrong vs What is improving now
                 </p>
               </CardHeader>
               <CardContent>
