@@ -175,74 +175,270 @@ def detect_endgame_type(board: chess.Board) -> Dict[str, any]:
 
 
 # =============================================================================
-# PHASE-SPECIFIC THEORY AND PRINCIPLES
+# RATING-ADAPTIVE PHASE THEORY AND PRINCIPLES
 # =============================================================================
+# Each principle has versions for different rating levels
 
-OPENING_PRINCIPLES = {
-    "core": [
-        "Control the center with pawns (e4, d4, e5, d5)",
-        "Develop knights before bishops",
-        "Castle early to protect your king",
-        "Don't move the same piece twice in the opening",
-        "Connect your rooks by developing all minor pieces"
-    ],
-    "mistakes_to_avoid": [
-        "Don't bring your queen out too early",
-        "Don't make too many pawn moves",
-        "Don't neglect development to grab pawns",
-        "Don't block your center pawns with knights"
-    ]
+OPENING_PRINCIPLES_BY_RATING = {
+    "beginner": {
+        "core": [
+            "Put a pawn in the center (e4 or d4)",
+            "Get your knights out first",
+            "Castle early to keep your king safe",
+            "Move each piece once before moving any piece twice",
+            "Get all your pieces out before attacking"
+        ],
+        "mistakes_to_avoid": [
+            "Don't bring your queen out early - she can be chased",
+            "Don't move too many pawns - develop pieces instead",
+            "Don't grab pawns if it means falling behind in development"
+        ],
+        "key_concept": "DEVELOPMENT: Get all your pieces active before thinking about attacks.",
+        "one_thing_to_remember": "Castle before move 10. Every game."
+    },
+    "intermediate": {
+        "core": [
+            "Control the center with pawns AND pieces (e4/d4, Nf3/Nc3)",
+            "Develop knights before bishops - knights have fewer good squares",
+            "Castle kingside for safety, queenside for attacking",
+            "Don't move the same piece twice unless forced or winning material",
+            "Connect your rooks by completing development"
+        ],
+        "mistakes_to_avoid": [
+            "Early queen moves invite tempo-losing attacks",
+            "Too many pawn moves weaken your position",
+            "Grabbing pawns often costs crucial development time",
+            "Blocking center pawns with knights limits your options"
+        ],
+        "key_concept": "PIECE COORDINATION: Your pieces should work together toward the center.",
+        "one_thing_to_remember": "Ask 'Are all my pieces developed?' before starting an attack."
+    },
+    "advanced": {
+        "core": [
+            "Central control is about squares, not just occupying the center",
+            "Knight development depends on pawn structure - sometimes Nc3 before Nf3",
+            "Castling direction should match your pawn structure and attack plans",
+            "Tempo is more valuable than material in the opening - avoid useless moves",
+            "Rook connection means your opening is complete - don't start middlegame plans before this"
+        ],
+        "mistakes_to_avoid": [
+            "Early queen moves can work IF they create concrete threats",
+            "Some pawn moves (like h3/a3 prep) are fine when they prevent threats",
+            "Material grabs are good IF you've calculated the consequences",
+            "Blocking pawns is wrong only if you NEED that pawn to advance"
+        ],
+        "key_concept": "FLEXIBILITY: Keep your options open. Don't commit to a plan too early.",
+        "one_thing_to_remember": "Every move should either develop, control center, or prepare castling."
+    },
+    "expert": {
+        "core": [
+            "Central control is dynamic - sometimes ceding the center to attack later is correct",
+            "Piece placement depends on anticipated pawn breaks and resulting structures",
+            "Castling is a commitment - delay if unclear, or use king position as a weapon",
+            "Opening theory is a tool, not a rulebook - understand the IDEAS behind the moves",
+            "Early imbalances (bishop pair, pawn structure) should guide middlegame plans"
+        ],
+        "mistakes_to_avoid": [
+            "Blindly following opening principles without understanding the position",
+            "Memorizing moves without understanding plans and typical structures",
+            "Neglecting opponent's resources and counterplay",
+            "Over-preparing for one variation while ignoring practical positions"
+        ],
+        "key_concept": "UNDERSTANDING: Know WHY moves are played, not just WHAT moves to play.",
+        "one_thing_to_remember": "The best opening is one where you understand the resulting middlegame."
+    }
 }
 
-MIDDLEGAME_PRINCIPLES = {
-    "core": [
-        "Create a plan based on pawn structure",
-        "Improve your worst-placed piece",
-        "Control open files with rooks",
-        "Attack where you have more space or pieces",
-        "Trade pieces when ahead in material, avoid trades when behind"
-    ],
-    "attack": [
-        "Attack the king when you have more pieces on that side",
-        "Open lines toward the enemy king",
-        "Don't attack without sufficient pieces"
-    ],
-    "defense": [
-        "Exchange attacking pieces when defending",
-        "Keep pieces coordinated for defense",
-        "Don't create weaknesses near your king"
-    ]
+MIDDLEGAME_PRINCIPLES_BY_RATING = {
+    "beginner": {
+        "core": [
+            "Look for threats before making your move",
+            "If you don't know what to do, improve your worst piece",
+            "Put your rooks on open files (no pawns in the way)",
+            "Don't trade pieces if you're losing - keep them for chances",
+            "When you have more pieces attacking, that's when to attack"
+        ],
+        "attack_tips": [
+            "Attack only when your pieces are ready",
+            "More pieces = stronger attack",
+            "Open files point to the enemy king = good attack"
+        ],
+        "defense_tips": [
+            "Trade off the attacking pieces when defending",
+            "Keep your pieces near your king when under attack",
+            "Don't make weaknesses around your king"
+        ],
+        "key_concept": "PIECE ACTIVITY: An active piece is worth more than a passive piece.",
+        "one_thing_to_remember": "Before every move, ask: 'What is my opponent threatening?'"
+    },
+    "intermediate": {
+        "core": [
+            "Your PLAN should be based on the pawn structure - where are the pawn breaks?",
+            "Identify and improve your worst-placed piece",
+            "Rooks belong on open files, semi-open files, or the 7th rank",
+            "Trade pieces when ahead, avoid trades when behind",
+            "Attack where you have more space or a pawn majority"
+        ],
+        "attack_tips": [
+            "Attack where you have more pieces concentrated",
+            "Open lines toward the enemy king with pawn breaks",
+            "Three pieces attacking > two pieces defending"
+        ],
+        "defense_tips": [
+            "Exchange the opponent's most dangerous attacking piece",
+            "Piece coordination beats material in defense",
+            "Prophylaxis: prevent opponent's threats before they happen"
+        ],
+        "key_concept": "PLANNING: Every move should be part of a larger plan based on position features.",
+        "one_thing_to_remember": "Find your worst piece. Make it better. Repeat."
+    },
+    "advanced": {
+        "core": [
+            "Pawn structure determines piece placement and attack direction",
+            "Piece harmony matters more than individual piece strength",
+            "Rook placement depends on where files WILL open, not where they ARE open",
+            "Material exchange decisions should consider activity differential",
+            "Create weaknesses in opponent's camp before launching attack"
+        ],
+        "attack_tips": [
+            "Attack preparation: improve all pieces to maximum before striking",
+            "Pawn breaks to open lines should be timed with piece coordination",
+            "Prophylaxis in attack: eliminate counterplay before final assault"
+        ],
+        "defense_tips": [
+            "Active defense: counterattack where opponent is weak",
+            "Piece exchanges should eliminate opponent's most active pieces",
+            "Accept material deficit temporarily if it ruins opponent's coordination"
+        ],
+        "key_concept": "WEAKNESSES: Create them in opponent's position, avoid them in yours.",
+        "one_thing_to_remember": "Control the position before attacking - rushed attacks backfire."
+    },
+    "expert": {
+        "core": [
+            "Pawn structure is dynamic - pawn breaks change the game's character",
+            "Piece placement follows strategic goals: restricting opponent or enabling plans",
+            "File control is preparation for invasion or prevention of enemy activity",
+            "Material imbalances should be evaluated based on position demands",
+            "Prophylaxis and provocation: make opponent's pieces work poorly"
+        ],
+        "attack_tips": [
+            "Attack timing depends on concrete calculation, not just positional indicators",
+            "Creating multiple threats forces opponent into difficult choices",
+            "Piece sacrifices can be correct even without forced win - evaluate compensation"
+        ],
+        "defense_tips": [
+            "Defensive resources: fortress structures, perpetual threats, counterplay",
+            "Exchanging down to holdable endgames is a valid defensive strategy",
+            "Active defense often stronger than passive - create problems for attacker"
+        ],
+        "key_concept": "DYNAMICS: Static advantages must be converted before opponent creates counterplay.",
+        "one_thing_to_remember": "When you have an advantage, ask: 'How can opponent fight back?' Then stop it."
+    }
 }
 
-ENDGAME_PRINCIPLES = {
-    "core": [
-        "King activity is CRUCIAL - bring your king to the center",
-        "Passed pawns must be pushed - they're your winning ticket",
-        "Rooks belong BEHIND passed pawns (yours or opponent's)",
-        "The side with more pawns should create a passed pawn",
-        "Avoid creating pawn weaknesses that will be targets"
-    ],
-    "pawn_endings": [
-        "OPPOSITION: When kings face each other with 1 square between, whoever moves is at disadvantage",
-        "King in FRONT of pawn wins, king BEHIND pawn often draws",
-        "Outside passed pawn wins by distracting the enemy king",
-        "In equal pawn endings, create a passed pawn on the side where you have majority",
-        "Triangulation can help gain the opposition"
-    ],
-    "rook_endings": [
-        "LUCENA POSITION: Rook + pawn on 7th with king in front usually wins",
-        "PHILIDOR POSITION: Defender's rook on 6th rank can hold the draw",
-        "Active rook > passive rook (even with a pawn deficit)",
-        "Cut off the enemy king with your rook",
-        "Rooks belong on the 7th rank (attacking pawns from behind)"
-    ],
-    "minor_piece_endings": [
-        "Bishop pair is strong in open positions",
-        "Knight is better in closed positions with pawns on both sides",
-        "Wrong-colored bishop + rook pawn is often a draw",
-        "Knights need outposts to be effective"
-    ]
+ENDGAME_PRINCIPLES_BY_RATING = {
+    "beginner": {
+        "core": [
+            "BRING YOUR KING TO THE CENTER - it's safe now and can help",
+            "Push your passed pawns - they want to become queens!",
+            "Put rooks BEHIND passed pawns (yours or opponent's)",
+            "Count pawns - more pawns usually means you can make a queen",
+            "Don't rush - think carefully in endgames"
+        ],
+        "pawn_endings": [
+            "Your KING must help the pawn - it can't promote alone",
+            "King in FRONT of the pawn is strong",
+            "If kings face each other, the one who moves loses ground"
+        ],
+        "rook_endings": [
+            "Keep your rook ACTIVE - a passive rook loses",
+            "Put your rook behind the passed pawn",
+            "Cut off the enemy king with your rook"
+        ],
+        "key_concept": "KING ACTIVITY: In the endgame, your king is a FIGHTING piece, not a hiding piece.",
+        "one_thing_to_remember": "Endgame rule #1: Activate your king immediately."
+    },
+    "intermediate": {
+        "core": [
+            "King activity is CRUCIAL - centralize immediately when the endgame begins",
+            "Passed pawns must be pushed - but TIME it right",
+            "Rooks belong BEHIND passed pawns - this applies to BOTH sides' pawns",
+            "Create passed pawns where you have a pawn majority",
+            "Avoid creating pawn weaknesses - they become targets"
+        ],
+        "pawn_endings": [
+            "OPPOSITION: Kings face each other, one square between. The side to move LOSES ground",
+            "King in FRONT of pawn = winning. King BEHIND pawn = often drawing",
+            "Outside passed pawn wins by distracting enemy king",
+            "Create passed pawns on the side where you have more pawns",
+            "Know when to push vs when to keep the tension"
+        ],
+        "rook_endings": [
+            "LUCENA: Rook + pawn on 7th with king in front = winning technique",
+            "PHILIDOR: Defender's rook on 6th rank = drawing technique",
+            "Active rook beats passive rook, even down a pawn",
+            "Cut off the king - prevent it from reaching key squares",
+            "7th rank for rooks = attacking pawns from behind"
+        ],
+        "key_concept": "TECHNIQUE: Knowing basic endgame patterns wins games that calculation cannot.",
+        "one_thing_to_remember": "Learn Lucena and Philidor positions - they appear constantly."
+    },
+    "advanced": {
+        "core": [
+            "King centralization speed often determines endgame outcome",
+            "Passed pawn creation vs advancement - strategic timing matters",
+            "Rook placement: behind passed pawns, or cutting off the king, depending on position",
+            "Pawn structure determines whether you should trade into an ending",
+            "Weak pawns become critical targets - avoid creating them mid-game"
+        ],
+        "pawn_endings": [
+            "Opposition types: direct, distant, and diagonal - all serve different purposes",
+            "Triangulation: losing a tempo to gain the opposition",
+            "Key squares: controlling them guarantees promotion",
+            "Outside passed pawn technique: deflect the king, then win the race",
+            "Zugzwang: when any move worsens your position - set these up"
+        ],
+        "rook_endings": [
+            "Lucena building a bridge technique: Rf4, Ra4, Re4+ patterns",
+            "Philidor's 3rd rank defense: keeping options flexible",
+            "Rook activity compensates for material - calculate carefully",
+            "King cut-off technique: every file of separation = half a pawn",
+            "Vancura position: drawing rook+pawn vs rook with a-pawn"
+        ],
+        "key_concept": "PRECISION: Small improvements accumulate. Accurate play converts advantages.",
+        "one_thing_to_remember": "In complex endgames, calculate the king race first."
+    },
+    "expert": {
+        "core": [
+            "Endgame transitions should be planned from the middlegame",
+            "Dynamic factors (activity, initiative) vs static factors (material, structure) - balance shifts",
+            "Rook endgames are 'always drawn' is a MYTH - precision wins",
+            "Pawn structure weaknesses from opening/middlegame become decisive",
+            "Fortress construction vs breakthrough technique - know both sides"
+        ],
+        "pawn_endings": [
+            "Corresponding squares: the generalization of opposition",
+            "Trebuchet positions and mutual zugzwang recognition",
+            "Shouldering technique for king maneuvers",
+            "Pawn breakthrough calculations in complex structures",
+            "Reserve tempi: maintaining pawn tension as a resource"
+        ],
+        "rook_endings": [
+            "Tarrasch rule nuances: when NOT to put rooks behind passed pawns",
+            "Long-side defense vs short-side defense selection",
+            "Two weaknesses principle in rook endings",
+            "Rook vs pawn races: precise calculation required",
+            "Complex theoretical positions: know the assessments"
+        ],
+        "key_concept": "TRANSFORMATION: Convert one advantage into another when opponent defends correctly.",
+        "one_thing_to_remember": "The endgame is where you cash in your middlegame advantages - or lose them."
+    }
 }
+
+# Legacy compatibility - keep old structure for any code that uses it
+OPENING_PRINCIPLES = OPENING_PRINCIPLES_BY_RATING["intermediate"]
+MIDDLEGAME_PRINCIPLES = MIDDLEGAME_PRINCIPLES_BY_RATING["intermediate"]
+ENDGAME_PRINCIPLES = ENDGAME_PRINCIPLES_BY_RATING["intermediate"]
 
 
 def get_phase_theory(phase: str, endgame_info: Dict = None) -> Dict[str, any]:
