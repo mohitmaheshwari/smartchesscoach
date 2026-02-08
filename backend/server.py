@@ -1247,6 +1247,60 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
                 "move_evaluations": stockfish_move_data
             }
         
+        # ============ PHASE-AWARE STRATEGIC COACHING ============
+        # Analyze game phases and provide rating-adaptive strategic lessons
+        try:
+            # Get user's rating for adaptive content
+            user_rating = DEFAULT_RATING  # Default
+            
+            # Try to get rating from player profile
+            player_profile = await db.player_profiles.find_one(
+                {"user_id": user.user_id},
+                {"_id": 0, "current_rating": 1}
+            )
+            if player_profile and player_profile.get("current_rating"):
+                user_rating = player_profile.get("current_rating", DEFAULT_RATING)
+            
+            # Analyze game phases with rating-adaptive content
+            phase_analysis = analyze_game_phases(game['pgn'], user_color, user_rating)
+            
+            if phase_analysis and not phase_analysis.get("error"):
+                analysis_doc['phase_analysis'] = {
+                    "phases": phase_analysis.get("phases", []),
+                    "final_phase": phase_analysis.get("final_phase", "unknown"),
+                    "endgame_info": phase_analysis.get("endgame_info"),
+                    "phase_summary": phase_analysis.get("phase_summary", ""),
+                    "total_moves": phase_analysis.get("total_moves", 0),
+                    "phase_transitions": phase_analysis.get("phase_transitions", [])
+                }
+                
+                # Strategic lesson - rating-adaptive
+                strategic_lesson = phase_analysis.get("strategic_lesson", {})
+                analysis_doc['strategic_lesson'] = {
+                    "lesson_title": strategic_lesson.get("lesson_title", ""),
+                    "what_to_remember": strategic_lesson.get("what_to_remember", []),
+                    "theory_to_study": strategic_lesson.get("theory_to_study", []),
+                    "one_sentence_takeaway": strategic_lesson.get("one_sentence_takeaway", ""),
+                    "next_step": strategic_lesson.get("next_step", ""),
+                    "phase_reached": strategic_lesson.get("phase_reached", ""),
+                    "rating_bracket": strategic_lesson.get("rating_bracket", "intermediate")
+                }
+                
+                # Phase-specific theory - rating-adaptive
+                theory = phase_analysis.get("theory", {})
+                analysis_doc['phase_theory'] = {
+                    "phase": theory.get("phase", ""),
+                    "key_principles": theory.get("key_principles", []),
+                    "key_concept": theory.get("key_concept", ""),
+                    "one_thing_to_remember": theory.get("one_thing_to_remember", ""),
+                    "specific_advice": theory.get("specific_advice", []),
+                    "rating_bracket": theory.get("rating_bracket", "intermediate")
+                }
+                
+                logger.info(f"Phase analysis complete: {phase_analysis.get('final_phase')} phase, rating bracket: {get_rating_bracket(user_rating)}")
+        except Exception as phase_err:
+            logger.warning(f"Phase analysis failed (non-critical): {phase_err}")
+        
         # CQS: Store internal metadata (NEVER exposed to users)
         analysis_doc['_cqs_internal'] = {
             "score": cqs_result["total_score"],
@@ -1261,6 +1315,7 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         await db.games.update_one(
             {"game_id": req.game_id},
             {"$set": {"is_analyzed": True}}
+        )
         )
         
         # Remove _id before returning
