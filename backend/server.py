@@ -2592,6 +2592,20 @@ async def record_training_attempt(req: CardAttemptRequest, user: User = Depends(
     return result
 
 
+@api_router.get("/training/card/{card_id}/why")
+async def get_why_question_for_card(card_id: str, user: User = Depends(get_current_user)):
+    """
+    Get a Socratic "Why is this move better?" question for a card.
+    Used after the user answers correctly to deepen understanding.
+    """
+    card = await get_card_by_id(db, card_id, user.user_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    why_data = await generate_why_question(db, card)
+    return why_data
+
+
 @api_router.get("/training/progress")
 async def get_training_progress(user: User = Depends(get_current_user)):
     """Get user's habit mastery progress."""
