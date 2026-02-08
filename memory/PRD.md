@@ -194,6 +194,25 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 8, 2025 - Phase-Aware Strategic Coaching
+- **NEW FEATURE: Phase-Aware Coaching** - Major feature that provides strategic, phase-aware advice
+  - **Phase Detection**: Automatically identifies Opening → Middlegame → Endgame transitions
+  - **Endgame Classification**: Detects specific endgame types (pawn endings, rook endings, minor piece endings)
+  - **Rating-Adaptive Language**: Content complexity adjusts based on player rating
+    - Beginner (<1000): Simple, action-oriented ("Move your king to the center")
+    - Intermediate (1000-1399): Principle-based ("King activity is crucial because...")
+    - Advanced (1400-1799): Nuanced strategic theory
+    - Expert (1800+): Deep theoretical understanding
+  - **Strategic Lesson**: Each analysis now includes lesson_title, one_sentence_takeaway, next_step, what_to_remember
+  - **Phase Theory**: Key principles, key_concept, one_thing_to_remember for the game's final phase
+- **Files Added/Modified**:
+  - `backend/phase_theory_service.py` - Enhanced with rating-adaptive theory for all phases
+  - `backend/server.py` - Integrated phase analysis into game analysis endpoint
+  - `frontend/src/pages/GameAnalysis.jsx` - New "Strategy" tab showing phase-aware coaching
+- **API Updates**:
+  - `GET /api/analysis/{game_id}` now returns `phase_analysis`, `strategic_lesson`, `phase_theory`
+- **Testing**: 20 backend tests pass, all features verified
+
 ### February 7, 2025 - Light Stats & Bug Fixes
 - **Fixed Stockfish Not Installed**: Installed Stockfish 15.1 binary at `/usr/games/stockfish`
 - **Re-analyzed All Failed Games**: Fixed 6 games that had failed Stockfish analysis
