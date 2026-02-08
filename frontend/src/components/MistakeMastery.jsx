@@ -315,6 +315,9 @@ const MistakeMastery = ({ token, onComplete }) => {
       setIsPlaying(false);
       setPlaybackIndex(0);
       setPlaybackMoves([]);
+      setPlaybackPositions([]);
+      setPlaybackType(null);
+      setPreviewMove(null);
       setSelectedWhy(null);
       setWhyRevealed(false);
       setWhyData(null);
