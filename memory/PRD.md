@@ -134,8 +134,15 @@ Metrics support the habit narrative, not replace it.
 ## Key API Endpoints
 
 ### Coach Mode
-- `GET /api/coach/today` - Returns ONE active habit + rule
+- `GET /api/coach/today` - Returns ONE active habit + rule (PDR removed)
 - `GET /api/progress` - Rating, accuracy, blunders, habits
+
+### Training (Mistake Mastery)
+- `GET /api/training/session` - Returns training mode and due cards
+- `POST /api/training/attempt` - Record answer and update spaced repetition
+- `GET /api/training/card/{card_id}/why` - Get Socratic "Why?" question for a card
+- `GET /api/training/progress` - Habit mastery stats
+- `GET /api/training/habits` - Available habit definitions
 
 ### Analysis
 - `POST /api/games/{id}/analyze` - Analyze game
