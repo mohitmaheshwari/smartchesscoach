@@ -219,15 +219,20 @@ const GameAnalysis = ({ user }) => {
   const isMistake = (ev) => ev === "blunder" || ev === "mistake" || ev === "inaccuracy";
 
   // Jump to move on the board when clicking a move comment
-  const handleMoveClick = (moveNumber, move, commentaryIndex) => {
+  const handleMoveClick = (moveNumber) => {
     if (boardRef.current) {
-      // Commentary only contains USER's moves
-      // For Black: user moves are at odd indices (1, 3, 5...)
-      // For White: user moves are at even indices (0, 2, 4...)
+      // moveNumber is the chess move number (1, 2, 3...)
+      // For a user playing Black: move 1 = board index 1, move 2 = board index 3, etc.
+      // For a user playing White: move 1 = board index 0, move 2 = board index 2, etc.
       const isBlack = userColor === "black";
+      
+      // Convert chess move number to board index
+      // Each full move (white + black) = 2 half-moves
+      // White's move N is at index (N-1)*2
+      // Black's move N is at index (N-1)*2 + 1
       const boardIndex = isBlack 
-        ? (commentaryIndex * 2) + 1  // Black moves: 1, 3, 5, 7...
-        : (commentaryIndex * 2);      // White moves: 0, 2, 4, 6...
+        ? (moveNumber - 1) * 2 + 1  // Black's move N → index (N-1)*2 + 1
+        : (moveNumber - 1) * 2;      // White's move N → index (N-1)*2
       
       boardRef.current.goToMove(boardIndex);
     }
