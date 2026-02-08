@@ -406,6 +406,11 @@ const Coach = ({ user }) => {
               onComplete={() => {}} 
             />
             
+            {/* Opening Discipline - Play This Today / Rating Leaks / Wisdom */}
+            {coachData.opening_discipline && (
+              <OpeningDiscipline data={coachData.opening_discipline} />
+            )}
+            
             {/* Coach's Note */}
             {coachData.coach_note && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
