@@ -194,6 +194,22 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 8, 2025 - Chess Journey Progress Dashboard (Major Feature)
+- **NEW FEATURE: Comprehensive Chess Journey Dashboard** - Complete progress tracking system
+  - **Rating Progression**: Started rating → Current → Peak with trend indicators and history chart
+  - **Phase Mastery**: Opening/Middlegame/Endgame performance with mastery percentages and trends
+  - **Improvement Metrics**: Then vs Now comparison for accuracy, blunders, mistakes, best moves
+  - **Habit Journey**: Categorized into Conquered / In Progress / Needs Attention
+  - **Opening Repertoire**: Win rates by opening for White and Black with game counts
+  - **Weekly Summary**: Games played, accuracy, blunders this week
+  - **Insights**: Data-driven actionable insights
+- **Files Added/Modified**:
+  - `backend/chess_journey_service.py` - NEW: Comprehensive journey calculation service
+  - `backend/server.py` - NEW endpoint: GET /journey/comprehensive
+  - `frontend/src/pages/ChessJourney.jsx` - NEW: Full journey dashboard UI
+  - `frontend/src/App.js` - Route /progress now uses ChessJourney
+- **Testing**: 52/52 backend tests pass
+
 ### February 8, 2025 - Mistake Mastery System (Major Feature)
 - **NEW FEATURE: Mistake Mastery System** - Spaced repetition for learning from your own chess mistakes
   - **Mistake Cards**: Every blunder/mistake from your games becomes a training card
