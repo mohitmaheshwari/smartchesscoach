@@ -417,7 +417,8 @@ const MistakeMastery = ({ token, onComplete }) => {
     );
   }
 
-  const getBoardOrientation = () => currentCard.fen?.includes(" w ") ? "white" : "black";
+  // Use user_color to orient the board from player's perspective
+  const getBoardOrientation = () => currentCard?.user_color || "white";
 
   return (
     <Card className="border-primary/20 overflow-hidden">
