@@ -2554,7 +2554,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 import json
                 with open("data/eco_openings.json", "r") as f:
                     eco_openings = json.load(f)
-            except:
+            except Exception:
                 pass
             
             # Track opening stats by color
