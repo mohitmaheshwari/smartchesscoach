@@ -649,8 +649,8 @@ const MistakeMastery = ({ token, onComplete }) => {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Habit:</span>
-                    <span className="text-xs px-2 py-1 rounded bg-primary/10 text-primary">
+                    <span className="text-xs text-muted-foreground">This habit is costing rating:</span>
+                    <span className="text-xs px-2 py-1 rounded bg-amber-500/10 text-amber-500 font-medium">
                       {currentCard.habit_tag?.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
                     </span>
                   </div>
