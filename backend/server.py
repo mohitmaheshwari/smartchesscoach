@@ -2444,11 +2444,12 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 break
     
     if most_recent_game and last_analysis:
-            # Get blunders/mistakes from stockfish_analysis.move_evaluations (source of truth)
+            # CRITICAL: Get stats from stockfish_analysis, NOT top-level fields
+            # See /app/backend/DATA_MODEL.md
             sf_data = last_analysis.get("stockfish_analysis", {})
             move_evals = sf_data.get("move_evaluations", [])
             
-            # Count from Stockfish move evaluations
+            # Count from Stockfish move_evaluations (SOURCE OF TRUTH)
             blunders = sum(1 for m in move_evals if m.get("evaluation") == "blunder")
             mistakes = sum(1 for m in move_evals if m.get("evaluation") == "mistake")
             accuracy = sf_data.get("accuracy", 0) or 0
