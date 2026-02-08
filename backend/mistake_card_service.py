@@ -699,3 +699,133 @@ async def get_training_stats(db, user_id: str) -> Dict:
         "total_correct": attempt_stats["total_correct"],
         "accuracy": accuracy
     }
+
+
+# =============================================================================
+# WHY QUESTION GENERATION (Socratic Follow-up)
+# =============================================================================
+
+async def generate_why_question(db, card: Dict) -> Dict:
+    """
+    Generate a Socratic "Why is this move better?" question for a card.
+    Returns options with one correct answer and two plausible distractors.
+    
+    This function uses position context to generate meaningful options
+    without requiring LLM calls (to keep it fast and reliable).
+    """
+    import random
+    
+    habit_tag = card.get("habit_tag", "tactical_oversight")
+    correct_move = card.get("correct_move", "")
+    user_move = card.get("user_move", "")
+    explanation = card.get("explanation", "")
+    threat_line = card.get("threat_line", [])
+    better_line = card.get("better_line", [])
+    cp_loss = card.get("cp_loss", 0)
+    
+    # Habit-based correct reasons
+    habit_correct_reasons = {
+        "back_rank_weakness": [
+            "It defends the back rank against mate threats",
+            "It prevents a back-rank mating attack",
+            "It creates an escape square for the king"
+        ],
+        "hanging_pieces": [
+            "It defends the attacked piece",
+            "It moves the piece to safety",
+            "It protects the undefended material"
+        ],
+        "pin_blindness": [
+            "It breaks the pin or avoids it",
+            "It addresses the pinned piece problem",
+            "It removes the piece from the dangerous file/diagonal"
+        ],
+        "fork_blindness": [
+            "It prevents the enemy's forking opportunity",
+            "It sidesteps the double attack",
+            "It removes a piece from the fork square"
+        ],
+        "king_safety": [
+            "It improves the king's safety",
+            "It prevents an attack on the exposed king",
+            "It creates better protection around the king"
+        ],
+        "piece_activity": [
+            "It activates a passive piece",
+            "It improves piece coordination",
+            "It brings a piece into the game"
+        ],
+        "pawn_structure": [
+            "It maintains a healthy pawn structure",
+            "It avoids creating pawn weaknesses",
+            "It preserves the pawn formation"
+        ],
+        "tactical_oversight": [
+            "It spots the winning tactical idea",
+            "It avoids the tactical trap",
+            "It creates a concrete threat"
+        ],
+        "endgame_technique": [
+            "It applies correct endgame principles",
+            "It improves king activity in the endgame",
+            "It advances the passed pawn correctly"
+        ],
+        "calculation_error": [
+            "It sees the full variation correctly",
+            "It calculates the consequences accurately",
+            "It considers all defensive resources"
+        ]
+    }
+    
+    # Generic distractor reasons (plausible but not the main point)
+    generic_distractors = [
+        "It develops a piece to a more active square",
+        "It controls more central squares",
+        "It prepares for future pawn breaks",
+        "It creates more space for your pieces",
+        "It simplifies the position",
+        "It opens lines for your pieces",
+        "It keeps tension in the position",
+        "It follows classical opening principles",
+        "It fights for the initiative",
+        "It improves overall piece coordination",
+        "It prepares for the endgame",
+        "It creates attacking chances"
+    ]
+    
+    # Select the correct reason based on habit
+    correct_reasons = habit_correct_reasons.get(habit_tag, habit_correct_reasons["tactical_oversight"])
+    correct_reason = random.choice(correct_reasons)
+    
+    # Build more specific correct reason from explanation if available
+    if explanation and len(explanation) > 20:
+        # Extract key insight from explanation
+        if "threat" in explanation.lower():
+            correct_reason = "It addresses the immediate threat in the position"
+        elif "safe" in explanation.lower() or "defend" in explanation.lower():
+            correct_reason = "It defends against the opponent's tactical idea"
+        elif "attack" in explanation.lower():
+            correct_reason = "It creates a stronger counter-threat"
+    
+    # Select 2 plausible distractors (not the same as correct)
+    distractors = [d for d in generic_distractors if d.lower() != correct_reason.lower()]
+    selected_distractors = random.sample(distractors, min(2, len(distractors)))
+    
+    # Build options and shuffle
+    options = [
+        {"id": "correct", "text": correct_reason, "is_correct": True}
+    ] + [
+        {"id": f"wrong_{i}", "text": d, "is_correct": False} 
+        for i, d in enumerate(selected_distractors)
+    ]
+    random.shuffle(options)
+    
+    return {
+        "question": f"Why is {correct_move} better than {user_move}?",
+        "options": options,
+        "correct_explanation": correct_reason,
+        "hint": f"Think about what {habit_tag.replace('_', ' ')} means in this position.",
+        "threat_line": threat_line[:5] if threat_line else [],
+        "better_line": better_line[:5] if better_line else []
+    }
+
