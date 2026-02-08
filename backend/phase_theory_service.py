@@ -441,41 +441,56 @@ MIDDLEGAME_PRINCIPLES = MIDDLEGAME_PRINCIPLES_BY_RATING["intermediate"]
 ENDGAME_PRINCIPLES = ENDGAME_PRINCIPLES_BY_RATING["intermediate"]
 
 
-def get_phase_theory(phase: str, endgame_info: Dict = None) -> Dict[str, any]:
+def get_phase_theory(phase: str, endgame_info: Dict = None, rating: int = 1200) -> Dict[str, any]:
     """
     Get relevant theory and principles for the game phase.
+    RATING-ADAPTIVE: Language and depth adjust based on player rating.
     """
+    bracket = get_rating_bracket(rating)
+    
     theory = {
         "phase": phase,
+        "rating_bracket": bracket,
         "key_principles": [],
         "specific_advice": [],
         "common_mistakes": [],
-        "patterns_to_know": []
+        "patterns_to_know": [],
+        "key_concept": "",
+        "one_thing_to_remember": ""
     }
     
     if phase == "opening":
-        theory["key_principles"] = OPENING_PRINCIPLES["core"]
-        theory["common_mistakes"] = OPENING_PRINCIPLES["mistakes_to_avoid"]
+        principles = OPENING_PRINCIPLES_BY_RATING.get(bracket, OPENING_PRINCIPLES_BY_RATING["intermediate"])
+        theory["key_principles"] = principles["core"]
+        theory["common_mistakes"] = principles["mistakes_to_avoid"]
+        theory["key_concept"] = principles.get("key_concept", "")
+        theory["one_thing_to_remember"] = principles.get("one_thing_to_remember", "")
         theory["specific_advice"] = [
             "Focus on getting all your pieces out before attacking",
             "Castle within the first 10 moves if possible"
         ]
         
     elif phase == "middlegame":
-        theory["key_principles"] = MIDDLEGAME_PRINCIPLES["core"]
-        theory["specific_advice"] = MIDDLEGAME_PRINCIPLES["attack"][:2] + MIDDLEGAME_PRINCIPLES["defense"][:2]
+        principles = MIDDLEGAME_PRINCIPLES_BY_RATING.get(bracket, MIDDLEGAME_PRINCIPLES_BY_RATING["intermediate"])
+        theory["key_principles"] = principles["core"]
         theory["common_mistakes"] = [
             "Attacking without enough pieces",
             "Ignoring opponent's threats",
             "Trading when behind in material"
         ]
+        theory["specific_advice"] = principles.get("attack_tips", [])[:2] + principles.get("defense_tips", [])[:2]
+        theory["key_concept"] = principles.get("key_concept", "")
+        theory["one_thing_to_remember"] = principles.get("one_thing_to_remember", "")
         
     elif phase == "endgame":
-        theory["key_principles"] = ENDGAME_PRINCIPLES["core"]
+        principles = ENDGAME_PRINCIPLES_BY_RATING.get(bracket, ENDGAME_PRINCIPLES_BY_RATING["intermediate"])
+        theory["key_principles"] = principles["core"]
+        theory["key_concept"] = principles.get("key_concept", "")
+        theory["one_thing_to_remember"] = principles.get("one_thing_to_remember", "")
         
         if endgame_info:
             if endgame_info.get("is_pawn_ending"):
-                theory["specific_advice"] = ENDGAME_PRINCIPLES["pawn_endings"]
+                theory["specific_advice"] = principles.get("pawn_endings", [])
                 theory["patterns_to_know"] = [
                     "Opposition (direct, distant, diagonal)",
                     "Key squares (for pawn promotion)",
@@ -483,7 +498,7 @@ def get_phase_theory(phase: str, endgame_info: Dict = None) -> Dict[str, any]:
                     "Triangulation (gaining a tempo)"
                 ]
             elif endgame_info.get("is_rook_ending"):
-                theory["specific_advice"] = ENDGAME_PRINCIPLES["rook_endings"]
+                theory["specific_advice"] = principles.get("rook_endings", [])
                 theory["patterns_to_know"] = [
                     "Lucena Position (winning technique)",
                     "Philidor Position (drawing technique)",
@@ -491,7 +506,14 @@ def get_phase_theory(phase: str, endgame_info: Dict = None) -> Dict[str, any]:
                     "Cutting off the king"
                 ]
             elif endgame_info.get("is_minor_piece_ending"):
-                theory["specific_advice"] = ENDGAME_PRINCIPLES["minor_piece_endings"]
+                theory["specific_advice"] = [
+                    "Bishop pair is strong in open positions",
+                    "Knight is better in closed positions with pawns on both sides",
+                    "Wrong-colored bishop + rook pawn is often a draw",
+                    "Knights need outposts to be effective"
+                ]
+            else:
+                theory["specific_advice"] = principles.get("core", [])[:3]
         
         theory["common_mistakes"] = [
             "Keeping king passive when it should be active",
