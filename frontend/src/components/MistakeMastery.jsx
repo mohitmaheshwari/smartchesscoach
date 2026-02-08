@@ -228,6 +228,7 @@ const MistakeMastery = ({ token, onComplete }) => {
       setPlaybackMoves([]);
       setSelectedWhy(null);
       setWhyRevealed(false);
+      setWhyData(null);
     } else {
       setPhase("complete");
     }
