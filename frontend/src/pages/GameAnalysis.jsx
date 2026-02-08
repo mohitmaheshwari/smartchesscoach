@@ -629,8 +629,12 @@ const GameAnalysis = ({ user }) => {
 
                   <TabsContent value="moves" className="mt-4">
                     <ScrollArea className="h-[400px]">
-                      <div className="space-y-2">
-                        {commentary.map(renderMoveComment)}
+                      <div className="space-y-1">
+                        {fullMoves.length > 0 ? (
+                          fullMoves.map(renderFullMove)
+                        ) : (
+                          commentary.map(renderMoveComment)
+                        )}
                       </div>
                     </ScrollArea>
                   </TabsContent>
