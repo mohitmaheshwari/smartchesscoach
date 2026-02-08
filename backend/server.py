@@ -777,13 +777,15 @@ async def get_all_best_moves(user: User = Depends(get_current_user)):
         sf_analysis = analysis.get("stockfish_analysis", {})
         move_evals = sf_analysis.get("move_evaluations", [])
         
-        # Create a map of move_number to FEN
-        fen_map = {m.get("move_number"): m.get("fen_before") for m in move_evals}
+        # Create a map of move_number to data
+        move_data_map = {m.get("move_number"): m for m in move_evals}
         
+        # First, check commentary for best/excellent/good
         for move in commentary:
             if move.get("evaluation") in ["best", "excellent", "good"]:
                 move_num = move.get("move_number")
-                fen = fen_map.get(move_num, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+                move_data = move_data_map.get(move_num, {})
+                fen = move_data.get("fen_before", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
                 
                 best_moves.append({
                     "game_id": analysis["game_id"],
@@ -794,9 +796,31 @@ async def get_all_best_moves(user: User = Depends(get_current_user)):
                     "feedback": move.get("feedback", ""),
                     "intent": move.get("intent", "")
                 })
+        
+        # Also check stockfish evaluations for moves with very low cp_loss (excellent moves)
+        for move_data in move_evals:
+            cp_loss = move_data.get("cp_loss", 100)
+            eval_type = move_data.get("evaluation", "")
+            if hasattr(eval_type, "value"):
+                eval_type = eval_type.value
+            
+            # Moves with < 5 centipawn loss are excellent
+            if cp_loss <= 5 and eval_type not in ["blunder", "mistake", "inaccuracy"]:
+                move_num = move_data.get("move_number")
+                # Avoid duplicates
+                if not any(m["game_id"] == analysis["game_id"] and m["move_number"] == move_num for m in best_moves):
+                    best_moves.append({
+                        "game_id": analysis["game_id"],
+                        "move_number": move_num,
+                        "move": move_data.get("move", ""),
+                        "evaluation": "excellent" if cp_loss == 0 else "good",
+                        "fen": move_data.get("fen_before", ""),
+                        "feedback": f"Perfect move with {cp_loss} centipawn loss",
+                        "intent": ""
+                    })
     
     # Sort and limit
-    best_moves.sort(key=lambda x: x["game_id"], reverse=True)
+    best_moves.sort(key=lambda x: (x["game_id"], x["move_number"]), reverse=True)
     
     return {"best_moves": best_moves[:50], "total": len(best_moves)}
 
