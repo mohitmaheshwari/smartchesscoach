@@ -3,9 +3,14 @@ Chess Phase Detection and Theory Service
 
 Provides:
 1. Game phase detection (opening, middlegame, endgame)
-2. Phase-specific coaching principles
+2. Phase-specific coaching principles (RATING-ADAPTIVE)
 3. Endgame pattern recognition
 4. Strategic lessons for future games
+
+Rating-Adaptive Language:
+- 800-1200: Simple, action-oriented ("Move your king to the center")
+- 1200-1600: Principle-based ("King activity is crucial because...")
+- 1600-2000: Nuanced, theoretical ("Opposition and triangulation determine...")
 """
 
 import chess
@@ -15,6 +20,21 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# RATING BRACKETS FOR ADAPTIVE COACHING
+# =============================================================================
+
+def get_rating_bracket(rating: int) -> str:
+    """Get coaching bracket based on rating"""
+    if rating < 1000:
+        return "beginner"      # 800-999
+    elif rating < 1400:
+        return "intermediate"  # 1000-1399
+    elif rating < 1800:
+        return "advanced"      # 1400-1799
+    else:
+        return "expert"        # 1800+
 
 # =============================================================================
 # PHASE DETECTION
