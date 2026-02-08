@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { 
@@ -19,7 +19,11 @@ import {
   Play,
   CheckCircle,
   AlertCircle,
-  Target
+  Target,
+  BookOpen,
+  AlertTriangle,
+  Lightbulb,
+  Crown
 } from "lucide-react";
 import {
   Dialog,
@@ -28,6 +32,129 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import MistakeMastery from "@/components/MistakeMastery";
+
+// ============================================
+// Opening Discipline Component
+// ============================================
+const OpeningDiscipline = ({ data }) => {
+  if (!data || !data.has_data) return null;
+  
+  const { play_this_today, rating_leaks, wisdom, leak_message } = data;
+  
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+      <Card className="border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-orange-500/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-amber-500" />
+            Opening Discipline
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          
+          {/* PLAY THIS TODAY */}
+          {(play_this_today?.white || play_this_today?.black) && (
+            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <div className="flex items-center gap-2 mb-3">
+                <Crown className="w-4 h-4 text-emerald-500" />
+                <span className="text-sm font-semibold text-emerald-500 uppercase tracking-wide">Play This Today</span>
+              </div>
+              
+              <div className="space-y-2">
+                {play_this_today.white && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-white text-black border">White</span>
+                      <span className="font-medium">{play_this_today.white.name}</span>
+                    </div>
+                    <span className="text-sm text-emerald-500 font-mono">
+                      {play_this_today.white.win_rate}% wins ({play_this_today.white.wins}/{play_this_today.white.games})
+                    </span>
+                  </div>
+                )}
+                {play_this_today.black && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-white">Black</span>
+                      <span className="font-medium">{play_this_today.black.name}</span>
+                    </div>
+                    <span className="text-sm text-emerald-500 font-mono">
+                      {play_this_today.black.win_rate}% wins ({play_this_today.black.wins}/{play_this_today.black.games})
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {play_this_today.message && (
+                <p className="text-xs text-muted-foreground mt-3 italic">"{play_this_today.message}"</p>
+              )}
+            </div>
+          )}
+          
+          {/* RATING LEAKS */}
+          {rating_leaks && rating_leaks.length > 0 && (
+            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+                <span className="text-sm font-semibold text-red-500 uppercase tracking-wide">Leaking Rating</span>
+              </div>
+              
+              <div className="space-y-2">
+                {rating_leaks.map((leak, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        leak.color === 'white' ? 'bg-white text-black border' : 'bg-zinc-800 text-white'
+                      }`}>
+                        {leak.color === 'white' ? 'White' : 'Black'}
+                      </span>
+                      <span className="font-medium text-red-400">{leak.name}</span>
+                    </div>
+                    <span className="text-sm text-red-400 font-mono">
+                      {leak.win_rate}% ({leak.wins}/{leak.games})
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              {leak_message && (
+                <p className="text-xs text-muted-foreground mt-3 italic">"{leak_message}"</p>
+              )}
+            </div>
+          )}
+          
+          {/* OPENING WISDOM */}
+          {wisdom && wisdom.length > 0 && (
+            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <div className="flex items-center gap-2 mb-3">
+                <Lightbulb className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-semibold text-blue-500 uppercase tracking-wide">Opening Wisdom</span>
+              </div>
+              
+              <div className="space-y-3">
+                {wisdom.map((w, i) => (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        w.color === 'white' ? 'bg-white text-black border' : 'bg-zinc-800 text-white'
+                      }`}>
+                        {w.color === 'white' ? 'White' : 'Black'}
+                      </span>
+                      <span className="font-medium text-blue-400">{w.opening}</span>
+                    </div>
+                    <p className="text-sm pl-1">{w.tip}</p>
+                    <p className="text-xs text-muted-foreground pl-1 italic">Key: {w.key_idea}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
 
 // ============================================
 // Main Coach Component
