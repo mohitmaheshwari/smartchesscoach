@@ -78,6 +78,7 @@ const MistakeMastery = ({ token, onComplete }) => {
     setPlaybackType(null);
     setSelectedWhy(null);
     setWhyRevealed(false);
+    setWhyData(null);
   };
 
   const getCurrentCard = () => {
