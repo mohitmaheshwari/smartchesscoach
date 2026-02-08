@@ -1316,7 +1316,6 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
             {"game_id": req.game_id},
             {"$set": {"is_analyzed": True}}
         )
-        )
         
         # Remove _id before returning
         analysis_doc.pop('_id', None)
