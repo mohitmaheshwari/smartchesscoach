@@ -2435,13 +2435,14 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 break
     
     if most_recent_game and last_analysis:
-            # Get blunders/mistakes from move_evaluations (Stockfish data - source of truth)
-            move_evals = last_analysis.get("move_evaluations", [])
+            # Get blunders/mistakes from stockfish_analysis.move_evaluations (source of truth)
+            sf_data = last_analysis.get("stockfish_analysis", {})
+            move_evals = sf_data.get("move_evaluations", [])
             
             # Count from Stockfish move evaluations
             blunders = sum(1 for m in move_evals if m.get("evaluation") == "blunder")
             mistakes = sum(1 for m in move_evals if m.get("evaluation") == "mistake")
-            accuracy = last_analysis.get("accuracy", 0) or 0
+            accuracy = sf_data.get("accuracy", 0) or 0
             
             # Get opponent name from PGN
             user_color = most_recent_game.get("user_color", "white")
