@@ -84,20 +84,21 @@ const PhaseMasteryBar = ({ phase, data }) => {
   );
 };
 
-// Metric comparison component (then vs now)
-const MetricComparison = ({ label, then, now, improved, unit = "", inverse = false }) => {
-  const change = now - then;
-  const changeStr = change >= 0 ? `+${change}` : `${change}`;
-  
+// Metric comparison component (then vs now) - SIMPLIFIED
+const MetricComparison = ({ label, then, now, improved }) => {
   return (
     <div className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
       <span className="text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-4">
-        <span className="text-sm text-muted-foreground">{then}{unit}</span>
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">{then}</span>
         <ArrowRight className="w-4 h-4 text-muted-foreground" />
-        <span className="font-mono font-medium">{now}{unit}</span>
-        <span className={`text-sm font-medium ${improved ? 'text-emerald-500' : 'text-red-500'}`}>
-          {improved ? '✓' : '✗'} {changeStr}{unit}
+        <span className="font-mono font-medium">{now}</span>
+        <span className={`text-xs px-2 py-0.5 rounded ${
+          improved 
+            ? 'bg-emerald-500/10 text-emerald-500' 
+            : 'bg-red-500/10 text-red-500'
+        }`}>
+          {improved ? 'Improving' : 'Declining'}
         </span>
       </div>
     </div>
