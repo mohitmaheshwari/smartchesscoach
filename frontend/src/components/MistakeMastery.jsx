@@ -505,16 +505,45 @@ const MistakeMastery = ({ token, onComplete }) => {
               {phase === "question" && (
                 <motion.div key="question" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                   <h4 className="text-lg font-medium">What should you play here?</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => handleMoveSelect(currentCard.correct_move)}
-                      className={`p-4 rounded-lg border-2 transition-all text-left ${selectedMove === currentCard.correct_move ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>
-                      <span className="font-mono text-lg">{currentCard.correct_move}</span>
-                    </button>
-                    <button onClick={() => handleMoveSelect(currentCard.user_move)}
-                      className={`p-4 rounded-lg border-2 transition-all text-left ${selectedMove === currentCard.user_move ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>
-                      <span className="font-mono text-lg">{currentCard.user_move}</span>
-                    </button>
+                  <p className="text-sm text-muted-foreground">Click on a move to see what happens, then submit your answer.</p>
+                  
+                  <div className="space-y-3">
+                    {/* Move Option Cards - Both clickable to preview */}
+                    {[
+                      { move: currentCard.correct_move, isCorrect: true, line: currentCard.better_line },
+                      { move: currentCard.user_move, isCorrect: false, line: currentCard.threat_line }
+                    ].sort(() => Math.random() - 0.5).map((opt, idx) => (
+                      <div key={idx} 
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          selectedMove === opt.move ? "border-primary bg-primary/10" : 
+                          previewMove === opt.move ? "border-blue-500/50 bg-blue-500/5" : 
+                          "border-border hover:border-primary/30"
+                        }`}>
+                        <div className="flex items-center justify-between">
+                          <button 
+                            onClick={() => handleMoveSelect(opt.move)}
+                            className="flex items-center gap-3 flex-1 text-left"
+                          >
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                              selectedMove === opt.move ? "bg-primary text-primary-foreground" : "bg-muted"
+                            }`}>
+                              {idx + 1}
+                            </div>
+                            <span className="font-mono text-xl">{opt.move}</span>
+                          </button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => previewMoveOption(opt.move, opt.isCorrect)}
+                            className={`gap-1 ${previewMove === opt.move ? "text-blue-500" : "text-muted-foreground"}`}
+                          >
+                            <Play className="w-4 h-4" /> Preview
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                  
                   <Button onClick={submitAnswer} disabled={!selectedMove || submitting} className="w-full gap-2">
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
                     Submit Answer
