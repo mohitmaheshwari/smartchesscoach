@@ -836,7 +836,8 @@ def generate_phase_summary(phases: List[Dict], final_phase: str, endgame_info: D
     """
     Generate a human-readable phase summary for display.
     """
-    bracket = get_rating_bracket(rating)
+    # Rating bracket available for future use in more personalized summaries
+    _ = get_rating_bracket(rating)
     
     if len(phases) == 1:
         if final_phase == "opening":
@@ -848,7 +849,6 @@ def generate_phase_summary(phases: List[Dict], final_phase: str, endgame_info: D
     parts = []
     for phase in phases:
         phase_name = phase["phase"].capitalize()
-        duration = phase["duration_moves"]
         parts.append(f"{phase_name} (moves {phase['start_move']}-{phase['end_move']})")
     
     summary = "This game went through: " + " → ".join(parts) + "."
