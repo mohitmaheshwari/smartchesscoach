@@ -2534,6 +2534,240 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 "analysis_warning": "Engine analysis failed. Stats may be inaccurate." if stockfish_failed else None
             }
     
+    # ===== OPENING DISCIPLINE (Play This Today / Rating Leak / Wisdom) =====
+    opening_discipline = None
+    
+    try:
+        # Get all analyzed games with opening data
+        games_with_openings = await db.games.find(
+            {"user_id": user.user_id, "is_analyzed": True},
+            {"_id": 0, "game_id": 1, "user_color": 1, "result": 1, "pgn": 1}
+        ).to_list(100)
+        
+        if games_with_openings and len(games_with_openings) >= 3:
+            import re
+            from collections import defaultdict
+            
+            # Load ECO openings for name lookup
+            eco_openings = {}
+            try:
+                import json
+                with open("data/eco_openings.json", "r") as f:
+                    eco_openings = json.load(f)
+            except:
+                pass
+            
+            # Track opening stats by color
+            white_openings = defaultdict(lambda: {"wins": 0, "losses": 0, "draws": 0, "total": 0})
+            black_openings = defaultdict(lambda: {"wins": 0, "losses": 0, "draws": 0, "total": 0})
+            
+            for game in games_with_openings:
+                pgn = game.get("pgn", "")
+                user_color = game.get("user_color", "white")
+                result = game.get("result", "")
+                
+                # Extract opening from ECO code
+                eco_match = re.search(r'\[ECO "([^"]+)"\]', pgn)
+                opening_match = re.search(r'\[Opening "([^"]+)"\]', pgn)
+                
+                opening_name = "Unknown Opening"
+                if opening_match:
+                    opening_name = opening_match.group(1)
+                elif eco_match:
+                    eco = eco_match.group(1)
+                    opening_name = eco_openings.get(eco, eco)
+                
+                # Simplify opening name (remove variations)
+                opening_name = opening_name.split(":")[0].split(",")[0].strip()
+                
+                # Skip unknown openings
+                if opening_name == "Unknown Opening":
+                    continue
+                
+                # Determine win/loss/draw
+                if user_color == "white":
+                    won = result == "1-0"
+                    lost = result == "0-1"
+                else:
+                    won = result == "0-1"
+                    lost = result == "1-0"
+                draw = "1/2" in result
+                
+                # Track stats
+                if user_color == "white":
+                    stats = white_openings[opening_name]
+                else:
+                    stats = black_openings[opening_name]
+                stats["total"] += 1
+                if won:
+                    stats["wins"] += 1
+                elif lost:
+                    stats["losses"] += 1
+                else:
+                    stats["draws"] += 1
+            
+            # Calculate win rates and find best/worst
+            def calc_win_rate(stats):
+                if stats["total"] == 0:
+                    return 0
+                return round((stats["wins"] / stats["total"]) * 100)
+            
+            # Best opening as White (min 3 games)
+            best_white = None
+            best_white_rate = 0
+            for opening, stats in white_openings.items():
+                if stats["total"] >= 3:
+                    rate = calc_win_rate(stats)
+                    if rate > best_white_rate:
+                        best_white_rate = rate
+                        best_white = {"name": opening, "win_rate": rate, "games": stats["total"], "wins": stats["wins"]}
+            
+            # Best opening as Black (min 3 games)
+            best_black = None
+            best_black_rate = 0
+            for opening, stats in black_openings.items():
+                if stats["total"] >= 3:
+                    rate = calc_win_rate(stats)
+                    if rate > best_black_rate:
+                        best_black_rate = rate
+                        best_black = {"name": opening, "win_rate": rate, "games": stats["total"], "wins": stats["wins"]}
+            
+            # Worst openings (rating leaks) - min 3 games, <40% win rate
+            rating_leaks = []
+            all_openings = {}
+            for opening, stats in white_openings.items():
+                all_openings[f"white_{opening}"] = {"opening": opening, "color": "white", "stats": stats}
+            for opening, stats in black_openings.items():
+                all_openings[f"black_{opening}"] = {"opening": opening, "color": "black", "stats": stats}
+            
+            for key, data in all_openings.items():
+                stats = data["stats"]
+                if stats["total"] >= 3:
+                    rate = calc_win_rate(stats)
+                    if rate < 40:
+                        rating_leaks.append({
+                            "name": data["opening"],
+                            "color": data["color"],
+                            "win_rate": rate,
+                            "games": stats["total"],
+                            "wins": stats["wins"]
+                        })
+            rating_leaks.sort(key=lambda x: x["win_rate"])
+            
+            # Opening wisdom - coaching tips for best openings
+            opening_wisdom = []
+            
+            # Tips based on opening names
+            opening_tips = {
+                "Italian": {
+                    "tip": "Castle early, then prepare d4 push. Build pressure before attacking.",
+                    "key_idea": "Control the center with pieces, not just pawns."
+                },
+                "Sicilian": {
+                    "tip": "As Black, counterattack on the queenside. Don't be passive.",
+                    "key_idea": "Pawn breaks with ...b5 or ...d5 are your weapons."
+                },
+                "Queen's Gambit": {
+                    "tip": "Control d5. If Black captures, recapture with the knight or bishop.",
+                    "key_idea": "Space advantage in the center leads to attacking chances."
+                },
+                "London": {
+                    "tip": "Develop bishop to f4 before playing e3. Keep flexibility.",
+                    "key_idea": "Solid structure, but don't be too passive."
+                },
+                "Caro-Kann": {
+                    "tip": "Your light-squared bishop is your strength. Don't trade it easily.",
+                    "key_idea": "Solid pawn structure compensates for slightly less space."
+                },
+                "French": {
+                    "tip": "Break with ...c5 early. Your c8 bishop is the problem piece.",
+                    "key_idea": "The pawn chain defines the game. Attack its base."
+                },
+                "King's Indian": {
+                    "tip": "Kingside attack with ...f5 is your main plan. Don't delay.",
+                    "key_idea": "Let White have the center, then undermine it."
+                },
+                "Ruy Lopez": {
+                    "tip": "The bishop on b5 is not attacking a6. It's preparing for long-term pressure.",
+                    "key_idea": "Patience. This opening rewards slow maneuvering."
+                },
+                "Scandinavian": {
+                    "tip": "After ...Qd8 or ...Qa5, develop quickly. Don't move the queen again.",
+                    "key_idea": "Early queen move costs time. Make up for it with rapid development."
+                },
+                "Pirc": {
+                    "tip": "Let White build a big center, then strike with ...c5 or ...e5.",
+                    "key_idea": "Hypermodern approach - control from the flanks."
+                },
+                "Scotch": {
+                    "tip": "Open game means tactics. Calculate before every move.",
+                    "key_idea": "Development speed is everything in open positions."
+                },
+                "English": {
+                    "tip": "Flexible system. Control c4 and prepare to strike in the center.",
+                    "key_idea": "Delay committing your pawns. Keep options open."
+                },
+                "Dutch": {
+                    "tip": "The f5 pawn is your attacking spearhead. Protect it.",
+                    "key_idea": "Kingside attack, but watch for Bg5 pins."
+                }
+            }
+            
+            # Add wisdom for best openings
+            if best_white:
+                for pattern, tips in opening_tips.items():
+                    if pattern.lower() in best_white["name"].lower():
+                        opening_wisdom.append({
+                            "opening": best_white["name"],
+                            "color": "white",
+                            "tip": tips["tip"],
+                            "key_idea": tips["key_idea"]
+                        })
+                        break
+                else:
+                    opening_wisdom.append({
+                        "opening": best_white["name"],
+                        "color": "white",
+                        "tip": "Control the center. Develop pieces toward active squares.",
+                        "key_idea": "Opening principles matter more than memorization."
+                    })
+            
+            if best_black:
+                for pattern, tips in opening_tips.items():
+                    if pattern.lower() in best_black["name"].lower():
+                        opening_wisdom.append({
+                            "opening": best_black["name"],
+                            "color": "black",
+                            "tip": tips["tip"],
+                            "key_idea": tips["key_idea"]
+                        })
+                        break
+                else:
+                    opening_wisdom.append({
+                        "opening": best_black["name"],
+                        "color": "black",
+                        "tip": "Equalize first. Look for counterplay once you're developed.",
+                        "key_idea": "Don't rush. Solid play leads to opportunities."
+                    })
+            
+            opening_discipline = {
+                "has_data": True,
+                "play_this_today": {
+                    "white": best_white,
+                    "black": best_black,
+                    "message": "Stay with what works. Master one opening before learning another."
+                },
+                "rating_leaks": rating_leaks[:2] if rating_leaks else [],
+                "leak_message": "Avoid these until your middlegame habits are fixed." if rating_leaks else None,
+                "wisdom": opening_wisdom[:2] if opening_wisdom else [],
+                "total_openings_analyzed": len(white_openings) + len(black_openings)
+            }
+    except Exception as e:
+        import traceback
+        print(f"[COACH] Opening discipline error: {e}", file=sys.stderr)
+        traceback.print_exc()
+        opening_discipline = None
+    
     return {
         "has_data": True,
         "coach_note": coach_note,
@@ -2541,7 +2775,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         "next_game_plan": next_game_plan,
         "session_status": session_status,
         "last_game": last_game,
-        "rule": rule
+        "rule": rule,
+        "opening_discipline": opening_discipline
     }
 
 
