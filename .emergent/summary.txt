@@ -1,188 +1,216 @@
-<analysis>**original_problem_statement:**
-The user wants to build an AI chess coaching application. The initial request was to integrate an interactive chessboard into the existing Opening Repertoire feature. However, the project's direction evolved significantly through several product pivots based on user feedback.
+<analysis>**original_problem_statement**:
+The user wants to build a chess coaching application that analyzes games from a user's Chess.com account and provides human-like coaching.
 
-**PRODUCT REQUIREMENTS (Latest Version):**
-The app must function as an intentional coaching ritual, not an analytics dashboard. The core experience is Personalized Decision Reconstruction (PDR).
-
-1.  **Go Play / Done Playing Ritual:**
-    *   A Go Play button on the home screen starts a session.
-    *   After playing on Chess.com/Lichess, the user taps Done Playing.
-    *   The system finds the most recent game and queues it for priority analysis.
-
-2.  **Personalized Decision Reconstruction (PDR):**
-    *   This is the main feature on the home screen, replacing all previous sections.
-    *   It identifies the single most critical thinking mistake from the user's last game that aligns with their dominant habit.
-    *   It presents the board state *before* the mistake.
-    *   The user is prompted to choose between their original (wrong) move and the correct move.
-    *   **Feedback Idea Chain:** The feedback must explain the full thinking process: Your Idea -> Why It Felt Right -> Opponent's Counter-Idea (animated on board) -> Why It Works -> Better Approach -> Rule. Arrows and highlights must be used for visual clarity.
-    *   **Socratic Method:** If the user chooses the correct move, ask them *why* it was correct with multiple-choice options to verify their understanding.
-
-3.  **Supporting Home Screen Elements:**
-    *   **Coach's Note:** A 2-line emotional framing text from a mentor.
-    *   **Proof (Light Stats):** 2-3 key stats with trends (e.g., Blunders/game, rating trend) to build trust. No charts.
-    *   **Next Game Plan:** A 1-2 line mental instruction for the next game.
-    *   **Game Context:** Show the opponent's name, platform (Chess.com/Lichess), and provide a link to the full game analysis.
-
-4.  **Removed Features (from UI):**
-    *   Generic Correct This / Keep Doing This sections.
-    *   All gamification: XP, levels, achievements, streaks.
-    *   Dashboard-like elements on the home screen (no charts, dense stats, opening dashboards).
+**PRODUCT REQUIREMENTS:**
+- **Game Analysis:** Analyze games using Stockfish for accuracy and move evaluation, and an LLM for human-like commentary.
+- **Coach Page:** Display light stats (e.g., blunder trends), a Post-Game Debrief (PDR) puzzle from a recent game, and a summary of the last game played.
+- **Journey/Progress Page:** Show trends for stats like accuracy.
+- **Game Analysis View:**
+    - Display the full game board.
+    - List all moves (user and opponent), with detailed commentary on key moves (blunders, mistakes, etc.).
+    - Moves in the list must be clickable, and the board should update to that position.
+- **Coaching Quality:** The user is very specific that the coaching should be high-quality.
+    - Explanations for bad moves must be concrete, showing the exact threat and line of play (using Stockfish's Principal Variation data), not vague, hallucinatory text from the LLM. The LLM's only role is to format these facts into a calm mentor tone.
+    - The coach should provide strategic, phase-aware advice (e.g., endgame theory) and not just tactical, move-by-move corrections.
+- **Dashboard:** Display summary stats (total blunders, best moves) which are clickable to show a detailed list.
+- **Configuration:** The application should be easily configurable, with settings like the LLM model name stored in a central location.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The application has a FastAPI backend and a React frontend. It includes Google OAuth authentication, game import/analysis from Chess.com/Lichess using Stockfish and an LLM, a PostgreSQL database, and a habit-tracking system. The UI has been refactored multiple times, moving from a dense dashboard to a minimalist Coach Mode. The backend has API endpoints for fetching user data, habits, and a complex (and partially broken) endpoint for generating the Coach Moment. The agent had just started implementing the latest, most complex version of the coaching ritual.
+The application is a full-stack web app with a React frontend and a Python (Flask) backend. It connects to a MongoDB database. Users can link their Chess.com account, and the app automatically syncs and analyzes their games. The analysis uses Stockfish to find inaccuracies/mistakes/blunders and extracts the Principal Variation (the concrete line of play). This data is then passed to  with a specific prompt that instructs it to use the Stockfish facts to generate commentary in a calm mentor tone.
+
+The main pages are implemented:
+-   **Coach Page:** Shows a PDR puzzle and last game summary.
+-   **Journey/Progress Page:** Shows accuracy and blunder trends, and allows re-trying failed analyses.
+-   **Game Analysis Page:** Shows the board, a full list of moves for both players, and detailed commentary. Moves in the list are clickable and correctly update the board position.
+-   **Dashboard:** Shows clickable summary stats that open a modal with detailed lists of blunders, best moves, etc.
+
+All major bugs reported by the user have been fixed, including incorrect accuracy stats, broken PDR puzzles, and move-clicking issues. The codebase has been refactored to use a central  file for all key settings.
 
 **Last working item**:
-- **Last item agent was working:** The agent was in the middle of a major overhaul to implement the Intentional Coaching Ritual as specified in . This involves replacing the previous Reflection Moment with a full Personalized Decision Reconstruction (PDR) flow, including a Go Play/Done Playing cycle, a new home screen layout (PDR, Coach's Note, Light Stats, Next Game Plan), and new backend logic to support this. The agent had created new API endpoints (, ) and started rewriting the  component and the  endpoint.
-- **Status:** IN PROGRESS
-- **Agent Testing Done:** N
-- **Which testing method agent to use?** both
-- **User Testing Done:** N
+*   **Last item agent was working on**: The agent was about to start implementing **phase-aware coaching**. The user requested that the analysis should include strategic advice based on the game phase (Opening, Middlegame, Endgame), such as teaching key endgame principles if the game reached an endgame. This goes beyond the current move-by-move tactical feedback.
+*   **Status**: NOT STARTED
+*   **Agent Testing Done**: N
+*   **Which testing method agent to use?**: both
+*   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-- **Issue 1:** The Reflection Moment with the interactive board, arrows, and animated refutations is not showing up for the user, despite multiple debugging attempts. The agent last identified a structural issue in  where the reflection logic was out of order and also had syntax errors in the debugging  blocks. This issue is now superseded by the new PDR implementation but highlights underlying complexity and potential bugs in the  file. (Priority: P1, as it's being replaced)
-- **Issue 2:** The agent struggled to get debug  statements or  calls to appear in the logs ( or ), making debugging the backend extremely difficult and inefficient. This suggests a potential issue with the logging configuration or the environment itself. (Priority: P1)
-
-**Issues Detail:**
-- **Issue 1:** PDR feature not appearing on the frontend
-  - **Attempted fixes:** The agent tried fixing indentation, correcting logic for FEN extraction, adding try/except blocks, and adding numerous print statements. The fixes often introduced new syntax errors or were ineffective because of the logging issue (Issue 2). The final conclusion was a structural error in  before the task was pivoted.
-  - **Next debug checklist:**
-    1.  Focus on implementing the new PDR feature from scratch as per the latest user spec, as this will replace the broken Reflection Moment.
-    2.  Check the API response of the newly implemented  endpoint to ensure it returns the PDR data structure.
-    3.  Verify the  component correctly fetches and renders this new data structure.
-    4.  Ensure the user is authenticated, as this was a recurring point of failure in testing.
-  - **Why fix this issue and what will be achieved with the fix?** This is the core feature of the application. Fixing it will deliver the main user experience of an interactive coaching ritual.
-  - **Status:** IN PROGRESS
-  - **Is recurring issue?** Y
-  - **Should Test frontend/backend/both after fix?** both
-  - **Blocked on other issue:** None.
-
-- **Issue 2:** Backend logging/printing is not working for debugging
-  - **Attempted fixes:** The agent switched from  to  and then to standard . None of the debug messages within the  endpoint logic appeared in the logs, even though access logs confirmed the endpoint was being hit.
-  - **Next debug checklist:**
-    1.  Check the  startup command and its logging configuration.
-    2.  Verify the Docker container's log output ().
-    3.  Place a  statement at the very top of the  file (module level) to see if it ever executes.
-    4.  Add a very simple new test endpoint (e.g., ) with just a single  statement and see if it logs when called.
-  - **Why fix this issue and what will be achieved with the fix?** Fixing this will unblock effective backend debugging and significantly speed up development and bug resolution.
-  - **Status:** NOT STARTED
-  - **Is recurring issue?** Y
-  - **Should Test frontend/backend/both after fix?** backend
-  - **Blocked on other issue:** None.
+There are no known pending issues or bugs. The main focus is on the new feature request.
 
 **In progress Task List**:
-- **Task 1:** Implement the Intentional Coaching Ritual (PDR)
-  - **Where to resume:** The agent has just created placeholders for the new API endpoints (,  in ) and started rewriting . The logic for the new  response (including , , ) and the PDR itself needs to be fully implemented.
-  - **What will be achieved with this?** This will complete the app's core feature and align it with the user's final product vision of a thinking simulator.
-  - **Status:** IN PROGRESS
-  - **Should Test frontend/backend/both after fix?** both
-  - **Blocked on something:** Effective debugging is difficult due to the logging issue (Issue 2).
+-   **Task 1**: Implement Phase-Aware Coaching (Priority: P0)
+    -   **Where to resume**: The agent was viewing . The next step is to modify the analysis pipeline to:
+        1.  **Detect Game Phase:** Add logic to determine if a move or game section is in the opening, middlegame, or endgame (e.g., based on move number or piece count).
+        2.  **Generate Strategic Summary:** Update the LLM prompt to include the game phase and instruct it to provide a high-level strategic summary and relevant principles (e.g., In this King and Pawn endgame, the key principle is King activity...).
+        3.  **Update API & Frontend:** Modify the analysis API endpoint () to include this new strategic summary and display it on the Game Analysis page.
+    -   **What will be achieved with this?**: The coaching will become much more valuable and human-like, teaching the user transferable strategic concepts instead of just correcting individual tactical errors.
+    -   **Status**: NOT STARTED
+    -   **Should Test frontend/backend/both after fix?**: both
+    -   **Blocked on something**: No.
 
 **Upcoming and Future Tasks**
-**Upcoming Tasks:**
-- **PDR - Socratic Method (P0):** Implement the two-step verification flow for PDR. After a user selects the correct move, prompt them with why options to ensure they understand the reasoning, as requested in .
-- **PDR - Game Context (P0):** Add opponent details, game source (Chess.com/Lichess), and a link to the full game analysis within the PDR section, as requested in .
-
-**Future Tasks:**
-- **PDR Phase 2 (P1):** After a user correctly answers several PDR exercises for the same habit, automatically mark the habit as improving and rotate in a new dominant habit for them to work on.
+*   **Upcoming Tasks**:
+    *   **(P1) Add a Third Candidate Move to PDR**: Enhance the Post-Game Debrief puzzle by offering three move choices instead of two, making it more challenging.
+    *   **(P2) Tighten Habit-Alignment in PDR**: Improve the PDR generation logic to always select a puzzle that directly relates to the user's most dominant negative habit.
+*   **Future Tasks**:
+    *   **(P1) Weekly Summary via WhatsApp**: Implement sending weekly progress summaries via WhatsApp, as the user (with an Indian context) believes it will have higher engagement than email. This would require integration with a WhatsApp API provider.
+    - **(P2) Weekly Summary Emails**: The original plan was for email summaries, which is currently blocked on the user providing a .
 
 **Completed work in this session**
-- **List of all completed tasks with file and method name:**
-  - Integrated  into the  modal in .
-  - Created the initial Coach Mode UI by creating  and a corresponding  endpoint in .
-  - Refactored the UI to remove gamification elements (XP, levels, streaks) from the frontend.
-  - Evolved Coach Mode to include a three-section layout: Correct This, Keep Doing This, and Remember This Rule.
-  - Implemented the initial Reflection Moment backend logic in  to find a critical mistake from a user's game.
-  - Enhanced the Reflection Moment to include animated refutations on the board with arrows and highlights in .
+-   **Stockfish-Powered Explanations**: Reworked the analysis pipeline to use Stockfish's Principal Variation (PV) data as the factual basis for LLM commentary, ensuring explanations are accurate and concrete. This was a major focus. (, ).
+-   **Centralized Configuration**: Created a  file and refactored the entire application to use it for all settings, including LLM model names and analysis parameters.
+-   **Clickable Dashboard Stats**: Implemented clickable stat cards on the dashboard that open a modal showing detailed lists of all blunders, best moves, or analyzed games. (New endpoints in , new , updates to ).
+-   **Full Game Move List**: Updated the Game Analysis page to show moves from both the user and the opponent, providing complete context. (, ).
+-   **Bug Fix - Clickable Moves**: Fixed a critical bug where clicking a move in the analysis list would jump to the wrong position on the board. ().
+-   **Bug Fix - Data Integrity**: Resolved numerous data-related bugs caused by failed Stockfish analyses, including incorrect accuracy/blunder stats and non-functional PDR puzzles. This involved adding  flags, creating retry mechanisms, and re-analyzing the user's game history.
+-   **LLM Model Switch**: Changed the LLM from  to the more cost-effective  for generating commentary, as per user's request.
 
 **Earlier issues found/mentioned but not fixed**
-None that are not already covered in the Pending/In progress Issue list. The main recurring theme was the difficulty in debugging the backend.
+None. The agent was diligent in addressing all issues raised by the user during the session.
 
 **Known issue recurrence from previous fork**
-- **Issue recurrence in previous fork:** None mentioned in the initial summary.
-- **Recurrence count:** N/A
-- **Status:** N/A
+- **Issue recurrence in previous fork**: The Most Recent Game logic was a recurring bug. The agent identified the root cause (sorting by the wrong timestamp field) and fixed it in . This issue should now be resolved.
+- **Recurrence count**: 1
+- **Status**: RESOLVED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Frontend:** React, React Router,  for interactive boards.
-- **Backend:** Python, FastAPI.
-- **Database:** PostgreSQL.
-- **Chess Engine:** Stockfish for game analysis.
-- **AI/LLM:** An LLM (likely via OpenAI API, though not explicitly confirmed which one) is used for generating natural language commentary, explanations, and coaching advice.
-- **Authentication:** Google OAuth2.
+-   **Backend**: Python (Flask)
+-   **Frontend**: JavaScript (React)
+-   **Database**: MongoDB
+-   **Chess Engine**: Stockfish (installed in the environment)
+-   **LLM Integration**: Uses OpenAI API () for commentary generation based on facts from Stockfish.
+-   **Architecture**: Monolithic backend with a service layer to separate business logic.
 
 **key DB schema**
-- **users:** {user_id, email, ...}
-- **user_profiles:** {user_id, chess_com_username, lichess_username, ...}
-- **game_analysis:** {analysis_id, user_id, pgn, commentary, weaknesses, strengths, critical_moments, ...}
+-   ****: Stores game data, including PGN, timestamps, and player info.
+-   ****: Stores detailed analysis for each game, including accuracy, blunder/mistake counts,  flag, and the  array containing move-specific feedback.
+-   ****: Manages user accounts and linked chess profiles.
+-   ****: Aggregates user stats and identified habits for coaching.
 
 **changes in tech stack**
-No changes to the core technologies, but the application logic has become significantly more complex, relying heavily on a combination of Stockfish and LLM calls to generate the PDR experience.
+-   The LLM for commentary was changed from  to  for better cost-effectiveness. The model is now defined in .
 
 **All files of reference**
-- : Heavily modified throughout the session. Contains the core logic for the  endpoint, which is now very large and complex. New endpoints  and  were added.
-- : The main user-facing page. It has been completely rewritten multiple times to reflect the evolving product direction, from a dashboard to the current PDR ritual.
-- : A new service created to encapsulate the logic for generating the Personalized Decision Reconstruction, including refutation moves and idea chains.
-- : Modified to integrate the interactive chessboard.
-- : Updated to reflect major product changes.
+-   ****: Newly created to centralize application settings. A major improvement for maintainability.
+-   ****: The main Flask application file. Heavily modified to add new endpoints, fix logic, and use the central config.
+-   ****: Core of the analysis engine. Modified to extract Principal Variation (PV) lines.
+-   ****: The main user interface for viewing a game analysis. Heavily modified to implement the full move list and fix the clickable-move bug.
+-   ****: Modified to support clickable stats.
+-   ****: A new component for displaying detailed data lists.
 
 **Areas that need refactoring**:
-- The  file is extremely monolithic. The  endpoint, in particular, is hundreds of lines long and contains complex, nested logic for fetching data, processing it, calling other services, and formatting the final response. This entire endpoint should be broken down into smaller, more manageable functions within the  and  files to improve readability, testability, and maintainability.
+-   The  file is still very large and contains dozens of endpoints. It could be broken down into smaller Flask Blueprints for better organization as the application grows.
 
 **key api endpoints**
-- : Handles user login.
-- : Fetches all data for the main Coach page (PDR, notes, stats).
-- : (New) Starts a playing session for the user.
-- : (New) Ends the session and triggers priority analysis.
-- : Fetches data for the old dashboard (now the  page).
+-   : Provides all data needed for the main Coach page.
+-   : Retrieves the full, detailed analysis for a specific game.
+-   : Gets aggregate data for the Progress/Journey page.
+-   : Manually triggers game synchronization with Chess.com.
+-   : New endpoints to power the clickable dashboard stats.
 
 **Critical Info for New Agent**
-The most critical information is the major product pivot described in ****. The app is no longer a passive analytics tool. It is an **interactive coaching ritual**. You must abandon the old Correct this / Keep doing this structure and implement the new flow:
-1.  **Go Play / Done Playing** session tracking.
-2.  **Personalized Decision Reconstruction (PDR)** as the centerpiece, with a 2-move choice (user's vs. correct).
-3.  **Detailed Idea Chain** feedback for wrong answers, with board animations.
-4.  **Socratic Why question** for correct answers.
-5.  A new home screen layout including a **Coach's Note**, **Light Stats**, and a **Next Game Plan**.
-All your work should be focused on realizing this new, highly interactive, mentor-like experience. The previous code for reflection is mostly obsolete and should be replaced. Be aware of the backend logging issue; you may need to resolve it to debug effectively.
+-   **User's Core Philosophy**: The user is adamant that the LLM should **only** be used for **tone and formatting**, not for generating chess analysis. All chess-related facts (like why a move is bad) *must* come from Stockfish's data (especially the Principal Variation lines). Do not deviate from this principle.
+-   **Stockfish in Emergent Environment**: The Stockfish binary, installed via apt 2.6.1 (arm64)
+Usage: apt-get [options] command
+       apt-get [options] install|remove pkg1 [pkg2 ...]
+       apt-get [options] source pkg1 [pkg2 ...]
+
+apt-get is a command line interface for retrieval of packages
+and information about them from authenticated sources and
+for installation, upgrade and removal of packages together
+with their dependencies.
+
+Most used commands:
+  update - Retrieve new lists of packages
+  upgrade - Perform an upgrade
+  install - Install new packages (pkg is libc6 not libc6.deb)
+  reinstall - Reinstall packages (pkg is libc6 not libc6.deb)
+  remove - Remove packages
+  purge - Remove packages and config files
+  autoremove - Remove automatically all unused packages
+  dist-upgrade - Distribution upgrade, see apt-get(8)
+  dselect-upgrade - Follow dselect selections
+  build-dep - Configure build-dependencies for source packages
+  satisfy - Satisfy dependency strings
+  clean - Erase downloaded archive files
+  autoclean - Erase old downloaded archive files
+  check - Verify that there are no broken dependencies
+  source - Download source archives
+  download - Download the binary package into the current directory
+  changelog - Download and display the changelog for the given package
+
+See apt-get(8) for more information about the available commands.
+Configuration options and syntax is detailed in apt.conf(5).
+Information about how to configure sources can be found in sources.list(5).
+Package and version choices can be expressed via apt_preferences(5).
+Security details are available in apt-secure(8).
+                                        This APT has Super Cow Powers., is **not persistent** across forks in this environment. If you encounter analysis failures, the first step is to check if Stockfish is installed () and reinstall it if necessary (Hit:1 http://deb.debian.org/debian bookworm InRelease
+Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [48.0 kB]
+Hit:4 https://deb.nodesource.com/node_20.x nodistro InRelease
+Get:5 https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 InRelease [3005 B]
+Get:6 http://deb.debian.org/debian-security bookworm-security/main arm64 Packages [289 kB]
+Get:7 https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0/multiverse amd64 Packages [103 kB]
+Get:8 https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0/multiverse arm64 Packages [101 kB]
+Fetched 599 kB in 2s (315 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Suggested packages:
+  polyglot xboard | scid
+The following NEW packages will be installed:
+  stockfish
+0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.
+Need to get 21.9 MB of archives.
+After this operation, 47.4 MB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian bookworm/main arm64 stockfish arm64 15.1-4 [21.9 MB]
+Fetched 21.9 MB in 0s (76.0 MB/s)
+Selecting previously unselected package stockfish.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 37768 files and directories currently installed.)
+Preparing to unpack .../stockfish_15.1-4_arm64.deb ...
+Unpacking stockfish (15.1-4) ...
+Setting up stockfish (15.1-4) ...).
+-   **Configuration is Centralized**: Before hardcoding any value (LLM model, number of games to sync, etc.), check . All such settings should reside there.
 
 **documents and test reports created in this job**
-- : Updated with the latest product direction.
-- : A report from the testing agent, which fixed a syntax error in .
+-    was updated multiple times.
+-    was generated by the testing agent.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (604):** Provides a detailed, multi-page specification for a complete overhaul of the app into an Intentional Coaching Ritual centered around PDR. This is the primary directive for the next agent. (IN PROGRESS)
-2.  **User (582):** Requests adding game context (opponent, platform) and a Full Analysis link to the PDR. (NOT STARTED)
-3.  **User (570):** Reports that the board animations and arrows are not working. (IN PROGRESS)
-4.  **User (560):** Asks for board animations, arrows, and highlights to be added to the idea chain explanation. (IN PROGRESS)
-5.  **User (544):** Requests a major change to the PDR flow: only two moves (user's vs. correct), a new puzzle on every refresh, and a Socratic why question if the user chooses the correct move. (NOT STARTED)
-6.  **User (524):** Requests that the feedback for a wrong answer in PDR must be a detailed idea chain explanation with animated refutations on the board. (IN PROGRESS)
-7.  **User (508 & 506):** Provides a detailed spec for the PDR feature, replacing the static reflection moment with an interactive decision-making exercise. (IN PROGRESS)
-8.  **User (505):** Reports seeing only the Remember rule on the coach page. (IN PROGRESS)
-9.  **User (413):** Reports seeing the old Correct This/Keep Doing This layout, confirming the Reflection Moment is not showing up. (IN PROGRESS)
-10. **User (397):** Reports still seeing the old coach page content without the interactive Reflection Moment. (IN PROGRESS)
+1.  **Request:** Clear all data and explain the new user flow. **Status:** Completed.
+2.  **Request:** Confirm the app analyzes the *last* 15 games. **Status:** Completed.
+3.  **Request:** Ask if a Chess.com API key is needed. **Status:** Completed (No).
+4.  **Request:** Discuss the best LLM model choice, considering cost vs. quality. **Status:** Completed, switched to .
+5.  **Request:** Centralize configuration into a single file. **Status:** Completed.
+6.  **Bug Report:** Analysis commentary is still generic and not using the Stockfish data. **Status:** Fixed by correcting the LLM prompt.
+7.  **Request:** Make dashboard stats clickable to show detailed lists. **Status:** Completed.
+8.  **Bug Report:** Clicking a move jumps to the wrong board position, and opponent's moves are missing. **Status:** Fixed.
+9.  **Frustration:** User reports multiple things are broken again (PDR, commentary). **Status:** Diagnosed as a data issue from testing shortcuts and fixed by re-running a full analysis.
+10. **Request:** Provide strategic, phase-aware coaching (e.g., endgame theory), not just tactical corrections. **Status:** **PENDING**. This is the current main task.
 
 **Project Health Check:**
-- **Broken:** The core feature, Personalized Decision Reconstruction (PDR), is in a half-implemented state. The frontend does not display the feature, and the backend logic is incomplete and was suffering from bugs in its previous iteration.
-- **Mocked:** The  and new session endpoints in  are essentially placeholders and do not contain the full implementation logic.
+*   **Broken**: None. All known bugs and issues have been resolved.
+*   **Mocked**: None.
 
 **3rd Party Integrations**
-- **Google OAuth2:** Used for user authentication. Requires User API Key (OAuth credentials).
-- **Chess.com / Lichess API:** Used for importing user games. Likely requires user authorization or public API access.
-- **Stockfish:** Local or containerized chess engine for analysis. No key required.
-- **OpenAI/LLM:** An LLM is used for generating explanations. This likely uses the Emergent LLM Key, as no user key was mentioned.
+*   **OpenAI GPT-4o-mini**: Used for generating coaching commentary. Uses the Emergent LLM Key.
+*   **Chess.com API**: Public API used to fetch user games. No key required.
+*   **Stockfish**: Open-source chess engine.
 
 **Testing status**
-- **Testing agent used after significant changes:** YES, but only early in the session. Not used for the recent PDR implementations.
-- **Troubleshoot agent used after agent stuck in loop:** NO
-- **Test files created:** None.
-- **Known regressions:** The main coach page feature is currently broken due to the in-progress implementation.
+-   **Testing agent used after significant changes**: YES
+-   **Troubleshoot agent used after agent stuck in loop**: NO
+-   **Test files created**: []
+-   **Known regressions**: None
 
 **Credentials to test flow:**
-User needs to log in via Google. No specific credentials are provided. Testing requires a Google account and, ideally, a linked Chess.com/Lichess account with games played.
+-   The application uses a test Chess.com account  for fetching games.
+-   Authentication can be done via a demo user or Google OAuth.
 
 **What agent forgot to execute**
-The agent did not fully implement the comprehensive coaching ritual requested in the user's last major prompt ( and subsequent refinements). While new files and endpoint stubs were created, the core logic for the Go Play ritual, the full PDR idea-chain feedback, the Socratic why questions, and the new home screen layout (Coach Note, Stats, Plan) is missing. This is the main task to be completed.</analysis>
+-   The agent suggested creating a startup script to automatically install Stockfish if it's missing (to handle the Emergent environment resetting packages). However, this script was never implemented. The next agent will likely have to manually install Stockfish again upon encountering analysis failures.</analysis>
