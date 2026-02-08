@@ -68,58 +68,106 @@ async def get_chess_journey(db, user_id: str) -> Dict[str, Any]:
     return journey
 
 
-async def get_rating_progression(db, user_id: str, user: Dict, analyses: List[Dict]) -> Dict:
+async def get_rating_progression(db, user_id: str, user: Dict, games: List[Dict]) -> Dict:
     """
-    Get rating progression over time.
+    Get rating progression over time from actual game ratings in PGN.
     """
-    # Try to get rating history from player profile
-    profile = await db.player_profiles.find_one(
-        {"user_id": user_id},
-        {"_id": 0, "rating_history": 1, "current_rating": 1}
-    )
+    import re
     
-    rating_history = profile.get("rating_history", []) if profile else []
-    current_rating = profile.get("current_rating") if profile else None
+    # Extract ratings from games (from PGN headers)
+    rating_data = []
     
-    # If no rating history, try to construct from games
-    if not rating_history and analyses:
-        # Group analyses by week and estimate rating from accuracy
-        weekly_data = defaultdict(list)
-        for a in analyses:
-            created = a.get("created_at")
-            if isinstance(created, str):
+    for game in games:
+        pgn = game.get("pgn", "")
+        user_color = game.get("user_color", "white")
+        imported_at = game.get("imported_at")
+        
+        # Parse rating from PGN
+        white_elo_match = re.search(r'\[WhiteElo "(\d+)"\]', pgn)
+        black_elo_match = re.search(r'\[BlackElo "(\d+)"\]', pgn)
+        
+        user_rating = None
+        if user_color == "white" and white_elo_match:
+            user_rating = int(white_elo_match.group(1))
+        elif user_color == "black" and black_elo_match:
+            user_rating = int(black_elo_match.group(1))
+        
+        if user_rating and imported_at:
+            # Parse date
+            if isinstance(imported_at, str):
                 try:
-                    dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                    dt = datetime.fromisoformat(imported_at.replace("Z", "+00:00"))
                 except ValueError:
                     continue
             else:
-                dt = created
+                dt = imported_at
             
-            week_key = dt.strftime("%Y-W%W")
-            
-            # Get accuracy from stockfish analysis
-            sf = a.get("stockfish_analysis", {})
-            accuracy = sf.get("accuracy", 0)
-            if accuracy > 0:
-                weekly_data[week_key].append(accuracy)
-        
-        # Convert accuracy to estimated rating progression
-        # This is a rough estimate: accuracy correlates with rating
-        for week, accuracies in sorted(weekly_data.items()):
-            avg_accuracy = sum(accuracies) / len(accuracies)
-            # Rough formula: rating ≈ accuracy * 20 + 500
-            estimated_rating = int(avg_accuracy * 20 + 500)
-            rating_history.append({
-                "week": week,
-                "rating": estimated_rating,
-                "games": len(accuracies)
+            rating_data.append({
+                "date": dt,
+                "rating": user_rating,
+                "game_id": game.get("game_id")
             })
     
-    # Calculate progression stats
-    if rating_history:
-        first_rating = rating_history[0].get("rating", 1200)
-        last_rating = rating_history[-1].get("rating", current_rating or 1200)
-        peak_rating = max(r.get("rating", 0) for r in rating_history)
+    # Sort by date
+    rating_data.sort(key=lambda x: x["date"])
+    
+    if not rating_data:
+        return {
+            "started_at": None,
+            "current": None,
+            "change": 0,
+            "peak": None,
+            "weekly_change": 0,
+            "history": [],
+            "trend": "unknown",
+            "note": "No rating data available"
+        }
+    
+    # Build weekly history
+    weekly_data = defaultdict(list)
+    for r in rating_data:
+        week_key = r["date"].strftime("%Y-W%W")
+        weekly_data[week_key].append(r["rating"])
+    
+    rating_history = []
+    for week, ratings in sorted(weekly_data.items()):
+        avg_rating = sum(ratings) / len(ratings)
+        rating_history.append({
+            "week": week,
+            "rating": int(avg_rating),
+            "games": len(ratings)
+        })
+    
+    # Calculate stats
+    first_rating = rating_data[0]["rating"]
+    last_rating = rating_data[-1]["rating"]
+    peak_rating = max(r["rating"] for r in rating_data)
+    lowest_rating = min(r["rating"] for r in rating_data)
+    
+    # Weekly change
+    weekly_change = 0
+    if len(rating_history) >= 2:
+        weekly_change = rating_history[-1]["rating"] - rating_history[-2]["rating"]
+    
+    # Determine trend
+    if last_rating > first_rating + 20:
+        trend = "improving"
+    elif last_rating < first_rating - 20:
+        trend = "declining"
+    else:
+        trend = "stable"
+    
+    return {
+        "started_at": first_rating,
+        "current": last_rating,
+        "change": last_rating - first_rating,
+        "peak": peak_rating,
+        "lowest": lowest_rating,
+        "weekly_change": weekly_change,
+        "history": rating_history[-12:],  # Last 12 weeks
+        "trend": trend,
+        "total_games": len(rating_data)
+    }
         
         # Calculate weekly change
         weekly_change = 0
