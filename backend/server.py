@@ -92,6 +92,21 @@ from phase_theory_service import (
     get_rating_bracket
 )
 
+# Import Mistake Card service for the Mistake Mastery System
+from mistake_card_service import (
+    extract_mistake_cards_from_analysis,
+    get_training_session,
+    get_due_cards,
+    get_post_game_card,
+    record_card_attempt,
+    get_user_habit_progress,
+    update_user_habit_progress,
+    set_active_habit,
+    get_training_stats,
+    get_card_by_id,
+    HABIT_DEFINITIONS
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
