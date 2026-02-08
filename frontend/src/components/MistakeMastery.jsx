@@ -139,7 +139,7 @@ const MistakeMastery = ({ token, onComplete }) => {
   };
 
   const playMovesOnBoard = (moves, type, startMove = null) => {
-    if (!moves || moves.length === 0 || !currentCard?.fen) return;
+    if (!currentCard?.fen) return;
     
     // Build all positions upfront for step-through navigation
     const positions = [currentCard.fen];
@@ -152,25 +152,36 @@ const MistakeMastery = ({ token, onComplete }) => {
         positions.push(chess.fen());
       } catch (e) {
         console.error("Failed to play start move:", startMove);
+        return; // Can't continue if start move fails
       }
     }
     
-    // Then play the continuation
-    for (const move of moves) {
-      try {
-        chess.move(move);
-        positions.push(chess.fen());
-      } catch (e) {
-        break;
+    // Then play the continuation (if any)
+    if (moves && moves.length > 0) {
+      for (const move of moves) {
+        try {
+          chess.move(move);
+          positions.push(chess.fen());
+        } catch (e) {
+          break;
+        }
       }
     }
+    
+    // Only proceed if we have at least 2 positions (original + at least one move)
+    if (positions.length < 2) return;
     
     setPlaybackType(type);
-    setPlaybackMoves(startMove ? [startMove, ...moves] : moves);
+    setPlaybackMoves(startMove ? [startMove, ...(moves || [])] : (moves || []));
     setPlaybackPositions(positions);
     setPlaybackIndex(0);
     setBoardPosition(positions[0]);
-    setIsPlaying(true);
+    
+    // Auto-advance to show the move
+    setTimeout(() => {
+      setPlaybackIndex(1);
+      setBoardPosition(positions[1]);
+    }, 300);
   };
 
   // Auto-play effect
