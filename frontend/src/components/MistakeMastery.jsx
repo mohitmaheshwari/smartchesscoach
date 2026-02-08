@@ -138,42 +138,123 @@ const MistakeMastery = ({ token, onComplete }) => {
     }
   };
 
-  const playMovesOnBoard = (moves, type) => {
+  const playMovesOnBoard = (moves, type, startMove = null) => {
     if (!moves || moves.length === 0 || !currentCard?.fen) return;
+    
+    // Build all positions upfront for step-through navigation
+    const positions = [currentCard.fen];
+    const chess = new Chess(currentCard.fen);
+    
+    // If there's a starting move (like user_move or correct_move), play it first
+    if (startMove) {
+      try {
+        chess.move(startMove);
+        positions.push(chess.fen());
+      } catch (e) {
+        console.error("Failed to play start move:", startMove);
+      }
+    }
+    
+    // Then play the continuation
+    for (const move of moves) {
+      try {
+        chess.move(move);
+        positions.push(chess.fen());
+      } catch (e) {
+        break;
+      }
+    }
+    
     setPlaybackType(type);
-    setPlaybackMoves(moves);
+    setPlaybackMoves(startMove ? [startMove, ...moves] : moves);
+    setPlaybackPositions(positions);
     setPlaybackIndex(0);
-    setBoardPosition(currentCard.fen);
+    setBoardPosition(positions[0]);
     setIsPlaying(true);
   };
 
+  // Auto-play effect
   useEffect(() => {
-    if (!isPlaying || playbackMoves.length === 0) return;
-    const timer = setTimeout(() => {
-      if (playbackIndex < playbackMoves.length) {
-        try {
-          const chess = new Chess(currentCard.fen);
-          for (let i = 0; i <= playbackIndex; i++) {
-            chess.move(playbackMoves[i]);
-          }
-          setBoardPosition(chess.fen());
-          setPlaybackIndex(prev => prev + 1);
-        } catch (e) {
-          setIsPlaying(false);
-        }
+    if (!isPlaying || playbackPositions.length === 0) return;
+    
+    if (playbackRef.current) clearTimeout(playbackRef.current);
+    
+    playbackRef.current = setTimeout(() => {
+      if (playbackIndex < playbackPositions.length - 1) {
+        const nextIdx = playbackIndex + 1;
+        setPlaybackIndex(nextIdx);
+        setBoardPosition(playbackPositions[nextIdx]);
       } else {
         setIsPlaying(false);
       }
     }, 800);
-    return () => clearTimeout(timer);
-  }, [isPlaying, playbackIndex, playbackMoves, currentCard]);
+    
+    return () => {
+      if (playbackRef.current) clearTimeout(playbackRef.current);
+    };
+  }, [isPlaying, playbackIndex, playbackPositions]);
+
+  // Step controls
+  const stepForward = () => {
+    if (playbackIndex < playbackPositions.length - 1) {
+      setIsPlaying(false);
+      const nextIdx = playbackIndex + 1;
+      setPlaybackIndex(nextIdx);
+      setBoardPosition(playbackPositions[nextIdx]);
+    }
+  };
+  
+  const stepBackward = () => {
+    if (playbackIndex > 0) {
+      setIsPlaying(false);
+      const prevIdx = playbackIndex - 1;
+      setPlaybackIndex(prevIdx);
+      setBoardPosition(playbackPositions[prevIdx]);
+    }
+  };
+  
+  const goToStart = () => {
+    setIsPlaying(false);
+    setPlaybackIndex(0);
+    if (playbackPositions.length > 0) {
+      setBoardPosition(playbackPositions[0]);
+    } else if (currentCard?.fen) {
+      setBoardPosition(currentCard.fen);
+    }
+  };
+  
+  const goToEnd = () => {
+    setIsPlaying(false);
+    if (playbackPositions.length > 0) {
+      const lastIdx = playbackPositions.length - 1;
+      setPlaybackIndex(lastIdx);
+      setBoardPosition(playbackPositions[lastIdx]);
+    }
+  };
 
   const resetBoard = () => {
     if (currentCard?.fen) {
       setBoardPosition(currentCard.fen);
       setPlaybackIndex(0);
+      setPlaybackPositions([]);
+      setPlaybackMoves([]);
       setIsPlaying(false);
+      setPlaybackType(null);
+      setPreviewMove(null);
     }
+  };
+  
+  // Preview a move option (show what happens if you play it)
+  const previewMoveOption = (move, isCorrect) => {
+    if (!currentCard?.fen) return;
+    setPreviewMove(move);
+    
+    // Get the line to show
+    const line = isCorrect ? currentCard.better_line : currentCard.threat_line;
+    const type = isCorrect ? 'better' : 'threat';
+    
+    // Play the move and its continuation
+    playMovesOnBoard(line || [], type, move);
   };
 
   const goToWhyPhase = async () => {
