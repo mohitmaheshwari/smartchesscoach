@@ -2399,19 +2399,19 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     
     # ===== LAST GAME SUMMARY =====
     # Get the most recently PLAYED game that has been FULLY analyzed
-    # FULL analysis means: Stockfish ran (move_evaluations exists) AND commentary exists
+    # FULL analysis means: Stockfish ran (stockfish_analysis.move_evaluations exists)
     last_game = None
     
     # First get the most recent FULLY analyzed game
-    # Must have move_evaluations (Stockfish ran) - this is the key requirement
+    # Must have stockfish_analysis.move_evaluations (Stockfish ran)
     recent_analyses = await db.game_analyses.find(
         {
             "user_id": user.user_id,
             "stockfish_failed": {"$ne": True},
-            "move_evaluations": {"$exists": True, "$not": {"$size": 0}}  # MUST have Stockfish data
+            "stockfish_analysis.move_evaluations": {"$exists": True, "$not": {"$size": 0}}
         },
         {"_id": 0, "game_id": 1, "blunders": 1, "mistakes": 1, "accuracy": 1, 
-         "commentary": 1, "identified_weaknesses": 1, "move_evaluations": 1}
+         "commentary": 1, "identified_weaknesses": 1, "stockfish_analysis": 1}
     ).sort("created_at", -1).limit(5).to_list(5)
     
     # Find the first one that has actual analysis data
@@ -2420,7 +2420,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     
     for analysis in recent_analyses:
         # Verify it has real Stockfish data
-        move_evals = analysis.get("move_evaluations", [])
+        sf_data = analysis.get("stockfish_analysis", {})
+        move_evals = sf_data.get("move_evaluations", [])
         if len(move_evals) >= 3:  # At least 3 moves evaluated by Stockfish
             # Get the corresponding game
             game = await db.games.find_one(
