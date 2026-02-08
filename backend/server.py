@@ -2398,16 +2398,25 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     session_status = await get_session_status(db, user.user_id)
     
     # ===== LAST GAME SUMMARY =====
-    # Get the most recently PLAYED game that has been FULLY analyzed
-    # FULL analysis means: Stockfish ran (stockfish_analysis.move_evaluations exists)
+    # CRITICAL: Only show games with REAL Stockfish analysis
+    # See /app/backend/DATA_MODEL.md for schema details
+    #
+    # DATA MODEL:
+    # - stockfish_analysis.move_evaluations: Array of Stockfish evals (SOURCE OF TRUTH)
+    # - stockfish_analysis.accuracy: Real accuracy from Stockfish
+    # - commentary: GPT text only, NOT source of truth for stats
+    # - Top-level blunders/mistakes: MAY BE STALE, don't use
+    #
+    # A game is PROPERLY analyzed if:
+    # 1. stockfish_analysis.move_evaluations exists AND has >= 3 items
+    # 2. stockfish_failed is NOT True
     last_game = None
     
-    # First get the most recent FULLY analyzed game
-    # Must have stockfish_analysis.move_evaluations (Stockfish ran)
     recent_analyses = await db.game_analyses.find(
         {
             "user_id": user.user_id,
             "stockfish_failed": {"$ne": True},
+            # CRITICAL: Must check nested path, NOT top-level
             "stockfish_analysis.move_evaluations": {"$exists": True, "$not": {"$size": 0}}
         },
         {"_id": 0, "game_id": 1, "blunders": 1, "mistakes": 1, "accuracy": 1, 
