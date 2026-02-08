@@ -544,14 +544,16 @@ const MistakeMastery = ({ token, onComplete }) => {
             <AnimatePresence mode="wait">
               {phase === "question" && (
                 <motion.div key="question" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                  <h4 className="text-lg font-medium">What should you play here?</h4>
-                  <p className="text-sm text-muted-foreground">Click on a move to see what happens, then submit your answer.</p>
+                  <div>
+                    <h4 className="text-lg font-medium">What should you play here?</h4>
+                    <p className="text-sm text-muted-foreground">Click "Preview" to see the move on the board, then select your answer.</p>
+                  </div>
                   
                   <div className="space-y-3">
                     {/* Move Option Cards - Both clickable to preview */}
                     {[
-                      { move: currentCard.correct_move, isCorrect: true, line: currentCard.better_line },
-                      { move: currentCard.user_move, isCorrect: false, line: currentCard.threat_line }
+                      { move: currentCard.correct_move, isCorrect: true },
+                      { move: currentCard.user_move, isCorrect: false }
                     ].sort(() => Math.random() - 0.5).map((opt, idx) => (
                       <div key={idx} 
                         className={`p-4 rounded-lg border-2 transition-all ${
@@ -570,6 +572,7 @@ const MistakeMastery = ({ token, onComplete }) => {
                               {idx + 1}
                             </div>
                             <span className="font-mono text-xl">{opt.move}</span>
+                            {selectedMove === opt.move && <CheckCircle2 className="w-5 h-5 text-primary ml-2" />}
                           </button>
                           <Button 
                             variant="ghost" 
@@ -583,6 +586,13 @@ const MistakeMastery = ({ token, onComplete }) => {
                       </div>
                     ))}
                   </div>
+                  
+                  {/* Reset button for question phase preview */}
+                  {previewMove && (
+                    <Button variant="outline" size="sm" onClick={resetBoard} className="gap-1">
+                      <RotateCw className="w-3 h-3" /> Reset Board
+                    </Button>
+                  )}
                   
                   <Button onClick={submitAnswer} disabled={!selectedMove || submitting} className="w-full gap-2">
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
@@ -601,7 +611,8 @@ const MistakeMastery = ({ token, onComplete }) => {
                           {result === "correct" ? "Correct!" : "Not quite..."}
                         </h4>
                         <p className="text-sm text-muted-foreground">
-                          Best move: <span className="font-mono font-medium">{currentCard.correct_move}</span>
+                          Better move: <span className="font-mono font-medium text-emerald-500">{currentCard.correct_move}</span>
+                          {result !== "correct" && <span className="text-red-400 ml-2">(you played {currentCard.user_move})</span>}
                         </p>
                       </div>
                     </div>
