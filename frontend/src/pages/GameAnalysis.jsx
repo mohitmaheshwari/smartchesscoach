@@ -436,6 +436,37 @@ const GameAnalysis = ({ user }) => {
     return analysis.best_move_suggestions.find(s => s.move_number === moveNumber);
   };
 
+  // Helper to get FEN at a specific move number
+  const getFenAtMove = (moveNumber) => {
+    // Try from move evaluations first
+    if (moveEvaluations && moveEvaluations.length > 0) {
+      const evalAtMove = moveEvaluations.find(e => e.move_number === moveNumber);
+      if (evalAtMove?.fen) return evalAtMove.fen;
+    }
+    
+    // Try from commentary
+    if (commentary && commentary.length > 0) {
+      const commentAtMove = commentary.find(c => c.move_number === moveNumber);
+      if (commentAtMove?.fen) return commentAtMove.fen;
+    }
+    
+    return null;
+  };
+
+  // Play a variation on the board
+  const playVariationOnBoard = (moveNumber, variation) => {
+    if (!boardRef.current || !variation || variation.length === 0) return;
+    
+    const fen = getFenAtMove(moveNumber);
+    if (!fen) {
+      toast.error("Position not available");
+      return;
+    }
+    
+    boardRef.current.playVariation(fen, variation, game?.user_color || 'white');
+    toast.success("Playing variation...");
+  };
+
   const renderWeakness = (w, i) => {
     const name = w.subcategory ? w.subcategory.split("_").join(" ") : "pattern";
     const desc = w.habit_description || w.description || "";
