@@ -1669,6 +1669,24 @@ async def get_journey_dashboard(user: User = Depends(get_current_user)):
     
     return dashboard
 
+
+@api_router.get("/journey/comprehensive")
+async def get_comprehensive_journey(user: User = Depends(get_current_user)):
+    """
+    Get comprehensive chess journey data.
+    
+    Returns:
+    - Rating progression over time
+    - Phase mastery (Opening, Middlegame, Endgame)
+    - Improvement metrics (then vs now)
+    - Habit journey (conquered, in progress, needs attention)
+    - Opening repertoire with win rates
+    - Weekly summary and insights
+    """
+    journey = await get_chess_journey(db, user.user_id)
+    return journey
+
+
 @api_router.get("/journey/weekly-assessment")
 async def get_weekly_assessment(user: User = Depends(get_current_user)):
     """Get coach's weekly assessment paragraph"""
