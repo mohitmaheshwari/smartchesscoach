@@ -588,8 +588,11 @@ def calculate_opening_repertoire(games: List[Dict], analyses: List[Dict]) -> Dic
         # Try to get opening from stored field first
         opening = game.get("opening")
         
-        # If not stored, extract from PGN ECO code (case-insensitive)
-        if not opening or opening == "?" or opening == "Unknown Opening":
+        # Check if stored opening is just an ECO code (like "C41") - if so, convert it
+        if opening and re.match(r'^[A-E]\d{2}$', opening):
+            opening = get_opening_from_eco(opening)
+        # If not stored or invalid, extract from PGN ECO code (case-insensitive)
+        elif not opening or opening == "?" or opening == "Unknown Opening":
             pgn = game.get("pgn", "")
             # Try both uppercase ECO and lowercase Eco
             eco_match = re.search(r'\[ECO "([A-E]\d{2})"\]', pgn, re.IGNORECASE)
@@ -599,7 +602,6 @@ def calculate_opening_repertoire(games: List[Dict], analyses: List[Dict]) -> Dic
             if eco_match:
                 eco_code = eco_match.group(1).upper()  # Normalize to uppercase
                 opening = get_opening_from_eco(eco_code)
-                logger.info(f"ECO {eco_code} -> Opening: {opening}")
             else:
                 opening = "Unknown Opening"
         
