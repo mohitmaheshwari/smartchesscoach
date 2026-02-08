@@ -244,17 +244,14 @@ const MistakeMastery = ({ token, onComplete }) => {
     }
   };
   
-  // Preview a move option (show what happens if you play it)
+  // Preview a move option (show ONLY that single move, not the full line)
   const previewMoveOption = (move, isCorrect) => {
     if (!currentCard?.fen) return;
     setPreviewMove(move);
     
-    // Get the line to show
-    const line = isCorrect ? currentCard.better_line : currentCard.threat_line;
-    const type = isCorrect ? 'better' : 'threat';
-    
-    // Play the move and its continuation
-    playMovesOnBoard(line || [], type, move);
+    // Only play the single move - not the continuation
+    // Full line is revealed only after submitting the answer
+    playMovesOnBoard([], isCorrect ? 'better' : 'threat', move);
   };
 
   const goToWhyPhase = async () => {
