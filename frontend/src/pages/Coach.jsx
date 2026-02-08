@@ -632,8 +632,38 @@ const Coach = ({ user }) => {
         {hasData && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             
-            {/* PDR - Reflection Moment */}
-            {coachData.pdr && <DecisionReconstruction pdr={coachData.pdr} onResult={handlePDRResult} />}
+            {/* Tabs for Training vs Legacy PDR */}
+            <Tabs defaultValue="mastery" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+                <TabsTrigger value="mastery" className="gap-2">
+                  <Target className="w-4 h-4" />
+                  Mistake Mastery
+                </TabsTrigger>
+                <TabsTrigger value="legacy" className="gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Legacy PDR
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="mastery" className="mt-4">
+                <MistakeMastery 
+                  token={localStorage.getItem("session_token")} 
+                  onComplete={() => {}} 
+                />
+              </TabsContent>
+              
+              <TabsContent value="legacy" className="mt-4">
+                {/* PDR - Reflection Moment (Legacy) */}
+                {coachData.pdr && <DecisionReconstruction pdr={coachData.pdr} onResult={handlePDRResult} />}
+                {!coachData.pdr && (
+                  <Card className="border-dashed">
+                    <CardContent className="py-8 text-center">
+                      <p className="text-muted-foreground">No reflection moment available.</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            </Tabs>
             
             {/* Coach's Note */}
             {coachData.coach_note && (
