@@ -2401,7 +2401,9 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     # Get the most recently PLAYED game that has been SUCCESSFULLY analyzed
     last_game = None
     
-    # First get the most recent analyzed game - SORTED by imported_at
+    print(f"[COACH] Looking for last game for user {user.user_id}", file=sys.stderr)
+    
+    # First get the most recent analyzed game - SORTED by created_at
     # We'll filter for games where analysis exists and Stockfish succeeded
     recent_analyses = await db.game_analyses.find(
         {
