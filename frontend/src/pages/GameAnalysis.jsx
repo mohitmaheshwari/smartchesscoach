@@ -184,6 +184,9 @@ const GameAnalysis = ({ user }) => {
   const excellentMoves = stockfishData ? stockfishData.excellent_moves : 0;
   const moveEvaluations = stockfishData ? stockfishData.move_evaluations : [];
   
+  // Full game moves (including opponent)
+  const fullMoves = analysis ? analysis.full_moves : [];
+  
   // Best move suggestions from Stockfish
   const bestMoveSuggestions = analysis ? analysis.best_move_suggestions : [];
   
