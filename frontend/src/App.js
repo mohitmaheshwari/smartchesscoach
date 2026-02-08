@@ -90,7 +90,7 @@ function AppRouter() {
       } />
       <Route path="/progress" element={
         <ProtectedRoute>
-          {({ user }) => <Progress user={user} />}
+          {({ user }) => <ChessJourney user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/dashboard" element={
