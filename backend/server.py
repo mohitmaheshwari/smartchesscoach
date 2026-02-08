@@ -1338,6 +1338,17 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         # IMPORTANT: Remove internal CQS data before returning to user
         analysis_doc.pop('_cqs_internal', None)
         
+        # ============ MISTAKE MASTERY SYSTEM ============
+        # Extract mistake cards from this analysis for spaced repetition training
+        try:
+            cards_created = await extract_mistake_cards_from_analysis(
+                db, user.user_id, req.game_id, analysis_doc, game
+            )
+            if cards_created:
+                logger.info(f"Created {len(cards_created)} mistake cards for user {user.user_id}")
+        except Exception as card_err:
+            logger.warning(f"Mistake card extraction failed (non-critical): {card_err}")
+        
         # Step 5: UPDATE PLAYER PROFILE (CRITICAL - happens after every game)
         logger.info(f"Updating PlayerProfile for user {user.user_id}")
         background_tasks.add_task(
