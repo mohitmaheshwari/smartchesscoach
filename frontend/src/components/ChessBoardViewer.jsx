@@ -164,7 +164,56 @@ const ChessBoardViewer = forwardRef(({
       setIsPlaying(false);
     },
     goToEnd: () => goToMove(moves.length - 1),
-    getCurrentMoveIndex: () => currentMoveIndex
+    getCurrentMoveIndex: () => currentMoveIndex,
+    // Play a variation from a specific FEN position
+    playVariation: (fen, movesArray, color = 'white') => {
+      if (!fen || !movesArray || movesArray.length === 0) return;
+      
+      // Create a temporary game from the FEN
+      try {
+        const tempChess = new Chess(fen);
+        const positions = [fenToPositionObject(fen)];
+        const variationMoves = [];
+        
+        for (const moveStr of movesArray) {
+          const move = tempChess.move(moveStr);
+          if (move) {
+            positions.push(fenToPositionObject(tempChess.fen()));
+            variationMoves.push({ from: move.from, to: move.to, san: move.san });
+          }
+        }
+        
+        // Animate through the variation
+        setPositionObject(positions[0]);
+        setLastMoveSquares({});
+        setBoardOrientation(color);
+        
+        let idx = 0;
+        const playNext = () => {
+          if (idx >= variationMoves.length) return;
+          setPositionObject(positions[idx + 1]);
+          setLastMoveSquares({
+            [variationMoves[idx].from]: { backgroundColor: "rgba(255, 200, 100, 0.5)" },
+            [variationMoves[idx].to]: { backgroundColor: "rgba(255, 200, 100, 0.7)" }
+          });
+          idx++;
+          if (idx < variationMoves.length) {
+            setTimeout(playNext, 800);
+          }
+        };
+        
+        setTimeout(playNext, 300);
+      } catch (e) {
+        console.error("Failed to play variation:", e);
+      }
+    },
+    // Set board to a specific FEN
+    setPosition: (fen) => {
+      if (fen) {
+        setPositionObject(fenToPositionObject(fen));
+        setLastMoveSquares({});
+      }
+    }
   }), [goToMove, goToMoveNumber, moves.length, currentMoveIndex]);
 
   // Auto-play
