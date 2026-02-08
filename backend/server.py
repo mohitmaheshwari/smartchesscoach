@@ -677,6 +677,130 @@ async def get_games(user: User = Depends(get_current_user)):
     ).sort("imported_at", -1).to_list(100)
     return games
 
+
+# IMPORTANT: These specific routes must come BEFORE /games/{game_id} wildcard
+@api_router.get("/games/analyzed")
+async def get_analyzed_games(user: User = Depends(get_current_user)):
+    """Get list of all analyzed games with summary stats"""
+    games = await db.games.find(
+        {"user_id": user.user_id, "is_analyzed": True},
+        {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "user_result": 1,
+         "white_player": 1, "black_player": 1, "platform": 1, "imported_at": 1}
+    ).sort("imported_at", -1).to_list(50)
+    
+    result = []
+    for game in games:
+        # Get analysis for this game
+        analysis = await db.game_analyses.find_one(
+            {"game_id": game["game_id"]},
+            {"_id": 0, "accuracy": 1, "blunders": 1, "mistakes": 1, "best_moves": 1, "stockfish_analysis": 1}
+        )
+        
+        # Determine opponent
+        user_color = game.get("user_color", "white")
+        opponent = game.get("black_player") if user_color == "white" else game.get("white_player")
+        
+        # Get accuracy from stockfish_analysis if available
+        accuracy = 0
+        if analysis:
+            sf = analysis.get("stockfish_analysis", {})
+            accuracy = sf.get("accuracy", analysis.get("accuracy", 0))
+        
+        result.append({
+            "game_id": game["game_id"],
+            "opponent": opponent or "Unknown",
+            "result": game.get("user_result", "unknown"),
+            "accuracy": round(accuracy, 1) if accuracy else 0,
+            "blunders": analysis.get("blunders", 0) if analysis else 0,
+            "mistakes": analysis.get("mistakes", 0) if analysis else 0,
+            "best_moves": analysis.get("best_moves", 0) if analysis else 0,
+            "platform": game.get("platform", "chess.com")
+        })
+    
+    return {"games": result, "total": len(result)}
+
+
+@api_router.get("/games/blunders")
+async def get_all_blunders(user: User = Depends(get_current_user)):
+    """Get all blunders from user's games with position and explanation"""
+    # Get all analyzed games
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "commentary": 1, "stockfish_analysis": 1}
+    ).to_list(100)
+    
+    blunders = []
+    for analysis in analyses:
+        commentary = analysis.get("commentary", [])
+        sf_analysis = analysis.get("stockfish_analysis", {})
+        move_evals = sf_analysis.get("move_evaluations", [])
+        
+        # Create a map of move_number to FEN
+        fen_map = {m.get("move_number"): m.get("fen_before") for m in move_evals}
+        
+        for move in commentary:
+            if move.get("evaluation") in ["blunder", "mistake"]:
+                move_num = move.get("move_number")
+                # Try to get FEN from stockfish data
+                fen = fen_map.get(move_num, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+                
+                blunders.append({
+                    "game_id": analysis["game_id"],
+                    "move_number": move_num,
+                    "move": move.get("move"),
+                    "evaluation": move.get("evaluation"),
+                    "fen": fen,
+                    "feedback": move.get("feedback", ""),
+                    "consider": move.get("consider", ""),
+                    "threat": move.get("details", {}).get("threat_line"),
+                    "thinking_pattern": move.get("details", {}).get("thinking_pattern")
+                })
+    
+    # Sort by most recent (game_id contains timestamp info)
+    blunders.sort(key=lambda x: x["game_id"], reverse=True)
+    
+    return {"blunders": blunders[:50], "total": len(blunders)}
+
+
+@api_router.get("/games/best-moves")
+async def get_all_best_moves(user: User = Depends(get_current_user)):
+    """Get all best/excellent moves from user's games"""
+    # Get all analyzed games
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "commentary": 1, "stockfish_analysis": 1}
+    ).to_list(100)
+    
+    best_moves = []
+    for analysis in analyses:
+        commentary = analysis.get("commentary", [])
+        sf_analysis = analysis.get("stockfish_analysis", {})
+        move_evals = sf_analysis.get("move_evaluations", [])
+        
+        # Create a map of move_number to FEN
+        fen_map = {m.get("move_number"): m.get("fen_before") for m in move_evals}
+        
+        for move in commentary:
+            if move.get("evaluation") in ["best", "excellent", "good"]:
+                move_num = move.get("move_number")
+                fen = fen_map.get(move_num, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+                
+                best_moves.append({
+                    "game_id": analysis["game_id"],
+                    "move_number": move_num,
+                    "move": move.get("move"),
+                    "evaluation": move.get("evaluation"),
+                    "fen": fen,
+                    "feedback": move.get("feedback", ""),
+                    "intent": move.get("intent", "")
+                })
+    
+    # Sort and limit
+    best_moves.sort(key=lambda x: x["game_id"], reverse=True)
+    
+    return {"best_moves": best_moves[:50], "total": len(best_moves)}
+
+
 @api_router.get("/games/{game_id}")
 async def get_game(game_id: str, user: User = Depends(get_current_user)):
     """Get a specific game with player names and termination reason"""
