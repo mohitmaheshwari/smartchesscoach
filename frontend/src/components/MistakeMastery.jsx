@@ -457,7 +457,20 @@ const MistakeMastery = ({ token, onComplete }) => {
               />
             </div>
             <div className="mt-3 space-y-2">
-              <div className="text-center">
+              {/* Personalized game context */}
+              <div className="text-center space-y-1">
+                <div className="flex items-center justify-center gap-2 text-sm">
+                  {currentCard.opponent && (
+                    <span className="text-muted-foreground">vs <span className="font-medium text-foreground">{currentCard.opponent}</span></span>
+                  )}
+                  {currentCard.user_color && (
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      currentCard.user_color === 'white' ? 'bg-white text-black border' : 'bg-zinc-800 text-white'
+                    }`}>
+                      {currentCard.user_color === 'white' ? 'White' : 'Black'}
+                    </span>
+                  )}
+                </div>
                 <span className="text-sm text-muted-foreground">
                   Move {currentCard.move_number} • 
                   {currentCard.evaluation === "blunder" && " Blunder"}
