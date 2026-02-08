@@ -330,13 +330,13 @@ const ChessJourney = ({ user }) => {
           </Card>
         </motion.div>
 
-        {/* Phase Mastery */}
+        {/* Phase Mastery - Renamed to Game Discipline */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Target className="w-5 h-5 text-primary" />
-                Phase Mastery
+                Game Discipline
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
