@@ -2398,27 +2398,47 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     session_status = await get_session_status(db, user.user_id)
     
     # ===== LAST GAME SUMMARY =====
-    # Get the most recently PLAYED game that has been analyzed
+    # Get the most recently PLAYED game that has been SUCCESSFULLY analyzed
     last_game = None
     
     # First get the most recent analyzed game - SORTED by imported_at
-    most_recent_games = await db.games.find(
-        {"user_id": user.user_id, "is_analyzed": True},
-        {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "time_control": 1, 
-         "platform": 1, "url": 1, "pgn": 1, "termination": 1}
-    ).sort("imported_at", -1).limit(1).to_list(1)
+    # We'll filter for games where analysis exists and Stockfish succeeded
+    recent_analyses = await db.game_analyses.find(
+        {
+            "user_id": user.user_id,
+            "stockfish_failed": {"$ne": True}  # Exclude failed analyses
+        },
+        {"_id": 0, "game_id": 1, "blunders": 1, "mistakes": 1, "accuracy": 1, 
+         "commentary": 1, "identified_weaknesses": 1}
+    ).sort("created_at", -1).limit(5).to_list(5)
     
-    most_recent_game = most_recent_games[0] if most_recent_games else None
+    # Find the first one that has actual analysis data
+    last_analysis = None
+    most_recent_game = None
     
-    if most_recent_game:
-        # Get the analysis for this specific game
-        last_analysis = await db.game_analyses.find_one(
-            {"game_id": most_recent_game.get("game_id"), "user_id": user.user_id},
-            {"_id": 0, "blunders": 1, "mistakes": 1, "accuracy": 1, "commentary": 1, 
-             "identified_weaknesses": 1, "stockfish_failed": 1, "stockfish_error": 1}
+    for analysis in recent_analyses:
+        # Check if analysis has actual data (not just empty)
+        has_data = (
+            analysis.get("commentary") and len(analysis.get("commentary", [])) > 0
+        ) or (
+            analysis.get("blunders", 0) > 0 or analysis.get("mistakes", 0) > 0
+        ) or (
+            analysis.get("accuracy", 0) > 0
         )
         
-        if last_analysis:
+        if has_data:
+            # Get the corresponding game
+            game = await db.games.find_one(
+                {"game_id": analysis.get("game_id"), "user_id": user.user_id},
+                {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "time_control": 1, 
+                 "platform": 1, "url": 1, "pgn": 1, "termination": 1}
+            )
+            if game:
+                most_recent_game = game
+                last_analysis = analysis
+                break
+    
+    if most_recent_game and last_analysis:
             blunders = last_analysis.get("blunders", 0)
             mistakes = last_analysis.get("mistakes", 0)
             accuracy = last_analysis.get("accuracy", 0)
