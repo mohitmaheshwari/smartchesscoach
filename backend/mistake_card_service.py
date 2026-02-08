@@ -289,6 +289,10 @@ async def extract_mistake_cards_from_analysis(
             "threat_line": move.get("pv_after_played", []),
             "better_line": move.get("pv_after_best", []),
             
+            # Personalized context
+            "opponent": opponent,
+            "user_color": user_color,
+            
             # Spaced repetition - starts due immediately
             "next_review": datetime.now(timezone.utc).isoformat(),
             "interval_days": 0,
