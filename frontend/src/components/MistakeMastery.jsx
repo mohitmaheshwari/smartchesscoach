@@ -168,14 +168,39 @@ const MistakeMastery = ({ token, onComplete }) => {
     }
   };
 
-  const goToWhyPhase = () => setPhase("why");
+  const goToWhyPhase = async () => {
+    if (!currentCard?.card_id) {
+      setPhase("why");
+      return;
+    }
+    
+    setLoadingWhy(true);
+    try {
+      const res = await fetch(`${API}/training/card/${currentCard.card_id}/why`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWhyData(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch why question:", err);
+    } finally {
+      setLoadingWhy(false);
+      setPhase("why");
+    }
+  };
 
   const getWhyOptions = () => {
-    if (!currentCard) return [];
+    // Use backend-generated options if available
+    if (whyData?.options) {
+      return whyData.options;
+    }
+    // Fallback options
     return [
-      { id: "a", text: "It creates a direct threat that's hard to defend", isCorrect: true },
-      { id: "b", text: "It improves piece activity and coordination" },
-      { id: "c", text: "It exploits a weakness in the opponent's position" }
+      { id: "a", text: "It creates a direct threat that's hard to defend", is_correct: true },
+      { id: "b", text: "It improves piece activity and coordination", is_correct: false },
+      { id: "c", text: "It exploits a weakness in the opponent's position", is_correct: false }
     ];
   };
 
