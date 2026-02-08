@@ -2715,7 +2715,6 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     
     return {
         "has_data": True,
-        "pdr": pdr,
         "coach_note": coach_note,
         "light_stats": light_stats,
         "next_game_plan": next_game_plan,
