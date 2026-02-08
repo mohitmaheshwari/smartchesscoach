@@ -107,6 +107,9 @@ from mistake_card_service import (
     HABIT_DEFINITIONS
 )
 
+# Import Chess Journey service for comprehensive progress tracking
+from chess_journey_service import get_chess_journey
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
