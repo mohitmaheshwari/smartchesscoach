@@ -306,9 +306,9 @@ const Coach = ({ user }) => {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{coachData.last_game.stats?.blunders || 0} blunders</span>
+                    <span>{coachData.last_game.stats?.blunders || 0} discipline breaks</span>
                     <span>•</span>
-                    <span>{coachData.last_game.stats?.mistakes || 0} mistakes</span>
+                    <span>{coachData.last_game.stats?.mistakes || 0} slips</span>
                   </div>
                 </div>
                 
