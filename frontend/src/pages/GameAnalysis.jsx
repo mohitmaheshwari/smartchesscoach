@@ -221,24 +221,83 @@ const GameAnalysis = ({ user }) => {
 
   const isMistake = (ev) => ev === "blunder" || ev === "mistake" || ev === "inaccuracy";
 
-  // Jump to move on the board when clicking a move comment
-  const handleMoveClick = (moveNumber) => {
+  // Jump to move on the board when clicking a move
+  const handleMoveClick = (ply) => {
     if (boardRef.current) {
-      // moveNumber is the chess move number (1, 2, 3...)
-      // For a user playing Black: move 1 = board index 1, move 2 = board index 3, etc.
-      // For a user playing White: move 1 = board index 0, move 2 = board index 2, etc.
-      const isBlack = userColor === "black";
-      
-      // Convert chess move number to board index
-      // Each full move (white + black) = 2 half-moves
-      // White's move N is at index (N-1)*2
-      // Black's move N is at index (N-1)*2 + 1
-      const boardIndex = isBlack 
-        ? (moveNumber - 1) * 2 + 1  // Black's move N → index (N-1)*2 + 1
-        : (moveNumber - 1) * 2;      // White's move N → index (N-1)*2
-      
-      boardRef.current.goToMove(boardIndex);
+      // ply is the index in the full game (0, 1, 2, 3...)
+      boardRef.current.goToMove(ply);
     }
+  };
+
+  // Render a single move in the full moves list (including opponent moves)
+  const renderFullMove = (move, index) => {
+    const isUserMove = move.is_user_move;
+    const ev = move.evaluation;
+    
+    // Get color class based on evaluation
+    let colorClass = "border-l-muted-foreground/30 bg-muted/10"; // Default for opponent/neutral
+    if (isUserMove) {
+      if (ev === "blunder") colorClass = "border-l-red-500 bg-red-500/10";
+      else if (ev === "mistake") colorClass = "border-l-orange-500 bg-orange-500/10";
+      else if (ev === "inaccuracy") colorClass = "border-l-yellow-500 bg-yellow-500/10";
+      else if (ev === "good" || ev === "solid" || ev === "excellent") colorClass = "border-l-emerald-500 bg-emerald-500/10";
+      else colorClass = "border-l-blue-500/50 bg-blue-500/5";
+    }
+    
+    const icon = isUserMove ? getEvalIcon(ev) : null;
+    const isActive = currentMoveNumber === move.move_number && (
+      (move.is_white && userColor === "white") || (!move.is_white && userColor === "black")
+    );
+    
+    return (
+      <div
+        key={index}
+        onClick={() => handleMoveClick(move.ply)}
+        className={`p-2 rounded border-l-4 cursor-pointer transition-all hover:ring-1 hover:ring-primary/30 ${colorClass} ${isActive ? "ring-2 ring-primary" : ""}`}
+      >
+        <div className="flex items-center gap-2">
+          {/* Move number - show only for white's move */}
+          <span className="text-xs text-muted-foreground w-6">
+            {move.is_white ? `${move.move_number}.` : ""}
+          </span>
+          
+          {/* Player indicator */}
+          <span className={`text-xs px-1.5 py-0.5 rounded ${
+            isUserMove 
+              ? "bg-primary/20 text-primary" 
+              : "bg-muted text-muted-foreground"
+          }`}>
+            {isUserMove ? "You" : "Opp"}
+          </span>
+          
+          {/* Move */}
+          <span className="font-mono text-sm font-medium flex-1">
+            {move.move}
+          </span>
+          
+          {/* Evaluation icon for user moves */}
+          {icon && <span>{icon}</span>}
+          
+          {/* Evaluation badge for significant moves */}
+          {isUserMove && isMistake(ev) && (
+            <span className={`text-xs px-1.5 py-0.5 rounded ${
+              ev === "blunder" ? "bg-red-500/20 text-red-500" :
+              ev === "mistake" ? "bg-orange-500/20 text-orange-500" :
+              "bg-yellow-500/20 text-yellow-500"
+            }`}>
+              {ev}
+            </span>
+          )}
+        </div>
+        
+        {/* Feedback for user's significant moves */}
+        {isUserMove && move.feedback && isMistake(ev) && (
+          <p className="text-xs text-muted-foreground mt-1 ml-8 line-clamp-2">
+            {move.feedback}
+          </p>
+        )}
+      </div>
+    );
   };
 
   const renderMoveComment = (item, index) => {
