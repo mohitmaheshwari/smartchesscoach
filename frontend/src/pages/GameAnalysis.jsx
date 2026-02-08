@@ -256,7 +256,7 @@ const GameAnalysis = ({ user }) => {
     return (
       <div 
         key={index}
-        onClick={() => handleMoveClick(item.move_number, item.move, index)}
+        onClick={() => handleMoveClick(item.move_number)}
         className={"p-3 rounded-lg border-l-4 cursor-pointer transition-all hover:ring-1 hover:ring-primary/50 " + colorClass + " " + (isActive ? "ring-2 ring-primary" : "")}
       >
         {/* Header */}
