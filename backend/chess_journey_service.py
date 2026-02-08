@@ -503,7 +503,7 @@ def generate_weekly_summary(analyses: List[Dict], profile: Dict) -> Dict:
                 dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
                 if dt >= week_ago:
                     this_week.append(a)
-            except:
+            except ValueError:
                 pass
     
     if not this_week:
