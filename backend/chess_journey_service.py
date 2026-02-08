@@ -599,6 +599,7 @@ def calculate_opening_repertoire(games: List[Dict], analyses: List[Dict]) -> Dic
             if eco_match:
                 eco_code = eco_match.group(1).upper()  # Normalize to uppercase
                 opening = get_opening_from_eco(eco_code)
+                logger.info(f"ECO {eco_code} -> Opening: {opening}")
             else:
                 opening = "Unknown Opening"
         
