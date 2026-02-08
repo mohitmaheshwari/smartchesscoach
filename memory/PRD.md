@@ -194,6 +194,29 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 8, 2025 - Mistake Mastery System (Major Feature)
+- **NEW FEATURE: Mistake Mastery System** - Spaced repetition for learning from your own chess mistakes
+  - **Mistake Cards**: Every blunder/mistake from your games becomes a training card
+  - **Habit Classification**: Cards are tagged with one of 10 habits (back_rank_weakness, hanging_pieces, pin_blindness, fork_blindness, king_safety, piece_activity, pawn_structure, tactical_oversight, endgame_technique, calculation_error)
+  - **Spaced Repetition**: SM-2 algorithm - correct answers increase interval (1→3→7→14→30→60 days), wrong answers reset to 1 day
+  - **Mastery**: 3 consecutive correct answers = position mastered
+  - **Three Modes**:
+    1. Post-Game Debrief: THE critical moment immediately after game import
+    2. Daily Training: Due cards from active habit
+    3. All Caught Up: No cards due - encourages playing
+  - **Habit-Focused Training**: System automatically focuses on your worst habit until mastered
+- **Files Added/Modified**:
+  - `backend/mistake_card_service.py` - NEW: Core card extraction, spaced repetition, habit tracking
+  - `backend/server.py` - NEW endpoints: /training/session, /training/attempt, /training/progress, /training/habits
+  - `frontend/src/components/MistakeMastery.jsx` - NEW: Training UI with chess board, move selection, feedback
+  - `frontend/src/pages/Coach.jsx` - Integrated MistakeMastery with tabs
+- **API Endpoints**:
+  - `GET /api/training/session` - Returns training mode and due cards
+  - `POST /api/training/attempt` - Record answer and update spaced repetition schedule
+  - `GET /api/training/progress` - Habit mastery stats
+  - `GET /api/training/habits` - Available habit definitions
+- **Testing**: 17/17 backend tests pass
+
 ### February 8, 2025 - Phase-Aware Strategic Coaching
 - **NEW FEATURE: Phase-Aware Coaching** - Major feature that provides strategic, phase-aware advice
   - **Phase Detection**: Automatically identifies Opening → Middlegame → Endgame transitions
