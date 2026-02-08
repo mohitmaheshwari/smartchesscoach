@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   XCircle,
   ChevronRight,
+  ChevronLeft,
   Trophy,
   Flame,
   Clock,
@@ -22,7 +23,9 @@ import {
   Sparkles,
   Play,
   Pause,
-  RotateCw
+  RotateCw,
+  SkipBack,
+  SkipForward
 } from "lucide-react";
 
 const MistakeMastery = ({ token, onComplete }) => {
@@ -40,11 +43,16 @@ const MistakeMastery = ({ token, onComplete }) => {
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const [playbackMoves, setPlaybackMoves] = useState([]);
   const [playbackType, setPlaybackType] = useState(null);
+  const [playbackPositions, setPlaybackPositions] = useState([]);
   
   const [selectedWhy, setSelectedWhy] = useState(null);
   const [whyRevealed, setWhyRevealed] = useState(false);
   const [whyData, setWhyData] = useState(null);
   const [loadingWhy, setLoadingWhy] = useState(false);
+  
+  // For preview mode - clicking options before submitting
+  const [previewMove, setPreviewMove] = useState(null);
+  const playbackRef = useRef(null);
 
   const fetchSession = useCallback(async () => {
     setLoading(true);
