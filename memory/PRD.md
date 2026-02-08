@@ -200,6 +200,21 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 8, 2025 - Opening Discipline Feature (Major Feature)
+- **Opening Discipline section on Coach page** - Combines three coaching perspectives:
+  1. **Play This Today**: Best opening for White and Black (≥3 games, highest win rate)
+     - Shows win rate, games played, wins
+     - "Stay with what works. Master one opening before learning another."
+  2. **Rating Leaks**: Openings with <40% win rate (≥3 games)
+     - Shows as warnings with red styling
+     - "Avoid these until your middlegame habits are fixed."
+  3. **Opening Wisdom**: Coaching tips for recommended openings
+     - 13+ opening patterns with specific tips (Italian, Sicilian, Queen's Gambit, etc.)
+     - Key idea + practical tip for each
+- **Backend**: Calculates from analyzed games, extracts ECO codes from PGN headers
+- **Frontend**: OpeningDiscipline component with Crown/AlertTriangle/Lightbulb icons
+- **Testing**: 12/12 backend tests + 5/5 frontend features verified
+
 ### February 8, 2025 - Indian-First Language Reframe
 - **Discipline-focused language throughout the app:**
   - "Blunder" → "Discipline broke here"
