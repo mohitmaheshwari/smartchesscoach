@@ -404,25 +404,25 @@ const ChessJourney = ({ user }) => {
           </motion.div>
         )}
 
-        {/* Habit Journey */}
+        {/* Habit Journey - Renamed sections */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Brain className="w-5 h-5 text-primary" />
-                Habit Journey
+                Habits Fixed / Habits Pending
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                {habit_journey.total_mastered || 0} of {habit_journey.total_cards || 0} positions mastered
+                {habit_journey.total_mastered || 0} of {habit_journey.total_cards || 0} positions corrected
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
               
-              {/* Conquered Habits */}
+              {/* Conquered Habits - Fixed */}
               {habit_journey.conquered && habit_journey.conquered.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-emerald-500 mb-2 flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" /> Conquered
+                    <CheckCircle2 className="w-4 h-4" /> Fixed
                   </p>
                   <div className="grid gap-2">
                     {habit_journey.conquered.map((habit, i) => (
@@ -432,11 +432,11 @@ const ChessJourney = ({ user }) => {
                 </div>
               )}
               
-              {/* In Progress */}
+              {/* In Progress - Being Corrected */}
               {habit_journey.in_progress && habit_journey.in_progress.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-blue-500 mb-2 flex items-center gap-1">
-                    <RefreshCw className="w-4 h-4" /> In Progress
+                    <RefreshCw className="w-4 h-4" /> Being Corrected
                   </p>
                   <div className="grid gap-2">
                     {habit_journey.in_progress.map((habit, i) => (
@@ -446,11 +446,11 @@ const ChessJourney = ({ user }) => {
                 </div>
               )}
               
-              {/* Needs Attention */}
+              {/* Needs Attention - Still Leaking Rating */}
               {habit_journey.needs_attention && habit_journey.needs_attention.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-amber-500 mb-2 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" /> Needs Attention
+                    <AlertCircle className="w-4 h-4" /> Still Leaking Rating
                   </p>
                   <div className="grid gap-2">
                     {habit_journey.needs_attention.map((habit, i) => (
