@@ -43,6 +43,8 @@ const MistakeMastery = ({ token, onComplete }) => {
   
   const [selectedWhy, setSelectedWhy] = useState(null);
   const [whyRevealed, setWhyRevealed] = useState(false);
+  const [whyData, setWhyData] = useState(null);
+  const [loadingWhy, setLoadingWhy] = useState(false);
 
   const fetchSession = useCallback(async () => {
     setLoading(true);
