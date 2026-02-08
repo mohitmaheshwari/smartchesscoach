@@ -418,9 +418,21 @@ const GameAnalysis = ({ user }) => {
         {/* BEST MOVE SUGGESTION - Show for mistakes */}
         {isMistake(item.evaluation) && getBestMoveForMove(item.move_number) && (
           <div className="mt-2 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs">
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-              ✓ Better: <span className="font-mono">{getBestMoveForMove(item.move_number).best_move}</span>
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                ✓ Better: <span className="font-mono">{getBestMoveForMove(item.move_number).best_move}</span>
+              </span>
+              {getBestMoveForMove(item.move_number).pv && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 px-2 text-xs gap-1 text-emerald-600 hover:text-emerald-700"
+                  onClick={() => playVariationOnBoard(item.move_number, [getBestMoveForMove(item.move_number).best_move, ...getBestMoveForMove(item.move_number).pv.slice(0, 4)])}
+                >
+                  <Play className="w-3 h-3" /> Play
+                </Button>
+              )}
+            </div>
             {getBestMoveForMove(item.move_number).reason && (
               <p className="text-muted-foreground mt-1">{getBestMoveForMove(item.move_number).reason}</p>
             )}
