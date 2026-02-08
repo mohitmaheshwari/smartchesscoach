@@ -382,27 +382,26 @@ const ChessJourney = ({ user }) => {
                 <div className="space-y-1">
                   <MetricComparison 
                     label="Accuracy"
-                    then={improvement_metrics.accuracy?.then}
-                    now={improvement_metrics.accuracy?.now}
+                    then={`${improvement_metrics.accuracy?.then || 0}%`}
+                    now={`${improvement_metrics.accuracy?.now || 0}%`}
                     improved={improvement_metrics.accuracy?.improved}
-                    unit="%"
                   />
                   <MetricComparison 
                     label="Blunders/Game"
-                    then={improvement_metrics.blunders_per_game?.then}
-                    now={improvement_metrics.blunders_per_game?.now}
+                    then={improvement_metrics.blunders_per_game?.then || 0}
+                    now={improvement_metrics.blunders_per_game?.now || 0}
                     improved={improvement_metrics.blunders_per_game?.improved}
                   />
                   <MetricComparison 
                     label="Mistakes/Game"
-                    then={improvement_metrics.mistakes_per_game?.then}
-                    now={improvement_metrics.mistakes_per_game?.now}
+                    then={improvement_metrics.mistakes_per_game?.then || 0}
+                    now={improvement_metrics.mistakes_per_game?.now || 0}
                     improved={improvement_metrics.mistakes_per_game?.improved}
                   />
                   <MetricComparison 
                     label="Best Moves/Game"
-                    then={improvement_metrics.best_moves_per_game?.then}
-                    now={improvement_metrics.best_moves_per_game?.now}
+                    then={improvement_metrics.best_moves_per_game?.then || 0}
+                    now={improvement_metrics.best_moves_per_game?.now || 0}
                     improved={improvement_metrics.best_moves_per_game?.improved}
                   />
                 </div>
