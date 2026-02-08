@@ -479,29 +479,48 @@ const MistakeMastery = ({ token, onComplete }) => {
                   <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
                     <div className="flex items-center gap-2 mb-2">
                       <Brain className="w-5 h-5 text-blue-500" />
-                      <h4 className="font-semibold text-blue-500">Why is {currentCard.correct_move} better?</h4>
+                      <h4 className="font-semibold text-blue-500">
+                        {whyData?.question || `Why is ${currentCard.correct_move} better?`}
+                      </h4>
                     </div>
                     <p className="text-sm text-muted-foreground">Understanding WHY helps you recognize similar patterns.</p>
+                    {whyData?.hint && (
+                      <p className="text-xs text-muted-foreground mt-1 italic">{whyData.hint}</p>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    {getWhyOptions().map((option) => (
-                      <button key={option.id} onClick={() => handleWhyAnswer(option.id)} disabled={whyRevealed}
-                        className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
-                          whyRevealed && option.isCorrect ? "border-emerald-500 bg-emerald-500/10" :
-                          selectedWhy === option.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
-                        } ${whyRevealed ? "cursor-default" : "cursor-pointer"}`}>
-                        <span className="text-sm">{option.text}</span>
-                      </button>
-                    ))}
-                  </div>
+                  {loadingWhy ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {getWhyOptions().map((option) => (
+                        <button key={option.id} onClick={() => handleWhyAnswer(option.id)} disabled={whyRevealed}
+                          className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
+                            whyRevealed && option.is_correct ? "border-emerald-500 bg-emerald-500/10" :
+                            whyRevealed && selectedWhy === option.id && !option.is_correct ? "border-red-500 bg-red-500/10" :
+                            selectedWhy === option.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
+                          } ${whyRevealed ? "cursor-default" : "cursor-pointer"}`}>
+                          <span className="text-sm">{option.text}</span>
+                          {whyRevealed && option.is_correct && (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 inline ml-2" />
+                          )}
+                          {whyRevealed && selectedWhy === option.id && !option.is_correct && (
+                            <XCircle className="w-4 h-4 text-red-500 inline ml-2" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {whyRevealed && (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-3 rounded bg-muted/50">
                       <p className="text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">Key insight:</span> The best move addresses the tactical issue. Use "Play" buttons to visualize!
+                        <span className="font-medium text-foreground">Key insight:</span>{" "}
+                        {whyData?.correct_explanation || "The best move addresses the tactical issue. Use the play buttons to visualize!"}
                       </p>
                     </motion.div>
                   )}
-                  <Button onClick={nextCard} className="w-full gap-2">
+                  <Button onClick={nextCard} className="w-full gap-2" disabled={!whyRevealed}>
                     {currentCardIndex < totalCards - 1 ? "Next Position" : "Finish"} <ChevronRight className="w-4 h-4" />
                   </Button>
                 </motion.div>
