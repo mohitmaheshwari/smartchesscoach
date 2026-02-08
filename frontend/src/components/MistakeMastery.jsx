@@ -611,7 +611,7 @@ const MistakeMastery = ({ token, onComplete }) => {
                           {result === "correct" ? "Correct!" : "Not quite..."}
                         </h4>
                         <p className="text-sm text-muted-foreground">
-                          Better move: <span className="font-mono font-medium text-emerald-500">{currentCard.correct_move}</span>
+                          The disciplined move: <span className="font-mono font-medium text-emerald-500">{currentCard.correct_move}</span>
                           {result !== "correct" && <span className="text-red-400 ml-2">(you played {currentCard.user_move})</span>}
                         </p>
                       </div>
