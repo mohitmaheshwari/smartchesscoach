@@ -338,12 +338,17 @@ const MistakeMastery = ({ token, onComplete }) => {
           )}
         </div>
         {session.habit_progress && (
-          <div className="mt-2 p-2 rounded bg-muted/50">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Habit Progress</span>
-              <span className="font-medium">{session.habit_progress.mastered_cards}/{session.habit_progress.total_cards} mastered</span>
+          <div className="mt-2 p-3 rounded bg-muted/50">
+            <div className="flex items-center justify-between text-sm gap-4">
+              <span className="text-muted-foreground whitespace-nowrap">Habit Progress</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium whitespace-nowrap">
+                  {session.habit_progress.mastered_cards} / {session.habit_progress.total_cards}
+                </span>
+                <span className="text-xs text-muted-foreground">mastered</span>
+              </div>
             </div>
-            <Progress value={session.habit_progress.progress_pct} className="h-1.5 mt-1" />
+            <Progress value={session.habit_progress.progress_pct} className="h-1.5 mt-2" />
           </div>
         )}
       </CardHeader>
