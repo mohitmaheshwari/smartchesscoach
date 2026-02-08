@@ -90,7 +90,7 @@ async def get_rating_progression(db, user_id: str, user: Dict, analyses: List[Di
             if isinstance(created, str):
                 try:
                     dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
-                except:
+                except ValueError:
                     continue
             else:
                 dt = created
