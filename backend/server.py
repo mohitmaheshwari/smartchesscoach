@@ -2551,7 +2551,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 "game_id": most_recent_game.get("game_id"),
                 "external_url": most_recent_game.get("url"),
                 "critical_moment": critical_moment,
-                "analysis_warning": "Engine analysis failed. Stats may be inaccurate." if stockfish_failed else None
+                "has_full_analysis": True,
+                "analysis_warning": None
             }
     
     # ===== OPENING DISCIPLINE (Play This Today / Rating Leak / Wisdom) =====
