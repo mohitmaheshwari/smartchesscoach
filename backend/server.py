@@ -1401,7 +1401,8 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
                         "best_move": m.get('best_move'),
                         "cp_loss": m.get('cp_loss', 0),
                         "evaluation": eval_type,
-                        "reason": f"Engine analysis shows this loses {m.get('cp_loss', 0)/100:.1f} pawns"
+                        "reason": f"Engine analysis shows this loses {m.get('cp_loss', 0)/100:.1f} pawns",
+                        "pv": m.get('pv_after_best', [])  # Include PV line for playback on board
                     })
         analysis_doc['best_move_suggestions'] = stockfish_best_moves or analysis_data.get("best_move_suggestions", [])
         
