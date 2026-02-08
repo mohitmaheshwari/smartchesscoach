@@ -525,85 +525,211 @@ def get_phase_theory(phase: str, endgame_info: Dict = None, rating: int = 1200) 
 
 
 def generate_strategic_lesson(phase: str, endgame_info: Dict, user_mistakes: List[Dict], 
-                             user_color: str, result: str) -> Dict[str, any]:
+                             user_color: str, result: str, rating: int = 1200) -> Dict[str, any]:
     """
     Generate a strategic lesson based on the game analysis.
+    RATING-ADAPTIVE: Content complexity matches player level.
     """
+    bracket = get_rating_bracket(rating)
+    
     lesson = {
         "phase_reached": phase,
+        "rating_bracket": bracket,
         "lesson_title": "",
         "what_to_remember": [],
         "theory_to_study": [],
         "practice_exercises": [],
-        "one_sentence_takeaway": ""
+        "one_sentence_takeaway": "",
+        "next_step": ""  # NEW: actionable next step based on rating
     }
     
     if phase == "endgame":
-        lesson["lesson_title"] = "Endgame Lesson"
+        principles = ENDGAME_PRINCIPLES_BY_RATING.get(bracket, ENDGAME_PRINCIPLES_BY_RATING["intermediate"])
         
         if endgame_info.get("is_pawn_ending"):
             pawn_struct = endgame_info.get("pawn_structure", "")
-            lesson["what_to_remember"] = [
-                f"This was a {pawn_struct} pawn ending",
-                "In pawn endings, your KING is a fighting piece - use it!",
-                "The concept of OPPOSITION decides most pawn endings",
-                "Always calculate if pawns can promote before committing"
-            ]
-            lesson["theory_to_study"] = [
-                "King and Pawn vs King endings",
-                "Opposition (direct and distant)",
-                "Rule of the Square",
-                "Outside passed pawn technique"
-            ]
-            lesson["practice_exercises"] = [
-                "Practice basic K+P vs K positions",
-                "Study Philidor and Lucena positions",
-                "Solve pawn ending puzzles focusing on opposition"
-            ]
-            lesson["one_sentence_takeaway"] = "In pawn endings, king activity and opposition are everything - master these and you'll win won endings."
+            lesson["lesson_title"] = "King & Pawn Endgame"
             
+            if bracket == "beginner":
+                lesson["what_to_remember"] = [
+                    f"This was a {pawn_struct} pawn ending",
+                    "Your KING is your best piece now - use it!",
+                    "The side whose king is more active usually wins",
+                    "Walk your king toward the center first"
+                ]
+                lesson["theory_to_study"] = [
+                    "How to promote a pawn with your king's help",
+                    "When can the enemy king catch your pawn? (Rule of the Square)"
+                ]
+                lesson["practice_exercises"] = [
+                    "Practice King + Pawn vs King: can you promote?",
+                    "Quiz yourself: will my pawn promote before the king catches it?"
+                ]
+                lesson["one_sentence_takeaway"] = "In pawn endings, your king should run to the center and help your pawns."
+                lesson["next_step"] = "Practice 5 King+Pawn vs King positions on lichess.org/practice"
+                
+            elif bracket == "intermediate":
+                lesson["what_to_remember"] = [
+                    f"This was a {pawn_struct} pawn ending",
+                    "King activity decided this game - centralize immediately",
+                    "Opposition is the key concept - learn to recognize it",
+                    "Calculate pawn races BEFORE playing them"
+                ]
+                lesson["theory_to_study"] = [
+                    "Opposition: direct, distant, and diagonal",
+                    "Rule of the Square for pawn races",
+                    "Outside passed pawn technique"
+                ]
+                lesson["practice_exercises"] = [
+                    "Study opposition: can you reach the key squares?",
+                    "Practice pawn race calculations",
+                    "Solve 10 pawn ending puzzles focusing on king position"
+                ]
+                lesson["one_sentence_takeaway"] = "In pawn endings, opposition and key squares determine everything - master them."
+                lesson["next_step"] = "Study Dvoretsky's chapter on pawn endings or use lichess practice"
+                
+            else:  # advanced/expert
+                lesson["what_to_remember"] = [
+                    f"This was a {pawn_struct} pawn ending",
+                    "Key squares and corresponding squares control the outcome",
+                    "Triangulation can gain critical tempi when needed",
+                    "Reserve pawn moves as trumps - don't commit early"
+                ]
+                lesson["theory_to_study"] = [
+                    "Corresponding squares theory",
+                    "Trebuchet and mutual zugzwang positions",
+                    "Shouldering technique"
+                ]
+                lesson["practice_exercises"] = [
+                    "Analyze complex pawn endings from GM games",
+                    "Study breakthrough combinations",
+                    "Practice corresponding squares visualization"
+                ]
+                lesson["one_sentence_takeaway"] = "In pawn endings, precise calculation of corresponding squares separates masters from experts."
+                lesson["next_step"] = "Analyze this endgame with an engine to find the key moments"
+                
         elif endgame_info.get("is_rook_ending"):
-            lesson["what_to_remember"] = [
-                "Rook endings are the most common endgame type",
-                "Keep your rook ACTIVE - a passive rook loses",
-                "Rooks belong BEHIND passed pawns (yours or opponent's)",
-                "The 7th rank is rook paradise - control it"
-            ]
-            lesson["theory_to_study"] = [
-                "Lucena Position (how to win)",
-                "Philidor Position (how to draw)",
-                "Rook activity vs material",
-                "King cut-off technique"
-            ]
-            lesson["one_sentence_takeaway"] = "In rook endings, activity beats material - keep your rook active and cut off the enemy king."
+            lesson["lesson_title"] = "Rook Endgame"
             
+            if bracket == "beginner":
+                lesson["what_to_remember"] = [
+                    "Rook endings are the most common - learn them!",
+                    "Keep your rook ACTIVE, even if it costs a pawn",
+                    "Put your rook BEHIND passed pawns",
+                    "Your king should be in the center, not hiding"
+                ]
+                lesson["theory_to_study"] = [
+                    "Basic Lucena Position: how to win with rook + pawn vs rook",
+                    "Basic Philidor Position: how to draw"
+                ]
+                lesson["one_sentence_takeaway"] = "In rook endings, activity is everything - keep your rook active."
+                lesson["next_step"] = "Watch a 10-minute video on Lucena and Philidor positions"
+                
+            elif bracket == "intermediate":
+                lesson["what_to_remember"] = [
+                    "Rook endings are won by active rooks, not extra pawns",
+                    "Lucena = win (know the 'bridge' technique)",
+                    "Philidor = draw (rook on 6th rank, waiting)",
+                    "Cut off the enemy king - every file matters"
+                ]
+                lesson["theory_to_study"] = [
+                    "Lucena Position and building the bridge",
+                    "Philidor Position and 3rd rank defense",
+                    "Cutting off the king technique"
+                ]
+                lesson["one_sentence_takeaway"] = "Know Lucena to win, know Philidor to save - these appear in 80% of rook endings."
+                lesson["next_step"] = "Practice the Lucena bridge technique until you can do it blindfolded"
+                
+            else:  # advanced/expert
+                lesson["what_to_remember"] = [
+                    "Tarrasch's rule has exceptions - evaluate concretely",
+                    "Long-side vs short-side defense depends on pawn position",
+                    "Two weaknesses principle applies strongly in rook endings",
+                    "Rook + pawn races require precise calculation"
+                ]
+                lesson["theory_to_study"] = [
+                    "Exceptions to Tarrasch's rule",
+                    "Vancura position with a-pawn",
+                    "Complex rook endgame theory"
+                ]
+                lesson["one_sentence_takeaway"] = "In complex rook endings, calculation trumps rules - but know the rules first."
+                lesson["next_step"] = "Analyze this rook ending deeply to understand the critical moments"
+                
         else:
-            lesson["what_to_remember"] = ENDGAME_PRINCIPLES["core"]
-            lesson["one_sentence_takeaway"] = "Endgames are won by active kings and passed pawns - bring your king to the fight!"
+            lesson["lesson_title"] = "Endgame Technique"
+            lesson["what_to_remember"] = principles["core"][:4]
+            lesson["one_sentence_takeaway"] = "Endgames reward accurate play - calculate before committing."
+            lesson["next_step"] = "Review this endgame and find the turning point"
     
     elif phase == "middlegame":
+        principles = MIDDLEGAME_PRINCIPLES_BY_RATING.get(bracket, MIDDLEGAME_PRINCIPLES_BY_RATING["intermediate"])
         lesson["lesson_title"] = "Middlegame Lesson"
-        lesson["what_to_remember"] = [
-            "Always have a PLAN - don't just make moves",
-            "Improve your worst piece before attacking",
-            "Look for opponent's weaknesses to target",
-            "Coordinate your pieces before striking"
-        ]
-        lesson["theory_to_study"] = [
-            "Pawn structure and planning",
-            "Piece coordination",
-            "Attacking the king"
-        ]
-        lesson["one_sentence_takeaway"] = "In the middlegame, have a plan and improve your worst piece - aimless moves lose games."
+        
+        if bracket == "beginner":
+            lesson["what_to_remember"] = [
+                "Always check for threats before moving",
+                "If stuck, find your laziest piece and activate it",
+                "Don't attack until most pieces are ready",
+                "Keep pieces working together, not alone"
+            ]
+            lesson["theory_to_study"] = [
+                "Basic tactics: pins, forks, skewers",
+                "How to coordinate pieces"
+            ]
+            lesson["one_sentence_takeaway"] = "In the middlegame, check for threats first, then improve your worst piece."
+            lesson["next_step"] = "Do 10 tactical puzzles daily on lichess or chess.com"
+            
+        elif bracket == "intermediate":
+            lesson["what_to_remember"] = [
+                "Have a PLAN based on the position - no random moves",
+                "Improve your worst piece before attacking",
+                "Look for opponent's weaknesses to target",
+                "Coordinate pieces before launching attacks"
+            ]
+            lesson["theory_to_study"] = [
+                "Pawn structures and their plans",
+                "Piece coordination patterns",
+                "When to attack, when to improve"
+            ]
+            lesson["one_sentence_takeaway"] = "Every middlegame move should serve a purpose - random moves lose games."
+            lesson["next_step"] = "After each game, identify your plan - if you had none, that's the problem"
+            
+        else:  # advanced/expert
+            lesson["what_to_remember"] = principles["core"][:4]
+            lesson["theory_to_study"] = [
+                "Strategic patterns by pawn structure",
+                "Prophylaxis and provocation",
+                "Converting advantages"
+            ]
+            lesson["one_sentence_takeaway"] = "Control the position before attacking - rushed attacks give counterplay."
+            lesson["next_step"] = "Analyze this game: was there a moment you could have improved before attacking?"
     
     else:  # opening
+        principles = OPENING_PRINCIPLES_BY_RATING.get(bracket, OPENING_PRINCIPLES_BY_RATING["intermediate"])
         lesson["lesson_title"] = "Opening Lesson"
-        lesson["what_to_remember"] = OPENING_PRINCIPLES["core"][:4]
-        lesson["theory_to_study"] = [
-            "Basic opening principles",
-            "Your main opening repertoire"
-        ]
-        lesson["one_sentence_takeaway"] = "In the opening, develop all pieces, control the center, and castle - don't hunt for material."
+        
+        if bracket == "beginner":
+            lesson["what_to_remember"] = [
+                "Put pawns in the center",
+                "Get knights and bishops out",
+                "Castle your king to safety",
+                "Don't chase pawns with your queen"
+            ]
+            lesson["theory_to_study"] = [
+                "Basic opening principles",
+                "1-2 openings for White and Black"
+            ]
+            lesson["one_sentence_takeaway"] = "In the opening, develop pieces, control center, castle - that's 90% of it."
+            lesson["next_step"] = "Learn ONE opening as White and ONE as Black - deeply, not broadly"
+            
+        else:
+            lesson["what_to_remember"] = principles["core"][:4]
+            lesson["theory_to_study"] = [
+                "Your opening repertoire plans",
+                "Typical middlegame structures"
+            ]
+            lesson["one_sentence_takeaway"] = "Know WHY you play your opening moves, not just WHAT moves to play."
+            lesson["next_step"] = "Review the opening phase - where did you deviate from good principles?"
     
     return lesson
 
