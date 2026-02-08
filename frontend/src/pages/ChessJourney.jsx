@@ -133,17 +133,17 @@ const HabitItem = ({ habit, status }) => {
       <div className="flex items-center justify-between mb-1">
         <span className="font-medium text-sm">{habit.display_name}</span>
         {status === "in_progress" && (
-          <span className="text-xs">{habit.mastery_pct}% mastered</span>
+          <span className="text-xs">{habit.mastery_pct}% corrected</span>
         )}
         {status === "needs_attention" && habit.recent_occurrences > 0 && (
-          <span className="text-xs">{habit.recent_occurrences} recent</span>
+          <span className="text-xs">Still leaking rating</span>
         )}
       </div>
       {status === "in_progress" && (
         <ProgressBar value={habit.mastery_pct} className="h-1.5" />
       )}
       {status === "conquered" && (
-        <p className="text-xs opacity-75">No longer a weakness</p>
+        <p className="text-xs opacity-75">Fixed — no longer a rating leak</p>
       )}
     </div>
   );
