@@ -20,7 +20,11 @@ import {
   ChevronUp,
   Volume2,
   VolumeX,
-  Mic
+  Mic,
+  BookOpen,
+  Target,
+  Lightbulb,
+  TrendingUp
 } from "lucide-react";
 
 const GameAnalysis = ({ user }) => {
