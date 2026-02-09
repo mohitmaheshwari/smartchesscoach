@@ -533,7 +533,10 @@ const GameAnalysis = ({ user }) => {
   // Handle asking about the current position
   const handleAskAboutMove = async () => {
     // Prevent double submission
-    if (askLoading) return;
+    if (askLoading) {
+      console.log("Blocked: Already loading");
+      return;
+    }
     
     if (!askQuestion.trim()) {
       toast.error("Please enter a question");
@@ -545,12 +548,16 @@ const GameAnalysis = ({ user }) => {
     const questionToAsk = askQuestion.trim();
     const currentHistory = [...conversationHistory]; // Snapshot the history
     
+    console.log("Starting ask request:", { fen, playedMove, questionToAsk, historyLength: currentHistory.length });
+    
     // Clear input immediately to prevent double submit
     setAskQuestion("");
     setAskLoading(true);
     
     try {
       const url = API + "/game/" + gameId + "/ask";
+      console.log("Fetching:", url);
+      
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -565,15 +572,21 @@ const GameAnalysis = ({ user }) => {
         })
       });
       
-      // Clone response to safely read it
+      console.log("Response received, status:", response.status);
+      
+      // Read response as text first to avoid body stream issues
       const responseText = await response.text();
+      console.log("Response text length:", responseText.length);
+      
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error("JSON parse error:", parseError, "Response:", responseText);
+        console.error("JSON parse error:", parseError, "Response:", responseText.substring(0, 500));
         throw new Error("Invalid response from server");
       }
+      
+      console.log("Parsed data successfully");
       
       if (!response.ok) {
         throw new Error(data.detail || "Failed to get answer");
@@ -590,6 +603,8 @@ const GameAnalysis = ({ user }) => {
         answer: data.answer,
         stockfish: data.stockfish
       }]);
+      
+      console.log("Ask completed successfully");
       
     } catch (error) {
       // Restore the question if there was an error
