@@ -4354,26 +4354,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==================== BACKGROUND SYNC SCHEDULER ====================
-import asyncio
-
-# Note: _background_sync_task is declared at the top with lifespan
-
-async def background_sync_loop():
-    """
-    Periodic background task to sync games for all users.
-    Runs every 6 hours (configurable via BACKGROUND_SYNC_INTERVAL_SECONDS).
-    """
-    while True:
-        try:
-            logger.info("Starting background game sync...")
-            synced_count = await run_background_sync(db)
-            logger.info(f"Background sync completed: {synced_count} games synced")
-        except Exception as e:
-            logger.error(f"Background sync error: {e}")
-        
-        # Wait for next sync interval (6 hours by default)
-        await asyncio.sleep(BACKGROUND_SYNC_INTERVAL_SECONDS)
-
-# Note: Startup and shutdown are now handled by the lifespan context manager
-# defined at the top of this file (see: async def lifespan(app))
+# Note: Background sync scheduler and lifespan events are defined at the top of this file
