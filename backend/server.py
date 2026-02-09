@@ -123,8 +123,40 @@ db = client[os.environ['DB_NAME']]
 # LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
-# Create the main app without a prefix
-app = FastAPI()
+# Global variable to track the background task
+_background_sync_task = None
+
+# Lifespan context manager (replaces deprecated on_event)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for FastAPI.
+    Handles startup and shutdown events.
+    """
+    global _background_sync_task
+    
+    # === STARTUP ===
+    # Start the background sync loop
+    _background_sync_task = asyncio.create_task(background_sync_loop())
+    logger.info("Background sync scheduler started")
+    
+    yield  # App runs here
+    
+    # === SHUTDOWN ===
+    # Cancel background task
+    if _background_sync_task:
+        _background_sync_task.cancel()
+        try:
+            await _background_sync_task
+        except asyncio.CancelledError:
+            pass
+    
+    # Close MongoDB connection
+    client.close()
+    logger.info("Application shutdown complete")
+
+# Create the main app with lifespan
+app = FastAPI(lifespan=lifespan)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
