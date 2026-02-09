@@ -48,6 +48,12 @@ const GameAnalysis = ({ user }) => {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const audioRef = useRef(null);
   const boardRef = useRef(null);
+  
+  // Ask About Move state
+  const [askQuestion, setAskQuestion] = useState("");
+  const [askLoading, setAskLoading] = useState(false);
+  const [askResponse, setAskResponse] = useState(null);
+  const [showAskPanel, setShowAskPanel] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
