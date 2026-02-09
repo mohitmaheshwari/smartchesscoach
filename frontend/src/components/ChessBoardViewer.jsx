@@ -165,6 +165,11 @@ const ChessBoardViewer = forwardRef(({
     },
     goToEnd: () => goToMove(moves.length - 1),
     getCurrentMoveIndex: () => currentMoveIndex,
+    // Get the current FEN position
+    getCurrentFen: () => {
+      if (currentMoveIndex < 0) return START_FEN;
+      return allFens[currentMoveIndex + 1] || START_FEN;
+    },
     // Play a variation from a specific FEN position
     playVariation: (fen, movesArray, color = 'white') => {
       if (!fen || !movesArray || movesArray.length === 0) return;
