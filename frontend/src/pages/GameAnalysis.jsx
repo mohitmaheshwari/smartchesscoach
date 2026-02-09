@@ -55,6 +55,17 @@ const GameAnalysis = ({ user }) => {
   const [askResponse, setAskResponse] = useState(null);
   const [showAskPanel, setShowAskPanel] = useState(false);
   const [conversationHistory, setConversationHistory] = useState([]);  // Q&A history for follow-up questions
+  const [lastAskedMoveNumber, setLastAskedMoveNumber] = useState(null);  // Track which move the conversation is about
+
+  // Clear conversation when move changes significantly
+  useEffect(() => {
+    if (lastAskedMoveNumber !== null && currentMoveNumber !== lastAskedMoveNumber) {
+      // User moved to a different position - clear conversation
+      setConversationHistory([]);
+      setAskResponse(null);
+      setLastAskedMoveNumber(null);
+    }
+  }, [currentMoveNumber, lastAskedMoveNumber]);
 
   useEffect(() => {
     const fetchData = async () => {
