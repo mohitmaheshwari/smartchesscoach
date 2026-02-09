@@ -503,17 +503,30 @@ const GameAnalysis = ({ user }) => {
 
   // Get current FEN from the board
   const getCurrentFen = () => {
-    // Try to get FEN from current move in move evaluations
+    // First, try to get FEN directly from the board component (most accurate)
+    if (boardRef.current && boardRef.current.getCurrentFen) {
+      const boardFen = boardRef.current.getCurrentFen();
+      if (boardFen) {
+        console.log("Got FEN from board:", boardFen);
+        return boardFen;
+      }
+    }
+    
+    // Fallback: Try to get FEN from current move in move evaluations
     if (moveEvaluations && moveEvaluations.length > 0) {
       const evalAtMove = moveEvaluations.find(e => e.move_number === currentMoveNumber);
       if (evalAtMove?.fen) return evalAtMove.fen;
+      if (evalAtMove?.fen_before) return evalAtMove.fen_before;
     }
-    // Try from commentary
+    
+    // Fallback: Try from commentary
     if (commentary && commentary.length > 0) {
       const commentAtMove = commentary.find(c => c.move_number === currentMoveNumber);
       if (commentAtMove?.fen) return commentAtMove.fen;
     }
-    // Return starting position as fallback
+    
+    // Last resort: Return starting position
+    console.warn("Could not get FEN, using starting position");
     return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   };
 
