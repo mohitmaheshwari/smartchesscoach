@@ -2560,9 +2560,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 "repeated_habit": repeated_habit,
                 "game_id": most_recent_game.get("game_id"),
                 "external_url": most_recent_game.get("url"),
-                "critical_moment": critical_moment,
-                "has_full_analysis": True,
-                "analysis_warning": None
+                "has_full_analysis": True
             }
     
     # ===== OPENING DISCIPLINE (Play This Today / Rating Leak / Wisdom) =====
