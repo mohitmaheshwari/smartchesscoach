@@ -532,6 +532,9 @@ const GameAnalysis = ({ user }) => {
 
   // Handle asking about the current position
   const handleAskAboutMove = async () => {
+    // Prevent double submission
+    if (askLoading) return;
+    
     if (!askQuestion.trim()) {
       toast.error("Please enter a question");
       return;
@@ -539,7 +542,11 @@ const GameAnalysis = ({ user }) => {
     
     const fen = getCurrentFen();
     const playedMove = getPlayedMoveAtCurrent();
+    const questionToAsk = askQuestion.trim();
+    const currentHistory = [...conversationHistory]; // Snapshot the history
     
+    // Clear input immediately to prevent double submit
+    setAskQuestion("");
     setAskLoading(true);
     
     try {
@@ -550,15 +557,23 @@ const GameAnalysis = ({ user }) => {
         credentials: "include",
         body: JSON.stringify({
           fen: fen,
-          question: askQuestion,
+          question: questionToAsk,
           played_move: playedMove,
           move_number: currentMoveNumber,
           user_color: userColor,
-          conversation_history: conversationHistory  // Send previous Q&A for context
+          conversation_history: currentHistory
         })
       });
       
-      const data = await response.json();
+      // Clone response to safely read it
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError, "Response:", responseText);
+        throw new Error("Invalid response from server");
+      }
       
       if (!response.ok) {
         throw new Error(data.detail || "Failed to get answer");
@@ -571,15 +586,16 @@ const GameAnalysis = ({ user }) => {
       
       // Add to conversation history
       setConversationHistory(prev => [...prev, {
-        question: askQuestion,
+        question: questionToAsk,
         answer: data.answer,
         stockfish: data.stockfish
       }]);
       
-      // Clear the input for next question
-      setAskQuestion("");
     } catch (error) {
+      // Restore the question if there was an error
+      setAskQuestion(questionToAsk);
       toast.error(error.message || "Failed to analyze position");
+      console.error("Ask error:", error);
     } finally {
       setAskLoading(false);
     }
