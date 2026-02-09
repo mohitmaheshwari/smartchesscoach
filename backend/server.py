@@ -3793,29 +3793,7 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
                 
                 best_line_for_user = before_eval.get("pv", [])[:5]
         
-        # Also analyze current position (AFTER the move) for opponent's response
-        if not req.played_move:
-            # User is asking about a move they played
-            # The current position is AFTER that move
-            # We need to go back one move to find what they SHOULD have played
-            
-            # Try to undo the move to get position before
-            try:
-                # Create a test board and try to reverse the move
-                # The played_move is in SAN notation for the position BEFORE
-                # So we need to find the position before and analyze it
-                
-                # Approach: The current FEN is after the move. 
-                # Try to pop the last move if possible, or infer the previous position
-                
-                # Since we can't easily undo a move from FEN alone, 
-                # we'll analyze the current position but be VERY clear in the prompt
-                # about what the user is asking
-                pass
-            except:
-                pass
-        
-        # Get Stockfish analysis for the CURRENT position
+        # Get Stockfish analysis for the CURRENT position (after the move)
         position_eval = get_position_evaluation(req.fen, depth=18)
         if not position_eval.get("success"):
             raise HTTPException(status_code=500, detail="Failed to analyze position")
@@ -3831,30 +3809,34 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
             is_mate = False
             mate_in = None
         
-        # Extract best move - handle both object and string formats
+        # Extract best move for CURRENT position (opponent's best response)
         best_move_data = position_eval.get("best_move", {})
         if isinstance(best_move_data, dict):
-            best_move_san = best_move_data.get("san", "")
+            opponent_best_move = best_move_data.get("san", "")
         else:
-            best_move_san = str(best_move_data) if best_move_data else ""
+            opponent_best_move = str(best_move_data) if best_move_data else ""
         
         stockfish_data = {
             "evaluation": eval_score,
             "eval_type": "mate" if is_mate else "cp",
-            "best_move": best_move_san,
+            "best_move": opponent_best_move,  # This is opponent's best move (current turn)
             "best_line": position_eval.get("pv", [])[:5],
             "is_check": board.is_check(),
             "is_checkmate": board.is_checkmate(),
-            "turn": current_turn
+            "turn": current_turn,
+            # NEW: Best move for the USER (from position BEFORE their move)
+            "user_best_move": best_move_for_user,
+            "user_best_line": best_line_for_user,
+            "eval_before": eval_before
         }
         
-        # If user asks about an alternative move, analyze it
+        # If user asks about an alternative move, analyze it from position BEFORE
         alternative_analysis = None
-        if req.alternative_move:
+        if req.alternative_move and board_before:
             try:
-                # Parse and validate the alternative move
-                alt_move = board.parse_san(req.alternative_move)
-                alt_board = board.copy()
+                # Parse and validate the alternative move on the board BEFORE
+                alt_move = board_before.parse_san(req.alternative_move)
+                alt_board = board_before.copy()
                 alt_board.push(alt_move)
                 
                 # Analyze position after alternative move
