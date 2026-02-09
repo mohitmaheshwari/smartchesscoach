@@ -70,12 +70,21 @@ const ProtectedRoute = ({ children }) => {
   return children({ user });
 };
 
-// App Router with session_id detection
+// App Router with auth detection
 function AppRouter() {
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // Check URL fragment for session_id synchronously during render
-  // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+  // Check for auth=success in URL (from Google OAuth callback)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('auth') === 'success') {
+      // Remove the query param and stay on dashboard
+      navigate('/dashboard', { replace: true });
+    }
+  }, [location.search, navigate]);
+
+  // Legacy: Check URL fragment for session_id (Emergent auth)
   if (location.hash?.includes('session_id=')) {
     return <AuthCallback />;
   }
