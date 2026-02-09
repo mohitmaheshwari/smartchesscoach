@@ -3853,26 +3853,19 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
             except Exception as e:
                 alternative_analysis = {"error": f"Invalid move: {req.alternative_move}"}
         
-        # If a move was played, we need to understand what SHOULD have been played
-        # The current position is AFTER the move, so stockfish best_move is for opponent
+        # Store played move analysis
         played_analysis = None
-        user_should_have_played = None
-        
         if req.played_move:
-            # The user played this move. Current position is AFTER.
-            # stockfish_data["best_move"] is the opponent's best response.
-            # 
-            # To find what user SHOULD have played, we need the position BEFORE.
-            # Since we don't have it directly, we'll note this in the prompt.
-            
             played_analysis = {
                 "move": req.played_move,
-                "evaluation_after": eval_score,  # Current eval (after the move)
-                "opponent_best_response": best_move_san,  # What opponent should play now
+                "evaluation_after": eval_score,
+                "opponent_best_response": opponent_best_move,
+                "user_should_have_played": best_move_for_user,
+                "user_best_line": best_line_for_user
             }
         
         # Build human-readable position description
-        def describe_position(board):
+        def describe_position(b):
             """Generate a human-readable description of the chess position"""
             piece_names = {
                 'K': 'King', 'Q': 'Queen', 'R': 'Rook', 'B': 'Bishop', 'N': 'Knight', 'P': 'Pawn',
@@ -3883,7 +3876,7 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
             black_pieces = []
             
             for square in chess.SQUARES:
-                piece = board.piece_at(square)
+                piece = b.piece_at(square)
                 if piece:
                     square_name = chess.square_name(square)
                     piece_name = piece_names.get(piece.symbol(), 'Piece')
@@ -3893,38 +3886,6 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
                         black_pieces.append(f"{piece_name} on {square_name}")
             
             return f"White: {', '.join(white_pieces)}\nBlack: {', '.join(black_pieces)}"
-        
-        # IMPORTANT: The FEN we received is AFTER the move was played.
-        # If user asks about their move, we need to analyze the position BEFORE the move.
-        user_color = req.user_color or "white"
-        current_turn = "white" if board.turn else "black"
-        
-        # If user played a move, try to get the position BEFORE that move
-        position_before_move = None
-        best_move_for_user = None
-        user_best_line = []
-        
-        if req.played_move:
-            # The current position is AFTER the move, so the turn has switched
-            # If it's currently White's turn, Black just moved (and vice versa)
-            user_just_moved = (current_turn != user_color)
-            
-            if user_just_moved:
-                # Try to undo the move to get the position before
-                try:
-                    # Create a board and try to find the position before the played move
-                    # We need to work backwards - the current FEN is after the move
-                    test_board = chess.Board(req.fen)
-                    
-                    # The move was just played, so let's analyze from current position
-                    # but note that "best move" is for the OPPONENT now
-                    
-                    # To find what the USER should have played, we need position BEFORE their move
-                    # We can try to reverse-engineer by undoing the last move
-                    # But that's complex - instead, let's be explicit in the prompt
-                    pass
-                except:
-                    pass
         
         # Get legal moves in SAN notation (for current position)
         legal_moves_san = [board.san(m) for m in board.legal_moves]
