@@ -467,26 +467,6 @@ const Coach = ({ user }) => {
                   {coachData.last_game.comment}
                 </p>
                 
-                {/* Critical moment if there was a blunder */}
-                {coachData.last_game.critical_moment && (
-                  <div className="mt-3 p-3 bg-red-500/10 rounded border border-red-500/20">
-                    <p className="text-xs text-red-400 mb-1">
-                      Critical moment (move {coachData.last_game.critical_moment.move_number})
-                    </p>
-                    <p className="text-sm">
-                      You played <span className="font-mono text-red-400">{coachData.last_game.critical_moment.move}</span>
-                      {coachData.last_game.critical_moment.best_move && (
-                        <>, better was <span className="font-mono text-emerald-400">{coachData.last_game.critical_moment.best_move}</span></>
-                      )}
-                    </p>
-                    {coachData.last_game.critical_moment.explanation && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {coachData.last_game.critical_moment.explanation}
-                      </p>
-                    )}
-                  </div>
-                )}
-                
                 <div className="flex items-center gap-3 mt-3">
                   {coachData.last_game.game_id && (
                     <button 
