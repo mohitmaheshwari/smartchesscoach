@@ -1,0 +1,32 @@
+# Chess Coach AI - Backend Dockerfile
+# Standalone backend service for development or microservices deployment
+
+FROM python:3.11-slim
+
+# Install system dependencies including Stockfish chess engine
+RUN apt-get update && apt-get install -y \
+    stockfish \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy and install Python dependencies
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend source code
+COPY backend/ ./backend/
+
+# Set working directory to backend
+WORKDIR /app/backend
+
+# Expose the API port
+EXPOSE 8001
+
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8001/api/health || exit 1
+
+# Run the FastAPI server
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]

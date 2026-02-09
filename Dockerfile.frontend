@@ -1,0 +1,21 @@
+# Chess Coach AI - Frontend Dockerfile
+# Standalone frontend service for development
+
+FROM node:20-slim
+
+WORKDIR /app/frontend
+
+# Copy package files
+COPY frontend/package.json frontend/yarn.lock ./
+
+# Install dependencies
+RUN yarn install --frozen-lockfile
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Expose development port
+EXPOSE 3000
+
+# Start development server
+CMD ["yarn", "start"]

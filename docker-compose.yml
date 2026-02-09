@@ -1,0 +1,86 @@
+# Chess Coach AI - Docker Compose Configuration
+# 
+# Usage:
+#   Development: docker-compose up
+#   Production:  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Environment variables required:
+#   - MONGO_URL: MongoDB connection string
+#   - EMERGENT_LLM_KEY: API key for LLM integration
+#   - (Optional) GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET for OAuth
+
+version: '3.8'
+
+services:
+  # ============================================
+  # MongoDB Database
+  # ============================================
+  mongodb:
+    image: mongo:7.0
+    container_name: chess-coach-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=chess_coach
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # Backend API (FastAPI)
+  # ============================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: chess-coach-backend
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=chess_coach
+      - EMERGENT_LLM_KEY=${EMERGENT_LLM_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./backend:/app/backend:ro  # Mount for development hot-reload
+
+  # ============================================
+  # Frontend (React - Development)
+  # ============================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: chess-coach-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:8001
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/frontend/src:ro  # Mount for development hot-reload
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  default:
+    name: chess-coach-network
