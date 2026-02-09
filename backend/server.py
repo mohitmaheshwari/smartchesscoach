@@ -3958,17 +3958,7 @@ RULES FOR YOUR ANSWER:
 5. Keep answers concise (3-4 sentences).
 6. Never suggest {opponent_color}'s moves as alternatives for {user_color_name}.
 
-Answer naturally like a helpful mentor:"""
-- When explaining why a move is bad, focus on the CONSEQUENCES, not just "X was better" (unless X is a move for {user_color_name})
-- If you don't know what {user_color_name} should have played instead, just explain why the move they played is problematic
-
-Do NOT:
-- Suggest {opponent_color}'s moves as alternatives for {user_color_name}
-- List long variations
-- Be overly technical
-- Say "as a chess coach" or similar phrases
-
-Just answer naturally like a helpful mentor."""
+Answer naturally like a helpful mentor."""
 
         # Get GPT response
         try:
