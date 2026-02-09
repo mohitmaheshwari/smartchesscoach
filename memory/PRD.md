@@ -205,6 +205,28 @@ Metrics support the habit narrative, not replace it.
 
 ## Changelog
 
+### February 9, 2025 - Ask About This Move Feature (Interactive Analysis)
+- **NEW FEATURE: Ask About This Move** - Interactive position analysis during game review
+  - Users can ask questions about any position in their game analysis
+  - Backend `POST /api/game/{game_id}/ask` endpoint using Stockfish + GPT
+  - Frontend UI with "Ask" toggle button in board header
+  - Suggested questions: "What was the best move?", "What was my opponent threatening?", "What should my plan be?"
+  - Free-form question input with alternative move analysis ("What if I played Nf3 instead?")
+  - Response shows: GPT answer, Stockfish best move/evaluation, alternative move analysis
+- **Files Modified**:
+  - `backend/server.py` - Fixed LLM initialization pattern for /ask endpoint (line 3880)
+  - `frontend/src/pages/GameAnalysis.jsx` - Added AskAboutMovePanel UI component
+- **Testing**: UI verified, backend endpoint registered, Stockfish integration working
+
+### February 9, 2025 - Data Consistency Regression Tests
+- **NEW: Comprehensive regression tests** for the recurring data inconsistency bug
+  - `tests/test_data_consistency.py` - 5 test cases
+  - Verifies stats come from `stockfish_analysis.move_evaluations` not stale top-level fields
+  - Tests coach/today and progress endpoints for data source compliance
+  - Tests ask endpoint registration and structure
+- **Bug Fix**: Removed reference to undefined `critical_moment` variable in coach/today comment generation (server.py line 2535)
+- **Status**: All 3 data consistency tests passing
+
 ### February 8, 2025 - Opening Discipline Feature (Major Feature)
 - **Opening Discipline section on Coach page** - Combines three coaching perspectives:
   1. **Play This Today**: Best opening for White and Black (≥3 games, highest win rate)
