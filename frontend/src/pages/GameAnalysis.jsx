@@ -640,9 +640,23 @@ const GameAnalysis = ({ user }) => {
           {/* Board */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <span className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-xs font-bold">♟</span>
-                Board
+              <CardTitle className="text-lg flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-xs font-bold">♟</span>
+                  Board
+                </div>
+                {analysis && (
+                  <Button
+                    variant={showAskPanel ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowAskPanel(!showAskPanel)}
+                    className="gap-1.5"
+                    data-testid="ask-about-move-toggle"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Ask
+                  </Button>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -662,6 +676,110 @@ const GameAnalysis = ({ user }) => {
                   onMoveChange={setCurrentMoveNumber} 
                   commentary={commentary} 
                 />
+              )}
+              
+              {/* Ask About This Move Panel */}
+              {showAskPanel && analysis && (
+                <div className="mt-4 p-4 rounded-lg bg-gradient-to-r from-violet-500/10 to-blue-500/10 border border-violet-500/20" data-testid="ask-about-move-panel">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4 text-violet-500" />
+                      Ask About This Position
+                    </p>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAskPanel(false)}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  {/* Suggested Questions */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {getSuggestedQuestions().map((q, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setAskQuestion(q)}
+                        className="text-xs px-2 py-1 rounded-full bg-violet-500/20 text-violet-600 dark:text-violet-400 hover:bg-violet-500/30 transition-colors"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Question Input */}
+                  <div className="flex gap-2">
+                    <Input
+                      value={askQuestion}
+                      onChange={(e) => setAskQuestion(e.target.value)}
+                      placeholder="e.g., What if I played Nf3 instead?"
+                      className="flex-1 text-sm"
+                      onKeyDown={(e) => e.key === 'Enter' && handleAskAboutMove()}
+                      disabled={askLoading}
+                      data-testid="ask-question-input"
+                    />
+                    <Button 
+                      size="sm" 
+                      onClick={handleAskAboutMove} 
+                      disabled={askLoading || !askQuestion.trim()}
+                      data-testid="ask-submit-btn"
+                    >
+                      {askLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {/* Response */}
+                  {askResponse && (
+                    <div className="mt-4 space-y-3" data-testid="ask-response">
+                      {/* Main Answer */}
+                      <div className="p-3 rounded-lg bg-background border">
+                        <p className="text-sm">{askResponse.answer}</p>
+                      </div>
+                      
+                      {/* Stockfish Analysis */}
+                      {askResponse.stockfish && (
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <span className="font-medium">Best:</span>
+                            <span className="font-mono text-violet-600 dark:text-violet-400">
+                              {askResponse.stockfish.best_move}
+                            </span>
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="font-medium">Eval:</span>
+                            <span className={`font-mono ${
+                              askResponse.stockfish.evaluation > 0 ? 'text-emerald-500' : 
+                              askResponse.stockfish.evaluation < 0 ? 'text-red-500' : ''
+                            }`}>
+                              {askResponse.stockfish.eval_type === 'mate' 
+                                ? `M${Math.abs(askResponse.stockfish.evaluation)}`
+                                : (askResponse.stockfish.evaluation / 100).toFixed(1)
+                              }
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Alternative Move Analysis */}
+                      {askResponse.alternative_analysis && !askResponse.alternative_analysis.error && (
+                        <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20 text-xs">
+                          <span className="font-medium text-blue-600 dark:text-blue-400">
+                            After {askResponse.alternative_analysis.move}:
+                          </span>
+                          <span className="ml-2 font-mono">
+                            eval {(askResponse.alternative_analysis.evaluation / 100).toFixed(1)}
+                          </span>
+                          {askResponse.alternative_analysis.opponent_best_response && (
+                            <span className="ml-2 text-muted-foreground">
+                              → {askResponse.alternative_analysis.opponent_best_response}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
