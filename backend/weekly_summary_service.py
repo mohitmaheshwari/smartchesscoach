@@ -37,17 +37,29 @@ async def generate_weekly_summary_data(db, user_id: str) -> Dict[str, Any]:
     games_this_week = await db.game_analyses.find(
         {
             "user_id": user_id,
-            "created_at": {"$gte": start_date.isoformat(), "$lte": end_date.isoformat()}
+            "created_at": {"$gte": start_date.isoformat(), "$lte": end_date.isoformat()},
+            "stockfish_analysis.move_evaluations": {"$exists": True, "$not": {"$size": 0}}
         },
-        {"_id": 0, "blunders": 1, "mistakes": 1, "best_moves": 1, "game_id": 1}
+        {"_id": 0, "stockfish_analysis": 1, "game_id": 1}
     ).to_list(100)
     
     games_count = len(games_this_week)
     
-    # Calculate stats
-    total_blunders = sum(g.get("blunders", 0) for g in games_this_week)
-    total_mistakes = sum(g.get("mistakes", 0) for g in games_this_week)
-    total_best = sum(g.get("best_moves", 0) for g in games_this_week)
+    # Helper to count from Stockfish data (SOURCE OF TRUTH)
+    def count_evals(analysis, eval_type):
+        sf = analysis.get("stockfish_analysis", {})
+        evals = sf.get("move_evaluations", [])
+        return sum(1 for m in evals if m.get("evaluation") == eval_type)
+    
+    def count_best(analysis):
+        sf = analysis.get("stockfish_analysis", {})
+        evals = sf.get("move_evaluations", [])
+        return sum(1 for m in evals if m.get("is_best") or m.get("evaluation") == "best")
+    
+    # Calculate stats from stockfish_analysis.move_evaluations
+    total_blunders = sum(count_evals(g, "blunder") for g in games_this_week)
+    total_mistakes = sum(count_evals(g, "mistake") for g in games_this_week)
+    total_best = sum(count_best(g) for g in games_this_week)
     
     avg_blunders = total_blunders / games_count if games_count > 0 else 0
     
@@ -58,12 +70,14 @@ async def generate_weekly_summary_data(db, user_id: str) -> Dict[str, Any]:
     prev_games = await db.game_analyses.find(
         {
             "user_id": user_id,
-            "created_at": {"$gte": prev_start.isoformat(), "$lte": prev_end.isoformat()}
+            "created_at": {"$gte": prev_start.isoformat(), "$lte": prev_end.isoformat()},
+            "stockfish_analysis.move_evaluations": {"$exists": True, "$not": {"$size": 0}}
         },
-        {"_id": 0, "blunders": 1}
+        {"_id": 0, "stockfish_analysis": 1}
     ).to_list(100)
     
-    prev_avg_blunders = sum(g.get("blunders", 0) for g in prev_games) / len(prev_games) if prev_games else avg_blunders
+    prev_total_blunders = sum(count_evals(g, "blunder") for g in prev_games)
+    prev_avg_blunders = prev_total_blunders / len(prev_games) if prev_games else avg_blunders
     
     # Determine improvement trend
     if avg_blunders < prev_avg_blunders * 0.8:
