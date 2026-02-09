@@ -260,6 +260,46 @@ async def init_database():
             "theme": "str",
             "created_at": "str - ISO timestamp"
         },
+        "puzzle_attempts": {
+            "attempt_id": "str (unique)",
+            "user_id": "str",
+            "puzzle_id": "str",
+            "success": "bool - Whether puzzle was solved correctly",
+            "time_taken_ms": "int - Time to solve in milliseconds",
+            "moves_made": "list[str] - Moves attempted",
+            "created_at": "str - ISO timestamp"
+        },
+        "analysis_queue": {
+            "queue_id": "str (unique)",
+            "user_id": "str",
+            "game_id": "str",
+            "status": "str - 'pending', 'processing', 'completed', 'failed'",
+            "priority": "int",
+            "created_at": "str - ISO timestamp",
+            "started_at": "str | null",
+            "completed_at": "str | null",
+            "error": "str | null - Error message if failed"
+        },
+        "notifications": {
+            "notification_id": "str (unique)",
+            "user_id": "str",
+            "type": "str - 'analysis_complete', 'weakness_alert', 'achievement', etc.",
+            "title": "str",
+            "message": "str",
+            "data": "dict - Additional data for the notification",
+            "read": "bool - Whether notification has been read",
+            "created_at": "str - ISO timestamp"
+        },
+        "reflection_results": {
+            "reflection_id": "str (unique)",
+            "user_id": "str",
+            "game_id": "str",
+            "reflection_type": "str - Type of reflection exercise",
+            "user_answer": "str - User's reflection response",
+            "feedback": "str - AI feedback on reflection",
+            "score": "int | null - Score if applicable",
+            "created_at": "str - ISO timestamp"
+        },
         "game_embeddings": {
             "embedding_id": "str (unique)",
             "user_id": "str",
