@@ -2342,14 +2342,20 @@ async def get_coach_today(user: User = Depends(get_current_user)):
     # ===== LIGHT STATS (2-3 stats with trends) =====
     light_stats = []
     
+    # Helper to count blunders from Stockfish data
+    def count_blunders_sf(a):
+        sf = a.get("stockfish_analysis", {})
+        evals = sf.get("move_evaluations", [])
+        return sum(1 for m in evals if m.get("evaluation") == "blunder")
+    
     # Blunders per game trend
     recent_10 = recent_analyses[:10] if recent_analyses else []
     older_10 = recent_analyses[10:20] if len(recent_analyses) > 10 else []
     
     if recent_10:
-        recent_blunders = sum(a.get("blunders", 0) for a in recent_10) / len(recent_10)
+        recent_blunders = sum(count_blunders_sf(a) for a in recent_10) / len(recent_10)
         if older_10:
-            older_blunders = sum(a.get("blunders", 0) for a in older_10) / len(older_10)
+            older_blunders = sum(count_blunders_sf(a) for a in older_10) / len(older_10)
             trend = "down" if recent_blunders < older_blunders else ("up" if recent_blunders > older_blunders else "stable")
             light_stats.append({
                 "label": "Blunders / game",
