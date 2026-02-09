@@ -574,11 +574,12 @@ const GameAnalysis = ({ user }) => {
     }
     
     const fen = getCurrentFen();
+    const fenBefore = getFenBeforeMove();  // Position BEFORE the move (for analyzing alternatives)
     const playedMove = getPlayedMoveAtCurrent();
     const questionToAsk = askQuestion.trim();
     const currentHistory = [...conversationHistory]; // Snapshot the history
     
-    console.log("Starting ask request:", { fen, playedMove, questionToAsk, historyLength: currentHistory.length });
+    console.log("Starting ask request:", { fen, fenBefore, playedMove, questionToAsk, historyLength: currentHistory.length });
     
     // Clear input immediately to prevent double submit
     setAskQuestion("");
@@ -600,6 +601,7 @@ const GameAnalysis = ({ user }) => {
         credentials: "include",
         body: JSON.stringify({
           fen: fen,
+          fen_before: fenBefore,  // Send position BEFORE the move too
           question: questionToAsk,
           played_move: playedMove,
           move_number: currentMoveNumber,
