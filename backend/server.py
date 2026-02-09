@@ -2532,9 +2532,7 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                 else:
                     comment = "Solid draw, no blunders. Good focus."
             elif blunders == 1:
-                if critical_moment:
-                    comment = f"One blunder on move {critical_moment['move_number']}. {critical_moment['explanation'][:80]}..."
-                elif repeated_habit:
+                if repeated_habit:
                     comment = f"One blunder — same pattern: {habit_name.replace('_', ' ')}. Let's fix this."
                 else:
                     comment = "One slip-up. Let's see what happened."
