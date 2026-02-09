@@ -312,9 +312,150 @@ async def get_current_user(request: Request) -> User:
 
 # ==================== AUTH ROUTES ====================
 
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', '')  # e.g., https://chessguru.ai/auth/callback
+
+@api_router.get("/auth/google/login")
+async def google_login(request: Request):
+    """
+    Redirect user to Google OAuth consent screen.
+    Frontend should redirect to this endpoint to start login flow.
+    """
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Google OAuth not configured")
+    
+    # Get redirect URI from environment or construct from request
+    redirect_uri = GOOGLE_REDIRECT_URI or str(request.base_url).rstrip('/') + '/api/auth/google/callback'
+    
+    # Google OAuth authorization URL
+    google_auth_url = (
+        "https://accounts.google.com/o/oauth2/v2/auth?"
+        f"client_id={GOOGLE_CLIENT_ID}"
+        f"&redirect_uri={redirect_uri}"
+        "&response_type=code"
+        "&scope=openid%20email%20profile"
+        "&access_type=offline"
+        "&prompt=consent"
+    )
+    
+    return {"auth_url": google_auth_url}
+
+@api_router.get("/auth/google/callback")
+async def google_callback(code: str, response: Response):
+    """
+    Handle Google OAuth callback.
+    Exchange authorization code for tokens and create user session.
+    """
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=500, detail="Google OAuth not configured")
+    
+    redirect_uri = GOOGLE_REDIRECT_URI or ''
+    
+    try:
+        # Exchange authorization code for tokens
+        async with httpx.AsyncClient() as client_http:
+            token_resp = await client_http.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": code,
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": redirect_uri,
+                    "grant_type": "authorization_code"
+                }
+            )
+            
+            if token_resp.status_code != 200:
+                logger.error(f"Token exchange failed: {token_resp.text}")
+                raise HTTPException(status_code=401, detail="Failed to exchange authorization code")
+            
+            tokens = token_resp.json()
+            access_token = tokens.get("access_token")
+            
+            # Get user info from Google
+            user_resp = await client_http.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            
+            if user_resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Failed to get user info from Google")
+            
+            google_data = user_resp.json()
+        
+        email = google_data.get("email")
+        name = google_data.get("name", email.split("@")[0] if email else "User")
+        picture = google_data.get("picture")
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not provided by Google")
+        
+        # Create or update user
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        session_token = f"session_{uuid.uuid4().hex}"
+        
+        existing_user = await db.users.find_one({"email": email}, {"_id": 0})
+        
+        if existing_user:
+            user_id = existing_user["user_id"]
+            await db.users.update_one(
+                {"user_id": user_id},
+                {"$set": {
+                    "name": name,
+                    "picture": picture,
+                    "last_login": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+        else:
+            user_doc = {
+                "user_id": user_id,
+                "email": email,
+                "name": name,
+                "picture": picture,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "chess_com_username": None,
+                "lichess_username": None
+            }
+            await db.users.insert_one(user_doc)
+        
+        # Clear old sessions and create new one
+        await db.user_sessions.delete_many({"user_id": user_id})
+        
+        session_doc = {
+            "user_id": user_id,
+            "session_token": session_token,
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.user_sessions.insert_one(session_doc)
+        
+        # Set session cookie
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            httponly=True,
+            secure=True,
+            samesite="none",
+            path="/",
+            max_age=COOKIE_MAX_AGE_SECONDS
+        )
+        
+        # Redirect to frontend dashboard with success
+        frontend_url = os.environ.get('FRONTEND_URL', 'https://chessguru.ai')
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"{frontend_url}/dashboard?auth=success")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Google OAuth error: {e}")
+        raise HTTPException(status_code=500, detail="Authentication failed")
+
 @api_router.post("/auth/session")
 async def create_session(request: Request, response: Response):
-    """Exchange session_id for session_token"""
+    """Exchange session_id for session_token (legacy Emergent auth - keeping for backwards compatibility)"""
     body = await request.json()
     session_id = body.get("session_id")
     
