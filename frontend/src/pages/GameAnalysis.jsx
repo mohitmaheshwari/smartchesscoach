@@ -54,6 +54,7 @@ const GameAnalysis = ({ user }) => {
   const [askLoading, setAskLoading] = useState(false);
   const [askResponse, setAskResponse] = useState(null);
   const [showAskPanel, setShowAskPanel] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState([]);  // Q&A history for follow-up questions
 
   useEffect(() => {
     const fetchData = async () => {
