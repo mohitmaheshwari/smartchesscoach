@@ -3736,6 +3736,7 @@ class AskAboutMoveRequest(BaseModel):
     alternative_move: Optional[str] = None  # A "what if" move to analyze
     move_number: Optional[int] = None
     user_color: Optional[str] = "white"
+    conversation_history: Optional[List[Dict[str, str]]] = None  # Previous Q&A pairs for context
 
 @api_router.post("/game/{game_id}/ask")
 async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = Depends(get_current_user)):
