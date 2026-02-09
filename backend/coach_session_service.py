@@ -188,9 +188,13 @@ def _build_game_feedback(analysis: Dict, dominant_habit: str, game: Dict) -> Dic
             "detail": None
         }
     
-    blunders = analysis.get("blunders", 0)
-    mistakes = analysis.get("mistakes", 0)
-    best_moves = analysis.get("best_moves", 0)
+    # Get stats from stockfish_analysis.move_evaluations (SOURCE OF TRUTH)
+    sf = analysis.get("stockfish_analysis", {})
+    move_evals = sf.get("move_evaluations", [])
+    blunders = sum(1 for m in move_evals if m.get("evaluation") == "blunder")
+    mistakes = sum(1 for m in move_evals if m.get("evaluation") == "mistake")
+    best_moves = sum(1 for m in move_evals if m.get("is_best") or m.get("evaluation") == "best")
+    
     result = game.get("result", "")
     opponent = game.get("opponent", "your opponent")
     
