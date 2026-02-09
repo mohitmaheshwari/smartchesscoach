@@ -3765,10 +3765,28 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
         if not position_eval.get("success"):
             raise HTTPException(status_code=500, detail="Failed to analyze position")
         
+        # Extract evaluation - handle both object and number formats
+        eval_data = position_eval.get("evaluation", {})
+        if isinstance(eval_data, dict):
+            eval_score = eval_data.get("centipawns", 0)
+            is_mate = eval_data.get("is_mate", False)
+            mate_in = eval_data.get("mate_in")
+        else:
+            eval_score = eval_data
+            is_mate = False
+            mate_in = None
+        
+        # Extract best move - handle both object and string formats
+        best_move_data = position_eval.get("best_move", {})
+        if isinstance(best_move_data, dict):
+            best_move_san = best_move_data.get("san", "")
+        else:
+            best_move_san = str(best_move_data) if best_move_data else ""
+        
         stockfish_data = {
-            "evaluation": position_eval.get("evaluation"),
-            "eval_type": position_eval.get("eval_type"),
-            "best_move": position_eval.get("best_move"),
+            "evaluation": eval_score,
+            "eval_type": "mate" if is_mate else "cp",
+            "best_move": best_move_san,
             "best_line": position_eval.get("pv", [])[:5],
             "is_check": board.is_check(),
             "is_checkmate": board.is_checkmate(),
