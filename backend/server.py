@@ -2964,11 +2964,17 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
             elif diff < -2:
                 accuracy_data["trend"] = "worsening"
     
+    # Helper to count blunders from Stockfish data
+    def get_blunders_count(a):
+        sf = a.get("stockfish_analysis", {})
+        evals = sf.get("move_evaluations", [])
+        return sum(1 for m in evals if m.get("evaluation") == "blunder")
+    
     # Calculate blunder trend (only from valid Stockfish analyses)
     blunders_data = {"avg_per_game": None, "total": 0, "trend": "stable"}
     if valid_analyses:
-        recent_blunders = [a.get("blunders", 0) for a in valid_analyses[:10]]
-        previous_blunders = [a.get("blunders", 0) for a in valid_analyses[10:20]]
+        recent_blunders = [get_blunders_count(a) for a in valid_analyses[:10]]
+        previous_blunders = [get_blunders_count(a) for a in valid_analyses[10:20]]
         
         if recent_blunders:
             blunders_data["total"] = sum(recent_blunders)
