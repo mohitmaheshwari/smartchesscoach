@@ -489,6 +489,94 @@ const GameAnalysis = ({ user }) => {
     toast.success("Playing variation...");
   };
 
+  // Get current FEN from the board
+  const getCurrentFen = () => {
+    // Try to get FEN from current move in move evaluations
+    if (moveEvaluations && moveEvaluations.length > 0) {
+      const evalAtMove = moveEvaluations.find(e => e.move_number === currentMoveNumber);
+      if (evalAtMove?.fen) return evalAtMove.fen;
+    }
+    // Try from commentary
+    if (commentary && commentary.length > 0) {
+      const commentAtMove = commentary.find(c => c.move_number === currentMoveNumber);
+      if (commentAtMove?.fen) return commentAtMove.fen;
+    }
+    // Return starting position as fallback
+    return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  };
+
+  // Get the move played at current position
+  const getPlayedMoveAtCurrent = () => {
+    if (fullMoves && fullMoves.length > 0) {
+      const moveAtPos = fullMoves.find(m => m.move_number === currentMoveNumber && m.is_user_move);
+      if (moveAtPos) return moveAtPos.move;
+    }
+    if (commentary && commentary.length > 0) {
+      const commentAtMove = commentary.find(c => c.move_number === currentMoveNumber);
+      if (commentAtMove) return commentAtMove.move;
+    }
+    return null;
+  };
+
+  // Handle asking about the current position
+  const handleAskAboutMove = async () => {
+    if (!askQuestion.trim()) {
+      toast.error("Please enter a question");
+      return;
+    }
+    
+    const fen = getCurrentFen();
+    const playedMove = getPlayedMoveAtCurrent();
+    
+    setAskLoading(true);
+    setAskResponse(null);
+    
+    try {
+      const url = API + "/game/" + gameId + "/ask";
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen: fen,
+          question: askQuestion,
+          played_move: playedMove,
+          move_number: currentMoveNumber,
+          user_color: userColor
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Failed to get answer");
+      }
+      
+      const data = await response.json();
+      setAskResponse(data);
+    } catch (error) {
+      toast.error(error.message || "Failed to analyze position");
+    } finally {
+      setAskLoading(false);
+    }
+  };
+
+  // Suggested questions based on current position
+  const getSuggestedQuestions = () => {
+    const questions = [
+      "What was the best move here?",
+      "What was my opponent threatening?",
+      "What should my plan be?",
+    ];
+    
+    // Add move-specific question if a move was played
+    const playedMove = getPlayedMoveAtCurrent();
+    if (playedMove) {
+      questions.unshift(`Why was ${playedMove} a mistake?`);
+    }
+    
+    return questions.slice(0, 3);
+  };
+
   const renderWeakness = (w, i) => {
     const name = w.subcategory ? w.subcategory.split("_").join(" ") : "pattern";
     const desc = w.habit_description || w.description || "";
