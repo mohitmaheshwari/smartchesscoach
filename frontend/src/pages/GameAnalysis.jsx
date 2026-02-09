@@ -856,7 +856,12 @@ const GameAnalysis = ({ user }) => {
                       onChange={(e) => setAskQuestion(e.target.value)}
                       placeholder={conversationHistory.length > 0 ? "Ask a follow-up question..." : "e.g., What if I played Nf3 instead?"}
                       className="flex-1 text-sm"
-                      onKeyDown={(e) => e.key === 'Enter' && handleAskAboutMove()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !askLoading && askQuestion.trim()) {
+                          e.preventDefault();
+                          handleAskAboutMove();
+                        }
+                      }}
                       disabled={askLoading}
                       data-testid="ask-question-input"
                     />
