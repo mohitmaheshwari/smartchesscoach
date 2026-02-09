@@ -3,15 +3,12 @@
 # This workflow automatically mirrors your GitHub repo to Bitbucket
 # whenever you push to the main branch.
 #
-# SETUP REQUIRED:
-# 1. Create a Bitbucket App Password:
-#    - Go to Bitbucket → Personal Settings → App Passwords
-#    - Create new with "Repositories: Write" permission
+# SETUP REQUIRED - Add these GitHub Secrets:
+# 1. Go to GitHub repo → Settings → Secrets and variables → Actions
+# 2. Add these secrets:
+#    - BITBUCKET_TOKEN: Your Bitbucket API token
 #
-# 2. Add GitHub Secrets (Settings → Secrets → Actions):
-#    - BITBUCKET_USERNAME: Your Bitbucket username
-#    - BITBUCKET_APP_PASSWORD: The app password you created
-#    - BITBUCKET_REPO: Format: "workspace/repo-name" (e.g., "mycompany/chess-coach")
+# That's it! Workspace and repo are hardcoded below.
 
 name: Sync to Bitbucket
 
@@ -32,13 +29,20 @@ jobs:
           fetch-depth: 0  # Full history for proper sync
 
       - name: Push to Bitbucket
+        env:
+          BITBUCKET_TOKEN: ${{ secrets.BITBUCKET_TOKEN }}
         run: |
           # Configure git
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
           
-          # Add Bitbucket remote with credentials
-          git remote add bitbucket https://${{ secrets.BITBUCKET_USERNAME }}:${{ secrets.BITBUCKET_APP_PASSWORD }}@bitbucket.org/${{ secrets.BITBUCKET_REPO }}.git
+          # Bitbucket repo details (hardcoded for simplicity)
+          BITBUCKET_WORKSPACE="smartmaheshwari-official"
+          BITBUCKET_REPO="smartchesscoach"
+          
+          # Add Bitbucket remote with API token auth
+          # For Bitbucket API tokens, use x-token-auth as username
+          git remote add bitbucket "https://x-token-auth:${BITBUCKET_TOKEN}@bitbucket.org/${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO}.git"
           
           # Push all branches and tags
           git push bitbucket --all --force
