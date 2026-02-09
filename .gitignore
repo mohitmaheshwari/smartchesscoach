@@ -138,3 +138,6 @@ frontend/node_modules/.cache/default-development/11.pack
 # Environment files
 *.env
 *.env.*
+
+# Allow frontend production env (contains no secrets, just public URL)
+!frontend/.env.production
