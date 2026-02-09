@@ -558,6 +558,12 @@ const GameAnalysis = ({ user }) => {
       const url = API + "/game/" + gameId + "/ask";
       console.log("Fetching:", url);
       
+      // Only send question/answer strings to backend (not stockfish objects)
+      const historyForBackend = currentHistory.map(h => ({
+        question: h.question,
+        answer: h.answer
+      }));
+      
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -568,7 +574,7 @@ const GameAnalysis = ({ user }) => {
           played_move: playedMove,
           move_number: currentMoveNumber,
           user_color: userColor,
-          conversation_history: currentHistory
+          conversation_history: historyForBackend
         })
       });
       
@@ -597,7 +603,7 @@ const GameAnalysis = ({ user }) => {
       // Track which move this conversation is about
       setLastAskedMoveNumber(currentMoveNumber);
       
-      // Add to conversation history
+      // Add to conversation history (keep stockfish for frontend display)
       setConversationHistory(prev => [...prev, {
         question: questionToAsk,
         answer: data.answer,
