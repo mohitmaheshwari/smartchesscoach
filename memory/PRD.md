@@ -213,9 +213,15 @@ Metrics support the habit narrative, not replace it.
   - Suggested questions: "What was the best move?", "What was my opponent threatening?", "What should my plan be?"
   - Free-form question input with alternative move analysis ("What if I played Nf3 instead?")
   - Response shows: GPT answer, Stockfish best move/evaluation, alternative move analysis
+  - **Conversation History**: Users can ask follow-up questions like "What happens after that?"
+    - Backend accepts `conversation_history` parameter with previous Q&A pairs
+    - Frontend shows chat-style history with Q (question) and Coach icons
+    - Follow-up suggestions change to "What happens after that?", "Why not a different move?"
+    - Conversation auto-clears when user navigates to a different move
+    - "Clear" button to manually reset conversation
 - **Files Modified**:
-  - `backend/server.py` - Fixed LLM initialization pattern for /ask endpoint (line 3880)
-  - `frontend/src/pages/GameAnalysis.jsx` - Added AskAboutMovePanel UI component
+  - `backend/server.py` - Added conversation_history support to /ask endpoint
+  - `frontend/src/pages/GameAnalysis.jsx` - Added conversationHistory state and chat UI
 - **Testing**: UI verified, backend endpoint registered, Stockfish integration working
 
 ### February 9, 2025 - Data Consistency Regression Tests
