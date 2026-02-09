@@ -3846,17 +3846,54 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
             except Exception:
                 pass
         
-        # Build prompt for GPT
+        # Build human-readable position description
+        def describe_position(board):
+            """Generate a human-readable description of the chess position"""
+            piece_names = {
+                'K': 'King', 'Q': 'Queen', 'R': 'Rook', 'B': 'Bishop', 'N': 'Knight', 'P': 'Pawn',
+                'k': 'King', 'q': 'Queen', 'r': 'Rook', 'b': 'Bishop', 'n': 'Knight', 'p': 'Pawn'
+            }
+            
+            white_pieces = []
+            black_pieces = []
+            
+            for square in chess.SQUARES:
+                piece = board.piece_at(square)
+                if piece:
+                    square_name = chess.square_name(square)
+                    piece_name = piece_names.get(piece.symbol(), 'Piece')
+                    if piece.color == chess.WHITE:
+                        white_pieces.append(f"{piece_name} on {square_name}")
+                    else:
+                        black_pieces.append(f"{piece_name} on {square_name}")
+            
+            return f"White: {', '.join(white_pieces)}\nBlack: {', '.join(black_pieces)}"
+        
+        # Get legal moves in SAN notation
+        legal_moves_san = [board.san(m) for m in board.legal_moves]
+        legal_moves_str = ', '.join(legal_moves_san[:20])  # Limit to 20 for prompt length
+        if len(legal_moves_san) > 20:
+            legal_moves_str += f" (and {len(legal_moves_san) - 20} more)"
+        
+        # Build prompt for GPT with full position context
+        position_description = describe_position(board)
+        
         prompt = f"""You are an experienced chess coach analyzing a position for a student.
 
-POSITION (FEN): {req.fen}
-SIDE TO MOVE: {stockfish_data['turn'].title()}
+POSITION DESCRIPTION:
+{position_description}
 
-STOCKFISH ANALYSIS:
-- Position evaluation: {stockfish_data['evaluation']} ({stockfish_data['eval_type']})
-- Best move: {stockfish_data['best_move']}
-- Best continuation: {' '.join(stockfish_data['best_line'])}
-- Is check: {stockfish_data['is_check']}
+FEN: {req.fen}
+SIDE TO MOVE: {stockfish_data['turn'].title()}
+LEGAL MOVES AVAILABLE: {legal_moves_str}
+
+STOCKFISH ENGINE ANALYSIS:
+- Position evaluation: {stockfish_data['evaluation']} centipawns ({'+' if stockfish_data['evaluation'] > 0 else ''}{stockfish_data['evaluation']/100:.1f} pawns, {'White' if stockfish_data['evaluation'] > 0 else 'Black'} is better)
+- Best move according to engine: {stockfish_data['best_move']}
+- Best continuation line: {' '.join(stockfish_data['best_line'])}
+- Is the king in check: {stockfish_data['is_check']}
+
+IMPORTANT: Only mention moves that are in the LEGAL MOVES list above. Do NOT suggest or discuss moves that are not legal in this position.
 """
 
         if req.played_move and played_analysis:
