@@ -1,0 +1,47 @@
+# GitHub Action: Auto-sync to Bitbucket
+# 
+# This workflow automatically mirrors your GitHub repo to Bitbucket
+# whenever you push to the main branch.
+#
+# SETUP REQUIRED:
+# 1. Create a Bitbucket App Password:
+#    - Go to Bitbucket → Personal Settings → App Passwords
+#    - Create new with "Repositories: Write" permission
+#
+# 2. Add GitHub Secrets (Settings → Secrets → Actions):
+#    - BITBUCKET_USERNAME: Your Bitbucket username
+#    - BITBUCKET_APP_PASSWORD: The app password you created
+#    - BITBUCKET_REPO: Format: "workspace/repo-name" (e.g., "mycompany/chess-coach")
+
+name: Sync to Bitbucket
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for proper sync
+
+      - name: Push to Bitbucket
+        run: |
+          # Configure git
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+          
+          # Add Bitbucket remote with credentials
+          git remote add bitbucket https://${{ secrets.BITBUCKET_USERNAME }}:${{ secrets.BITBUCKET_APP_PASSWORD }}@bitbucket.org/${{ secrets.BITBUCKET_REPO }}.git
+          
+          # Push all branches and tags
+          git push bitbucket --all --force
+          git push bitbucket --tags --force
+          
+          echo "✅ Successfully synced to Bitbucket!"
