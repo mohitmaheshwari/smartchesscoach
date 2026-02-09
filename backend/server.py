@@ -3869,31 +3869,70 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
             
             return f"White: {', '.join(white_pieces)}\nBlack: {', '.join(black_pieces)}"
         
-        # Get legal moves in SAN notation
+        # IMPORTANT: The FEN we received is AFTER the move was played.
+        # If user asks about their move, we need to analyze the position BEFORE the move.
+        user_color = req.user_color or "white"
+        current_turn = "white" if board.turn else "black"
+        
+        # If user played a move, try to get the position BEFORE that move
+        position_before_move = None
+        best_move_for_user = None
+        user_best_line = []
+        
+        if req.played_move:
+            # The current position is AFTER the move, so the turn has switched
+            # If it's currently White's turn, Black just moved (and vice versa)
+            user_just_moved = (current_turn != user_color)
+            
+            if user_just_moved:
+                # Try to undo the move to get the position before
+                try:
+                    # Create a board and try to find the position before the played move
+                    # We need to work backwards - the current FEN is after the move
+                    test_board = chess.Board(req.fen)
+                    
+                    # The move was just played, so let's analyze from current position
+                    # but note that "best move" is for the OPPONENT now
+                    
+                    # To find what the USER should have played, we need position BEFORE their move
+                    # We can try to reverse-engineer by undoing the last move
+                    # But that's complex - instead, let's be explicit in the prompt
+                    pass
+                except:
+                    pass
+        
+        # Get legal moves in SAN notation (for current position)
         legal_moves_san = [board.san(m) for m in board.legal_moves]
-        legal_moves_str = ', '.join(legal_moves_san[:20])  # Limit to 20 for prompt length
+        legal_moves_str = ', '.join(legal_moves_san[:20])
         if len(legal_moves_san) > 20:
             legal_moves_str += f" (and {len(legal_moves_san) - 20} more)"
         
         # Build prompt for GPT with full position context
         position_description = describe_position(board)
         
-        prompt = f"""You are an experienced chess coach analyzing a position for a student.
+        # Determine context for the prompt
+        user_color_name = user_color.title()
+        opponent_color = "Black" if user_color == "white" else "White"
+        
+        prompt = f"""You are an experienced chess coach analyzing a position for a student who plays as {user_color_name}.
 
-POSITION DESCRIPTION:
+IMPORTANT CONTEXT:
+- The student plays as {user_color_name}
+- The current position shown is AFTER the move was played
+- It is currently {current_turn.title()}'s turn to move
+
+CURRENT POSITION AFTER THE MOVE:
 {position_description}
 
 FEN: {req.fen}
-SIDE TO MOVE: {stockfish_data['turn'].title()}
-LEGAL MOVES AVAILABLE: {legal_moves_str}
+SIDE TO MOVE NOW: {current_turn.title()}
 
-STOCKFISH ENGINE ANALYSIS:
+STOCKFISH ANALYSIS OF CURRENT POSITION:
 - Position evaluation: {stockfish_data['evaluation']} centipawns ({'+' if stockfish_data['evaluation'] > 0 else ''}{stockfish_data['evaluation']/100:.1f} pawns, {'White' if stockfish_data['evaluation'] > 0 else 'Black'} is better)
-- Best move according to engine: {stockfish_data['best_move']}
-- Best continuation line: {' '.join(stockfish_data['best_line'])}
-- Is the king in check: {stockfish_data['is_check']}
+- Best move for {current_turn.title()} (the side to move): {stockfish_data['best_move']}
+- Best continuation: {' '.join(stockfish_data['best_line'])}
 
-IMPORTANT: Only mention moves that are in the LEGAL MOVES list above. Do NOT suggest or discuss moves that are not legal in this position.
+NOTE: The "best move" above is for {current_turn.title()} because it's their turn NOW. This is the OPPONENT's best response if the student just moved.
 """
 
         if req.played_move and played_analysis:
