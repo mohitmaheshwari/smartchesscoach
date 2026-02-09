@@ -2267,7 +2267,13 @@ async def get_coach_today(user: User = Depends(get_current_user)):
         }
     else:
         # Check recent analyses for any positive signals
-        recent_blunders = [a.get("blunders", 0) for a in recent_analyses[:3]]
+        # Use stockfish_analysis.move_evaluations for accurate counts
+        def get_blunders(a):
+            sf = a.get("stockfish_analysis", {})
+            evals = sf.get("move_evaluations", [])
+            return sum(1 for m in evals if m.get("evaluation") == "blunder")
+        
+        recent_blunders = [get_blunders(a) for a in recent_analyses[:3]]
         if recent_blunders and sum(recent_blunders) == 0:
             reinforcement = {
                 "title": "Clean Calculation",
