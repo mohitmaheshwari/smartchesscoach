@@ -501,13 +501,12 @@ const GameAnalysis = ({ user }) => {
     toast.success("Playing variation...");
   };
 
-  // Get current FEN from the board
+  // Get current FEN from the board (position AFTER the move)
   const getCurrentFen = () => {
     // First, try to get FEN directly from the board component (most accurate)
     if (boardRef.current && boardRef.current.getCurrentFen) {
       const boardFen = boardRef.current.getCurrentFen();
       if (boardFen) {
-        console.log("Got FEN from board:", boardFen);
         return boardFen;
       }
     }
@@ -528,6 +527,24 @@ const GameAnalysis = ({ user }) => {
     // Last resort: Return starting position
     console.warn("Could not get FEN, using starting position");
     return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  };
+
+  // Get FEN BEFORE the current move (for analyzing what user should have played)
+  const getFenBeforeMove = () => {
+    if (boardRef.current && boardRef.current.getFenBeforeMove) {
+      const fenBefore = boardRef.current.getFenBeforeMove();
+      if (fenBefore) {
+        return fenBefore;
+      }
+    }
+    
+    // Fallback: Try from move evaluations
+    if (moveEvaluations && moveEvaluations.length > 0) {
+      const evalAtMove = moveEvaluations.find(e => e.move_number === currentMoveNumber);
+      if (evalAtMove?.fen_before) return evalAtMove.fen_before;
+    }
+    
+    return null;  // Return null if we can't determine it
   };
 
   // Get the move played at current position
