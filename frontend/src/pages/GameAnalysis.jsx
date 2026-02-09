@@ -25,8 +25,12 @@ import {
   Target,
   Lightbulb,
   TrendingUp,
-  Play
+  Play,
+  MessageCircle,
+  Send,
+  X
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 const GameAnalysis = ({ user }) => {
   const { gameId } = useParams();
