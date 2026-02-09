@@ -3730,7 +3730,8 @@ async def health():
 
 class AskAboutMoveRequest(BaseModel):
     """Request for asking questions about a specific position/move"""
-    fen: str
+    fen: str  # Position AFTER the move (current board state)
+    fen_before: Optional[str] = None  # Position BEFORE the move (for analyzing what user should have played)
     question: str
     played_move: Optional[str] = None  # The move that was played (if any)
     alternative_move: Optional[str] = None  # A "what if" move to analyze
@@ -3754,7 +3755,7 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     
     try:
-        # Validate FEN
+        # Validate FEN (position AFTER the move)
         try:
             board = chess.Board(req.fen)
         except Exception:
@@ -3763,15 +3764,37 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
         user_color = req.user_color or "white"
         current_turn = "white" if board.turn else "black"
         
-        # CRITICAL: Determine if we need to analyze position BEFORE the played move
-        # The FEN we received is the CURRENT board position
-        # If user asks about their move, we need the position BEFORE that move
+        # Position BEFORE the move - this is where we analyze what user SHOULD have played
+        board_before = None
+        if req.fen_before:
+            try:
+                board_before = chess.Board(req.fen_before)
+            except:
+                board_before = None
         
-        position_before = None
-        best_for_user = None
+        # Analyze the position BEFORE the move to find what user should have played
+        best_move_for_user = None
         best_line_for_user = []
+        eval_before = None
         
-        if req.played_move:
+        if board_before and req.played_move:
+            # Get Stockfish analysis for position BEFORE the move
+            before_eval = get_position_evaluation(req.fen_before, depth=18)
+            if before_eval.get("success"):
+                eval_before = before_eval.get("evaluation", 0)
+                if isinstance(eval_before, dict):
+                    eval_before = eval_before.get("centipawns", 0)
+                
+                best_move_data = before_eval.get("best_move", {})
+                if isinstance(best_move_data, dict):
+                    best_move_for_user = best_move_data.get("san", "")
+                else:
+                    best_move_for_user = str(best_move_data) if best_move_data else ""
+                
+                best_line_for_user = before_eval.get("pv", [])[:5]
+        
+        # Also analyze current position (AFTER the move) for opponent's response
+        if not req.played_move:
             # User is asking about a move they played
             # The current position is AFTER that move
             # We need to go back one move to find what they SHOULD have played
