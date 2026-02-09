@@ -566,6 +566,9 @@ const GameAnalysis = ({ user }) => {
       const data = await response.json();
       setAskResponse(data);
       
+      // Track which move this conversation is about
+      setLastAskedMoveNumber(currentMoveNumber);
+      
       // Add to conversation history
       setConversationHistory(prev => [...prev, {
         question: askQuestion,
