@@ -609,10 +609,15 @@ def generate_weekly_summary(analyses: List[Dict], profile: Dict) -> Dict:
             "message": "No games analyzed this week. Time to play!"
         }
     
-    # Calculate week stats
-    total_blunders = sum(a.get("blunders", 0) for a in this_week)
-    total_mistakes = sum(a.get("mistakes", 0) for a in this_week)
-    avg_accuracy = sum(a.get("stockfish_analysis", {}).get("accuracy", 0) for a in this_week) / len(this_week)
+    # Calculate week stats from stockfish_analysis.move_evaluations (SOURCE OF TRUTH)
+    def count_from_sf(analysis, eval_type):
+        sf = analysis.get("stockfish_analysis", {})
+        evals = sf.get("move_evaluations", [])
+        return sum(1 for m in evals if m.get("evaluation") == eval_type)
+    
+    total_blunders = sum(count_from_sf(a, "blunder") for a in this_week)
+    total_mistakes = sum(count_from_sf(a, "mistake") for a in this_week)
+    avg_accuracy = sum(a.get("stockfish_analysis", {}).get("accuracy", 0) or 0 for a in this_week) / len(this_week)
     
     return {
         "games_this_week": len(this_week),
@@ -639,12 +644,18 @@ def generate_insights(analyses: List[Dict], profile: Dict, cards: List[Dict]) ->
         })
         return insights
     
+    # Helper to count from Stockfish data
+    def count_blunders(analysis):
+        sf = analysis.get("stockfish_analysis", {})
+        evals = sf.get("move_evaluations", [])
+        return sum(1 for m in evals if m.get("evaluation") == "blunder")
+    
     # Insight 1: Biggest improvement
     recent = analyses[-5:] if len(analyses) >= 5 else analyses
     early = analyses[:5]
     
-    early_blunders = sum(a.get("blunders", 0) for a in early) / len(early)
-    recent_blunders = sum(a.get("blunders", 0) for a in recent) / len(recent)
+    early_blunders = sum(count_blunders(a) for a in early) / len(early)
+    recent_blunders = sum(count_blunders(a) for a in recent) / len(recent)
     
     if recent_blunders < early_blunders * 0.7:
         insights.append({
