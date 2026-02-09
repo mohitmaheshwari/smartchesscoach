@@ -3880,12 +3880,14 @@ Just answer naturally like a helpful mentor."""
         # Get GPT response
         try:
             chat = LlmChat(
-                api_key=os.environ.get("EMERGENT_API_KEY") or os.environ.get("LLM_API_KEY"),
-                provider=LLM_PROVIDER,
-                model=LLM_MODEL
-            )
-            response = await chat.send_async(UserMessage(content=prompt))
-            answer = response.content.strip()
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"ask_{game_id}_{req.move_number or 0}",
+                system_message="You are an experienced chess coach helping a student understand positions."
+            ).with_model(LLM_PROVIDER, LLM_MODEL)
+            
+            user_message = UserMessage(text=prompt)
+            answer_response = await chat.send_message(user_message)
+            answer = answer_response.strip()
         except Exception as e:
             logger.error(f"GPT error in ask_about_move: {e}")
             # Fallback to basic Stockfish answer
