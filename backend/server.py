@@ -127,6 +127,30 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 # Global variable to track the background task
 _background_sync_task = None
 
+# Configure logging (moved up so lifespan can use logger)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Background sync loop function (defined before lifespan)
+async def background_sync_loop():
+    """
+    Periodic background task to sync games for all users.
+    Runs every 6 hours (configurable via BACKGROUND_SYNC_INTERVAL_SECONDS).
+    """
+    while True:
+        try:
+            logger.info("Starting background game sync...")
+            synced_count = await run_background_sync(db)
+            logger.info(f"Background sync completed: {synced_count} games synced")
+        except Exception as e:
+            logger.error(f"Background sync error: {e}")
+        
+        # Wait for next sync interval (6 hours by default)
+        await asyncio.sleep(BACKGROUND_SYNC_INTERVAL_SECONDS)
+
 # Lifespan context manager (replaces deprecated on_event)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -161,8 +185,6 @@ app = FastAPI(lifespan=lifespan)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
-
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
