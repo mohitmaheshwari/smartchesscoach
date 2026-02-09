@@ -3893,6 +3893,11 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
         if len(legal_moves_san) > 20:
             legal_moves_str += f" (and {len(legal_moves_san) - 20} more)"
         
+        # Get legal moves for position BEFORE the move (what user could have played)
+        legal_moves_before = []
+        if board_before:
+            legal_moves_before = [board_before.san(m) for m in board_before.legal_moves]
+        
         # Build prompt for GPT with full position context
         position_description = describe_position(board)
         
@@ -3900,43 +3905,31 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
         user_color_name = user_color.title()
         opponent_color = "Black" if user_color == "white" else "White"
         
-        # Check if user just moved (meaning it's now opponent's turn)
-        user_just_moved = (current_turn != user_color)
-        
         prompt = f"""You are an experienced chess coach analyzing a position for a student who plays as {user_color_name}.
 
-CRITICAL CONTEXT - READ CAREFULLY:
-- The student plays as {user_color_name}
-- The current position shown is AFTER the student's move "{req.played_move or 'unknown'}" was played
-- It is now {current_turn.title()}'s turn to move (the opponent)
-- When I say "best move" below, it refers to {current_turn.title()}'s best move (the OPPONENT), NOT the student's
+STUDENT'S COLOR: {user_color_name}
+OPPONENT'S COLOR: {opponent_color}
 
-CURRENT POSITION (AFTER {user_color_name.upper()}'S MOVE):
-{position_description}
-
-FEN: {req.fen}
-IT IS NOW {current_turn.upper()}'S TURN (OPPONENT)
-
-STOCKFISH ANALYSIS:
-- Position evaluation: {stockfish_data['evaluation']} centipawns ({'+' if stockfish_data['evaluation'] > 0 else ''}{stockfish_data['evaluation']/100:.1f} pawns)
-- {'White is better' if stockfish_data['evaluation'] > 0 else 'Black is better' if stockfish_data['evaluation'] < 0 else 'Position is equal'}
-- Best move for {opponent_color} (opponent's best response): {stockfish_data['best_move']}
-- Continuation after {stockfish_data['best_move']}: {' '.join(stockfish_data['best_line'])}
-
-IMPORTANT: {stockfish_data['best_move']} is what {opponent_color} should play NOW. It is NOT what {user_color_name} should have played.
 """
 
-        if req.played_move and played_analysis:
-            prompt += f"""
-THE STUDENT'S MOVE BEING DISCUSSED: {req.played_move} (played by {user_color_name})
-- Position evaluation after this move: {played_analysis.get('evaluation_after')} centipawns
-- {opponent_color}'s best response to this move: {played_analysis.get('opponent_best_response')}
+        # If we have the position BEFORE the move, include what user should have played
+        if req.played_move and best_move_for_user:
+            prompt += f"""THE STUDENT PLAYED: {req.played_move}
+WHAT THE STUDENT SHOULD HAVE PLAYED: {best_move_for_user}
+Best continuation after {best_move_for_user}: {' '.join(best_line_for_user) if best_line_for_user else 'N/A'}
+Evaluation before the move: {eval_before} centipawns
 
-If the student asks "why was {req.played_move} bad/inaccurate", explain:
-1. What problems this move creates for {user_color_name}
-2. What {opponent_color} can do now to exploit it
-3. Do NOT say "{stockfish_data['best_move']}" was better - that's {opponent_color}'s move!
-4. If you know what {user_color_name} should have played instead, mention it. If not, focus on WHY this move is problematic.
+This is the KEY information - {best_move_for_user} was the best move for {user_color_name}, not {req.played_move}.
+"""
+
+        prompt += f"""
+CURRENT POSITION (AFTER the move was played):
+{position_description}
+It is now {current_turn.title()}'s turn.
+
+AFTER THE MOVE - OPPONENT'S BEST RESPONSE:
+- {opponent_color}'s best move now: {stockfish_data['best_move']}
+- Position evaluation: {stockfish_data['evaluation']} centipawns ({'White' if stockfish_data['evaluation'] > 0 else 'Black'} is better)
 """
 
         if alternative_analysis and "error" not in alternative_analysis:
@@ -3944,30 +3937,28 @@ If the student asks "why was {req.played_move} bad/inaccurate", explain:
 ALTERNATIVE MOVE ANALYZED: {req.alternative_move} (hypothetical move by {user_color_name})
 - Evaluation after {req.alternative_move}: {alternative_analysis.get('evaluation')}
 - {opponent_color}'s best response: {alternative_analysis.get('opponent_best_response')}
-- Continuation: {' '.join(alternative_analysis.get('continuation', []))}
 """
 
         # Add conversation history for context
         if req.conversation_history and len(req.conversation_history) > 0:
             prompt += "\nPREVIOUS CONVERSATION:\n"
-            for exchange in req.conversation_history[-5:]:  # Keep last 5 exchanges for context
+            for exchange in req.conversation_history[-5:]:
                 prompt += f"Student: {exchange.get('question', '')}\n"
                 prompt += f"Coach: {exchange.get('answer', '')}\n"
             prompt += "\n"
 
         prompt += f"""
-STUDENT'S CURRENT QUESTION: {req.question}
+STUDENT'S QUESTION: {req.question}
 
-Answer the student's question in a helpful, coaching tone:
-1. Directly address their question
-2. Remember: The student plays as {user_color_name}
-3. If they ask "why was my move bad", explain the problems with THEIR move, not suggest opponent's moves as alternatives
-4. Keep it concise (3-4 sentences max)
-5. If relevant, mention what the opponent can do now to punish the move
+RULES FOR YOUR ANSWER:
+1. The student is {user_color_name}. Their best move was {best_move_for_user if best_move_for_user else 'unknown'}.
+2. {stockfish_data['best_move']} is {opponent_color}'s move (the opponent), NOT what the student should play.
+3. If asked "what should I have played" or "best move for me", answer: {best_move_for_user if best_move_for_user else 'I need to see the position before your move to tell you.'}
+4. If asked "why was my move bad", explain why {req.played_move} is worse than {best_move_for_user if best_move_for_user else 'the best move'}.
+5. Keep answers concise (3-4 sentences).
+6. Never suggest {opponent_color}'s moves as alternatives for {user_color_name}.
 
-CRITICAL RULES:
-- The student is {user_color_name}. Do NOT confuse their moves with {opponent_color}'s moves.
-- {stockfish_data['best_move']} is {opponent_color}'s best move, NOT what {user_color_name} should have played
+Answer naturally like a helpful mentor:"""
 - When explaining why a move is bad, focus on the CONSEQUENCES, not just "X was better" (unless X is a move for {user_color_name})
 - If you don't know what {user_color_name} should have played instead, just explain why the move they played is problematic
 
