@@ -6,8 +6,9 @@ const Landing = () => {
   const { theme, toggleTheme } = useTheme();
 
   const handleLogin = () => {
-    // Redirect to auth callback page after Google OAuth
-    const redirectUrl = window.location.origin + '/auth/callback';
+    // After Google OAuth, Emergent redirects back with #session_id=xxx
+    // AppRouter detects this hash and shows AuthCallback component
+    const redirectUrl = window.location.origin + '/dashboard';
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
