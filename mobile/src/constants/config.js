@@ -1,5 +1,5 @@
 // API Configuration
-export const API_URL = 'https://mistake-mastery.preview.emergentagent.com/api';
+export const API_URL = 'https://stockfish-ask-beta.preview.emergentagent.com/api';
 
 // Google OAuth
 export const GOOGLE_CLIENT_ID = ''; // Will be configured for mobile
