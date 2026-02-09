@@ -102,6 +102,33 @@ async def init_database():
     await db.puzzles.create_index([("user_id", 1), ("pattern_id", 1)])
     print("  ✓ puzzles indexes")
     
+    # Puzzle attempts indexes
+    await db.puzzle_attempts.create_index("attempt_id", unique=True)
+    await db.puzzle_attempts.create_index("user_id")
+    await db.puzzle_attempts.create_index("puzzle_id")
+    await db.puzzle_attempts.create_index([("user_id", 1), ("puzzle_id", 1)])
+    print("  ✓ puzzle_attempts indexes")
+    
+    # Analysis queue indexes
+    await db.analysis_queue.create_index("queue_id", unique=True)
+    await db.analysis_queue.create_index("user_id")
+    await db.analysis_queue.create_index("status")
+    await db.analysis_queue.create_index([("user_id", 1), ("status", 1)])
+    print("  ✓ analysis_queue indexes")
+    
+    # Notifications indexes
+    await db.notifications.create_index("notification_id", unique=True)
+    await db.notifications.create_index("user_id")
+    await db.notifications.create_index([("user_id", 1), ("read", 1)])
+    await db.notifications.create_index("created_at")
+    print("  ✓ notifications indexes")
+    
+    # Reflection results indexes
+    await db.reflection_results.create_index("reflection_id", unique=True)
+    await db.reflection_results.create_index("user_id")
+    await db.reflection_results.create_index("game_id")
+    print("  ✓ reflection_results indexes")
+    
     # Embedding collections indexes (for RAG)
     await db.game_embeddings.create_index("embedding_id", unique=True)
     await db.game_embeddings.create_index("user_id")
