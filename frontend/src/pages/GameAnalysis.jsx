@@ -768,9 +768,13 @@ const GameAnalysis = ({ user }) => {
                             </div>
                             <div className="flex-1">
                               <p className="text-sm">{exchange.answer}</p>
-                              {exchange.stockfish && (
+                              {exchange.stockfish?.best_move && (
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  Best: <span className="font-mono text-violet-500">{exchange.stockfish.best_move}</span>
+                                  Best: <span className="font-mono text-violet-500">
+                                    {typeof exchange.stockfish.best_move === 'object' 
+                                      ? exchange.stockfish.best_move.san || exchange.stockfish.best_move.uci 
+                                      : exchange.stockfish.best_move}
+                                  </span>
                                 </p>
                               )}
                             </div>
