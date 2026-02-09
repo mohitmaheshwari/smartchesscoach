@@ -219,7 +219,7 @@ const ChessBoardViewer = forwardRef(({
         setLastMoveSquares({});
       }
     }
-  }), [goToMove, goToMoveNumber, moves.length, currentMoveIndex]);
+  }), [goToMove, goToMoveNumber, moves.length, currentMoveIndex, allFens]);
 
   // Auto-play
   useEffect(() => {
