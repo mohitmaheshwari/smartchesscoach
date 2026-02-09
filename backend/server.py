@@ -3984,8 +3984,10 @@ Answer naturally like a helpful mentor."""
             "stockfish": {
                 "evaluation": stockfish_data["evaluation"],
                 "eval_type": stockfish_data["eval_type"],
-                "best_move": stockfish_data["best_move"],
-                "best_line": stockfish_data["best_line"]
+                "best_move": stockfish_data["best_move"],  # Opponent's best move
+                "best_line": stockfish_data["best_line"],
+                "user_best_move": best_move_for_user,  # What USER should have played
+                "user_best_line": best_line_for_user
             },
             "alternative_analysis": alternative_analysis,
             "played_analysis": played_analysis
