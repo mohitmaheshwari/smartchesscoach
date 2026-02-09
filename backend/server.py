@@ -3994,26 +3994,22 @@ STUDENT'S CURRENT QUESTION: {req.question}
 
 Answer the student's question in a helpful, coaching tone:
 1. Directly address their question
-2. Use the Stockfish analysis to support your answer
-3. Explain ideas, not just moves
-4. If they asked "what if", compare the alternative to what was played/best
-5. Keep it concise (3-4 sentences max)
-6. If relevant, mention what the opponent threatens or plans
-7. If this is a follow-up question, build on your previous answers naturally
+2. Remember: The student plays as {user_color_name}
+3. If they ask "why was my move bad", explain the problems with THEIR move, not suggest opponent's moves as alternatives
+4. Keep it concise (3-4 sentences max)
+5. If relevant, mention what the opponent can do now to punish the move
 
 CRITICAL RULES:
-- ONLY mention moves that exist in the LEGAL MOVES list provided above
-- NEVER suggest moves like d4 or e4 if they are NOT in the legal moves list
-- If you're unsure if a move is legal, don't mention it
-- The Stockfish best_move IS a legal move - trust it
-- If asked about the best move, refer to what Stockfish says
+- The student is {user_color_name}. Do NOT confuse their moves with {opponent_color}'s moves.
+- {stockfish_data['best_move']} is {opponent_color}'s best move, NOT what {user_color_name} should have played
+- When explaining why a move is bad, focus on the CONSEQUENCES, not just "X was better" (unless X is a move for {user_color_name})
+- If you don't know what {user_color_name} should have played instead, just explain why the move they played is problematic
 
 Do NOT:
+- Suggest {opponent_color}'s moves as alternatives for {user_color_name}
 - List long variations
 - Be overly technical
-- Make up moves that aren't legal
 - Say "as a chess coach" or similar phrases
-- Repeat information you've already given in previous answers
 
 Just answer naturally like a helpful mentor."""
 
