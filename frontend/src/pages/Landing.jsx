@@ -5,11 +5,24 @@ import { ChevronRight, Brain, Target, TrendingUp, Zap, Moon, Sun } from "lucide-
 const Landing = () => {
   const { theme, toggleTheme } = useTheme();
 
-  const handleLogin = () => {
-    // After Google OAuth, Emergent redirects back with #session_id=xxx
-    // AppRouter detects this hash and shows AuthCallback component
-    const redirectUrl = window.location.origin + '/dashboard';
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  const handleLogin = async () => {
+    try {
+      // Get Google OAuth URL from your own backend
+      const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+      const response = await fetch(`${API_URL}/api/auth/google/login`);
+      const data = await response.json();
+      
+      if (data.auth_url) {
+        // Redirect to Google OAuth
+        window.location.href = data.auth_url;
+      } else {
+        console.error('Failed to get auth URL');
+        alert('Login failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('Login failed. Please try again.');
+    }
   };
 
   const features = [
