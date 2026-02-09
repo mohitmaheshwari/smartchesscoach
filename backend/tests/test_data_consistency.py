@@ -200,8 +200,8 @@ class TestAskAboutMoveEndpoint:
         
         game_id = game.get('game_id')
         
-        # Get a user session
-        session = await db.sessions.find_one({})
+        # Get a user session (correct collection name)
+        session = await db.user_sessions.find_one({})
         if not session:
             pytest.skip("No sessions in database")
         
@@ -238,7 +238,7 @@ class TestAskAboutMoveEndpoint:
             pytest.skip("No games in database")
         
         game_id = game.get('game_id')
-        session = await db.sessions.find_one({})
+        session = await db.user_sessions.find_one({})
         if not session:
             pytest.skip("No sessions in database")
         
