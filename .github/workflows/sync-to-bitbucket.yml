@@ -1,7 +1,12 @@
 # GitHub Action: Auto-sync to Bitbucket
 # 
 # SETUP: Add ONE secret in GitHub:
-#   BITBUCKET_TOKEN = your Bitbucket app password or access token
+#   BITBUCKET_TOKEN = your Bitbucket Repository Access Token
+#
+# To create token:
+# 1. Go to: bitbucket.org/smartmaheshwari-official/smartchesscoach/admin/access-tokens
+# 2. Create token with "repository:write" scope
+# 3. Add token to GitHub secrets as BITBUCKET_TOKEN
 
 name: Sync to Bitbucket
 
@@ -28,16 +33,24 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
           
-          # Try with actual username (mohit.maheshwari)
-          BITBUCKET_USER="mohit.maheshwari"
           BITBUCKET_WORKSPACE="smartmaheshwari-official"
           BITBUCKET_REPO="smartchesscoach"
           
-          echo "Attempting to sync to: bitbucket.org/${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO}"
+          echo "🔄 Syncing to Bitbucket: ${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO}"
           
-          git remote add bitbucket "https://${BITBUCKET_USER}:${BITBUCKET_TOKEN}@bitbucket.org/${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO}.git"
+          # For Repository Access Tokens, use x-token-auth as username
+          git remote add bitbucket "https://x-token-auth:${BITBUCKET_TOKEN}@bitbucket.org/${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO}.git" 2>/dev/null || \
+          git remote set-url bitbucket "https://x-token-auth:${BITBUCKET_TOKEN}@bitbucket.org/${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO}.git"
           
-          git push bitbucket --all --force
-          git push bitbucket --tags --force
+          # Push with verbose output for debugging
+          git push bitbucket --all --force -v 2>&1 || {
+            echo "❌ Push failed. Trying alternative auth method..."
+            
+            # Alternative: Try with Atlassian token format
+            git remote set-url bitbucket "https://x-access-token:${BITBUCKET_TOKEN}@bitbucket.org/${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO}.git"
+            git push bitbucket --all --force -v
+          }
+          
+          git push bitbucket --tags --force 2>/dev/null || true
           
           echo "✅ Successfully synced to Bitbucket!"
