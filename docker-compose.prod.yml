@@ -1,0 +1,59 @@
+# Chess Coach AI - Production Docker Compose Override
+# 
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  # Production uses the single combined image
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chess-coach-app
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      - MONGO_URL=${MONGO_URL}
+      - DB_NAME=${DB_NAME}
+      - EMERGENT_LLM_KEY=${EMERGENT_LLM_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  mongodb:
+    restart: always
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_backup:/backup
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # Disable development services in production
+  backend:
+    deploy:
+      replicas: 0
+
+  frontend:
+    deploy:
+      replicas: 0
+
+volumes:
+  mongodb_backup:
+    driver: local
