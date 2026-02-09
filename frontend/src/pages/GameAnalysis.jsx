@@ -530,7 +530,6 @@ const GameAnalysis = ({ user }) => {
     const playedMove = getPlayedMoveAtCurrent();
     
     setAskLoading(true);
-    setAskResponse(null);
     
     try {
       const url = API + "/game/" + gameId + "/ask";
@@ -543,7 +542,8 @@ const GameAnalysis = ({ user }) => {
           question: askQuestion,
           played_move: playedMove,
           move_number: currentMoveNumber,
-          user_color: userColor
+          user_color: userColor,
+          conversation_history: conversationHistory  // Send previous Q&A for context
         })
       });
       
@@ -554,6 +554,16 @@ const GameAnalysis = ({ user }) => {
       
       const data = await response.json();
       setAskResponse(data);
+      
+      // Add to conversation history
+      setConversationHistory(prev => [...prev, {
+        question: askQuestion,
+        answer: data.answer,
+        stockfish: data.stockfish
+      }]);
+      
+      // Clear the input for next question
+      setAskQuestion("");
     } catch (error) {
       toast.error(error.message || "Failed to analyze position");
     } finally {
@@ -561,8 +571,24 @@ const GameAnalysis = ({ user }) => {
     }
   };
 
+  // Clear conversation when moving to a different position
+  const handleClearConversation = () => {
+    setConversationHistory([]);
+    setAskResponse(null);
+    setAskQuestion("");
+  };
+
   // Suggested questions based on current position
   const getSuggestedQuestions = () => {
+    // If there's conversation history, offer follow-up questions
+    if (conversationHistory.length > 0) {
+      return [
+        "What happens after that?",
+        "Why not a different move?",
+        "What's the main idea?"
+      ];
+    }
+    
     const questions = [
       "What was the best move here?",
       "What was my opponent threatening?",
