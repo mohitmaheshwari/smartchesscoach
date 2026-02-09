@@ -592,6 +592,30 @@ const GameAnalysis = ({ user }) => {
     setAskQuestion("");
   };
 
+  // Get evaluation of current move
+  const getCurrentMoveEvaluation = () => {
+    // Try fullMoves first
+    if (fullMoves && fullMoves.length > 0) {
+      const moveAtPos = fullMoves.find(m => m.move_number === currentMoveNumber && m.is_user_move);
+      if (moveAtPos?.evaluation) return moveAtPos.evaluation;
+    }
+    // Try commentary
+    if (commentary && commentary.length > 0) {
+      const commentAtMove = commentary.find(c => c.move_number === currentMoveNumber);
+      if (commentAtMove?.evaluation) return commentAtMove.evaluation;
+    }
+    // Try moveEvaluations from Stockfish
+    if (moveEvaluations && moveEvaluations.length > 0) {
+      const evalAtMove = moveEvaluations.find(e => e.move_number === currentMoveNumber);
+      if (evalAtMove?.evaluation) {
+        // Handle enum values
+        const ev = evalAtMove.evaluation;
+        return typeof ev === 'object' && ev.value ? ev.value : ev;
+      }
+    }
+    return null;
+  };
+
   // Suggested questions based on current position
   const getSuggestedQuestions = () => {
     // If there's conversation history, offer follow-up questions
@@ -609,10 +633,22 @@ const GameAnalysis = ({ user }) => {
       "What should my plan be?",
     ];
     
-    // Add move-specific question if a move was played
+    // Add move-specific question based on actual evaluation
     const playedMove = getPlayedMoveAtCurrent();
-    if (playedMove) {
-      questions.unshift(`Why was ${playedMove} a mistake?`);
+    const evaluation = getCurrentMoveEvaluation();
+    
+    if (playedMove && evaluation) {
+      if (evaluation === "blunder") {
+        questions.unshift(`Why was ${playedMove} a blunder?`);
+      } else if (evaluation === "mistake") {
+        questions.unshift(`Why was ${playedMove} a mistake?`);
+      } else if (evaluation === "inaccuracy") {
+        questions.unshift(`Why was ${playedMove} inaccurate?`);
+      } else if (evaluation === "good" || evaluation === "solid" || evaluation === "excellent") {
+        questions.unshift(`Why was ${playedMove} a good move?`);
+      } else {
+        questions.unshift(`Tell me about ${playedMove}`);
+      }
     }
     
     return questions.slice(0, 3);
