@@ -39,9 +39,13 @@ async def init_database():
         "mistake_patterns",
         "player_profiles",
         "puzzles",
+        "puzzle_attempts",
         "game_embeddings",
         "analysis_embeddings",
-        "pattern_embeddings"
+        "pattern_embeddings",
+        "analysis_queue",
+        "notifications",
+        "reflection_results"
     ]
     
     existing = await db.list_collection_names()
