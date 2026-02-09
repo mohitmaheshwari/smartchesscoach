@@ -3727,6 +3727,194 @@ async def root():
 async def health():
     return {"status": "healthy"}
 
+
+# ==================== ASK ABOUT MOVE (Interactive Analysis) ====================
+
+class AskAboutMoveRequest(BaseModel):
+    """Request for asking questions about a specific position/move"""
+    fen: str
+    question: str
+    played_move: Optional[str] = None  # The move that was played (if any)
+    alternative_move: Optional[str] = None  # A "what if" move to analyze
+    move_number: Optional[int] = None
+    user_color: Optional[str] = "white"
+
+@api_router.post("/game/{game_id}/ask")
+async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = Depends(get_current_user)):
+    """
+    Ask a question about a specific position/move in a game.
+    Uses Stockfish for analysis and GPT for explanation.
+    
+    Example questions:
+    - "What if I played Nf3 instead?"
+    - "Why is this move a blunder?"
+    - "What was my opponent threatening?"
+    - "What should my plan be here?"
+    """
+    import chess
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    
+    try:
+        # Validate FEN
+        try:
+            board = chess.Board(req.fen)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid FEN position")
+        
+        # Get Stockfish analysis for the position
+        position_eval = get_position_evaluation(req.fen, depth=18)
+        if not position_eval.get("success"):
+            raise HTTPException(status_code=500, detail="Failed to analyze position")
+        
+        stockfish_data = {
+            "evaluation": position_eval.get("evaluation"),
+            "eval_type": position_eval.get("eval_type"),
+            "best_move": position_eval.get("best_move"),
+            "best_line": position_eval.get("pv", [])[:5],
+            "is_check": board.is_check(),
+            "is_checkmate": board.is_checkmate(),
+            "turn": "white" if board.turn else "black"
+        }
+        
+        # If user asks about an alternative move, analyze it
+        alternative_analysis = None
+        if req.alternative_move:
+            try:
+                # Parse and validate the alternative move
+                alt_move = board.parse_san(req.alternative_move)
+                alt_board = board.copy()
+                alt_board.push(alt_move)
+                
+                # Analyze position after alternative move
+                alt_eval = get_position_evaluation(alt_board.fen(), depth=18)
+                if alt_eval.get("success"):
+                    alternative_analysis = {
+                        "move": req.alternative_move,
+                        "resulting_fen": alt_board.fen(),
+                        "evaluation": alt_eval.get("evaluation"),
+                        "eval_type": alt_eval.get("eval_type"),
+                        "opponent_best_response": alt_eval.get("best_move"),
+                        "continuation": alt_eval.get("pv", [])[:5]
+                    }
+            except Exception as e:
+                alternative_analysis = {"error": f"Invalid move: {req.alternative_move}"}
+        
+        # If a move was played, analyze it too
+        played_analysis = None
+        if req.played_move:
+            try:
+                played_mv = board.parse_san(req.played_move)
+                played_board = board.copy()
+                played_board.push(played_mv)
+                
+                played_eval = get_position_evaluation(played_board.fen(), depth=18)
+                if played_eval.get("success"):
+                    # Calculate centipawn loss
+                    before_eval = position_eval.get("evaluation", 0)
+                    after_eval = played_eval.get("evaluation", 0)
+                    
+                    # Adjust for side to move
+                    if stockfish_data["turn"] == "black":
+                        cp_loss = before_eval + after_eval  # Black wants negative, so loss is if it becomes more positive
+                    else:
+                        cp_loss = before_eval - after_eval  # White wants positive
+                    
+                    played_analysis = {
+                        "move": req.played_move,
+                        "evaluation_after": played_eval.get("evaluation"),
+                        "cp_loss": max(0, cp_loss),  # Loss is always positive
+                        "opponent_response": played_eval.get("best_move"),
+                        "continuation": played_eval.get("pv", [])[:5]
+                    }
+            except Exception:
+                pass
+        
+        # Build prompt for GPT
+        prompt = f"""You are an experienced chess coach analyzing a position for a student.
+
+POSITION (FEN): {req.fen}
+SIDE TO MOVE: {stockfish_data['turn'].title()}
+
+STOCKFISH ANALYSIS:
+- Position evaluation: {stockfish_data['evaluation']} ({stockfish_data['eval_type']})
+- Best move: {stockfish_data['best_move']}
+- Best continuation: {' '.join(stockfish_data['best_line'])}
+- Is check: {stockfish_data['is_check']}
+"""
+
+        if req.played_move and played_analysis:
+            prompt += f"""
+THE MOVE PLAYED: {req.played_move}
+- Evaluation after: {played_analysis.get('evaluation_after')}
+- Centipawn loss: {played_analysis.get('cp_loss', 0)}
+- Opponent's best response: {played_analysis.get('opponent_response')}
+"""
+
+        if alternative_analysis and "error" not in alternative_analysis:
+            prompt += f"""
+ALTERNATIVE MOVE ANALYZED: {req.alternative_move}
+- Evaluation after {req.alternative_move}: {alternative_analysis.get('evaluation')}
+- Opponent's best response: {alternative_analysis.get('opponent_best_response')}
+- Continuation: {' '.join(alternative_analysis.get('continuation', []))}
+"""
+
+        prompt += f"""
+STUDENT'S QUESTION: {req.question}
+
+Answer the student's question in a helpful, coaching tone:
+1. Directly address their question
+2. Use the Stockfish analysis to support your answer
+3. Explain ideas, not just moves
+4. If they asked "what if", compare the alternative to what was played/best
+5. Keep it concise (3-4 sentences max)
+6. If relevant, mention what the opponent threatens or plans
+
+Do NOT:
+- List long variations
+- Be overly technical
+- Lecture about general principles unless directly relevant
+- Say "as a chess coach" or similar phrases
+
+Just answer naturally like a helpful mentor."""
+
+        # Get GPT response
+        try:
+            chat = LlmChat(
+                api_key=os.environ.get("EMERGENT_API_KEY") or os.environ.get("LLM_API_KEY"),
+                provider=LLM_PROVIDER,
+                model=LLM_MODEL
+            )
+            response = await chat.send_async(UserMessage(content=prompt))
+            answer = response.content.strip()
+        except Exception as e:
+            logger.error(f"GPT error in ask_about_move: {e}")
+            # Fallback to basic Stockfish answer
+            answer = f"The best move here is {stockfish_data['best_move']}. "
+            if req.alternative_move and alternative_analysis and "error" not in alternative_analysis:
+                answer += f"Your suggestion {req.alternative_move} leads to an evaluation of {alternative_analysis.get('evaluation')}."
+        
+        # Build response
+        return {
+            "answer": answer,
+            "stockfish": {
+                "evaluation": stockfish_data["evaluation"],
+                "eval_type": stockfish_data["eval_type"],
+                "best_move": stockfish_data["best_move"],
+                "best_line": stockfish_data["best_line"]
+            },
+            "alternative_analysis": alternative_analysis,
+            "played_analysis": played_analysis
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ask about move error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to analyze position")
+
+
 # ==================== CHALLENGE/PUZZLE ROUTES ====================
 
 class GeneratePuzzleRequest(BaseModel):
