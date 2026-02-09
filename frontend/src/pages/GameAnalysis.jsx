@@ -558,12 +558,12 @@ const GameAnalysis = ({ user }) => {
         })
       });
       
+      const data = await response.json();
+      
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Failed to get answer");
+        throw new Error(data.detail || "Failed to get answer");
       }
       
-      const data = await response.json();
       setAskResponse(data);
       
       // Track which move this conversation is about
