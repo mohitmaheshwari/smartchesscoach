@@ -284,23 +284,35 @@ def calculate_improvement_metrics(analyses: List[Dict]) -> Dict:
     recent_games = analyses[-5:]
     
     def avg_stat(games, stat_path):
+        """
+        Calculate average stat from games.
+        CRITICAL: Use stockfish_analysis.move_evaluations for blunders/mistakes,
+        NOT top-level fields which may be stale. See /app/backend/DATA_MODEL.md
+        """
         values = []
         for g in games:
             sf = g.get("stockfish_analysis", {})
+            move_evals = sf.get("move_evaluations", [])
+            
             if stat_path == "accuracy":
-                val = sf.get("accuracy", 0)
+                val = sf.get("accuracy", 0) or 0
             elif stat_path == "blunders":
-                val = g.get("blunders", 0)
+                # Count from Stockfish move_evaluations (SOURCE OF TRUTH)
+                val = sum(1 for m in move_evals if m.get("evaluation") == "blunder")
             elif stat_path == "mistakes":
-                val = g.get("mistakes", 0)
+                # Count from Stockfish move_evaluations (SOURCE OF TRUTH)
+                val = sum(1 for m in move_evals if m.get("evaluation") == "mistake")
             elif stat_path == "best_moves":
-                val = g.get("best_moves", 0) + sf.get("excellent_moves", 0)
+                val = sum(1 for m in move_evals if m.get("is_best") or m.get("evaluation") == "best")
             elif stat_path == "avg_cp_loss":
-                val = sf.get("avg_cp_loss", 0)
+                val = sf.get("avg_cp_loss", 0) or 0
             else:
                 val = 0
-            if val > 0 or stat_path in ["blunders", "mistakes"]:
+            
+            # Only include if we have valid Stockfish data
+            if move_evals or (stat_path == "accuracy" and val > 0):
                 values.append(val)
+        
         return sum(values) / len(values) if values else 0
     
     metrics = {
