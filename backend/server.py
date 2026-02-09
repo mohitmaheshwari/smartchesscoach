@@ -4339,14 +4339,12 @@ app.add_middleware(
 # ==================== BACKGROUND SYNC SCHEDULER ====================
 import asyncio
 
-# Global variable to track the background task
-_background_sync_task = None
-# Using BACKGROUND_SYNC_INTERVAL_SECONDS from config.py  # 6 hours
+# Note: _background_sync_task is declared at the top with lifespan
 
 async def background_sync_loop():
     """
     Periodic background task to sync games for all users.
-    Runs every 6 hours.
+    Runs every 6 hours (configurable via BACKGROUND_SYNC_INTERVAL_SECONDS).
     """
     while True:
         try:
@@ -4356,28 +4354,8 @@ async def background_sync_loop():
         except Exception as e:
             logger.error(f"Background sync error: {e}")
         
-        # Wait for next sync interval
+        # Wait for next sync interval (6 hours by default)
         await asyncio.sleep(BACKGROUND_SYNC_INTERVAL_SECONDS)
 
-@app.on_event("startup")
-async def startup_event():
-    """Start background tasks on app startup"""
-    global _background_sync_task
-    
-    # Start the background sync loop
-    _background_sync_task = asyncio.create_task(background_sync_loop())
-    logger.info("Background sync scheduler started")
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    global _background_sync_task
-    
-    # Cancel background task
-    if _background_sync_task:
-        _background_sync_task.cancel()
-        try:
-            await _background_sync_task
-        except asyncio.CancelledError:
-            pass
-    
-    client.close()
+# Note: Startup and shutdown are now handled by the lifespan context manager
+# defined at the top of this file (see: async def lifespan(app))
