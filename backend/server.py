@@ -2490,20 +2490,6 @@ async def get_coach_today(user: User = Depends(get_current_user)):
                         repeated_habit = True
                         break
             
-            # Find the critical mistake from this game's commentary
-            critical_moment = None
-            commentary = last_analysis.get("commentary", [])
-            for move_data in commentary:
-                eval_type = str(move_data.get("evaluation", "")).lower()
-                if eval_type in ["blunder", "mistake"]:
-                    critical_moment = {
-                        "move_number": move_data.get("move_number"),
-                        "move": move_data.get("move"),
-                        "best_move": move_data.get("best_move") or move_data.get("consider"),
-                        "explanation": move_data.get("explanation", "")[:150]
-                    }
-                    break
-            
             # Get termination reason
             termination = most_recent_game.get("termination", "")
             
