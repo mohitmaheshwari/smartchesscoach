@@ -3760,7 +3760,39 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid FEN position")
         
-        # Get Stockfish analysis for the position
+        user_color = req.user_color or "white"
+        current_turn = "white" if board.turn else "black"
+        
+        # CRITICAL: Determine if we need to analyze position BEFORE the played move
+        # The FEN we received is the CURRENT board position
+        # If user asks about their move, we need the position BEFORE that move
+        
+        position_before = None
+        best_for_user = None
+        best_line_for_user = []
+        
+        if req.played_move:
+            # User is asking about a move they played
+            # The current position is AFTER that move
+            # We need to go back one move to find what they SHOULD have played
+            
+            # Try to undo the move to get position before
+            try:
+                # Create a test board and try to reverse the move
+                # The played_move is in SAN notation for the position BEFORE
+                # So we need to find the position before and analyze it
+                
+                # Approach: The current FEN is after the move. 
+                # Try to pop the last move if possible, or infer the previous position
+                
+                # Since we can't easily undo a move from FEN alone, 
+                # we'll analyze the current position but be VERY clear in the prompt
+                # about what the user is asking
+                pass
+            except:
+                pass
+        
+        # Get Stockfish analysis for the CURRENT position
         position_eval = get_position_evaluation(req.fen, depth=18)
         if not position_eval.get("success"):
             raise HTTPException(status_code=500, detail="Failed to analyze position")
@@ -3790,7 +3822,7 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
             "best_line": position_eval.get("pv", [])[:5],
             "is_check": board.is_check(),
             "is_checkmate": board.is_checkmate(),
-            "turn": "white" if board.turn else "black"
+            "turn": current_turn
         }
         
         # If user asks about an alternative move, analyze it
@@ -3816,35 +3848,23 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
             except Exception as e:
                 alternative_analysis = {"error": f"Invalid move: {req.alternative_move}"}
         
-        # If a move was played, analyze it too
+        # If a move was played, we need to understand what SHOULD have been played
+        # The current position is AFTER the move, so stockfish best_move is for opponent
         played_analysis = None
+        user_should_have_played = None
+        
         if req.played_move:
-            try:
-                played_mv = board.parse_san(req.played_move)
-                played_board = board.copy()
-                played_board.push(played_mv)
-                
-                played_eval = get_position_evaluation(played_board.fen(), depth=18)
-                if played_eval.get("success"):
-                    # Calculate centipawn loss
-                    before_eval = position_eval.get("evaluation", 0)
-                    after_eval = played_eval.get("evaluation", 0)
-                    
-                    # Adjust for side to move
-                    if stockfish_data["turn"] == "black":
-                        cp_loss = before_eval + after_eval  # Black wants negative, so loss is if it becomes more positive
-                    else:
-                        cp_loss = before_eval - after_eval  # White wants positive
-                    
-                    played_analysis = {
-                        "move": req.played_move,
-                        "evaluation_after": played_eval.get("evaluation"),
-                        "cp_loss": max(0, cp_loss),  # Loss is always positive
-                        "opponent_response": played_eval.get("best_move"),
-                        "continuation": played_eval.get("pv", [])[:5]
-                    }
-            except Exception:
-                pass
+            # The user played this move. Current position is AFTER.
+            # stockfish_data["best_move"] is the opponent's best response.
+            # 
+            # To find what user SHOULD have played, we need the position BEFORE.
+            # Since we don't have it directly, we'll note this in the prompt.
+            
+            played_analysis = {
+                "move": req.played_move,
+                "evaluation_after": eval_score,  # Current eval (after the move)
+                "opponent_best_response": best_move_san,  # What opponent should play now
+            }
         
         # Build human-readable position description
         def describe_position(board):
