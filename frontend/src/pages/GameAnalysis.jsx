@@ -712,11 +712,59 @@ const GameAnalysis = ({ user }) => {
                     <p className="text-sm font-medium flex items-center gap-2">
                       <MessageCircle className="w-4 h-4 text-violet-500" />
                       Ask About This Position
+                      {conversationHistory.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          ({conversationHistory.length} message{conversationHistory.length !== 1 ? 's' : ''})
+                        </span>
+                      )}
                     </p>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAskPanel(false)}>
-                      <X className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {conversationHistory.length > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={handleClearConversation}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAskPanel(false)}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
+                  
+                  {/* Conversation History */}
+                  {conversationHistory.length > 0 && (
+                    <div className="mb-4 max-h-48 overflow-y-auto space-y-3" data-testid="conversation-history">
+                      {conversationHistory.map((exchange, i) => (
+                        <div key={i} className="space-y-2">
+                          {/* User Question */}
+                          <div className="flex items-start gap-2">
+                            <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <span className="text-xs text-primary">Q</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{exchange.question}</p>
+                          </div>
+                          {/* Coach Answer */}
+                          <div className="flex items-start gap-2 ml-2">
+                            <div className="w-5 h-5 rounded-full bg-violet-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <Brain className="w-3 h-3 text-violet-500" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">{exchange.answer}</p>
+                              {exchange.stockfish && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Best: <span className="font-mono text-violet-500">{exchange.stockfish.best_move}</span>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   
                   {/* Suggested Questions */}
                   <div className="flex flex-wrap gap-2 mb-3">
@@ -736,7 +784,7 @@ const GameAnalysis = ({ user }) => {
                     <Input
                       value={askQuestion}
                       onChange={(e) => setAskQuestion(e.target.value)}
-                      placeholder="e.g., What if I played Nf3 instead?"
+                      placeholder={conversationHistory.length > 0 ? "Ask a follow-up question..." : "e.g., What if I played Nf3 instead?"}
                       className="flex-1 text-sm"
                       onKeyDown={(e) => e.key === 'Enter' && handleAskAboutMove()}
                       disabled={askLoading}
@@ -756,53 +804,19 @@ const GameAnalysis = ({ user }) => {
                     </Button>
                   </div>
                   
-                  {/* Response */}
-                  {askResponse && (
-                    <div className="mt-4 space-y-3" data-testid="ask-response">
-                      {/* Main Answer */}
-                      <div className="p-3 rounded-lg bg-background border">
-                        <p className="text-sm">{askResponse.answer}</p>
-                      </div>
-                      
-                      {/* Stockfish Analysis */}
-                      {askResponse.stockfish && (
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <span className="font-medium">Best:</span>
-                            <span className="font-mono text-violet-600 dark:text-violet-400">
-                              {askResponse.stockfish.best_move}
-                            </span>
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="font-medium">Eval:</span>
-                            <span className={`font-mono ${
-                              askResponse.stockfish.evaluation > 0 ? 'text-emerald-500' : 
-                              askResponse.stockfish.evaluation < 0 ? 'text-red-500' : ''
-                            }`}>
-                              {askResponse.stockfish.eval_type === 'mate' 
-                                ? `M${Math.abs(askResponse.stockfish.evaluation)}`
-                                : (askResponse.stockfish.evaluation / 100).toFixed(1)
-                              }
-                            </span>
-                          </span>
-                        </div>
-                      )}
-                      
-                      {/* Alternative Move Analysis */}
-                      {askResponse.alternative_analysis && !askResponse.alternative_analysis.error && (
-                        <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20 text-xs">
-                          <span className="font-medium text-blue-600 dark:text-blue-400">
-                            After {askResponse.alternative_analysis.move}:
-                          </span>
-                          <span className="ml-2 font-mono">
-                            eval {(askResponse.alternative_analysis.evaluation / 100).toFixed(1)}
-                          </span>
-                          {askResponse.alternative_analysis.opponent_best_response && (
-                            <span className="ml-2 text-muted-foreground">
-                              → {askResponse.alternative_analysis.opponent_best_response}
-                            </span>
-                          )}
-                        </div>
+                  {/* Current Response (for alternative analysis display) */}
+                  {askResponse?.alternative_analysis && !askResponse.alternative_analysis.error && (
+                    <div className="mt-3 p-2 rounded bg-blue-500/10 border border-blue-500/20 text-xs">
+                      <span className="font-medium text-blue-600 dark:text-blue-400">
+                        After {askResponse.alternative_analysis.move}:
+                      </span>
+                      <span className="ml-2 font-mono">
+                        eval {(askResponse.alternative_analysis.evaluation / 100).toFixed(1)}
+                      </span>
+                      {askResponse.alternative_analysis.opponent_best_response && (
+                        <span className="ml-2 text-muted-foreground">
+                          → {askResponse.alternative_analysis.opponent_best_response}
+                        </span>
                       )}
                     </div>
                   )}
