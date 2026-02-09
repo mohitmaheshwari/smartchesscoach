@@ -1,0 +1,53 @@
+# Git
+.git
+.gitignore
+
+# Dependencies (will be installed fresh in container)
+node_modules
+__pycache__
+*.pyc
+.venv
+venv
+env
+
+# Build artifacts
+frontend/build
+*.egg-info
+dist
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment files (should be provided at runtime)
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# Test files
+test_reports/
+.pytest_cache
+.coverage
+htmlcov
+
+# Logs
+*.log
+/var/log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (optional - remove if you want docs in image)
+# *.md
+# docs/
+
+# Mobile app (not needed for web deployment)
+mobile/
+
+# Memory files (development artifacts)
+memory/
