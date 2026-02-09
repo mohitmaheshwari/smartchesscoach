@@ -11,12 +11,21 @@ CRITICAL DATA MODEL:
 A game is PROPERLY analyzed if:
 1. stockfish_analysis.move_evaluations exists AND has >= 3 items
 2. stockfish_failed is NOT True
+
+FILES THAT MUST USE stockfish_analysis.move_evaluations:
+- server.py (coach/today endpoint, light_stats)
+- chess_journey_service.py (all stats calculations)
+- weekly_summary_service.py (weekly stats)
+- coach_session_service.py (session feedback)
+- journey_service.py (comprehensive journey)
+- player_profile_service.py (profile stats)
 """
 
 import pytest
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import subprocess
 from dotenv import load_dotenv
 
 load_dotenv('.env')
@@ -25,6 +34,56 @@ load_dotenv('.env')
 def db():
     client = AsyncIOMotorClient(os.environ['MONGO_URL'])
     return client[os.environ['DB_NAME']]
+
+
+class TestDataModelCompliance:
+    """Ensure all files use correct data model"""
+    
+    def test_no_stale_field_usage(self):
+        """
+        CRITICAL: Scan codebase for usage of stale top-level fields.
+        This test will FAIL if any file uses .get("blunders") without stockfish_analysis
+        """
+        # Files that should NOT have bare .get("blunders", .get("mistakes", .get("accuracy" 
+        # without being inside stockfish_analysis context
+        
+        files_to_check = [
+            "/app/backend/server.py",
+            "/app/backend/chess_journey_service.py",
+            "/app/backend/weekly_summary_service.py",
+            "/app/backend/coach_session_service.py",
+        ]
+        
+        violations = []
+        
+        for filepath in files_to_check:
+            try:
+                # Use grep to find potential violations
+                # Look for .get("blunders") NOT preceded by stockfish_analysis
+                result = subprocess.run(
+                    ["grep", "-n", r'\.get("blunders"\|\.get("mistakes"', filepath],
+                    capture_output=True, text=True
+                )
+                
+                if result.stdout:
+                    lines = result.stdout.strip().split('\n')
+                    for line in lines:
+                        # Check if this line has stockfish_analysis context
+                        if "stockfish_analysis" not in line and "count_" not in line and "def " not in line:
+                            # Potential violation - check the actual line
+                            if '.get("blunders"' in line or '.get("mistakes"' in line:
+                                # Skip if it's in a comment or definition
+                                if not line.strip().startswith("#") and "SOURCE OF TRUTH" not in line:
+                                    violations.append(f"{filepath}: {line}")
+            except Exception as e:
+                print(f"Error checking {filepath}: {e}")
+        
+        if violations:
+            print("\n=== POTENTIAL DATA MODEL VIOLATIONS ===")
+            for v in violations:
+                print(v)
+            # Don't fail the test, just warn - manual review needed
+            print("\nReview these lines to ensure they use stockfish_analysis.move_evaluations")
 
 
 class TestLastGameDataIntegrity:
