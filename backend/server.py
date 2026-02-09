@@ -3857,8 +3857,16 @@ ALTERNATIVE MOVE ANALYZED: {req.alternative_move}
 - Continuation: {' '.join(alternative_analysis.get('continuation', []))}
 """
 
+        # Add conversation history for context
+        if req.conversation_history and len(req.conversation_history) > 0:
+            prompt += "\nPREVIOUS CONVERSATION:\n"
+            for exchange in req.conversation_history[-5:]:  # Keep last 5 exchanges for context
+                prompt += f"Student: {exchange.get('question', '')}\n"
+                prompt += f"Coach: {exchange.get('answer', '')}\n"
+            prompt += "\n"
+
         prompt += f"""
-STUDENT'S QUESTION: {req.question}
+STUDENT'S CURRENT QUESTION: {req.question}
 
 Answer the student's question in a helpful, coaching tone:
 1. Directly address their question
@@ -3867,12 +3875,14 @@ Answer the student's question in a helpful, coaching tone:
 4. If they asked "what if", compare the alternative to what was played/best
 5. Keep it concise (3-4 sentences max)
 6. If relevant, mention what the opponent threatens or plans
+7. If this is a follow-up question, build on your previous answers naturally
 
 Do NOT:
 - List long variations
 - Be overly technical
 - Lecture about general principles unless directly relevant
 - Say "as a chess coach" or similar phrases
+- Repeat information you've already given in previous answers
 
 Just answer naturally like a helpful mentor."""
 
