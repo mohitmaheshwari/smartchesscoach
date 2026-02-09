@@ -3934,40 +3934,50 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
         user_color_name = user_color.title()
         opponent_color = "Black" if user_color == "white" else "White"
         
+        # Check if user just moved (meaning it's now opponent's turn)
+        user_just_moved = (current_turn != user_color)
+        
         prompt = f"""You are an experienced chess coach analyzing a position for a student who plays as {user_color_name}.
 
-IMPORTANT CONTEXT:
+CRITICAL CONTEXT - READ CAREFULLY:
 - The student plays as {user_color_name}
-- The current position shown is AFTER the move was played
-- It is currently {current_turn.title()}'s turn to move
+- The current position shown is AFTER the student's move "{req.played_move or 'unknown'}" was played
+- It is now {current_turn.title()}'s turn to move (the opponent)
+- When I say "best move" below, it refers to {current_turn.title()}'s best move (the OPPONENT), NOT the student's
 
-CURRENT POSITION AFTER THE MOVE:
+CURRENT POSITION (AFTER {user_color_name.upper()}'S MOVE):
 {position_description}
 
 FEN: {req.fen}
-SIDE TO MOVE NOW: {current_turn.title()}
+IT IS NOW {current_turn.upper()}'S TURN (OPPONENT)
 
-STOCKFISH ANALYSIS OF CURRENT POSITION:
-- Position evaluation: {stockfish_data['evaluation']} centipawns ({'+' if stockfish_data['evaluation'] > 0 else ''}{stockfish_data['evaluation']/100:.1f} pawns, {'White' if stockfish_data['evaluation'] > 0 else 'Black'} is better)
-- Best move for {current_turn.title()} (the side to move): {stockfish_data['best_move']}
-- Best continuation: {' '.join(stockfish_data['best_line'])}
+STOCKFISH ANALYSIS:
+- Position evaluation: {stockfish_data['evaluation']} centipawns ({'+' if stockfish_data['evaluation'] > 0 else ''}{stockfish_data['evaluation']/100:.1f} pawns)
+- {'White is better' if stockfish_data['evaluation'] > 0 else 'Black is better' if stockfish_data['evaluation'] < 0 else 'Position is equal'}
+- Best move for {opponent_color} (opponent's best response): {stockfish_data['best_move']}
+- Continuation after {stockfish_data['best_move']}: {' '.join(stockfish_data['best_line'])}
 
-NOTE: The "best move" above is for {current_turn.title()} because it's their turn NOW. This is the OPPONENT's best response if the student just moved.
+IMPORTANT: {stockfish_data['best_move']} is what {opponent_color} should play NOW. It is NOT what {user_color_name} should have played.
 """
 
         if req.played_move and played_analysis:
             prompt += f"""
-THE MOVE PLAYED: {req.played_move}
-- Evaluation after: {played_analysis.get('evaluation_after')}
-- Centipawn loss: {played_analysis.get('cp_loss', 0)}
-- Opponent's best response: {played_analysis.get('opponent_response')}
+THE STUDENT'S MOVE BEING DISCUSSED: {req.played_move} (played by {user_color_name})
+- Position evaluation after this move: {played_analysis.get('evaluation_after')} centipawns
+- {opponent_color}'s best response to this move: {played_analysis.get('opponent_best_response')}
+
+If the student asks "why was {req.played_move} bad/inaccurate", explain:
+1. What problems this move creates for {user_color_name}
+2. What {opponent_color} can do now to exploit it
+3. Do NOT say "{stockfish_data['best_move']}" was better - that's {opponent_color}'s move!
+4. If you know what {user_color_name} should have played instead, mention it. If not, focus on WHY this move is problematic.
 """
 
         if alternative_analysis and "error" not in alternative_analysis:
             prompt += f"""
-ALTERNATIVE MOVE ANALYZED: {req.alternative_move}
+ALTERNATIVE MOVE ANALYZED: {req.alternative_move} (hypothetical move by {user_color_name})
 - Evaluation after {req.alternative_move}: {alternative_analysis.get('evaluation')}
-- Opponent's best response: {alternative_analysis.get('opponent_best_response')}
+- {opponent_color}'s best response: {alternative_analysis.get('opponent_best_response')}
 - Continuation: {' '.join(alternative_analysis.get('continuation', []))}
 """
 
