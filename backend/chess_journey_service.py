@@ -27,9 +27,14 @@ async def get_chess_journey(db, user_id: str) -> Dict[str, Any]:
     if not user:
         return {"error": "User not found"}
     
-    # Get all analyses for this user
+    # Get all PROPERLY analyzed games (with Stockfish data) for this user
+    # CRITICAL: Only include games with stockfish_analysis.move_evaluations
+    # See /app/backend/DATA_MODEL.md
     analyses = await db.game_analyses.find(
-        {"user_id": user_id},
+        {
+            "user_id": user_id,
+            "stockfish_analysis.move_evaluations": {"$exists": True, "$not": {"$size": 0}}
+        },
         {"_id": 0}
     ).sort("created_at", 1).to_list(500)  # Oldest first for progression
     
