@@ -1,14 +1,7 @@
 # GitHub Action: Auto-sync to Bitbucket
 # 
-# This workflow automatically mirrors your GitHub repo to Bitbucket
-# whenever you push to the main branch.
-#
-# SETUP REQUIRED - Add these GitHub Secrets:
-# 1. Go to GitHub repo → Settings → Secrets and variables → Actions
-# 2. Add these secrets:
-#    - BITBUCKET_TOKEN: Your Bitbucket API token
-#
-# That's it! Workspace and repo are hardcoded below.
+# SETUP: Add ONE secret in GitHub:
+#   BITBUCKET_TOKEN = your Bitbucket app password or access token
 
 name: Sync to Bitbucket
 
@@ -17,7 +10,7 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch:  # Allows manual trigger
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -26,25 +19,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for proper sync
+          fetch-depth: 0
 
       - name: Push to Bitbucket
         env:
           BITBUCKET_TOKEN: ${{ secrets.BITBUCKET_TOKEN }}
         run: |
-          # Configure git
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
           
-          # Bitbucket repo details (hardcoded for simplicity)
+          # Try with actual username (mohit.maheshwari)
+          BITBUCKET_USER="mohit.maheshwari"
           BITBUCKET_WORKSPACE="smartmaheshwari-official"
           BITBUCKET_REPO="smartchesscoach"
           
-          # Add Bitbucket remote with API token auth
-          # For Bitbucket API tokens, use x-token-auth as username
-          git remote add bitbucket "https://x-token-auth:${BITBUCKET_TOKEN}@bitbucket.org/${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO}.git"
+          echo "Attempting to sync to: bitbucket.org/${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO}"
           
-          # Push all branches and tags
+          git remote add bitbucket "https://${BITBUCKET_USER}:${BITBUCKET_TOKEN}@bitbucket.org/${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO}.git"
+          
           git push bitbucket --all --force
           git push bitbucket --tags --force
           
