@@ -4225,7 +4225,6 @@ class GeneratePuzzleRequest(BaseModel):
 @api_router.post("/generate-puzzle")
 async def generate_puzzle(req: GeneratePuzzleRequest, user: User = Depends(get_current_user)):
     """Generate a puzzle based on user's weakness pattern from PlayerProfile"""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
     import json
     
     # Get player profile for context
@@ -4294,15 +4293,11 @@ Respond in JSON format ONLY:
 Make sure the FEN is valid and the solution is correct for that position."""
 
     try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"puzzle_{user.user_id}_{uuid.uuid4().hex[:8]}",
-            system_message=system_prompt
-        ).with_model(LLM_PROVIDER, LLM_MODEL)
-        
-        response = await chat.send_message(UserMessage(
-            text=f"Generate a {target_category} puzzle focusing on {target_subcategory.replace('_', ' ')}"
-        ))
+        response = await call_openai_chat(
+            system_message=system_prompt,
+            user_message=f"Generate a {target_category} puzzle focusing on {target_subcategory.replace('_', ' ')}",
+            model="gpt-4o-mini"
+        )
         
         response_clean = response.strip()
         if response_clean.startswith("```json"):
