@@ -403,14 +403,14 @@ def generate_next_games_plan(primary_issue: str, secondary_issue: str, opening_d
             plan["opening_advice"] = (plan.get("opening_advice", "") + 
                 f". Black se {best_black['name']} khelo - {best_black['win_rate']}% win rate hai")
     
-    plan["message"] = f"""Agli {plan['games_count']} games mein sirf 2 cheezon pe focus rakho.
+    plan["message"] = f"""In your next {plan['games_count']} games, focus on just 2 things.
 
-Sab kuch improve karne ki koshish mat karo. 
+Don't try to improve everything at once.
 
 1. {plan['focus_areas'][0]['action']}
 2. {plan['focus_areas'][1]['action']}
 
-Bas. Simple rakho."""
+That's it. Keep it simple."""
     
     return plan
 
