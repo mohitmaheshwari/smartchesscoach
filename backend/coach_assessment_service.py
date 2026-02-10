@@ -31,7 +31,7 @@ async def generate_coach_assessment(db, user_id: str, badges: Dict, analyses: Li
     """
     if not analyses or len(analyses) < 3:
         return {
-            "message": "Abhi bahut kam games analyze hue hain. 5-10 games analyze karo, phir clear picture milegi.",
+            "message": "Not enough games analyzed yet. Analyze 5-10 games for a clear picture.",
             "primary_issue": None,
             "secondary_issue": None,
             "has_enough_data": False
