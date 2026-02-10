@@ -1437,14 +1437,12 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
                 current_prompt = system_prompt + "\n" + stricter_rules
                 logger.info(f"CQS: Regenerating analysis for {req.game_id}, attempt {attempt + 1}")
             
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=f"analysis_{req.game_id}_{attempt}",
-                system_message=current_prompt
-            ).with_model(LLM_PROVIDER, LLM_MODEL)
-            
-            user_message = UserMessage(text=f"Please analyze this game:\n\n{game['pgn']}")
-            response = await chat.send_message(user_message)
+            # Use OpenAI directly
+            response = await call_openai_chat(
+                system_message=current_prompt,
+                user_message=f"Please analyze this game:\n\n{game['pgn']}",
+                model="gpt-4o-mini"
+            )
         
             response_clean = response.strip()
             if response_clean.startswith("```json"):
@@ -1452,7 +1450,7 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
             if response_clean.startswith("```"):
                 response_clean = response_clean[3:]
             if response_clean.endswith("```"):
-                response_clean = response_clean[:-3]
+                response_clean = response_clean[:-3:]
             
             try:
                 analysis_data = json.loads(response_clean)
