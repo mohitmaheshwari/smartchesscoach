@@ -311,36 +311,36 @@ def generate_memorable_rules(primary_issue: str, capability_gap: Dict) -> List[D
     # Based on primary issue
     issue_rules = {
         "opening": [
-            {"rule": "Castle karke king safe karo - har game mein", "reason": "King safety = peace of mind"},
-            {"rule": "Development pehle, attack baad mein", "reason": "Pieces develop karo, phir attack karo"}
+            {"rule": "Castle your king to safety - every game", "reason": "King safety = peace of mind"},
+            {"rule": "Develop first, attack later", "reason": "Get your pieces out, then attack"}
         ],
         "tactical": [
-            {"rule": "Move karne se pehle: Opponent kya chahta hai?", "reason": "Threats dekhna hai har move pe"},
-            {"rule": "Checks, captures, threats - yeh order mein dekho", "reason": "CCT method se kuch miss nahi hoga"}
+            {"rule": "Before moving: What does my opponent want?", "reason": "Check threats on every move"},
+            {"rule": "Checks, captures, threats - look in this order", "reason": "CCT method catches everything"}
         ],
         "positional": [
-            {"rule": "Pieces ko active squares pe rakho", "reason": "Active pieces > extra pawns"},
-            {"rule": "Weak squares pe control karo", "reason": "Squares control karo, game control karo"}
+            {"rule": "Put your pieces on active squares", "reason": "Active pieces > extra pawns"},
+            {"rule": "Control the weak squares", "reason": "Control squares, control the game"}
         ],
         "endgame": [
-            {"rule": "King ko center mein lao endgame mein", "reason": "Endgame mein king ek strong piece hai"},
-            {"rule": "Passed pawn push karo", "reason": "Passed pawn = winning chance"}
+            {"rule": "Bring your king to the center in endgames", "reason": "In endgames, the king is a strong piece"},
+            {"rule": "Push your passed pawns", "reason": "Passed pawn = winning chance"}
         ],
         "defense": [
-            {"rule": "Problem hone pe panic mat karo", "reason": "Best defense = calm calculation"},
-            {"rule": "Opponent ke threats neutralize karo pehle", "reason": "Defense first, counterplay second"}
+            {"rule": "Don't panic when in trouble", "reason": "Best defense = calm calculation"},
+            {"rule": "Neutralize opponent's threats first", "reason": "Defense first, counterplay second"}
         ],
         "converting": [
-            {"rule": "Winning position mein SLOW DOWN", "reason": "Jaldi mat karo jab jeet rahe ho"},
-            {"rule": "Simplify karo jab ahead ho", "reason": "Pieces exchange karo, win easy karo"}
+            {"rule": "SLOW DOWN when winning", "reason": "Don't rush when you're ahead"},
+            {"rule": "Simplify when you're ahead", "reason": "Trade pieces, make the win easy"}
         ],
         "focus": [
-            {"rule": "Har move pe 5 second ruko minimum", "reason": "5 seconds se 80% blunders avoid honge"},
-            {"rule": "Move karne se pehle: Kya mera piece safe hai?", "reason": "Ek simple check, bahut saare points save"}
+            {"rule": "Wait 5 seconds before every move", "reason": "5 seconds prevents 80% of blunders"},
+            {"rule": "Before moving: Is my piece safe?", "reason": "One simple check saves many points"}
         ],
         "time": [
-            {"rule": "First 10 moves: Fast. Middle: Slow. End: Careful.", "reason": "Time distribute karo evenly"},
-            {"rule": "30 seconds se kam time pe simple moves khelo", "reason": "Time trouble = simple chess"}
+            {"rule": "First 10 moves: Fast. Middle: Slow. End: Careful.", "reason": "Distribute time evenly"},
+            {"rule": "Under 30 seconds? Play simple moves.", "reason": "Time trouble = simple chess"}
         ]
     }
     
@@ -349,8 +349,8 @@ def generate_memorable_rules(primary_issue: str, capability_gap: Dict) -> List[D
     # Add capability-specific rule if execution gap
     if capability_gap.get("gap_type") == "execution":
         rules.insert(0, {
-            "rule": "Skill hai tumhare paas. Focus nahi hai. Har move check karo.",
-            "reason": "Tum complex samajh lete ho, simple miss kar dete ho",
+            "rule": "You have the skill. You lack focus. Check every move.",
+            "reason": "You understand complex ideas but miss simple ones",
             "is_primary": True
         })
     
