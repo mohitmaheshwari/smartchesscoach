@@ -20,8 +20,8 @@ import Journey from "@/pages/Journey";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-export const API = `${BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
+export const API = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }) => {
