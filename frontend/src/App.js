@@ -15,6 +15,7 @@ import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
 import Journey from "@/pages/Journey";
+import ProgressV2 from "@/pages/ProgressV2";
 
 // Components
 import { Toaster } from "@/components/ui/sonner";
