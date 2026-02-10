@@ -1130,7 +1130,6 @@ async def get_user_mistake_context(user_id: str) -> str:
 @api_router.post("/analyze-game")
 async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
     """Analyze a game with Stockfish engine + AI coaching using PlayerProfile + RAG"""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
     import json
     
     game = await db.games.find_one(
