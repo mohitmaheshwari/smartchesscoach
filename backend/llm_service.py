@@ -5,9 +5,11 @@ This module provides a unified interface for LLM calls that works with:
 - Emergent integrations (for development/testing on Emergent platform)
 - Direct OpenAI SDK (for production deployment)
 
-Set environment variable LLM_PROVIDER_MODE to control which is used:
-- "emergent" = Use emergentintegrations (default in Emergent environment)
-- "openai" = Use direct OpenAI SDK (default in production)
+AUTOMATIC DETECTION:
+- Emergent environment: Has EMERGENT_LLM_KEY, no OPENAI_API_KEY
+- Production environment: Has OPENAI_API_KEY
+
+Manual override: Set LLM_PROVIDER_MODE="emergent" or "openai"
 """
 
 import os
@@ -15,14 +17,29 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Determine which provider to use
-# Default to "openai" for production, override with env var
-LLM_PROVIDER_MODE = os.environ.get("LLM_PROVIDER_MODE", "openai")
+# Determine which provider to use based on available keys
+def _detect_provider_mode():
+    """Auto-detect which LLM provider to use based on environment"""
+    # Check for manual override first
+    manual_mode = os.environ.get("LLM_PROVIDER_MODE", "").lower()
+    if manual_mode in ["emergent", "openai"]:
+        return manual_mode
+    
+    # Auto-detect based on which keys are available
+    has_emergent_key = bool(os.environ.get("EMERGENT_LLM_KEY", "").strip())
+    has_openai_key = bool(os.environ.get("OPENAI_API_KEY", "").strip())
+    
+    if has_openai_key:
+        # Production: OpenAI key takes priority
+        return "openai"
+    elif has_emergent_key:
+        # Emergent environment
+        return "emergent"
+    else:
+        # Default to OpenAI (will fail if no key, but that's expected)
+        return "openai"
 
-# Check if we're in Emergent environment (has EMERGENT_LLM_KEY but not OPENAI_API_KEY)
-if os.environ.get("EMERGENT_LLM_KEY") and not os.environ.get("OPENAI_API_KEY"):
-    LLM_PROVIDER_MODE = "emergent"
-
+LLM_PROVIDER_MODE = _detect_provider_mode()
 logger.info(f"LLM Provider Mode: {LLM_PROVIDER_MODE}")
 
 
