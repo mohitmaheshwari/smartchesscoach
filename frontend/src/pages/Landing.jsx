@@ -6,22 +6,34 @@ const Landing = () => {
   const { theme, toggleTheme } = useTheme();
 
   const handleLogin = async () => {
-    try {
-      // Get Google OAuth URL from your own backend
-      const API_URL = process.env.REACT_APP_BACKEND_URL || '';
-      const response = await fetch(`${API_URL}/api/auth/google/login`);
-      const data = await response.json();
-      
-      if (data.auth_url) {
-        // Redirect to Google OAuth
-        window.location.href = data.auth_url;
-      } else {
-        console.error('Failed to get auth URL');
+    const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+    
+    // Check if we're in Emergent environment (preview URL contains 'emergentagent' or 'preview')
+    const isEmergentEnv = window.location.hostname.includes('emergentagent') || 
+                          window.location.hostname.includes('preview') ||
+                          API_URL.includes('emergentagent') ||
+                          API_URL.includes('preview');
+    
+    if (isEmergentEnv) {
+      // Use Emergent auth for testing
+      const redirectUrl = window.location.origin + '/dashboard';
+      window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    } else {
+      // Use your own Google OAuth for production
+      try {
+        const response = await fetch(`${API_URL}/api/auth/google/login`);
+        const data = await response.json();
+        
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        } else {
+          console.error('Failed to get auth URL');
+          alert('Login failed. Please try again.');
+        }
+      } catch (error) {
+        console.error('Login error:', error);
         alert('Login failed. Please try again.');
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      alert('Login failed. Please try again.');
     }
   };
 
