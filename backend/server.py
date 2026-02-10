@@ -1846,7 +1846,7 @@ class TTSRequest(BaseModel):
 @api_router.post("/tts/generate")
 async def generate_speech(req: TTSRequest, user: User = Depends(get_current_user)):
     """Generate speech audio from text using OpenAI TTS"""
-    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    import base64
     
     if not req.text or len(req.text.strip()) == 0:
         raise HTTPException(status_code=400, detail="Text is required")
@@ -1855,15 +1855,17 @@ async def generate_speech(req: TTSRequest, user: User = Depends(get_current_user
     text = req.text[:4000]
     
     try:
-        tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+        client = get_openai_client()
         
-        # Generate speech as base64 for easy frontend use
-        audio_base64 = await tts.generate_speech_base64(
-            text=text,
-            model="tts-1",  # Standard quality for faster response
+        response = await client.audio.speech.create(
+            model="tts-1",
             voice=req.voice,
-            speed=1.0
+            input=text
         )
+        
+        # Get audio bytes and convert to base64
+        audio_bytes = response.content
+        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
         
         return {
             "audio_base64": audio_base64,
