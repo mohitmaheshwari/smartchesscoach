@@ -165,23 +165,23 @@ async def _generate_assessment_message(
     
     # Generate message based on gap type
     if gap_type == "execution":
-        message = f"""Tumhari chess weak nahi ho rahi.
+        message = f"""Your chess isn't getting worse.
 
-Par tum 2 jagah consistently damage le rahe ho:
+But you're consistently losing points in 2 areas:
 
-1. **{primary_issue.title()}** - Simple mistakes ho rahi hain jo tumhare level se neeche hain
+1. **{primary_issue.title()}** - You're making simple mistakes that are below your level
 
-2. **{secondary_issue.title()}** - Yahan bhi improvement chahiye
+2. **{secondary_issue.title()}** - This also needs improvement
 
-Main baat: Tum complex positions handle kar lete ho, par easy moments mein focus lose kar dete ho. Yeh skill ka problem nahi hai - yeh discipline ka problem hai."""
+The key point: You handle complex positions well, but lose focus in easy moments. This isn't a skill problem - it's a discipline problem."""
     else:
-        message = f"""Tumhare games mein 2 clear patterns dikh rahe hain:
+        message = f"""Your games show 2 clear patterns:
 
-1. **{primary_issue.title()}** - Yahan sabse zyada rating leak ho rahi hai
+1. **{primary_issue.title()}** - This is where you're losing the most rating points
 
-2. **{secondary_issue.title()}** - Yeh secondary issue hai
+2. **{secondary_issue.title()}** - This is a secondary issue
 
-Focus pehle #{primary_issue} pe karo. Ek cheez fix karo, baaki automatically better hogi."""
+Focus on {primary_issue} first. Fix one thing, and the rest will improve automatically."""
     
     return {
         "message": message,
