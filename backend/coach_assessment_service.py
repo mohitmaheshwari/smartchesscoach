@@ -372,14 +372,14 @@ def generate_next_games_plan(primary_issue: str, secondary_issue: str, opening_d
     
     # Primary focus
     focus_map = {
-        "opening": "Opening ke first 10 moves pe focus - development complete karo safely",
-        "tactical": "Har move pe 5 seconds ruko aur threats check karo",
-        "positional": "Pieces ke best squares dhundho - active rakho",
-        "endgame": "Jab endgame aaye, king ko center lao pehle",
-        "defense": "Worse position mein calm raho - best defense dhundho",
-        "converting": "Winning position mein simplify karo - jaldi mat karo",
-        "focus": "Har move pe puchho: Mera piece safe hai?",
-        "time": "Clock check karo har 5 moves pe"
+        "opening": "Focus on the first 10 moves - complete development safely",
+        "tactical": "Wait 5 seconds on every move and check for threats",
+        "positional": "Find the best squares for your pieces - keep them active",
+        "endgame": "When the endgame comes, bring your king to the center first",
+        "defense": "Stay calm in worse positions - find the best defense",
+        "converting": "When winning, simplify - don't rush",
+        "focus": "Before every move, ask: Is my piece safe?",
+        "time": "Check your clock every 5 moves"
     }
     
     plan["focus_areas"].append({
