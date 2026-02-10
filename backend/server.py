@@ -1880,7 +1880,7 @@ async def generate_speech(req: TTSRequest, user: User = Depends(get_current_user
 @api_router.post("/tts/analysis-summary/{game_id}")
 async def generate_analysis_voice(game_id: str, user: User = Depends(get_current_user)):
     """Generate voice coaching for a game analysis summary"""
-    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    import base64
     
     # Get the analysis
     analysis = await db.game_analyses.find_one(
@@ -1913,14 +1913,16 @@ async def generate_analysis_voice(game_id: str, user: User = Depends(get_current
         raise HTTPException(status_code=400, detail="No summary available for voice generation")
     
     try:
-        tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+        client = get_openai_client()
         
-        audio_base64 = await tts.generate_speech_base64(
-            text=voice_script[:4000],
+        response = await client.audio.speech.create(
             model="tts-1",
-            voice="onyx",  # Male coach voice
-            speed=0.95  # Slightly slower for coaching clarity
+            voice="onyx",
+            input=voice_script[:4000]
         )
+        
+        audio_bytes = response.content
+        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
         
         # Cache the audio in the database
         await db.game_analyses.update_one(
