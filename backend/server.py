@@ -1836,16 +1836,7 @@ async def generate_speech(req: TTSRequest, user: User = Depends(get_current_user
     text = req.text[:4000]
     
     try:
-        client = get_openai_client()
-        
-        response = await client.audio.speech.create(
-            model="tts-1",
-            voice=req.voice,
-            input=text
-        )
-        
-        # Get audio bytes and convert to base64
-        audio_bytes = response.content
+        audio_bytes = await call_tts(text=text, voice=req.voice)
         audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
         
         return {
