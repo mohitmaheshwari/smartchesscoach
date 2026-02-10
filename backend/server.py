@@ -1885,8 +1885,6 @@ async def generate_analysis_voice(game_id: str, user: User = Depends(get_current
         raise HTTPException(status_code=400, detail="No summary available for voice generation")
     
     try:
-        client = get_openai_client()
-        
         audio_bytes = await call_tts(text=voice_script[:4000], voice="onyx")
         audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
         
