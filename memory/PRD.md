@@ -64,8 +64,21 @@ Build an AI-powered chess coaching application that analyzes games, identifies p
 - `/app/DEVELOPER.md` - Developer documentation
 - `/app/Dockerfile` - Production container build
 
+## Recent Changes - Feb 10, 2026
+
+### Stockfish Fix
+- Reinstalled Stockfish (was missing from environment)
+- Analyzed 10 games with Stockfish - all successful
+- Now 21 games have valid `stockfish_analysis.move_evaluations`
+
+## In Progress
+1. **New Progress Page** - Backend services (`badge_service.py`, `coach_service.py`) are placeholders
+2. **ProgressV2.jsx** - Frontend shell needs to be connected to API
+
 ## Known Issues / Backlog
 1. Missing `data-testid="get-started-btn"` on landing page (affects automated testing)
+2. Stockfish not persistent between environment restarts (temporary fix applied)
+3. 17 games still need Stockfish analysis
 
 ## API Endpoints
 - `POST /api/game/{game_id}/ask` - Ask questions about a position (supports fen_before)
