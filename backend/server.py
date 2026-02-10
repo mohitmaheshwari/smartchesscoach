@@ -1419,7 +1419,7 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
                 logger.info(f"CQS: Regenerating analysis for {req.game_id}, attempt {attempt + 1}")
             
             # Use OpenAI directly
-            response = await call_openai_chat(
+            response = await call_llm(
                 system_message=current_prompt,
                 user_message=f"Please analyze this game:\n\n{game['pgn']}",
                 model="gpt-4o-mini"
@@ -3672,7 +3672,7 @@ Be specific and actionable. Respond in JSON format:
 }"""
     
     try:
-        response = await call_openai_chat(
+        response = await call_llm(
             system_message=system_message,
             user_message=f"Create training recommendations for a player with these weakness patterns:\n{patterns_text}",
             model="gpt-4o-mini"
@@ -4159,7 +4159,7 @@ Answer naturally like a helpful mentor."""
 
         # Get GPT response using OpenAI directly
         try:
-            answer = await call_openai_chat(
+            answer = await call_llm(
                 system_message="You are an experienced chess coach helping a student understand positions.",
                 user_message=prompt,
                 model="gpt-4o-mini"
@@ -4274,7 +4274,7 @@ Respond in JSON format ONLY:
 Make sure the FEN is valid and the solution is correct for that position."""
 
     try:
-        response = await call_openai_chat(
+        response = await call_llm(
             system_message=system_prompt,
             user_message=f"Generate a {target_category} puzzle focusing on {target_subcategory.replace('_', ' ')}",
             model="gpt-4o-mini"
