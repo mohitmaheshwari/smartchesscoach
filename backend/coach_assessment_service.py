@@ -120,12 +120,12 @@ def detect_capability_gap(analyses: List[Dict], badges: Dict) -> Dict:
             evidence = {
                 "best_find": best_tactical_finds[0],
                 "simple_miss": simple_misses[0],
-                "message": "Tum complex tactics dhund lete ho, par simple threats miss kar dete ho. Yeh skill ka issue nahi, focus ka issue hai."
+                "message": "You can find complex tactics, but you're missing simple threats. This isn't a skill problem - it's a focus problem."
             }
         else:
             gap_type = "skill"
             evidence = {
-                "message": "Tactical patterns pe kaam karna hoga. Daily puzzles solve karo."
+                "message": "You need to work on tactical patterns. Solve daily puzzles."
             }
     
     return {
