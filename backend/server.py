@@ -3966,7 +3966,6 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
     - "What should my plan be here?"
     """
     import chess
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
     
     try:
         # Validate FEN (position AFTER the move)
