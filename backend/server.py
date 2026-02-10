@@ -3658,7 +3658,7 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
 @api_router.get("/training-recommendations")
 async def get_training_recommendations(user: User = Depends(get_current_user)):
     """Get AI-generated training recommendations based on weaknesses"""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    import json
     
     patterns = await db.mistake_patterns.find(
         {"user_id": user.user_id},
@@ -3681,11 +3681,7 @@ async def get_training_recommendations(user: User = Depends(get_current_user)):
         for p in patterns
     ])
     
-    try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"recommendations_{user.user_id}",
-            system_message="""You are a chess coach creating a personalized training plan.
+    system_message = """You are a chess coach creating a personalized training plan.
 Based on the player's mistake patterns, suggest 3-5 specific training exercises.
 Be specific and actionable. Respond in JSON format:
 {
@@ -3693,13 +3689,14 @@ Be specific and actionable. Respond in JSON format:
         {"title": "...", "description": "...", "priority": "high/medium/low", "estimated_time": "15 mins"}
     ]
 }"""
-        ).with_model(LLM_PROVIDER, LLM_MODEL)
+    
+    try:
+        response = await call_openai_chat(
+            system_message=system_message,
+            user_message=f"Create training recommendations for a player with these weakness patterns:\n{patterns_text}",
+            model="gpt-4o-mini"
+        )
         
-        response = await chat.send_message(UserMessage(
-            text=f"Create training recommendations for a player with these weakness patterns:\n{patterns_text}"
-        ))
-        
-        import json
         response_clean = response.strip()
         if response_clean.startswith("```json"):
             response_clean = response_clean[7:]
