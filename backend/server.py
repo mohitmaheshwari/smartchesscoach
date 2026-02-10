@@ -1887,13 +1887,7 @@ async def generate_analysis_voice(game_id: str, user: User = Depends(get_current
     try:
         client = get_openai_client()
         
-        response = await client.audio.speech.create(
-            model="tts-1",
-            voice="onyx",
-            input=voice_script[:4000]
-        )
-        
-        audio_bytes = response.content
+        audio_bytes = await call_tts(text=voice_script[:4000], voice="onyx")
         audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
         
         # Cache the audio in the database
