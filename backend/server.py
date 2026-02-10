@@ -4173,17 +4173,14 @@ RULES FOR YOUR ANSWER:
 
 Answer naturally like a helpful mentor."""
 
-        # Get GPT response
+        # Get GPT response using OpenAI directly
         try:
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=f"ask_{game_id}_{req.move_number or 0}",
-                system_message="You are an experienced chess coach helping a student understand positions."
-            ).with_model(LLM_PROVIDER, LLM_MODEL)
-            
-            user_message = UserMessage(text=prompt)
-            answer_response = await chat.send_message(user_message)
-            answer = answer_response.strip()
+            answer = await call_openai_chat(
+                system_message="You are an experienced chess coach helping a student understand positions.",
+                user_message=prompt,
+                model="gpt-4o-mini"
+            )
+            answer = answer.strip()
         except Exception as e:
             logger.error(f"GPT error in ask_about_move: {e}")
             # Fallback to basic Stockfish answer
