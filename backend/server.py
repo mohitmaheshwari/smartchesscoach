@@ -1948,7 +1948,7 @@ class MoveVoiceRequest(BaseModel):
 @api_router.post("/tts/move-explanation")
 async def generate_move_voice(req: MoveVoiceRequest, user: User = Depends(get_current_user)):
     """Generate voice explanation for a specific move"""
-    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    import base64
     
     analysis = await db.game_analyses.find_one(
         {"game_id": req.game_id, "user_id": user.user_id},
@@ -1992,14 +1992,16 @@ async def generate_move_voice(req: MoveVoiceRequest, user: User = Depends(get_cu
         raise HTTPException(status_code=400, detail="No explanation available for this move")
     
     try:
-        tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+        client = get_openai_client()
         
-        audio_base64 = await tts.generate_speech_base64(
-            text=voice_script[:4000],
+        response = await client.audio.speech.create(
             model="tts-1",
             voice="onyx",
-            speed=0.95
+            input=voice_script[:4000]
         )
+        
+        audio_bytes = response.content
+        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
         
         return {
             "audio_base64": audio_base64,
