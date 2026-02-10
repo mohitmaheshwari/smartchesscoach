@@ -134,30 +134,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ==================== OPENAI HELPER ====================
-from openai import AsyncOpenAI
+# ==================== LLM SERVICE ====================
+# Import the abstraction layer that handles Emergent vs OpenAI
+from llm_service import call_llm, call_tts, get_provider_mode
 
-openai_client = None
-
-def get_openai_client():
-    """Get or create OpenAI client"""
-    global openai_client
-    if openai_client is None:
-        openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
-    return openai_client
-
-async def call_openai_chat(system_message: str, user_message: str, model: str = "gpt-4o-mini") -> str:
-    """Simple OpenAI chat completion wrapper"""
-    client = get_openai_client()
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": user_message}
-        ],
-        temperature=0.7
-    )
-    return response.choices[0].message.content
+logger.info(f"Using LLM provider: {get_provider_mode()}")
 
 # Background sync loop function (defined before lifespan)
 async def background_sync_loop():
