@@ -294,7 +294,7 @@ async def generate_proof_from_games(db, user_id: str, analyses: List[Dict], prim
             "has_proof": True,
             "bad_example": bad_example,
             "good_example": good_example,
-            "message": "Dekho - same player, same skill. Difference sirf focus ka hai."
+            "message": "Look - same player, same skill. The only difference is focus."
         }
     
     return {"has_proof": False, "message": "More games needed for comparison"}
