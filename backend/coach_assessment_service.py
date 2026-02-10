@@ -225,17 +225,16 @@ async def generate_rating_reality(db, user_id: str, analyses: List[Dict]) -> Dic
     estimated_recoverable = blunders_in_losses * 3.5
     
     if blunders_in_losses > 0:
-        message = f"""Rating fluctuation common hai during improvement.
+        message = f"""Rating fluctuation is normal during improvement.
 
-Agar sirf one-move blunders avoid ho jaate, last {len(analyses)} games mein approximately **{int(estimated_recoverable)} rating points** safe rehte.
+If you had avoided simple one-move blunders, you could have saved approximately **{int(estimated_recoverable)} rating points** in the last {len(analyses)} games.
 
-Yeh fixable hai. Har move se pehle ek second ruko aur check karo: "Kya mera piece safe hai?"
-
+This is fixable. Before every move, take one second and ask: "Is my piece safe?"
 """
     else:
-        message = """Rating stable hai. Blunders control mein hain.
+        message = """Your rating is stable. Blunders are under control.
 
-Ab next level ke liye deeper understanding chahiye - positional play aur endgames pe focus karo."""
+For the next level, you need deeper understanding - focus on positional play and endgames."""
     
     return {
         "message": message,
