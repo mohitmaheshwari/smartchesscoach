@@ -461,7 +461,16 @@ async def google_callback(code: str, response: Response):
 
 @api_router.post("/auth/session")
 async def create_session(request: Request, response: Response):
-    """Exchange session_id for session_token (legacy Emergent auth - keeping for backwards compatibility)"""
+    """Exchange session_id for session_token (Emergent auth - only works in Emergent environment)"""
+    from llm_service import get_provider_mode
+    
+    # This endpoint only works in Emergent environment
+    if get_provider_mode() != "emergent":
+        raise HTTPException(
+            status_code=404, 
+            detail="This auth method is not available. Use /api/auth/google/login instead."
+        )
+    
     body = await request.json()
     session_id = body.get("session_id")
     
