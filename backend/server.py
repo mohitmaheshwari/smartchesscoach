@@ -3256,6 +3256,49 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
     }
 
 
+@api_router.get("/progress/v2")
+async def get_progress_v2(user: User = Depends(get_current_user)):
+    """
+    NEW Progress Page - Chess DNA Badges + Coach Assessment
+    
+    Returns:
+    - Coach's honest assessment (not just stats)
+    - Rating reality (framed constructively)
+    - 8 skill badges with trends
+    - Proof from games
+    - Memorable rules
+    - Next 10 games plan
+    """
+    from coach_assessment_service import generate_full_progress_data
+    
+    try:
+        progress_data = await generate_full_progress_data(db, user.user_id)
+        return progress_data
+    except Exception as e:
+        logger.error(f"Progress v2 error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate progress data")
+
+
+@api_router.get("/badges")
+async def get_chess_badges(user: User = Depends(get_current_user)):
+    """Get just the badge scores for quick display"""
+    from badge_service import calculate_all_badges, get_badge_history, calculate_badge_trends
+    
+    try:
+        badges = await calculate_all_badges(db, user.user_id)
+        history = await get_badge_history(db, user.user_id)
+        trends = calculate_badge_trends(badges, history)
+        
+        # Add trends to badges
+        for key in badges.get("badges", {}):
+            badges["badges"][key]["trend"] = trends.get(key, "stable")
+        
+        return badges
+    except Exception as e:
+        logger.error(f"Badges error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to calculate badges")
+
+
 # ==================== WEAKNESS/PATTERN ROUTES ====================
 
 @api_router.get("/patterns")
