@@ -100,6 +100,11 @@ function AppRouter() {
       } />
       <Route path="/progress" element={
         <ProtectedRoute>
+          {({ user }) => <ProgressV2 user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/progress-old" element={
+        <ProtectedRoute>
           {({ user }) => <ChessJourney user={user} />}
         </ProtectedRoute>
       } />
