@@ -32,7 +32,10 @@ try:
         MistakeType, 
         GamePhase,
         get_verbalization_template,
-        classify_for_badge
+        classify_for_badge,
+        find_forks,
+        find_pins,
+        find_skewers
     )
     HAS_MISTAKE_CLASSIFIER = True
 except ImportError:
