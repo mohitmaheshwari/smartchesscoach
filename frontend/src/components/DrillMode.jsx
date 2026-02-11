@@ -233,7 +233,7 @@ const DrillMode = ({
         <div className="flex flex-col items-center">
           <div className="w-full max-w-[320px]">
             <Chessboard
-              position={currentPosition?.fen_before || "start"}
+              position={boardPosition}
               boardWidth={320}
               onPieceDrop={onDrop}
               arePiecesDraggable={!showResult}
