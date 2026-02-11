@@ -815,6 +815,10 @@ def classify_for_badge(mistakes: List[ClassifiedMistake]) -> Dict[str, int]:
         "ignored_threats": 0,
         "time_pressure_errors": 0,
         "positional_errors": 0,
+        "forks_walked_into": 0,
+        "pins_walked_into": 0,
+        "forks_missed": 0,
+        "pins_missed": 0,
         "good_moves": 0,
         "excellent_moves": 0,
         "total_mistakes": 0
@@ -842,6 +846,22 @@ def classify_for_badge(mistakes: List[ClassifiedMistake]) -> Dict[str, int]:
             counts["total_mistakes"] += 1
         elif m.mistake_type == MistakeType.POSITIONAL_DRIFT:
             counts["positional_errors"] += 1
+            counts["total_mistakes"] += 1
+        elif m.mistake_type == MistakeType.WALKED_INTO_FORK:
+            counts["forks_walked_into"] += 1
+            counts["tactical_misses"] += 1
+            counts["total_mistakes"] += 1
+        elif m.mistake_type == MistakeType.WALKED_INTO_PIN:
+            counts["pins_walked_into"] += 1
+            counts["tactical_misses"] += 1
+            counts["total_mistakes"] += 1
+        elif m.mistake_type == MistakeType.MISSED_FORK:
+            counts["forks_missed"] += 1
+            counts["tactical_misses"] += 1
+            counts["total_mistakes"] += 1
+        elif m.mistake_type == MistakeType.MISSED_PIN:
+            counts["pins_missed"] += 1
+            counts["tactical_misses"] += 1
             counts["total_mistakes"] += 1
         elif m.mistake_type == MistakeType.GOOD_MOVE:
             counts["good_moves"] += 1
