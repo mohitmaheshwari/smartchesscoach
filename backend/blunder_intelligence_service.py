@@ -647,7 +647,7 @@ def get_mission(analyses: List[Dict], current_missions: List[Dict] = None) -> Di
         "games_required": 10,
         "games_completed": 0,
         "status": "active",
-        "reward": f"+50 rating potential"
+        "reward": "+50 rating potential"
     }
 
 
