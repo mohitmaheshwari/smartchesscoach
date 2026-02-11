@@ -133,6 +133,7 @@ const DrillMode = ({
       
       // Reset the board to show the position before the move
       chess.load(currentPosition.fen_before);
+      setBoardPosition(currentPosition.fen_before);
       
       return false; // Don't update board visually - we'll show result
     } catch (e) {
