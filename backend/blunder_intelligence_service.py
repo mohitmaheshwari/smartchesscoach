@@ -871,17 +871,17 @@ def get_focus_data(analyses: List[Dict], games: List[Dict] = None) -> Dict:
     Get all data needed for the Focus page (stripped down Coach page).
     
     Returns:
-    - ONE dominant weakness
+    - ONE dominant weakness with EVIDENCE
     - ONE mission
     - ONE behavioral rule
     - ONE pattern reminder
     """
-    weakness = get_dominant_weakness_ranking(analyses)
+    weakness = get_dominant_weakness_ranking(analyses, games)
     mission = get_mission(analyses)
     identity = get_identity_profile(analyses)
     rating_impact = estimate_rating_impact(analyses)
     
-    # Get the ONE thing to focus on
+    # Get the ONE thing to focus on with evidence
     if weakness.get("rating_killer"):
         rk = weakness["rating_killer"]
         focus = {
@@ -889,7 +889,9 @@ def get_focus_data(analyses: List[Dict], games: List[Dict] = None) -> Dict:
             "fix": rk["fix"],
             "label": rk["label"],
             "pattern": rk["pattern"],
-            "impact": f"~{rk['total_cp_loss']} centipawns lost"
+            "impact": f"~{rk['total_cp_loss']} centipawns lost",
+            "occurrences": rk["occurrences"],
+            "evidence": rk.get("evidence", [])[:5]  # Top 5 examples
         }
     else:
         focus = {
@@ -897,7 +899,9 @@ def get_focus_data(analyses: List[Dict], games: List[Dict] = None) -> Dict:
             "fix": "Focus on not hanging pieces.",
             "label": "Building data",
             "pattern": None,
-            "impact": None
+            "impact": None,
+            "occurrences": 0,
+            "evidence": []
         }
     
     return {
@@ -907,6 +911,106 @@ def get_focus_data(analyses: List[Dict], games: List[Dict] = None) -> Dict:
         "rating_impact": rating_impact,
         "games_analyzed": len(analyses) if analyses else 0
     }
+
+
+def get_drill_positions(analyses: List[Dict], games: List[Dict] = None, 
+                       pattern: str = None, state: str = None, limit: int = 5) -> List[Dict]:
+    """
+    Get positions for drill mode based on pattern or game state.
+    
+    Used for:
+    - Pattern Drill Mode: Train specific weakness patterns
+    - State Drill Mode: Practice positions when winning/equal/losing
+    
+    Args:
+        analyses: List of game analyses
+        games: List of games for opponent info
+        pattern: Behavioral pattern to filter by (e.g., "attacks_before_checking_threats")
+        state: Game state to filter by ("winning", "equal", "losing")
+        limit: Max positions to return
+    
+    Returns positions where user was ahead (for practice) and made mistakes.
+    """
+    positions = []
+    
+    # Build games lookup
+    games_lookup = {}
+    if games:
+        for g in games:
+            games_lookup[g.get("game_id")] = g
+    
+    for analysis in analyses[-20:]:  # Look at last 20 games
+        sf_analysis = analysis.get("stockfish_analysis", {})
+        move_evals = sf_analysis.get("move_evaluations", [])
+        game_id = analysis.get("game_id", "")
+        
+        if not move_evals:
+            continue
+        
+        # Get opponent name
+        game_info = games_lookup.get(game_id, {})
+        user_color = game_info.get("user_color", "white")
+        opponent = game_info.get("black_player") if user_color == "white" else game_info.get("white_player")
+        opponent = opponent or "Opponent"
+        
+        for move in move_evals:
+            cp_loss = abs(move.get("cp_loss", 0))
+            eval_before = move.get("eval_before", 0)
+            mistake_type = move.get("mistake_type", "")
+            
+            if not mistake_type:
+                mistake_type = infer_mistake_type_from_eval(move)
+            
+            # Skip non-mistakes
+            if cp_loss < 50 or mistake_type in ["good_move", "excellent_move"]:
+                continue
+            
+            # Filter by state if specified
+            if state:
+                if state == "winning" and eval_before <= 1.5:
+                    continue
+                elif state == "equal" and (eval_before > 1.5 or eval_before < -1.5):
+                    continue
+                elif state == "losing" and eval_before >= -1.5:
+                    continue
+            
+            # Filter by pattern if specified
+            if pattern:
+                matched = False
+                pattern_data = BEHAVIORAL_PATTERNS.get(pattern, {})
+                if mistake_type in pattern_data.get("triggers", []):
+                    matched = True
+                if not matched:
+                    continue
+            
+            # For drill mode, prefer positions where user was winning (+2 or more)
+            # These are the most instructive - "you had it, don't throw it away"
+            if eval_before >= 2.0 or (state and state != "winning"):
+                positions.append({
+                    "game_id": game_id,
+                    "move_number": move.get("move_number", 0),
+                    "fen_before": move.get("fen_before", ""),
+                    "move_played": move.get("move", ""),
+                    "best_move": move.get("best_move", ""),
+                    "cp_loss": round(cp_loss),
+                    "eval_before": round(eval_before, 1),
+                    "opponent": opponent,
+                    "mistake_type": mistake_type,
+                    "user_color": user_color,
+                    "pattern": pattern,
+                    "state": "winning" if eval_before > 1.5 else "equal" if eval_before > -1.5 else "losing"
+                })
+            
+            if len(positions) >= limit:
+                break
+        
+        if len(positions) >= limit:
+            break
+    
+    # Sort by eval_before descending (most winning positions first)
+    positions = sorted(positions, key=lambda x: x["eval_before"], reverse=True)
+    
+    return positions[:limit]
 
 
 def get_journey_data(analyses: List[Dict], games: List[Dict] = None, badge_data: Dict = None) -> Dict:
