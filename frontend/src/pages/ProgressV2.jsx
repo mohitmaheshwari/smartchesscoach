@@ -94,21 +94,25 @@ const TrendBadge = ({ trend }) => {
   );
 };
 
-// Badge card component
-const BadgeCard = ({ badge, isStrength, isWeakness }) => {
+// Badge card component - NOW CLICKABLE
+const BadgeCard = ({ badge, isStrength, isWeakness, onClick }) => {
   const Icon = BADGE_ICONS[badge.key] || Target;
   
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`p-3 rounded-lg border ${
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={() => onClick(badge)}
+      className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
         isStrength 
-          ? "border-green-500/30 bg-green-500/5" 
+          ? "border-green-500/30 bg-green-500/5 hover:border-green-500/50" 
           : isWeakness 
-            ? "border-red-500/30 bg-red-500/5" 
-            : "border-border bg-card"
+            ? "border-red-500/30 bg-red-500/5 hover:border-red-500/50" 
+            : "border-border bg-card hover:border-amber-500/30"
       }`}
+      data-testid={`badge-card-${badge.key}`}
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -127,6 +131,10 @@ const BadgeCard = ({ badge, isStrength, isWeakness }) => {
       <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
         {badge.insight}
       </p>
+      <div className="flex items-center justify-end mt-2 text-xs text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity">
+        <span>See why</span>
+        <ChevronRight className="w-3 h-3 ml-1" />
+      </div>
     </motion.div>
   );
 };
