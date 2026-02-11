@@ -26,10 +26,61 @@ logger = logging.getLogger(__name__)
 # BEHAVIORAL PATTERNS - Maps mistake types to human behaviors
 # ============================================
 
+def infer_mistake_type_from_eval(move: Dict) -> str:
+    """
+    Infer a basic mistake type from move evaluation data.
+    This is a fallback when mistake_type isn't explicitly stored.
+    
+    Uses cp_loss, eval_before, eval_after, is_best to categorize.
+    """
+    cp_loss = abs(move.get("cp_loss", 0))
+    eval_before = move.get("eval_before", 0)
+    eval_after = move.get("eval_after", 0)
+    is_best = move.get("is_best", False)
+    move_number = move.get("move_number", 20)
+    
+    if is_best or cp_loss < 20:
+        return "good_move"
+    
+    # Determine game phase by move number (simplified)
+    if move_number <= 10:
+        phase = "opening"
+    elif move_number <= 30:
+        phase = "middlegame"
+    else:
+        phase = "endgame"
+    
+    # Was ahead before the move?
+    was_ahead = eval_before > 1.0
+    was_behind = eval_before < -1.0
+    
+    # Categorize by severity and context
+    if cp_loss >= 300:  # Major blunder (3+ pawns)
+        if was_ahead:
+            return "blunder_when_ahead"
+        else:
+            return "material_blunder"
+    elif cp_loss >= 150:  # Significant mistake
+        if was_ahead:
+            return "failed_conversion"
+        elif phase == "opening":
+            return "positional_drift"
+        else:
+            return "tactical_miss"
+    elif cp_loss >= 50:  # Minor mistake
+        if phase == "opening":
+            return "opening_inaccuracy"
+        else:
+            return "positional_drift"
+    
+    return "inaccuracy"
+
+
+# Extended behavioral patterns for inferred types
 BEHAVIORAL_PATTERNS = {
     # Attack-related behaviors
     "attacks_before_checking_threats": {
-        "triggers": ["hanging_piece", "ignored_threat", "walked_into_fork", "walked_into_pin", "walked_into_skewer", "walked_into_discovered_attack"],
+        "triggers": ["hanging_piece", "ignored_threat", "walked_into_fork", "walked_into_pin", "walked_into_skewer", "walked_into_discovered_attack", "tactical_miss"],
         "message": "You attack before checking opponent threats.",
         "short": "Impulsive attacker",
         "fix": "Before each move, ask: What can my opponent do to me?"
@@ -59,7 +110,7 @@ BEHAVIORAL_PATTERNS = {
         "fix": "Use more time in complex positions. Simplify when low on clock."
     },
     "positional_drift": {
-        "triggers": ["positional_drift", "king_safety_error"],
+        "triggers": ["positional_drift", "king_safety_error", "opening_inaccuracy", "inaccuracy"],
         "message": "You lose the thread of the position.",
         "short": "Positional wanderer",
         "fix": "Every 5 moves, reassess: What's the plan?"
