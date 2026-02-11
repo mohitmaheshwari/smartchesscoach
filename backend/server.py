@@ -4204,15 +4204,19 @@ ALTERNATIVE MOVE ANALYZED: {req.alternative_move} (hypothetical move by {user_co
         prompt += f"""
 STUDENT'S QUESTION: {req.question}
 
+Additional context: {req.context if hasattr(req, 'context') and req.context else ''}
+
 RULES FOR YOUR ANSWER:
 1. The student is {user_color_name}. Their best move was {best_move_for_user if best_move_for_user else 'unknown'}.
 2. {stockfish_data['best_move']} is {opponent_color}'s move (the opponent), NOT what the student should play.
-3. If asked "what should I have played" or "best move for me", answer: {best_move_for_user if best_move_for_user else 'I need to see the position before your move to tell you.'}
-4. If asked "why was my move bad", explain why {req.played_move} is worse than {best_move_for_user if best_move_for_user else 'the best move'}.
-5. Keep answers concise (3-4 sentences).
-6. Never suggest {opponent_color}'s moves as alternatives for {user_color_name}.
+3. Explain WHY moves are good/bad using simple patterns like forks, pins, discovered attacks, hanging pieces.
+4. If there's a threat, explain what it DOES (e.g., "e4 disconnects your knight from your bishop, so both can be captured").
+5. Keep answers simple for a ~1300 rated player. No advanced theory.
+6. Keep answers concise (3-4 sentences max).
+7. Be encouraging - this is a learning moment, not criticism.
+8. Use phrases like "Do you see how..." or "Notice that..." to guide discovery.
 
-Answer naturally like a helpful mentor."""
+Answer naturally like a supportive chess mentor."""
 
         # Get GPT response using OpenAI directly
         try:
