@@ -4706,7 +4706,7 @@ async def get_focus_page_data(user: User = Depends(get_current_user)):
     return focus_data
 
 
-@api_router.get("/journey")
+@api_router.get("/journey/v2")
 async def get_journey_page_data(user: User = Depends(get_current_user)):
     """
     Get data for the Journey page (TREND - How you're evolving)
