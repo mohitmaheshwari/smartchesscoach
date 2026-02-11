@@ -295,8 +295,12 @@ def get_dominant_weakness_ranking(analyses: List[Dict], games: List[Dict] = None
         patterns_in_game = set()
         
         for move in move_evals:
+            # Use stored mistake_type OR infer from eval data
             mistake_type = move.get("mistake_type", "")
-            cp_loss = abs(move.get("eval_drop", 0)) * 100
+            if not mistake_type:
+                mistake_type = infer_mistake_type_from_eval(move)
+            
+            cp_loss = abs(move.get("cp_loss", 0))  # Already in centipawns
             
             if not mistake_type or mistake_type in ["good_move", "excellent_move"]:
                 continue
