@@ -412,6 +412,23 @@ const JourneyPage = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [journeyData, setJourneyData] = useState(null);
+  
+  // Evidence modal state
+  const [evidenceModal, setEvidenceModal] = useState({
+    isOpen: false,
+    title: "",
+    subtitle: "",
+    evidence: [],
+    type: "pattern",
+    state: null
+  });
+  
+  // Drill mode state
+  const [drillMode, setDrillMode] = useState({
+    active: false,
+    pattern: null,
+    patternLabel: ""
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -431,6 +448,45 @@ const JourneyPage = ({ user }) => {
 
     fetchData();
   }, []);
+  
+  // Handle showing evidence for weakness patterns
+  const handleShowWeaknessEvidence = (weakness, evidence) => {
+    setEvidenceModal({
+      isOpen: true,
+      title: weakness.label,
+      subtitle: weakness.message,
+      evidence: evidence,
+      type: "pattern",
+      state: null
+    });
+  };
+  
+  // Handle showing evidence for win state
+  const handleShowStateEvidence = (state, evidence) => {
+    const stateLabels = {
+      winning: "Blunders When Winning",
+      equal: "Blunders When Equal",
+      losing: "Blunders When Losing"
+    };
+    
+    setEvidenceModal({
+      isOpen: true,
+      title: stateLabels[state],
+      subtitle: `${evidence.length} positions where you blundered while ${state}`,
+      evidence: evidence,
+      type: "state",
+      state: state
+    });
+  };
+  
+  // Handle starting drill mode
+  const handleStartDrill = (pattern, patternLabel) => {
+    setDrillMode({
+      active: true,
+      pattern: pattern,
+      patternLabel: patternLabel
+    });
+  };
 
   if (loading) {
     return (
@@ -443,6 +499,22 @@ const JourneyPage = ({ user }) => {
   }
 
   const gamesAnalyzed = journeyData?.games_analyzed || 0;
+  
+  // Show drill mode if active
+  if (drillMode.active) {
+    return (
+      <Layout user={user}>
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <DrillMode
+            pattern={drillMode.pattern}
+            patternLabel={drillMode.patternLabel}
+            onComplete={() => setDrillMode({ active: false, pattern: null, patternLabel: "" })}
+            onClose={() => setDrillMode({ active: false, pattern: null, patternLabel: "" })}
+          />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout user={user}>
