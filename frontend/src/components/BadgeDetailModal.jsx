@@ -212,19 +212,27 @@ const InteractiveBoard = ({
 
   // Reset to starting position
   const resetPosition = useCallback(() => {
-    chess.load(fen);
-    setCurrentFen(fen);
-    setLineIndex(-1);
-    setIsShowingLine(false);
-    setHighlightSquares({});
-  }, [chess, fen]);
+    const chess = chessRef.current;
+    if (!fen) return;
+    
+    try {
+      chess.load(fen);
+      setCurrentFen(fen);
+      setLineIndex(-1);
+      setIsShowingLine(false);
+      setHighlightSquares({});
+    } catch (e) {
+      console.error("Error resetting:", e);
+    }
+  }, [fen]);
 
   // Show best move
   const showBestMove = useCallback(() => {
-    if (!bestMove) return;
+    const chess = chessRef.current;
+    if (!bestMove || !fen) return;
     
-    chess.load(fen);
     try {
+      chess.load(fen);
       const move = chess.move(bestMove);
       if (move) {
         setHighlightSquares({
@@ -238,12 +246,17 @@ const InteractiveBoard = ({
     } catch (e) {
       console.error("Invalid best move:", bestMove);
     }
-  }, [chess, fen, bestMove]);
+  }, [fen, bestMove]);
 
   const hasPvLine = pvLine && pvLine.length > 0;
 
   return (
     <div className="flex flex-col items-center">
+      {/* Error State */}
+      {error && (
+        <div className="text-red-500 text-sm mb-2">{error}</div>
+      )}
+      
       {/* Chess Board */}
       <div className="w-full max-w-[320px] aspect-square rounded-lg overflow-hidden border-2 border-border shadow-lg">
         <Chessboard 
