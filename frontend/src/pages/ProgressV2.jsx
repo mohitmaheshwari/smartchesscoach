@@ -541,6 +541,14 @@ const ProgressV2 = ({ user }) => {
         </div>
 
       </div>
+      
+      {/* Badge Detail Modal */}
+      <BadgeDetailModal
+        isOpen={badgeModalOpen}
+        onClose={handleCloseBadgeModal}
+        badgeKey={selectedBadge?.key}
+        badgeName={selectedBadge?.name}
+      />
     </Layout>
   );
 };
