@@ -4236,17 +4236,8 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
         if len(legal_moves_san) > 20:
             legal_moves_str += f" (and {len(legal_moves_san) - 20} more)"
         
-        # Get legal moves for position BEFORE the move (what user could have played)
-        legal_moves_before = []
-        if board_before:
-            legal_moves_before = [board_before.san(m) for m in board_before.legal_moves]
-        
-        # Build prompt for GPT with full position context
-        position_description = describe_position(board)
-        
         # Determine context for the prompt
         user_color_name = user_color.title()
-        opponent_color = "Black" if user_color == "white" else "White"
         
         # === USE DETERMINISTIC MISTAKE CLASSIFIER ===
         # This is the "truth layer" - no LLM guessing allowed
