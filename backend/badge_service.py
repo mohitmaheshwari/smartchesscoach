@@ -933,10 +933,20 @@ def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
     }
 
 
-def _get_positional_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
-    """Get detailed data for Positional Sense badge."""
+def _get_positional_badge_details(analyses: List[Dict], games_map: Dict, user_rating: int = 1200) -> Dict:
+    """Get detailed data for Positional Sense badge.
+    
+    For lower-rated players (< 1400):
+    - Only show errors with cp_loss > 100 (significant mistakes they can understand)
+    - Skip subtle positional nuances that require deeper understanding
+    """
     relevant_moves = []
     relevant_games = []
+    
+    # For lower-rated players, only show significant positional errors
+    # Subtle 50cp positional nuances are too advanced for 1300 players
+    min_cp_loss = 100 if user_rating < 1400 else 50
+    max_cp_loss = 300  # Above this is likely tactical, not positional
     
     for analysis in analyses:
         game_id = analysis.get("game_id")
@@ -961,16 +971,19 @@ def _get_positional_badge_details(analyses: List[Dict], games_map: Dict) -> Dict
             cp_loss = m.get("cp_loss", 0)
             
             # Track positional errors (moderate cp loss, not tactical blunders)
-            if evaluation in ["mistake", "inaccuracy"] and 50 <= cp_loss <= 200:
+            # For lower-rated players, only show more significant errors
+            if evaluation in ["mistake", "inaccuracy"] and min_cp_loss <= cp_loss <= max_cp_loss:
                 move_data = {
                     "move_number": m.get("move_number"),
                     "move_played": m.get("move"),
-                    "fen": m.get("fen_before", ""),
+                    "fen_before": m.get("fen_before", ""),
+                    "fen_after": m.get("fen_after", ""),
                     "best_move": m.get("best_move"),
                     "evaluation": evaluation,
                     "cp_loss": cp_loss,
                     "type": "positional_error",
-                    "explanation": _generate_positional_explanation(m, cp_loss)
+                    "pv_after_best": m.get("pv_after_best", []),
+                    "explanation": _generate_positional_explanation(m, cp_loss, user_rating)
                 }
                 game_pos_data["moves"].append(move_data)
                 relevant_moves.append({**move_data, "game_id": game_id})
@@ -980,10 +993,11 @@ def _get_positional_badge_details(analyses: List[Dict], games_map: Dict) -> Dict
                 move_data = {
                     "move_number": m.get("move_number"),
                     "move_played": m.get("move"),
-                    "fen": m.get("fen_before", ""),
+                    "fen_before": m.get("fen_before", ""),
+                    "fen_after": m.get("fen_after", ""),
                     "evaluation": evaluation,
                     "type": "good_positional",
-                    "explanation": "Strong positional decision"
+                    "explanation": "Great piece placement!"
                 }
                 game_pos_data["moves"].append(move_data)
         
