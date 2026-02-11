@@ -409,29 +409,44 @@ def get_dominant_weakness_ranking(analyses: List[Dict], games: List[Dict] = None
     return result
 
 
-def get_win_state_analysis(analyses: List[Dict]) -> Dict:
+def get_win_state_analysis(analyses: List[Dict], games: List[Dict] = None) -> Dict:
     """
     Analyze when blunders happen:
     - Blunders when winning (was_ahead)
     - Blunders when equal
     - Blunders when losing (was_behind)
+    - EVIDENCE: Specific positions for each state
     
-    Returns percentages and insight.
+    Returns percentages, insight, and evidence.
     """
     if not analyses:
         return {
-            "when_winning": {"count": 0, "percentage": 0},
-            "when_equal": {"count": 0, "percentage": 0},
-            "when_losing": {"count": 0, "percentage": 0},
+            "when_winning": {"count": 0, "percentage": 0, "evidence": []},
+            "when_equal": {"count": 0, "percentage": 0, "evidence": []},
+            "when_losing": {"count": 0, "percentage": 0, "evidence": []},
             "total_blunders": 0,
             "insight": "Not enough data yet."
         }
     
+    # Build games lookup for opponent names
+    games_lookup = {}
+    if games:
+        for g in games:
+            games_lookup[g.get("game_id")] = g
+    
     counts = {"winning": 0, "equal": 0, "losing": 0}
+    evidence = {"winning": [], "equal": [], "losing": []}
     
     for analysis in analyses[-15:]:
         sf_analysis = analysis.get("stockfish_analysis", {})
         move_evals = sf_analysis.get("move_evaluations", [])
+        game_id = analysis.get("game_id", "")
+        
+        # Get opponent name
+        game_info = games_lookup.get(game_id, {})
+        user_color = game_info.get("user_color", "white")
+        opponent = game_info.get("black_player") if user_color == "white" else game_info.get("white_player")
+        opponent = opponent or "Opponent"
         
         for move in move_evals:
             cp_loss = abs(move.get("cp_loss", 0))  # Already in centipawns
@@ -441,35 +456,57 @@ def get_win_state_analysis(analyses: List[Dict]) -> Dict:
             # Determine position state before the blunder
             eval_before = move.get("eval_before", 0)
             if eval_before > 1.5:
-                counts["winning"] += 1
+                state = "winning"
             elif eval_before < -1.5:
-                counts["losing"] += 1
+                state = "losing"
             else:
-                counts["equal"] += 1
+                state = "equal"
+            
+            counts[state] += 1
+            
+            # Store evidence (limit to 7 per state)
+            if len(evidence[state]) < 7:
+                evidence[state].append({
+                    "game_id": game_id,
+                    "move_number": move.get("move_number", 0),
+                    "move_played": move.get("move", ""),
+                    "best_move": move.get("best_move", ""),
+                    "fen_before": move.get("fen_before", ""),
+                    "cp_loss": round(cp_loss),
+                    "eval_before": round(eval_before, 1) if eval_before else 0,
+                    "opponent": opponent
+                })
     
     total = sum(counts.values())
     
     if total == 0:
         return {
-            "when_winning": {"count": 0, "percentage": 0},
-            "when_equal": {"count": 0, "percentage": 0},
-            "when_losing": {"count": 0, "percentage": 0},
+            "when_winning": {"count": 0, "percentage": 0, "evidence": []},
+            "when_equal": {"count": 0, "percentage": 0, "evidence": []},
+            "when_losing": {"count": 0, "percentage": 0, "evidence": []},
             "total_blunders": 0,
             "insight": "No significant blunders detected. Great play!"
         }
     
+    # Sort evidence by cp_loss (most costly first)
+    for state in evidence:
+        evidence[state] = sorted(evidence[state], key=lambda x: x["cp_loss"], reverse=True)
+    
     result = {
         "when_winning": {
             "count": counts["winning"],
-            "percentage": round(counts["winning"] / total * 100)
+            "percentage": round(counts["winning"] / total * 100),
+            "evidence": evidence["winning"]
         },
         "when_equal": {
             "count": counts["equal"],
-            "percentage": round(counts["equal"] / total * 100)
+            "percentage": round(counts["equal"] / total * 100),
+            "evidence": evidence["equal"]
         },
         "when_losing": {
             "count": counts["losing"],
-            "percentage": round(counts["losing"] / total * 100)
+            "percentage": round(counts["losing"] / total * 100),
+            "evidence": evidence["losing"]
         },
         "total_blunders": total
     }
