@@ -127,6 +127,19 @@ const Landing = () => {
                 Get Started
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
+              {/* Dev Login Button - only shows when DEV_MODE=true */}
+              {devMode && (
+                <Button 
+                  onClick={handleDevLogin}
+                  variant="outline"
+                  disabled={devLoading}
+                  className="border-amber-500 text-amber-500 hover:bg-amber-500/10"
+                  data-testid="dev-login-button"
+                >
+                  <Code className="w-4 h-4 mr-1" />
+                  {devLoading ? "..." : "Dev Login"}
+                </Button>
+              )}
             </div>
           </div>
         </div>
