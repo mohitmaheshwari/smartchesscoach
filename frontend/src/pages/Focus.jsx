@@ -16,9 +16,13 @@ import {
   Trophy,
   ChevronRight,
   Zap,
-  Brain
+  Brain,
+  Eye,
+  Dumbbell
 } from "lucide-react";
 import MistakeMastery from "@/components/MistakeMastery";
+import EvidenceModal from "@/components/EvidenceModal";
+import DrillMode from "@/components/DrillMode";
 
 /**
  * FOCUS PAGE - "What should I focus on in my next game?"
@@ -26,7 +30,7 @@ import MistakeMastery from "@/components/MistakeMastery";
  * This page answers ONE question only.
  * 
  * Structure:
- * - ONE dominant weakness
+ * - ONE dominant weakness (CLICKABLE - see evidence)
  * - ONE mission
  * - ONE behavioral rule
  * - ONE interactive puzzle
