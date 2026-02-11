@@ -399,7 +399,7 @@ def get_win_state_analysis(analyses: List[Dict]) -> Dict:
         move_evals = sf_analysis.get("move_evaluations", [])
         
         for move in move_evals:
-            cp_loss = abs(move.get("eval_drop", 0)) * 100
+            cp_loss = abs(move.get("cp_loss", 0))  # Already in centipawns
             if cp_loss < 100:  # Only count significant mistakes
                 continue
             
