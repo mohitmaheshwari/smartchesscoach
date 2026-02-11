@@ -57,7 +57,7 @@ const FocusPage = ({ user }) => {
         // Fetch focus data from new endpoint
         const [focusRes, coachRes] = await Promise.all([
           fetch(`${API}/focus`, { credentials: "include" }),
-          fetch(`${API}/coach`, { credentials: "include" })
+          fetch(`${API}/coach/today`, { credentials: "include" })  // Fixed: use /coach/today
         ]);
         
         if (focusRes.ok) {
