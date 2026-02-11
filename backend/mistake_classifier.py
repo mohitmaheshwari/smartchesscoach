@@ -456,6 +456,16 @@ def find_skewers(board: chess.Board, color: chess.Color) -> List[Dict]:
     skewers = []
     opponent = not color
     
+    # Tactical values - king is high because it MUST move when attacked
+    SKEWER_VALUES = {
+        chess.KING: 100,
+        chess.QUEEN: 9,
+        chess.ROOK: 5,
+        chess.BISHOP: 3,
+        chess.KNIGHT: 3,
+        chess.PAWN: 1
+    }
+    
     # Check our sliding pieces for skewer potential
     for attacker_type in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
         for attacker_sq in board.pieces(attacker_type, color):
@@ -492,11 +502,12 @@ def find_skewers(board: chess.Board, color: chess.Color) -> List[Dict]:
                     
                     if behind_piece:
                         if behind_piece.color == opponent:
-                            front_value = PIECE_VALUES.get(front_piece.piece_type, 0)
-                            behind_value = PIECE_VALUES.get(behind_piece.piece_type, 0)
+                            front_value = SKEWER_VALUES.get(front_piece.piece_type, 0)
+                            behind_value = SKEWER_VALUES.get(behind_piece.piece_type, 0)
                             
                             # It's a skewer if front piece is more valuable (must move)
-                            if front_value > behind_value and front_value >= 3:
+                            # King counts as very valuable since it MUST move
+                            if front_value > behind_value and behind_value >= 1:
                                 skewers.append({
                                     "attacker_square": chess.square_name(attacker_sq),
                                     "attacker_piece": chess.piece_name(attacker_type),
@@ -510,14 +521,16 @@ def find_skewers(board: chess.Board, color: chess.Color) -> List[Dict]:
                                         "piece": chess.piece_name(behind_piece.piece_type),
                                         "value": behind_value
                                     },
-                                    "gain": behind_value  # What we win when front moves
+                                    "gain": behind_value,  # What we win when front moves
+                                    "is_royal_skewer": front_piece.piece_type == chess.KING
                                 })
                         break  # Blocked
                     
                     check_file += file_dir
                     check_rank += rank_dir
     
-    skewers.sort(key=lambda x: x["gain"], reverse=True)
+    # Sort by: royal skewers first, then by gain
+    skewers.sort(key=lambda x: (x.get("is_royal_skewer", False), x["gain"]), reverse=True)
     return skewers
 
 
