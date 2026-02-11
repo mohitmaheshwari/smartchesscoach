@@ -44,6 +44,124 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+def calculate_tactical_ratio(analyses: List[Dict]) -> Dict:
+    """
+    Calculate Tactical Ratio - a motivating metric showing:
+    - Tactics executed successfully (forks, pins, skewers)
+    - Tactics fallen into (walked into fork/pin/skewer)
+    
+    Returns a ratio and breakdown that shows improvement over time.
+    This uses the deterministic mistake classifier tags.
+    """
+    if not analyses or not HAS_MISTAKE_CLASSIFIER:
+        return {
+            "ratio": 0.5,
+            "percentage": 50,
+            "executed": {"forks": 0, "pins": 0, "skewers": 0, "total": 0},
+            "fallen_into": {"forks": 0, "pins": 0, "skewers": 0, "total": 0},
+            "avoided": {"forks": 0, "pins": 0, "skewers": 0, "total": 0},
+            "insight": "Not enough data yet",
+            "trend_message": "Play more games to see your tactical ratio!"
+        }
+    
+    # Count tactical patterns from analyses
+    executed = {"forks": 0, "pins": 0, "skewers": 0, "total": 0}
+    fallen_into = {"forks": 0, "pins": 0, "skewers": 0, "total": 0}
+    avoided = {"forks": 0, "pins": 0, "skewers": 0, "total": 0}
+    
+    for analysis in analyses:
+        # Check if analysis has mistake classification data
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        
+        for move in move_evals:
+            mistake_type = move.get("mistake_type", "")
+            
+            # Executed tactics (positive)
+            if mistake_type == "executed_fork":
+                executed["forks"] += 1
+                executed["total"] += 1
+            elif mistake_type == "executed_pin":
+                executed["pins"] += 1
+                executed["total"] += 1
+            elif mistake_type == "executed_skewer":
+                executed["skewers"] += 1
+                executed["total"] += 1
+            
+            # Walked into tactics (negative)
+            elif mistake_type == "walked_into_fork":
+                fallen_into["forks"] += 1
+                fallen_into["total"] += 1
+            elif mistake_type == "walked_into_pin":
+                fallen_into["pins"] += 1
+                fallen_into["total"] += 1
+            elif mistake_type == "walked_into_skewer":
+                fallen_into["skewers"] += 1
+                fallen_into["total"] += 1
+            
+            # Avoided threats (positive defensive play)
+            elif mistake_type == "avoided_fork":
+                avoided["forks"] += 1
+                avoided["total"] += 1
+            elif mistake_type == "avoided_pin":
+                avoided["pins"] += 1
+                avoided["total"] += 1
+            elif mistake_type == "avoided_skewer":
+                avoided["skewers"] += 1
+                avoided["total"] += 1
+    
+    # Calculate ratio: (executed + avoided) / (executed + avoided + fallen_into)
+    positive = executed["total"] + avoided["total"]
+    negative = fallen_into["total"]
+    total = positive + negative
+    
+    if total == 0:
+        ratio = 0.5
+        percentage = 50
+    else:
+        ratio = positive / total
+        percentage = round(ratio * 100)
+    
+    # Generate insight based on the data
+    if total < 5:
+        insight = "Keep playing! More games will reveal your tactical patterns."
+        trend_message = "🎯 Building your tactical profile..."
+    elif percentage >= 75:
+        insight = f"Excellent! You execute {executed['total']} tactics and avoid {avoided['total']} threats."
+        trend_message = "🔥 You're a tactical warrior! Keep up the great work!"
+    elif percentage >= 60:
+        insight = f"Good tactical awareness. You've avoided {avoided['total']} threats."
+        trend_message = "📈 Your tactical instincts are solid. Practice puzzles to level up!"
+    elif percentage >= 45:
+        insight = f"Balanced. Executed {executed['total']} tactics but fell for {fallen_into['total']}."
+        trend_message = "⚖️ Focus on checking opponent threats before moving."
+    else:
+        insight = f"Watch out! You've walked into {fallen_into['total']} tactics."
+        trend_message = "💡 Before each move, ask: what can my opponent do to me?"
+    
+    # Determine which tactic type needs most work
+    weakness = None
+    if fallen_into["forks"] > fallen_into["pins"] and fallen_into["forks"] > fallen_into["skewers"]:
+        weakness = "forks"
+    elif fallen_into["pins"] > fallen_into["skewers"]:
+        weakness = "pins"
+    elif fallen_into["skewers"] > 0:
+        weakness = "skewers"
+    
+    return {
+        "ratio": round(ratio, 2),
+        "percentage": percentage,
+        "executed": executed,
+        "fallen_into": fallen_into,
+        "avoided": avoided,
+        "insight": insight,
+        "trend_message": trend_message,
+        "weakness": weakness,
+        "total_tactical_moments": total
+    }
+
+
 # Badge definitions
 BADGES = {
     "opening": {
