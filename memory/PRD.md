@@ -64,16 +64,33 @@ Build an AI-powered chess coaching application that analyzes games, identifies p
 - `/app/DEVELOPER.md` - Developer documentation
 - `/app/Dockerfile` - Production container build
 
-## Recent Changes - Feb 10, 2026
+## Recent Changes - Feb 10-11, 2026
 
-### Stockfish Fix
+### Stockfish Fix (Feb 10)
 - Reinstalled Stockfish (was missing from environment)
 - Analyzed 10 games with Stockfish - all successful
 - Now 21 games have valid `stockfish_analysis.move_evaluations`
 
+### Badge Drill-Down Feature (Feb 11)
+- **New API Endpoint:** `GET /api/badges/{badge_key}/details`
+  - Returns last 5 relevant games per badge
+  - Each game has specific moves with FEN for board display
+  - Badge-specific commentary explaining "Why this score?"
+  
+- **New Frontend Component:** `BadgeDetailModal.jsx`
+  - Clickable badge cards on Progress Page
+  - Shows chess board with critical positions
+  - Each move: what was played, what was best, realistic explanation
+  - "View Full Game" button with `?focus=` parameter
+  
+- **Enhanced badge_service.py**
+  - 8 badge-specific detail functions
+  - Tracks relevant moves per category
+  - Generates score explanations
+
 ## In Progress
-1. **New Progress Page** - Backend services (`badge_service.py`, `coach_service.py`) are placeholders
-2. **ProgressV2.jsx** - Frontend shell needs to be connected to API
+1. **Focus-aware Game Analysis** - When user clicks "View Game" from badge detail, commentary should focus on that badge category
+2. **Testing** - E2E testing of badge drill-down flow needed
 
 ## Known Issues / Backlog
 1. Missing `data-testid="get-started-btn"` on landing page (affects automated testing)
