@@ -478,7 +478,7 @@ def detect_missed_fork(board_before: chess.Board, best_move: str,
         forks = find_forks(board_copy, user_color)
         if forks:
             return forks[0]
-    except:
+    except Exception:
         pass
     
     return None
@@ -499,7 +499,7 @@ def detect_missed_pin(board_before: chess.Board, best_move: str,
         pins = find_pins(board_copy, opponent)
         if pins:
             return pins[0]
-    except:
+    except Exception:
         pass
     
     return None
