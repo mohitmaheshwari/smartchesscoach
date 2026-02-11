@@ -529,7 +529,7 @@ def get_win_state_analysis(analyses: List[Dict], games: List[Dict] = None) -> Di
     return result
 
 
-def get_mistake_heatmap(analyses: List[Dict]) -> Dict:
+def get_mistake_heatmap(analyses: List[Dict], games: List[Dict] = None) -> Dict:
     """
     Generate heatmap data showing where mistakes occur on the board.
     
@@ -537,16 +537,25 @@ def get_mistake_heatmap(analyses: List[Dict]) -> Dict:
     - Squares where material was lost
     - Squares where pieces were hanging
     - Pattern by board region (kingside/queenside/center)
+    - EVIDENCE per square (clickable drill-down)
     """
     if not analyses:
         return {
             "squares": {},
             "regions": {"kingside": 0, "queenside": 0, "center": 0},
             "hot_squares": [],
+            "square_evidence": {},
             "insight": "Not enough data yet."
         }
     
+    # Build games lookup for opponent names
+    games_lookup = {}
+    if games:
+        for g in games:
+            games_lookup[g.get("game_id")] = g
+    
     square_counts = defaultdict(int)
+    square_evidence = defaultdict(list)  # Evidence per square
     region_counts = {"kingside": 0, "queenside": 0, "center": 0}
     
     # Define regions
@@ -557,6 +566,7 @@ def get_mistake_heatmap(analyses: List[Dict]) -> Dict:
     for analysis in analyses[-15:]:
         sf_analysis = analysis.get("stockfish_analysis", {})
         move_evals = sf_analysis.get("move_evaluations", [])
+        game_id = analysis.get("game_id", "")
         
         for move in move_evals:
             cp_loss = abs(move.get("cp_loss", 0))  # Already in centipawns
