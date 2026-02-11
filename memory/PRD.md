@@ -39,6 +39,7 @@ Each badge rated 1-5 stars with trend tracking:
 
 **1. Deterministic Mistake Classifier** (`backend/mistake_classifier.py`)
 - Rule-based classification - NO LLM guessing
+- **Efficient bitboard operations** using python-chess library
 - Detects 14 mistake types including:
   - WALKED_INTO_FORK: Moved into a fork
   - WALKED_INTO_PIN: Created a pin against yourself
@@ -49,6 +50,11 @@ Each badge rated 1-5 stars with trend tracking:
   - BLUNDER_WHEN_AHEAD: Was winning, threw it away
   - IGNORED_THREAT: Opponent had threat, player didn't address
   - And more...
+
+**Tactical Pattern Detection Functions**:
+- `find_forks()`: Uses `board.attacks()` bitboard for O(n) detection, handles FORK_VALUES (king=100 for tactics)
+- `find_pins()`: Detects both absolute pins (to king via `board.is_pinned()`) and relative pins (to queen)
+- `find_skewers()`: Detects sliding piece attacks where front piece must move, revealing behind piece
 
 **2. Interactive Chess Board** (`BadgeDetailModal.jsx`)
 - "Your Move" button: Replays user's move with red highlights
