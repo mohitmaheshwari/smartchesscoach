@@ -131,7 +131,6 @@ def determine_phase(board: chess.Board) -> GamePhase:
     This is more accurate than arbitrary move thresholds.
     """
     total_material = get_total_material(board)
-    queens = len(board.pieces(chess.QUEEN, chess.WHITE)) + len(board.pieces(chess.QUEEN, chess.BLACK))
     
     # Endgame: low material or no queens with limited pieces
     if total_material <= 26:  # Roughly rook + minor vs rook + minor
