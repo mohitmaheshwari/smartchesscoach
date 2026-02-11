@@ -369,6 +369,16 @@ const FocusPage = ({ user }) => {
           </>
         )}
       </div>
+      
+      {/* Evidence Modal */}
+      <EvidenceModal
+        isOpen={showEvidence}
+        onClose={() => setShowEvidence(false)}
+        title={focusData?.focus?.label || "Rating Killer"}
+        subtitle={focusData?.focus?.main_message}
+        evidence={focusEvidence}
+        type="pattern"
+      />
     </Layout>
   );
 };
