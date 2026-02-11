@@ -709,7 +709,7 @@ def calculate_badge_trends(current: Dict, history: List[Dict]) -> Dict:
 # BADGE DRILL-DOWN: Get relevant games/moves for each badge
 # ============================================================================
 
-async def get_badge_details(db, user_id: str, badge_key: str) -> Dict:
+async def get_badge_details(db, user_id: str, badge_key: str, user_rating: int = 1200) -> Dict:
     """
     Get detailed breakdown for a specific badge.
     
@@ -717,7 +717,13 @@ async def get_badge_details(db, user_id: str, badge_key: str) -> Dict:
     - Badge score and insight
     - Last 5 relevant games
     - Specific moves that affected this badge (with FEN for board display)
-    - Badge-specific commentary
+    - Badge-specific commentary (adjusted for user's rating level)
+    
+    Rating levels:
+    - Below 1000: Very basic explanations
+    - 1000-1400: Beginner-friendly patterns
+    - 1400-1800: Intermediate concepts
+    - 1800+: Advanced ideas
     """
     if badge_key not in BADGES:
         return {"error": f"Unknown badge: {badge_key}"}
@@ -745,13 +751,15 @@ async def get_badge_details(db, user_id: str, badge_key: str) -> Dict:
     if not badge_func:
         return {"error": "Badge detail function not implemented"}
     
-    result = badge_func(analyses, games_map)
+    # Pass user_rating to badge function for rating-appropriate filtering and explanations
+    result = badge_func(analyses, games_map, user_rating)
     
     # Add badge metadata
     result["badge_key"] = badge_key
     result["badge_name"] = BADGES[badge_key]["name"]
     result["badge_icon"] = BADGES[badge_key]["icon"]
     result["badge_description"] = BADGES[badge_key]["description"]
+    result["user_rating"] = user_rating
     
     return result
 
