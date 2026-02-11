@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chessboard } from "react-chessboard";
-import { Chess } from "chess.js";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,14 +16,18 @@ import {
   Trophy,
   Target,
   Lightbulb,
-  Loader2
+  Loader2,
+  HelpCircle
 } from "lucide-react";
 
 /**
  * DrillMode - "What would you play here?" training from user's own games
  * 
+ * Uses MULTIPLE CHOICE format since the stored FEN positions may show
+ * post-move state. User selects from options rather than dragging pieces.
+ * 
  * Props:
- * - pattern: string - Behavioral pattern to train (e.g., "attacks_before_checking_threats")
+ * - pattern: string - Behavioral pattern to train
  * - state: string - Optional game state filter ("winning", "equal", "losing")
  * - onComplete: () => void - Called when drill session is complete
  * - onClose: () => void - Close the drill mode
@@ -40,12 +43,10 @@ const DrillMode = ({
   const [positions, setPositions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [userMove, setUserMove] = useState(null);
+  const [selectedMove, setSelectedMove] = useState(null);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [score, setScore] = useState({ correct: 0, total: 0 });
-  const [chess] = useState(new Chess());
-  const [boardPosition, setBoardPosition] = useState("start");
 
   // Fetch drill positions
   useEffect(() => {
@@ -67,11 +68,6 @@ const DrillMode = ({
         const data = await response.json();
         setPositions(data.positions || []);
         
-        // Set initial board position
-        if (data.positions?.length > 0 && data.positions[0].fen_before) {
-          setBoardPosition(data.positions[0].fen_before);
-        }
-        
         if (data.positions?.length === 0) {
           toast.error("No positions found for training");
         }
@@ -89,81 +85,65 @@ const DrillMode = ({
   // Get current position
   const currentPosition = positions[currentIndex];
 
-  // Load position into chess.js and update board
-  useEffect(() => {
-    if (currentPosition?.fen_before) {
-      try {
-        chess.load(currentPosition.fen_before);
-        setBoardPosition(currentPosition.fen_before);
-      } catch (e) {
-        console.error("Failed to load FEN:", e);
-      }
-    }
-  }, [currentPosition, chess]);
-
-  // Handle piece drop (user's move attempt)
-  const onDrop = useCallback((sourceSquare, targetSquare) => {
-    if (showResult) return false;
+  // Generate choices for the current position
+  const getChoices = () => {
+    if (!currentPosition) return [];
     
-    // Try the move
-    try {
-      const move = chess.move({
-        from: sourceSquare,
-        to: targetSquare,
-        promotion: 'q' // Auto-promote to queen for simplicity
-      });
-      
-      if (!move) return false;
-      
-      // Check if it matches the best move
-      const bestMove = currentPosition.best_move;
-      const moveNotation = move.san;
-      
-      // Normalize for comparison (remove check/mate symbols)
-      const normalizeMove = (m) => m?.replace(/[+#]/g, '').toLowerCase();
-      const isMatch = normalizeMove(moveNotation) === normalizeMove(bestMove);
-      
-      setUserMove(moveNotation);
-      setIsCorrect(isMatch);
-      setShowResult(true);
-      setScore(prev => ({
-        correct: prev.correct + (isMatch ? 1 : 0),
-        total: prev.total + 1
-      }));
-      
-      // Reset the board to show the position before the move
-      chess.load(currentPosition.fen_before);
-      setBoardPosition(currentPosition.fen_before);
-      
-      return false; // Don't update board visually - we'll show result
-    } catch (e) {
-      return false;
+    const bestMove = currentPosition.best_move;
+    const wrongMove = currentPosition.move_played;
+    
+    // Create 3 choices: best move, the mistake, and a decoy
+    const choices = [
+      { move: bestMove, isCorrect: true },
+      { move: wrongMove, isCorrect: false, wasPlayed: true }
+    ];
+    
+    // Shuffle
+    return choices.sort(() => Math.random() - 0.5);
+  };
+
+  const [choices, setChoices] = useState([]);
+  
+  // Update choices when position changes
+  useEffect(() => {
+    if (currentPosition) {
+      setChoices(getChoices());
     }
-  }, [chess, currentPosition, showResult]);
+  }, [currentIndex, positions]);
+
+  // Handle move selection
+  const handleSelectMove = (choice) => {
+    if (showResult) return;
+    
+    setSelectedMove(choice.move);
+    setIsCorrect(choice.isCorrect);
+    setShowResult(true);
+    setScore(prev => ({
+      correct: prev.correct + (choice.isCorrect ? 1 : 0),
+      total: prev.total + 1
+    }));
+  };
 
   // Move to next position
   const nextPosition = () => {
     if (currentIndex < positions.length - 1) {
       setCurrentIndex(prev => prev + 1);
       setShowResult(false);
-      setUserMove(null);
+      setSelectedMove(null);
       setIsCorrect(false);
     } else {
       // Drill complete
       if (onComplete) onComplete();
-      toast.success(`Drill complete! Score: ${score.correct}/${score.total}`);
+      toast.success(`Drill complete! Score: ${score.correct + (isCorrect ? 1 : 0)}/${score.total + 1}`);
     }
   };
 
   // Retry current position
   const retryPosition = () => {
     setShowResult(false);
-    setUserMove(null);
+    setSelectedMove(null);
     setIsCorrect(false);
-    if (currentPosition?.fen_before) {
-      chess.load(currentPosition.fen_before);
-      setBoardPosition(currentPosition.fen_before);
-    }
+    setChoices(getChoices()); // Reshuffle choices
   };
 
   // Go to full game analysis
@@ -229,14 +209,13 @@ const DrillMode = ({
 
       {/* Main Content */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Board */}
+        {/* Board - Static view */}
         <div className="flex flex-col items-center">
           <div className="w-full max-w-[320px]">
             <Chessboard
-              position={boardPosition}
+              position={currentPosition?.fen_before || "start"}
               boardWidth={320}
-              onPieceDrop={onDrop}
-              arePiecesDraggable={!showResult}
+              arePiecesDraggable={false}
               boardOrientation={currentPosition?.user_color || "white"}
               customBoardStyle={{
                 borderRadius: '8px',
@@ -262,27 +241,51 @@ const DrillMode = ({
           </div>
         </div>
 
-        {/* Instructions / Result */}
+        {/* Question / Choices / Result */}
         <div className="flex flex-col justify-center">
           <AnimatePresence mode="wait">
             {!showResult ? (
               <motion.div
-                key="instructions"
+                key="choices"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
               >
                 <Card className="border-primary/30 bg-primary/5">
-                  <CardContent className="py-6 text-center">
-                    <Target className="w-10 h-10 mx-auto mb-3 text-primary" />
-                    <h3 className="text-lg font-bold mb-2">What would you play?</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Drag a piece to make your move.
-                      Try to find the best move in this position.
+                  <CardContent className="py-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <HelpCircle className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-bold">What should you have played?</h3>
+                    </div>
+                    
+                    <p className="text-sm text-muted-foreground mb-4">
+                      In this position from your game, you made a mistake. 
+                      Which move was better?
                     </p>
-                    <p className="text-xs text-muted-foreground mt-4">
-                      This is a position from your own game where you made a mistake.
-                    </p>
+                    
+                    {/* Move choices */}
+                    <div className="space-y-2">
+                      {choices.map((choice, idx) => (
+                        <Button
+                          key={idx}
+                          variant="outline"
+                          className={`w-full justify-start font-mono text-lg py-6 ${
+                            selectedMove === choice.move 
+                              ? 'border-primary bg-primary/10' 
+                              : 'hover:border-primary/50'
+                          }`}
+                          onClick={() => handleSelectMove(choice)}
+                          data-testid={`choice-${idx}`}
+                        >
+                          {choice.move}
+                          {choice.wasPlayed && (
+                            <span className="ml-auto text-xs text-muted-foreground font-normal">
+                              (what you played)
+                            </span>
+                          )}
+                        </Button>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -311,7 +314,7 @@ const DrillMode = ({
                           {isCorrect ? "Correct!" : "Not quite"}
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                          You played: <span className="font-mono">{userMove}</span>
+                          You selected: <span className="font-mono">{selectedMove}</span>
                         </p>
                       </div>
                     </div>
@@ -322,7 +325,7 @@ const DrillMode = ({
                         <Lightbulb className="w-4 h-4 text-yellow-500" />
                         <span className="text-sm font-medium">Best Move</span>
                       </div>
-                      <p className="font-mono text-emerald-500 font-bold">
+                      <p className="font-mono text-emerald-500 font-bold text-lg">
                         {currentPosition?.best_move}
                       </p>
                       
