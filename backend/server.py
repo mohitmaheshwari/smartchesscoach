@@ -3308,8 +3308,8 @@ async def get_badge_details_endpoint(badge_key: str, user: User = Depends(get_cu
     Returns:
     - Badge score and insight
     - Last 5 relevant games with specific moves
-    - Each move includes FEN for board display
-    - Badge-specific commentary explaining WHY this score
+    - Each move includes FEN for board display (fen_after shows position AFTER the move)
+    - Badge-specific commentary adjusted for user's rating level
     """
     from badge_service import get_badge_details, BADGES
     
@@ -3317,7 +3317,11 @@ async def get_badge_details_endpoint(badge_key: str, user: User = Depends(get_cu
         raise HTTPException(status_code=400, detail=f"Unknown badge: {badge_key}")
     
     try:
-        details = await get_badge_details(db, user.user_id, badge_key)
+        # Get user's rating for rating-appropriate explanations
+        user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "rating": 1})
+        user_rating = user_doc.get("rating", 1200) if user_doc else 1200
+        
+        details = await get_badge_details(db, user.user_id, badge_key, user_rating)
         return details
     except Exception as e:
         logger.error(f"Badge details error for {badge_key}: {e}")
