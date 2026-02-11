@@ -1280,6 +1280,7 @@ def _get_focus_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
                     "eval_drop": eval_drop,
                     "type": "focus_error",
                     "threat": m.get("threat"),
+                    "pv_after_best": m.get("pv_after_best", []),
                     "explanation": _generate_focus_explanation(m, eval_drop)
                 }
                 game_focus_data["moves"].append(move_data)
