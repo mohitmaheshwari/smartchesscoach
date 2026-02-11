@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chessboard } from "react-chessboard";
+import { Chess } from "chess.js";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -13,8 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import {
   Loader2,
-  X,
   ChevronRight,
+  ChevronLeft,
   ChevronDown,
   ChevronUp,
   AlertTriangle,
@@ -27,7 +30,13 @@ import {
   Trophy,
   Eye,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Play,
+  RotateCcw,
+  Send,
+  MessageCircle,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
 
 // Badge icon mapping
@@ -69,10 +78,435 @@ const StarRating = ({ score, size = "lg" }) => {
   );
 };
 
-// Single game card with board and moves
+// Interactive Chess Board with playable lines
+const InteractiveBoard = ({ 
+  fen, 
+  bestMove, 
+  playedMove, 
+  pvLine = [], 
+  userColor = "white",
+  onAskAI 
+}) => {
+  const [chess] = useState(() => new Chess());
+  const [currentFen, setCurrentFen] = useState(fen || "start");
+  const [lineIndex, setLineIndex] = useState(-1); // -1 = starting position
+  const [isShowingLine, setIsShowingLine] = useState(false);
+  const [highlightSquares, setHighlightSquares] = useState({});
+
+  // Reset when FEN changes
+  useEffect(() => {
+    if (fen) {
+      chess.load(fen);
+      setCurrentFen(fen);
+      setLineIndex(-1);
+      setIsShowingLine(false);
+      
+      // Highlight the move that was played (if we have it)
+      if (playedMove) {
+        try {
+          const move = chess.move(playedMove);
+          if (move) {
+            setHighlightSquares({
+              [move.from]: { backgroundColor: "rgba(239, 68, 68, 0.4)" },
+              [move.to]: { backgroundColor: "rgba(239, 68, 68, 0.4)" }
+            });
+            chess.undo();
+          }
+        } catch (e) {
+          // Invalid move, ignore
+        }
+      }
+    }
+  }, [fen, playedMove]);
+
+  // Play through the best line
+  const playNextMove = useCallback(() => {
+    if (!pvLine || pvLine.length === 0) return;
+    
+    const nextIndex = lineIndex + 1;
+    if (nextIndex >= pvLine.length) return;
+
+    // Reset to starting position first
+    chess.load(fen);
+    
+    // Play all moves up to nextIndex
+    for (let i = 0; i <= nextIndex; i++) {
+      try {
+        chess.move(pvLine[i]);
+      } catch (e) {
+        console.error("Invalid move in PV:", pvLine[i]);
+        return;
+      }
+    }
+    
+    setCurrentFen(chess.fen());
+    setLineIndex(nextIndex);
+    setIsShowingLine(true);
+    
+    // Highlight the last move
+    const history = chess.history({ verbose: true });
+    if (history.length > 0) {
+      const lastMove = history[history.length - 1];
+      setHighlightSquares({
+        [lastMove.from]: { backgroundColor: "rgba(34, 197, 94, 0.4)" },
+        [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
+      });
+    }
+  }, [chess, fen, pvLine, lineIndex]);
+
+  // Go back one move
+  const playPrevMove = useCallback(() => {
+    if (lineIndex < 0) return;
+    
+    const prevIndex = lineIndex - 1;
+    chess.load(fen);
+    
+    if (prevIndex >= 0) {
+      for (let i = 0; i <= prevIndex; i++) {
+        try {
+          chess.move(pvLine[i]);
+        } catch (e) {
+          return;
+        }
+      }
+      
+      const history = chess.history({ verbose: true });
+      if (history.length > 0) {
+        const lastMove = history[history.length - 1];
+        setHighlightSquares({
+          [lastMove.from]: { backgroundColor: "rgba(34, 197, 94, 0.4)" },
+          [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
+        });
+      }
+    } else {
+      setHighlightSquares({});
+    }
+    
+    setCurrentFen(chess.fen());
+    setLineIndex(prevIndex);
+    setIsShowingLine(prevIndex >= 0);
+  }, [chess, fen, pvLine, lineIndex]);
+
+  // Reset to starting position
+  const resetPosition = useCallback(() => {
+    chess.load(fen);
+    setCurrentFen(fen);
+    setLineIndex(-1);
+    setIsShowingLine(false);
+    setHighlightSquares({});
+  }, [chess, fen]);
+
+  // Show best move
+  const showBestMove = useCallback(() => {
+    if (!bestMove) return;
+    
+    chess.load(fen);
+    try {
+      const move = chess.move(bestMove);
+      if (move) {
+        setHighlightSquares({
+          [move.from]: { backgroundColor: "rgba(34, 197, 94, 0.5)" },
+          [move.to]: { backgroundColor: "rgba(34, 197, 94, 0.5)" }
+        });
+        setCurrentFen(chess.fen());
+        setLineIndex(0);
+        setIsShowingLine(true);
+      }
+    } catch (e) {
+      console.error("Invalid best move:", bestMove);
+    }
+  }, [chess, fen, bestMove]);
+
+  const hasPvLine = pvLine && pvLine.length > 0;
+
+  return (
+    <div className="flex flex-col items-center">
+      {/* Chess Board */}
+      <div className="w-full max-w-[320px] aspect-square rounded-lg overflow-hidden border-2 border-border shadow-lg">
+        <Chessboard 
+          position={currentFen}
+          boardWidth={320}
+          arePiecesDraggable={false}
+          boardOrientation={userColor === "black" ? "black" : "white"}
+          customSquareStyles={highlightSquares}
+          customBoardStyle={{
+            borderRadius: "4px"
+          }}
+        />
+      </div>
+      
+      {/* Line indicator */}
+      {isShowingLine && hasPvLine && (
+        <div className="mt-2 text-center">
+          <p className="text-xs text-muted-foreground">
+            Showing: <span className="font-mono text-green-500">
+              {pvLine.slice(0, lineIndex + 1).join(" → ")}
+            </span>
+          </p>
+        </div>
+      )}
+      
+      {/* Controls */}
+      <div className="flex items-center gap-2 mt-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={resetPosition}
+          className="h-8 px-2"
+          title="Reset to position"
+        >
+          <RotateCcw className="w-4 h-4" />
+        </Button>
+        
+        {hasPvLine && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={playPrevMove}
+              disabled={lineIndex < 0}
+              className="h-8 px-2"
+              title="Previous move"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            
+            <Button
+              variant="default"
+              size="sm"
+              onClick={playNextMove}
+              disabled={lineIndex >= pvLine.length - 1}
+              className="h-8 px-3 gap-1"
+              title="Play next move in line"
+            >
+              <Play className="w-3 h-3" />
+              Next
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={playPrevMove}
+              disabled={lineIndex >= pvLine.length - 1}
+              className="h-8 px-2"
+              title="Next move"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </>
+        )}
+        
+        {bestMove && !isShowingLine && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={showBestMove}
+            className="h-8 px-3 gap-1"
+          >
+            <Sparkles className="w-3 h-3" />
+            Show Best
+          </Button>
+        )}
+      </div>
+      
+      {/* Line notation */}
+      {hasPvLine && (
+        <div className="mt-3 p-2 rounded bg-muted/50 text-center">
+          <p className="text-xs text-muted-foreground mb-1">Best continuation:</p>
+          <p className="text-sm font-mono">
+            {pvLine.map((move, i) => (
+              <span 
+                key={i} 
+                className={`${i <= lineIndex ? 'text-green-500 font-bold' : 'text-muted-foreground'}`}
+              >
+                {move}{i < pvLine.length - 1 ? ' ' : ''}
+              </span>
+            ))}
+          </p>
+        </div>
+      )}
+      
+      {/* Ask AI Button */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onAskAI}
+        className="mt-3 w-full gap-2"
+      >
+        <MessageCircle className="w-4 h-4" />
+        Ask AI About This Position
+      </Button>
+    </div>
+  );
+};
+
+// Ask AI Panel Component
+const AskAIPanel = ({ fen, bestMove, playedMove, badgeKey, gameId, onClose }) => {
+  const [question, setQuestion] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [conversation, setConversation] = useState([]);
+  const scrollRef = useRef(null);
+
+  const suggestedQuestions = [
+    "Why is this move bad?",
+    "What pattern should I recognize here?",
+    "How do I avoid this mistake in future games?",
+    "Explain the best move step by step"
+  ];
+
+  const handleAsk = async (q) => {
+    const questionText = q || question;
+    if (!questionText.trim() || loading) return;
+
+    setLoading(true);
+    setQuestion("");
+
+    // Add user question to conversation
+    setConversation(prev => [...prev, { type: "user", text: questionText }]);
+
+    try {
+      const response = await fetch(`${API}/game/${gameId}/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen_before: fen,
+          question: questionText,
+          context: `Badge focus: ${badgeKey}. User played: ${playedMove}. Best was: ${bestMove}.`,
+          conversation_history: conversation.map(c => ({
+            question: c.type === "user" ? c.text : "",
+            answer: c.type === "ai" ? c.text : ""
+          })).filter(c => c.question || c.answer)
+        })
+      });
+
+      if (!response.ok) throw new Error("Failed to get response");
+      
+      const data = await response.json();
+      
+      // Add AI response to conversation
+      setConversation(prev => [...prev, { 
+        type: "ai", 
+        text: data.response || data.answer || "I couldn't analyze this position. Please try again.",
+        pvLine: data.pv_line || data.stockfish?.pv_line || []
+      }]);
+
+    } catch (error) {
+      console.error("Ask AI error:", error);
+      setConversation(prev => [...prev, { 
+        type: "ai", 
+        text: "Sorry, I couldn't analyze this position. Please try again.",
+        error: true
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [conversation]);
+
+  return (
+    <div className="p-4 border-t bg-gradient-to-b from-violet-500/5 to-transparent">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-medium flex items-center gap-2">
+          <Brain className="w-4 h-4 text-violet-500" />
+          Ask Your Coach
+        </h4>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-6 px-2 text-xs">
+          Close
+        </Button>
+      </div>
+
+      {/* Conversation History */}
+      {conversation.length > 0 && (
+        <ScrollArea className="h-48 mb-3 pr-2" ref={scrollRef}>
+          <div className="space-y-3">
+            {conversation.map((msg, i) => (
+              <div key={i} className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] p-3 rounded-lg ${
+                  msg.type === "user" 
+                    ? "bg-primary text-primary-foreground" 
+                    : msg.error 
+                      ? "bg-red-500/10 border border-red-500/20"
+                      : "bg-muted"
+                }`}>
+                  <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                  {msg.pvLine && msg.pvLine.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-border/50">
+                      <p className="text-xs text-muted-foreground">Best line:</p>
+                      <p className="text-xs font-mono text-green-500">
+                        {msg.pvLine.join(" → ")}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-muted p-3 rounded-lg">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      )}
+
+      {/* Suggested Questions */}
+      {conversation.length === 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {suggestedQuestions.map((q, i) => (
+            <button
+              key={i}
+              onClick={() => handleAsk(q)}
+              className="text-xs px-3 py-1.5 rounded-full bg-violet-500/20 text-violet-600 dark:text-violet-400 hover:bg-violet-500/30 transition-colors"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Input */}
+      <div className="flex gap-2">
+        <Input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Ask anything about this position..."
+          onKeyDown={(e) => e.key === "Enter" && handleAsk()}
+          disabled={loading}
+          className="flex-1"
+        />
+        <Button 
+          onClick={() => handleAsk()} 
+          disabled={!question.trim() || loading}
+          size="icon"
+        >
+          <Send className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// Single game card with interactive board and moves
 const GameCard = ({ game, badgeKey, onViewGame }) => {
   const [expanded, setExpanded] = useState(false);
-  const [selectedMove, setSelectedMove] = useState(game.moves?.[0] || null);
+  const [selectedMove, setSelectedMove] = useState(null);
+  const [showAskAI, setShowAskAI] = useState(false);
+  
+  // Auto-select first move when expanded
+  useEffect(() => {
+    if (expanded && game.moves?.length > 0 && !selectedMove) {
+      setSelectedMove(game.moves[0]);
+    }
+  }, [expanded, game.moves, selectedMove]);
   
   const getMoveTypeColor = (type) => {
     switch(type) {
@@ -84,86 +518,83 @@ const GameCard = ({ game, badgeKey, onViewGame }) => {
       case "threw_advantage":
       case "focus_error":
       case "time_trouble_blunder":
-        return "text-red-500 bg-red-500/10 border-red-500/30";
+        return "border-red-500/30 bg-red-500/5";
       case "good":
       case "found":
       case "good_positional":
       case "good_defense":
-        return "text-green-500 bg-green-500/10 border-green-500/30";
+        return "border-green-500/30 bg-green-500/5";
       default:
-        return "text-muted-foreground bg-muted border-border";
+        return "border-border bg-muted/50";
     }
   };
 
   const getMoveTypeLabel = (type) => {
-    switch(type) {
-      case "mistake": return "Opening Mistake";
-      case "missed": return "Missed Tactic";
-      case "found": return "Found Tactic!";
-      case "positional_error": return "Positional Error";
-      case "good_positional": return "Good Position";
-      case "endgame_error": return "Endgame Error";
-      case "defensive_collapse": return "Defense Failed";
-      case "good_defense": return "Good Defense";
-      case "threw_advantage": return "Threw Advantage";
-      case "focus_error": return "Focus Error";
-      case "time_trouble_blunder": return "Time Trouble";
-      default: return type;
-    }
+    const labels = {
+      mistake: "Opening Mistake",
+      missed: "Missed Tactic",
+      found: "Found Tactic!",
+      positional_error: "Positional Error",
+      good_positional: "Good Position",
+      endgame_error: "Endgame Error",
+      defensive_collapse: "Defense Failed",
+      good_defense: "Good Defense",
+      threw_advantage: "Threw Advantage",
+      focus_error: "Focus Error",
+      time_trouble_blunder: "Time Trouble"
+    };
+    return labels[type] || type;
   };
 
-  const hasPositiveMoves = game.moves?.some(m => 
-    ["found", "good", "good_positional", "good_defense"].includes(m.type)
-  );
   const hasNegativeMoves = game.moves?.some(m => 
     ["mistake", "missed", "positional_error", "endgame_error", "defensive_collapse", "threw_advantage", "focus_error", "time_trouble_blunder"].includes(m.type)
   );
 
   return (
-    <Card className="overflow-hidden border">
+    <Card className="overflow-hidden border" data-testid={`game-card-${game.game_id}`}>
+      {/* Header */}
       <div 
         className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
               game.converted === false ? "bg-red-500/20 text-red-500" :
               game.saved_game ? "bg-green-500/20 text-green-500" :
-              hasNegativeMoves && !hasPositiveMoves ? "bg-red-500/20 text-red-500" :
-              "bg-amber-500/20 text-amber-500"
+              hasNegativeMoves ? "bg-amber-500/20 text-amber-500" :
+              "bg-green-500/20 text-green-500"
             }`}>
-              {game.converted === false || (hasNegativeMoves && !hasPositiveMoves) ? (
-                <AlertTriangle className="w-4 h-4" />
-              ) : game.saved_game ? (
-                <CheckCircle2 className="w-4 h-4" />
+              {game.converted === false || hasNegativeMoves ? (
+                <AlertTriangle className="w-5 h-5" />
               ) : (
-                <Target className="w-4 h-4" />
+                <CheckCircle2 className="w-5 h-5" />
               )}
             </div>
             <div>
-              <p className="font-medium text-sm">vs {game.opponent}</p>
-              <p className="text-xs text-muted-foreground">
-                {game.result} • {game.moves?.length || 0} notable moments
+              <p className="font-medium">vs {game.opponent}</p>
+              <p className="text-sm text-muted-foreground">
+                {game.result} • {game.moves?.length || 0} key moments
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {game.was_winning && !game.converted && (
-              <span className="text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-500">
+              <span className="text-xs px-2 py-1 rounded bg-red-500/10 text-red-500 font-medium">
                 Thrown
               </span>
             )}
             {game.saved_game && (
-              <span className="text-xs px-2 py-0.5 rounded bg-green-500/10 text-green-500">
-                Saved
+              <span className="text-xs px-2 py-1 rounded bg-green-500/10 text-green-500 font-medium">
+                Saved!
               </span>
             )}
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </div>
         </div>
       </div>
       
+      {/* Expanded Content */}
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -174,82 +605,132 @@ const GameCard = ({ game, badgeKey, onViewGame }) => {
           >
             <div className="p-4 pt-0 border-t">
               {game.moves && game.moves.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Chess Board */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-full max-w-[280px] aspect-square rounded-lg overflow-hidden border">
-                      <Chessboard 
-                        position={selectedMove?.fen || "start"}
-                        boardWidth={280}
-                        arePiecesDraggable={false}
-                        customBoardStyle={{
-                          borderRadius: "4px"
-                        }}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Interactive Board */}
+                  <div>
+                    <InteractiveBoard
+                      fen={selectedMove?.fen || "start"}
+                      bestMove={selectedMove?.best_move}
+                      playedMove={selectedMove?.move_played}
+                      pvLine={selectedMove?.pv_after_best || []}
+                      userColor={game.user_color}
+                      onAskAI={() => setShowAskAI(true)}
+                    />
+                    
+                    {/* Ask AI Panel */}
+                    {showAskAI && selectedMove && (
+                      <AskAIPanel
+                        fen={selectedMove.fen}
+                        bestMove={selectedMove.best_move}
+                        playedMove={selectedMove.move_played}
+                        badgeKey={badgeKey}
+                        gameId={game.game_id}
+                        onClose={() => setShowAskAI(false)}
                       />
-                    </div>
-                    {selectedMove && (
-                      <div className="mt-2 text-center">
-                        <p className="text-sm font-medium">
-                          Move {selectedMove.move_number}: {selectedMove.move_played}
-                        </p>
-                        {selectedMove.best_move && selectedMove.move_played !== selectedMove.best_move && (
-                          <p className="text-xs text-muted-foreground">
-                            Best: <span className="text-green-500 font-medium">{selectedMove.best_move}</span>
-                          </p>
-                        )}
-                      </div>
                     )}
                   </div>
                   
                   {/* Moves List */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      Key Moments:
+                  <div>
+                    <p className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <Target className="w-4 h-4 text-amber-500" />
+                      Key Moments in This Game
                     </p>
-                    {game.moves.map((move, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => setSelectedMove(move)}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                          selectedMove === move 
-                            ? "ring-2 ring-amber-500 " + getMoveTypeColor(move.type)
-                            : getMoveTypeColor(move.type) + " hover:opacity-80"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-medium">
-                            Move {move.move_number}
-                          </span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-background">
-                            {getMoveTypeLabel(move.type)}
-                          </span>
-                        </div>
-                        <p className="text-xs opacity-80 line-clamp-2">
-                          {move.explanation}
-                        </p>
+                    <ScrollArea className="h-[400px] pr-2">
+                      <div className="space-y-3">
+                        {game.moves.map((move, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setSelectedMove(move);
+                              setShowAskAI(false);
+                            }}
+                            className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                              selectedMove === move 
+                                ? "ring-2 ring-amber-500 border-amber-500/50 bg-amber-500/5" 
+                                : getMoveTypeColor(move.type) + " hover:border-amber-500/30"
+                            }`}
+                          >
+                            {/* Move Header */}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold">
+                                  Move {move.move_number}
+                                </span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                  move.type.includes("found") || move.type.includes("good") 
+                                    ? "bg-green-500/20 text-green-500"
+                                    : "bg-red-500/20 text-red-500"
+                                }`}>
+                                  {getMoveTypeLabel(move.type)}
+                                </span>
+                              </div>
+                              {move.cp_loss > 0 && (
+                                <span className="text-xs text-red-500">
+                                  -{move.cp_loss} cp
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* What was played vs Best */}
+                            <div className="grid grid-cols-2 gap-2 mb-3">
+                              <div className="p-2 rounded bg-red-500/10">
+                                <p className="text-xs text-red-500 mb-1">You played:</p>
+                                <p className="font-mono font-bold">{move.move_played}</p>
+                              </div>
+                              <div className="p-2 rounded bg-green-500/10">
+                                <p className="text-xs text-green-500 mb-1">Best was:</p>
+                                <p className="font-mono font-bold text-green-600">{move.best_move}</p>
+                              </div>
+                            </div>
+                            
+                            {/* Explanation */}
+                            <p className="text-sm text-muted-foreground">
+                              {move.explanation}
+                            </p>
+                            
+                            {/* Threat indicator */}
+                            {move.threat && (
+                              <div className="mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                                <p className="text-xs">
+                                  <span className="text-amber-500 font-medium">Threat you faced: </span>
+                                  <span className="font-mono">{move.threat}</span>
+                                </p>
+                              </div>
+                            )}
+                            
+                            {/* PV Line preview */}
+                            {move.pv_after_best && move.pv_after_best.length > 0 && (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                <span className="text-green-500">Best line: </span>
+                                <span className="font-mono">{move.pv_after_best.slice(0, 4).join(" ")}</span>
+                                {move.pv_after_best.length > 4 && "..."}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </ScrollArea>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No specific moves to highlight for this badge
-                </p>
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No specific moves to highlight for this badge</p>
+                </div>
               )}
               
               {/* View Full Game Button */}
               <div className="mt-4 pt-4 border-t">
                 <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="w-full"
+                  variant="default"
+                  className="w-full gap-2"
                   onClick={(e) => {
                     e.stopPropagation();
                     onViewGame(game.game_id, badgeKey);
                   }}
                 >
                   View Full Game Analysis
-                  <ExternalLink className="w-3 h-3 ml-2" />
+                  <ExternalLink className="w-4 h-4" />
                 </Button>
               </div>
             </div>
@@ -304,14 +785,14 @@ const BadgeDetailModal = ({ isOpen, onClose, badgeKey, badgeName }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="badge-detail-modal">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0" data-testid="badge-detail-modal">
+        <DialogHeader className="p-6 pb-4 border-b bg-gradient-to-r from-amber-500/10 to-orange-500/10">
           <DialogTitle className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/20">
-              <Icon className="w-5 h-5 text-amber-500" />
+            <div className="p-3 rounded-xl bg-amber-500/20">
+              <Icon className="w-6 h-6 text-amber-500" />
             </div>
             <div>
-              <span className="block">{data?.badge_name || badgeName}</span>
+              <span className="block text-xl">{data?.badge_name || badgeName}</span>
               <span className="text-sm font-normal text-muted-foreground">
                 {data?.badge_description}
               </span>
@@ -319,84 +800,111 @@ const BadgeDetailModal = ({ isOpen, onClose, badgeKey, badgeName }) => {
           </DialogTitle>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-          </div>
-        ) : error ? (
-          <div className="text-center py-8">
-            <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
-            <p className="text-muted-foreground">{error}</p>
-            <Button variant="outline" className="mt-4" onClick={fetchBadgeDetails}>
-              Retry
-            </Button>
-          </div>
-        ) : data ? (
-          <div className="space-y-6">
-            {/* Score and Why */}
-            <div className="p-4 rounded-lg bg-muted/50 border">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium">Your Score</span>
-                <StarRating score={data.score || 2.5} />
-              </div>
-              <div className="p-3 rounded bg-background">
-                <p className="text-sm font-medium mb-1">Why this score?</p>
-                <p className="text-sm text-muted-foreground">
-                  {data.why_this_score}
-                </p>
-              </div>
+        <div className="p-6">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <Loader2 className="w-10 h-10 animate-spin text-amber-500 mb-4" />
+              <p className="text-muted-foreground">Loading your game data...</p>
             </div>
-
-            {/* Summary Stats */}
-            {data.summary && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {Object.entries(data.summary).map(([key, value]) => (
-                  <div key={key} className="p-3 rounded-lg bg-muted/30 text-center">
-                    <p className="text-2xl font-bold">{typeof value === "boolean" ? (value ? "Yes" : "No") : value}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {key.replace(/_/g, " ")}
-                    </p>
+          ) : error ? (
+            <div className="text-center py-12">
+              <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <p className="text-lg font-medium mb-2">Unable to load details</p>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button variant="outline" onClick={fetchBadgeDetails}>
+                Try Again
+              </Button>
+            </div>
+          ) : data ? (
+            <div className="space-y-6">
+              {/* Score Card */}
+              <Card className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2">
+                    {/* Score */}
+                    <div className="p-6 flex flex-col justify-center">
+                      <p className="text-sm text-muted-foreground mb-2">Your Score</p>
+                      <StarRating score={data.score || 2.5} />
+                    </div>
+                    
+                    {/* Why This Score */}
+                    <div className="p-6 bg-muted/30 border-l">
+                      <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-500" />
+                        Why this score?
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {data.why_this_score}
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
+                </CardContent>
+              </Card>
 
-            {/* Insight */}
-            {data.insight && (
-              <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
-                <p className="text-sm">{data.insight}</p>
-              </div>
-            )}
-
-            {/* Relevant Games */}
-            <div>
-              <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-                <span>Games That Affected This Score</span>
-                <span className="text-xs text-muted-foreground">
-                  ({data.relevant_games?.length || 0} games)
-                </span>
-              </h3>
-              
-              {data.relevant_games && data.relevant_games.length > 0 ? (
-                <div className="space-y-3">
-                  {data.relevant_games.map((game, idx) => (
-                    <GameCard 
-                      key={game.game_id || idx} 
-                      game={game} 
-                      badgeKey={badgeKey}
-                      onViewGame={handleViewGame}
-                    />
+              {/* Summary Stats */}
+              {data.summary && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {Object.entries(data.summary).map(([key, value]) => (
+                    <div key={key} className="p-4 rounded-xl bg-muted/30 border text-center">
+                      <p className="text-3xl font-bold text-foreground">
+                        {typeof value === "boolean" ? (value ? "✓" : "✗") : value}
+                      </p>
+                      <p className="text-xs text-muted-foreground capitalize mt-1">
+                        {key.replace(/_/g, " ")}
+                      </p>
+                    </div>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No specific games to show yet.</p>
-                  <p className="text-sm">Analyze more games for detailed insights.</p>
+              )}
+
+              {/* Coach Insight */}
+              {data.insight && (
+                <div className="p-4 rounded-xl border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/5 to-orange-500/5">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-amber-500/20">
+                      <Brain className="w-5 h-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="font-medium mb-1">Coach's Insight</p>
+                      <p className="text-sm text-muted-foreground">{data.insight}</p>
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* Games Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  Games That Affected Your Score
+                  <span className="text-sm font-normal text-muted-foreground">
+                    ({data.relevant_games?.length || 0} games)
+                  </span>
+                </h3>
+                
+                {data.relevant_games && data.relevant_games.length > 0 ? (
+                  <div className="space-y-4">
+                    {data.relevant_games.map((game, idx) => (
+                      <GameCard 
+                        key={game.game_id || idx} 
+                        game={game} 
+                        badgeKey={badgeKey}
+                        onViewGame={handleViewGame}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 border-2 border-dashed rounded-xl">
+                    <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-lg font-medium mb-2">No games to show yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Analyze more games to see detailed insights for this badge.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   );
