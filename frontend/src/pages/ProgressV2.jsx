@@ -389,12 +389,18 @@ const ProgressV2 = ({ user }) => {
                     badge={badge}
                     isStrength={strengths.includes(badge.key)}
                     isWeakness={weaknesses.includes(badge.key)}
+                    onClick={handleBadgeClick}
                   />
                 ))}
               </div>
               
+              {/* Hint text */}
+              <p className="text-center text-xs text-muted-foreground mt-4">
+                Click any badge to see which games affected your score
+              </p>
+              
               {/* Legend */}
-              <div className="flex items-center gap-4 mt-4 pt-4 border-t text-xs text-muted-foreground">
+              <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-green-500"></span> Strength
                 </span>
