@@ -119,10 +119,27 @@ The `/api/game/{game_id}/ask` endpoint now follows the architecture:
 ### Badge Aggregation Updated
 `classify_for_badge()` now tracks:
 - `forks_executed`, `pins_executed`, `skewers_executed`
+- `discovered_attacks_executed`, `overloaded_exploited` (NEW)
+- `discovered_attacks_missed`, `overloaded_missed` (NEW)
+- `discovered_attacks_walked_into` (NEW)
 - `threats_avoided`
 - `total_good_plays` (separate from mistakes)
 
-## Upcoming Tasks (P1)
+### Discovered Attack & Overloaded Defender Detection (NEW - Feb 2026)
+Added advanced tactical pattern detection:
+- **`find_discovered_attacks()`**: Detects when moving a piece reveals an attack from a sliding piece behind it. Handles discovered checks and double attacks.
+- **`find_overloaded_defenders()`**: Identifies pieces defending multiple targets that are under attack.
+- **New MistakeTypes**: 
+  - `EXECUTED_DISCOVERED_ATTACK`, `MISSED_DISCOVERED_ATTACK`, `WALKED_INTO_DISCOVERED_ATTACK`
+  - `EXPLOITED_OVERLOADED_DEFENDER`, `MISSED_OVERLOADED_DEFENDER`
+  - `AVOIDED_DISCOVERED_ATTACK`
+- **Updated `calculate_tactical_ratio()`**: Now includes discovered attacks and overloaded defender patterns in the tactical performance metrics.
+
+## Upcoming Tasks (P0)
+1. **"What If" Scenarios** - Enhance InteractiveBoard.jsx to allow users to explore alternative move sequences
+2. **Personalized Puzzles** - Generate puzzles based on user's frequent mistake patterns
+
+## Next Tasks (P1)
 1. **"Today's Focus" Feature** - Dashboard component highlighting one actionable improvement area based on recent mistake patterns
 2. **Populate Tactical Ratio with Real Data** - Update game analysis to store mistake_type in move_evaluations so tactical ratio can track real patterns
 
@@ -131,6 +148,8 @@ The `/api/game/{game_id}/ask` endpoint now follows the architecture:
 2. **Production-Ready Cron Job** - Robust background game sync/analysis
 3. Add data-testid to InteractiveBoard buttons for better test automation
 4. Stockfish persistence fix (currently needs reinstall on environment restart)
+5. **Opening Explorer Integration** - Connect user's game statistics to a database of chess openings
+6. **Long-term King Safety Metric** - Track and visualize king safety trends across games
 
 ## Known Issues
 1. Stockfish not persistent between environment restarts (temporary fix: reinstall manually)
