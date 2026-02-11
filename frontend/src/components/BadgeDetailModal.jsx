@@ -89,41 +89,57 @@ const InteractiveBoard = ({
   userColor = "white",
   onAskAI 
 }) => {
-  const chessRef = useRef(new Chess());
+  const chessRef = useRef(null);
   const [currentFen, setCurrentFen] = useState("start");
   const [lineIndex, setLineIndex] = useState(-1);
   const [isShowingLine, setIsShowingLine] = useState(false);
   const [highlightSquares, setHighlightSquares] = useState({});
   const [error, setError] = useState(null);
-  const [viewMode, setViewMode] = useState("played"); // "played" = replay user's move, "best" = show best line
+  const [viewMode, setViewMode] = useState("before"); // "before" = starting position, "played" = user's move, "best" = best line
 
-  // Reset when props change
+  // Initialize chess instance once
   useEffect(() => {
+    if (!chessRef.current) {
+      chessRef.current = new Chess();
+    }
+  }, []);
+
+  // Helper function to play move and get result
+  const playMoveOnBoard = (fenToLoad, moveToPlay) => {
+    if (!chessRef.current) {
+      chessRef.current = new Chess();
+    }
     const chess = chessRef.current;
+    
+    try {
+      chess.load(fenToLoad);
+      const move = chess.move(moveToPlay);
+      return { success: !!move, move, fen: chess.fen() };
+    } catch (e) {
+      console.error("Move failed:", moveToPlay, "from FEN:", fenToLoad, e);
+      return { success: false, move: null, fen: fenToLoad };
+    }
+  };
+
+  // Reset when props change - show position BEFORE
+  useEffect(() => {
     setError(null);
-    setViewMode("played");
+    setViewMode("before");
     setIsShowingLine(false);
     setLineIndex(-1);
     setHighlightSquares({});
     
-    // Start by showing the position BEFORE, then we can replay the played move
+    // Start by showing the position BEFORE the move
     if (fenBefore && fenBefore.length > 10) {
       try {
-        chess.load(fenBefore);
+        if (!chessRef.current) chessRef.current = new Chess();
+        chessRef.current.load(fenBefore);
         setCurrentFen(fenBefore);
-        
-        // Auto-play the user's move to show what happened
-        if (playedMove) {
-          setTimeout(() => {
-            replayPlayedMove();
-          }, 300);
-        }
       } catch (e) {
         console.error("Invalid FEN:", fenBefore, e);
-        // Fallback to fen_after
         if (fen && fen.length > 10) {
           try {
-            chess.load(fen);
+            chessRef.current.load(fen);
             setCurrentFen(fen);
           } catch (e2) {
             setError("Invalid position");
@@ -133,7 +149,8 @@ const InteractiveBoard = ({
       }
     } else if (fen && fen.length > 10) {
       try {
-        chess.load(fen);
+        if (!chessRef.current) chessRef.current = new Chess();
+        chessRef.current.load(fen);
         setCurrentFen(fen);
       } catch (e) {
         setError("Invalid position");
@@ -142,40 +159,39 @@ const InteractiveBoard = ({
     } else {
       setCurrentFen("start");
     }
-  }, [fen, fenBefore, playedMove]);
+  }, [fen, fenBefore]);
 
   // Replay the user's played move (to show what they did wrong)
   const replayPlayedMove = useCallback(() => {
-    const chess = chessRef.current;
-    if (!fenBefore || !playedMove) return;
+    if (!fenBefore || !playedMove) {
+      console.log("Missing data for replay:", { fenBefore: !!fenBefore, playedMove });
+      return;
+    }
     
-    try {
-      chess.load(fenBefore);
-      const move = chess.move(playedMove);
+    const result = playMoveOnBoard(fenBefore, playedMove);
+    
+    if (result.success && result.move) {
+      // Build highlights: user's move in red, threat in orange
+      const highlights = {
+        [result.move.from]: { backgroundColor: "rgba(239, 68, 68, 0.5)" },  // Red for bad move
+        [result.move.to]: { backgroundColor: "rgba(239, 68, 68, 0.5)" }
+      };
       
-      if (move) {
-        // Build highlights: user's move in red, threat in orange
-        const highlights = {
-          [move.from]: { backgroundColor: "rgba(239, 68, 68, 0.5)" },  // Red for bad move
-          [move.to]: { backgroundColor: "rgba(239, 68, 68, 0.5)" }
+      // Show the threat on YOUR move view - this is when you should have seen it!
+      if (threat) {
+        highlights[threat] = { 
+          backgroundColor: "rgba(249, 115, 22, 0.6)",  // Orange for threat
+          boxShadow: "inset 0 0 0 3px rgba(249, 115, 22, 0.9)"
         };
-        
-        // Show the threat on YOUR move view - this is when you should have seen it!
-        if (threat) {
-          highlights[threat] = { 
-            backgroundColor: "rgba(249, 115, 22, 0.6)",  // Orange for threat
-            boxShadow: "inset 0 0 0 3px rgba(249, 115, 22, 0.9)"
-          };
-        }
-        
-        setCurrentFen(chess.fen());
-        setHighlightSquares(highlights);
-        setViewMode("played");
-        setIsShowingLine(false);
-        setLineIndex(-1);
       }
-    } catch (e) {
-      console.log("Could not replay move:", playedMove, e);
+      
+      setCurrentFen(result.fen);
+      setHighlightSquares(highlights);
+      setViewMode("played");
+      setIsShowingLine(false);
+      setLineIndex(-1);
+    } else {
+      console.log("Could not replay move:", playedMove);
     }
   }, [fenBefore, playedMove, threat]);
 
