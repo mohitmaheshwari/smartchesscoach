@@ -22,8 +22,11 @@ import {
   Crosshair,
   Shield,
   Brain,
-  Eye
+  Eye,
+  Dumbbell
 } from "lucide-react";
+import EvidenceModal from "@/components/EvidenceModal";
+import DrillMode from "@/components/DrillMode";
 
 /**
  * JOURNEY PAGE - "How you're evolving"
@@ -31,8 +34,8 @@ import {
  * This is the TREND page for long-term intelligence and reflection.
  * 
  * Structure:
- * - Weakness ranking (not equal badges)
- * - Win-state analysis
+ * - Weakness ranking (not equal badges) with EVIDENCE DRILL-DOWN
+ * - Win-state analysis with EVIDENCE DRILL-DOWN
  * - Mistake heatmap
  * - Identity profile
  * - Milestones
