@@ -723,6 +723,97 @@ def calculate_badge_trends(current: Dict, history: List[Dict]) -> Dict:
     return trends
 
 
+# ============================================================================
+# DETERMINISTIC MOVE CLASSIFICATION
+# This uses rule-based logic, NOT LLM guessing
+# ============================================================================
+
+def classify_move_deterministic(move_data: Dict, user_color: str, game_data: Dict = None) -> Dict:
+    """
+    Classify a single move using the DETERMINISTIC classifier.
+    
+    This is the TRUTH layer - no LLM involved.
+    Returns structured tags that GPT can only verbalize, not invent.
+    """
+    if not HAS_MISTAKE_CLASSIFIER:
+        # Fallback to basic heuristics if classifier not available
+        return _classify_move_fallback(move_data, user_color)
+    
+    try:
+        # Get FEN after the move (we need to compute it)
+        fen_before = move_data.get("fen_before", "")
+        move_played = move_data.get("move", "")
+        
+        # Try to get fen_after by applying the move
+        import chess
+        fen_after = ""
+        try:
+            board = chess.Board(fen_before)
+            board.push_san(move_played)
+            fen_after = board.fen()
+        except:
+            fen_after = fen_before  # Fallback
+        
+        # Classify the mistake
+        classified = classify_mistake(
+            fen_before=fen_before,
+            fen_after=fen_after,
+            move_played=move_played,
+            best_move=move_data.get("best_move", ""),
+            eval_before=move_data.get("eval_before", 0),
+            eval_after=move_data.get("eval_after", 0),
+            user_color=user_color,
+            move_number=move_data.get("move_number", 1),
+            threat=move_data.get("threat")
+        )
+        
+        # Convert to dict for storage/display
+        return {
+            "mistake_type": classified.mistake_type.value,
+            "phase": classified.context.phase.value,
+            "was_ahead": classified.context.was_ahead,
+            "was_behind": classified.context.was_behind,
+            "opponent_had_threat": classified.context.opponent_had_threat,
+            "material_balance": classified.context.material_balance,
+            "eval_drop": classified.eval_drop,
+            "hanging_piece": classified.hanging_piece,
+            "explanation": get_verbalization_template(classified),  # DETERMINISTIC explanation
+            "pattern_details": classified.pattern_details
+        }
+    except Exception as e:
+        logger.error(f"Classification error: {e}")
+        return _classify_move_fallback(move_data, user_color)
+
+
+def _classify_move_fallback(move_data: Dict, user_color: str) -> Dict:
+    """Fallback classification when deterministic classifier not available."""
+    eval_before = move_data.get("eval_before", 0)
+    eval_after = move_data.get("eval_after", 0)
+    cp_loss = move_data.get("cp_loss", 0)
+    
+    # Simple heuristics
+    if cp_loss > 300:
+        mistake_type = "material_blunder"
+    elif cp_loss > 150:
+        mistake_type = "missed_winning_tactic"
+    elif cp_loss > 50:
+        mistake_type = "positional_drift"
+    else:
+        mistake_type = "good_move"
+    
+    return {
+        "mistake_type": mistake_type,
+        "phase": "middlegame",
+        "was_ahead": eval_before > 150,
+        "was_behind": eval_before < -150,
+        "opponent_had_threat": False,
+        "material_balance": "equal",
+        "eval_drop": cp_loss / 100,
+        "hanging_piece": None,
+        "explanation": f"Move lost {cp_loss} centipawns.",
+        "pattern_details": {}
+    }
+
 
 # ============================================================================
 # BADGE DRILL-DOWN: Get relevant games/moves for each badge
