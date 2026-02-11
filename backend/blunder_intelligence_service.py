@@ -257,6 +257,97 @@ def get_core_lesson(analysis: Dict) -> Dict:
     }
 
 
+def calculate_pattern_trends(analyses: List[Dict]) -> Dict:
+    """
+    Calculate improvement trends by comparing recent games vs older games.
+    
+    Compares:
+    - Last 7 games (recent) vs Previous 7 games (older)
+    - Returns trend direction and percentage change for each pattern
+    
+    Example output:
+    {
+        "loses_focus_when_winning": {
+            "recent": 3,
+            "previous": 7,
+            "change": -57,
+            "trend": "improving"
+        }
+    }
+    """
+    if len(analyses) < 10:
+        return {"has_enough_data": False, "patterns": {}}
+    
+    # Split into recent and previous
+    recent_analyses = analyses[-7:]  # Last 7 games
+    previous_analyses = analyses[-14:-7]  # Previous 7 games
+    
+    def count_patterns(game_list):
+        """Count pattern occurrences in a list of games."""
+        pattern_counts = defaultdict(int)
+        
+        for analysis in game_list:
+            sf_analysis = analysis.get("stockfish_analysis", {})
+            move_evals = sf_analysis.get("move_evaluations", [])
+            
+            for move in move_evals:
+                mistake_type = move.get("mistake_type", "")
+                if not mistake_type:
+                    mistake_type = infer_mistake_type_from_eval(move)
+                
+                if not mistake_type or mistake_type in ["good_move", "excellent_move"]:
+                    continue
+                
+                for pattern_key, pattern_data in BEHAVIORAL_PATTERNS.items():
+                    if mistake_type in pattern_data["triggers"]:
+                        pattern_counts[pattern_key] += 1
+                        break
+        
+        return pattern_counts
+    
+    recent_counts = count_patterns(recent_analyses)
+    previous_counts = count_patterns(previous_analyses)
+    
+    # Calculate trends for each pattern
+    all_patterns = set(recent_counts.keys()) | set(previous_counts.keys())
+    pattern_trends = {}
+    
+    for pattern in all_patterns:
+        recent = recent_counts.get(pattern, 0)
+        previous = previous_counts.get(pattern, 0)
+        
+        if previous == 0:
+            if recent == 0:
+                change = 0
+                trend = "stable"
+            else:
+                change = 100  # New pattern appeared
+                trend = "worsening"
+        else:
+            change = round(((recent - previous) / previous) * 100)
+            if change < -20:
+                trend = "improving"
+            elif change > 20:
+                trend = "worsening"
+            else:
+                trend = "stable"
+        
+        pattern_trends[pattern] = {
+            "recent": recent,
+            "previous": previous,
+            "change": change,
+            "trend": trend,
+            "label": BEHAVIORAL_PATTERNS.get(pattern, {}).get("short", pattern)
+        }
+    
+    return {
+        "has_enough_data": True,
+        "recent_games": len(recent_analyses),
+        "previous_games": len(previous_analyses),
+        "patterns": pattern_trends
+    }
+
+
 def get_dominant_weakness_ranking(analyses: List[Dict], games: List[Dict] = None) -> Dict:
     """
     Rank weaknesses by rating impact. Returns:
