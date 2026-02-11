@@ -1543,6 +1543,16 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
             "Skewers work like reverse pins - the valuable piece must move."
         ),
         
+        MistakeType.EXECUTED_DISCOVERED_ATTACK: (
+            f"Brilliant discovered attack! {reason} "
+            "Moving one piece to reveal an attack from another is a powerful tactic!"
+        ),
+        
+        MistakeType.EXPLOITED_OVERLOADED_DEFENDER: (
+            f"Excellent exploitation! {reason} "
+            "Recognizing when a piece is defending too much is an advanced skill!"
+        ),
+        
         MistakeType.AVOIDED_FORK: (
             f"Good defensive awareness! {reason} "
             "You spotted the fork threat and dealt with it."
@@ -1556,6 +1566,11 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
         MistakeType.AVOIDED_SKEWER: (
             f"Good vision! {reason} "
             "You saw the skewer threat and prevented it."
+        ),
+        
+        MistakeType.AVOIDED_DISCOVERED_ATTACK: (
+            f"Good awareness! {reason} "
+            "You prevented the opponent's discovered attack."
         ),
         
         MistakeType.AVOIDED_THREAT: (
@@ -1579,6 +1594,11 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
             "Be careful when your valuable pieces line up on the same file, rank, or diagonal."
         ),
         
+        MistakeType.WALKED_INTO_DISCOVERED_ATTACK: (
+            f"You allowed a discovered attack! {reason}. "
+            "Watch for pieces that can move and reveal attacks from other pieces behind them."
+        ),
+        
         MistakeType.MISSED_FORK: (
             f"You missed a fork! {mistake.best_move} would have attacked multiple pieces at once. "
             "Look for knight moves that attack two pieces - forks are powerful tactics!"
@@ -1592,6 +1612,16 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
         MistakeType.MISSED_SKEWER: (
             f"You missed a skewer! {mistake.best_move} would have attacked a valuable piece with another behind it. "
             "Look for opportunities where opponent's pieces line up on a diagonal or file."
+        ),
+        
+        MistakeType.MISSED_DISCOVERED_ATTACK: (
+            f"You missed a discovered attack! {mistake.best_move} would have revealed an attack from a piece behind. "
+            "Look for moves where your piece moves aside and reveals an attack from a rook, bishop, or queen."
+        ),
+        
+        MistakeType.MISSED_OVERLOADED_DEFENDER: (
+            f"You missed exploiting an overloaded defender! {reason} "
+            "When an opponent's piece is defending multiple things, attack one of them!"
         ),
         
         MistakeType.HANGING_PIECE: (
