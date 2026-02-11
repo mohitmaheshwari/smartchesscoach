@@ -471,69 +471,6 @@ const InteractiveBoard = ({
     </div>
   );
 };
-              className="h-8 px-3 gap-1"
-              title="Play next move in line"
-            >
-              <Play className="w-3 h-3" />
-              Next
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={playPrevMove}
-              disabled={lineIndex >= pvLine.length - 1}
-              className="h-8 px-2"
-              title="Next move"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </>
-        )}
-        
-        {bestMove && !isShowingLine && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={showBestMove}
-            className="h-8 px-3 gap-1"
-          >
-            <Sparkles className="w-3 h-3" />
-            Show Best
-          </Button>
-        )}
-      </div>
-      
-      {/* Line notation */}
-      {hasPvLine && (
-        <div className="mt-3 p-2 rounded bg-muted/50 text-center">
-          <p className="text-xs text-muted-foreground mb-1">Best continuation:</p>
-          <p className="text-sm font-mono">
-            {pvLine.map((move, i) => (
-              <span 
-                key={i} 
-                className={`${i <= lineIndex ? 'text-green-500 font-bold' : 'text-muted-foreground'}`}
-              >
-                {move}{i < pvLine.length - 1 ? ' ' : ''}
-              </span>
-            ))}
-          </p>
-        </div>
-      )}
-      
-      {/* Ask AI Button */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onAskAI}
-        className="mt-3 w-full gap-2"
-      >
-        <MessageCircle className="w-4 h-4" />
-        Ask AI About This Position
-      </Button>
-    </div>
-  );
-};
 
 // Ask AI Panel Component
 const AskAIPanel = ({ fen, bestMove, playedMove, threat, badgeKey, gameId, onClose }) => {
