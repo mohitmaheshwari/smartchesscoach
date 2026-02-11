@@ -1465,10 +1465,23 @@ def _generate_opening_explanation(move: Dict, evaluation: str, rating: int = 120
 
 
 def _generate_tactical_explanation(move: Dict, is_missed: bool, eval_swing: int, rating: int = 1200) -> str:
+    """Generate tactical explanation using position analysis when available."""
     best = move.get("best_move", "")
     threat = move.get("threat", "")
+    played = move.get("move_played", move.get("move", ""))
+    fen_before = move.get("fen_before", "")
     level = _get_rating_level(rating)
     
+    # Try to get real explanation from position analyzer
+    if HAS_POSITION_ANALYZER and fen_before:
+        try:
+            analysis = explain_move_difference(fen_before, played, best, threat, "white")
+            if analysis.get("simple_explanation") and not analysis.get("error"):
+                return analysis["simple_explanation"]
+        except Exception as e:
+            logger.debug(f"Position analyzer error: {e}")
+    
+    # Fallback to template-based explanation
     if is_missed:
         if eval_swing > 300:  # Big tactic
             if level == "beginner":
