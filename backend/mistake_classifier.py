@@ -941,6 +941,180 @@ def detect_walked_into_skewer(board_before: chess.Board, board_after: chess.Boar
     return None
 
 
+def detect_walked_into_discovered_attack(board_before: chess.Board, board_after: chess.Board,
+                                         move_played: chess.Move, user_color: chess.Color) -> Optional[Dict]:
+    """
+    Detect if user's move allowed opponent to execute a discovered attack.
+    
+    This happens when user's move allows opponent to reveal an attack
+    from a sliding piece behind another piece.
+    """
+    opponent = not user_color
+    
+    # Check for discovered attacks opponent can make AFTER our move
+    discovered_after = []
+    for m in board_after.legal_moves:
+        attacks = find_discovered_attacks(board_after, opponent, m)
+        if attacks:
+            discovered_after.extend(attacks)
+    
+    if not discovered_after:
+        return None
+    
+    # Check what was available before - only report NEW discovered attack opportunities
+    discovered_before = []
+    for m in board_before.legal_moves:
+        attacks = find_discovered_attacks(board_before, opponent, m)
+        if attacks:
+            discovered_before.extend(attacks)
+    
+    # Find new discovered attacks
+    before_moves = {d["move"] for d in discovered_before}
+    new_discovered = [d for d in discovered_after if d["move"] not in before_moves]
+    
+    if new_discovered:
+        # Return the most dangerous one
+        return new_discovered[0]
+    
+    return None
+
+
+def detect_missed_discovered_attack(board_before: chess.Board, best_move: str,
+                                    user_color: chess.Color) -> Optional[Dict]:
+    """
+    Detect if the best move would have created a discovered attack.
+    """
+    if not best_move:
+        return None
+    
+    try:
+        # Parse the best move
+        move = board_before.parse_san(best_move)
+        
+        # Check if this move creates a discovered attack
+        discovered = find_discovered_attacks(board_before, user_color, move)
+        if discovered:
+            best_discovered = discovered[0]
+            # Only report significant discovered attacks
+            if best_discovered.get("is_discovered_check") or best_discovered.get("total_threat_value", 0) >= 6:
+                return best_discovered
+    except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
+        pass
+    
+    return None
+
+
+def detect_executed_discovered_attack(board_before: chess.Board, board_after: chess.Board,
+                                      move_played: chess.Move, user_color: chess.Color) -> Optional[Dict]:
+    """
+    Detect if user's move executed a discovered attack.
+    
+    Positive feedback: "Great discovered attack!"
+    """
+    if move_played is None:
+        return None
+    
+    # Check if this move creates a discovered attack
+    discovered = find_discovered_attacks(board_before, user_color, move_played)
+    if discovered:
+        return {
+            "type": "executed_discovered_attack",
+            "tactic": discovered[0],
+            "message": f"Excellent discovered attack with your {discovered[0]['moving_piece']['piece']}!"
+        }
+    
+    return None
+
+
+def detect_overloaded_defender_exploit(board_before: chess.Board, board_after: chess.Board,
+                                        move_played: str, user_color: chess.Color) -> Optional[Dict]:
+    """
+    Detect if user's move exploited an overloaded defender.
+    
+    This happens when user attacks/captures a piece that was defending multiple things,
+    and as a result wins material.
+    """
+    opponent = not user_color
+    
+    # Find overloaded defenders BEFORE the move
+    overloaded_before = find_overloaded_defenders(board_before, opponent)
+    if not overloaded_before:
+        return None
+    
+    # Check if user's move attacked one of the overloaded defenders
+    try:
+        # Get the destination square of the move
+        move = board_before.parse_san(move_played)
+        to_sq = chess.square_name(move.to_square)
+        
+        for defender in overloaded_before:
+            # Did we capture the overloaded defender?
+            if to_sq == defender["defender_square"]:
+                return {
+                    "type": "exploited_overloaded_defender",
+                    "defender": defender,
+                    "message": f"Great exploitation! You captured the overloaded {defender['defender_piece']}!"
+                }
+            
+            # Did we attack something the overloaded defender was protecting?
+            for defended in defender["defending"]:
+                if to_sq == defended["square"]:
+                    # Check if the defender can adequately respond
+                    return {
+                        "type": "exploited_overloaded_defender",
+                        "defender": defender,
+                        "target": defended,
+                        "message": f"Excellent! You attacked the {defended['piece']} that was being protected by an overloaded {defender['defender_piece']}!"
+                    }
+    except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
+        pass
+    
+    return None
+
+
+def detect_missed_overloaded_defender(board_before: chess.Board, best_move: str,
+                                       user_color: chess.Color) -> Optional[Dict]:
+    """
+    Detect if the best move would have exploited an overloaded defender.
+    """
+    if not best_move:
+        return None
+    
+    opponent = not user_color
+    
+    # Find overloaded defenders
+    overloaded = find_overloaded_defenders(board_before, opponent)
+    if not overloaded:
+        return None
+    
+    try:
+        move = board_before.parse_san(best_move)
+        to_sq = chess.square_name(move.to_square)
+        
+        for defender in overloaded:
+            # Would best move have captured the overloaded defender?
+            if to_sq == defender["defender_square"]:
+                return {
+                    "type": "missed_overloaded_defender",
+                    "defender": defender,
+                    "message": f"You missed the chance to exploit the overloaded {defender['defender_piece']}!"
+                }
+            
+            # Would best move have attacked something the defender was protecting?
+            for defended in defender["defending"]:
+                if to_sq == defended["square"]:
+                    return {
+                        "type": "missed_overloaded_defender",
+                        "defender": defender,
+                        "target": defended,
+                        "message": f"The {defender['defender_piece']} was overloaded! {best_move} would have exploited it."
+                    }
+    except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
+        pass
+    
+    return None
+
+
 def detect_avoided_threat(board_before: chess.Board, board_after: chess.Board,
                          move_played: str, user_color: chess.Color) -> Optional[Dict]:
     """
