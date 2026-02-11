@@ -764,10 +764,13 @@ async def get_badge_details(db, user_id: str, badge_key: str, user_rating: int =
     return result
 
 
-def _get_opening_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+def _get_opening_badge_details(analyses: List[Dict], games_map: Dict, user_rating: int = 1200) -> Dict:
     """Get detailed data for Opening Mastery badge."""
     relevant_moves = []
     relevant_games = []
+    
+    # For lower-rated players, only show significant errors
+    min_cp_loss = 50 if user_rating < 1400 else 30
     
     for analysis in analyses:
         game_id = analysis.get("game_id")
@@ -789,20 +792,30 @@ def _get_opening_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
         
         for m in opening_moves:
             evaluation = m.get("evaluation", "")
+            cp_loss = m.get("cp_loss", 0)
+            
+            # Skip minor inaccuracies for lower-rated players
+            if user_rating < 1400 and evaluation == "inaccuracy":
+                continue
+            
+            # Skip if cp_loss is too small for this rating level
+            if cp_loss < min_cp_loss and evaluation not in ["blunder"]:
+                continue
             
             # Track mistakes/blunders in opening
             if evaluation in ["blunder", "mistake", "inaccuracy"]:
                 move_data = {
                     "move_number": m.get("move_number"),
                     "move_played": m.get("move"),
-                    "fen": m.get("fen_before", ""),
+                    "fen_before": m.get("fen_before", ""),
+                    "fen_after": m.get("fen_after", ""),  # Position AFTER the move
                     "best_move": m.get("best_move"),
                     "evaluation": evaluation,
-                    "cp_loss": m.get("cp_loss", 0),
+                    "cp_loss": cp_loss,
                     "type": "mistake",
                     "pv_after_best": m.get("pv_after_best", []),
                     "threat": m.get("threat"),
-                    "explanation": _generate_opening_explanation(m, evaluation)
+                    "explanation": _generate_opening_explanation(m, evaluation, user_rating)
                 }
                 game_opening_data["moves"].append(move_data)
                 relevant_moves.append({**move_data, "game_id": game_id})
@@ -812,13 +825,14 @@ def _get_opening_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
                 move_data = {
                     "move_number": m.get("move_number"),
                     "move_played": m.get("move"),
-                    "fen": m.get("fen_before", ""),
+                    "fen_before": m.get("fen_before", ""),
+                    "fen_after": m.get("fen_after", ""),
                     "best_move": m.get("best_move"),
                     "evaluation": evaluation,
-                    "cp_loss": m.get("cp_loss", 0),
+                    "cp_loss": cp_loss,
                     "type": "good",
                     "pv_after_best": m.get("pv_after_best", []),
-                    "explanation": "Good opening move - solid development following classical principles"
+                    "explanation": "Nice! This develops your pieces well."
                 }
                 # Only add to moves if it's notable
                 if m.get("move_number", 0) <= 5:  # First 5 moves are always relevant
