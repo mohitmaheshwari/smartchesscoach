@@ -348,8 +348,6 @@ const InteractiveBoard = ({
     }
   }, [fenBefore, pvLine, lineIndex, threat]);
 
-  const hasPvLine = pvLine && pvLine.length > 0;
-
   return (
     <div className="flex flex-col items-center">
       {/* Error State */}
