@@ -163,21 +163,49 @@ Major product transformation from "analysis tool" to "Blunder Reduction System f
 7. **Mission System**: 10-game improvement missions
 8. **Milestone Detection**: Achievement triggers
 
+### EVIDENCE LAYER & PATTERN DRILL MODE (Feb 2026 - LATEST)
+**The Problem Solved**: Users said insights like "You relax when winning" were just abstract "gyaan" (advice). They couldn't see the actual positions where this happened.
+
+**Evidence Layer Implementation:**
+- Every insight now includes an **evidence array** with specific positions:
+  - `game_id`, `move_number`, `fen_before`
+  - `move_played`, `best_move`, `cp_loss`
+  - `eval_before`, `opponent`, `mistake_type`
+- Users can click "See 7 times this happened" to open Evidence Modal
+- Modal shows: Position list (left) + Chessboard preview (right)
+- Each position shows: "You had +464.0, You played Ke7, Better was Bxc3"
+- "Full Game" and "Analyze" buttons to deep-dive
+
+**Pattern Drill Mode Implementation:**
+- "Train This" button starts drill session on user's own mistakes
+- System selects 5 positions where user was winning (+2 or more) and blundered
+- "What would you play?" prompt with draggable chessboard
+- Validates moves against best_move
+- Shows result: Correct/Incorrect with score tracking
+- "Retry", "Full Game", "Next" navigation
+
+**New Components:**
+- `EvidenceModal.jsx`: Shows evidence positions with board preview
+- `DrillMode.jsx`: Interactive training from user's own games
+
+**Updated Components:**
+- `Focus.jsx`: Rating Killer card now clickable with "See Examples" and "Train This" buttons
+- `JourneyV2.jsx`: 
+  - Weakness Ranking cards show evidence count, "See Examples", "Train This"
+  - Win State bars clickable to see blunders by game state
+
 **New API Endpoints:**
 - `GET /api/focus` - Focus page data (one dominant weakness)
 - `GET /api/journey/v2` - Journey page data (hierarchical analysis)
 - `GET /api/lab/{game_id}` - Lab page data with core lesson
 - `GET /api/weakness-ranking` - Dominant weakness ranking
-- `GET /api/win-state` - Win state analysis
+- `GET /api/win-state` - Win state analysis with evidence
 - `GET /api/heatmap` - Mistake heatmap data
 - `GET /api/rating-impact` - Rating impact estimate
 - `GET /api/identity` - Chess identity profile
 - `GET /api/mission` - Current mission
 - `GET /api/milestones` - Achievement milestones
-
-**New Frontend Pages:**
-- `Focus.jsx` - Stripped-down coach with ONE focus, ONE mission, ONE puzzle
-- `JourneyV2.jsx` - Hierarchical weakness display, heatmap, win-state analysis
+- **`POST /api/drill/positions`** - Get drill positions filtered by pattern/state
 
 **Behavioral Pattern System:**
 Maps mistake types to human behaviors:
@@ -187,20 +215,20 @@ Maps mistake types to human behaviors:
 - etc.
 
 ## Upcoming Tasks (P0)
-1. **"What If" Scenarios** - Enhance InteractiveBoard.jsx to allow users to explore alternative move sequences
-2. **Personalized Puzzles** - Generate puzzles based on user's frequent mistake patterns
+1. **Rating Impact Estimator Visualization** - Display "Fixing Hanging Pieces would have saved ~86 rating points" prominently
+2. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
 
 ## Next Tasks (P1)
-1. **"Today's Focus" Feature** - Dashboard component highlighting one actionable improvement area based on recent mistake patterns
-2. **Populate Tactical Ratio with Real Data** - Update game analysis to store mistake_type in move_evaluations so tactical ratio can track real patterns
+1. **Improvement Milestones Celebration** - Banners for achievements like "First 0-blunder game"
+2. **10-Game Mission Progress Tracking** - Visual progress towards mission goals
 
 ## Future/Backlog Tasks (P2-P3)
-1. **Aggregate Behavioral Patterns** - Identify recurring patterns across games (e.g., "You hang pieces when ahead")
-2. **Production-Ready Cron Job** - Robust background game sync/analysis
-3. Add data-testid to InteractiveBoard buttons for better test automation
-4. Stockfish persistence fix (currently needs reinstall on environment restart)
-5. **Opening Explorer Integration** - Connect user's game statistics to a database of chess openings
-6. **Long-term King Safety Metric** - Track and visualize king safety trends across games
+1. **Personalized Puzzles from Mistakes** - Generate puzzles based on user's frequent mistake patterns
+2. **"What If" Scenarios** - Enhance InteractiveBoard.jsx to allow users to explore alternative move sequences
+3. **Opening Explorer Integration** - Connect user's game statistics to a database of chess openings
+4. **Long-term King Safety Metric** - Track and visualize king safety trends across games
+5. Production-Ready Cron Job - Robust background game sync/analysis
+6. Stockfish persistence fix (currently needs reinstall on environment restart)
 
 ## Known Issues
 1. Stockfish not persistent between environment restarts (temporary fix: reinstall manually)
