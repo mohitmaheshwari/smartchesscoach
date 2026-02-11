@@ -3299,6 +3299,32 @@ async def get_chess_badges(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Failed to calculate badges")
 
 
+
+@api_router.get("/badges/{badge_key}/details")
+async def get_badge_details_endpoint(badge_key: str, user: User = Depends(get_current_user)):
+    """
+    Get detailed drill-down for a specific badge.
+    
+    Returns:
+    - Badge score and insight
+    - Last 5 relevant games with specific moves
+    - Each move includes FEN for board display
+    - Badge-specific commentary explaining WHY this score
+    """
+    from badge_service import get_badge_details, BADGES
+    
+    if badge_key not in BADGES:
+        raise HTTPException(status_code=400, detail=f"Unknown badge: {badge_key}")
+    
+    try:
+        details = await get_badge_details(db, user.user_id, badge_key)
+        return details
+    except Exception as e:
+        logger.error(f"Badge details error for {badge_key}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get badge details")
+
+
+
 # ==================== WEAKNESS/PATTERN ROUTES ====================
 
 @api_router.get("/patterns")
