@@ -645,7 +645,8 @@ const GameCard = ({ game, badgeKey, onViewGame }) => {
                   {/* Interactive Board */}
                   <div>
                     <InteractiveBoard
-                      fen={selectedMove?.fen || "start"}
+                      fen={selectedMove?.fen_after || selectedMove?.fen_before || selectedMove?.fen || "start"}
+                      fenBefore={selectedMove?.fen_before}
                       bestMove={selectedMove?.best_move}
                       playedMove={selectedMove?.move_played}
                       pvLine={selectedMove?.pv_after_best || []}
@@ -656,7 +657,7 @@ const GameCard = ({ game, badgeKey, onViewGame }) => {
                     {/* Ask AI Panel */}
                     {showAskAI && selectedMove && (
                       <AskAIPanel
-                        fen={selectedMove.fen}
+                        fen={selectedMove.fen_before || selectedMove.fen}
                         bestMove={selectedMove.best_move}
                         playedMove={selectedMove.move_played}
                         badgeKey={badgeKey}
