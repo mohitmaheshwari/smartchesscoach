@@ -44,6 +44,12 @@ const FocusPage = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [focusData, setFocusData] = useState(null);
   const [coachData, setCoachData] = useState(null);
+  
+  // Evidence modal state
+  const [showEvidence, setShowEvidence] = useState(false);
+  
+  // Drill mode state
+  const [showDrill, setShowDrill] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,6 +92,10 @@ const FocusPage = ({ user }) => {
 
   const gamesAnalyzed = focusData?.games_analyzed || 0;
   const needsMoreGames = gamesAnalyzed < 5;
+  
+  // Extract evidence for the main focus
+  const focusEvidence = focusData?.focus?.evidence || [];
+  const focusOccurrences = focusData?.focus?.occurrences || 0;
 
   return (
     <Layout user={user}>
