@@ -4248,76 +4248,116 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
         user_color_name = user_color.title()
         opponent_color = "Black" if user_color == "white" else "White"
         
-        prompt = f"""You are an experienced chess coach analyzing a position for a student who plays as {user_color_name}.
+        # === USE DETERMINISTIC MISTAKE CLASSIFIER ===
+        # This is the "truth layer" - no LLM guessing allowed
+        mistake_analysis = None
+        structured_facts = []
+        
+        if req.played_move and req.fen_before and eval_before is not None:
+            try:
+                from mistake_classifier import (
+                    classify_mistake, get_verbalization_template,
+                    find_forks, find_pins, find_skewers
+                )
+                
+                mistake = classify_mistake(
+                    fen_before=req.fen_before,
+                    fen_after=req.fen or req.fen_before,
+                    move_played=req.played_move,
+                    best_move=best_move_for_user or "",
+                    eval_before=eval_before,
+                    eval_after=eval_score,
+                    user_color=user_color,
+                    move_number=getattr(req, 'move_number', 20),
+                    threat=None
+                )
+                
+                mistake_analysis = {
+                    "type": mistake.mistake_type.value,
+                    "eval_drop": mistake.eval_drop,
+                    "template": get_verbalization_template(mistake),
+                    "pattern_details": mistake.pattern_details
+                }
+                
+                # Build structured facts for LLM
+                structured_facts.append(f"MISTAKE_TYPE: {mistake.mistake_type.value}")
+                structured_facts.append(f"EVAL_DROP: {mistake.eval_drop:.1f} pawns")
+                if mistake.pattern_details.get("reason"):
+                    structured_facts.append(f"REASON: {mistake.pattern_details['reason']}")
+                structured_facts.append(f"COACHING_TEMPLATE: {get_verbalization_template(mistake)}")
+                
+                # Check for tactical patterns in position
+                user_chess_color = chess.WHITE if user_color == "white" else chess.BLACK
+                forks = find_forks(board_before, not user_chess_color) if board_before else []
+                pins = find_pins(board_before, user_chess_color) if board_before else []
+                
+                if forks:
+                    structured_facts.append(f"THREAT_FORK: Opponent has fork potential with {forks[0]['attacker_piece']}")
+                if pins:
+                    structured_facts.append(f"YOUR_PINNED_PIECE: {pins[0]['pinned_piece']} on {pins[0]['pinned_square']}")
+                    
+            except Exception as e:
+                logger.warning(f"Mistake classifier error: {e}")
+                mistake_analysis = None
+        
+        # === BUILD PERSONALITY LAYER PROMPT ===
+        # LLM can ONLY verbalize the structured facts - it cannot invent chess analysis
+        
+        prompt = f"""You are an encouraging chess coach. Your job is to VERBALIZE the structured analysis below in a friendly, educational way.
+
+IMPORTANT RULES:
+1. You CANNOT invent chess analysis. Only explain what is in the STRUCTURED FACTS.
+2. You CANNOT claim a move creates a fork/pin/skewer unless it's in the STRUCTURED FACTS.
+3. Keep it simple for a ~1300 rated player.
+4. Be encouraging - this is a learning moment.
+5. 3-4 sentences maximum.
 
 STUDENT'S COLOR: {user_color_name}
-OPPONENT'S COLOR: {opponent_color}
+STUDENT PLAYED: {req.played_move if req.played_move else 'N/A'}
+BEST MOVE WAS: {best_move_for_user if best_move_for_user else 'N/A'}
 
-"""
+=== STRUCTURED FACTS (from deterministic analysis) ===
+{chr(10).join(structured_facts) if structured_facts else 'No structured analysis available.'}
+===
 
-        # If we have the position BEFORE the move, include what user should have played
-        if req.played_move and best_move_for_user:
-            prompt += f"""THE STUDENT PLAYED: {req.played_move}
-WHAT THE STUDENT SHOULD HAVE PLAYED: {best_move_for_user}
-Best continuation after {best_move_for_user}: {' '.join(best_line_for_user) if best_line_for_user else 'N/A'}
-Evaluation before the move: {eval_before} centipawns
+STUDENT'S QUESTION: {req.question}
 
-This is the KEY information - {best_move_for_user} was the best move for {user_color_name}, not {req.played_move}.
-"""
-
-        prompt += f"""
-CURRENT POSITION (AFTER the move was played):
-{position_description}
-It is now {current_turn.title()}'s turn.
-
-AFTER THE MOVE - OPPONENT'S BEST RESPONSE:
-- {opponent_color}'s best move now: {stockfish_data['best_move']}
-- Position evaluation: {stockfish_data['evaluation']} centipawns ({'White' if stockfish_data['evaluation'] > 0 else 'Black'} is better)
 """
 
         if alternative_analysis and "error" not in alternative_analysis:
             prompt += f"""
-ALTERNATIVE MOVE ANALYZED: {req.alternative_move} (hypothetical move by {user_color_name})
-- Evaluation after {req.alternative_move}: {alternative_analysis.get('evaluation')}
-- {opponent_color}'s best response: {alternative_analysis.get('opponent_best_response')}
+ALTERNATIVE MOVE ANALYZED: {req.alternative_move}
+- Evaluation: {alternative_analysis.get('evaluation')} centipawns
+- Opponent's best response: {alternative_analysis.get('opponent_best_response')}
 """
 
         # Add conversation history for context
         if req.conversation_history and len(req.conversation_history) > 0:
             prompt += "\nPREVIOUS CONVERSATION:\n"
-            for exchange in req.conversation_history[-5:]:
+            for exchange in req.conversation_history[-3:]:
                 prompt += f"Student: {exchange.get('question', '')}\n"
                 prompt += f"Coach: {exchange.get('answer', '')}\n"
             prompt += "\n"
 
-        prompt += f"""
-STUDENT'S QUESTION: {req.question}
-
-Additional context: {req.context if hasattr(req, 'context') and req.context else ''}
-
-RULES FOR YOUR ANSWER:
-1. The student is {user_color_name}. Their best move was {best_move_for_user if best_move_for_user else 'unknown'}.
-2. {stockfish_data['best_move']} is {opponent_color}'s move (the opponent), NOT what the student should play.
-3. Explain WHY moves are good/bad using simple patterns like forks, pins, discovered attacks, hanging pieces.
-4. If there's a threat, explain what it DOES (e.g., "e4 disconnects your knight from your bishop, so both can be captured").
-5. Keep answers simple for a ~1300 rated player. No advanced theory.
-6. Keep answers concise (3-4 sentences max).
-7. Be encouraging - this is a learning moment, not criticism.
-8. Use phrases like "Do you see how..." or "Notice that..." to guide discovery.
-
-Answer naturally like a supportive chess mentor."""
+        prompt += """
+Respond naturally as a supportive mentor. Use the structured facts to explain what happened.
+If the student asks about something not in the facts, say "Let me check..." and stick to what we know from the analysis."""
 
         # Get GPT response using OpenAI directly
         try:
             answer = await call_llm(
-                system_message="You are an experienced chess coach helping a student understand positions.",
+                system_message="You are a chess coach who ONLY verbalizes pre-analyzed facts. You cannot invent chess analysis.",
                 user_message=prompt,
                 model="gpt-4o-mini"
             )
             answer = answer.strip()
         except Exception as e:
             logger.error(f"GPT error in ask_about_move: {e}")
-            # Fallback to basic Stockfish answer
+            # Fallback to the deterministic template
+            if mistake_analysis:
+                answer = mistake_analysis.get("template", f"The best move was {best_move_for_user}.")
+            else:
+                answer = f"The best move here was {best_move_for_user or stockfish_data['best_move']}."
             answer = f"The best move here is {stockfish_data['best_move']}. "
             if req.alternative_move and alternative_analysis and "error" not in alternative_analysis:
                 answer += f"Your suggestion {req.alternative_move} leads to an evaluation of {alternative_analysis.get('evaluation')}."
