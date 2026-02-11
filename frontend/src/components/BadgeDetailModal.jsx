@@ -538,17 +538,23 @@ const InteractiveBoard = ({
 };
 
 // Ask AI Panel Component
-const AskAIPanel = ({ fen, bestMove, playedMove, badgeKey, gameId, onClose }) => {
+const AskAIPanel = ({ fen, bestMove, playedMove, threat, badgeKey, gameId, onClose }) => {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversation, setConversation] = useState([]);
   const scrollRef = useRef(null);
 
-  const suggestedQuestions = [
-    "Why is this move bad?",
-    "What pattern should I recognize here?",
-    "How do I avoid this mistake in future games?",
-    "Explain the best move step by step"
+  // Better suggested questions based on context
+  const suggestedQuestions = threat ? [
+    `Why is ${threat} a threat?`,
+    "What pattern is this?",
+    "How do I spot this faster?",
+    `Why ${bestMove} not ${playedMove}?`
+  ] : [
+    "Why is this bad?",
+    "What pattern is this?",
+    "How do I avoid this?",
+    `Why ${bestMove}?`
   ];
 
   const handleAsk = async (q) => {
