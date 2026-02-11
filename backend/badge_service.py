@@ -792,6 +792,8 @@ def _get_opening_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
                     "evaluation": evaluation,
                     "cp_loss": m.get("cp_loss", 0),
                     "type": "mistake",
+                    "pv_after_best": m.get("pv_after_best", []),
+                    "threat": m.get("threat"),
                     "explanation": _generate_opening_explanation(m, evaluation)
                 }
                 game_opening_data["moves"].append(move_data)
@@ -807,7 +809,8 @@ def _get_opening_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
                     "evaluation": evaluation,
                     "cp_loss": m.get("cp_loss", 0),
                     "type": "good",
-                    "explanation": "Good opening move - following principles"
+                    "pv_after_best": m.get("pv_after_best", []),
+                    "explanation": "Good opening move - solid development following classical principles"
                 }
                 # Only add to moves if it's notable
                 if m.get("move_number", 0) <= 5:  # First 5 moves are always relevant
