@@ -487,7 +487,7 @@ def get_mistake_heatmap(analyses: List[Dict]) -> Dict:
         move_evals = sf_analysis.get("move_evaluations", [])
         
         for move in move_evals:
-            cp_loss = abs(move.get("eval_drop", 0)) * 100
+            cp_loss = abs(move.get("cp_loss", 0))  # Already in centipawns
             if cp_loss < 50:  # Only count meaningful mistakes
                 continue
             
