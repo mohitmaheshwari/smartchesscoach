@@ -230,7 +230,36 @@ const WinStateAnalysis = ({ data, onShowEvidence }) => {
   );
 };
 
-// Weakness ranking component - NOW WITH EVIDENCE DRILL-DOWN
+// Trend indicator component
+const TrendIndicator = ({ trend }) => {
+  if (!trend) return null;
+  
+  const { recent, previous, change, direction } = trend;
+  
+  if (direction === "improving") {
+    return (
+      <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+        <TrendingDown className="w-3 h-3" />
+        {previous} → {recent} ({change}%)
+      </span>
+    );
+  } else if (direction === "worsening") {
+    return (
+      <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+        <TrendingUp className="w-3 h-3" />
+        {previous} → {recent} (+{Math.abs(change)}%)
+      </span>
+    );
+  }
+  
+  return (
+    <span className="text-xs bg-gray-500/20 text-gray-400 px-2 py-0.5 rounded-full">
+      Stable ({recent})
+    </span>
+  );
+};
+
+// Weakness ranking component - NOW WITH EVIDENCE DRILL-DOWN AND TRENDS
 const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
   if (!data || !data.ranking || data.ranking.length === 0) {
     return null;
@@ -239,6 +268,7 @@ const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
   const WeaknessCard = ({ weakness, rank, color, colorClass }) => {
     const evidence = weakness.evidence || [];
     const hasEvidence = evidence.length > 0;
+    const trend = weakness.trend;
     
     const labels = {
       1: "#1 Rating Killer",
@@ -283,6 +313,14 @@ const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
                     </span>
                   )}
                 </div>
+                
+                {/* Trend indicator */}
+                {trend && (
+                  <div className="mb-2">
+                    <TrendIndicator trend={trend} />
+                  </div>
+                )}
+                
                 <h3 className="text-lg font-bold mb-1">{weakness.label}</h3>
                 <p className="text-sm text-muted-foreground mb-2">
                   {weakness.message}
