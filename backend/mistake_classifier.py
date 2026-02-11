@@ -1450,6 +1450,19 @@ def classify_mistake(
         pattern_details["missed_skewer"] = missed_skewer
         pattern_details["reason"] = f"You could have created a skewer with {best_move}"
     
+    # Rule 5.7: MISSED_DISCOVERED_ATTACK - could have used a discovered attack
+    elif missed_discovered and eval_drop > 1.0:
+        mistake_type = MistakeType.MISSED_DISCOVERED_ATTACK
+        pattern_details["missed_discovered"] = missed_discovered
+        pattern_details["reason"] = f"You missed a discovered attack with {best_move}"
+    
+    # Rule 5.8: MISSED_OVERLOADED_DEFENDER - could have exploited an overloaded piece
+    elif missed_overloaded and eval_drop > 1.0:
+        mistake_type = MistakeType.MISSED_OVERLOADED_DEFENDER
+        pattern_details["missed_overloaded"] = missed_overloaded
+        defender_piece = missed_overloaded.get("defender", {}).get("defender_piece", "defender")
+        pattern_details["reason"] = f"You missed exploiting the overloaded {defender_piece}"
+    
     # Rule 6: HANGING_PIECE - piece left undefended and eval dropped significantly
     elif hanging_after and eval_drop > 0.5:
         mistake_type = MistakeType.HANGING_PIECE
