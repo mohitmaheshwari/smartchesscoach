@@ -4825,6 +4825,52 @@ async def get_heatmap(user: User = Depends(get_current_user)):
     return get_mistake_heatmap(analyses)
 
 
+class DrillRequest(BaseModel):
+    """Request for drill positions"""
+    pattern: Optional[str] = None  # Behavioral pattern to filter by
+    state: Optional[str] = None  # Game state: "winning", "equal", "losing"
+    limit: int = 5
+
+
+@api_router.post("/drill/positions")
+async def get_drill_positions_endpoint(req: DrillRequest, user: User = Depends(get_current_user)):
+    """
+    Get positions for Pattern Drill Mode.
+    
+    Returns positions where user made mistakes, for training.
+    Filter by:
+    - pattern: Behavioral pattern (e.g., "attacks_before_checking_threats")
+    - state: Game state when blunder occurred ("winning", "equal", "losing")
+    """
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(20).to_list(20)
+    
+    games = await db.games.find(
+        {"user_id": user.user_id}
+    ).sort("date", -1).limit(20).to_list(20)
+    
+    # Remove MongoDB _id
+    for game in games:
+        if "_id" in game:
+            del game["_id"]
+    
+    positions = get_drill_positions(
+        analyses, 
+        games, 
+        pattern=req.pattern, 
+        state=req.state, 
+        limit=req.limit
+    )
+    
+    return {
+        "positions": positions,
+        "total": len(positions),
+        "pattern": req.pattern,
+        "state": req.state
+    }
+
+
 @api_router.get("/rating-impact")
 async def get_rating_impact(user: User = Depends(get_current_user)):
     """
