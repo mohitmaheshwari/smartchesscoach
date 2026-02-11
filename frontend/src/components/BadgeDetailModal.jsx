@@ -575,7 +575,7 @@ const AskAIPanel = ({ fen, bestMove, playedMove, threat, badgeKey, gameId, onClo
         body: JSON.stringify({
           fen_before: fen,
           question: questionText,
-          context: `Badge focus: ${badgeKey}. User played: ${playedMove}. Best was: ${bestMove}.`,
+          context: `Badge focus: ${badgeKey}. User played: ${playedMove}. Best was: ${bestMove}. ${threat ? `Threat: ${threat}` : ''}`,
           conversation_history: conversation.map(c => ({
             question: c.type === "user" ? c.text : "",
             answer: c.type === "ai" ? c.text : ""
