@@ -12,8 +12,11 @@ Calculates 8 skill badges based on game analysis:
 8. Time Management - Clock usage patterns
 
 Each badge is rated 1-5 stars with trend tracking.
-NEW: Each badge now tracks relevant moves for drill-down.
-NEW: Uses position_analyzer for real tactical pattern detection.
+
+ARCHITECTURE (No LLM Hallucination):
+- Stockfish → raw eval + best move
+- Mistake Classifier → deterministic tags (HANGING_PIECE, BLUNDER_WHEN_AHEAD, etc.)
+- GPT → only verbalizes structured tags (cannot invent facts)
 """
 
 import logging
@@ -21,12 +24,20 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone, timedelta
 import statistics
 
-# Import position analyzer for real tactical explanations
+# Import the DETERMINISTIC mistake classifier - this is the TRUTH layer
 try:
-    from position_analyzer import analyze_position_tactics, explain_move_difference
-    HAS_POSITION_ANALYZER = True
+    from mistake_classifier import (
+        classify_mistake, 
+        ClassifiedMistake, 
+        MistakeType, 
+        GamePhase,
+        get_verbalization_template,
+        classify_for_badge
+    )
+    HAS_MISTAKE_CLASSIFIER = True
 except ImportError:
-    HAS_POSITION_ANALYZER = False
+    HAS_MISTAKE_CLASSIFIER = False
+    logging.warning("mistake_classifier not available - falling back to heuristics")
 
 logger = logging.getLogger(__name__)
 
