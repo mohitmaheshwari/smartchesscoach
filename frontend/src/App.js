@@ -5,6 +5,7 @@ import "@/App.css";
 // Pages
 import Landing from "@/pages/Landing";
 import Coach from "@/pages/Coach";
+import Focus from "@/pages/Focus";
 import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
 import ImportGames from "@/pages/ImportGames";
@@ -15,6 +16,7 @@ import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
 import Journey from "@/pages/Journey";
+import JourneyV2 from "@/pages/JourneyV2";
 import ProgressV2 from "@/pages/ProgressV2";
 
 // Components
