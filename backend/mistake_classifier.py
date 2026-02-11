@@ -10,6 +10,10 @@ Mistake Types:
 - IGNORED_THREAT: Opponent had forcing move, player ignored
 - BLUNDER_WHEN_AHEAD: Was winning, threw it away
 - MISSED_TACTIC: Had winning move, played something else
+- MISSED_FORK: Could have forked but didn't
+- MISSED_PIN: Had pin opportunity but missed
+- WALKED_INTO_FORK: Moved piece into fork
+- WALKED_INTO_PIN: Moved piece into pin
 - KING_SAFETY_ERROR: Weakened king position
 - FAILED_CONVERSION: Was winning, couldn't convert
 - TIME_PRESSURE_BLUNDER: Mistake in late game (proxy for time trouble)
@@ -23,12 +27,18 @@ Context Flags (all deterministic):
 - after_own_attack: true/false
 - material_balance: equal/up/down
 
+Pattern Detection:
+- Forks: One piece attacking two+ valuable pieces
+- Pins: Piece pinned to more valuable piece behind
+- Discovered attacks: Moving piece reveals attack
+- Back rank weakness: King trapped on back rank
+
 This is the TRUTH layer. GPT only narrates these tags.
 """
 
 import chess
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
 
@@ -42,6 +52,10 @@ class MistakeType(Enum):
     IGNORED_THREAT = "ignored_threat"
     BLUNDER_WHEN_AHEAD = "blunder_when_ahead"
     MISSED_WINNING_TACTIC = "missed_winning_tactic"
+    MISSED_FORK = "missed_fork"
+    MISSED_PIN = "missed_pin"
+    WALKED_INTO_FORK = "walked_into_fork"
+    WALKED_INTO_PIN = "walked_into_pin"
     KING_SAFETY_ERROR = "king_safety_error"
     FAILED_CONVERSION = "failed_conversion"
     TIME_PRESSURE_BLUNDER = "time_pressure_blunder"
