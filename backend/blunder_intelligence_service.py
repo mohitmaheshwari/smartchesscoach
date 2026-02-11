@@ -914,15 +914,15 @@ def get_journey_data(analyses: List[Dict], games: List[Dict] = None, badge_data:
     Get all data needed for the Journey page (Progress page with hierarchy).
     
     Returns:
-    - Weakness ranking (not equal badges)
-    - Win-state analysis
+    - Weakness ranking (not equal badges) with EVIDENCE
+    - Win-state analysis with EVIDENCE
     - Mistake heatmap
     - Identity profile
     - Trend data
     """
     return {
         "weakness_ranking": get_dominant_weakness_ranking(analyses, games),
-        "win_state": get_win_state_analysis(analyses),
+        "win_state": get_win_state_analysis(analyses, games),  # Now passes games for opponent names
         "heatmap": get_mistake_heatmap(analyses),
         "identity": get_identity_profile(analyses),
         "milestones": check_milestones(analyses),
