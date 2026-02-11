@@ -3985,7 +3985,7 @@ async def health():
 
 class AskAboutMoveRequest(BaseModel):
     """Request for asking questions about a specific position/move"""
-    fen: str  # Position AFTER the move (current board state)
+    fen: Optional[str] = None  # Position AFTER the move (current board state)
     fen_before: Optional[str] = None  # Position BEFORE the move (for analyzing what user should have played)
     question: str
     played_move: Optional[str] = None  # The move that was played (if any)
