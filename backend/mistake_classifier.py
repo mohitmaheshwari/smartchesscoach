@@ -720,7 +720,34 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
     GPT cannot change the facts - only the wording.
     """
     
+    # Get pattern details for fork/pin messages
+    fork_info = mistake.pattern_details.get("fork", {})
+    pin_info = mistake.pattern_details.get("pin", {})
+    missed_fork = mistake.pattern_details.get("missed_fork", {})
+    missed_pin = mistake.pattern_details.get("missed_pin", {})
+    reason = mistake.pattern_details.get("reason", "")
+    
     templates = {
+        MistakeType.WALKED_INTO_FORK: (
+            f"You walked into a fork! {reason}. "
+            f"Before moving, check what squares your opponent's pieces can reach."
+        ),
+        
+        MistakeType.WALKED_INTO_PIN: (
+            f"You created a pin against yourself. {reason}. "
+            f"Pinned pieces can't move freely - always consider diagonal and file attacks."
+        ),
+        
+        MistakeType.MISSED_FORK: (
+            f"You missed a fork! {mistake.best_move} would have attacked multiple pieces at once. "
+            f"Look for knight moves that attack two pieces - forks are powerful tactics!"
+        ),
+        
+        MistakeType.MISSED_PIN: (
+            f"You missed a pin opportunity! {mistake.best_move} would have pinned an opponent's piece. "
+            f"Pins restrict your opponent's options - look for pieces lined up with the king or queen."
+        ),
+        
         MistakeType.HANGING_PIECE: (
             f"You left your {mistake.hanging_piece} undefended. "
             f"Opponent can capture it for free. "
