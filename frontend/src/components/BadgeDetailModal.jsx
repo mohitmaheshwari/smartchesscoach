@@ -87,47 +87,62 @@ const InteractiveBoard = ({
   userColor = "white",
   onAskAI 
 }) => {
-  const [chess] = useState(() => new Chess());
-  const [currentFen, setCurrentFen] = useState(fen || "start");
-  const [lineIndex, setLineIndex] = useState(-1); // -1 = starting position
+  const chessRef = useRef(new Chess());
+  const [currentFen, setCurrentFen] = useState("start");
+  const [lineIndex, setLineIndex] = useState(-1);
   const [isShowingLine, setIsShowingLine] = useState(false);
   const [highlightSquares, setHighlightSquares] = useState({});
+  const [error, setError] = useState(null);
 
   // Reset when FEN changes
   useEffect(() => {
-    if (fen) {
-      chess.load(fen);
-      setCurrentFen(fen);
-      setLineIndex(-1);
-      setIsShowingLine(false);
-      
-      // Highlight the move that was played (if we have it)
-      if (playedMove) {
-        try {
-          const move = chess.move(playedMove);
-          if (move) {
-            setHighlightSquares({
-              [move.from]: { backgroundColor: "rgba(239, 68, 68, 0.4)" },
-              [move.to]: { backgroundColor: "rgba(239, 68, 68, 0.4)" }
-            });
-            chess.undo();
+    const chess = chessRef.current;
+    setError(null);
+    
+    if (fen && fen.length > 10) {
+      try {
+        chess.load(fen);
+        setCurrentFen(fen);
+        setLineIndex(-1);
+        setIsShowingLine(false);
+        setHighlightSquares({});
+        
+        // Highlight the move that was played (if we have it)
+        if (playedMove) {
+          try {
+            const move = chess.move(playedMove);
+            if (move) {
+              setHighlightSquares({
+                [move.from]: { backgroundColor: "rgba(239, 68, 68, 0.4)" },
+                [move.to]: { backgroundColor: "rgba(239, 68, 68, 0.4)" }
+              });
+              chess.undo();
+            }
+          } catch (e) {
+            console.log("Could not parse played move:", playedMove);
           }
-        } catch (e) {
-          // Invalid move, ignore
         }
+      } catch (e) {
+        console.error("Invalid FEN:", fen, e);
+        setError("Invalid position");
+        setCurrentFen("start");
       }
+    } else {
+      setCurrentFen("start");
     }
   }, [fen, playedMove]);
 
   // Play through the best line
   const playNextMove = useCallback(() => {
-    if (!pvLine || pvLine.length === 0) return;
+    const chess = chessRef.current;
+    if (!pvLine || pvLine.length === 0 || !fen) return;
     
     const nextIndex = lineIndex + 1;
     if (nextIndex >= pvLine.length) return;
 
-    // Reset to starting position first
-    chess.load(fen);
+    try {
+      // Reset to starting position first
+      chess.load(fen);
     
     // Play all moves up to nextIndex
     for (let i = 0; i <= nextIndex; i++) {
