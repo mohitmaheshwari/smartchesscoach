@@ -113,6 +113,21 @@ from mistake_card_service import (
 # Import Chess Journey service for comprehensive progress tracking
 from chess_journey_service import get_chess_journey
 
+# Import Blunder Intelligence Service for the Blunder Reduction System
+from blunder_intelligence_service import (
+    get_core_lesson,
+    get_dominant_weakness_ranking,
+    get_win_state_analysis,
+    get_mistake_heatmap,
+    estimate_rating_impact,
+    get_identity_profile,
+    get_mission,
+    check_milestones,
+    get_focus_data,
+    get_journey_data,
+    get_lab_data
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
