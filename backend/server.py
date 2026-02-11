@@ -573,7 +573,7 @@ async def dev_login(response: Response):
     # Get or create dev user
     dev_user = await db.users.find_one({"user_id": DEV_USER_ID}, {"_id": 0})
     if not dev_user:
-        dev_user = {
+        new_user = {
             "user_id": DEV_USER_ID,
             "email": "dev@localhost",
             "name": "Dev User",
@@ -582,7 +582,9 @@ async def dev_login(response: Response):
             "chess_com_username": None,
             "lichess_username": None
         }
-        await db.users.insert_one(dev_user)
+        await db.users.insert_one(new_user)
+        # Fetch back without _id
+        dev_user = await db.users.find_one({"user_id": DEV_USER_ID}, {"_id": 0})
     
     # Create session
     session_token = str(uuid.uuid4())
