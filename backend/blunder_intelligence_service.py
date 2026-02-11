@@ -1055,7 +1055,10 @@ def get_drill_positions(analyses: List[Dict], games: List[Dict] = None,
         limit: Max positions to return
     
     Returns positions where user was ahead (for practice) and made mistakes.
-    IMPORTANT: Only returns positions where it's the user's turn to move.
+    
+    NOTE: FEN positions may show post-move state (opponent's turn) due to how
+    game analysis stores data. The drill mode handles this by showing choices
+    rather than requiring piece dragging.
     """
     positions = []
     
@@ -1064,17 +1067,6 @@ def get_drill_positions(analyses: List[Dict], games: List[Dict] = None,
     if games:
         for g in games:
             games_lookup[g.get("game_id")] = g
-    
-    def is_users_turn(fen: str, user_color: str) -> bool:
-        """Check if it's the user's turn based on FEN."""
-        if not fen:
-            return False
-        parts = fen.split(' ')
-        if len(parts) < 2:
-            return False
-        turn_in_fen = parts[1]  # 'w' or 'b'
-        user_turn = 'w' if user_color == 'white' else 'b'
-        return turn_in_fen == user_turn
     
     for analysis in analyses[-20:]:  # Look at last 20 games
         sf_analysis = analysis.get("stockfish_analysis", {})
@@ -1101,11 +1093,6 @@ def get_drill_positions(analyses: List[Dict], games: List[Dict] = None,
             
             # Skip non-mistakes
             if cp_loss < 50 or mistake_type in ["good_move", "excellent_move"]:
-                continue
-            
-            # CRITICAL: Skip if it's not the user's turn in the FEN
-            # This ensures the user can actually make a move on the board
-            if not is_users_turn(fen_before, user_color):
                 continue
             
             # Filter by state if specified
