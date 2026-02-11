@@ -56,6 +56,7 @@ const GameAnalysis = ({ user }) => {
   const [showAskPanel, setShowAskPanel] = useState(false);
   const [conversationHistory, setConversationHistory] = useState([]);  // Q&A history for follow-up questions
   const [lastAskedMoveNumber, setLastAskedMoveNumber] = useState(null);  // Track which move the conversation is about
+  const [coreLesson, setCoreLesson] = useState(null);  // Core lesson of the game
 
   // Clear conversation when move changes significantly
   useEffect(() => {
