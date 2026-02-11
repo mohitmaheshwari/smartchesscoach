@@ -1190,15 +1190,20 @@ def _get_converting_badge_details(analyses: List[Dict], games_map: Dict) -> Dict
                 game_conv_data["was_winning"] = True
                 
                 if evaluation in ["blunder", "mistake"]:
+                    best = m.get("best_move", "")
+                    pv = m.get("pv_after_best", [])
+                    pv_str = f" The winning continuation was: {' → '.join(pv[:3])}" if pv else ""
                     move_data = {
                         "move_number": m.get("move_number"),
                         "move_played": m.get("move"),
                         "fen": m.get("fen_before", ""),
-                        "best_move": m.get("best_move"),
+                        "best_move": best,
                         "evaluation": evaluation,
                         "cp_loss": m.get("cp_loss", 0),
                         "type": "threw_advantage",
-                        "explanation": "Gave away advantage when winning"
+                        "pv_after_best": pv,
+                        "threat": m.get("threat"),
+                        "explanation": f"You were winning but gave away your advantage! {best} would have kept the pressure.{pv_str} When ahead, slow down and look for simple, safe moves."
                     }
                     game_conv_data["moves"].append(move_data)
                     relevant_moves.append({**move_data, "game_id": game_id})
