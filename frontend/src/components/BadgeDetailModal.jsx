@@ -275,6 +275,7 @@ const InteractiveBoard = ({
   }, [fenBefore, bestMove]);
 
   const hasPvLine = pvLine && pvLine.length > 0;
+  const canToggle = fen && fenBefore && fen !== fenBefore;
 
   return (
     <div className="flex flex-col items-center">
@@ -282,6 +283,21 @@ const InteractiveBoard = ({
       {error && (
         <div className="text-red-500 text-sm mb-2">{error}</div>
       )}
+      
+      {/* View Mode Indicator */}
+      <div className="w-full max-w-[320px] mb-2">
+        <div className={`text-center text-xs py-1.5 px-3 rounded-t-lg font-medium ${
+          viewMode === "after" 
+            ? "bg-red-500/20 text-red-600 dark:text-red-400" 
+            : viewMode === "before"
+              ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+              : "bg-green-500/20 text-green-600 dark:text-green-400"
+        }`}>
+          {viewMode === "after" && "What You Played"}
+          {viewMode === "before" && "Position Before (play best move from here)"}
+          {viewMode === "line" && "Best Continuation"}
+        </div>
+      </div>
       
       {/* Chess Board */}
       <div className="w-full max-w-[320px] aspect-square rounded-lg overflow-hidden border-2 border-border shadow-lg">
@@ -299,23 +315,38 @@ const InteractiveBoard = ({
       
       {/* Line indicator */}
       {isShowingLine && hasPvLine && (
-        <div className="mt-2 text-center">
+        <div className="mt-2 text-center w-full max-w-[320px]">
           <p className="text-xs text-muted-foreground">
-            Showing: <span className="font-mono text-green-500">
+            Best line: <span className="font-mono text-green-500">
               {pvLine.slice(0, lineIndex + 1).join(" → ")}
             </span>
+            {lineIndex < pvLine.length - 1 && (
+              <span className="text-muted-foreground/50"> → {pvLine.slice(lineIndex + 1).join(" → ")}</span>
+            )}
           </p>
         </div>
       )}
       
       {/* Controls */}
-      <div className="flex items-center gap-2 mt-3">
+      <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+        {/* Toggle View Button */}
+        {canToggle && viewMode !== "line" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleView}
+            className="h-8 px-3 text-xs"
+          >
+            {viewMode === "after" ? "Show Before" : "Show After"}
+          </Button>
+        )}
+        
         <Button
           variant="outline"
           size="sm"
           onClick={resetPosition}
           className="h-8 px-2"
-          title="Reset to position"
+          title="Reset"
         >
           <RotateCcw className="w-4 h-4" />
         </Button>
