@@ -363,6 +363,95 @@ const ProgressV2 = ({ user }) => {
           </motion.div>
         )}
 
+        {/* Section 2.5: Tactical Ratio - NEW Motivating Metric */}
+        {badges?.tactical_ratio && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <Card className="overflow-hidden border-amber-500/20">
+              <CardHeader className="bg-gradient-to-r from-amber-500/5 to-orange-500/5 pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Zap className="w-5 h-5 text-amber-500" />
+                  Tactical Ratio
+                  <span className="ml-auto text-3xl font-bold text-amber-500">
+                    {badges.tactical_ratio.percentage}%
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {/* Progress bar */}
+                <div className="relative h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-4">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${badges.tactical_ratio.percentage}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className={`absolute left-0 top-0 h-full rounded-full ${
+                      badges.tactical_ratio.percentage >= 75 
+                        ? "bg-gradient-to-r from-green-500 to-emerald-500" 
+                        : badges.tactical_ratio.percentage >= 50 
+                          ? "bg-gradient-to-r from-amber-500 to-orange-500"
+                          : "bg-gradient-to-r from-red-500 to-orange-500"
+                    }`}
+                  />
+                </div>
+                
+                {/* Stats breakdown */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="text-center p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div className="text-2xl font-bold text-green-500">
+                      {badges.tactical_ratio.executed?.total || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Tactics Executed</div>
+                    <div className="text-[10px] text-green-600 mt-1">
+                      {badges.tactical_ratio.executed?.forks || 0} forks • {badges.tactical_ratio.executed?.pins || 0} pins • {badges.tactical_ratio.executed?.skewers || 0} skewers
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <div className="text-2xl font-bold text-blue-500">
+                      {badges.tactical_ratio.avoided?.total || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Threats Avoided</div>
+                    <div className="text-[10px] text-blue-600 mt-1">
+                      Good defensive awareness!
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <div className="text-2xl font-bold text-red-500">
+                      {badges.tactical_ratio.fallen_into?.total || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Fell Into</div>
+                    <div className="text-[10px] text-red-600 mt-1">
+                      {badges.tactical_ratio.fallen_into?.forks || 0} forks • {badges.tactical_ratio.fallen_into?.pins || 0} pins • {badges.tactical_ratio.fallen_into?.skewers || 0} skewers
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Trend message */}
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                  <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                  <p className="text-sm">
+                    {badges.tactical_ratio.trend_message}
+                  </p>
+                </div>
+                
+                {/* Weakness tip if present */}
+                {badges.tactical_ratio.weakness && (
+                  <div className="mt-3 flex items-center gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                    <Target className="w-4 h-4 text-amber-500" />
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Focus area: Practice recognizing <strong>{badges.tactical_ratio.weakness}</strong> - you're falling for these most often.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Section 3: Chess DNA Badges */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
