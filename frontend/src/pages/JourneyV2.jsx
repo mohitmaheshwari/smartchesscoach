@@ -658,7 +658,10 @@ const JourneyPage = ({ user }) => {
                 onShowEvidence={handleShowStateEvidence}
               />
               
-              <MistakeHeatmap data={journeyData?.heatmap} />
+              <MistakeHeatmap 
+                data={journeyData?.heatmap} 
+                onShowEvidence={handleShowHeatmapEvidence}
+              />
               
               <Milestones milestones={journeyData?.milestones} />
             </div>
