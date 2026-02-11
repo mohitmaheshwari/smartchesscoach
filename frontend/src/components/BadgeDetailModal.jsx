@@ -189,19 +189,11 @@ const InteractiveBoard = ({
       const move = chess.move(bestMove);
       
       if (move) {
-        // Build highlight with best move in green
+        // Best move in green only - no threat highlight here
         const highlights = {
           [move.from]: { backgroundColor: "rgba(34, 197, 94, 0.5)" },  // Green for best
           [move.to]: { backgroundColor: "rgba(34, 197, 94, 0.5)" }
         };
-        
-        // Also highlight threat square in orange if provided
-        if (threat) {
-          highlights[threat] = { 
-            backgroundColor: "rgba(249, 115, 22, 0.6)",  // Orange for threat
-            boxShadow: "inset 0 0 0 3px rgba(249, 115, 22, 0.8)"
-          };
-        }
         
         setCurrentFen(chess.fen());
         setHighlightSquares(highlights);
@@ -212,7 +204,7 @@ const InteractiveBoard = ({
     } catch (e) {
       console.log("Could not show best move:", bestMove, e);
     }
-  }, [fenBefore, bestMove, threat]);
+  }, [fenBefore, bestMove]);
 
   // Show position before any move (starting point)
   const showBeforePosition = useCallback(() => {
