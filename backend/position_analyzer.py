@@ -95,7 +95,7 @@ def analyze_position_tactics(fen: str, user_color: str = "white") -> Dict:
                 "attacker_piece": PIECE_NAMES[fork_info["attacker_piece"]],
                 "targets": targets,
                 "explanation": f"The {PIECE_NAMES[fork_info['attacker_piece']]} on {chess.square_name(fork_info['attacker_square'])} is attacking BOTH your {targets} at once! This is called a fork.",
-                "simple_tip": f"Fork alert! One piece attacks two of yours. You can only save one."
+                "simple_tip": "Fork alert! One piece attacks two of yours. You can only save one."
             })
     
     # 4. Check for pins
