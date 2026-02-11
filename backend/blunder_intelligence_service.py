@@ -1055,6 +1055,7 @@ def get_drill_positions(analyses: List[Dict], games: List[Dict] = None,
         limit: Max positions to return
     
     Returns positions where user was ahead (for practice) and made mistakes.
+    IMPORTANT: Only returns positions where it's the user's turn to move.
     """
     positions = []
     
@@ -1064,6 +1065,17 @@ def get_drill_positions(analyses: List[Dict], games: List[Dict] = None,
         for g in games:
             games_lookup[g.get("game_id")] = g
     
+    def is_users_turn(fen: str, user_color: str) -> bool:
+        """Check if it's the user's turn based on FEN."""
+        if not fen:
+            return False
+        parts = fen.split(' ')
+        if len(parts) < 2:
+            return False
+        turn_in_fen = parts[1]  # 'w' or 'b'
+        user_turn = 'w' if user_color == 'white' else 'b'
+        return turn_in_fen == user_turn
+    
     for analysis in analyses[-20:]:  # Look at last 20 games
         sf_analysis = analysis.get("stockfish_analysis", {})
         move_evals = sf_analysis.get("move_evaluations", [])
@@ -1072,7 +1084,7 @@ def get_drill_positions(analyses: List[Dict], games: List[Dict] = None,
         if not move_evals:
             continue
         
-        # Get opponent name
+        # Get opponent name and user color
         game_info = games_lookup.get(game_id, {})
         user_color = game_info.get("user_color", "white")
         opponent = game_info.get("black_player") if user_color == "white" else game_info.get("white_player")
@@ -1082,12 +1094,18 @@ def get_drill_positions(analyses: List[Dict], games: List[Dict] = None,
             cp_loss = abs(move.get("cp_loss", 0))
             eval_before = move.get("eval_before", 0)
             mistake_type = move.get("mistake_type", "")
+            fen_before = move.get("fen_before", "")
             
             if not mistake_type:
                 mistake_type = infer_mistake_type_from_eval(move)
             
             # Skip non-mistakes
             if cp_loss < 50 or mistake_type in ["good_move", "excellent_move"]:
+                continue
+            
+            # CRITICAL: Skip if it's not the user's turn in the FEN
+            # This ensures the user can actually make a move on the board
+            if not is_users_turn(fen_before, user_color):
                 continue
             
             # Filter by state if specified
@@ -1114,7 +1132,7 @@ def get_drill_positions(analyses: List[Dict], games: List[Dict] = None,
                 positions.append({
                     "game_id": game_id,
                     "move_number": move.get("move_number", 0),
-                    "fen_before": move.get("fen_before", ""),
+                    "fen_before": fen_before,
                     "move_played": move.get("move", ""),
                     "best_move": move.get("best_move", ""),
                     "cp_loss": round(cp_loss),
