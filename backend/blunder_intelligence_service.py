@@ -1145,17 +1145,35 @@ def get_journey_data(analyses: List[Dict], games: List[Dict] = None, badge_data:
     Returns:
     - Weakness ranking (not equal badges) with EVIDENCE
     - Win-state analysis with EVIDENCE
-    - Mistake heatmap
+    - Mistake heatmap with EVIDENCE per square
     - Identity profile
-    - Trend data
+    - Pattern trends (improvement tracking)
+    - Milestones
     """
+    weakness_ranking = get_dominant_weakness_ranking(analyses, games)
+    pattern_trends = calculate_pattern_trends(analyses)
+    
+    # Merge trend data into weakness ranking
+    if pattern_trends.get("has_enough_data") and weakness_ranking.get("ranking"):
+        for item in weakness_ranking["ranking"]:
+            pattern = item.get("pattern")
+            if pattern and pattern in pattern_trends.get("patterns", {}):
+                trend_info = pattern_trends["patterns"][pattern]
+                item["trend"] = {
+                    "recent": trend_info["recent"],
+                    "previous": trend_info["previous"],
+                    "change": trend_info["change"],
+                    "direction": trend_info["trend"]
+                }
+    
     return {
-        "weakness_ranking": get_dominant_weakness_ranking(analyses, games),
-        "win_state": get_win_state_analysis(analyses, games),  # Now passes games for opponent names
-        "heatmap": get_mistake_heatmap(analyses),
+        "weakness_ranking": weakness_ranking,
+        "win_state": get_win_state_analysis(analyses, games),
+        "heatmap": get_mistake_heatmap(analyses, games),  # Now includes evidence per square
         "identity": get_identity_profile(analyses),
+        "pattern_trends": pattern_trends,  # NEW: Improvement tracking
         "milestones": check_milestones(analyses),
-        "badges": badge_data,  # Pass through existing badge data
+        "badges": badge_data,
         "games_analyzed": len(analyses) if analyses else 0
     }
 
