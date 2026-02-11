@@ -430,7 +430,6 @@ const InteractiveBoard = ({
   }, [fenBefore, bestMove]);
 
   const hasPvLine = pvLine && pvLine.length > 0;
-  const canToggle = fen && fenBefore && fen !== fenBefore;
 
   return (
     <div className="flex flex-col items-center">
@@ -442,15 +441,15 @@ const InteractiveBoard = ({
       {/* View Mode Indicator */}
       <div className="w-full max-w-[320px] mb-2">
         <div className={`text-center text-xs py-1.5 px-3 rounded-t-lg font-medium ${
-          viewMode === "after" 
+          viewMode === "played" 
             ? "bg-red-500/20 text-red-600 dark:text-red-400" 
             : viewMode === "before"
               ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
               : "bg-green-500/20 text-green-600 dark:text-green-400"
         }`}>
-          {viewMode === "after" && "What You Played"}
-          {viewMode === "before" && "Position Before (play best move from here)"}
-          {viewMode === "line" && "Best Continuation"}
+          {viewMode === "played" && `Your Move: ${playedMove || "..."}`}
+          {viewMode === "before" && "Position Before Move"}
+          {viewMode === "best" && `Best: ${bestMove || "..."}`}
         </div>
       </div>
       
@@ -468,11 +467,20 @@ const InteractiveBoard = ({
         />
       </div>
       
+      {/* Threat indicator */}
+      {threat && viewMode !== "played" && (
+        <div className="mt-2 text-center w-full max-w-[320px] p-2 rounded bg-orange-500/10 border border-orange-500/30">
+          <p className="text-xs text-orange-600 dark:text-orange-400">
+            <span className="font-bold">Threat:</span> {threat} (highlighted in orange)
+          </p>
+        </div>
+      )}
+      
       {/* Line indicator */}
-      {isShowingLine && hasPvLine && (
+      {isShowingLine && hasPvLine && lineIndex >= 0 && (
         <div className="mt-2 text-center w-full max-w-[320px]">
           <p className="text-xs text-muted-foreground">
-            Best line: <span className="font-mono text-green-500">
+            <span className="text-green-500 font-mono">
               {pvLine.slice(0, lineIndex + 1).join(" → ")}
             </span>
             {lineIndex < pvLine.length - 1 && (
@@ -482,48 +490,70 @@ const InteractiveBoard = ({
         </div>
       )}
       
-      {/* Controls */}
-      <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
-        {/* Toggle View Button */}
-        {canToggle && viewMode !== "line" && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleView}
-            className="h-8 px-3 text-xs"
-          >
-            {viewMode === "after" ? "Show Before" : "Show After"}
-          </Button>
-        )}
-        
+      {/* Controls - Simplified */}
+      <div className="flex flex-wrap items-center justify-center gap-2 mt-3 w-full max-w-[320px]">
+        {/* Show Your Bad Move */}
         <Button
-          variant="outline"
+          variant={viewMode === "played" ? "default" : "outline"}
           size="sm"
-          onClick={resetPosition}
-          className="h-8 px-2"
-          title="Reset"
+          onClick={replayPlayedMove}
+          className={`h-8 px-3 text-xs gap-1 ${viewMode === "played" ? "bg-red-500 hover:bg-red-600" : ""}`}
+          disabled={!playedMove || !fenBefore}
         >
-          <RotateCcw className="w-4 h-4" />
+          Your Move
         </Button>
         
-        {hasPvLine && (
+        {/* Show Best Move */}
+        <Button
+          variant={viewMode === "best" ? "default" : "outline"}
+          size="sm"
+          onClick={showBestMove}
+          className={`h-8 px-3 text-xs gap-1 ${viewMode === "best" ? "bg-green-500 hover:bg-green-600" : ""}`}
+          disabled={!bestMove || !fenBefore}
+        >
+          <Sparkles className="w-3 h-3" />
+          Best Move
+        </Button>
+        
+        {/* Line Navigation */}
+        {hasPvLine && viewMode === "best" && (
           <>
             <Button
               variant="outline"
               size="sm"
-              onClick={playPrevMove}
+              onClick={playPrevInLine}
               disabled={lineIndex < 0}
               className="h-8 px-2"
-              title="Previous move"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
             
             <Button
-              variant="default"
+              variant="outline"
               size="sm"
-              onClick={playNextMove}
+              onClick={playNextInLine}
               disabled={lineIndex >= pvLine.length - 1}
+              className="h-8 px-2"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </>
+        )}
+      </div>
+      
+      {/* Ask AI Button */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onAskAI}
+        className="mt-3 w-full max-w-[320px] gap-2"
+      >
+        <MessageCircle className="w-4 h-4" />
+        Ask Coach: "Why is this bad?"
+      </Button>
+    </div>
+  );
+};
               className="h-8 px-3 gap-1"
               title="Play next move in line"
             >
