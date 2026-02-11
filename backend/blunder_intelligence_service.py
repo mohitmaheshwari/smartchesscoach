@@ -263,6 +263,7 @@ def get_dominant_weakness_ranking(analyses: List[Dict], games: List[Dict] = None
     - #1 Rating Killer (highest CP loss contribution)
     - Secondary Weakness
     - Stable Strength
+    - EVIDENCE: List of specific positions for each pattern
     
     Based on last 15 games.
     """
@@ -275,11 +276,18 @@ def get_dominant_weakness_ranking(analyses: List[Dict], games: List[Dict] = None
             "insight": "Play more games to identify your weaknesses."
         }
     
-    # Aggregate all patterns across games
+    # Build games lookup for opponent names
+    games_lookup = {}
+    if games:
+        for g in games:
+            games_lookup[g.get("game_id")] = g
+    
+    # Aggregate all patterns across games WITH EVIDENCE
     pattern_totals = defaultdict(lambda: {
         "total_cp_loss": 0,
         "count": 0,
-        "games_affected": 0
+        "games_affected": 0,
+        "evidence": []  # NEW: Store specific positions
     })
     
     games_analyzed = 0
@@ -287,12 +295,19 @@ def get_dominant_weakness_ranking(analyses: List[Dict], games: List[Dict] = None
     for analysis in analyses[-15:]:  # Last 15 games
         sf_analysis = analysis.get("stockfish_analysis", {})
         move_evals = sf_analysis.get("move_evaluations", [])
+        game_id = analysis.get("game_id", "")
         
         if not move_evals:
             continue
         
         games_analyzed += 1
         patterns_in_game = set()
+        
+        # Get opponent name from games lookup
+        game_info = games_lookup.get(game_id, {})
+        user_color = game_info.get("user_color", "white")
+        opponent = game_info.get("black_player") if user_color == "white" else game_info.get("white_player")
+        opponent = opponent or "Opponent"
         
         for move in move_evals:
             # Use stored mistake_type OR infer from eval data
@@ -301,6 +316,7 @@ def get_dominant_weakness_ranking(analyses: List[Dict], games: List[Dict] = None
                 mistake_type = infer_mistake_type_from_eval(move)
             
             cp_loss = abs(move.get("cp_loss", 0))  # Already in centipawns
+            eval_before = move.get("eval_before", 0)
             
             if not mistake_type or mistake_type in ["good_move", "excellent_move"]:
                 continue
@@ -310,6 +326,20 @@ def get_dominant_weakness_ranking(analyses: List[Dict], games: List[Dict] = None
                     pattern_totals[pattern_key]["total_cp_loss"] += cp_loss
                     pattern_totals[pattern_key]["count"] += 1
                     patterns_in_game.add(pattern_key)
+                    
+                    # Store evidence (limit to 10 examples per pattern)
+                    if len(pattern_totals[pattern_key]["evidence"]) < 10:
+                        pattern_totals[pattern_key]["evidence"].append({
+                            "game_id": game_id,
+                            "move_number": move.get("move_number", 0),
+                            "move_played": move.get("move", ""),
+                            "best_move": move.get("best_move", ""),
+                            "fen_before": move.get("fen_before", ""),
+                            "cp_loss": round(cp_loss),
+                            "eval_before": round(eval_before, 1) if eval_before else 0,
+                            "opponent": opponent,
+                            "mistake_type": mistake_type
+                        })
                     break
         
         for pattern in patterns_in_game:
@@ -339,6 +369,10 @@ def get_dominant_weakness_ranking(analyses: List[Dict], games: List[Dict] = None
     
     for i, (pattern_key, stats) in enumerate(ranking):
         pattern_info = BEHAVIORAL_PATTERNS.get(pattern_key, {})
+        
+        # Sort evidence by cp_loss (most costly first)
+        sorted_evidence = sorted(stats["evidence"], key=lambda x: x["cp_loss"], reverse=True)
+        
         entry = {
             "pattern": pattern_key,
             "label": pattern_info.get("short", pattern_key),
@@ -347,7 +381,8 @@ def get_dominant_weakness_ranking(analyses: List[Dict], games: List[Dict] = None
             "total_cp_loss": round(stats["total_cp_loss"]),
             "occurrences": stats["count"],
             "games_affected": stats["games_affected"],
-            "frequency_pct": round(stats["games_affected"] / max(games_analyzed, 1) * 100)
+            "frequency_pct": round(stats["games_affected"] / max(games_analyzed, 1) * 100),
+            "evidence": sorted_evidence  # NEW: Include evidence positions
         }
         result["ranking"].append(entry)
         
