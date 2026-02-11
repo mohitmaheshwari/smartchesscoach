@@ -80,7 +80,8 @@ const StarRating = ({ score, size = "lg" }) => {
 
 // Interactive Chess Board with playable lines
 const InteractiveBoard = ({ 
-  fen, 
+  fen,  // Position AFTER the move (what happened)
+  fenBefore,  // Position BEFORE the move (where best move should be played from)
   bestMove, 
   playedMove, 
   pvLine = [], 
@@ -93,44 +94,63 @@ const InteractiveBoard = ({
   const [isShowingLine, setIsShowingLine] = useState(false);
   const [highlightSquares, setHighlightSquares] = useState({});
   const [error, setError] = useState(null);
+  const [viewMode, setViewMode] = useState("after"); // "after" = what you played, "before" = where you should play
 
-  // Reset when FEN changes
+  // Reset when FEN changes - show position AFTER the move by default
   useEffect(() => {
     const chess = chessRef.current;
     setError(null);
+    setViewMode("after");
+    setIsShowingLine(false);
+    setLineIndex(-1);
     
-    if (fen && fen.length > 10) {
+    const displayFen = fen && fen.length > 10 ? fen : (fenBefore && fenBefore.length > 10 ? fenBefore : "start");
+    
+    if (displayFen && displayFen !== "start") {
       try {
-        chess.load(fen);
-        setCurrentFen(fen);
-        setLineIndex(-1);
-        setIsShowingLine(false);
+        chess.load(displayFen);
+        setCurrentFen(displayFen);
         setHighlightSquares({});
-        
-        // Highlight the move that was played (if we have it)
-        if (playedMove) {
-          try {
-            const move = chess.move(playedMove);
-            if (move) {
-              setHighlightSquares({
-                [move.from]: { backgroundColor: "rgba(239, 68, 68, 0.4)" },
-                [move.to]: { backgroundColor: "rgba(239, 68, 68, 0.4)" }
-              });
-              chess.undo();
-            }
-          } catch (e) {
-            console.log("Could not parse played move:", playedMove);
-          }
-        }
       } catch (e) {
-        console.error("Invalid FEN:", fen, e);
+        console.error("Invalid FEN:", displayFen, e);
         setError("Invalid position");
         setCurrentFen("start");
       }
     } else {
       setCurrentFen("start");
     }
-  }, [fen, playedMove]);
+  }, [fen, fenBefore]);
+
+  // Toggle between "what you played" and "what you should have played"
+  const toggleView = useCallback(() => {
+    const chess = chessRef.current;
+    
+    if (viewMode === "after" && fenBefore) {
+      // Switch to "before" view - show where best move should be played
+      try {
+        chess.load(fenBefore);
+        setCurrentFen(fenBefore);
+        setViewMode("before");
+        setHighlightSquares({});
+        setIsShowingLine(false);
+        setLineIndex(-1);
+      } catch (e) {
+        console.error("Error loading fenBefore:", e);
+      }
+    } else if (viewMode === "before" && fen) {
+      // Switch back to "after" view - show what happened
+      try {
+        chess.load(fen);
+        setCurrentFen(fen);
+        setViewMode("after");
+        setHighlightSquares({});
+        setIsShowingLine(false);
+        setLineIndex(-1);
+      } catch (e) {
+        console.error("Error loading fen:", e);
+      }
+    }
+  }, [viewMode, fen, fenBefore]);
 
   // Play through the best line
   const playNextMove = useCallback(() => {
