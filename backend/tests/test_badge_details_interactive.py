@@ -13,7 +13,22 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
+# Read from .env file or environment
+def get_base_url():
+    url = os.environ.get('REACT_APP_BACKEND_URL', '')
+    if not url:
+        # Try reading from frontend .env
+        try:
+            with open('/app/frontend/.env', 'r') as f:
+                for line in f:
+                    if line.startswith('REACT_APP_BACKEND_URL='):
+                        url = line.split('=', 1)[1].strip()
+                        break
+        except FileNotFoundError:
+            pass
+    return url.rstrip('/') if url else 'http://localhost:8001'
+
+BASE_URL = get_base_url()
 
 class TestBadgeDetailsEndpoint:
     """Tests for /api/badges/{badge_key}/details endpoint"""
