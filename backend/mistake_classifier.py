@@ -1291,13 +1291,6 @@ def classify_for_badge(mistakes: List[ClassifiedMistake]) -> Dict[str, int]:
             counts["total_mistakes"] += 1
     
     return counts
-            counts["total_mistakes"] += 1
-        elif m.mistake_type == MistakeType.GOOD_MOVE:
-            counts["good_moves"] += 1
-        elif m.mistake_type == MistakeType.EXCELLENT_MOVE:
-            counts["excellent_moves"] += 1
-    
-    return counts
 
 
 # === TEST ===
