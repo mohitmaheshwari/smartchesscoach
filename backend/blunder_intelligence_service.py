@@ -186,9 +186,23 @@ def get_core_lesson(analysis: Dict) -> Dict:
     pattern_impact = defaultdict(lambda: {"count": 0, "total_cp_loss": 0, "critical_phase": False})
     
     for move in move_evals:
+        # Use stored mistake_type OR infer from eval data
         mistake_type = move.get("mistake_type", "")
-        cp_loss = abs(move.get("eval_drop", 0)) * 100  # Convert to centipawns
+        if not mistake_type:
+            mistake_type = infer_mistake_type_from_eval(move)
+        
+        cp_loss = abs(move.get("cp_loss", 0))  # Already in centipawns
         phase = move.get("phase", "middlegame")
+        move_number = move.get("move_number", 20)
+        
+        # Infer phase from move number if not stored
+        if not phase or phase == "middlegame":
+            if move_number <= 10:
+                phase = "opening"
+            elif move_number <= 30:
+                phase = "middlegame"
+            else:
+                phase = "endgame"
         
         if not mistake_type or mistake_type in ["good_move", "excellent_move"]:
             continue
