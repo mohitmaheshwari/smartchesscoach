@@ -71,26 +71,31 @@ Build an AI-powered chess coaching application that analyzes games, identifies p
 - Analyzed 10 games with Stockfish - all successful
 - Now 21 games have valid `stockfish_analysis.move_evaluations`
 
-### Badge Drill-Down Feature (Feb 11)
-- **New API Endpoint:** `GET /api/badges/{badge_key}/details`
-  - Returns last 5 relevant games per badge
-  - Each game has specific moves with FEN for board display
-  - Badge-specific commentary explaining "Why this score?"
-  
-- **New Frontend Component:** `BadgeDetailModal.jsx`
-  - Clickable badge cards on Progress Page
-  - Shows chess board with critical positions
-  - Each move: what was played, what was best, realistic explanation
-  - "View Full Game" button with `?focus=` parameter
-  
-- **Enhanced badge_service.py**
-  - 8 badge-specific detail functions
-  - Tracks relevant moves per category
-  - Generates score explanations
+### Interactive Badge Drill-Down (Feb 11 - Enhanced)
+Major feature overhaul for badge drill-down:
+
+**1. Interactive Chess Board**
+- Play through best move lines (PV) with Next/Prev/Reset buttons
+- Visual highlights for played vs best squares
+- "Show Best" instant demonstration
+
+**2. Ask AI Integration**
+- Chat interface for each position
+- Suggested questions + custom input
+- AI responses include playable lines
+
+**3. Deeper Explanations**
+- Context-aware: opening/tactical/focus/endgame specific advice
+- Includes PV lines in explanations
+- Actionable coaching tips
+
+**Files Modified:**
+- `frontend/src/components/BadgeDetailModal.jsx` - Complete rewrite with interactive features
+- `backend/badge_service.py` - Enhanced explanation generators, added pv_after_best to all moves
 
 ## In Progress
 1. **Focus-aware Game Analysis** - When user clicks "View Game" from badge detail, commentary should focus on that badge category
-2. **Testing** - E2E testing of badge drill-down flow needed
+2. **Testing** - E2E testing of interactive badge drill-down needed
 
 ## Known Issues / Backlog
 1. Missing `data-testid="get-started-btn"` on landing page (affects automated testing)
