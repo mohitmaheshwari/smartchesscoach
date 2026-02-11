@@ -1195,6 +1195,7 @@ def classify_for_badge(mistakes: List[ClassifiedMistake]) -> Dict[str, int]:
     100% deterministic counting - no LLM.
     """
     counts = {
+        # Negative patterns (mistakes)
         "tactical_misses": 0,
         "hanging_pieces": 0,
         "blunders_when_ahead": 0,
@@ -1203,15 +1204,46 @@ def classify_for_badge(mistakes: List[ClassifiedMistake]) -> Dict[str, int]:
         "positional_errors": 0,
         "forks_walked_into": 0,
         "pins_walked_into": 0,
+        "skewers_walked_into": 0,
         "forks_missed": 0,
         "pins_missed": 0,
+        "skewers_missed": 0,
+        # Positive patterns (good play)
+        "forks_executed": 0,
+        "pins_executed": 0,
+        "skewers_executed": 0,
+        "threats_avoided": 0,
         "good_moves": 0,
         "excellent_moves": 0,
-        "total_mistakes": 0
+        # Totals
+        "total_mistakes": 0,
+        "total_good_plays": 0
     }
     
     for m in mistakes:
-        if m.mistake_type == MistakeType.HANGING_PIECE:
+        # === POSITIVE OUTCOMES ===
+        if m.mistake_type == MistakeType.EXECUTED_FORK:
+            counts["forks_executed"] += 1
+            counts["total_good_plays"] += 1
+        elif m.mistake_type == MistakeType.EXECUTED_PIN:
+            counts["pins_executed"] += 1
+            counts["total_good_plays"] += 1
+        elif m.mistake_type == MistakeType.EXECUTED_SKEWER:
+            counts["skewers_executed"] += 1
+            counts["total_good_plays"] += 1
+        elif m.mistake_type in [MistakeType.AVOIDED_FORK, MistakeType.AVOIDED_PIN, 
+                                 MistakeType.AVOIDED_SKEWER, MistakeType.AVOIDED_THREAT]:
+            counts["threats_avoided"] += 1
+            counts["total_good_plays"] += 1
+        elif m.mistake_type == MistakeType.GOOD_MOVE:
+            counts["good_moves"] += 1
+            counts["total_good_plays"] += 1
+        elif m.mistake_type == MistakeType.EXCELLENT_MOVE:
+            counts["excellent_moves"] += 1
+            counts["total_good_plays"] += 1
+        
+        # === NEGATIVE OUTCOMES ===
+        elif m.mistake_type == MistakeType.HANGING_PIECE:
             counts["hanging_pieces"] += 1
             counts["tactical_misses"] += 1
             counts["total_mistakes"] += 1
@@ -1241,6 +1273,10 @@ def classify_for_badge(mistakes: List[ClassifiedMistake]) -> Dict[str, int]:
             counts["pins_walked_into"] += 1
             counts["tactical_misses"] += 1
             counts["total_mistakes"] += 1
+        elif m.mistake_type == MistakeType.WALKED_INTO_SKEWER:
+            counts["skewers_walked_into"] += 1
+            counts["tactical_misses"] += 1
+            counts["total_mistakes"] += 1
         elif m.mistake_type == MistakeType.MISSED_FORK:
             counts["forks_missed"] += 1
             counts["tactical_misses"] += 1
@@ -1248,6 +1284,13 @@ def classify_for_badge(mistakes: List[ClassifiedMistake]) -> Dict[str, int]:
         elif m.mistake_type == MistakeType.MISSED_PIN:
             counts["pins_missed"] += 1
             counts["tactical_misses"] += 1
+            counts["total_mistakes"] += 1
+        elif m.mistake_type == MistakeType.MISSED_SKEWER:
+            counts["skewers_missed"] += 1
+            counts["tactical_misses"] += 1
+            counts["total_mistakes"] += 1
+    
+    return counts
             counts["total_mistakes"] += 1
         elif m.mistake_type == MistakeType.GOOD_MOVE:
             counts["good_moves"] += 1
