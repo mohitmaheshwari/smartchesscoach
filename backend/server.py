@@ -125,7 +125,8 @@ from blunder_intelligence_service import (
     check_milestones,
     get_focus_data,
     get_journey_data,
-    get_lab_data
+    get_lab_data,
+    get_drill_positions
 )
 
 # Import Badge Service
