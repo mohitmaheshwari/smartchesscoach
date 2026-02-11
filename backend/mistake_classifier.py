@@ -1374,6 +1374,18 @@ def classify_mistake(
             pattern_details["executed_tactic"] = executed_tactic
             pattern_details["reason"] = executed_tactic["message"]
     
+    # Rule 0.2: EXECUTED DISCOVERED ATTACK - user played a discovered attack!
+    elif executed_discovered and eval_drop <= 0.5:
+        mistake_type = MistakeType.EXECUTED_DISCOVERED_ATTACK
+        pattern_details["executed_discovered"] = executed_discovered
+        pattern_details["reason"] = executed_discovered.get("message", "Great discovered attack!")
+    
+    # Rule 0.3: EXPLOITED OVERLOADED DEFENDER - user exploited an overloaded piece!
+    elif overloaded_exploit and eval_drop <= 0.5:
+        mistake_type = MistakeType.EXPLOITED_OVERLOADED_DEFENDER
+        pattern_details["overloaded_exploit"] = overloaded_exploit
+        pattern_details["reason"] = overloaded_exploit.get("message", "Great exploitation of the overloaded defender!")
+    
     # Rule 0.5: AVOIDED THREAT - user correctly defended!
     elif avoided_threat and eval_drop <= 0.5:
         if avoided_threat["type"] == "avoided_fork":
@@ -1412,6 +1424,13 @@ def classify_mistake(
         mistake_type = MistakeType.WALKED_INTO_SKEWER
         pattern_details["skewer"] = walked_into_skewer
         pattern_details["reason"] = f"Opponent can now skewer your {walked_into_skewer['front_piece']['piece']}"
+    
+    # Rule 3.7: WALKED_INTO_DISCOVERED_ATTACK - allowed opponent discovered attack
+    elif walked_into_discovered and eval_drop > 1.0:
+        mistake_type = MistakeType.WALKED_INTO_DISCOVERED_ATTACK
+        pattern_details["discovered_attack"] = walked_into_discovered
+        moving_piece = walked_into_discovered.get("moving_piece", {}).get("piece", "piece")
+        pattern_details["reason"] = f"Opponent can now execute a discovered attack with their {moving_piece}"
     
     # Rule 4: MISSED_FORK - could have forked but didn't
     elif missed_fork and eval_drop > 1.5:
