@@ -184,15 +184,27 @@ Major product transformation from "analysis tool" to "Blunder Reduction System f
 - Shows result: Correct/Incorrect with score tracking
 - "Retry", "Full Game", "Next" navigation
 
+**Pattern Trend Tracking (Closed Loop):**
+- Compares last 7 games vs previous 7 games
+- Shows trend indicator: "0 → 7 (+100%)" with direction (improving/worsening/stable)
+- Enables users to track if their training is working over time
+
+**Clickable Heatmap Evidence:**
+- Hot squares on the Mistake Heatmap are now clickable
+- Clicking a square opens Evidence Modal showing all mistakes on that square
+- "Click hot squares" hint displayed
+
 **New Components:**
 - `EvidenceModal.jsx`: Shows evidence positions with board preview
 - `DrillMode.jsx`: Interactive training from user's own games
+- `TrendIndicator`: Shows pattern improvement/worsening trend
 
 **Updated Components:**
 - `Focus.jsx`: Rating Killer card now clickable with "See Examples" and "Train This" buttons
 - `JourneyV2.jsx`: 
-  - Weakness Ranking cards show evidence count, "See Examples", "Train This"
+  - Weakness Ranking cards show evidence count, "See Examples", "Train This", and trend
   - Win State bars clickable to see blunders by game state
+  - Mistake Heatmap squares clickable to see position evidence
 
 **New API Endpoints:**
 - `GET /api/focus` - Focus page data (one dominant weakness)
