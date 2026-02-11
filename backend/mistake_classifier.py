@@ -622,6 +622,12 @@ def classify_mistake(
     material_after = get_material_count(board_after, user_chess_color)
     material_lost = material_before - material_after
     
+    # Check for fork/pin patterns (NEW)
+    walked_into_fork = detect_walked_into_fork(board_before, board_after, user_chess_color)
+    walked_into_pin = detect_walked_into_pin(board_before, board_after, user_chess_color)
+    missed_fork = detect_missed_fork(board_before, best_move, user_chess_color) if best_move else None
+    missed_pin = detect_missed_pin(board_before, best_move, user_chess_color) if best_move else None
+    
     # === RULE-BASED CLASSIFICATION ===
     
     # Rule 1: Good/Excellent move (small or no eval drop)
@@ -630,43 +636,67 @@ def classify_mistake(
     elif eval_drop <= 0.3:
         mistake_type = MistakeType.GOOD_MOVE
     
-    # Rule 2: HANGING_PIECE - piece left undefended and eval dropped significantly
+    # Rule 2: WALKED_INTO_FORK - moved into a fork
+    elif walked_into_fork and eval_drop > 1.0:
+        mistake_type = MistakeType.WALKED_INTO_FORK
+        pattern_details["fork"] = walked_into_fork
+        pattern_details["reason"] = f"Opponent can now fork your pieces with {walked_into_fork['attacker_piece']}"
+    
+    # Rule 3: WALKED_INTO_PIN - created a pin against yourself  
+    elif walked_into_pin and eval_drop > 0.5:
+        mistake_type = MistakeType.WALKED_INTO_PIN
+        pattern_details["pin"] = walked_into_pin
+        pattern_details["reason"] = f"Your {walked_into_pin['pinned_piece']} is now pinned"
+    
+    # Rule 4: MISSED_FORK - could have forked but didn't
+    elif missed_fork and eval_drop > 1.5:
+        mistake_type = MistakeType.MISSED_FORK
+        pattern_details["missed_fork"] = missed_fork
+        pattern_details["reason"] = f"You could have forked with {best_move}"
+    
+    # Rule 5: MISSED_PIN - could have pinned but didn't
+    elif missed_pin and eval_drop > 1.0:
+        mistake_type = MistakeType.MISSED_PIN
+        pattern_details["missed_pin"] = missed_pin
+        pattern_details["reason"] = f"You could have created a pin with {best_move}"
+    
+    # Rule 6: HANGING_PIECE - piece left undefended and eval dropped significantly
     elif hanging_after and eval_drop > 0.5:
         mistake_type = MistakeType.HANGING_PIECE
         pattern_details["reason"] = f"Left {hanging_piece} undefended"
     
-    # Rule 3: MATERIAL_BLUNDER - lost material immediately
+    # Rule 7: MATERIAL_BLUNDER - lost material immediately
     elif material_lost >= 2 and eval_drop > 1.0:  # Lost at least a minor piece worth
         mistake_type = MistakeType.MATERIAL_BLUNDER
         pattern_details["material_lost"] = material_lost
     
-    # Rule 4: BLUNDER_WHEN_AHEAD - was winning, now not
+    # Rule 8: BLUNDER_WHEN_AHEAD - was winning, now not
     elif was_ahead and eval_after_pawns < 1.0 and eval_drop > 1.5:
         mistake_type = MistakeType.BLUNDER_WHEN_AHEAD
         pattern_details["threw_away"] = f"Was +{eval_before_pawns:.1f}, now +{eval_after_pawns:.1f}"
     
-    # Rule 5: IGNORED_THREAT - opponent had threat, player didn't address it
+    # Rule 9: IGNORED_THREAT - opponent had threat, player didn't address it
     elif opponent_had_threat and eval_drop > 1.0:
         mistake_type = MistakeType.IGNORED_THREAT
         pattern_details["threats_ignored"] = threats
     
-    # Rule 6: FAILED_CONVERSION - was significantly ahead, couldn't increase/maintain
+    # Rule 10: FAILED_CONVERSION - was significantly ahead, couldn't increase/maintain
     elif was_ahead and eval_drop > 0.5 and eval_after_pawns > 0:
         mistake_type = MistakeType.FAILED_CONVERSION
     
-    # Rule 7: MISSED_WINNING_TACTIC - eval swing shows missed opportunity
+    # Rule 11: MISSED_WINNING_TACTIC - eval swing shows missed opportunity
     elif eval_drop > 2.0 and not was_behind:
         mistake_type = MistakeType.MISSED_WINNING_TACTIC
         pattern_details["missed_advantage"] = eval_drop
     
-    # Rule 8: TIME_PRESSURE_BLUNDER - late game blunder (proxy)
+    # Rule 12: TIME_PRESSURE_BLUNDER - late game blunder (proxy)
     elif is_late_game and eval_drop > 1.5:
         mistake_type = MistakeType.TIME_PRESSURE_BLUNDER
     
-    # Rule 9: KING_SAFETY_ERROR - if king becomes exposed (simplified check)
+    # Rule 13: KING_SAFETY_ERROR - if king becomes exposed (simplified check)
     # This would need more sophisticated king safety evaluation
     
-    # Rule 10: Default - small positional error
+    # Rule 14: Default - small positional error
     elif eval_drop > 0.3:
         mistake_type = MistakeType.POSITIONAL_DRIFT
     
