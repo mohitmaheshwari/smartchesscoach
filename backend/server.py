@@ -278,8 +278,32 @@ class ConnectPlatformRequest(BaseModel):
 
 # ==================== AUTH HELPERS ====================
 
+# DEV MODE - Set DEV_MODE=true in .env to bypass authentication for local testing
+DEV_MODE = os.environ.get("DEV_MODE", "false").lower() == "true"
+DEV_USER_ID = os.environ.get("DEV_USER_ID", "dev_user_local")
+
 async def get_current_user(request: Request) -> User:
     """Get current user from session token in cookie or Authorization header"""
+    
+    # DEV MODE: Bypass auth and return a test user
+    if DEV_MODE:
+        logger.warning("⚠️ DEV_MODE enabled - authentication bypassed!")
+        # Try to get or create a dev user
+        dev_user = await db.users.find_one({"user_id": DEV_USER_ID}, {"_id": 0})
+        if not dev_user:
+            # Create dev user if doesn't exist
+            dev_user = {
+                "user_id": DEV_USER_ID,
+                "email": "dev@localhost",
+                "name": "Dev User",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "rating": 1300
+            }
+            await db.users.insert_one(dev_user)
+            logger.info(f"Created dev user: {DEV_USER_ID}")
+        return User(**dev_user)
+    
+    # Normal auth flow
     session_token = request.cookies.get("session_token")
     
     if not session_token:
