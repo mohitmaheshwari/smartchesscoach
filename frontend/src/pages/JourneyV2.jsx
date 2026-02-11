@@ -532,6 +532,18 @@ const JourneyPage = ({ user }) => {
     });
   };
   
+  // Handle showing evidence for heatmap square
+  const handleShowHeatmapEvidence = (square, evidence, count) => {
+    setEvidenceModal({
+      isOpen: true,
+      title: `Mistakes on ${square.toUpperCase()}`,
+      subtitle: `${count} mistake${count !== 1 ? 's' : ''} occurred on this square`,
+      evidence: evidence,
+      type: "heatmap",
+      state: null
+    });
+  };
+  
   // Handle starting drill mode
   const handleStartDrill = (pattern, patternLabel) => {
     setDrillMode({
