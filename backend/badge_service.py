@@ -972,7 +972,11 @@ def _get_opening_badge_details(analyses: List[Dict], games_map: Dict, user_ratin
 
 
 def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict, user_rating: int = 1200) -> Dict:
-    """Get detailed data for Tactical Vision badge."""
+    """
+    Get detailed data for Tactical Vision badge.
+    
+    NOW USES DETERMINISTIC CLASSIFIER - no LLM guessing.
+    """
     relevant_moves = []
     relevant_games = []
     
@@ -981,12 +985,13 @@ def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict, user_rati
         game = games_map.get(game_id, {})
         sf = analysis.get("stockfish_analysis", {})
         move_evals = sf.get("move_evaluations", [])
+        user_color = game.get("user_color", "white")
         
         game_tactical_data = {
             "game_id": game_id,
             "opponent": game.get("opponent_name", "Unknown"),
             "result": game.get("result", ""),
-            "user_color": game.get("user_color", "white"),
+            "user_color": user_color,
             "played_at": game.get("played_at"),
             "moves": []
         }
@@ -1001,11 +1006,24 @@ def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict, user_rati
                 is_found = evaluation in ["best", "excellent"]
                 
                 if is_missed or is_found:
+                    # USE DETERMINISTIC CLASSIFIER
+                    classified = classify_move_deterministic(m, user_color)
+                    
+                    # Compute fen_after
+                    fen_after = ""
+                    try:
+                        import chess
+                        board = chess.Board(m.get("fen_before", ""))
+                        board.push_san(m.get("move", ""))
+                        fen_after = board.fen()
+                    except:
+                        fen_after = m.get("fen_before", "")
+                    
                     move_data = {
                         "move_number": m.get("move_number"),
                         "move_played": m.get("move"),
                         "fen_before": m.get("fen_before", ""),
-                        "fen_after": m.get("fen_after", ""),
+                        "fen_after": fen_after,
                         "best_move": m.get("best_move"),
                         "evaluation": evaluation,
                         "cp_loss": m.get("cp_loss", 0),
@@ -1013,7 +1031,13 @@ def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict, user_rati
                         "type": "missed" if is_missed else "found",
                         "threat": m.get("threat"),
                         "pv_after_best": m.get("pv_after_best", []),
-                        "explanation": _generate_tactical_explanation(m, is_missed, eval_diff, user_rating)
+                        # DETERMINISTIC DATA
+                        "mistake_type": classified["mistake_type"],
+                        "hanging_piece": classified["hanging_piece"],
+                        "was_ahead": classified["was_ahead"],
+                        "opponent_had_threat": classified["opponent_had_threat"],
+                        # DETERMINISTIC EXPLANATION (not LLM guess)
+                        "explanation": classified["explanation"]
                     }
                     game_tactical_data["moves"].append(move_data)
                     relevant_moves.append({**move_data, "game_id": game_id})
