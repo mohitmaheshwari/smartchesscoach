@@ -4010,9 +4010,15 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
     import chess
     
     try:
-        # Validate FEN (position AFTER the move)
+        # Use fen_before if fen is not provided (common from badge detail modal)
+        position_fen = req.fen or req.fen_before
+        
+        if not position_fen:
+            raise HTTPException(status_code=400, detail="Either fen or fen_before must be provided")
+        
+        # Validate FEN
         try:
-            board = chess.Board(req.fen)
+            board = chess.Board(position_fen)
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid FEN position")
         
@@ -4026,6 +4032,9 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
                 board_before = chess.Board(req.fen_before)
             except:
                 board_before = None
+        elif req.fen:
+            # If only fen is provided, use it as board_before too
+            board_before = board
         
         # Analyze the position BEFORE the move to find what user should have played
         best_move_for_user = None
