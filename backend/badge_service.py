@@ -1386,76 +1386,127 @@ def _get_time_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
 
 
 # ============================================================================
-# Helper functions for explanations
+# Rating-aware explanation generators
+# These generate simple, coach-like explanations based on user's level
 # ============================================================================
 
-def _generate_opening_explanation(move: Dict, evaluation: str) -> str:
-    cp_loss = move.get("cp_loss", 0)
+def _get_rating_level(rating: int) -> str:
+    """Determine explanation complexity level based on rating."""
+    if rating < 1000:
+        return "beginner"
+    elif rating < 1400:
+        return "intermediate"  # 1000-1400
+    elif rating < 1800:
+        return "advanced"  # 1400-1800
+    else:
+        return "expert"  # 1800+
+
+
+def _generate_opening_explanation(move: Dict, evaluation: str, rating: int = 1200) -> str:
     best = move.get("best_move", "")
-    pv = move.get("pv_after_best", [])
+    level = _get_rating_level(rating)
     
     if evaluation == "blunder":
-        pv_str = f" After {best}, the game would continue: {' '.join(pv[:3])}" if pv else ""
-        return f"Early blunder that damaged your position significantly! The correct move was {best}.{pv_str} This gave your opponent an early advantage that's hard to recover from."
+        if level == "beginner":
+            return f"Oops! This move lost material or got you in trouble early. Try {best} next time - it keeps your pieces safe."
+        elif level == "intermediate":
+            return f"This early mistake hurt your game. {best} was better - it develops your pieces and keeps them protected. In the opening, get your pieces out safely before attacking!"
+        else:
+            return f"Early blunder. {best} maintains development and doesn't weaken your position."
+    
     elif evaluation == "mistake":
-        return f"This move disrupted your development. {best} was stronger because it keeps your pieces coordinated and maintains pressure. Opening mistakes often lead to passive positions later."
-    else:
-        return f"Small inaccuracy. {best} was slightly more precise. In the opening, small advantages accumulate."
+        if level in ["beginner", "intermediate"]:
+            return f"This slowed down your development. {best} was better - it gets your pieces to active squares faster. Remember: develop your pieces before moving the same piece twice!"
+        else:
+            return f"This disrupted your development. {best} keeps pieces coordinated."
+    
+    else:  # inaccuracy
+        if level in ["beginner", "intermediate"]:
+            return f"Small slip. {best} was a bit better. Keep developing your pieces!"
+        else:
+            return f"Minor inaccuracy. {best} was more precise."
 
 
-def _generate_tactical_explanation(move: Dict, is_missed: bool, eval_swing: int) -> str:
+def _generate_tactical_explanation(move: Dict, is_missed: bool, eval_swing: int, rating: int = 1200) -> str:
     best = move.get("best_move", "")
     threat = move.get("threat", "")
-    pv = move.get("pv_after_best", [])
+    level = _get_rating_level(rating)
     
     if is_missed:
-        if eval_swing > 300:
-            pv_str = f" The winning sequence was: {' → '.join(pv[:4])}" if pv else ""
-            threat_str = f" Your opponent's threat was {threat}, but you could have struck first." if threat else ""
-            return f"You missed a winning combination! {best} was the key move that would have won material or created a decisive attack.{pv_str}{threat_str}"
+        if eval_swing > 300:  # Big tactic
+            if level == "beginner":
+                threat_str = f" Watch out for {threat}!" if threat else ""
+                return f"You missed a chance to win material! {best} was the winning move.{threat_str} Before each move, look for checks, captures, and threats!"
+            elif level == "intermediate":
+                threat_str = f" The pattern here: {threat}." if threat else ""
+                return f"Missed winning tactic! {best} wins material or creates a strong attack.{threat_str} Tip: Always scan for forks, pins, and skewers before moving."
+            else:
+                return f"Missed combination. {best} was decisive."
+        else:  # Small tactic
+            if level in ["beginner", "intermediate"]:
+                return f"Small tactical chance missed. {best} was a bit better. Keep looking for ways to improve your pieces!"
+            else:
+                return f"Tactical opportunity missed. {best} gave an edge."
+    else:  # Found tactic
+        if level in ["beginner", "intermediate"]:
+            return f"Great job! You found {best} - that's a strong move that put pressure on your opponent!"
         else:
-            return f"Tactical opportunity missed. {best} gave you a clear advantage. Look for checks, captures, and threats in these positions."
-    else:
-        pv_str = f" Nice continuation: {' → '.join(pv[:3])}" if pv else ""
-        return f"Excellent tactical vision! You found {best}, a strong move that created real problems for your opponent.{pv_str}"
+            return f"Excellent! Found the tactic {best}."
 
 
-def _generate_positional_explanation(move: Dict, cp_loss: int) -> str:
+def _generate_positional_explanation(move: Dict, cp_loss: int, rating: int = 1200) -> str:
     best = move.get("best_move", "")
-    pv = move.get("pv_after_best", [])
+    level = _get_rating_level(rating)
     
-    pv_str = f" The idea was: {' '.join(pv[:3])}" if pv else ""
-    
-    if cp_loss > 100:
-        return f"This move gave away your positional advantage. {best} was stronger because it maintained piece activity and controlled key squares.{pv_str} Remember: active pieces are worth more than material sometimes."
+    # For intermediate players, keep it simple and pattern-based
+    if level in ["beginner", "intermediate"]:
+        if cp_loss > 100:
+            return f"This move made your pieces less active. {best} was better because it keeps your pieces on strong squares where they control more of the board. Think: where are my pieces most useful?"
+        else:
+            return f"Small improvement possible. {best} puts your piece on a slightly better square. Good players always look for the best spot for each piece!"
     else:
-        return f"Small positional slip. {best} was more accurate, keeping your pieces on optimal squares.{pv_str}"
+        if cp_loss > 100:
+            return f"Positional error. {best} maintained piece activity and key square control."
+        else:
+            return f"Minor positional slip. {best} was more precise."
 
 
-def _generate_endgame_explanation(move: Dict, was_winning: bool, won: bool) -> str:
+def _generate_endgame_explanation(move: Dict, was_winning: bool, won: bool, rating: int = 1200) -> str:
     best = move.get("best_move", "")
-    pv = move.get("pv_after_best", [])
-    
-    pv_str = f" The winning technique: {' → '.join(pv[:4])}" if pv else ""
+    level = _get_rating_level(rating)
     
     if was_winning and not won:
-        return f"This endgame error cost you the game! You were winning, but {best} was needed to convert.{pv_str} In endgames, precision is everything."
+        if level in ["beginner", "intermediate"]:
+            return f"You were winning but this move let your opponent escape! {best} was the right way to finish. In endgames, take your time - there's no rush when you're ahead!"
+        else:
+            return f"Endgame error cost the win. {best} was the technique."
     elif was_winning:
-        return f"Imprecise but you still won. However, {best} was the clean technique.{pv_str} Study this pattern to convert faster next time."
+        if level in ["beginner", "intermediate"]:
+            return f"You still won, but {best} was cleaner. In endgames, push your passed pawns and activate your king!"
+        else:
+            return f"Imprecise but converted. {best} was cleaner."
     else:
-        return f"Endgame mistake under pressure. {best} was the best defense.{pv_str}"
+        if level in ["beginner", "intermediate"]:
+            return f"Tough defense needed here. {best} was the best try. In bad endgames, make your opponent prove they know the winning technique!"
+        else:
+            return f"Endgame mistake. {best} was best defense."
 
 
-def _generate_focus_explanation(move: Dict, eval_drop: int) -> str:
+def _generate_focus_explanation(move: Dict, eval_drop: int, rating: int = 1200) -> str:
     best = move.get("best_move", "")
     threat = move.get("threat", "")
-    pv = move.get("pv_after_best", [])
+    level = _get_rating_level(rating)
     
-    if threat:
-        return f"You missed a simple threat! Your opponent was threatening {threat}. The move {best} was necessary to defend. Before every move, ask: 'What is my opponent trying to do?'"
+    if level in ["beginner", "intermediate"]:
+        if threat:
+            return f"Oops! You missed that your opponent was threatening {threat}. {best} stops this threat. Before every move, ask yourself: 'What is my opponent trying to do?'"
+        else:
+            return f"Simple oversight - you know better than this! {best} was clearly safer. Try this: before you move, take 5 seconds to double-check. Ask 'Is this move safe?'"
     else:
-        pv_str = f" {best} leads to: {' '.join(pv[:2])}" if pv else ""
-        return f"This was a focus error, not a skill problem. {best} was clearly better.{pv_str} You know this pattern - you just missed it in the moment. Take 5 seconds before each move."
+        if threat:
+            return f"Missed threat: {threat}. {best} was needed."
+        else:
+            return f"Focus error. {best} was clearly better."
 
 
 def _generate_badge_insight(badge_key: str, moves: List[Dict], games_count: int) -> str:
