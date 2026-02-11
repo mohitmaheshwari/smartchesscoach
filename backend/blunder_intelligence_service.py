@@ -568,6 +568,12 @@ def get_mistake_heatmap(analyses: List[Dict], games: List[Dict] = None) -> Dict:
         move_evals = sf_analysis.get("move_evaluations", [])
         game_id = analysis.get("game_id", "")
         
+        # Get opponent name
+        game_info = games_lookup.get(game_id, {})
+        user_color = game_info.get("user_color", "white")
+        opponent = game_info.get("black_player") if user_color == "white" else game_info.get("white_player")
+        opponent = opponent or "Opponent"
+        
         for move in move_evals:
             cp_loss = abs(move.get("cp_loss", 0))  # Already in centipawns
             if cp_loss < 50:  # Only count meaningful mistakes
@@ -578,7 +584,6 @@ def get_mistake_heatmap(analyses: List[Dict], games: List[Dict] = None) -> Dict:
             if not move_san:
                 continue
             
-            # Extract destination square from move (simplified)
             # Handle castling
             if move_san in ["O-O", "O-O-O"]:
                 continue
@@ -590,6 +595,20 @@ def get_mistake_heatmap(analyses: List[Dict], games: List[Dict] = None) -> Dict:
                 if len(dest_square) == 2 and dest_square[0] in 'abcdefgh' and dest_square[1] in '12345678':
                     square_counts[dest_square] += 1
                     
+                    # Store evidence (limit 5 per square)
+                    if len(square_evidence[dest_square]) < 5:
+                        square_evidence[dest_square].append({
+                            "game_id": game_id,
+                            "move_number": move.get("move_number", 0),
+                            "move_played": move_san,
+                            "best_move": move.get("best_move", ""),
+                            "fen_before": move.get("fen_before", ""),
+                            "cp_loss": round(cp_loss),
+                            "eval_before": round(move.get("eval_before", 0), 1),
+                            "opponent": opponent,
+                            "square": dest_square
+                        })
+                    
                     # Categorize by region
                     file_char = dest_square[0]
                     if file_char in kingside_files:
@@ -599,7 +618,11 @@ def get_mistake_heatmap(analyses: List[Dict], games: List[Dict] = None) -> Dict:
                     else:
                         region_counts["center"] += 1
     
-    # Get hot squares (top 5)
+    # Sort evidence by cp_loss for each square
+    for sq in square_evidence:
+        square_evidence[sq] = sorted(square_evidence[sq], key=lambda x: x["cp_loss"], reverse=True)
+    
+    # Get hot squares (top 5) with evidence
     hot_squares = sorted(square_counts.items(), key=lambda x: x[1], reverse=True)[:5]
     
     # Generate insight
@@ -614,7 +637,8 @@ def get_mistake_heatmap(analyses: List[Dict], games: List[Dict] = None) -> Dict:
     return {
         "squares": dict(square_counts),
         "regions": region_counts,
-        "hot_squares": [{"square": sq, "count": ct} for sq, ct in hot_squares],
+        "hot_squares": [{"square": sq, "count": ct, "evidence": square_evidence.get(sq, [])} for sq, ct in hot_squares],
+        "square_evidence": dict(square_evidence),
         "insight": insight,
         "total_mapped": total
     }
