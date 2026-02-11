@@ -284,12 +284,13 @@ const InteractiveBoard = ({
 
   // Go back one move in line
   const playPrevInLine = useCallback(() => {
-    const chess = chessRef.current;
     if (lineIndex < 0 || !fenBefore) return;
     
     const prevIndex = lineIndex - 1;
     
     try {
+      if (!chessRef.current) chessRef.current = new Chess();
+      const chess = chessRef.current;
       chess.load(fenBefore);
       
       if (prevIndex >= 0) {
