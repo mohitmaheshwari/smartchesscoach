@@ -162,6 +162,7 @@ const DrillMode = ({
     setIsCorrect(false);
     if (currentPosition?.fen_before) {
       chess.load(currentPosition.fen_before);
+      setBoardPosition(currentPosition.fen_before);
     }
   };
 
