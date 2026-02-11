@@ -77,14 +77,14 @@ const EvidenceModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[85vh] p-0 overflow-hidden" data-testid="evidence-modal">
+      <DialogContent className="max-w-3xl max-h-[85vh] p-0 overflow-hidden" data-testid="evidence-modal" aria-describedby="evidence-modal-description">
         <DialogHeader className="p-4 pb-2 border-b border-border/50">
           <DialogTitle className="flex items-center gap-2">
             <span className={getAccentColor()}>{getStateIcon()}</span>
             {title}
           </DialogTitle>
           {subtitle && (
-            <p className="text-sm text-muted-foreground">{subtitle}</p>
+            <p id="evidence-modal-description" className="text-sm text-muted-foreground">{subtitle}</p>
           )}
         </DialogHeader>
 
