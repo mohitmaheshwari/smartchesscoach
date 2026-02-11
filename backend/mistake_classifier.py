@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 class MistakeType(Enum):
     """Deterministic mistake categories - NO LLM GUESSING"""
+    # Negative outcomes (mistakes)
     HANGING_PIECE = "hanging_piece"
     MATERIAL_BLUNDER = "material_blunder"
     IGNORED_THREAT = "ignored_threat"
@@ -54,12 +55,22 @@ class MistakeType(Enum):
     MISSED_WINNING_TACTIC = "missed_winning_tactic"
     MISSED_FORK = "missed_fork"
     MISSED_PIN = "missed_pin"
+    MISSED_SKEWER = "missed_skewer"
     WALKED_INTO_FORK = "walked_into_fork"
     WALKED_INTO_PIN = "walked_into_pin"
+    WALKED_INTO_SKEWER = "walked_into_skewer"
     KING_SAFETY_ERROR = "king_safety_error"
     FAILED_CONVERSION = "failed_conversion"
     TIME_PRESSURE_BLUNDER = "time_pressure_blunder"
     POSITIONAL_DRIFT = "positional_drift"
+    # Positive outcomes (good defense/tactics)
+    AVOIDED_FORK = "avoided_fork"
+    AVOIDED_PIN = "avoided_pin"
+    AVOIDED_SKEWER = "avoided_skewer"
+    AVOIDED_THREAT = "avoided_threat"
+    EXECUTED_FORK = "executed_fork"
+    EXECUTED_PIN = "executed_pin"
+    EXECUTED_SKEWER = "executed_skewer"
     GOOD_MOVE = "good_move"
     EXCELLENT_MOVE = "excellent_move"
 
