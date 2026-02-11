@@ -144,47 +144,21 @@ const InteractiveBoard = ({
       // Reset to starting position first
       chess.load(fen);
     
-    // Play all moves up to nextIndex
-    for (let i = 0; i <= nextIndex; i++) {
-      try {
-        chess.move(pvLine[i]);
-      } catch (e) {
-        console.error("Invalid move in PV:", pvLine[i]);
-        return;
-      }
-    }
-    
-    setCurrentFen(chess.fen());
-    setLineIndex(nextIndex);
-    setIsShowingLine(true);
-    
-    // Highlight the last move
-    const history = chess.history({ verbose: true });
-    if (history.length > 0) {
-      const lastMove = history[history.length - 1];
-      setHighlightSquares({
-        [lastMove.from]: { backgroundColor: "rgba(34, 197, 94, 0.4)" },
-        [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
-      });
-    }
-  }, [chess, fen, pvLine, lineIndex]);
-
-  // Go back one move
-  const playPrevMove = useCallback(() => {
-    if (lineIndex < 0) return;
-    
-    const prevIndex = lineIndex - 1;
-    chess.load(fen);
-    
-    if (prevIndex >= 0) {
-      for (let i = 0; i <= prevIndex; i++) {
+      // Play all moves up to nextIndex
+      for (let i = 0; i <= nextIndex; i++) {
         try {
           chess.move(pvLine[i]);
         } catch (e) {
+          console.error("Invalid move in PV:", pvLine[i]);
           return;
         }
       }
       
+      setCurrentFen(chess.fen());
+      setLineIndex(nextIndex);
+      setIsShowingLine(true);
+      
+      // Highlight the last move
       const history = chess.history({ verbose: true });
       if (history.length > 0) {
         const lastMove = history[history.length - 1];
@@ -193,14 +167,48 @@ const InteractiveBoard = ({
           [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
         });
       }
-    } else {
-      setHighlightSquares({});
+    } catch (e) {
+      console.error("Error playing line:", e);
     }
+  }, [fen, pvLine, lineIndex]);
+
+  // Go back one move
+  const playPrevMove = useCallback(() => {
+    const chess = chessRef.current;
+    if (lineIndex < 0 || !fen) return;
     
-    setCurrentFen(chess.fen());
-    setLineIndex(prevIndex);
-    setIsShowingLine(prevIndex >= 0);
-  }, [chess, fen, pvLine, lineIndex]);
+    try {
+      const prevIndex = lineIndex - 1;
+      chess.load(fen);
+      
+      if (prevIndex >= 0) {
+        for (let i = 0; i <= prevIndex; i++) {
+          try {
+            chess.move(pvLine[i]);
+          } catch (e) {
+            return;
+          }
+        }
+        
+        const history = chess.history({ verbose: true });
+        if (history.length > 0) {
+          const lastMove = history[history.length - 1];
+          setHighlightSquares({
+            [lastMove.from]: { backgroundColor: "rgba(34, 197, 94, 0.4)" },
+            [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
+          });
+        }
+      } else {
+        setHighlightSquares({});
+      }
+      
+      setCurrentFen(chess.fen());
+      setLineIndex(prevIndex);
+      setIsShowingLine(prevIndex >= 0);
+    } catch (e) {
+      console.error("Error going back:", e);
+    }
+  }, [fen, pvLine, lineIndex]);
 
   // Reset to starting position
   const resetPosition = useCallback(() => {
