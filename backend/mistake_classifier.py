@@ -917,16 +917,52 @@ def classify_mistake(
     material_after = get_material_count(board_after, user_chess_color)
     material_lost = material_before - material_after
     
-    # Check for fork/pin patterns (NEW)
+    # Check for fork/pin/skewer patterns
     walked_into_fork = detect_walked_into_fork(board_before, board_after, user_chess_color)
     walked_into_pin = detect_walked_into_pin(board_before, board_after, user_chess_color)
+    walked_into_skewer = detect_walked_into_skewer(board_before, board_after, user_chess_color)
     missed_fork = detect_missed_fork(board_before, best_move, user_chess_color) if best_move else None
     missed_pin = detect_missed_pin(board_before, best_move, user_chess_color) if best_move else None
+    missed_skewer = detect_missed_skewer(board_before, best_move, user_chess_color) if best_move else None
+    
+    # Check for POSITIVE patterns (avoided threats, executed tactics)
+    avoided_threat = detect_avoided_threat(board_before, board_after, move_played, user_chess_color)
+    executed_tactic = detect_executed_tactic(board_before, board_after, move_played, user_chess_color)
     
     # === RULE-BASED CLASSIFICATION ===
     
+    # Rule 0: EXECUTED TACTIC - user played a winning tactic!
+    if executed_tactic and eval_drop <= 0.5:
+        if executed_tactic["type"] == "executed_fork":
+            mistake_type = MistakeType.EXECUTED_FORK
+            pattern_details["executed_tactic"] = executed_tactic
+            pattern_details["reason"] = executed_tactic["message"]
+        elif executed_tactic["type"] == "executed_pin":
+            mistake_type = MistakeType.EXECUTED_PIN
+            pattern_details["executed_tactic"] = executed_tactic
+            pattern_details["reason"] = executed_tactic["message"]
+        elif executed_tactic["type"] == "executed_skewer":
+            mistake_type = MistakeType.EXECUTED_SKEWER
+            pattern_details["executed_tactic"] = executed_tactic
+            pattern_details["reason"] = executed_tactic["message"]
+    
+    # Rule 0.5: AVOIDED THREAT - user correctly defended!
+    elif avoided_threat and eval_drop <= 0.5:
+        if avoided_threat["type"] == "avoided_fork":
+            mistake_type = MistakeType.AVOIDED_FORK
+            pattern_details["avoided_threat"] = avoided_threat
+            pattern_details["reason"] = avoided_threat["message"]
+        elif avoided_threat["type"] == "avoided_pin":
+            mistake_type = MistakeType.AVOIDED_PIN
+            pattern_details["avoided_threat"] = avoided_threat
+            pattern_details["reason"] = avoided_threat["message"]
+        elif avoided_threat["type"] == "avoided_skewer":
+            mistake_type = MistakeType.AVOIDED_SKEWER
+            pattern_details["avoided_threat"] = avoided_threat
+            pattern_details["reason"] = avoided_threat["message"]
+    
     # Rule 1: Good/Excellent move (small or no eval drop)
-    if eval_drop <= 0.1:
+    elif eval_drop <= 0.1:
         mistake_type = MistakeType.EXCELLENT_MOVE
     elif eval_drop <= 0.3:
         mistake_type = MistakeType.GOOD_MOVE
@@ -942,6 +978,12 @@ def classify_mistake(
         mistake_type = MistakeType.WALKED_INTO_PIN
         pattern_details["pin"] = walked_into_pin
         pattern_details["reason"] = f"Your {walked_into_pin['pinned_piece']} is now pinned"
+    
+    # Rule 3.5: WALKED_INTO_SKEWER - walked into a skewer
+    elif walked_into_skewer and eval_drop > 1.0:
+        mistake_type = MistakeType.WALKED_INTO_SKEWER
+        pattern_details["skewer"] = walked_into_skewer
+        pattern_details["reason"] = f"Opponent can now skewer your {walked_into_skewer['front_piece']['piece']}"
     
     # Rule 4: MISSED_FORK - could have forked but didn't
     elif missed_fork and eval_drop > 1.5:
