@@ -556,7 +556,11 @@ const JourneyPage = ({ user }) => {
                 Your Weaknesses (Prioritized)
               </h2>
               
-              <WeaknessRanking data={journeyData?.weakness_ranking} />
+              <WeaknessRanking 
+                data={journeyData?.weakness_ranking} 
+                onShowEvidence={handleShowWeaknessEvidence}
+                onStartDrill={handleStartDrill}
+              />
 
               {/* Identity */}
               {journeyData?.identity && journeyData.identity.profile !== "unknown" && (
@@ -584,7 +588,10 @@ const JourneyPage = ({ user }) => {
                 Pattern Analysis
               </h2>
               
-              <WinStateAnalysis data={journeyData?.win_state} />
+              <WinStateAnalysis 
+                data={journeyData?.win_state} 
+                onShowEvidence={handleShowStateEvidence}
+              />
               
               <MistakeHeatmap data={journeyData?.heatmap} />
               
