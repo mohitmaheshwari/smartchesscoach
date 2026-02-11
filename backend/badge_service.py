@@ -579,7 +579,7 @@ def _get_converting_insight(accuracy: float, thrown: int, rate: float) -> str:
 
 def _get_focus_insight(one_move: int, total: int, best: float) -> str:
     if one_move > 0 and best > 300:
-        return f"You find complex tactics but miss simple threats. It's not skill, it's focus. Check every move."
+        return "You find complex tactics but miss simple threats. It's not skill, it's focus. Check every move."
     elif one_move == 0:
         return "Great focus! You're avoiding casual mistakes."
     else:
