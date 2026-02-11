@@ -4788,15 +4788,24 @@ async def get_win_state(user: User = Depends(get_current_user)):
     Get win-state analysis.
     
     Returns when blunders happen:
-    - When winning
-    - When equal
-    - When losing
+    - When winning (with evidence)
+    - When equal (with evidence)
+    - When losing (with evidence)
     """
     analyses = await db.game_analyses.find(
         {"user_id": user.user_id}
     ).sort("created_at", -1).limit(15).to_list(15)
     
-    return get_win_state_analysis(analyses)
+    games = await db.games.find(
+        {"user_id": user.user_id}
+    ).sort("date", -1).limit(15).to_list(15)
+    
+    # Remove MongoDB _id
+    for game in games:
+        if "_id" in game:
+            del game["_id"]
+    
+    return get_win_state_analysis(analyses, games)
 
 
 @api_router.get("/heatmap")
