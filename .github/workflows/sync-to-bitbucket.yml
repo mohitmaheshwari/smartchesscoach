@@ -12,11 +12,7 @@ name: Sync to Bitbucket
 on:
   push:
     branches:
-      - main
-      - master
-      - emergent-dev      # Branch for Emergent changes
-      - 'feature/**'      # Any feature branches
-      - 'dev/**'          # Any dev branches
+      - '**'              # ALL branches - sync everything to Bitbucket
   workflow_dispatch:
 
 jobs:
