@@ -215,78 +215,117 @@ const WinStateAnalysis = ({ data, onShowEvidence }) => {
   );
 };
 
-// Weakness ranking component
-const WeaknessRanking = ({ data }) => {
+// Weakness ranking component - NOW WITH EVIDENCE DRILL-DOWN
+const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
   if (!data || !data.ranking || data.ranking.length === 0) {
     return null;
   }
+
+  const WeaknessCard = ({ weakness, rank, color, colorClass }) => {
+    const evidence = weakness.evidence || [];
+    const hasEvidence = evidence.length > 0;
+    
+    const labels = {
+      1: "#1 Rating Killer",
+      2: "Secondary Weakness"
+    };
+    
+    const icons = {
+      1: Flame,
+      2: AlertTriangle
+    };
+    
+    const Icon = icons[rank] || AlertTriangle;
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: (rank - 1) * 0.1 }}
+      >
+        <Card 
+          className={`border-2 ${colorClass} cursor-pointer hover:border-opacity-50 transition-colors`}
+          onClick={() => hasEvidence && onShowEvidence(weakness, evidence)}
+          data-testid={`weakness-rank-${rank}`}
+        >
+          <CardContent className="py-5">
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-full ${color}/20`}>
+                <Icon className={`w-6 h-6 ${color}`} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className={`text-xs font-bold uppercase tracking-wider ${color}`}>
+                    {labels[rank]}
+                  </span>
+                  <span className={`text-xs ${color}/80 bg-${color.replace('text-', '')}/20 px-2 py-0.5 rounded-full`}>
+                    {weakness.frequency_pct}% of games
+                  </span>
+                  {hasEvidence && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Eye className="w-3 h-3" />
+                      {evidence.length} examples
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-lg font-bold mb-1">{weakness.label}</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  {weakness.message}
+                </p>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
+                  <span>~{weakness.total_cp_loss} cp lost</span>
+                  <span>{weakness.occurrences} occurrences</span>
+                </div>
+                
+                {/* Action buttons */}
+                <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1 text-xs"
+                    onClick={() => onShowEvidence(weakness, evidence)}
+                    disabled={!hasEvidence}
+                  >
+                    <Eye className="w-3 h-3" />
+                    See Examples
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className={`gap-1 text-xs ${rank === 1 ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'}`}
+                    onClick={() => onStartDrill(weakness.pattern, weakness.label)}
+                  >
+                    <Dumbbell className="w-3 h-3" />
+                    Train This
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  };
 
   return (
     <div className="space-y-4">
       {/* #1 Rating Killer */}
       {data.rating_killer && (
-        <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-        >
-          <Card className="border-2 border-red-500/30 bg-gradient-to-r from-red-500/10 to-transparent">
-            <CardContent className="py-5">
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-full bg-red-500/20">
-                  <Flame className="w-6 h-6 text-red-500" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-red-500">
-                      #1 Rating Killer
-                    </span>
-                    <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
-                      {data.rating_killer.frequency_pct}% of games
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold mb-1">{data.rating_killer.label}</h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {data.rating_killer.message}
-                  </p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>~{data.rating_killer.total_cp_loss} cp lost</span>
-                    <span>{data.rating_killer.occurrences} occurrences</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <WeaknessCard 
+          weakness={data.rating_killer} 
+          rank={1} 
+          color="text-red-500"
+          colorClass="border-red-500/30 bg-gradient-to-r from-red-500/10 to-transparent"
+        />
       )}
 
       {/* Secondary Weakness */}
       {data.secondary_weakness && (
-        <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Card className="border-amber-500/20">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-amber-500/10">
-                  <AlertTriangle className="w-5 h-5 text-amber-500" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                      Secondary Weakness
-                    </span>
-                  </div>
-                  <h3 className="font-semibold">{data.secondary_weakness.label}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {data.secondary_weakness.occurrences} occurrences • ~{data.secondary_weakness.total_cp_loss} cp
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <WeaknessCard 
+          weakness={data.secondary_weakness} 
+          rank={2} 
+          color="text-amber-500"
+          colorClass="border-amber-500/20"
+        />
       )}
 
       {/* Stable Strength */}
