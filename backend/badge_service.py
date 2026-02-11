@@ -1022,7 +1022,7 @@ def _get_positional_badge_details(analyses: List[Dict], games_map: Dict, user_ra
     }
 
 
-def _get_endgame_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+def _get_endgame_badge_details(analyses: List[Dict], games_map: Dict, user_rating: int = 1200) -> Dict:
     """Get detailed data for Endgame Skills badge."""
     relevant_moves = []
     relevant_games = []
@@ -1100,7 +1100,7 @@ def _get_endgame_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
     }
 
 
-def _get_defense_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+def _get_defense_badge_details(analyses: List[Dict], games_map: Dict, user_rating: int = 1200) -> Dict:
     """Get detailed data for Defensive Resilience badge."""
     relevant_moves = []
     relevant_games = []
@@ -1193,7 +1193,7 @@ def _get_defense_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
     }
 
 
-def _get_converting_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+def _get_converting_badge_details(analyses: List[Dict], games_map: Dict, user_rating: int = 1200) -> Dict:
     """Get detailed data for Converting Wins badge."""
     relevant_moves = []
     relevant_games = []
@@ -1274,7 +1274,7 @@ def _get_converting_badge_details(analyses: List[Dict], games_map: Dict) -> Dict
     }
 
 
-def _get_focus_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+def _get_focus_badge_details(analyses: List[Dict], games_map: Dict, user_rating: int = 1200) -> Dict:
     """Get detailed data for Focus & Discipline badge."""
     relevant_moves = []
     relevant_games = []
@@ -1346,7 +1346,7 @@ def _get_focus_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
     }
 
 
-def _get_time_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+def _get_time_badge_details(analyses: List[Dict], games_map: Dict, user_rating: int = 1200) -> Dict:
     """Get detailed data for Time Management badge."""
     relevant_moves = []
     relevant_games = []
