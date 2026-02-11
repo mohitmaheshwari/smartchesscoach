@@ -1339,6 +1339,20 @@ def classify_mistake(
     missed_pin = detect_missed_pin(board_before, best_move, user_chess_color) if best_move else None
     missed_skewer = detect_missed_skewer(board_before, best_move, user_chess_color) if best_move else None
     
+    # Check for discovered attack patterns (NEW)
+    try:
+        parsed_move = board_before.parse_san(move_played) if move_played else None
+    except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
+        parsed_move = None
+    
+    walked_into_discovered = detect_walked_into_discovered_attack(board_before, board_after, parsed_move, user_chess_color) if parsed_move else None
+    missed_discovered = detect_missed_discovered_attack(board_before, best_move, user_chess_color) if best_move else None
+    executed_discovered = detect_executed_discovered_attack(board_before, board_after, parsed_move, user_chess_color) if parsed_move else None
+    
+    # Check for overloaded defender patterns (NEW)
+    overloaded_exploit = detect_overloaded_defender_exploit(board_before, board_after, move_played, user_chess_color) if move_played else None
+    missed_overloaded = detect_missed_overloaded_defender(board_before, best_move, user_chess_color) if best_move else None
+    
     # Check for POSITIVE patterns (avoided threats, executed tactics)
     avoided_threat = detect_avoided_threat(board_before, board_after, move_played, user_chess_color)
     executed_tactic = detect_executed_tactic(board_before, board_after, move_played, user_chess_color)
