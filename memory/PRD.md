@@ -145,6 +145,47 @@ Added advanced tactical pattern detection:
   - `AVOIDED_DISCOVERED_ATTACK`
 - **Updated `calculate_tactical_ratio()`**: Now includes discovered attacks and overloaded defender patterns in the tactical performance metrics.
 
+### BLUNDER REDUCTION SYSTEM (NEW - Feb 2026)
+Major product transformation from "analysis tool" to "Blunder Reduction System for 600-1600 players".
+
+**Page Structure Redesign:**
+- Coach → **Focus** (TODAY - What to focus on NOW)
+- Progress → **Journey** (TREND - How you're evolving)
+- Games → **Lab** (DETAIL - What actually happened)
+
+**New Backend Service: `blunder_intelligence_service.py`**
+1. **Core Lesson Engine**: Extracts ONE dominant behavioral cause per game
+2. **Dominant Weakness Ranking**: "#1 Rating Killer" prioritization
+3. **Win-State Analysis**: "63% of blunders happen when winning"
+4. **Mistake Heatmap**: Visual board showing where mistakes occur
+5. **Rating Impact Estimator**: "Fixing X saves ~Y rating points"
+6. **Identity Profile**: "Aggressive but careless" labels
+7. **Mission System**: 10-game improvement missions
+8. **Milestone Detection**: Achievement triggers
+
+**New API Endpoints:**
+- `GET /api/focus` - Focus page data (one dominant weakness)
+- `GET /api/journey/v2` - Journey page data (hierarchical analysis)
+- `GET /api/lab/{game_id}` - Lab page data with core lesson
+- `GET /api/weakness-ranking` - Dominant weakness ranking
+- `GET /api/win-state` - Win state analysis
+- `GET /api/heatmap` - Mistake heatmap data
+- `GET /api/rating-impact` - Rating impact estimate
+- `GET /api/identity` - Chess identity profile
+- `GET /api/mission` - Current mission
+- `GET /api/milestones` - Achievement milestones
+
+**New Frontend Pages:**
+- `Focus.jsx` - Stripped-down coach with ONE focus, ONE mission, ONE puzzle
+- `JourneyV2.jsx` - Hierarchical weakness display, heatmap, win-state analysis
+
+**Behavioral Pattern System:**
+Maps mistake types to human behaviors:
+- "attacks_before_checking_threats" → "You attack before checking opponent threats"
+- "loses_focus_when_winning" → "You lose focus immediately after gaining advantage"
+- "misses_tactical_opportunities" → "You miss winning tactics that were available"
+- etc.
+
 ## Upcoming Tasks (P0)
 1. **"What If" Scenarios** - Enhance InteractiveBoard.jsx to allow users to explore alternative move sequences
 2. **Personalized Puzzles** - Generate puzzles based on user's frequent mistake patterns
