@@ -89,11 +89,12 @@ const DrillMode = ({
   // Get current position
   const currentPosition = positions[currentIndex];
 
-  // Load position into chess.js
+  // Load position into chess.js and update board
   useEffect(() => {
     if (currentPosition?.fen_before) {
       try {
         chess.load(currentPosition.fen_before);
+        setBoardPosition(currentPosition.fen_before);
       } catch (e) {
         console.error("Failed to load FEN:", e);
       }
