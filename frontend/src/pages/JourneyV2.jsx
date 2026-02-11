@@ -622,6 +622,17 @@ const JourneyPage = ({ user }) => {
           </Button>
         </motion.div>
       </div>
+      
+      {/* Evidence Modal */}
+      <EvidenceModal
+        isOpen={evidenceModal.isOpen}
+        onClose={() => setEvidenceModal({ ...evidenceModal, isOpen: false })}
+        title={evidenceModal.title}
+        subtitle={evidenceModal.subtitle}
+        evidence={evidenceModal.evidence}
+        type={evidenceModal.type}
+        state={evidenceModal.state}
+      />
     </Layout>
   );
 };
