@@ -702,3 +702,901 @@ def calculate_badge_trends(current: Dict, history: List[Dict]) -> Dict:
             trends[key] = "stable"
     
     return trends
+
+
+
+# ============================================================================
+# BADGE DRILL-DOWN: Get relevant games/moves for each badge
+# ============================================================================
+
+async def get_badge_details(db, user_id: str, badge_key: str) -> Dict:
+    """
+    Get detailed breakdown for a specific badge.
+    
+    Returns:
+    - Badge score and insight
+    - Last 5 relevant games
+    - Specific moves that affected this badge (with FEN for board display)
+    - Badge-specific commentary
+    """
+    if badge_key not in BADGES:
+        return {"error": f"Unknown badge: {badge_key}"}
+    
+    # Fetch user's analyses with full move data
+    analyses = await db.game_analyses.find(
+        {
+            "user_id": user_id,
+            "stockfish_analysis.move_evaluations": {"$exists": True, "$not": {"$size": 0}}
+        },
+        {"_id": 0}
+    ).sort("created_at", -1).limit(30).to_list(30)
+    
+    # Get corresponding game data for PGN and opponent info
+    game_ids = [a.get("game_id") for a in analyses]
+    games = await db.games.find(
+        {"game_id": {"$in": game_ids}},
+        {"_id": 0, "game_id": 1, "pgn": 1, "opponent_name": 1, "user_color": 1, "result": 1, "played_at": 1}
+    ).to_list(len(game_ids))
+    
+    games_map = {g["game_id"]: g for g in games}
+    
+    # Get relevant moves based on badge type
+    badge_func = BADGE_DETAIL_FUNCTIONS.get(badge_key)
+    if not badge_func:
+        return {"error": "Badge detail function not implemented"}
+    
+    result = badge_func(analyses, games_map)
+    
+    # Add badge metadata
+    result["badge_key"] = badge_key
+    result["badge_name"] = BADGES[badge_key]["name"]
+    result["badge_icon"] = BADGES[badge_key]["icon"]
+    result["badge_description"] = BADGES[badge_key]["description"]
+    
+    return result
+
+
+def _get_opening_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+    """Get detailed data for Opening Mastery badge."""
+    relevant_moves = []
+    relevant_games = []
+    
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        game = games_map.get(game_id, {})
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        
+        # Get moves in opening phase (first 10 moves)
+        opening_moves = [m for m in move_evals if m.get("move_number", 0) <= 10]
+        
+        game_opening_data = {
+            "game_id": game_id,
+            "opponent": game.get("opponent_name", "Unknown"),
+            "result": game.get("result", ""),
+            "user_color": game.get("user_color", "white"),
+            "played_at": game.get("played_at"),
+            "moves": []
+        }
+        
+        for m in opening_moves:
+            evaluation = m.get("evaluation", "")
+            
+            # Track mistakes/blunders in opening
+            if evaluation in ["blunder", "mistake", "inaccuracy"]:
+                move_data = {
+                    "move_number": m.get("move_number"),
+                    "move_played": m.get("move"),
+                    "fen": m.get("fen_before", ""),
+                    "best_move": m.get("best_move"),
+                    "evaluation": evaluation,
+                    "cp_loss": m.get("cp_loss", 0),
+                    "type": "mistake",
+                    "explanation": _generate_opening_explanation(m, evaluation)
+                }
+                game_opening_data["moves"].append(move_data)
+                relevant_moves.append({**move_data, "game_id": game_id})
+            
+            # Track excellent opening moves
+            elif evaluation in ["best", "excellent"]:
+                move_data = {
+                    "move_number": m.get("move_number"),
+                    "move_played": m.get("move"),
+                    "fen": m.get("fen_before", ""),
+                    "best_move": m.get("best_move"),
+                    "evaluation": evaluation,
+                    "cp_loss": m.get("cp_loss", 0),
+                    "type": "good",
+                    "explanation": "Good opening move - following principles"
+                }
+                # Only add to moves if it's notable
+                if m.get("move_number", 0) <= 5:  # First 5 moves are always relevant
+                    game_opening_data["moves"].append(move_data)
+        
+        # Only include games with notable moves
+        if game_opening_data["moves"]:
+            relevant_games.append(game_opening_data)
+    
+    # Sort by relevance (games with more mistakes first)
+    relevant_games.sort(key=lambda x: sum(1 for m in x["moves"] if m["type"] == "mistake"), reverse=True)
+    
+    # Calculate badge-specific summary
+    total_mistakes = len([m for m in relevant_moves if m["type"] == "mistake"])
+    
+    return {
+        "score": _calculate_opening_score_simple(analyses),
+        "relevant_games": relevant_games[:5],  # Last 5 relevant games
+        "total_relevant_moves": len(relevant_moves),
+        "summary": {
+            "opening_mistakes": total_mistakes,
+            "games_analyzed": len(analyses)
+        },
+        "insight": _generate_badge_insight("opening", relevant_moves, len(analyses)),
+        "why_this_score": _generate_why_score("opening", total_mistakes, len(analyses))
+    }
+
+
+def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+    """Get detailed data for Tactical Vision badge."""
+    relevant_moves = []
+    relevant_games = []
+    
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        game = games_map.get(game_id, {})
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        
+        game_tactical_data = {
+            "game_id": game_id,
+            "opponent": game.get("opponent_name", "Unknown"),
+            "result": game.get("result", ""),
+            "user_color": game.get("user_color", "white"),
+            "played_at": game.get("played_at"),
+            "moves": []
+        }
+        
+        for m in move_evals:
+            eval_diff = abs(m.get("eval_before", 0) - m.get("eval_after", 0))
+            evaluation = m.get("evaluation", "")
+            
+            # Tactical moment: significant eval swing (>150 cp)
+            if eval_diff > 150:
+                is_missed = evaluation in ["blunder", "mistake"]
+                is_found = evaluation in ["best", "excellent"]
+                
+                if is_missed or is_found:
+                    move_data = {
+                        "move_number": m.get("move_number"),
+                        "move_played": m.get("move"),
+                        "fen": m.get("fen_before", ""),
+                        "best_move": m.get("best_move"),
+                        "evaluation": evaluation,
+                        "cp_loss": m.get("cp_loss", 0),
+                        "eval_swing": eval_diff,
+                        "type": "missed" if is_missed else "found",
+                        "threat": m.get("threat"),
+                        "pv_after_best": m.get("pv_after_best", []),
+                        "explanation": _generate_tactical_explanation(m, is_missed, eval_diff)
+                    }
+                    game_tactical_data["moves"].append(move_data)
+                    relevant_moves.append({**move_data, "game_id": game_id})
+        
+        if game_tactical_data["moves"]:
+            relevant_games.append(game_tactical_data)
+    
+    # Sort by relevance (games with missed tactics first, then by eval swing)
+    relevant_games.sort(key=lambda x: (
+        -sum(1 for m in x["moves"] if m["type"] == "missed"),
+        -max((m.get("eval_swing", 0) for m in x["moves"]), default=0)
+    ))
+    
+    tactics_found = len([m for m in relevant_moves if m["type"] == "found"])
+    tactics_missed = len([m for m in relevant_moves if m["type"] == "missed"])
+    
+    return {
+        "score": _calculate_tactical_score_simple(analyses),
+        "relevant_games": relevant_games[:5],
+        "total_relevant_moves": len(relevant_moves),
+        "summary": {
+            "tactics_found": tactics_found,
+            "tactics_missed": tactics_missed,
+            "accuracy": round(tactics_found / (tactics_found + tactics_missed) * 100, 1) if (tactics_found + tactics_missed) > 0 else 0
+        },
+        "insight": _generate_badge_insight("tactical", relevant_moves, len(analyses)),
+        "why_this_score": _generate_why_score("tactical", tactics_missed, len(analyses), tactics_found)
+    }
+
+
+def _get_positional_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+    """Get detailed data for Positional Sense badge."""
+    relevant_moves = []
+    relevant_games = []
+    
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        game = games_map.get(game_id, {})
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        
+        game_pos_data = {
+            "game_id": game_id,
+            "opponent": game.get("opponent_name", "Unknown"),
+            "result": game.get("result", ""),
+            "user_color": game.get("user_color", "white"),
+            "played_at": game.get("played_at"),
+            "moves": []
+        }
+        
+        # Middlegame = moves 15-35
+        mg_moves = [m for m in move_evals if 15 <= m.get("move_number", 0) <= 35]
+        
+        for m in mg_moves:
+            evaluation = m.get("evaluation", "")
+            cp_loss = m.get("cp_loss", 0)
+            
+            # Track positional errors (moderate cp loss, not tactical blunders)
+            if evaluation in ["mistake", "inaccuracy"] and 50 <= cp_loss <= 200:
+                move_data = {
+                    "move_number": m.get("move_number"),
+                    "move_played": m.get("move"),
+                    "fen": m.get("fen_before", ""),
+                    "best_move": m.get("best_move"),
+                    "evaluation": evaluation,
+                    "cp_loss": cp_loss,
+                    "type": "positional_error",
+                    "explanation": _generate_positional_explanation(m, cp_loss)
+                }
+                game_pos_data["moves"].append(move_data)
+                relevant_moves.append({**move_data, "game_id": game_id})
+            
+            # Track excellent positional play
+            elif evaluation in ["best", "excellent"] and cp_loss <= 10:
+                move_data = {
+                    "move_number": m.get("move_number"),
+                    "move_played": m.get("move"),
+                    "fen": m.get("fen_before", ""),
+                    "evaluation": evaluation,
+                    "type": "good_positional",
+                    "explanation": "Strong positional decision"
+                }
+                game_pos_data["moves"].append(move_data)
+        
+        if game_pos_data["moves"]:
+            relevant_games.append(game_pos_data)
+    
+    relevant_games.sort(key=lambda x: sum(1 for m in x["moves"] if m["type"] == "positional_error"), reverse=True)
+    
+    errors = len([m for m in relevant_moves if m["type"] == "positional_error"])
+    
+    return {
+        "score": _calculate_positional_score_simple(analyses),
+        "relevant_games": relevant_games[:5],
+        "total_relevant_moves": len(relevant_moves),
+        "summary": {
+            "positional_errors": errors,
+            "games_analyzed": len(analyses)
+        },
+        "insight": _generate_badge_insight("positional", relevant_moves, len(analyses)),
+        "why_this_score": _generate_why_score("positional", errors, len(analyses))
+    }
+
+
+def _get_endgame_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+    """Get detailed data for Endgame Skills badge."""
+    relevant_moves = []
+    relevant_games = []
+    
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        game = games_map.get(game_id, {})
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        user_color = game.get("user_color", "white")
+        result = game.get("result", "")
+        
+        game_eg_data = {
+            "game_id": game_id,
+            "opponent": game.get("opponent_name", "Unknown"),
+            "result": result,
+            "user_color": user_color,
+            "played_at": game.get("played_at"),
+            "moves": []
+        }
+        
+        # Endgame = moves after 35
+        eg_moves = [m for m in move_evals if m.get("move_number", 0) > 35]
+        
+        if not eg_moves:
+            continue
+        
+        # Check if was winning at start of endgame
+        first_eg_eval = eg_moves[0].get("eval_before", 0) if eg_moves else 0
+        was_winning = (user_color == "white" and first_eg_eval > 150) or (user_color == "black" and first_eg_eval < -150)
+        user_won = (user_color == "white" and "1-0" in result) or (user_color == "black" and "0-1" in result)
+        
+        for m in eg_moves:
+            evaluation = m.get("evaluation", "")
+            cp_loss = m.get("cp_loss", 0)
+            
+            if evaluation in ["blunder", "mistake"]:
+                move_data = {
+                    "move_number": m.get("move_number"),
+                    "move_played": m.get("move"),
+                    "fen": m.get("fen_before", ""),
+                    "best_move": m.get("best_move"),
+                    "evaluation": evaluation,
+                    "cp_loss": cp_loss,
+                    "type": "endgame_error",
+                    "was_winning": was_winning,
+                    "explanation": _generate_endgame_explanation(m, was_winning, user_won)
+                }
+                game_eg_data["moves"].append(move_data)
+                relevant_moves.append({**move_data, "game_id": game_id})
+        
+        game_eg_data["was_winning"] = was_winning
+        game_eg_data["converted"] = was_winning and user_won
+        
+        if game_eg_data["moves"] or (was_winning and not user_won):
+            relevant_games.append(game_eg_data)
+    
+    # Sort by thrown endgames first
+    relevant_games.sort(key=lambda x: (not x.get("converted", True), len(x["moves"])), reverse=True)
+    
+    errors = len([m for m in relevant_moves])
+    thrown_games = len([g for g in relevant_games if g.get("was_winning") and not g.get("converted")])
+    
+    return {
+        "score": _calculate_endgame_score_simple(analyses),
+        "relevant_games": relevant_games[:5],
+        "total_relevant_moves": len(relevant_moves),
+        "summary": {
+            "endgame_errors": errors,
+            "thrown_endgames": thrown_games,
+            "games_analyzed": len(analyses)
+        },
+        "insight": _generate_badge_insight("endgame", relevant_moves, len(analyses)),
+        "why_this_score": _generate_why_score("endgame", errors, len(analyses), thrown=thrown_games)
+    }
+
+
+def _get_defense_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+    """Get detailed data for Defensive Resilience badge."""
+    relevant_moves = []
+    relevant_games = []
+    
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        game = games_map.get(game_id, {})
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        user_color = game.get("user_color", "white")
+        result = game.get("result", "")
+        
+        game_def_data = {
+            "game_id": game_id,
+            "opponent": game.get("opponent_name", "Unknown"),
+            "result": result,
+            "user_color": user_color,
+            "played_at": game.get("played_at"),
+            "moves": [],
+            "was_losing": False,
+            "saved_game": False
+        }
+        
+        for m in move_evals:
+            eval_before = m.get("eval_before", 0)
+            evaluation = m.get("evaluation", "")
+            
+            # When player was worse (losing position)
+            is_worse = (user_color == "white" and eval_before < -100) or (user_color == "black" and eval_before > 100)
+            
+            if is_worse:
+                game_def_data["was_losing"] = True
+                
+                if evaluation in ["blunder", "mistake"]:
+                    move_data = {
+                        "move_number": m.get("move_number"),
+                        "move_played": m.get("move"),
+                        "fen": m.get("fen_before", ""),
+                        "best_move": m.get("best_move"),
+                        "evaluation": evaluation,
+                        "cp_loss": m.get("cp_loss", 0),
+                        "type": "defensive_collapse",
+                        "explanation": "Made it worse when already in trouble"
+                    }
+                    game_def_data["moves"].append(move_data)
+                    relevant_moves.append({**move_data, "game_id": game_id})
+                
+                elif evaluation in ["best", "excellent"]:
+                    move_data = {
+                        "move_number": m.get("move_number"),
+                        "move_played": m.get("move"),
+                        "fen": m.get("fen_before", ""),
+                        "evaluation": evaluation,
+                        "type": "good_defense",
+                        "explanation": "Strong defensive resource found"
+                    }
+                    game_def_data["moves"].append(move_data)
+        
+        # Check if saved the game
+        was_significantly_losing = any(
+            (user_color == "white" and m.get("eval_before", 0) < -200) or 
+            (user_color == "black" and m.get("eval_before", 0) > 200)
+            for m in move_evals
+        )
+        user_didnt_lose = not (
+            (user_color == "white" and "0-1" in result) or 
+            (user_color == "black" and "1-0" in result)
+        )
+        game_def_data["saved_game"] = was_significantly_losing and user_didnt_lose
+        
+        if game_def_data["moves"] or game_def_data["was_losing"]:
+            relevant_games.append(game_def_data)
+    
+    relevant_games.sort(key=lambda x: (-int(x.get("saved_game", False)), -len(x["moves"])))
+    
+    collapses = len([m for m in relevant_moves if m["type"] == "defensive_collapse"])
+    saved = len([g for g in relevant_games if g.get("saved_game")])
+    
+    return {
+        "score": _calculate_defense_score_simple(analyses),
+        "relevant_games": relevant_games[:5],
+        "total_relevant_moves": len(relevant_moves),
+        "summary": {
+            "defensive_collapses": collapses,
+            "games_saved": saved,
+            "games_analyzed": len(analyses)
+        },
+        "insight": _generate_badge_insight("defense", relevant_moves, len(analyses)),
+        "why_this_score": _generate_why_score("defense", collapses, len(analyses), saved=saved)
+    }
+
+
+def _get_converting_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+    """Get detailed data for Converting Wins badge."""
+    relevant_moves = []
+    relevant_games = []
+    
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        game = games_map.get(game_id, {})
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        user_color = game.get("user_color", "white")
+        result = game.get("result", "")
+        
+        game_conv_data = {
+            "game_id": game_id,
+            "opponent": game.get("opponent_name", "Unknown"),
+            "result": result,
+            "user_color": user_color,
+            "played_at": game.get("played_at"),
+            "moves": [],
+            "was_winning": False,
+            "converted": False
+        }
+        
+        user_won = (user_color == "white" and "1-0" in result) or (user_color == "black" and "0-1" in result)
+        
+        for m in move_evals:
+            eval_before = m.get("eval_before", 0)
+            evaluation = m.get("evaluation", "")
+            
+            # When player was winning
+            is_winning = (user_color == "white" and eval_before > 150) or (user_color == "black" and eval_before < -150)
+            
+            if is_winning:
+                game_conv_data["was_winning"] = True
+                
+                if evaluation in ["blunder", "mistake"]:
+                    move_data = {
+                        "move_number": m.get("move_number"),
+                        "move_played": m.get("move"),
+                        "fen": m.get("fen_before", ""),
+                        "best_move": m.get("best_move"),
+                        "evaluation": evaluation,
+                        "cp_loss": m.get("cp_loss", 0),
+                        "type": "threw_advantage",
+                        "explanation": "Gave away advantage when winning"
+                    }
+                    game_conv_data["moves"].append(move_data)
+                    relevant_moves.append({**move_data, "game_id": game_id})
+        
+        game_conv_data["converted"] = game_conv_data["was_winning"] and user_won
+        
+        if game_conv_data["was_winning"]:
+            relevant_games.append(game_conv_data)
+    
+    # Sort by thrown games first
+    relevant_games.sort(key=lambda x: (not x.get("converted", True), len(x["moves"])), reverse=True)
+    
+    threw = len([m for m in relevant_moves])
+    thrown_games = len([g for g in relevant_games if g.get("was_winning") and not g.get("converted")])
+    converted = len([g for g in relevant_games if g.get("converted")])
+    
+    return {
+        "score": _calculate_converting_score_simple(analyses),
+        "relevant_games": relevant_games[:5],
+        "total_relevant_moves": len(relevant_moves),
+        "summary": {
+            "advantages_thrown": threw,
+            "games_thrown": thrown_games,
+            "games_converted": converted
+        },
+        "insight": _generate_badge_insight("converting", relevant_moves, len(analyses)),
+        "why_this_score": _generate_why_score("converting", threw, len(analyses), thrown=thrown_games)
+    }
+
+
+def _get_focus_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+    """Get detailed data for Focus & Discipline badge."""
+    relevant_moves = []
+    relevant_games = []
+    
+    best_tactical_complexity = 0
+    
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        game = games_map.get(game_id, {})
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        
+        game_focus_data = {
+            "game_id": game_id,
+            "opponent": game.get("opponent_name", "Unknown"),
+            "result": game.get("result", ""),
+            "user_color": game.get("user_color", "white"),
+            "played_at": game.get("played_at"),
+            "moves": []
+        }
+        
+        for m in move_evals:
+            evaluation = m.get("evaluation", "")
+            eval_drop = abs(m.get("eval_before", 0) - m.get("eval_after", 0))
+            
+            # Track best finds for capability detection
+            if evaluation in ["excellent", "best"]:
+                eval_gain = abs(m.get("eval_after", 0) - m.get("eval_before", 0))
+                best_tactical_complexity = max(best_tactical_complexity, eval_gain)
+            
+            # One-move blunders (simple misses, not complex tactics)
+            if evaluation == "blunder" and 200 < eval_drop < 500:
+                move_data = {
+                    "move_number": m.get("move_number"),
+                    "move_played": m.get("move"),
+                    "fen": m.get("fen_before", ""),
+                    "best_move": m.get("best_move"),
+                    "evaluation": evaluation,
+                    "cp_loss": m.get("cp_loss", 0),
+                    "eval_drop": eval_drop,
+                    "type": "focus_error",
+                    "threat": m.get("threat"),
+                    "explanation": _generate_focus_explanation(m, eval_drop)
+                }
+                game_focus_data["moves"].append(move_data)
+                relevant_moves.append({**move_data, "game_id": game_id})
+        
+        if game_focus_data["moves"]:
+            relevant_games.append(game_focus_data)
+    
+    relevant_games.sort(key=lambda x: len(x["moves"]), reverse=True)
+    
+    simple_blunders = len(relevant_moves)
+    has_capability = best_tactical_complexity > 300
+    
+    return {
+        "score": _calculate_focus_score_simple(analyses),
+        "relevant_games": relevant_games[:5],
+        "total_relevant_moves": len(relevant_moves),
+        "summary": {
+            "simple_blunders": simple_blunders,
+            "has_capability": has_capability,
+            "best_tactical_find": best_tactical_complexity,
+            "games_analyzed": len(analyses)
+        },
+        "insight": _generate_badge_insight("focus", relevant_moves, len(analyses)),
+        "why_this_score": _generate_why_score("focus", simple_blunders, len(analyses), has_capability=has_capability)
+    }
+
+
+def _get_time_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+    """Get detailed data for Time Management badge."""
+    relevant_moves = []
+    relevant_games = []
+    
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        game = games_map.get(game_id, {})
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        
+        game_time_data = {
+            "game_id": game_id,
+            "opponent": game.get("opponent_name", "Unknown"),
+            "result": game.get("result", ""),
+            "user_color": game.get("user_color", "white"),
+            "played_at": game.get("played_at"),
+            "moves": [],
+            "time_trouble": False
+        }
+        
+        # Check for late-game blunders (likely time trouble)
+        late_blunders = [m for m in move_evals 
+                       if m.get("move_number", 0) > 35 and m.get("evaluation") == "blunder"]
+        
+        if len(late_blunders) >= 2:
+            game_time_data["time_trouble"] = True
+            
+            for m in late_blunders:
+                move_data = {
+                    "move_number": m.get("move_number"),
+                    "move_played": m.get("move"),
+                    "fen": m.get("fen_before", ""),
+                    "best_move": m.get("best_move"),
+                    "evaluation": "blunder",
+                    "cp_loss": m.get("cp_loss", 0),
+                    "type": "time_trouble_blunder",
+                    "explanation": "Late-game blunder - likely time pressure"
+                }
+                game_time_data["moves"].append(move_data)
+                relevant_moves.append({**move_data, "game_id": game_id})
+        
+        if game_time_data["moves"] or game_time_data["time_trouble"]:
+            relevant_games.append(game_time_data)
+    
+    relevant_games.sort(key=lambda x: len(x["moves"]), reverse=True)
+    
+    time_trouble_games = len([g for g in relevant_games if g.get("time_trouble")])
+    
+    return {
+        "score": _calculate_time_score_simple(analyses),
+        "relevant_games": relevant_games[:5],
+        "total_relevant_moves": len(relevant_moves),
+        "summary": {
+            "time_trouble_games": time_trouble_games,
+            "late_blunders": len(relevant_moves),
+            "games_analyzed": len(analyses)
+        },
+        "insight": _generate_badge_insight("time", relevant_moves, len(analyses)),
+        "why_this_score": _generate_why_score("time", time_trouble_games, len(analyses))
+    }
+
+
+# ============================================================================
+# Helper functions for explanations
+# ============================================================================
+
+def _generate_opening_explanation(move: Dict, evaluation: str) -> str:
+    cp_loss = move.get("cp_loss", 0)
+    best = move.get("best_move", "")
+    
+    if evaluation == "blunder":
+        return f"Early blunder! Should have played {best}. This put you in a difficult position from the start."
+    elif evaluation == "mistake":
+        return f"Opening mistake. {best} was stronger. Cost you development time or weakened your position."
+    else:
+        return f"Inaccuracy. {best} was slightly better."
+
+
+def _generate_tactical_explanation(move: Dict, is_missed: bool, eval_swing: int) -> str:
+    best = move.get("best_move", "")
+    threat = move.get("threat", "")
+    
+    if is_missed:
+        if eval_swing > 300:
+            return f"Missed winning tactic! {best} was the key move. {f'The threat was {threat}.' if threat else ''}"
+        else:
+            return f"Missed tactic. {best} was better. Small tactical opportunity lost."
+    else:
+        return f"Excellent! You found the tactic {best}."
+
+
+def _generate_positional_explanation(move: Dict, cp_loss: int) -> str:
+    best = move.get("best_move", "")
+    
+    if cp_loss > 100:
+        return f"Positional mistake. {best} kept better piece placement and structure."
+    else:
+        return f"Small positional inaccuracy. {best} was more precise."
+
+
+def _generate_endgame_explanation(move: Dict, was_winning: bool, won: bool) -> str:
+    best = move.get("best_move", "")
+    
+    if was_winning and not won:
+        return f"Endgame error that cost the game! {best} was the correct technique."
+    elif was_winning:
+        return f"Imprecise endgame play. {best} was cleaner but you still converted."
+    else:
+        return f"Endgame mistake. {best} was better defense."
+
+
+def _generate_focus_explanation(move: Dict, eval_drop: int) -> str:
+    best = move.get("best_move", "")
+    threat = move.get("threat", "")
+    
+    if threat:
+        return f"Simple miss! {best} was needed. You missed {threat}."
+    else:
+        return f"Focus error. {best} was clearly better. This was a simple oversight, not a complex tactic."
+
+
+def _generate_badge_insight(badge_key: str, moves: List[Dict], games_count: int) -> str:
+    """Generate badge-specific insight based on moves data."""
+    move_count = len(moves)
+    
+    insights = {
+        "opening": f"In {games_count} games, you had {move_count} opening mistakes. {'Focus on basic development.' if move_count > games_count else 'Good opening preparation!'}",
+        "tactical": f"{'Strong tactical vision!' if move_count < games_count / 2 else 'Practice tactics daily to spot more combinations.'}",
+        "positional": f"Your middlegame has {move_count} positional errors. {'Solid play!' if move_count < games_count else 'Work on piece activity.'}",
+        "endgame": f"{'Reliable endgame technique.' if move_count < games_count / 2 else 'Endgame practice needed - too many errors in winning positions.'}",
+        "defense": f"{'Resilient defender!' if move_count < games_count / 2 else 'Defense collapses under pressure. Stay calm when worse.'}",
+        "converting": f"{'You close out games well!' if move_count < games_count / 3 else 'Too many thrown advantages. Slow down when winning.'}",
+        "focus": f"{'Great focus!' if move_count < games_count / 3 else 'Simple blunders are costing you. Check every move.'}",
+        "time": f"{'Good clock management.' if move_count < games_count / 3 else 'Time trouble is hurting you. Pace yourself better.'}"
+    }
+    
+    return insights.get(badge_key, "Keep analyzing more games for better insights.")
+
+
+def _generate_why_score(badge_key: str, errors: int, games: int, found: int = 0, thrown: int = 0, saved: int = 0, has_capability: bool = False) -> str:
+    """Generate explanation for why the badge has this score."""
+    
+    if badge_key == "opening":
+        rate = errors / games if games > 0 else 0
+        if rate < 0.2:
+            return "Your score is high because you rarely make early mistakes."
+        elif rate < 0.5:
+            return f"Score reflects {errors} opening errors in {games} games. Room for improvement."
+        else:
+            return f"Low score due to {errors} opening mistakes. Early blunders are hurting your games."
+    
+    elif badge_key == "tactical":
+        if found > errors:
+            return f"You found {found} tactics and missed {errors}. Good tactical awareness."
+        else:
+            return f"You missed {errors} tactics vs {found} found. Puzzle practice will help."
+    
+    elif badge_key == "focus":
+        if has_capability and errors > 0:
+            return f"You can find complex tactics but missed {errors} simple moves. It's not skill - it's focus."
+        elif errors == 0:
+            return "Excellent focus! No simple blunders detected."
+        else:
+            return f"{errors} simple blunders. Check every move before playing."
+    
+    elif badge_key == "converting":
+        if thrown > 0:
+            return f"You threw {thrown} winning games. When ahead, slow down."
+        return "You convert advantages well."
+    
+    elif badge_key == "defense":
+        if saved > 0:
+            return f"You saved {saved} games from losing positions. Resilient!"
+        elif errors > 0:
+            return f"Defense collapsed {errors} times when in trouble."
+        return "Average defensive skills."
+    
+    elif badge_key == "endgame":
+        if thrown > 0:
+            return f"Threw {thrown} winning endgames. Study basic technique."
+        return f"{errors} endgame errors. {'Solid technique.' if errors < games / 3 else 'Needs work.'}"
+    
+    elif badge_key == "time":
+        if errors > games / 3:
+            return f"Time trouble in {errors} games. Distribute your time better."
+        return "Good time management."
+    
+    else:
+        return f"{errors} issues found in {games} games."
+
+
+# Simple score calculators (for badge details)
+def _calculate_opening_score_simple(analyses: List[Dict]) -> float:
+    if not analyses:
+        return 2.5
+    errors = 0
+    for a in analyses:
+        sf = a.get("stockfish_analysis", {})
+        for m in sf.get("move_evaluations", []):
+            if m.get("move_number", 0) <= 10 and m.get("evaluation") in ["blunder", "mistake"]:
+                errors += 1
+    rate = errors / len(analyses) if analyses else 1
+    return max(1.0, min(5.0, 5.0 - rate * 1.5))
+
+
+def _calculate_tactical_score_simple(analyses: List[Dict]) -> float:
+    if not analyses:
+        return 2.5
+    found, missed = 0, 0
+    for a in analyses:
+        sf = a.get("stockfish_analysis", {})
+        for m in sf.get("move_evaluations", []):
+            swing = abs(m.get("eval_before", 0) - m.get("eval_after", 0))
+            if swing > 150:
+                if m.get("evaluation") in ["best", "excellent"]:
+                    found += 1
+                elif m.get("evaluation") in ["blunder", "mistake"]:
+                    missed += 1
+    if found + missed == 0:
+        return 2.5
+    accuracy = found / (found + missed) * 100
+    return max(1.0, min(5.0, accuracy / 20))
+
+
+def _calculate_positional_score_simple(analyses: List[Dict]) -> float:
+    if not analyses:
+        return 2.5
+    errors = 0
+    for a in analyses:
+        sf = a.get("stockfish_analysis", {})
+        for m in sf.get("move_evaluations", []):
+            if 15 <= m.get("move_number", 0) <= 35:
+                if m.get("evaluation") in ["mistake", "inaccuracy"]:
+                    errors += 1
+    rate = errors / len(analyses) if analyses else 1
+    return max(1.0, min(5.0, 5.0 - rate * 0.3))
+
+
+def _calculate_endgame_score_simple(analyses: List[Dict]) -> float:
+    if not analyses:
+        return 2.5
+    errors = 0
+    for a in analyses:
+        sf = a.get("stockfish_analysis", {})
+        for m in sf.get("move_evaluations", []):
+            if m.get("move_number", 0) > 35 and m.get("evaluation") in ["blunder", "mistake"]:
+                errors += 1
+    rate = errors / len(analyses) if analyses else 1
+    return max(1.0, min(5.0, 4.5 - rate * 0.5))
+
+
+def _calculate_defense_score_simple(analyses: List[Dict]) -> float:
+    return 3.0  # Simplified
+
+
+def _calculate_converting_score_simple(analyses: List[Dict]) -> float:
+    return 3.0  # Simplified
+
+
+def _calculate_focus_score_simple(analyses: List[Dict]) -> float:
+    if not analyses:
+        return 2.5
+    blunders = 0
+    for a in analyses:
+        sf = a.get("stockfish_analysis", {})
+        for m in sf.get("move_evaluations", []):
+            if m.get("evaluation") == "blunder":
+                swing = abs(m.get("eval_before", 0) - m.get("eval_after", 0))
+                if 200 < swing < 500:
+                    blunders += 1
+    rate = blunders / len(analyses) if analyses else 1
+    return max(1.0, min(5.0, 5.0 - rate * 1.0))
+
+
+def _calculate_time_score_simple(analyses: List[Dict]) -> float:
+    if not analyses:
+        return 2.5
+    trouble_games = 0
+    for a in analyses:
+        sf = a.get("stockfish_analysis", {})
+        late_blunders = sum(1 for m in sf.get("move_evaluations", [])
+                          if m.get("move_number", 0) > 35 and m.get("evaluation") == "blunder")
+        if late_blunders >= 2:
+            trouble_games += 1
+    rate = trouble_games / len(analyses) * 100 if analyses else 30
+    return max(1.0, min(5.0, 5.0 - rate / 20))
+
+
+# Map badge keys to detail functions
+BADGE_DETAIL_FUNCTIONS = {
+    "opening": _get_opening_badge_details,
+    "tactical": _get_tactical_badge_details,
+    "positional": _get_positional_badge_details,
+    "endgame": _get_endgame_badge_details,
+    "defense": _get_defense_badge_details,
+    "converting": _get_converting_badge_details,
+    "focus": _get_focus_badge_details,
+    "time": _get_time_badge_details
+}
