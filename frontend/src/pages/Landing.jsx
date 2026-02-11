@@ -1,13 +1,29 @@
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/context/ThemeContext";
-import { ChevronRight, Brain, Target, TrendingUp, Zap, Moon, Sun } from "lucide-react";
+import { ChevronRight, Brain, Target, TrendingUp, Zap, Moon, Sun, Code } from "lucide-react";
+import { useState, useEffect } from "react";
 
 const Landing = () => {
   const { theme, toggleTheme } = useTheme();
+  const [devMode, setDevMode] = useState(false);
+  const [devLoading, setDevLoading] = useState(false);
+  const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+
+  // Check if dev mode is enabled
+  useEffect(() => {
+    const checkDevMode = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/auth/status`);
+        const data = await response.json();
+        setDevMode(data.dev_mode === true);
+      } catch (e) {
+        // Ignore - dev mode check failed
+      }
+    };
+    checkDevMode();
+  }, [API_URL]);
 
   const handleLogin = async () => {
-    const API_URL = process.env.REACT_APP_BACKEND_URL || '';
-    
     // Check if we're in Emergent environment (preview URL contains 'emergentagent' or 'preview')
     const isEmergentEnv = window.location.hostname.includes('emergentagent') || 
                           window.location.hostname.includes('preview') ||
@@ -34,6 +50,28 @@ const Landing = () => {
         console.error('Login error:', error);
         alert('Login failed. Please try again.');
       }
+    }
+  };
+
+  // Dev mode login - bypasses Google OAuth
+  const handleDevLogin = async () => {
+    setDevLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/dev-login`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.status === 'ok') {
+        window.location.href = '/dashboard';
+      } else {
+        alert('Dev login failed');
+      }
+    } catch (error) {
+      console.error('Dev login error:', error);
+      alert('Dev login failed. Is DEV_MODE=true in your .env?');
+    } finally {
+      setDevLoading(false);
     }
   };
 
