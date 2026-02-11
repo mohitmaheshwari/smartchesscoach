@@ -139,15 +139,32 @@ const FocusPage = ({ user }) => {
               </CardContent>
             </Card>
           </motion.div>
+        ) : showDrill ? (
+          /* DRILL MODE */
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+          >
+            <DrillMode
+              pattern={focusData?.focus?.pattern}
+              patternLabel={focusData?.focus?.label || "this pattern"}
+              onComplete={() => setShowDrill(false)}
+              onClose={() => setShowDrill(false)}
+            />
+          </motion.div>
         ) : (
           <>
-            {/* MAIN FOCUS - The ONE thing */}
+            {/* MAIN FOCUS - The ONE thing - NOW CLICKABLE */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              <Card className="border-2 border-red-500/30 bg-gradient-to-br from-red-500/5 to-orange-500/5">
+              <Card 
+                className="border-2 border-red-500/30 bg-gradient-to-br from-red-500/5 to-orange-500/5 cursor-pointer hover:border-red-500/50 transition-colors"
+                onClick={() => focusEvidence.length > 0 && setShowEvidence(true)}
+                data-testid="rating-killer-card"
+              >
                 <CardContent className="py-8">
                   <div className="flex items-start gap-4">
                     <div className="p-3 rounded-full bg-red-500/10">
@@ -158,6 +175,12 @@ const FocusPage = ({ user }) => {
                         <span className="text-xs font-bold uppercase tracking-wider text-red-500">
                           #1 Rating Killer
                         </span>
+                        {focusOccurrences > 0 && (
+                          <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Eye className="w-3 h-3" />
+                            See {focusOccurrences} times this happened
+                          </span>
+                        )}
                       </div>
                       <h2 className="text-xl font-bold mb-3">
                         {focusData?.focus?.main_message || "Loading..."}
@@ -169,7 +192,7 @@ const FocusPage = ({ user }) => {
                       )}
                       
                       {/* The FIX */}
-                      <div className="p-4 rounded-lg bg-background/50 border border-border/50">
+                      <div className="p-4 rounded-lg bg-background/50 border border-border/50 mb-4">
                         <div className="flex items-center gap-2 mb-2">
                           <Lightbulb className="w-4 h-4 text-yellow-500" />
                           <span className="text-sm font-semibold">Before your next move:</span>
@@ -178,6 +201,32 @@ const FocusPage = ({ user }) => {
                           {focusData?.focus?.fix || "Focus on piece safety."}
                         </p>
                       </div>
+                      
+                      {/* ACTION BUTTONS */}
+                      {focusData?.focus?.pattern && (
+                        <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-1"
+                            onClick={() => setShowEvidence(true)}
+                            disabled={focusEvidence.length === 0}
+                            data-testid="see-examples-btn"
+                          >
+                            <Eye className="w-4 h-4" />
+                            See Examples
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            className="gap-1 bg-red-500 hover:bg-red-600"
+                            onClick={() => setShowDrill(true)}
+                            data-testid="train-pattern-btn"
+                          >
+                            <Dumbbell className="w-4 h-4" />
+                            Train This
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
