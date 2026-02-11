@@ -85,6 +85,7 @@ const InteractiveBoard = ({
   bestMove, 
   playedMove, 
   pvLine = [], 
+  threat,  // The threat square to highlight
   userColor = "white",
   onAskAI 
 }) => {
@@ -94,63 +95,217 @@ const InteractiveBoard = ({
   const [isShowingLine, setIsShowingLine] = useState(false);
   const [highlightSquares, setHighlightSquares] = useState({});
   const [error, setError] = useState(null);
-  const [viewMode, setViewMode] = useState("after"); // "after" = what you played, "before" = where you should play
+  const [viewMode, setViewMode] = useState("played"); // "played" = replay user's move, "best" = show best line
 
-  // Reset when FEN changes - show position AFTER the move by default
+  // Reset when props change
   useEffect(() => {
     const chess = chessRef.current;
     setError(null);
-    setViewMode("after");
+    setViewMode("played");
     setIsShowingLine(false);
     setLineIndex(-1);
+    setHighlightSquares({});
     
-    const displayFen = fen && fen.length > 10 ? fen : (fenBefore && fenBefore.length > 10 ? fenBefore : "start");
-    
-    if (displayFen && displayFen !== "start") {
+    // Start by showing the position BEFORE, then we can replay the played move
+    if (fenBefore && fenBefore.length > 10) {
       try {
-        chess.load(displayFen);
-        setCurrentFen(displayFen);
-        setHighlightSquares({});
+        chess.load(fenBefore);
+        setCurrentFen(fenBefore);
+        
+        // Auto-play the user's move to show what happened
+        if (playedMove) {
+          setTimeout(() => {
+            replayPlayedMove();
+          }, 300);
+        }
       } catch (e) {
-        console.error("Invalid FEN:", displayFen, e);
+        console.error("Invalid FEN:", fenBefore, e);
+        // Fallback to fen_after
+        if (fen && fen.length > 10) {
+          try {
+            chess.load(fen);
+            setCurrentFen(fen);
+          } catch (e2) {
+            setError("Invalid position");
+            setCurrentFen("start");
+          }
+        }
+      }
+    } else if (fen && fen.length > 10) {
+      try {
+        chess.load(fen);
+        setCurrentFen(fen);
+      } catch (e) {
         setError("Invalid position");
         setCurrentFen("start");
       }
     } else {
       setCurrentFen("start");
     }
-  }, [fen, fenBefore]);
+  }, [fen, fenBefore, playedMove]);
 
-  // Toggle between "what you played" and "what you should have played"
-  const toggleView = useCallback(() => {
+  // Replay the user's played move (to show what they did wrong)
+  const replayPlayedMove = useCallback(() => {
     const chess = chessRef.current;
+    if (!fenBefore || !playedMove) return;
     
-    if (viewMode === "after" && fenBefore) {
-      // Switch to "before" view - show where best move should be played
-      try {
-        chess.load(fenBefore);
-        setCurrentFen(fenBefore);
-        setViewMode("before");
-        setHighlightSquares({});
+    try {
+      chess.load(fenBefore);
+      const move = chess.move(playedMove);
+      
+      if (move) {
+        setCurrentFen(chess.fen());
+        setHighlightSquares({
+          [move.from]: { backgroundColor: "rgba(239, 68, 68, 0.5)" },  // Red for bad move
+          [move.to]: { backgroundColor: "rgba(239, 68, 68, 0.5)" }
+        });
+        setViewMode("played");
         setIsShowingLine(false);
         setLineIndex(-1);
-      } catch (e) {
-        console.error("Error loading fenBefore:", e);
       }
-    } else if (viewMode === "before" && fen) {
-      // Switch back to "after" view - show what happened
-      try {
-        chess.load(fen);
-        setCurrentFen(fen);
-        setViewMode("after");
-        setHighlightSquares({});
-        setIsShowingLine(false);
-        setLineIndex(-1);
-      } catch (e) {
-        console.error("Error loading fen:", e);
-      }
+    } catch (e) {
+      console.log("Could not replay move:", playedMove, e);
     }
-  }, [viewMode, fen, fenBefore]);
+  }, [fenBefore, playedMove]);
+
+  // Show the best move (what should have been played)
+  const showBestMove = useCallback(() => {
+    const chess = chessRef.current;
+    if (!fenBefore || !bestMove) return;
+    
+    try {
+      chess.load(fenBefore);
+      const move = chess.move(bestMove);
+      
+      if (move) {
+        // Build highlight with best move in green
+        const highlights = {
+          [move.from]: { backgroundColor: "rgba(34, 197, 94, 0.5)" },  // Green for best
+          [move.to]: { backgroundColor: "rgba(34, 197, 94, 0.5)" }
+        };
+        
+        // Also highlight threat square in orange if provided
+        if (threat) {
+          highlights[threat] = { 
+            backgroundColor: "rgba(249, 115, 22, 0.6)",  // Orange for threat
+            boxShadow: "inset 0 0 0 3px rgba(249, 115, 22, 0.8)"
+          };
+        }
+        
+        setCurrentFen(chess.fen());
+        setHighlightSquares(highlights);
+        setViewMode("best");
+        setIsShowingLine(true);
+        setLineIndex(0);
+      }
+    } catch (e) {
+      console.log("Could not show best move:", bestMove, e);
+    }
+  }, [fenBefore, bestMove, threat]);
+
+  // Show position before any move (starting point)
+  const showBeforePosition = useCallback(() => {
+    const chess = chessRef.current;
+    if (!fenBefore) return;
+    
+    try {
+      chess.load(fenBefore);
+      setCurrentFen(fenBefore);
+      
+      // Highlight threat if present
+      const highlights = {};
+      if (threat) {
+        highlights[threat] = { 
+          backgroundColor: "rgba(249, 115, 22, 0.5)",
+          boxShadow: "inset 0 0 0 3px rgba(249, 115, 22, 0.8)"
+        };
+      }
+      setHighlightSquares(highlights);
+      setViewMode("before");
+      setIsShowingLine(false);
+      setLineIndex(-1);
+    } catch (e) {
+      console.log("Could not load before position:", e);
+    }
+  }, [fenBefore, threat]);
+
+  // Play through the best line
+  const playNextInLine = useCallback(() => {
+    const chess = chessRef.current;
+    if (!pvLine || pvLine.length === 0 || !fenBefore) return;
+    
+    const nextIndex = lineIndex + 1;
+    if (nextIndex >= pvLine.length) return;
+
+    try {
+      chess.load(fenBefore);
+      
+      // Play all moves up to nextIndex
+      let lastMove = null;
+      for (let i = 0; i <= nextIndex; i++) {
+        lastMove = chess.move(pvLine[i]);
+        if (!lastMove) break;
+      }
+      
+      if (lastMove) {
+        setCurrentFen(chess.fen());
+        setLineIndex(nextIndex);
+        setIsShowingLine(true);
+        setViewMode("best");
+        
+        setHighlightSquares({
+          [lastMove.from]: { backgroundColor: "rgba(34, 197, 94, 0.4)" },
+          [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
+        });
+      }
+    } catch (e) {
+      console.error("Error playing line:", e);
+    }
+  }, [fenBefore, pvLine, lineIndex]);
+
+  // Go back one move in line
+  const playPrevInLine = useCallback(() => {
+    const chess = chessRef.current;
+    if (lineIndex < 0 || !fenBefore) return;
+    
+    const prevIndex = lineIndex - 1;
+    
+    try {
+      chess.load(fenBefore);
+      
+      if (prevIndex >= 0) {
+        let lastMove = null;
+        for (let i = 0; i <= prevIndex; i++) {
+          lastMove = chess.move(pvLine[i]);
+        }
+        
+        if (lastMove) {
+          setHighlightSquares({
+            [lastMove.from]: { backgroundColor: "rgba(34, 197, 94, 0.4)" },
+            [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
+          });
+        }
+      } else {
+        // Back to before position
+        const highlights = {};
+        if (threat) {
+          highlights[threat] = { 
+            backgroundColor: "rgba(249, 115, 22, 0.5)",
+            boxShadow: "inset 0 0 0 3px rgba(249, 115, 22, 0.8)"
+          };
+        }
+        setHighlightSquares(highlights);
+      }
+      
+      setCurrentFen(chess.fen());
+      setLineIndex(prevIndex);
+      setIsShowingLine(prevIndex >= 0);
+    } catch (e) {
+      console.error("Error going back:", e);
+    }
+  }, [fenBefore, pvLine, lineIndex, threat]);
+
+  const hasPvLine = pvLine && pvLine.length > 0;
 
   // Play through the best line (from the position BEFORE the mistake)
   const playNextMove = useCallback(() => {
