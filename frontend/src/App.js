@@ -97,17 +97,17 @@ function AppRouter() {
       <Route path="/" element={<Landing />} />
       <Route path="/coach" element={
         <ProtectedRoute>
-          {({ user }) => <Coach user={user} />}
+          {({ user }) => <Focus user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/progress" element={
         <ProtectedRoute>
-          {({ user }) => <ProgressV2 user={user} />}
+          {({ user }) => <JourneyV2 user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/progress-old" element={
         <ProtectedRoute>
-          {({ user }) => <ChessJourney user={user} />}
+          {({ user }) => <ProgressV2 user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/dashboard" element={
