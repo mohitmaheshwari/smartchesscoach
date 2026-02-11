@@ -124,6 +124,7 @@ The `/api/game/{game_id}/ask` endpoint now follows the architecture:
 
 ## Upcoming Tasks (P1)
 1. **"Today's Focus" Feature** - Dashboard component highlighting one actionable improvement area based on recent mistake patterns
+2. **Populate Tactical Ratio with Real Data** - Update game analysis to store mistake_type in move_evaluations so tactical ratio can track real patterns
 
 ## Future/Backlog Tasks (P2-P3)
 1. **Aggregate Behavioral Patterns** - Identify recurring patterns across games (e.g., "You hang pieces when ahead")
