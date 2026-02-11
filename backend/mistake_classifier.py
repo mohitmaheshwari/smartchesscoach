@@ -551,6 +551,240 @@ def find_skewers(board: chess.Board, color: chess.Color) -> List[Dict]:
     return skewers
 
 
+def find_discovered_attacks(board: chess.Board, color: chess.Color, move: chess.Move = None) -> List[Dict]:
+    """
+    Find discovered attack opportunities for a color.
+    
+    A discovered attack occurs when moving a piece reveals an attack from another piece behind it.
+    Most dangerous when the moving piece also creates a threat (double attack).
+    
+    If move is provided, checks if that specific move creates a discovered attack.
+    Otherwise, finds all potential discovered attacks from legal moves.
+    
+    Returns list of discovered attack opportunities.
+    """
+    discovered_attacks = []
+    opponent = not color
+    
+    moves_to_check = [move] if move else list(board.legal_moves)
+    
+    for m in moves_to_check:
+        if m is None:
+            continue
+            
+        from_sq = m.from_square
+        to_sq = m.to_square
+        moving_piece = board.piece_at(from_sq)
+        
+        if not moving_piece or moving_piece.color != color:
+            continue
+        
+        # Find sliding pieces of our color that could reveal an attack
+        for attacker_type in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
+            for attacker_sq in board.pieces(attacker_type, color):
+                if attacker_sq == from_sq:
+                    continue  # Skip the moving piece itself
+                
+                # Check if the moving piece is between our attacker and an opponent piece
+                # Get direction from attacker toward from_sq
+                file_diff = chess.square_file(from_sq) - chess.square_file(attacker_sq)
+                rank_diff = chess.square_rank(from_sq) - chess.square_rank(attacker_sq)
+                
+                # Check if from_sq is on a ray from attacker
+                on_ray = False
+                if attacker_type == chess.BISHOP:
+                    # Diagonal
+                    if file_diff != 0 and rank_diff != 0:
+                        on_ray = abs(file_diff) == abs(rank_diff)
+                elif attacker_type == chess.ROOK:
+                    # Straight line
+                    on_ray = (file_diff == 0 or rank_diff == 0)
+                else:  # Queen
+                    on_ray = (file_diff == 0 or rank_diff == 0 or 
+                             (file_diff != 0 and rank_diff != 0 and abs(file_diff) == abs(rank_diff)))
+                
+                if not on_ray:
+                    continue
+                
+                # Check if there's a clear line between attacker and from_sq
+                between = chess.SquareSet.between(attacker_sq, from_sq)
+                blocked = any(board.piece_at(sq) for sq in between)
+                if blocked:
+                    continue
+                
+                # Now check what's BEYOND from_sq on the same ray
+                if file_diff != 0:
+                    file_dir = file_diff // abs(file_diff)
+                else:
+                    file_dir = 0
+                if rank_diff != 0:
+                    rank_dir = rank_diff // abs(rank_diff)
+                else:
+                    rank_dir = 0
+                
+                # Search along the ray beyond from_sq
+                check_file = chess.square_file(from_sq) + file_dir
+                check_rank = chess.square_rank(from_sq) + rank_dir
+                
+                while 0 <= check_file <= 7 and 0 <= check_rank <= 7:
+                    target_sq = chess.square(check_file, check_rank)
+                    
+                    if target_sq == to_sq:
+                        # The moving piece lands here, blocking the ray
+                        break
+                    
+                    target_piece = board.piece_at(target_sq)
+                    if target_piece:
+                        if target_piece.color == opponent:
+                            # Found an opponent piece on the ray - this is a discovered attack!
+                            target_value = PIECE_VALUES.get(target_piece.piece_type, 0)
+                            if target_piece.piece_type == chess.KING:
+                                target_value = 100  # King must respond
+                            
+                            # Check if this is significant (attacking valuable piece)
+                            if target_value >= 3:  # At least a minor piece
+                                # Check what the moving piece threatens at its destination
+                                board_after = board.copy()
+                                board_after.push(m)
+                                moving_threats = []
+                                
+                                attacks_from_dest = board_after.attacks(to_sq)
+                                for attacked_sq in attacks_from_dest:
+                                    attacked_piece = board_after.piece_at(attacked_sq)
+                                    if attacked_piece and attacked_piece.color == opponent:
+                                        moving_threats.append({
+                                            "square": chess.square_name(attacked_sq),
+                                            "piece": chess.piece_name(attacked_piece.piece_type),
+                                            "value": PIECE_VALUES.get(attacked_piece.piece_type, 0)
+                                        })
+                                
+                                is_double_attack = len(moving_threats) > 0
+                                is_discovered_check = target_piece.piece_type == chess.KING
+                                
+                                discovered_attacks.append({
+                                    "move": m.uci(),
+                                    "move_san": board.san(m),
+                                    "moving_piece": {
+                                        "square_from": chess.square_name(from_sq),
+                                        "square_to": chess.square_name(to_sq),
+                                        "piece": chess.piece_name(moving_piece.piece_type)
+                                    },
+                                    "revealing_attacker": {
+                                        "square": chess.square_name(attacker_sq),
+                                        "piece": chess.piece_name(attacker_type)
+                                    },
+                                    "discovered_target": {
+                                        "square": chess.square_name(target_sq),
+                                        "piece": chess.piece_name(target_piece.piece_type),
+                                        "value": target_value
+                                    },
+                                    "moving_piece_threats": moving_threats,
+                                    "is_double_attack": is_double_attack,
+                                    "is_discovered_check": is_discovered_check,
+                                    "total_threat_value": target_value + sum(t["value"] for t in moving_threats)
+                                })
+                        break  # Ray blocked by a piece
+                    
+                    check_file += file_dir
+                    check_rank += rank_dir
+    
+    # Sort by: discovered check first, then double attacks, then total value
+    discovered_attacks.sort(key=lambda x: (
+        x.get("is_discovered_check", False),
+        x.get("is_double_attack", False),
+        x.get("total_threat_value", 0)
+    ), reverse=True)
+    
+    return discovered_attacks
+
+
+def find_overloaded_defenders(board: chess.Board, color: chess.Color) -> List[Dict]:
+    """
+    Find overloaded defenders - pieces that are defending multiple targets.
+    
+    An overloaded defender is a piece that:
+    1. Is defending at least 2 pieces/squares
+    2. Cannot adequately protect all of them if attacked
+    
+    This is a common tactical pattern where capturing/attacking the defender
+    leads to winning one of the things it was protecting.
+    
+    Returns list of overloaded defenders for the given color.
+    """
+    overloaded = []
+    opponent = not color
+    
+    # For each of our pieces, count what it's defending
+    for defender_sq in chess.SQUARES:
+        defender = board.piece_at(defender_sq)
+        if not defender or defender.color != color:
+            continue
+        if defender.piece_type == chess.KING:
+            continue  # King doesn't really "defend" in the tactical sense
+        
+        # Find what this piece is defending (our pieces under attack)
+        defending = []
+        defender_attacks = board.attacks(defender_sq)
+        
+        for sq in defender_attacks:
+            piece = board.piece_at(sq)
+            if piece and piece.color == color and piece.piece_type != chess.KING:
+                # Check if this piece is attacked by opponent
+                attackers = board.attackers(opponent, sq)
+                if attackers:
+                    # Our piece is attacked - is this defender helping?
+                    our_defenders = board.attackers(color, sq)
+                    if defender_sq in our_defenders:
+                        defending.append({
+                            "square": chess.square_name(sq),
+                            "piece": chess.piece_name(piece.piece_type),
+                            "value": PIECE_VALUES.get(piece.piece_type, 0),
+                            "num_attackers": len(attackers),
+                            "num_other_defenders": len(our_defenders) - 1  # Exclude this defender
+                        })
+        
+        # Also check if defending important squares (like king escape squares)
+        king_sq = board.king(color)
+        if king_sq:
+            for sq in defender_attacks:
+                if sq in board.attacks(king_sq):  # King could move here
+                    # Check if opponent attacks this square
+                    if board.is_attacked_by(opponent, sq):
+                        # This defender is guarding a king escape
+                        pass  # Could add this to the analysis
+        
+        # If defending 2+ things, it might be overloaded
+        if len(defending) >= 2:
+            total_defended_value = sum(d["value"] for d in defending)
+            defender_value = PIECE_VALUES.get(defender.piece_type, 0)
+            
+            # Determine if truly overloaded:
+            # - Defending multiple pieces with no other defenders
+            # - OR total value defended > defender value (worth attacking)
+            is_critical = any(d["num_other_defenders"] == 0 for d in defending)
+            is_valuable = total_defended_value > defender_value + 1
+            
+            if is_critical or is_valuable:
+                overloaded.append({
+                    "defender_square": chess.square_name(defender_sq),
+                    "defender_piece": chess.piece_name(defender.piece_type),
+                    "defender_value": defender_value,
+                    "defending": sorted(defending, key=lambda x: x["value"], reverse=True),
+                    "num_defended": len(defending),
+                    "total_defended_value": total_defended_value,
+                    "is_critical": is_critical,  # Has pieces with no other defender
+                    "vulnerability": "critical" if is_critical else "high" if is_valuable else "moderate"
+                })
+    
+    # Sort by: critical first, then by total defended value
+    overloaded.sort(key=lambda x: (
+        x.get("is_critical", False),
+        x.get("total_defended_value", 0)
+    ), reverse=True)
+    
+    return overloaded
+
+
 def detect_walked_into_fork(board_before: chess.Board, board_after: chess.Board, 
                            user_color: chess.Color) -> Optional[Dict]:
     """
