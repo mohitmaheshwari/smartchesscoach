@@ -1,6 +1,11 @@
 # GitHub Action: Auto-sync to Bitbucket
 # 
 # SETUP: Add secret BITBUCKET_TOKEN with your Repository Access Token
+#
+# WORKFLOW:
+# 1. Emergent pushes to GitHub (any branch, e.g., 'emergent-dev')
+# 2. This action syncs THAT SAME branch to Bitbucket
+# 3. You manually merge to 'main' on Bitbucket when ready
 
 name: Sync to Bitbucket
 
@@ -9,6 +14,9 @@ on:
     branches:
       - main
       - master
+      - emergent-dev      # Branch for Emergent changes
+      - 'feature/**'      # Any feature branches
+      - 'dev/**'          # Any dev branches
   workflow_dispatch:
 
 jobs:
@@ -27,10 +35,14 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
           
-          # Exact format from Bitbucket docs
+          # Add Bitbucket remote
           git remote add bitbucket "https://x-token-auth:${BITBUCKET_TOKEN}@bitbucket.org/smartmaheshwari-official/smartchesscoach.git"
           
-          git push bitbucket --all --force
-          git push bitbucket --tags --force
+          # Get current branch name
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          echo "📌 Syncing branch: $BRANCH_NAME"
           
-          echo "✅ Synced to Bitbucket!"
+          # Push only the current branch to Bitbucket (same branch name)
+          git push bitbucket HEAD:$BRANCH_NAME --force
+          
+          echo "✅ Synced branch '$BRANCH_NAME' to Bitbucket!"
