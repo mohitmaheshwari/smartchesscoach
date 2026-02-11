@@ -344,90 +344,9 @@ const InteractiveBoard = ({
         });
       }
     } catch (e) {
-      console.error("Error playing line:", e);
-    }
-  }, [fenBefore, pvLine, lineIndex]);
-
-  // Go back one move
-  const playPrevMove = useCallback(() => {
-    const chess = chessRef.current;
-    if (lineIndex < 0 || !fenBefore) return;
-    
-    try {
-      const prevIndex = lineIndex - 1;
-      chess.load(fenBefore);
-      
-      if (prevIndex >= 0) {
-        for (let i = 0; i <= prevIndex; i++) {
-          try {
-            chess.move(pvLine[i]);
-          } catch (e) {
-            return;
-          }
-        }
-        
-        const history = chess.history({ verbose: true });
-        if (history.length > 0) {
-          const lastMove = history[history.length - 1];
-          setHighlightSquares({
-            [lastMove.from]: { backgroundColor: "rgba(34, 197, 94, 0.4)" },
-            [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
-          });
-        }
-        setViewMode("line");
-      } else {
-        setHighlightSquares({});
-        setViewMode("before");
-      }
-      
-      setCurrentFen(chess.fen());
-      setLineIndex(prevIndex);
-      setIsShowingLine(prevIndex >= 0);
-    } catch (e) {
       console.error("Error going back:", e);
     }
-  }, [fenBefore, pvLine, lineIndex]);
-
-  // Reset to "after" position (what happened)
-  const resetPosition = useCallback(() => {
-    const chess = chessRef.current;
-    const displayFen = fen || fenBefore;
-    if (!displayFen) return;
-    
-    try {
-      chess.load(displayFen);
-      setCurrentFen(displayFen);
-      setLineIndex(-1);
-      setIsShowingLine(false);
-      setHighlightSquares({});
-      setViewMode("after");
-    } catch (e) {
-      console.error("Error resetting:", e);
-    }
-  }, [fen, fenBefore]);
-
-  // Show best move from the "before" position
-  const showBestMove = useCallback(() => {
-    const chess = chessRef.current;
-    if (!bestMove || !fenBefore) return;
-    
-    try {
-      chess.load(fenBefore);
-      const move = chess.move(bestMove);
-      if (move) {
-        setHighlightSquares({
-          [move.from]: { backgroundColor: "rgba(34, 197, 94, 0.5)" },
-          [move.to]: { backgroundColor: "rgba(34, 197, 94, 0.5)" }
-        });
-        setCurrentFen(chess.fen());
-        setLineIndex(0);
-        setIsShowingLine(true);
-        setViewMode("line");
-      }
-    } catch (e) {
-      console.error("Invalid best move:", bestMove);
-    }
-  }, [fenBefore, bestMove]);
+  }, [fenBefore, pvLine, lineIndex, threat]);
 
   const hasPvLine = pvLine && pvLine.length > 0;
 
