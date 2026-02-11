@@ -731,18 +731,18 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
         
         MistakeType.MISSED_FORK: (
             f"You missed a fork! {mistake.best_move} would have attacked multiple pieces at once. "
-            f"Look for knight moves that attack two pieces - forks are powerful tactics!"
+            "Look for knight moves that attack two pieces - forks are powerful tactics!"
         ),
         
         MistakeType.MISSED_PIN: (
             f"You missed a pin opportunity! {mistake.best_move} would have pinned an opponent's piece. "
-            f"Pins restrict your opponent's options - look for pieces lined up with the king or queen."
+            "Pins restrict your opponent's options - look for pieces lined up with the king or queen."
         ),
         
         MistakeType.HANGING_PIECE: (
             f"You left your {mistake.hanging_piece} undefended. "
-            f"Opponent can capture it for free. "
-            f"Before moving, always check: is my piece safe?"
+            "Opponent can capture it for free. "
+            "Before moving, always check: is my piece safe?"
         ),
         
         MistakeType.MATERIAL_BLUNDER: (
@@ -754,17 +754,17 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
         
         MistakeType.BLUNDER_WHEN_AHEAD: (
             f"You were winning (+{mistake.eval_before:.1f}) but threw it away. "
-            f"When ahead, play safe and simple moves. Don't complicate."
+            "When ahead, play safe and simple moves. Don't complicate."
         ),
         
         MistakeType.IGNORED_THREAT: (
             f"Your opponent was threatening {mistake.threat}. "
-            f"You didn't stop it. Before each move, ask: what is my opponent trying to do?"
+            "You didn't stop it. Before each move, ask: what is my opponent trying to do?"
         ),
         
         MistakeType.FAILED_CONVERSION: (
-            f"You were ahead but couldn't increase your advantage. "
-            f"When winning, look for simple ways to trade pieces and simplify."
+            "You were ahead but couldn't increase your advantage. "
+            "When winning, look for simple ways to trade pieces and simplify."
         ),
         
         MistakeType.MISSED_WINNING_TACTIC: (
@@ -773,8 +773,8 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
         ),
         
         MistakeType.TIME_PRESSURE_BLUNDER: (
-            f"Late-game mistake - possibly due to time pressure. "
-            f"Manage your clock better in the opening and middlegame."
+            "Late-game mistake - possibly due to time pressure. "
+            "Manage your clock better in the opening and middlegame."
         ),
         
         MistakeType.POSITIONAL_DRIFT: (
@@ -783,11 +783,11 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
         ),
         
         MistakeType.GOOD_MOVE: (
-            f"Good move! You found a reasonable continuation."
+            "Good move! You found a reasonable continuation."
         ),
         
         MistakeType.EXCELLENT_MOVE: (
-            f"Excellent! You found the best move."
+            "Excellent! You found the best move."
         )
     }
     
