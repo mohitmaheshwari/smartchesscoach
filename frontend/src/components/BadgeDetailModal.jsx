@@ -152,17 +152,17 @@ const InteractiveBoard = ({
     }
   }, [viewMode, fen, fenBefore]);
 
-  // Play through the best line
+  // Play through the best line (from the position BEFORE the mistake)
   const playNextMove = useCallback(() => {
     const chess = chessRef.current;
-    if (!pvLine || pvLine.length === 0 || !fen) return;
+    if (!pvLine || pvLine.length === 0 || !fenBefore) return;
     
     const nextIndex = lineIndex + 1;
     if (nextIndex >= pvLine.length) return;
 
     try {
-      // Reset to starting position first
-      chess.load(fen);
+      // Reset to starting position (before the mistake)
+      chess.load(fenBefore);
     
       // Play all moves up to nextIndex
       for (let i = 0; i <= nextIndex; i++) {
@@ -177,6 +177,7 @@ const InteractiveBoard = ({
       setCurrentFen(chess.fen());
       setLineIndex(nextIndex);
       setIsShowingLine(true);
+      setViewMode("line");
       
       // Highlight the last move
       const history = chess.history({ verbose: true });
@@ -190,16 +191,16 @@ const InteractiveBoard = ({
     } catch (e) {
       console.error("Error playing line:", e);
     }
-  }, [fen, pvLine, lineIndex]);
+  }, [fenBefore, pvLine, lineIndex]);
 
   // Go back one move
   const playPrevMove = useCallback(() => {
     const chess = chessRef.current;
-    if (lineIndex < 0 || !fen) return;
+    if (lineIndex < 0 || !fenBefore) return;
     
     try {
       const prevIndex = lineIndex - 1;
-      chess.load(fen);
+      chess.load(fenBefore);
       
       if (prevIndex >= 0) {
         for (let i = 0; i <= prevIndex; i++) {
@@ -218,8 +219,10 @@ const InteractiveBoard = ({
             [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
           });
         }
+        setViewMode("line");
       } else {
         setHighlightSquares({});
+        setViewMode("before");
       }
       
       setCurrentFen(chess.fen());
@@ -228,31 +231,33 @@ const InteractiveBoard = ({
     } catch (e) {
       console.error("Error going back:", e);
     }
-  }, [fen, pvLine, lineIndex]);
+  }, [fenBefore, pvLine, lineIndex]);
 
-  // Reset to starting position
+  // Reset to "after" position (what happened)
   const resetPosition = useCallback(() => {
     const chess = chessRef.current;
-    if (!fen) return;
+    const displayFen = fen || fenBefore;
+    if (!displayFen) return;
     
     try {
-      chess.load(fen);
-      setCurrentFen(fen);
+      chess.load(displayFen);
+      setCurrentFen(displayFen);
       setLineIndex(-1);
       setIsShowingLine(false);
       setHighlightSquares({});
+      setViewMode("after");
     } catch (e) {
       console.error("Error resetting:", e);
     }
-  }, [fen]);
+  }, [fen, fenBefore]);
 
-  // Show best move
+  // Show best move from the "before" position
   const showBestMove = useCallback(() => {
     const chess = chessRef.current;
-    if (!bestMove || !fen) return;
+    if (!bestMove || !fenBefore) return;
     
     try {
-      chess.load(fen);
+      chess.load(fenBefore);
       const move = chess.move(bestMove);
       if (move) {
         setHighlightSquares({
@@ -262,11 +267,12 @@ const InteractiveBoard = ({
         setCurrentFen(chess.fen());
         setLineIndex(0);
         setIsShowingLine(true);
+        setViewMode("line");
       }
     } catch (e) {
       console.error("Invalid best move:", bestMove);
     }
-  }, [fen, bestMove]);
+  }, [fenBefore, bestMove]);
 
   const hasPvLine = pvLine && pvLine.length > 0;
 
