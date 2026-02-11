@@ -128,6 +128,9 @@ from blunder_intelligence_service import (
     get_lab_data
 )
 
+# Import Badge Service
+from badge_service import calculate_all_badges, get_badge_history, calculate_badge_trends
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
