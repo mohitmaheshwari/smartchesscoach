@@ -121,11 +121,50 @@ const MistakeHeatmap = ({ data }) => {
   );
 };
 
-// Win state analysis component
-const WinStateAnalysis = ({ data }) => {
+// Win state analysis component - NOW WITH EVIDENCE DRILL-DOWN
+const WinStateAnalysis = ({ data, onShowEvidence }) => {
   if (!data || data.total_blunders === 0) {
     return null;
   }
+
+  const getStateEvidence = (state) => {
+    if (state === 'winning') return data.when_winning?.evidence || [];
+    if (state === 'equal') return data.when_equal?.evidence || [];
+    if (state === 'losing') return data.when_losing?.evidence || [];
+    return [];
+  };
+
+  const StateRow = ({ state, label, icon: Icon, iconColor, percentage, isDanger }) => {
+    const evidence = getStateEvidence(state);
+    const hasEvidence = evidence.length > 0;
+    
+    return (
+      <div 
+        className={`${hasEvidence ? 'cursor-pointer hover:bg-muted/30 rounded-lg p-2 -mx-2 transition-colors' : ''}`}
+        onClick={() => hasEvidence && onShowEvidence(state, evidence)}
+        data-testid={`win-state-${state}`}
+      >
+        <div className="flex justify-between text-sm mb-1">
+          <span className="flex items-center gap-1">
+            <Icon className={`w-3 h-3 ${iconColor}`} />
+            {label}
+            {hasEvidence && (
+              <span className="text-xs text-muted-foreground ml-1">
+                ({evidence.length} examples)
+              </span>
+            )}
+          </span>
+          <span className={isDanger ? 'text-red-500 font-bold' : ''}>
+            {percentage}%
+          </span>
+        </div>
+        <Progress 
+          value={percentage} 
+          className={`h-2 ${isDanger ? '[&>div]:bg-red-500' : `[&>div]:${iconColor.replace('text-', 'bg-')}`}`}
+        />
+      </div>
+    );
+  };
 
   return (
     <Card className="border-blue-500/20">
@@ -133,58 +172,38 @@ const WinStateAnalysis = ({ data }) => {
         <CardTitle className="text-lg flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-blue-500" />
           When You Blunder
+          <span className="text-xs text-muted-foreground font-normal ml-auto">Click to see examples</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Visual bars */}
+        {/* Visual bars - now clickable */}
         <div className="space-y-3">
-          <div>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-green-500" />
-                When Winning
-              </span>
-              <span className={data.danger_zone === 'winning' ? 'text-red-500 font-bold' : ''}>
-                {data.when_winning.percentage}%
-              </span>
-            </div>
-            <Progress 
-              value={data.when_winning.percentage} 
-              className={`h-2 ${data.danger_zone === 'winning' ? '[&>div]:bg-red-500' : '[&>div]:bg-green-500'}`}
-            />
-          </div>
+          <StateRow 
+            state="winning"
+            label="When Winning"
+            icon={TrendingUp}
+            iconColor="text-green-500"
+            percentage={data.when_winning.percentage}
+            isDanger={data.danger_zone === 'winning'}
+          />
           
-          <div>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="flex items-center gap-1">
-                <Target className="w-3 h-3 text-yellow-500" />
-                When Equal
-              </span>
-              <span className={data.danger_zone === 'equal' ? 'text-red-500 font-bold' : ''}>
-                {data.when_equal.percentage}%
-              </span>
-            </div>
-            <Progress 
-              value={data.when_equal.percentage} 
-              className={`h-2 ${data.danger_zone === 'equal' ? '[&>div]:bg-red-500' : '[&>div]:bg-yellow-500'}`}
-            />
-          </div>
+          <StateRow 
+            state="equal"
+            label="When Equal"
+            icon={Target}
+            iconColor="text-yellow-500"
+            percentage={data.when_equal.percentage}
+            isDanger={data.danger_zone === 'equal'}
+          />
           
-          <div>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="flex items-center gap-1">
-                <TrendingDown className="w-3 h-3 text-orange-500" />
-                When Losing
-              </span>
-              <span className={data.danger_zone === 'losing' ? 'text-red-500 font-bold' : ''}>
-                {data.when_losing.percentage}%
-              </span>
-            </div>
-            <Progress 
-              value={data.when_losing.percentage} 
-              className={`h-2 ${data.danger_zone === 'losing' ? '[&>div]:bg-red-500' : '[&>div]:bg-orange-500'}`}
-            />
-          </div>
+          <StateRow 
+            state="losing"
+            label="When Losing"
+            icon={TrendingDown}
+            iconColor="text-orange-500"
+            percentage={data.when_losing.percentage}
+            isDanger={data.danger_zone === 'losing'}
+          />
         </div>
         
         {/* Insight */}
