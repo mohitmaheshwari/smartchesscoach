@@ -12,6 +12,7 @@ Calculates 8 skill badges based on game analysis:
 8. Time Management - Clock usage patterns
 
 Each badge is rated 1-5 stars with trend tracking.
+NEW: Each badge now tracks relevant moves for drill-down.
 """
 
 import logging
