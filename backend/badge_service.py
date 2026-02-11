@@ -48,8 +48,8 @@ logger = logging.getLogger(__name__)
 def calculate_tactical_ratio(analyses: List[Dict]) -> Dict:
     """
     Calculate Tactical Ratio - a motivating metric showing:
-    - Tactics executed successfully (forks, pins, skewers)
-    - Tactics fallen into (walked into fork/pin/skewer)
+    - Tactics executed successfully (forks, pins, skewers, discovered attacks, exploited overloaded)
+    - Tactics fallen into (walked into fork/pin/skewer/discovered attack)
     
     Returns a ratio and breakdown that shows improvement over time.
     This uses the deterministic mistake classifier tags.
@@ -58,17 +58,17 @@ def calculate_tactical_ratio(analyses: List[Dict]) -> Dict:
         return {
             "ratio": 0.5,
             "percentage": 50,
-            "executed": {"forks": 0, "pins": 0, "skewers": 0, "total": 0},
-            "fallen_into": {"forks": 0, "pins": 0, "skewers": 0, "total": 0},
-            "avoided": {"forks": 0, "pins": 0, "skewers": 0, "total": 0},
+            "executed": {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "overloaded": 0, "total": 0},
+            "fallen_into": {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "total": 0},
+            "avoided": {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "total": 0},
             "insight": "Not enough data yet",
             "trend_message": "Play more games to see your tactical ratio!"
         }
     
     # Count tactical patterns from analyses
-    executed = {"forks": 0, "pins": 0, "skewers": 0, "total": 0}
-    fallen_into = {"forks": 0, "pins": 0, "skewers": 0, "total": 0}
-    avoided = {"forks": 0, "pins": 0, "skewers": 0, "total": 0}
+    executed = {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "overloaded": 0, "total": 0}
+    fallen_into = {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "total": 0}
+    avoided = {"forks": 0, "pins": 0, "skewers": 0, "discovered": 0, "total": 0}
     
     for analysis in analyses:
         # Check if analysis has mistake classification data
@@ -88,6 +88,12 @@ def calculate_tactical_ratio(analyses: List[Dict]) -> Dict:
             elif mistake_type == "executed_skewer":
                 executed["skewers"] += 1
                 executed["total"] += 1
+            elif mistake_type == "executed_discovered_attack":
+                executed["discovered"] += 1
+                executed["total"] += 1
+            elif mistake_type == "exploited_overloaded_defender":
+                executed["overloaded"] += 1
+                executed["total"] += 1
             
             # Walked into tactics (negative)
             elif mistake_type == "walked_into_fork":
@@ -99,6 +105,9 @@ def calculate_tactical_ratio(analyses: List[Dict]) -> Dict:
             elif mistake_type == "walked_into_skewer":
                 fallen_into["skewers"] += 1
                 fallen_into["total"] += 1
+            elif mistake_type == "walked_into_discovered_attack":
+                fallen_into["discovered"] += 1
+                fallen_into["total"] += 1
             
             # Avoided threats (positive defensive play)
             elif mistake_type == "avoided_fork":
@@ -109,6 +118,9 @@ def calculate_tactical_ratio(analyses: List[Dict]) -> Dict:
                 avoided["total"] += 1
             elif mistake_type == "avoided_skewer":
                 avoided["skewers"] += 1
+                avoided["total"] += 1
+            elif mistake_type == "avoided_discovered_attack":
+                avoided["discovered"] += 1
                 avoided["total"] += 1
     
     # Calculate ratio: (executed + avoided) / (executed + avoided + fallen_into)
@@ -142,12 +154,16 @@ def calculate_tactical_ratio(analyses: List[Dict]) -> Dict:
     
     # Determine which tactic type needs most work
     weakness = None
-    if fallen_into["forks"] > fallen_into["pins"] and fallen_into["forks"] > fallen_into["skewers"]:
-        weakness = "forks"
-    elif fallen_into["pins"] > fallen_into["skewers"]:
-        weakness = "pins"
-    elif fallen_into["skewers"] > 0:
-        weakness = "skewers"
+    max_fallen = max(fallen_into["forks"], fallen_into["pins"], fallen_into["skewers"], fallen_into["discovered"])
+    if max_fallen > 0:
+        if fallen_into["forks"] == max_fallen:
+            weakness = "forks"
+        elif fallen_into["pins"] == max_fallen:
+            weakness = "pins"
+        elif fallen_into["skewers"] == max_fallen:
+            weakness = "skewers"
+        elif fallen_into["discovered"] == max_fallen:
+            weakness = "discovered_attacks"
     
     return {
         "ratio": round(ratio, 2),
