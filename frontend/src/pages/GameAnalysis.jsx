@@ -83,6 +83,20 @@ const GameAnalysis = ({ user }) => {
           const analysisData = await analysisResponse.json();
           setAnalysis(analysisData);
         }
+
+        // Fetch core lesson from Lab endpoint
+        try {
+          const labUrl = API + "/lab/" + gameId;
+          const labResponse = await fetch(labUrl, { credentials: "include" });
+          if (labResponse.ok) {
+            const labData = await labResponse.json();
+            if (labData.core_lesson) {
+              setCoreLesson(labData.core_lesson);
+            }
+          }
+        } catch (labErr) {
+          console.log("Core lesson not available yet");
+        }
       } catch (error) {
         toast.error("Failed to load game");
         navigate("/import");
