@@ -96,24 +96,28 @@ Each badge rated 1-5 stars with trend tracking:
 
 ## Recent Changes - December 2025
 
-### Deterministic Mistake Classifier Complete
-- Added fork detection: `find_forks()`, `detect_walked_into_fork()`, `detect_missed_fork()`
-- Added pin detection: `find_pins()`, `detect_walked_into_pin()`, `detect_missed_pin()`  
-- Added discovered attack detection: `find_discovered_attack_potential()`
-- All mistake types have verbalization templates
-- Badge aggregation includes fork/pin stats
+### Complete Tactical Pattern System
+**New Detection Functions** (efficient bitboard operations):
+- `find_forks()`: O(n) complexity using `board.attacks()`, FORK_VALUES (king=100)
+- `find_pins()`: Absolute pins (to king) + relative pins (to queen)  
+- `find_skewers()`: NEW - detects sliding piece attacks where front piece must move
 
-### InteractiveBoard Bug Fix
-- Fixed stale closure issue where chess.js instance wasn't initialized correctly
-- Changed `useRef(new Chess())` to `useRef(null)` with proper initialization
-- Added `playMoveOnBoard()` helper function for consistent move playing
-- Buttons now correctly update board state with highlights
+**New Mistake Types** (25 total):
+- Negative: WALKED_INTO_SKEWER, MISSED_SKEWER added
+- Positive: EXECUTED_FORK, EXECUTED_PIN, EXECUTED_SKEWER
+- Defensive: AVOIDED_FORK, AVOIDED_PIN, AVOIDED_SKEWER, AVOIDED_THREAT
 
-### Testing
-- All 8 badge detail endpoints tested and working
-- InteractiveBoard features verified (Your Move, Best Move, navigation)
-- Fork/pin detection unit tests pass (pytest)
-- Test file: `/app/backend/tests/test_badge_details_interactive.py`
+### LLM Personality Layer (Refactored)
+The `/api/game/{game_id}/ask` endpoint now follows the architecture:
+- **Step 1**: Deterministic `classify_mistake()` generates structured facts
+- **Step 2**: LLM receives ONLY those facts and verbalizes them
+- **Result**: No more hallucinated chess analysis - LLM cannot invent tactics
+
+### Badge Aggregation Updated
+`classify_for_badge()` now tracks:
+- `forks_executed`, `pins_executed`, `skewers_executed`
+- `threats_avoided`
+- `total_good_plays` (separate from mistakes)
 
 ## Upcoming Tasks (P1)
 1. **Update LLM Prompt Layer** - Refactor `/api/game/{gameId}/ask` to use "personality layer" model (LLM only narrates structured facts from classifier)
