@@ -258,7 +258,10 @@ def _check_pin_along_line(board: chess.Board, attacker_sq: int, king_sq: int, pi
     
     # Find pieces between attacker and king
     pieces_between = []
-    between_squares = chess.between(attacker_sq, king_sq)
+    try:
+        between_squares = chess.SquareSet(chess.between(attacker_sq, king_sq))
+    except Exception:
+        return None
     
     for sq in between_squares:
         piece = board.piece_at(sq)
