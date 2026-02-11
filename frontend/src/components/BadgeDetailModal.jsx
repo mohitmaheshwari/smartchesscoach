@@ -807,10 +807,11 @@ const GameCard = ({ game, badgeKey, onViewGame }) => {
                   <div>
                     <InteractiveBoard
                       fen={selectedMove?.fen_after || selectedMove?.fen_before || selectedMove?.fen || "start"}
-                      fenBefore={selectedMove?.fen_before}
+                      fenBefore={selectedMove?.fen_before || selectedMove?.fen}
                       bestMove={selectedMove?.best_move}
                       playedMove={selectedMove?.move_played}
                       pvLine={selectedMove?.pv_after_best || []}
+                      threat={selectedMove?.threat}
                       userColor={game.user_color}
                       onAskAI={() => setShowAskAI(true)}
                     />
@@ -821,6 +822,7 @@ const GameCard = ({ game, badgeKey, onViewGame }) => {
                         fen={selectedMove.fen_before || selectedMove.fen}
                         bestMove={selectedMove.best_move}
                         playedMove={selectedMove.move_played}
+                        threat={selectedMove.threat}
                         badgeKey={badgeKey}
                         gameId={game.game_id}
                         onClose={() => setShowAskAI(false)}
