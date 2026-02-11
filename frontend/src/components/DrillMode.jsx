@@ -45,6 +45,7 @@ const DrillMode = ({
   const [isCorrect, setIsCorrect] = useState(false);
   const [score, setScore] = useState({ correct: 0, total: 0 });
   const [chess] = useState(new Chess());
+  const [boardPosition, setBoardPosition] = useState("start");
 
   // Fetch drill positions
   useEffect(() => {
@@ -65,6 +66,11 @@ const DrillMode = ({
         
         const data = await response.json();
         setPositions(data.positions || []);
+        
+        // Set initial board position
+        if (data.positions?.length > 0 && data.positions[0].fen_before) {
+          setBoardPosition(data.positions[0].fen_before);
+        }
         
         if (data.positions?.length === 0) {
           toast.error("No positions found for training");
