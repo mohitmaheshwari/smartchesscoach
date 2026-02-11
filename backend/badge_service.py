@@ -861,7 +861,7 @@ def _get_opening_badge_details(analyses: List[Dict], games_map: Dict, user_ratin
     }
 
 
-def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
+def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict, user_rating: int = 1200) -> Dict:
     """Get detailed data for Tactical Vision badge."""
     relevant_moves = []
     relevant_games = []
@@ -894,7 +894,8 @@ def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
                     move_data = {
                         "move_number": m.get("move_number"),
                         "move_played": m.get("move"),
-                        "fen": m.get("fen_before", ""),
+                        "fen_before": m.get("fen_before", ""),
+                        "fen_after": m.get("fen_after", ""),
                         "best_move": m.get("best_move"),
                         "evaluation": evaluation,
                         "cp_loss": m.get("cp_loss", 0),
@@ -902,7 +903,7 @@ def _get_tactical_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
                         "type": "missed" if is_missed else "found",
                         "threat": m.get("threat"),
                         "pv_after_best": m.get("pv_after_best", []),
-                        "explanation": _generate_tactical_explanation(m, is_missed, eval_diff)
+                        "explanation": _generate_tactical_explanation(m, is_missed, eval_diff, user_rating)
                     }
                     game_tactical_data["moves"].append(move_data)
                     relevant_moves.append({**move_data, "game_id": game_id})
