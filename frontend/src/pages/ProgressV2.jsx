@@ -189,6 +189,10 @@ const ProgressV2 = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  
+  // Badge detail modal state
+  const [selectedBadge, setSelectedBadge] = useState(null);
+  const [badgeModalOpen, setBadgeModalOpen] = useState(false);
 
   useEffect(() => {
     fetchProgress();
@@ -212,6 +216,18 @@ const ProgressV2 = ({ user }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle badge click - open modal
+  const handleBadgeClick = (badge) => {
+    setSelectedBadge(badge);
+    setBadgeModalOpen(true);
+  };
+
+  // Close modal
+  const handleCloseBadgeModal = () => {
+    setBadgeModalOpen(false);
+    setSelectedBadge(null);
   };
 
   if (loading) {
