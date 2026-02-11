@@ -197,38 +197,37 @@ const InteractiveBoard = ({
 
   // Show the best move (what should have been played)
   const showBestMove = useCallback(() => {
-    const chess = chessRef.current;
-    if (!fenBefore || !bestMove) return;
+    if (!fenBefore || !bestMove) {
+      console.log("Missing data for best move:", { fenBefore: !!fenBefore, bestMove });
+      return;
+    }
     
-    try {
-      chess.load(fenBefore);
-      const move = chess.move(bestMove);
+    const result = playMoveOnBoard(fenBefore, bestMove);
+    
+    if (result.success && result.move) {
+      // Best move in green only - no threat highlight here
+      const highlights = {
+        [result.move.from]: { backgroundColor: "rgba(34, 197, 94, 0.5)" },  // Green for best
+        [result.move.to]: { backgroundColor: "rgba(34, 197, 94, 0.5)" }
+      };
       
-      if (move) {
-        // Best move in green only - no threat highlight here
-        const highlights = {
-          [move.from]: { backgroundColor: "rgba(34, 197, 94, 0.5)" },  // Green for best
-          [move.to]: { backgroundColor: "rgba(34, 197, 94, 0.5)" }
-        };
-        
-        setCurrentFen(chess.fen());
-        setHighlightSquares(highlights);
-        setViewMode("best");
-        setIsShowingLine(true);
-        setLineIndex(0);
-      }
-    } catch (e) {
-      console.log("Could not show best move:", bestMove, e);
+      setCurrentFen(result.fen);
+      setHighlightSquares(highlights);
+      setViewMode("best");
+      setIsShowingLine(true);
+      setLineIndex(0);
+    } else {
+      console.log("Could not show best move:", bestMove);
     }
   }, [fenBefore, bestMove]);
 
   // Show position before any move (starting point)
   const showBeforePosition = useCallback(() => {
-    const chess = chessRef.current;
     if (!fenBefore) return;
     
     try {
-      chess.load(fenBefore);
+      if (!chessRef.current) chessRef.current = new Chess();
+      chessRef.current.load(fenBefore);
       setCurrentFen(fenBefore);
       
       // Highlight threat if present
@@ -250,13 +249,14 @@ const InteractiveBoard = ({
 
   // Play through the best line
   const playNextInLine = useCallback(() => {
-    const chess = chessRef.current;
     if (!pvLine || pvLine.length === 0 || !fenBefore) return;
     
     const nextIndex = lineIndex + 1;
     if (nextIndex >= pvLine.length) return;
 
     try {
+      if (!chessRef.current) chessRef.current = new Chess();
+      const chess = chessRef.current;
       chess.load(fenBefore);
       
       // Play all moves up to nextIndex
