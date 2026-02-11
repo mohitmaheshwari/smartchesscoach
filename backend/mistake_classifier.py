@@ -657,6 +657,154 @@ def detect_missed_pin(board_before: chess.Board, best_move: str,
     return None
 
 
+def detect_missed_skewer(board_before: chess.Board, best_move: str,
+                        user_color: chess.Color) -> Optional[Dict]:
+    """
+    Detect if the best move would have created a skewer.
+    """
+    if not best_move:
+        return None
+    
+    try:
+        board_copy = board_before.copy()
+        board_copy.push_san(best_move)
+        
+        skewers = find_skewers(board_copy, user_color)
+        if skewers:
+            return skewers[0]
+    except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
+        pass
+    
+    return None
+
+
+def detect_walked_into_skewer(board_before: chess.Board, board_after: chess.Board,
+                             user_color: chess.Color) -> Optional[Dict]:
+    """
+    Detect if user's move walked into a skewer.
+    """
+    opponent = not user_color
+    
+    skewers_before = find_skewers(board_before, opponent)
+    skewers_after = find_skewers(board_after, opponent)
+    
+    if not skewers_after:
+        return None
+    
+    # Check for NEW skewers
+    before_attackers = {s["attacker_square"] for s in skewers_before}
+    
+    for skewer in skewers_after:
+        if skewer["attacker_square"] not in before_attackers:
+            return skewer
+    
+    return None
+
+
+def detect_avoided_threat(board_before: chess.Board, board_after: chess.Board,
+                         move_played: str, user_color: chess.Color) -> Optional[Dict]:
+    """
+    Detect if user's move avoided a threat that existed before.
+    
+    Positive feedback: "Good job spotting the threat!"
+    """
+    opponent = not user_color
+    
+    # Check for opponent threats BEFORE user's move
+    forks_before = find_forks(board_before, opponent)
+    pins_before = find_pins(board_before, user_color)  # Pins against user
+    skewers_before = find_skewers(board_before, opponent)
+    
+    # Check threats AFTER user's move
+    forks_after = find_forks(board_after, opponent)
+    pins_after = find_pins(board_after, user_color)
+    skewers_after = find_skewers(board_after, opponent)
+    
+    # User avoided fork
+    if forks_before and not forks_after:
+        return {
+            "type": "avoided_fork",
+            "threat": forks_before[0],
+            "message": f"You correctly avoided the fork threat!"
+        }
+    
+    # User escaped from pin
+    if len(pins_before) > len(pins_after):
+        for old_pin in pins_before:
+            still_pinned = any(p["pinned_square"] == old_pin["pinned_square"] for p in pins_after)
+            if not still_pinned:
+                return {
+                    "type": "avoided_pin",
+                    "threat": old_pin,
+                    "message": f"Good job escaping the pin on your {old_pin['pinned_piece']}!"
+                }
+    
+    # User avoided skewer
+    if skewers_before and not skewers_after:
+        return {
+            "type": "avoided_skewer",
+            "threat": skewers_before[0],
+            "message": f"You correctly avoided the skewer!"
+        }
+    
+    return None
+
+
+def detect_executed_tactic(board_before: chess.Board, board_after: chess.Board,
+                          move_played: str, user_color: chess.Color) -> Optional[Dict]:
+    """
+    Detect if user's move executed a tactic (fork, pin, skewer).
+    
+    Positive feedback: "Great tactic!"
+    """
+    opponent = not user_color
+    
+    # Check for NEW tactics created by user's move
+    forks_after = find_forks(board_after, user_color)
+    pins_after = find_pins(board_after, opponent)  # Pins against opponent
+    skewers_after = find_skewers(board_after, user_color)
+    
+    # Check what existed before
+    forks_before = find_forks(board_before, user_color)
+    pins_before = find_pins(board_before, opponent)
+    skewers_before = find_skewers(board_before, user_color)
+    
+    # Created a new fork
+    if forks_after:
+        before_attackers = {f["attacker_square"] for f in forks_before}
+        for fork in forks_after:
+            if fork["attacker_square"] not in before_attackers:
+                return {
+                    "type": "executed_fork",
+                    "tactic": fork,
+                    "message": f"Excellent fork with your {fork['attacker_piece']}!"
+                }
+    
+    # Created a new pin
+    if pins_after:
+        before_pinned = {p["pinned_square"] for p in pins_before}
+        for pin in pins_after:
+            if pin["pinned_square"] not in before_pinned:
+                return {
+                    "type": "executed_pin",
+                    "tactic": pin,
+                    "message": f"Great pin on the {pin['pinned_piece']}!"
+                }
+    
+    # Created a skewer
+    if skewers_after:
+        before_attackers = {s["attacker_square"] for s in skewers_before}
+        for skewer in skewers_after:
+            if skewer["attacker_square"] not in before_attackers:
+                return {
+                    "type": "executed_skewer",
+                    "tactic": skewer,
+                    "message": f"Nice skewer winning the {skewer['behind_piece']['piece']}!"
+                }
+    
+    return None
+
+
 def classify_mistake(
     fen_before: str,
     fen_after: str,
