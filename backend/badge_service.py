@@ -788,13 +788,17 @@ async def calculate_all_badges(db, user_id: str) -> Dict:
     strengths = [b[0] for b in sorted_badges[:2]]
     weaknesses = [b[0] for b in sorted_badges[-2:]]
     
+    # Calculate tactical ratio (new motivating metric)
+    tactical_ratio = calculate_tactical_ratio(analyses)
+    
     return {
         "badges": badges,
         "overall_score": round(overall, 1),
         "strengths": strengths,
         "weaknesses": weaknesses,
         "games_analyzed": len(analyses),
-        "calculated_at": datetime.now(timezone.utc).isoformat()
+        "calculated_at": datetime.now(timezone.utc).isoformat(),
+        "tactical_ratio": tactical_ratio  # NEW: Motivating tactical metric
     }
 
 
