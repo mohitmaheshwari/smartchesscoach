@@ -329,11 +329,7 @@ def find_pins(board: chess.Board, color: chess.Color) -> List[Dict]:
             if king_square is None:
                 continue
                 
-            # Find the pinner (opponent piece on the pin ray)
-            pin_ray = chess.SquareSet.between(king_square, square)
-            pin_direction = chess.square_file(square) - chess.square_file(king_square)
-            
-            # Extend beyond the pinned piece to find the pinner
+            # Find the pinner (opponent piece that's pinning)
             pinner_info = None
             for direction_sq in chess.SQUARES:
                 pinner = board.piece_at(direction_sq)
