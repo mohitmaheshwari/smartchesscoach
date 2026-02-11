@@ -71,9 +71,9 @@ const Layout = ({ children, user }) => {
   };
 
   const navigation = [
-    { name: 'Coach', href: '/coach', icon: Target },
-    { name: 'Progress', href: '/progress', icon: TrendingUp },
-    { name: 'Games', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Focus', href: '/coach', icon: Target },
+    { name: 'Journey', href: '/progress', icon: TrendingUp },
+    { name: 'Lab', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Import', href: '/import', icon: Import },
   ];
 
