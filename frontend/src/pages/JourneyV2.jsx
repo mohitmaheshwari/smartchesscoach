@@ -41,8 +41,8 @@ import DrillMode from "@/components/DrillMode";
  * - Milestones
  */
 
-// Heatmap component for board visualization
-const MistakeHeatmap = ({ data }) => {
+// Heatmap component for board visualization - NOW WITH CLICKABLE SQUARES
+const MistakeHeatmap = ({ data, onShowEvidence }) => {
   if (!data || !data.hot_squares || data.hot_squares.length === 0) {
     return null;
   }
@@ -53,9 +53,19 @@ const MistakeHeatmap = ({ data }) => {
   // Create intensity map
   const maxCount = Math.max(...data.hot_squares.map(s => s.count), 1);
   const squareIntensity = {};
-  data.hot_squares.forEach(({ square, count }) => {
+  const squareData = {};
+  data.hot_squares.forEach(({ square, count, evidence }) => {
     squareIntensity[square] = count / maxCount;
+    squareData[square] = { count, evidence: evidence || [] };
   });
+  
+  // Handle square click
+  const handleSquareClick = (sq) => {
+    const sqData = squareData[sq];
+    if (sqData && sqData.evidence && sqData.evidence.length > 0) {
+      onShowEvidence(sq, sqData.evidence, sqData.count);
+    }
+  };
 
   return (
     <Card className="border-orange-500/20">
@@ -63,6 +73,7 @@ const MistakeHeatmap = ({ data }) => {
         <CardTitle className="text-lg flex items-center gap-2">
           <Crosshair className="w-5 h-5 text-orange-500" />
           Mistake Heatmap
+          <span className="text-xs text-muted-foreground font-normal ml-auto">Click hot squares</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -72,6 +83,7 @@ const MistakeHeatmap = ({ data }) => {
               const sq = file + rank;
               const intensity = squareIntensity[sq] || 0;
               const isLight = (files.indexOf(file) + ranks.indexOf(rank)) % 2 === 0;
+              const hasEvidence = squareData[sq]?.evidence?.length > 0;
               
               return (
                 <div
@@ -79,16 +91,19 @@ const MistakeHeatmap = ({ data }) => {
                   className={`aspect-square flex items-center justify-center text-[8px] font-mono
                     ${isLight ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-amber-800/30 dark:bg-amber-950/50'}
                     ${intensity > 0 ? 'relative' : ''}
+                    ${hasEvidence ? 'cursor-pointer hover:ring-2 hover:ring-white/50 transition-all' : ''}
                   `}
                   style={{
                     backgroundColor: intensity > 0 
                       ? `rgba(239, 68, 68, ${intensity * 0.7})` 
                       : undefined
                   }}
+                  onClick={() => hasEvidence && handleSquareClick(sq)}
+                  data-testid={hasEvidence ? `heatmap-square-${sq}` : undefined}
                 >
                   {intensity > 0.5 && (
                     <span className="text-white font-bold text-[10px]">
-                      {data.hot_squares.find(s => s.square === sq)?.count}
+                      {squareData[sq]?.count}
                     </span>
                   )}
                 </div>
