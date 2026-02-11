@@ -94,7 +94,17 @@ Each badge rated 1-5 stars with trend tracking:
 - `POST /api/import-games` - Import games from Chess.com/Lichess
 - `GET /api/auth/dev-login` - Dev mode login (when DEV_MODE=true)
 
-## Recent Changes - December 2025
+## Recent Changes - February 2026
+
+### Discovered Attack & Overloaded Defender Detection (Feb 2026)
+- Added `find_discovered_attacks()` function with full ray-tracing logic
+- Added `find_overloaded_defenders()` function for tactical exploitation
+- Added 6 new MistakeTypes for discovered attacks and overloaded defenders
+- Updated `classify_for_badge()` to track the new patterns
+- Updated `calculate_tactical_ratio()` to include new tactics in metrics
+- Tests: `/app/backend/tests/test_new_tactics.py` (8/8 passing)
+
+## Changes - December 2025
 
 ### Tactical Ratio Feature (NEW - Dec 2025)
 A motivating metric on the Progress page showing:
