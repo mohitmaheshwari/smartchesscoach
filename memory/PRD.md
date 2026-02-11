@@ -96,11 +96,14 @@ Each badge rated 1-5 stars with trend tracking:
 
 ## Recent Changes - December 2025
 
-### Complete Tactical Pattern System
-**New Detection Functions** (efficient bitboard operations):
-- `find_forks()`: O(n) complexity using `board.attacks()`, FORK_VALUES (king=100)
-- `find_pins()`: Absolute pins (to king) + relative pins (to queen)  
-- `find_skewers()`: NEW - detects sliding piece attacks where front piece must move
+### Tactical Ratio Feature (NEW - Dec 2025)
+A motivating metric on the Progress page showing:
+- **Ratio**: (Executed + Avoided) / (Executed + Avoided + Fallen Into)
+- **Visual Progress Bar**: Color-coded (green ≥75%, amber ≥50%, red <50%)
+- **Three Stat Boxes**: Tactics Executed, Threats Avoided, Fell Into
+- **Breakdown**: Shows forks/pins/skewers for each category
+- **Trend Message**: Encouraging feedback based on performance
+- **Weakness Detection**: Highlights which tactic type needs most practice
 
 **New Mistake Types** (25 total):
 - Negative: WALKED_INTO_SKEWER, MISSED_SKEWER added
