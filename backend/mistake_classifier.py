@@ -257,187 +257,298 @@ def get_threats(board: chess.Board, color: chess.Color) -> List[str]:
 
 def find_forks(board: chess.Board, color: chess.Color) -> List[Dict]:
     """
-    Find all fork opportunities for a color.
-    A fork is when one piece attacks two or more valuable enemy pieces simultaneously.
+    Find all fork opportunities for a color using efficient bitboard operations.
     
-    Returns list of fork opportunities with details.
+    A fork is when one piece attacks two or more valuable enemy pieces simultaneously.
+    We focus on:
+    - Knight forks (most common and dangerous)
+    - Queen forks
+    - Pawn forks (when attacking two pieces)
+    
+    Returns list of fork opportunities with details, sorted by value.
     """
     forks = []
     opponent = not color
     
-    # Check each of our pieces for forking potential
-    for attacker_sq in chess.SQUARES:
-        attacker = board.piece_at(attacker_sq)
-        if not attacker or attacker.color != color:
-            continue
-        
-        # Find all enemy pieces this attacker is attacking
-        attacked_pieces = []
-        for target_sq in chess.SQUARES:
-            target = board.piece_at(target_sq)
-            if not target or target.color != opponent:
-                continue
-            
-            # Check if our piece attacks this square
-            if board.is_attacked_by(color, target_sq):
-                # Check if this specific piece is doing the attacking
-                attackers = board.attackers(color, target_sq)
-                if attacker_sq in attackers:
-                    attacked_pieces.append({
-                        "square": chess.square_name(target_sq),
-                        "piece": chess.piece_name(target.piece_type),
-                        "value": PIECE_VALUES.get(target.piece_type, 0)
-                    })
-        
-        # It's a fork if attacking 2+ pieces and at least one is valuable
-        if len(attacked_pieces) >= 2:
-            total_value = sum(p["value"] for p in attacked_pieces)
-            # Only count as a fork if total value is significant
-            if total_value >= 5:  # At least a rook's worth
-                forks.append({
-                    "attacker_square": chess.square_name(attacker_sq),
-                    "attacker_piece": chess.piece_name(attacker.piece_type),
-                    "targets": attacked_pieces,
-                    "total_value": total_value
-                })
+    # Valuable pieces worth forking (king=100 for fork purposes since it must move)
+    FORK_VALUES = {
+        chess.KING: 100,  # King must respond to attack
+        chess.QUEEN: 9,
+        chess.ROOK: 5,
+        chess.BISHOP: 3,
+        chess.KNIGHT: 3,
+        chess.PAWN: 1
+    }
     
-    # Sort by value (best forks first)
-    forks.sort(key=lambda x: x["total_value"], reverse=True)
+    # Get all opponent pieces as a set for quick lookup
+    opponent_pieces = []
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if piece and piece.color == opponent:
+            opponent_pieces.append((sq, piece))
+    
+    # Check each of our pieces for forking potential
+    # Priority: Knights > Queens > Pawns > Others
+    piece_types_to_check = [chess.KNIGHT, chess.QUEEN, chess.PAWN, chess.BISHOP, chess.ROOK]
+    
+    for piece_type in piece_types_to_check:
+        for attacker_sq in board.pieces(piece_type, color):
+            # Use board.attacks() - returns a SquareSet of attacked squares (bitboard efficient)
+            attacks = board.attacks(attacker_sq)
+            
+            # Find which opponent pieces are under attack
+            targets = []
+            for target_sq, target_piece in opponent_pieces:
+                if target_sq in attacks:
+                    targets.append({
+                        "square": chess.square_name(target_sq),
+                        "piece": chess.piece_name(target_piece.piece_type),
+                        "value": FORK_VALUES.get(target_piece.piece_type, 1)
+                    })
+            
+            # It's a fork if attacking 2+ pieces
+            if len(targets) >= 2:
+                # Calculate total value - must include at least one valuable target
+                total_value = sum(t["value"] for t in targets)
+                has_valuable_target = any(t["value"] >= 3 for t in targets)  # At least a minor piece
+                
+                # For knights, lower threshold (knight forks are always tactical)
+                # For others, need higher value to be considered a real fork
+                min_value = 4 if piece_type == chess.KNIGHT else 6
+                
+                if has_valuable_target and total_value >= min_value:
+                    forks.append({
+                        "attacker_square": chess.square_name(attacker_sq),
+                        "attacker_piece": chess.piece_name(piece_type),
+                        "targets": sorted(targets, key=lambda x: x["value"], reverse=True),
+                        "total_value": total_value,
+                        "includes_king": any(t["value"] == 100 for t in targets),
+                        "includes_queen": any(t["value"] == 9 for t in targets)
+                    })
+    
+    # Sort by: king involvement > queen involvement > total value
+    forks.sort(key=lambda x: (x["includes_king"], x["includes_queen"], x["total_value"]), reverse=True)
     return forks
 
 
 def find_pins(board: chess.Board, color: chess.Color) -> List[Dict]:
     """
-    Find all pins in the position for a color.
-    A pin is when a piece cannot move because it would expose a more valuable piece behind it.
+    Find all pins against a color using python-chess's built-in pin detection.
+    
+    Detects both:
+    - Absolute pins (pinned to king - piece cannot move at all without check)
+    - Relative pins (pinned to queen/rook - piece shouldn't move or loses material)
     
     Returns list of pins with details.
     """
     pins = []
     opponent = not color
     
-    # For each of our pieces, check if it's pinned
+    # Find absolute pins (to king) - python-chess has this built-in
+    king_sq = board.king(color)
+    if king_sq is None:
+        return pins
+    
     for square in chess.SQUARES:
         piece = board.piece_at(square)
-        if not piece or piece.color != color:
+        if not piece or piece.color != color or piece.piece_type == chess.KING:
             continue
         
-        # Check if this piece is pinned (to the king)
+        # Check if this piece is absolutely pinned (to the king)
         if board.is_pinned(color, square):
-            # Find what's pinning it
-            king_square = board.king(color)
-            if king_square is None:
-                continue
-                
-            # Find the pinner (opponent piece that's pinning)
+            # Get the pin ray to find the pinner
+            pin_mask = board.pin(color, square)
+            
+            # Find the pinner (opponent piece on the pin ray, beyond the pinned piece)
             pinner_info = None
-            for direction_sq in chess.SQUARES:
-                pinner = board.piece_at(direction_sq)
+            for pinner_sq in pin_mask:
+                pinner = board.piece_at(pinner_sq)
                 if pinner and pinner.color == opponent:
-                    # Check if this piece attacks through the pinned piece
-                    if board.is_attacked_by(opponent, square):
-                        attackers = board.attackers(opponent, square)
-                        if direction_sq in attackers:
-                            # Verify it's a sliding piece that could pin
-                            if pinner.piece_type in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
-                                pinner_info = {
-                                    "pinner_square": chess.square_name(direction_sq),
-                                    "pinner_piece": chess.piece_name(pinner.piece_type)
-                                }
-                                break
+                    if pinner.piece_type in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
+                        pinner_info = {
+                            "pinner_square": chess.square_name(pinner_sq),
+                            "pinner_piece": chess.piece_name(pinner.piece_type),
+                            "pinner_value": PIECE_VALUES.get(pinner.piece_type, 0)
+                        }
+                        break
             
             pins.append({
                 "pinned_square": chess.square_name(square),
                 "pinned_piece": chess.piece_name(piece.piece_type),
                 "pinned_value": PIECE_VALUES.get(piece.piece_type, 0),
                 "pinned_to": "king",
+                "pin_type": "absolute",
                 "pinner": pinner_info
             })
     
+    # Find relative pins (to queen) - more complex, check if moving piece loses the queen
+    queen_sq = None
+    for sq in board.pieces(chess.QUEEN, color):
+        queen_sq = sq
+        break  # Just get first queen
+    
+    if queen_sq:
+        # Check pieces between sliding attackers and our queen
+        for attacker_type in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
+            for attacker_sq in board.pieces(attacker_type, opponent):
+                # Get the ray between attacker and our queen
+                if attacker_type == chess.BISHOP:
+                    # Diagonal rays
+                    if chess.square_file(attacker_sq) == chess.square_file(queen_sq):
+                        continue  # Same file, not diagonal
+                    if chess.square_rank(attacker_sq) == chess.square_rank(queen_sq):
+                        continue  # Same rank, not diagonal
+                    file_diff = abs(chess.square_file(attacker_sq) - chess.square_file(queen_sq))
+                    rank_diff = abs(chess.square_rank(attacker_sq) - chess.square_rank(queen_sq))
+                    if file_diff != rank_diff:
+                        continue  # Not on diagonal
+                elif attacker_type == chess.ROOK:
+                    # Straight rays
+                    if chess.square_file(attacker_sq) != chess.square_file(queen_sq) and \
+                       chess.square_rank(attacker_sq) != chess.square_rank(queen_sq):
+                        continue  # Not on same file or rank
+                
+                # Check if there's exactly one of our pieces between attacker and queen
+                between = chess.SquareSet.between(attacker_sq, queen_sq)
+                our_pieces_between = []
+                blocked = False
+                
+                for sq in between:
+                    piece = board.piece_at(sq)
+                    if piece:
+                        if piece.color == color:
+                            our_pieces_between.append((sq, piece))
+                        else:
+                            blocked = True  # Opponent piece in the way
+                            break
+                
+                if not blocked and len(our_pieces_between) == 1:
+                    pinned_sq, pinned_piece = our_pieces_between[0]
+                    # Don't duplicate absolute pins
+                    if not board.is_pinned(color, pinned_sq):
+                        pins.append({
+                            "pinned_square": chess.square_name(pinned_sq),
+                            "pinned_piece": chess.piece_name(pinned_piece.piece_type),
+                            "pinned_value": PIECE_VALUES.get(pinned_piece.piece_type, 0),
+                            "pinned_to": "queen",
+                            "pin_type": "relative",
+                            "pinner": {
+                                "pinner_square": chess.square_name(attacker_sq),
+                                "pinner_piece": chess.piece_name(attacker_type),
+                                "pinner_value": PIECE_VALUES.get(attacker_type, 0)
+                            }
+                        })
+    
+    # Sort by: absolute pins first, then by value of pinned piece
+    pins.sort(key=lambda x: (x["pin_type"] == "absolute", x["pinned_value"]), reverse=True)
     return pins
 
 
-def find_discovered_attack_potential(board: chess.Board, color: chess.Color) -> List[Dict]:
+def find_skewers(board: chess.Board, color: chess.Color) -> List[Dict]:
     """
-    Find positions where a piece can move to reveal an attack from a piece behind it.
-    (Discovered attacks, discovered checks)
+    Find skewer opportunities for a color.
     
-    Returns list of potential discovered attacks.
+    A skewer is like a reverse pin - attacking a valuable piece that must move,
+    revealing an attack on a less valuable piece behind it.
+    
+    Returns list of skewer opportunities.
     """
-    discovered = []
+    skewers = []
     opponent = not color
     
-    # Look for pieces that are blocking our sliding pieces
-    for blocker_sq in chess.SQUARES:
-        blocker = board.piece_at(blocker_sq)
-        if not blocker or blocker.color != color:
-            continue
-        
-        # Check what's behind this piece (along diagonals and lines)
-        directions = [
-            (chess.BB_FILE_A, 8),   # Up
-            (chess.BB_FILE_A, -8),  # Down  
-            (chess.BB_RANK_1, 1),   # Right
-            (chess.BB_RANK_1, -1),  # Left
-            (chess.BB_ALL, 9),      # Diagonal up-right
-            (chess.BB_ALL, -9),     # Diagonal down-left
-            (chess.BB_ALL, 7),      # Diagonal up-left
-            (chess.BB_ALL, -7),     # Diagonal down-right
-        ]
-        
-        for _, direction in directions:
-            # Look behind the blocker
-            behind_sq = blocker_sq - direction
-            if not 0 <= behind_sq <= 63:
-                continue
+    # Check our sliding pieces for skewer potential
+    for attacker_type in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
+        for attacker_sq in board.pieces(attacker_type, color):
+            attacks = board.attacks(attacker_sq)
+            
+            # For each attacked enemy piece, check if there's another behind it
+            for target_sq in attacks:
+                front_piece = board.piece_at(target_sq)
+                if not front_piece or front_piece.color != opponent:
+                    continue
                 
-            behind_piece = board.piece_at(behind_sq)
-            if not behind_piece or behind_piece.color != color:
-                continue
-            
-            # Check if it's a sliding piece that could attack through
-            if behind_piece.piece_type not in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
-                continue
-            
-            # Look forward (where the attack would go if blocker moves)
-            check_sq = blocker_sq + direction
-            while 0 <= check_sq <= 63:
-                target = board.piece_at(check_sq)
-                if target:
-                    if target.color == opponent:
-                        # Found a potential discovered attack!
-                        discovered.append({
-                            "blocker_square": chess.square_name(blocker_sq),
-                            "blocker_piece": chess.piece_name(blocker.piece_type),
-                            "attacker_square": chess.square_name(behind_sq),
-                            "attacker_piece": chess.piece_name(behind_piece.piece_type),
-                            "target_square": chess.square_name(check_sq),
-                            "target_piece": chess.piece_name(target.piece_type),
-                            "target_value": PIECE_VALUES.get(target.piece_type, 0),
-                            "is_check": target.piece_type == chess.KING
-                        })
-                    break  # Blocked by a piece
-                check_sq += direction
+                # Get squares beyond the target on the same ray
+                # Direction from attacker to target
+                file_diff = chess.square_file(target_sq) - chess.square_file(attacker_sq)
+                rank_diff = chess.square_rank(target_sq) - chess.square_rank(attacker_sq)
+                
+                # Normalize to get direction
+                if file_diff != 0:
+                    file_dir = file_diff // abs(file_diff)
+                else:
+                    file_dir = 0
+                if rank_diff != 0:
+                    rank_dir = rank_diff // abs(rank_diff)
+                else:
+                    rank_dir = 0
+                
+                # Check squares beyond target
+                check_file = chess.square_file(target_sq) + file_dir
+                check_rank = chess.square_rank(target_sq) + rank_dir
+                
+                while 0 <= check_file <= 7 and 0 <= check_rank <= 7:
+                    behind_sq = chess.square(check_file, check_rank)
+                    behind_piece = board.piece_at(behind_sq)
+                    
+                    if behind_piece:
+                        if behind_piece.color == opponent:
+                            front_value = PIECE_VALUES.get(front_piece.piece_type, 0)
+                            behind_value = PIECE_VALUES.get(behind_piece.piece_type, 0)
+                            
+                            # It's a skewer if front piece is more valuable (must move)
+                            if front_value > behind_value and front_value >= 3:
+                                skewers.append({
+                                    "attacker_square": chess.square_name(attacker_sq),
+                                    "attacker_piece": chess.piece_name(attacker_type),
+                                    "front_piece": {
+                                        "square": chess.square_name(target_sq),
+                                        "piece": chess.piece_name(front_piece.piece_type),
+                                        "value": front_value
+                                    },
+                                    "behind_piece": {
+                                        "square": chess.square_name(behind_sq),
+                                        "piece": chess.piece_name(behind_piece.piece_type),
+                                        "value": behind_value
+                                    },
+                                    "gain": behind_value  # What we win when front moves
+                                })
+                        break  # Blocked
+                    
+                    check_file += file_dir
+                    check_rank += rank_dir
     
-    # Sort by value (best discovered attacks first, prioritize checks)
-    discovered.sort(key=lambda x: (x["is_check"], x["target_value"]), reverse=True)
-    return discovered
+    skewers.sort(key=lambda x: x["gain"], reverse=True)
+    return skewers
 
 
 def detect_walked_into_fork(board_before: chess.Board, board_after: chess.Board, 
                            user_color: chess.Color) -> Optional[Dict]:
     """
     Detect if user's move walked into a fork.
-    Compare forks available to opponent before and after the move.
+    
+    Compares forks available to opponent before and after the move.
+    Only reports NEW forks created by the user's move.
     """
     opponent = not user_color
     
-    # Check for forks by opponent AFTER user's move
+    # Get forks before and after
+    forks_before = find_forks(board_before, opponent)
     forks_after = find_forks(board_after, opponent)
     
-    if forks_after:
-        # Return the most valuable fork
-        return forks_after[0]
+    if not forks_after:
+        return None
+    
+    # Check if this is a NEW fork (not one that existed before)
+    forks_before_squares = {f["attacker_square"] for f in forks_before}
+    
+    for fork in forks_after:
+        if fork["attacker_square"] not in forks_before_squares:
+            return fork
+        # Also check if same attacker but now attacks MORE valuable pieces
+        for old_fork in forks_before:
+            if old_fork["attacker_square"] == fork["attacker_square"]:
+                if fork["total_value"] > old_fork["total_value"] + 2:
+                    return fork
     
     return None
 
@@ -446,21 +557,22 @@ def detect_walked_into_pin(board_before: chess.Board, board_after: chess.Board,
                           user_color: chess.Color) -> Optional[Dict]:
     """
     Detect if user's move created a pin against themselves.
+    
+    Only reports NEW pins created by the move.
     """
     pins_before = find_pins(board_before, user_color)
     pins_after = find_pins(board_after, user_color)
     
-    # Check if a new pin was created
-    if len(pins_after) > len(pins_before):
-        # Return the new pin
-        for pin in pins_after:
-            is_new = True
-            for old_pin in pins_before:
-                if pin["pinned_square"] == old_pin["pinned_square"]:
-                    is_new = False
-                    break
-            if is_new:
-                return pin
+    if not pins_after:
+        return None
+    
+    # Get pinned squares before
+    pinned_before = {p["pinned_square"] for p in pins_before}
+    
+    # Find new pins
+    for pin in pins_after:
+        if pin["pinned_square"] not in pinned_before:
+            return pin
     
     return None
 
@@ -469,7 +581,12 @@ def detect_missed_fork(board_before: chess.Board, best_move: str,
                        user_color: chess.Color) -> Optional[Dict]:
     """
     Detect if the best move would have created a fork.
+    
+    Only reports if the best move creates a STRONG fork.
     """
+    if not best_move:
+        return None
+    
     try:
         board_copy = board_before.copy()
         board_copy.push_san(best_move)
@@ -477,8 +594,11 @@ def detect_missed_fork(board_before: chess.Board, best_move: str,
         # Check for forks after best move
         forks = find_forks(board_copy, user_color)
         if forks:
-            return forks[0]
-    except Exception:
+            # Only report significant forks
+            best_fork = forks[0]
+            if best_fork["includes_king"] or best_fork["includes_queen"] or best_fork["total_value"] >= 8:
+                return best_fork
+    except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
         pass
     
     return None
@@ -487,8 +607,13 @@ def detect_missed_fork(board_before: chess.Board, best_move: str,
 def detect_missed_pin(board_before: chess.Board, best_move: str,
                      user_color: chess.Color) -> Optional[Dict]:
     """
-    Detect if the best move would have created a pin.
+    Detect if the best move would have created a pin on opponent.
+    
+    Only reports significant pins (absolute or pinning valuable piece).
     """
+    if not best_move:
+        return None
+    
     opponent = not user_color
     
     try:
@@ -498,8 +623,11 @@ def detect_missed_pin(board_before: chess.Board, best_move: str,
         # Check for pins on opponent after best move
         pins = find_pins(board_copy, opponent)
         if pins:
-            return pins[0]
-    except Exception:
+            best_pin = pins[0]
+            # Only report absolute pins or pins of valuable pieces
+            if best_pin["pin_type"] == "absolute" or best_pin["pinned_value"] >= 3:
+                return best_pin
+    except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
         pass
     
     return None
