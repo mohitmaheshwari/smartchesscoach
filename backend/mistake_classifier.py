@@ -1067,6 +1067,43 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
     reason = mistake.pattern_details.get("reason", "")
     
     templates = {
+        # === POSITIVE OUTCOMES (Executed tactics, avoided threats) ===
+        MistakeType.EXECUTED_FORK: (
+            f"Excellent tactic! {reason} "
+            "Forks are one of the most powerful weapons in chess!"
+        ),
+        
+        MistakeType.EXECUTED_PIN: (
+            f"Great tactical play! {reason} "
+            "Pins restrict your opponent and often win material."
+        ),
+        
+        MistakeType.EXECUTED_SKEWER: (
+            f"Nice skewer! {reason} "
+            "Skewers work like reverse pins - the valuable piece must move."
+        ),
+        
+        MistakeType.AVOIDED_FORK: (
+            f"Good defensive awareness! {reason} "
+            "You spotted the fork threat and dealt with it."
+        ),
+        
+        MistakeType.AVOIDED_PIN: (
+            f"Well done! {reason} "
+            "Escaping pins is crucial to maintaining piece mobility."
+        ),
+        
+        MistakeType.AVOIDED_SKEWER: (
+            f"Good vision! {reason} "
+            "You saw the skewer threat and prevented it."
+        ),
+        
+        MistakeType.AVOIDED_THREAT: (
+            f"Good defense! {reason} "
+            "Recognizing and neutralizing threats is a key skill."
+        ),
+        
+        # === NEGATIVE OUTCOMES (Mistakes) ===
         MistakeType.WALKED_INTO_FORK: (
             f"You walked into a fork! {reason}. "
             "Before moving, check what squares your opponent's pieces can reach."
@@ -1077,6 +1114,11 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
             "Pinned pieces can't move freely - always consider diagonal and file attacks."
         ),
         
+        MistakeType.WALKED_INTO_SKEWER: (
+            f"You walked into a skewer! {reason}. "
+            "Be careful when your valuable pieces line up on the same file, rank, or diagonal."
+        ),
+        
         MistakeType.MISSED_FORK: (
             f"You missed a fork! {mistake.best_move} would have attacked multiple pieces at once. "
             "Look for knight moves that attack two pieces - forks are powerful tactics!"
@@ -1085,6 +1127,11 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
         MistakeType.MISSED_PIN: (
             f"You missed a pin opportunity! {mistake.best_move} would have pinned an opponent's piece. "
             "Pins restrict your opponent's options - look for pieces lined up with the king or queen."
+        ),
+        
+        MistakeType.MISSED_SKEWER: (
+            f"You missed a skewer! {mistake.best_move} would have attacked a valuable piece with another behind it. "
+            "Look for opportunities where opponent's pieces line up on a diagonal or file."
         ),
         
         MistakeType.HANGING_PIECE: (
