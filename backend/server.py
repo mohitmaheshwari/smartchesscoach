@@ -4675,6 +4675,212 @@ async def get_rag_status(user: User = Depends(get_current_user)):
         }
     }
 
+
+# ============================================
+# BLUNDER REDUCTION SYSTEM ENDPOINTS
+# ============================================
+
+@api_router.get("/focus")
+async def get_focus_page_data(user: User = Depends(get_current_user)):
+    """
+    Get data for the Focus page (TODAY - What to focus on NOW)
+    
+    Returns:
+    - ONE dominant weakness
+    - ONE mission
+    - ONE behavioral rule
+    - Identity profile
+    - Rating impact estimate
+    """
+    # Get analyses
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(15).to_list(15)
+    
+    games = await db.games.find(
+        {"user_id": user.user_id}
+    ).sort("date", -1).limit(15).to_list(15)
+    
+    focus_data = get_focus_data(analyses, games)
+    
+    return focus_data
+
+
+@api_router.get("/journey")
+async def get_journey_page_data(user: User = Depends(get_current_user)):
+    """
+    Get data for the Journey page (TREND - How you're evolving)
+    
+    Returns:
+    - Weakness ranking (not equal badges)
+    - Win-state analysis
+    - Mistake heatmap
+    - Identity profile
+    - Milestones
+    """
+    # Get analyses
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(15).to_list(15)
+    
+    games = await db.games.find(
+        {"user_id": user.user_id}
+    ).sort("date", -1).limit(15).to_list(15)
+    
+    # Get existing badge data
+    badge_data = await calculate_all_badges(db, user.user_id)
+    
+    journey_data = get_journey_data(analyses, games, badge_data)
+    
+    return journey_data
+
+
+@api_router.get("/lab/{game_id}")
+async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Get data for the Lab page (DETAIL - What actually happened)
+    
+    Returns:
+    - Core lesson of the game
+    - Full analysis data
+    """
+    analysis = await db.game_analyses.find_one({
+        "game_id": game_id,
+        "user_id": user.user_id
+    })
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    # Remove MongoDB _id
+    if "_id" in analysis:
+        del analysis["_id"]
+    
+    lab_data = get_lab_data(analysis)
+    
+    return lab_data
+
+
+@api_router.get("/weakness-ranking")
+async def get_weakness_ranking(user: User = Depends(get_current_user)):
+    """
+    Get dominant weakness ranking.
+    
+    Returns:
+    - #1 Rating Killer
+    - Secondary Weakness
+    - Stable Strength
+    """
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(15).to_list(15)
+    
+    return get_dominant_weakness_ranking(analyses)
+
+
+@api_router.get("/win-state")
+async def get_win_state(user: User = Depends(get_current_user)):
+    """
+    Get win-state analysis.
+    
+    Returns when blunders happen:
+    - When winning
+    - When equal
+    - When losing
+    """
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(15).to_list(15)
+    
+    return get_win_state_analysis(analyses)
+
+
+@api_router.get("/heatmap")
+async def get_heatmap(user: User = Depends(get_current_user)):
+    """
+    Get mistake heatmap data.
+    
+    Returns:
+    - Squares where mistakes occurred
+    - Board region analysis
+    - Hot squares
+    """
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(15).to_list(15)
+    
+    return get_mistake_heatmap(analyses)
+
+
+@api_router.get("/rating-impact")
+async def get_rating_impact(user: User = Depends(get_current_user)):
+    """
+    Get rating impact estimate.
+    
+    Returns:
+    - Potential rating gain if dominant weakness fixed
+    - Confidence level
+    """
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(15).to_list(15)
+    
+    return estimate_rating_impact(analyses)
+
+
+@api_router.get("/identity")
+async def get_identity(user: User = Depends(get_current_user)):
+    """
+    Get chess identity profile.
+    
+    Returns:
+    - Identity label (e.g., "Aggressive but careless")
+    - Description
+    """
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(15).to_list(15)
+    
+    return get_identity_profile(analyses)
+
+
+@api_router.get("/mission")
+async def get_current_mission(user: User = Depends(get_current_user)):
+    """
+    Get current mission.
+    
+    Returns:
+    - Mission name and goal
+    - Progress
+    - Reward
+    """
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(15).to_list(15)
+    
+    return get_mission(analyses)
+
+
+@api_router.get("/milestones")
+async def get_milestones(user: User = Depends(get_current_user)):
+    """
+    Get achievement milestones.
+    
+    Returns list of achieved and available milestones.
+    """
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(50).to_list(50)
+    
+    # Get user stats for milestone tracking
+    user_stats = await db.user_stats.find_one({"user_id": user.user_id})
+    
+    return {
+        "achieved": check_milestones(analyses, user_stats),
+        "total_games": len(analyses)
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
