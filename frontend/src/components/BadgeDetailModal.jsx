@@ -387,11 +387,12 @@ const InteractiveBoard = ({
         />
       </div>
       
-      {/* Threat indicator */}
-      {threat && viewMode !== "played" && (
+      {/* Threat indicator - only show on "played" view since that's when you missed it */}
+      {threat && viewMode === "played" && (
         <div className="mt-2 text-center w-full max-w-[320px] p-2 rounded bg-orange-500/10 border border-orange-500/30">
           <p className="text-xs text-orange-600 dark:text-orange-400">
-            <span className="font-bold">Threat:</span> {threat} (highlighted in orange)
+            <span className="font-bold">You missed this threat:</span> {threat} 
+            <span className="text-muted-foreground ml-1">(orange square)</span>
           </p>
         </div>
       )}
