@@ -997,6 +997,12 @@ def classify_mistake(
         pattern_details["missed_pin"] = missed_pin
         pattern_details["reason"] = f"You could have created a pin with {best_move}"
     
+    # Rule 5.5: MISSED_SKEWER - could have skewered but didn't
+    elif missed_skewer and eval_drop > 1.0:
+        mistake_type = MistakeType.MISSED_SKEWER
+        pattern_details["missed_skewer"] = missed_skewer
+        pattern_details["reason"] = f"You could have created a skewer with {best_move}"
+    
     # Rule 6: HANGING_PIECE - piece left undefended and eval dropped significantly
     elif hanging_after and eval_drop > 0.5:
         mistake_type = MistakeType.HANGING_PIECE
