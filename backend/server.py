@@ -4353,16 +4353,13 @@ If the student asks about something not in the facts, say "Let me check..." and 
             answer = answer.strip()
         except Exception as e:
             logger.error(f"GPT error in ask_about_move: {e}")
-            # Fallback to the deterministic template
+            # Fallback to the deterministic template (no LLM needed)
             if mistake_analysis:
                 answer = mistake_analysis.get("template", f"The best move was {best_move_for_user}.")
             else:
                 answer = f"The best move here was {best_move_for_user or stockfish_data['best_move']}."
-            answer = f"The best move here is {stockfish_data['best_move']}. "
-            if req.alternative_move and alternative_analysis and "error" not in alternative_analysis:
-                answer += f"Your suggestion {req.alternative_move} leads to an evaluation of {alternative_analysis.get('evaluation')}."
         
-        # Build response
+        # Build response with the deterministic analysis included
         return {
             "answer": answer,
             "stockfish": {
@@ -4374,7 +4371,8 @@ If the student asks about something not in the facts, say "Let me check..." and 
                 "user_best_line": best_line_for_user
             },
             "alternative_analysis": alternative_analysis,
-            "played_analysis": played_analysis
+            "played_analysis": played_analysis,
+            "mistake_analysis": mistake_analysis  # NEW: Include structured analysis
         }
         
     except HTTPException:
