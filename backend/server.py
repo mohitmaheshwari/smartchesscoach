@@ -561,6 +561,59 @@ async def create_session(request: Request, response: Response):
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     return user_doc
 
+@api_router.get("/auth/dev-login")
+async def dev_login(response: Response):
+    """
+    DEV MODE ONLY: Auto-login without Google OAuth.
+    Use this for local testing when Google OAuth redirect doesn't work.
+    """
+    if not DEV_MODE:
+        raise HTTPException(status_code=403, detail="Dev login only available in DEV_MODE")
+    
+    # Get or create dev user
+    dev_user = await db.users.find_one({"user_id": DEV_USER_ID}, {"_id": 0})
+    if not dev_user:
+        dev_user = {
+            "user_id": DEV_USER_ID,
+            "email": "dev@localhost",
+            "name": "Dev User",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "rating": 1300,
+            "chess_com_username": None,
+            "lichess_username": None
+        }
+        await db.users.insert_one(dev_user)
+    
+    # Create session
+    session_token = str(uuid.uuid4())
+    await db.user_sessions.delete_many({"user_id": DEV_USER_ID})
+    
+    session_doc = {
+        "user_id": DEV_USER_ID,
+        "session_token": session_token,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.user_sessions.insert_one(session_doc)
+    
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=False,  # Allow HTTP for localhost
+        samesite="lax",
+        path="/",
+        max_age=COOKIE_MAX_AGE_SECONDS
+    )
+    
+    logger.info(f"Dev user logged in: {DEV_USER_ID}")
+    return {"status": "ok", "user": dev_user, "message": "Dev login successful"}
+
+@api_router.get("/auth/status")
+async def auth_status():
+    """Check if DEV_MODE is enabled"""
+    return {"dev_mode": DEV_MODE}
+
 @api_router.get("/auth/me")
 async def get_me(user: User = Depends(get_current_user)):
     """Get current user profile"""
