@@ -154,11 +154,22 @@ const InteractiveBoard = ({
       const move = chess.move(playedMove);
       
       if (move) {
-        setCurrentFen(chess.fen());
-        setHighlightSquares({
+        // Build highlights: user's move in red, threat in orange
+        const highlights = {
           [move.from]: { backgroundColor: "rgba(239, 68, 68, 0.5)" },  // Red for bad move
           [move.to]: { backgroundColor: "rgba(239, 68, 68, 0.5)" }
-        });
+        };
+        
+        // Show the threat on YOUR move view - this is when you should have seen it!
+        if (threat) {
+          highlights[threat] = { 
+            backgroundColor: "rgba(249, 115, 22, 0.6)",  // Orange for threat
+            boxShadow: "inset 0 0 0 3px rgba(249, 115, 22, 0.9)"
+          };
+        }
+        
+        setCurrentFen(chess.fen());
+        setHighlightSquares(highlights);
         setViewMode("played");
         setIsShowingLine(false);
         setLineIndex(-1);
@@ -166,7 +177,7 @@ const InteractiveBoard = ({
     } catch (e) {
       console.log("Could not replay move:", playedMove, e);
     }
-  }, [fenBefore, playedMove]);
+  }, [fenBefore, playedMove, threat]);
 
   // Show the best move (what should have been played)
   const showBestMove = useCallback(() => {
