@@ -13,12 +13,20 @@ Calculates 8 skill badges based on game analysis:
 
 Each badge is rated 1-5 stars with trend tracking.
 NEW: Each badge now tracks relevant moves for drill-down.
+NEW: Uses position_analyzer for real tactical pattern detection.
 """
 
 import logging
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone, timedelta
 import statistics
+
+# Import position analyzer for real tactical explanations
+try:
+    from position_analyzer import analyze_position_tactics, explain_move_difference
+    HAS_POSITION_ANALYZER = True
+except ImportError:
+    HAS_POSITION_ANALYZER = False
 
 logger = logging.getLogger(__name__)
 
