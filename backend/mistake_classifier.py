@@ -725,7 +725,7 @@ def detect_avoided_threat(board_before: chess.Board, board_after: chess.Board,
         return {
             "type": "avoided_fork",
             "threat": forks_before[0],
-            "message": f"You correctly avoided the fork threat!"
+            "message": "You correctly avoided the fork threat!"
         }
     
     # User escaped from pin
@@ -744,7 +744,7 @@ def detect_avoided_threat(board_before: chess.Board, board_after: chess.Board,
         return {
             "type": "avoided_skewer",
             "threat": skewers_before[0],
-            "message": f"You correctly avoided the skewer!"
+            "message": "You correctly avoided the skewer!"
         }
     
     return None
