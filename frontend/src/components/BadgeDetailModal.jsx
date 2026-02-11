@@ -327,47 +327,6 @@ const InteractiveBoard = ({
 
   const hasPvLine = pvLine && pvLine.length > 0;
 
-  // Play through the best line (from the position BEFORE the mistake)
-  const playNextMove = useCallback(() => {
-    const chess = chessRef.current;
-    if (!pvLine || pvLine.length === 0 || !fenBefore) return;
-    
-    const nextIndex = lineIndex + 1;
-    if (nextIndex >= pvLine.length) return;
-
-    try {
-      // Reset to starting position (before the mistake)
-      chess.load(fenBefore);
-    
-      // Play all moves up to nextIndex
-      for (let i = 0; i <= nextIndex; i++) {
-        try {
-          chess.move(pvLine[i]);
-        } catch (e) {
-          console.error("Invalid move in PV:", pvLine[i]);
-          return;
-        }
-      }
-      
-      setCurrentFen(chess.fen());
-      setLineIndex(nextIndex);
-      setIsShowingLine(true);
-      setViewMode("line");
-      
-      // Highlight the last move
-      const history = chess.history({ verbose: true });
-      if (history.length > 0) {
-        const lastMove = history[history.length - 1];
-        setHighlightSquares({
-          [lastMove.from]: { backgroundColor: "rgba(34, 197, 94, 0.4)" },
-          [lastMove.to]: { backgroundColor: "rgba(34, 197, 94, 0.4)" }
-        });
-      }
-    } catch (e) {
-      console.error("Error going back:", e);
-    }
-  }, [fenBefore, pvLine, lineIndex, threat]);
-
   return (
     <div className="flex flex-col items-center">
       {/* Error State */}
