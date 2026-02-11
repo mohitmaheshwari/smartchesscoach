@@ -120,9 +120,7 @@ The `/api/game/{game_id}/ask` endpoint now follows the architecture:
 - `total_good_plays` (separate from mistakes)
 
 ## Upcoming Tasks (P1)
-1. **Update LLM Prompt Layer** - Refactor `/api/game/{gameId}/ask` to use "personality layer" model (LLM only narrates structured facts from classifier)
-2. **Detect Avoided Threats** - Positive feedback when user correctly spots threats
-3. **"Today's Focus" Feature** - Dashboard component highlighting one actionable improvement area
+1. **"Today's Focus" Feature** - Dashboard component highlighting one actionable improvement area based on recent mistake patterns
 
 ## Future/Backlog Tasks (P2-P3)
 1. **Aggregate Behavioral Patterns** - Identify recurring patterns across games (e.g., "You hang pieces when ahead")
