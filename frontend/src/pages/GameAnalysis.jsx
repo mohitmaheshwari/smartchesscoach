@@ -796,6 +796,70 @@ const GameAnalysis = ({ user }) => {
           </div>
         </div>
 
+        {/* CORE LESSON - One behavioral insight from this game */}
+        {coreLesson && coreLesson.pattern && coreLesson.pattern !== "clean_game" && (
+          <Card className="border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/5 to-orange-500/5">
+            <CardContent className="py-5">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-full bg-amber-500/10 shrink-0">
+                  <Brain className="w-6 h-6 text-amber-500" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                      Core Lesson of This Game
+                    </span>
+                    {coreLesson.severity && coreLesson.severity !== "none" && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        coreLesson.severity === "critical" ? "bg-red-500/20 text-red-400" :
+                        coreLesson.severity === "significant" ? "bg-orange-500/20 text-orange-400" :
+                        "bg-yellow-500/20 text-yellow-400"
+                      }`}>
+                        {coreLesson.severity}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-bold mb-2">{coreLesson.lesson}</h3>
+                  {coreLesson.behavioral_fix && (
+                    <div className="p-3 rounded-lg bg-background/50 border border-border/50">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Lightbulb className="w-4 h-4 text-yellow-500" />
+                        <span className="text-sm font-semibold">The Fix:</span>
+                      </div>
+                      <p className="text-sm">{coreLesson.behavioral_fix}</p>
+                    </div>
+                  )}
+                  {coreLesson.total_cp_loss > 0 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      This pattern cost ~{coreLesson.total_cp_loss} centipawns across {coreLesson.occurrences} occurrence(s)
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Clean Game Celebration */}
+        {coreLesson && coreLesson.pattern === "clean_game" && (
+          <Card className="border-2 border-green-500/30 bg-gradient-to-r from-green-500/5 to-emerald-500/5">
+            <CardContent className="py-5">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-full bg-green-500/10">
+                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-green-500">
+                    Clean Game
+                  </span>
+                  <h3 className="text-lg font-bold">{coreLesson.lesson}</h3>
+                  <p className="text-sm text-muted-foreground">{coreLesson.behavioral_fix}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Board */}
