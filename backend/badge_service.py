@@ -1338,15 +1338,20 @@ def _get_time_badge_details(analyses: List[Dict], games_map: Dict) -> Dict:
             game_time_data["time_trouble"] = True
             
             for m in late_blunders:
+                best = m.get("best_move", "")
+                pv = m.get("pv_after_best", [])
+                pv_str = f" The correct move was {best}." if best else ""
                 move_data = {
                     "move_number": m.get("move_number"),
                     "move_played": m.get("move"),
                     "fen": m.get("fen_before", ""),
-                    "best_move": m.get("best_move"),
+                    "best_move": best,
                     "evaluation": "blunder",
                     "cp_loss": m.get("cp_loss", 0),
                     "type": "time_trouble_blunder",
-                    "explanation": "Late-game blunder - likely time pressure"
+                    "pv_after_best": pv,
+                    "threat": m.get("threat"),
+                    "explanation": f"Late-game blunder, likely due to time pressure.{pv_str} When low on time, play simple and safe moves. Don't complicate!"
                 }
                 game_time_data["moves"].append(move_data)
                 relevant_moves.append({**move_data, "game_id": game_id})
