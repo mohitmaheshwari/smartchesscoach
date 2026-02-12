@@ -5492,12 +5492,16 @@ async def reanalyze_game(
                 {"$set": {"status": "processing"}}
             )
             
-            # Run Stockfish analysis
+            # Run Stockfish analysis in thread pool to avoid blocking event loop
             user_color = game.get('user_color', 'white')
-            stockfish_result = analyze_game_with_stockfish(
-                game['pgn'], 
-                user_color=user_color,
-                depth=STOCKFISH_DEPTH
+            loop = asyncio.get_event_loop()
+            stockfish_result = await loop.run_in_executor(
+                None,  # Use default executor
+                lambda: analyze_game_with_stockfish(
+                    game['pgn'], 
+                    user_color=user_color,
+                    depth=STOCKFISH_DEPTH
+                )
             )
             
             if not stockfish_result or not stockfish_result.get("success"):
