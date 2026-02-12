@@ -240,41 +240,43 @@ const FocusPage = ({ user }) => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <Card className="border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-yellow-500/5">
-                  <CardContent className="py-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-amber-500/10">
-                          <Target className="w-5 h-5 text-amber-500" />
-                        </div>
-                        <div>
-                          <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                            Active Mission
-                          </span>
-                          <h3 className="font-bold">{focusData.mission.name}</h3>
-                        </div>
-                      </div>
-                      <div className="text-right">
+                <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
+                  <CardContent className="py-5">
+                    {/* Header */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <Target className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                        Current Discipline Focus
+                      </span>
+                    </div>
+                    
+                    {/* Mission Name & Progress */}
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-lg font-bold">{focusData.mission.name}</h3>
+                      <div className="flex items-baseline gap-1">
                         <span className="text-2xl font-bold text-amber-500">
-                          {focusData.mission.games_completed || 0}
+                          {focusData.mission.progress || 0}
                         </span>
-                        <span className="text-muted-foreground">/{focusData.mission.games_required || 10}</span>
+                        <span className="text-muted-foreground text-sm">/ {focusData.mission.target || 3}</span>
                       </div>
                     </div>
                     
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {focusData.mission.description || focusData.mission.goal}
+                    {/* Goal */}
+                    <p className="text-sm font-medium mb-3">
+                      {focusData.mission.goal}
                     </p>
                     
+                    {/* Progress Bar */}
                     <Progress 
-                      value={((focusData.mission.games_completed || 0) / (focusData.mission.games_required || 10)) * 100} 
-                      className="h-2"
+                      value={((focusData.mission.progress || 0) / (focusData.mission.target || 3)) * 100} 
+                      className="h-1.5 mb-4"
                     />
                     
-                    {focusData.mission.reward && (
-                      <div className="flex items-center gap-2 mt-3 text-sm">
-                        <Trophy className="w-4 h-4 text-amber-500" />
-                        <span className="text-muted-foreground">Reward: {focusData.mission.reward}</span>
+                    {/* Instruction Box */}
+                    {focusData.mission.instruction && (
+                      <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
+                        <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">How to do it</p>
+                        <p className="text-sm">{focusData.mission.instruction}</p>
                       </div>
                     )}
                   </CardContent>
