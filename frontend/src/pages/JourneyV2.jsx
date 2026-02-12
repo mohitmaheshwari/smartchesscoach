@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import EvidenceModal from "@/components/EvidenceModal";
 import DrillMode from "@/components/DrillMode";
+import { formatTotalCpLoss } from "@/utils/evalFormatter";
 
 /**
  * JOURNEY PAGE - "How you're evolving"
@@ -326,7 +327,7 @@ const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
                   {weakness.message}
                 </p>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
-                  <span>~{weakness.total_cp_loss} cp lost</span>
+                  <span>{formatTotalCpLoss(weakness.total_cp_loss)}</span>
                   <span>{weakness.occurrences} occurrences</span>
                 </div>
                 
