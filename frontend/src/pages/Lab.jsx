@@ -86,6 +86,7 @@ const Lab = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [coachCommentary, setCoachCommentary] = useState(null);
+  const [reanalyzing, setReanalyzing] = useState(false);
   
   // Board states
   const [moves, setMoves] = useState([]);
@@ -105,6 +106,67 @@ const Lab = ({ user }) => {
   const [practiceMode, setPracticeMode] = useState(false);
   const [practicePositions, setPracticePositions] = useState([]);
   const [practiceIndex, setPracticeIndex] = useState(0);
+  
+  // Re-analyze game handler
+  const handleReanalyze = async () => {
+    setReanalyzing(true);
+    try {
+      const response = await fetch(`${API}/games/${gameId}/reanalyze`, {
+        method: "POST",
+        credentials: "include"
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Failed to queue re-analysis");
+      }
+      
+      const data = await response.json();
+      toast.success(data.message || "Game queued for re-analysis!");
+      
+      // Poll for completion
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`${API}/games/${gameId}/analysis-status`, { credentials: "include" });
+          if (statusRes.ok) {
+            const status = await statusRes.json();
+            if (status.status === "analyzed") {
+              clearInterval(pollInterval);
+              // Refetch analysis
+              const analysisRes = await fetch(`${API}/analysis/${gameId}`, { credentials: "include" });
+              if (analysisRes.ok) {
+                const analysisData = await analysisRes.json();
+                setAnalysis(analysisData);
+                toast.success("Analysis complete!");
+              }
+              // Refetch lab data
+              const labRes = await fetch(`${API}/lab/${gameId}`, { credentials: "include" });
+              if (labRes.ok) {
+                setLabData(await labRes.json());
+              }
+              setReanalyzing(false);
+            } else if (status.status === "failed") {
+              clearInterval(pollInterval);
+              toast.error("Analysis failed. Please try again.");
+              setReanalyzing(false);
+            }
+          }
+        } catch (err) {
+          console.error("Poll error:", err);
+        }
+      }, 3000); // Poll every 3 seconds
+      
+      // Stop polling after 2 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        setReanalyzing(false);
+      }, 120000);
+      
+    } catch (error) {
+      toast.error(error.message || "Failed to queue re-analysis");
+      setReanalyzing(false);
+    }
+  };
   
   // Fetch game and analysis data
   useEffect(() => {
