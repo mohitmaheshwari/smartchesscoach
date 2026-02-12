@@ -943,7 +943,8 @@ const Lab = ({ user }) => {
                         </div>
                       )}
                     </TabsContent>
-                  </ScrollArea>
+                    </ScrollArea>
+                  </div>
                 </Tabs>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
