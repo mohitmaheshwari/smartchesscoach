@@ -1,0 +1,102 @@
+{
+  "summary": "Live Auto-Coach feature testing completed. All 5 backend endpoints working correctly: subscription, coach commentary, trigger analysis, notifications GET, and notifications read. Fixed a bug where mark_notification_read endpoint returned 500 error due to function name shadowing. Frontend verified: Lab page shows Coach's Take section with LLM commentary, notification bell shows unread badge and clickable notifications that navigate to game Lab page.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "features_tested": {
+    "subscription_endpoint": {
+      "status": "PASS",
+      "endpoint": "GET /api/subscription",
+      "details": "Returns plan info (pro/free), limits (monthly_analysis_limit, llm_commentary), and usage (analyses_used, analyses_remaining)"
+    },
+    "subscription_can_analyze": {
+      "status": "PASS",
+      "endpoint": "GET /api/subscription/can-analyze",
+      "details": "Returns allowed flag and analyses_remaining"
+    },
+    "coach_commentary": {
+      "status": "PASS",
+      "endpoint": "GET /api/coach/commentary/{game_id}",
+      "details": "Returns LLM coaching commentary, supports caching. Returns 404 for nonexistent games."
+    },
+    "trigger_analysis": {
+      "status": "PASS",
+      "endpoint": "POST /api/coach/trigger-analysis/{game_id}",
+      "details": "Generates deterministic summary, creates notification, queues LLM commentary in background"
+    },
+    "notifications_get": {
+      "status": "PASS",
+      "endpoint": "GET /api/notifications",
+      "details": "Returns notifications list with unread_count. Supports limit and unread_only parameters."
+    },
+    "notifications_read": {
+      "status": "PASS",
+      "endpoint": "POST /api/notifications/read",
+      "details": "Marks all notifications as read. BUG FIXED: Was returning 500 due to function shadowing."
+    },
+    "lab_coach_take_section": {
+      "status": "PASS",
+      "details": "Lab page Summary tab shows Coach's Take section with Sparkles icon and LLM-generated commentary"
+    },
+    "notification_bell_badge": {
+      "status": "PASS",
+      "details": "Notification bell shows unread count badge in header"
+    },
+    "notification_click_navigation": {
+      "status": "PASS",
+      "details": "Clicking notification navigates to game Lab page (/game/{game_id})"
+    }
+  },
+
+  "bugs_fixed": [
+    {
+      "file": "/app/backend/server.py",
+      "line": 4720,
+      "issue": "Function mark_notification_read shadowed imported function from notification_service.py",
+      "fix": "Renamed local API endpoint function to mark_single_notification_read",
+      "impact": "POST /api/notifications/read was returning 500 Internal Server Error"
+    }
+  ],
+
+  "test_report_links": [
+    "/app/backend/tests/test_auto_coach.py",
+    "/app/test_reports/pytest/pytest_auto_coach.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Duplicate notification endpoint definitions in server.py (lines 4699-4735 and 5061-5123) - may cause route conflicts. Consider consolidating."
+  ],
+
+  "updated_files": [
+    "/app/backend/server.py",
+    "/app/backend/tests/test_auto_coach.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (11/11 tests passed after bug fix)",
+    "frontend": "100% (all 3 UI features verified)"
+  },
+
+  "test_credentials_used": {
+    "dev_login": "https://game-surgeon.preview.emergentagent.com/api/auth/dev-login",
+    "test_game_id": "8a8b4f16-201a-4a7c-bc5a-21405c4ff939"
+  },
+
+  "seed_data_creation": "None - used existing user data",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Live Auto-Coach feature fully working. Key components: auto_coach_service.py (generate_coach_commentary, build_deterministic_summary), notification_service.py (create_notification, notify_game_analyzed), subscription_service.py (get_effective_plan, has_feature_access). Lab.jsx shows Coach's Take in Summary tab (line 672-679) using indigo gradient styling. Layout.jsx has notification bell (line 183-256) with 30-second polling."
+}
