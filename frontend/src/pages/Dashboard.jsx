@@ -401,135 +401,86 @@ const Dashboard = ({ user }) => {
 
             {/* Two Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Games - Enhanced */}
+              {/* Games Section - With Tabs */}
               <AnimatedItem>
                 <Card className="surface h-full">
                   <CardContent className="py-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="label-caps">Recent Games</p>
-                      <div className="flex items-center gap-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
-                              <Filter className="w-3 h-3" />
-                              {opponentFilter === "all" ? "All" : 
-                               opponentFilter === "stronger" ? "Stronger" :
-                               opponentFilter === "weaker" ? "Weaker" : "Equal"}
-                              <ChevronDown className="w-3 h-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setOpponentFilter("all")}>
-                              All Opponents
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setOpponentFilter("stronger")}>
-                              Stronger Opponents
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setOpponentFilter("equal")}>
-                              Equal Opponents
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setOpponentFilter("weaker")}>
-                              Weaker Opponents
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                      <div className="flex items-center justify-between mb-4">
+                        <TabsList className="grid w-fit grid-cols-2">
+                          <TabsTrigger value="analyzed" className="gap-1.5" data-testid="analyzed-tab">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Analyzed
+                            {stats?.analyzed_games > 0 && (
+                              <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500">
+                                {stats.analyzed_games}
+                              </span>
+                            )}
+                          </TabsTrigger>
+                          <TabsTrigger value="in_queue" className="gap-1.5" data-testid="in-queue-tab">
+                            <Clock className="w-3 h-3" />
+                            In Queue
+                            {stats?.queued_games > 0 && (
+                              <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-500">
+                                {stats.queued_games}
+                              </span>
+                            )}
+                          </TabsTrigger>
+                        </TabsList>
                         <Button 
                           variant="ghost" 
                           size="sm"
                           onClick={() => navigate('/import')}
                           className="text-muted-foreground hover:text-foreground -mr-2"
                         >
-                          All
-                          <ChevronRight className="w-4 h-4 ml-1" />
+                          Import
+                          <Import className="w-4 h-4 ml-1" />
                         </Button>
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      {filteredGames.length > 0 ? (
-                        filteredGames.slice(0, 5).map((game) => {
-                          const opponent = game.user_color === 'white' 
-                            ? game.black_player 
-                            : game.white_player;
-                          const opponentRating = game.user_color === 'white'
-                            ? game.black_rating
-                            : game.white_rating;
-                          const strengthInfo = getOpponentStrengthLabel(opponentRating);
-                          const resultText = game.result === '1-0' 
-                            ? (game.user_color === 'white' ? 'Won' : 'Lost')
-                            : game.result === '0-1'
-                            ? (game.user_color === 'black' ? 'Won' : 'Lost')
-                            : 'Draw';
-                          const resultColor = resultText === 'Won' 
-                            ? 'text-emerald-500' 
-                            : resultText === 'Lost' 
-                            ? 'text-red-500' 
-                            : 'text-yellow-500';
-                          
-                          return (
-                            <motion.div 
-                              key={game.game_id}
-                              whileHover={{ x: 4 }}
-                              className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer group"
-                              onClick={() => navigate(`/game/${game.game_id}`)}
-                              data-testid={`game-item-${game.game_id}`}
-                            >
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                {/* Color indicator */}
-                                <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
-                                  game.user_color === 'white' 
-                                    ? 'bg-white text-black border border-border' 
-                                    : 'bg-zinc-800 text-white'
-                                }`}>
-                                  {game.user_color === 'white' ? 'W' : 'B'}
-                                </span>
-                                
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-medium text-sm truncate">
-                                      vs {opponent || 'Opponent'}
-                                    </p>
-                                    {opponentRating && (
-                                      <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
-                                        {opponentRating}
-                                      </span>
-                                    )}
-                                    <span className={`text-xs font-semibold ${resultColor}`}>
-                                      {resultText}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    {game.opening && (
-                                      <span className="truncate max-w-[120px]">{game.opening}</span>
-                                    )}
-                                    {!game.opening && (
-                                      <span>{game.platform}</span>
-                                    )}
-                                    {game.is_analyzed && game.accuracy && (
-                                      <span className="text-emerald-500">{game.accuracy}%</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                {!game.is_analyzed && (
-                                  <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-500">
-                                    Not analyzed
-                                  </span>
-                                )}
-                                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                              </div>
-                            </motion.div>
-                          );
-                        })
-                      ) : (
-                        <p className="text-muted-foreground text-sm text-center py-8">
-                          {opponentFilter !== "all" 
-                            ? `No games against ${opponentFilter} opponents`
-                            : "No games yet"}
-                        </p>
-                      )}
-                    </div>
+                      
+                      {/* Analyzed Games Tab */}
+                      <TabsContent value="analyzed" className="mt-0">
+                        <div className="space-y-2">
+                          {(stats?.analyzed_list || []).length > 0 ? (
+                            (stats?.analyzed_list || []).slice(0, 5).map((game) => (
+                              <GameListItem
+                                key={game.game_id}
+                                game={game}
+                                userRating={userRating}
+                                onNavigate={() => navigate(`/game/${game.game_id}`)}
+                              />
+                            ))
+                          ) : (
+                            <div className="text-center py-8">
+                              <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
+                              <p className="text-muted-foreground text-sm">No analyzed games yet</p>
+                              <p className="text-xs text-muted-foreground mt-1">Import games and analyze them to see insights</p>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+                      
+                      {/* In Queue Tab */}
+                      <TabsContent value="in_queue" className="mt-0">
+                        <div className="space-y-2">
+                          {(stats?.in_queue_list || []).length > 0 ? (
+                            (stats?.in_queue_list || []).map((game) => (
+                              <QueuedGameItem
+                                key={game.game_id}
+                                game={game}
+                                onNavigate={() => navigate(`/game/${game.game_id}`)}
+                              />
+                            ))
+                          ) : (
+                            <div className="text-center py-8">
+                              <Clock className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
+                              <p className="text-muted-foreground text-sm">No games in queue</p>
+                              <p className="text-xs text-muted-foreground mt-1">Games being analyzed will appear here</p>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </CardContent>
                 </Card>
               </AnimatedItem>
