@@ -4746,6 +4746,7 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     
     Returns:
     - Core lesson of the game
+    - Evidence-based game strategy
     - Full analysis data
     """
     analysis = await db.game_analyses.find_one({
@@ -4756,11 +4757,19 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
     
+    # Get game data for metadata
+    game = await db.games.find_one({
+        "game_id": game_id,
+        "user_id": user.user_id
+    })
+    
     # Remove MongoDB _id
     if "_id" in analysis:
         del analysis["_id"]
+    if game and "_id" in game:
+        del game["_id"]
     
-    lab_data = get_lab_data(analysis)
+    lab_data = get_lab_data(analysis, game)
     
     return lab_data
 
