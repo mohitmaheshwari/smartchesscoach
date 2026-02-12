@@ -162,8 +162,46 @@ Each badge rated 1-5 stars with trend tracking:
 - `GET /api/analysis/{game_id}` - Get analysis for a game
 - `POST /api/import-games` - Import games from Chess.com/Lichess
 - `GET /api/auth/dev-login` - Dev mode login (when DEV_MODE=true)
+- `POST /api/explain-mistake` - Generate coach-like explanation for learning moments
 
 ## Recent Changes - February 2026
+
+### Milestones Feature (Feb 12, 2026 - COMPLETED)
+Renamed "Mistakes" tab to "Milestones" on the Lab page with positive, coach-like feedback:
+
+**Three Milestone Categories:**
+1. **Brilliant Moves** - Outstanding moves with very low cp_loss in complex positions
+   - Sparkles icon, amber color theme
+   - Messages like "Found a winning shot!", "Held strong under pressure", "Turned the game around!"
+   
+2. **Great Decisions** - Solid moves with cp_loss <= 5
+   - Star icon, green color theme
+   - Messages like "Maintained the balance", "Kept the pressure"
+   
+3. **Learning Moments** - Mistakes/blunders reframed as growth opportunities
+   - Lightbulb icon, expandable "What can I learn here?" sections
+   - Coach-like feedback via `/api/explain-mistake` endpoint
+
+**Key Files:**
+- `frontend/src/pages/Lab.jsx` - Milestones tab UI with MilestoneGroup, BrilliantMoveItem, LearningMomentItem components
+- `backend/mistake_explanation_service.py` - Coach-like MISTAKE_TEMPLATES with encouraging language
+
+**Coach-Like Language Examples:**
+- Instead of "Undefended piece" → "Piece left unprotected - it happens to everyone!"
+- Instead of "Missed a fork" → "Fork opportunity spotted! Good ones to look for!"
+- Instead of "Threw away the win" → "Victory slipped away - happens to grandmasters too!"
+
+### Real-time Queue Updates (Feb 12, 2026 - COMPLETED)
+Dashboard now auto-updates when games finish analysis:
+
+**How it works:**
+1. Dashboard polls `/api/dashboard-stats` every 5 seconds when `queued_games > 0`
+2. When a game finishes, queue count decreases and stats auto-refresh
+3. Toast notification shows "X game(s) analyzed!"
+4. Game automatically moves from "In Queue" tab to "Analyzed" tab
+
+**Key Files:**
+- `frontend/src/pages/Dashboard.jsx` - Lines 432-465, useEffect with polling logic
 
 ### Discovered Attack & Overloaded Defender Detection (Feb 2026)
 - Added `find_discovered_attacks()` function with full ray-tracing logic
