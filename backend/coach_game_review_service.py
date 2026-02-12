@@ -385,4 +385,13 @@ def get_concern_areas(facts: Dict) -> List[Dict]:
             "severity": "medium"
         })
     
+    # Check if they played an opening we told them to pause
+    opening = facts.get("opening_check", {})
+    if opening.get("played_paused_opening"):
+        concerns.append({
+            "type": "ignored_advice",
+            "text": f"Played {opening['played']} (we suggested pausing this)",
+            "severity": "medium"
+        })
+    
     return concerns
