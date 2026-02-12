@@ -1665,12 +1665,12 @@ def get_focus_data(analyses: List[Dict], games: List[Dict] = None, user_rating: 
     Returns:
     - ONE dominant weakness with EVIDENCE
     - ONE mission (scaled by rating tier)
-    - ONE behavioral rule
-    - ONE pattern reminder
+    - Opening Guidance (what's working, what to pause)
+    - Rating impact estimate
     """
     weakness = get_dominant_weakness_ranking(analyses, games)
     mission = get_mission(analyses, user_rating=user_rating)
-    identity = get_identity_profile(analyses)
+    opening_guidance = get_opening_guidance(analyses, games) if games else None
     rating_impact = estimate_rating_impact(analyses)
     
     # Get the ONE thing to focus on with evidence
@@ -1699,7 +1699,7 @@ def get_focus_data(analyses: List[Dict], games: List[Dict] = None, user_rating: 
     return {
         "focus": focus,
         "mission": mission,
-        "identity": identity,
+        "opening_guidance": opening_guidance,
         "rating_impact": rating_impact,
         "games_analyzed": len(analyses) if analyses else 0
     }
