@@ -5269,6 +5269,199 @@ async def trigger_auto_coach_analysis(
     }
 
 
+# ==================== RE-ANALYSIS QUEUE ROUTES ====================
+
+@api_router.post("/games/{game_id}/reanalyze")
+async def reanalyze_game(
+    game_id: str,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user)
+):
+    """
+    Queue a game for re-analysis. This is for games that were imported
+    but not properly analyzed.
+    """
+    # Verify game exists and belongs to user
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Check if already in queue
+    existing_queue = await db.analysis_queue.find_one(
+        {"game_id": game_id, "status": {"$in": ["pending", "processing"]}}
+    )
+    
+    if existing_queue:
+        return {
+            "success": True,
+            "status": "already_queued",
+            "message": "Game is already queued for analysis"
+        }
+    
+    # Add to queue
+    queue_item = {
+        "game_id": game_id,
+        "user_id": user.user_id,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "priority": 1  # User-requested re-analysis gets priority
+    }
+    
+    await db.analysis_queue.insert_one(queue_item)
+    
+    # Update game status
+    await db.games.update_one(
+        {"game_id": game_id},
+        {"$set": {"analysis_status": "queued"}}
+    )
+    
+    # Process in background
+    async def process_reanalysis():
+        try:
+            # Update queue status
+            await db.analysis_queue.update_one(
+                {"game_id": game_id},
+                {"$set": {"status": "processing"}}
+            )
+            
+            # Run Stockfish analysis
+            user_color = game.get('user_color', 'white')
+            stockfish_result = analyze_game_with_stockfish(
+                game['pgn'], 
+                user_color=user_color,
+                depth=STOCKFISH_DEPTH
+            )
+            
+            if not stockfish_result or not stockfish_result.get("success"):
+                await db.analysis_queue.update_one(
+                    {"game_id": game_id},
+                    {"$set": {"status": "failed", "error": "Stockfish analysis failed"}}
+                )
+                await db.games.update_one(
+                    {"game_id": game_id},
+                    {"$set": {"analysis_status": "failed"}}
+                )
+                return
+            
+            sf_stats = stockfish_result.get("user_stats", {})
+            
+            # Create or update analysis record
+            analysis_doc = {
+                "game_id": game_id,
+                "user_id": user.user_id,
+                "stockfish_analysis": {
+                    "accuracy": sf_stats.get("accuracy", 0),
+                    "blunders": sf_stats.get("blunders", 0),
+                    "mistakes": sf_stats.get("mistakes", 0),
+                    "inaccuracies": sf_stats.get("inaccuracies", 0),
+                    "best_moves": sf_stats.get("best_moves", 0),
+                    "avg_cp_loss": sf_stats.get("avg_cp_loss", 0),
+                    "move_evaluations": stockfish_result.get("moves", [])
+                },
+                "blunders": sf_stats.get("blunders", 0),
+                "mistakes": sf_stats.get("mistakes", 0),
+                "inaccuracies": sf_stats.get("inaccuracies", 0),
+                "best_moves": sf_stats.get("best_moves", 0),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            # Upsert analysis
+            await db.game_analyses.update_one(
+                {"game_id": game_id},
+                {"$set": analysis_doc},
+                upsert=True
+            )
+            
+            # Update game as analyzed
+            await db.games.update_one(
+                {"game_id": game_id},
+                {"$set": {"is_analyzed": True, "analysis_status": "analyzed"}}
+            )
+            
+            # Update queue status
+            await db.analysis_queue.update_one(
+                {"game_id": game_id},
+                {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            
+            # Create notification for the user
+            await notify_game_analyzed(
+                db,
+                user.user_id,
+                game_id,
+                f"Re-analysis complete! Accuracy: {sf_stats.get('accuracy', 0):.1f}%",
+                game.get("result", "")
+            )
+            
+            logger.info(f"Re-analysis completed for game {game_id}")
+            
+        except Exception as e:
+            logger.error(f"Re-analysis failed for game {game_id}: {e}")
+            await db.analysis_queue.update_one(
+                {"game_id": game_id},
+                {"$set": {"status": "failed", "error": str(e)}}
+            )
+            await db.games.update_one(
+                {"game_id": game_id},
+                {"$set": {"analysis_status": "failed"}}
+            )
+    
+    background_tasks.add_task(process_reanalysis)
+    
+    return {
+        "success": True,
+        "status": "queued",
+        "message": "Game queued for re-analysis"
+    }
+
+
+@api_router.get("/games/{game_id}/analysis-status")
+async def get_game_analysis_status(game_id: str, user: User = Depends(get_current_user)):
+    """Get the current analysis status for a specific game"""
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "is_analyzed": 1, "analysis_status": 1}
+    )
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Check queue for progress info
+    queue_item = await db.analysis_queue.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "status": 1, "created_at": 1}
+    )
+    
+    if game.get("is_analyzed"):
+        return {"status": "analyzed"}
+    
+    if queue_item:
+        return {
+            "status": queue_item.get("status", "unknown"),
+            "queued_at": queue_item.get("created_at")
+        }
+    
+    return {"status": "not_analyzed"}
+
+
+@api_router.get("/analysis-queue")
+async def get_analysis_queue_status(user: User = Depends(get_current_user)):
+    """Get all games in the analysis queue for the current user"""
+    queue_items = await db.analysis_queue.find(
+        {"user_id": user.user_id, "status": {"$in": ["pending", "processing"]}},
+        {"_id": 0}
+    ).sort("created_at", 1).to_list(50)
+    
+    return {
+        "queue": queue_items,
+        "count": len(queue_items)
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
