@@ -3765,6 +3765,16 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         }
     ).sort("imported_at", -1).to_list(10)
     
+    # Enrich games with accuracy from analysis
+    for game in recent_games:
+        if game.get("is_analyzed"):
+            analysis = await db.game_analyses.find_one(
+                {"game_id": game["game_id"], "user_id": user.user_id},
+                {"_id": 0, "stockfish_analysis.accuracy": 1}
+            )
+            if analysis:
+                game["accuracy"] = analysis.get("stockfish_analysis", {}).get("accuracy")
+    
     analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
         {"_id": 0}
