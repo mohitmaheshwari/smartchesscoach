@@ -271,8 +271,6 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
     mistake_type = "inaccuracy"  # Default
     details = {}
     
-    # 1. Check if walked into a fork
-    walked_into_fork = detect_walked_into_fork(board, board_after, color)
     # 1. FIRST check if the moved piece is now hanging (directly capturable)
     # This takes priority over "fork" because moving to an attacked square = blunder
     hanging = find_hanging_pieces(board_after, color)
