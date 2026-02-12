@@ -1252,29 +1252,88 @@ const Lab = ({ user }) => {
   );
 };
 
-const MistakeGroup = ({ group, userColor, onMoveClick }) => (
+const MilestoneGroup = ({ group, userColor, onMoveClick }) => (
   <div className="space-y-2">
     <div className="flex items-center justify-between">
       <h3 className="font-medium flex items-center gap-2">
-        {getMistakeIcon(group.type)}
+        {getMilestoneIcon(group.type)}
         {group.label}
       </h3>
-      <Badge variant="outline" className="text-xs">{group.count}</Badge>
+      <Badge 
+        variant="outline" 
+        className={`text-xs ${group.positive ? 'border-amber-500/50 text-amber-400' : 'border-muted-foreground/50'}`}
+      >
+        {group.count}
+      </Badge>
     </div>
     <div className="space-y-2">
-      {group.items.map((mistake, idx) => (
-        <MistakeItem 
-          key={idx} 
-          mistake={mistake} 
-          userColor={userColor}
-          onClick={() => onMoveClick(mistake.move_number)}
-        />
+      {group.items.map((item, idx) => (
+        group.positive ? (
+          <BrilliantMoveItem 
+            key={idx} 
+            move={item} 
+            onClick={() => onMoveClick(item.move_number)}
+          />
+        ) : (
+          <LearningMomentItem 
+            key={idx} 
+            mistake={item} 
+            userColor={userColor}
+            onClick={() => onMoveClick(item.move_number)}
+          />
+        )
       ))}
     </div>
   </div>
 );
 
-const MistakeItem = ({ mistake, onClick, userColor }) => {
+// Brilliant/Great Move Item - Positive, coach-like celebration
+const BrilliantMoveItem = ({ move, onClick }) => {
+  const isBrilliant = move.isBrilliant;
+  
+  return (
+    <button
+      className={`w-full text-left p-3 rounded-lg border-l-4 transition-all hover:bg-white/5 ${
+        isBrilliant 
+          ? 'border-l-amber-500 bg-gradient-to-r from-amber-500/10 to-transparent' 
+          : 'border-l-green-500 bg-gradient-to-r from-green-500/10 to-transparent'
+      }`}
+      onClick={onClick}
+      data-testid={`milestone-${move.move_number}`}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          {isBrilliant ? (
+            <Sparkles className="w-4 h-4 text-amber-500" />
+          ) : (
+            <Star className="w-4 h-4 text-green-500" />
+          )}
+          <span className="font-mono text-sm">Move {move.move_number}</span>
+          <Badge 
+            variant="outline" 
+            className={`text-xs ${isBrilliant ? 'border-amber-500/50 text-amber-400' : 'border-green-500/50 text-green-400'}`}
+          >
+            {isBrilliant ? 'Brilliant!' : 'Great'}
+          </Badge>
+        </div>
+        <span className="text-xs text-muted-foreground">{move.phase}</span>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <span className={`font-mono font-medium ${isBrilliant ? 'text-amber-400' : 'text-green-400'}`}>
+          {move.move}
+        </span>
+      </div>
+      
+      <p className={`text-xs mt-1 ${isBrilliant ? 'text-amber-400/80' : 'text-green-400/80'}`}>
+        {move.context}
+      </p>
+    </button>
+  );
+};
+
+// Learning Moment Item - Constructive, coach-like feedback
+const LearningMomentItem = ({ mistake, onClick, userColor }) => {
   const cpLossInfo = formatCpLoss(mistake.cp_loss);
   const [expanded, setExpanded] = useState(false);
   const [explanation, setExplanation] = useState(null);
