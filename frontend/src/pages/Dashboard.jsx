@@ -543,7 +543,7 @@ const Dashboard = ({ user }) => {
                   <CardContent className="py-6">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                       <div className="flex items-center justify-between mb-4">
-                        <TabsList className="grid w-fit grid-cols-2">
+                        <TabsList className="grid w-fit grid-cols-3">
                           <TabsTrigger value="analyzed" className="gap-1.5" data-testid="analyzed-tab">
                             <CheckCircle2 className="w-3 h-3" />
                             Analyzed
@@ -562,6 +562,15 @@ const Dashboard = ({ user }) => {
                               </span>
                             )}
                           </TabsTrigger>
+                          <TabsTrigger value="not_analyzed" className="gap-1.5" data-testid="not-analyzed-tab">
+                            <FileQuestion className="w-3 h-3" />
+                            Not Analyzed
+                            {stats?.not_analyzed_games > 0 && (
+                              <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-zinc-500/20 text-zinc-400">
+                                {stats.not_analyzed_games}
+                              </span>
+                            )}
+                          </TabsTrigger>
                         </TabsList>
                         <Button 
                           variant="ghost" 
@@ -576,9 +585,9 @@ const Dashboard = ({ user }) => {
                       
                       {/* Analyzed Games Tab */}
                       <TabsContent value="analyzed" className="mt-0">
-                        <div className="space-y-2">
+                        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                           {(stats?.analyzed_list || []).length > 0 ? (
-                            (stats?.analyzed_list || []).slice(0, 5).map((game) => (
+                            (stats?.analyzed_list || []).map((game) => (
                               <GameListItem
                                 key={game.game_id}
                                 game={game}
@@ -598,7 +607,7 @@ const Dashboard = ({ user }) => {
                       
                       {/* In Queue Tab */}
                       <TabsContent value="in_queue" className="mt-0">
-                        <div className="space-y-2">
+                        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                           {(stats?.in_queue_list || []).length > 0 ? (
                             (stats?.in_queue_list || []).map((game) => (
                               <QueuedGameItem
@@ -612,6 +621,28 @@ const Dashboard = ({ user }) => {
                               <Clock className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
                               <p className="text-muted-foreground text-sm">No games in queue</p>
                               <p className="text-xs text-muted-foreground mt-1">Games being analyzed will appear here</p>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+                      
+                      {/* Not Analyzed Tab - NEW */}
+                      <TabsContent value="not_analyzed" className="mt-0">
+                        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                          {(stats?.not_analyzed_list || []).length > 0 ? (
+                            (stats?.not_analyzed_list || []).map((game) => (
+                              <NotAnalyzedGameItem
+                                key={game.game_id}
+                                game={game}
+                                onQueue={handleQueueGame}
+                                isQueuing={reanalyzing[game.game_id]}
+                              />
+                            ))
+                          ) : (
+                            <div className="text-center py-8">
+                              <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-emerald-500/30" />
+                              <p className="text-muted-foreground text-sm">All games analyzed!</p>
+                              <p className="text-xs text-muted-foreground mt-1">Great work, all your games have been analyzed</p>
                             </div>
                           )}
                         </div>
