@@ -116,7 +116,7 @@ async def get_coach_game_review(db, user_id: str, llm_call_func) -> Dict:
             if opening_match:
                 opening_name = opening_match.group(1)
     
-    # 6. Analyze blunder types in this game
+    # 7. Analyze blunder types in this game
     blunder_types = []
     for move in move_evals:
         if move.get("classification") in ["blunder", "mistake"]:
@@ -127,19 +127,24 @@ async def get_coach_game_review(db, user_id: str, llm_call_func) -> Dict:
                 "cp_loss": move.get("cp_loss", 0)
             })
     
-    # 7. Check against known weaknesses
-    known_weaknesses = user_profile.get("weaknesses", []) if user_profile else []
-    suggested_openings = user_profile.get("suggested_openings", {}) if user_profile else {}
-    
-    # Determine if they played a suggested opening
+    # 8. Check if they played a suggested opening
     user_color = last_game.get("user_color", "white")
-    suggested_for_color = suggested_openings.get(f"as_{user_color}", [])
+    suggested_for_color = suggested_white if user_color == "white" else suggested_black
+    pause_for_color = pause_white if user_color == "white" else pause_black
+    
+    # Check if opening matches any suggested
     played_suggested = any(
         sug.lower() in opening_name.lower() 
         for sug in suggested_for_color
     ) if suggested_for_color else None
     
-    # 8. Build the facts object
+    # Check if they played an opening we told them to pause
+    played_paused = any(
+        p.lower() in opening_name.lower()
+        for p in pause_for_color
+    ) if pause_for_color else False
+    
+    # 9. Build the facts object
     facts = {
         "game_info": {
             "opponent": last_game.get("opponent", "Unknown"),
