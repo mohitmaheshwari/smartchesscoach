@@ -410,8 +410,61 @@ When ahead, don't rush. Keep checking threats.
 ## Next Tasks (P1)
 1. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
 2. **Backfill Legacy Game Analysis Script** - Queue all historical games missing detailed analysis
+3. **Connect fundamentals to Focus page** - Weak fundamentals should trigger related missions on Focus page
 
 ## Completed Tasks (This Session - Feb 2026)
+
+### JOURNEY PAGE REDESIGN (Feb 2026 - COMPLETED)
+**User Request**: Replace old sections (Recent Achievements, Stable Strength, Mistake Heatmap) with more actionable data-driven sections.
+
+**New Sections Implemented:**
+
+**1. Chess Fundamentals Assessment**
+Comparison of user performance across key chess fundamentals:
+- Positional Play (pawn structure, piece activity, space control)
+- Tactics (finding and defending against combinations)
+- Opening Preparation (first 10-15 moves accuracy)
+- Endgame Technique (conversion and king activity)
+- Time Management (avoiding time pressure mistakes)
+
+Each fundamental shows:
+- Score (0-100%) with color-coded progress bar
+- Level indicator (strong/developing/needs_work/focus_area)
+- Actionable suggestions for weak areas
+- Tagged games for practice (clickable to view in Lab)
+- Summary cards for strongest and weakest areas
+
+**2. Rating Ceiling Assessment**
+Reframes improvement from "you're bad" to "you're unstable":
+- **Stable Level**: Rating based on games without major eval drops
+- **Demonstrated Peak**: Rating based on top 30% games by accuracy
+- **Gap**: Points difference between stable and peak
+- **Gap Driver**: Primary cause of instability (Blunder Prevention, Conversion Discipline, Consistency)
+- **Fix Suggestion**: Actionable advice to close the gap
+- Visual progress bar showing stable vs peak
+
+**3. Opening Progress**
+Win/loss ratio per opening with suggestions:
+- Toggle between "As White" and "As Black" views
+- Each opening shows: name, games played, W/D/L breakdown, win rate
+- Color-coded bars (green=win, gray=draw, red=loss)
+- Performance status: working, struggling, error_prone, needs_study, neutral
+- Personalized suggestions for each opening
+- Summary cards: "Working Well" and "Needs Work" openings
+
+**Removed Sections:**
+- Recent Achievements (redundant with gamification)
+- Stable Strength (merged into Fundamentals)
+- Mistake Heatmap (moved to Lab page for specific games)
+
+**Key Files Modified:**
+- `/app/backend/blunder_intelligence_service.py`: Added `get_chess_fundamentals_assessment()`, `get_rating_ceiling_assessment()`, `get_opening_progress()`, updated `get_journey_data()`
+- `/app/frontend/src/pages/Journey.jsx`: Complete redesign with FundamentalsSection, RatingCeilingSection, OpeningProgressSection components
+
+**API Updates:**
+- `GET /api/journey/v2` now returns: `fundamentals`, `rating_ceiling`, `opening_progress`, `games_analyzed`
+
+## Earlier Completed Tasks (This Session - Feb 2026)
 
 ### P0: Re-Analysis & Game Queue System (COMPLETED)
 - Dashboard tabs: "Analyzed" (with count badge) and "In Queue" tabs
