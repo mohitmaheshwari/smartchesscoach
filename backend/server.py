@@ -5471,10 +5471,10 @@ async def reanalyze_game(
     
     await db.analysis_queue.insert_one(queue_item)
     
-    # Update game status
+    # Update game status - set is_analyzed to False so it shows in queue
     await db.games.update_one(
         {"game_id": game_id},
-        {"$set": {"analysis_status": "queued"}}
+        {"$set": {"analysis_status": "queued", "is_analyzed": False}}
     )
     
     # Process in background
