@@ -3844,6 +3844,10 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     queued_game_ids = set(queued_game_map.keys())
     logger.info(f"Queued game IDs: {queued_game_ids}")
     
+    # DEBUG: Log all game IDs
+    all_game_ids = [g.get("game_id") for g in all_games]
+    logger.info(f"All games count: {len(all_game_ids)}, first 5: {all_game_ids[:5]}")
+    
     # Categorize games
     analyzed_list = []
     in_queue_list = []
