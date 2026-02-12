@@ -398,8 +398,11 @@ async def get_discipline_check(db, user_id: str) -> Dict:
     """
     Main entry point for the Discipline Check feature.
     
-    Returns a compact, data-driven assessment of the user's last game.
-    NO fluff, NO long paragraphs - just facts and a verdict.
+    Returns a PERSONALIZED, data-driven assessment that:
+    - References our guidance (openings we suggested, patterns we identified)
+    - Celebrates when they follow advice
+    - Connects to their #1 weakness (Rating Killer)
+    - Adapts tone based on game quality
     """
     
     # 1. Get user's last analyzed game
@@ -430,7 +433,7 @@ async def get_discipline_check(db, user_id: str) -> Dict:
     blunders = sf_analysis.get("blunders", 0)
     mistakes = sf_analysis.get("mistakes", 0)
     
-    # 3. Get all games and analyses for opening guidance
+    # 3. Get all games and analyses for context
     all_games = await db.games.find(
         {"user_id": user_id},
         {"_id": 0}
@@ -442,10 +445,26 @@ async def get_discipline_check(db, user_id: str) -> Dict:
     ).to_list(200)
     
     # 4. Get opening guidance
-    from blunder_intelligence_service import get_opening_guidance
+    from blunder_intelligence_service import get_opening_guidance, get_dominant_weakness_ranking
     opening_guidance = get_opening_guidance(all_analyses, all_games)
     
-    # 5. Calculate deterministic metrics
+    # 5. Get user's #1 weakness (Rating Killer) - THIS IS KEY FOR PERSONALIZATION
+    weakness_data = get_dominant_weakness_ranking(all_analyses, all_games)
+    top_weakness = weakness_data.get("weaknesses", [{}])[0] if weakness_data.get("weaknesses") else {}
+    rating_killer_pattern = top_weakness.get("pattern", "")
+    rating_killer_label = top_weakness.get("label", "")
+    
+    # 6. Calculate user's average accuracy (excluding this game)
+    other_analyses = [a for a in all_analyses if a.get("game_id") != game_id]
+    if other_analyses:
+        avg_accuracy = sum(
+            a.get("stockfish_analysis", {}).get("accuracy", 0) 
+            for a in other_analyses
+        ) / len(other_analyses)
+    else:
+        avg_accuracy = None
+    
+    # 7. Calculate deterministic metrics
     stability = calculate_decision_stability(move_evaluations, user_color)
     opening_check = check_opening_compliance(last_game, opening_guidance)
     blunder_context = calculate_blunder_context(move_evaluations, user_color)
@@ -460,13 +479,17 @@ async def get_discipline_check(db, user_id: str) -> Dict:
     
     winning_position["converted"] = game_result == "win" if winning_position["reached"] else None
     
-    # 6. Generate verdict
-    verdict = generate_verdict(
+    # 8. Check if they AVOIDED their #1 weakness in this game
+    avoided_rating_killer = check_avoided_pattern(analysis, rating_killer_pattern)
+    
+    # 9. Generate PERSONALIZED verdict
+    verdict = generate_personalized_verdict(
         stability, opening_check, blunder_context, winning_position,
-        game_result, accuracy
+        game_result, accuracy, avg_accuracy,
+        rating_killer_pattern, rating_killer_label, avoided_rating_killer
     )
     
-    # 7. Extract opponent name from PGN
+    # 10. Extract opponent name from PGN
     import re
     pgn = last_game.get("pgn", "")
     opponent = "Opponent"
@@ -484,9 +507,10 @@ async def get_discipline_check(db, user_id: str) -> Dict:
         "result": game_result,
         "user_color": user_color,
         
-        # Core metrics - all deterministic
+        # Core metrics
         "metrics": {
             "accuracy": round(accuracy, 1),
+            "avg_accuracy": round(avg_accuracy, 1) if avg_accuracy else None,
             "blunders": blunders,
             "mistakes": mistakes,
             "decision_stability": stability,
@@ -495,6 +519,224 @@ async def get_discipline_check(db, user_id: str) -> Dict:
             "winning_position": winning_position
         },
         
-        # The verdict - sharp and concise
+        # Personalization context
+        "personalization": {
+            "rating_killer_pattern": rating_killer_pattern,
+            "rating_killer_label": rating_killer_label,
+            "avoided_rating_killer": avoided_rating_killer,
+            "accuracy_vs_avg": round(accuracy - avg_accuracy, 1) if avg_accuracy else None
+        },
+        
+        # The verdict - personalized and connected
         "verdict": verdict
+    }
+
+
+def check_avoided_pattern(analysis: Dict, pattern: str) -> bool:
+    """
+    Check if the user avoided their #1 weakness pattern in this game.
+    
+    Returns True if:
+    - Pattern is about hanging pieces and they had zero hanging piece mistakes
+    - Pattern is about blunders when winning and they didn't blunder when ahead
+    - etc.
+    """
+    if not pattern:
+        return None
+    
+    sf_analysis = analysis.get("stockfish_analysis", {})
+    move_evals = sf_analysis.get("move_evaluations", [])
+    blunders = sf_analysis.get("blunders", 0)
+    
+    pattern_lower = pattern.lower()
+    
+    # Check for common patterns
+    if "hanging" in pattern_lower or "undefended" in pattern_lower:
+        # Check if any blunder was a hanging piece
+        hanging_blunders = [
+            m for m in move_evals 
+            if m.get("classification") == "blunder" and 
+            ("hang" in str(m.get("mistake_type", "")).lower() or 
+             "undefend" in str(m.get("mistake_type", "")).lower())
+        ]
+        return len(hanging_blunders) == 0
+    
+    elif "winning" in pattern_lower or "ahead" in pattern_lower or "advantage" in pattern_lower:
+        # Check if they blundered when winning
+        blunders_when_winning = [
+            m for m in move_evals
+            if m.get("classification") == "blunder" and m.get("eval_before", 0) >= 150
+        ]
+        return len(blunders_when_winning) == 0
+    
+    elif "fork" in pattern_lower or "pin" in pattern_lower or "tactic" in pattern_lower:
+        # Check if they walked into tactics
+        tactical_blunders = [
+            m for m in move_evals
+            if m.get("classification") == "blunder" and
+            any(t in str(m.get("mistake_type", "")).lower() for t in ["fork", "pin", "skewer"])
+        ]
+        return len(tactical_blunders) == 0
+    
+    # Default: if zero blunders, they avoided the pattern
+    return blunders == 0
+
+
+def generate_personalized_verdict(
+    stability: Dict,
+    opening_check: Dict,
+    blunder_context: Dict,
+    winning_position: Dict,
+    game_result: str,
+    accuracy: float,
+    avg_accuracy: float,
+    rating_killer_pattern: str,
+    rating_killer_label: str,
+    avoided_rating_killer: bool
+) -> Dict:
+    """
+    Generate a PERSONALIZED verdict that references our guidance.
+    
+    This is NOT generic - it connects to:
+    - Opening suggestions we made
+    - The #1 weakness we identified
+    - Their average performance
+    """
+    
+    observations = []  # Personalized observations that show we're paying attention
+    issues = []
+    positives = []
+    
+    # === PERSONALIZED OBSERVATIONS ===
+    
+    # 1. Did they avoid their #1 pattern?
+    if avoided_rating_killer is True and rating_killer_label:
+        observations.append(f"No {rating_killer_label.lower()} mistakes this game")
+        positives.append(f"Avoided your #1 pattern")
+    elif avoided_rating_killer is False and rating_killer_label:
+        observations.append(f"Your pattern showed up again: {rating_killer_label.lower()}")
+    
+    # 2. Opening compliance - reference our specific suggestion
+    if opening_check.get("paused_and_played"):
+        issues.append(f"Played {opening_check['played']} (we suggested pausing this)")
+        observations.append(f"Tried {opening_check['played']} despite our advice")
+    elif opening_check.get("complied") is True:
+        positives.append(f"Played {opening_check['played']} as suggested")
+        observations.append(f"Followed opening guidance with {opening_check['played']}")
+    elif opening_check.get("suggested") and len(opening_check.get("suggested", [])) > 0:
+        # They played something else - neutral, but note it
+        pass
+    
+    # 3. Accuracy vs their average - shows we're tracking them
+    if avg_accuracy:
+        diff = accuracy - avg_accuracy
+        if diff >= 5:
+            positives.append(f"Above your usual {round(avg_accuracy)}%")
+            observations.append(f"Accuracy up {round(diff)}% from your average")
+        elif diff <= -10:
+            issues.append(f"Below your usual {round(avg_accuracy)}%")
+    
+    # 4. Stability when ahead
+    stability_score = stability.get("score")
+    if stability_score is not None:
+        if stability_score < 50:
+            issues.append(f"Only {stability_score}% composure when winning")
+        elif stability_score >= 80:
+            positives.append(f"Held advantage well ({stability_score}% stable)")
+    
+    # 5. Blunder context
+    primary_trigger = blunder_context.get("primary_trigger", "none")
+    total_blunders = blunder_context.get("total_blunders", 0)
+    
+    if total_blunders > 0:
+        if primary_trigger == "winning":
+            when_winning = blunder_context.get("when_winning", 0)
+            issues.append(f"{when_winning}/{total_blunders} errors when ahead")
+        elif primary_trigger == "losing":
+            when_losing = blunder_context.get("when_losing", 0)
+            issues.append(f"{when_losing}/{total_blunders} errors under pressure")
+    elif total_blunders == 0:
+        positives.append("Zero blunders")
+    
+    # 6. Conversion
+    if winning_position.get("reached"):
+        peak = winning_position.get("peak_advantage", 0)
+        if game_result == "win":
+            positives.append(f"Converted +{peak} advantage")
+        elif game_result == "loss":
+            issues.append(f"Had +{peak} but lost")
+    
+    # === GENERATE HEADLINE AND GRADE ===
+    
+    # Clean game with good practices
+    if len(issues) == 0 and (avoided_rating_killer or total_blunders == 0):
+        if accuracy >= 80:
+            headline = "Clean game - you stayed disciplined"
+            grade = "A"
+        else:
+            headline = "Solid discipline, accuracy can improve"
+            grade = "B"
+        tone = "positive"
+        show_rating_killer = False  # Don't show Rating Killer section
+    
+    # Good but not great
+    elif len(issues) == 0:
+        headline = "Decent game, keep pushing"
+        grade = "B"
+        tone = "positive"
+        show_rating_killer = False
+    
+    # Pattern repeated
+    elif avoided_rating_killer is False:
+        headline = "Same pattern - let's work on this"
+        grade = "C"
+        tone = "neutral"
+        show_rating_killer = True  # Show Rating Killer - it's relevant
+    
+    # Opening ignored
+    elif opening_check.get("paused_and_played"):
+        headline = "Ignored opening advice"
+        grade = "C" if game_result == "win" else "D"
+        tone = "critical"
+        show_rating_killer = True
+    
+    # Collapsed when winning
+    elif stability_score is not None and stability_score < 50:
+        headline = "Collapsed when winning"
+        grade = "D"
+        tone = "critical"
+        show_rating_killer = True
+    
+    # Multiple issues
+    elif len(issues) >= 2:
+        headline = "Rough game - focus needed"
+        grade = "D"
+        tone = "critical"
+        show_rating_killer = True
+    
+    else:
+        headline = "Mixed results"
+        grade = "C"
+        tone = "neutral"
+        show_rating_killer = True
+    
+    # Build the personalized summary sentence
+    if observations:
+        summary = observations[0]  # Lead with the most relevant observation
+    elif positives:
+        summary = positives[0]
+    elif issues:
+        summary = issues[0]
+    else:
+        summary = f"Accuracy: {accuracy}%"
+    
+    return {
+        "headline": headline,
+        "summary": summary,  # The personalized one-liner
+        "grade": grade,
+        "tone": tone,
+        "issues": issues,
+        "positives": positives,
+        "observations": observations,  # What we noticed that shows we're paying attention
+        "show_rating_killer": show_rating_killer  # UI hint
     }
