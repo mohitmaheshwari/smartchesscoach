@@ -4809,6 +4809,7 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     - Core lesson of the game
     - Evidence-based game strategy
     - Full analysis data
+    - Similar games (Behavior Memory)
     """
     analysis = await db.game_analyses.find_one({
         "game_id": game_id,
@@ -4831,6 +4832,20 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
         del game["_id"]
     
     lab_data = get_lab_data(analysis, game)
+    
+    # Add similar games (Behavior Memory)
+    all_analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).to_list(50)
+    
+    all_games = await db.games.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, "result": 1, "imported_at": 1}
+    ).to_list(50)
+    
+    similar_games = find_similar_pattern_games(analysis, all_analyses, all_games)
+    lab_data["similar_games"] = similar_games
     
     return lab_data
 
