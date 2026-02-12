@@ -30,14 +30,9 @@ import {
   MessageCircle,
   Send,
   X,
-  Eye,
-  Repeat,
-  Trophy,
   Zap
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Chessboard } from "react-chessboard";
-import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
 const GameAnalysis = ({ user }) => {
   const { gameId } = useParams();
