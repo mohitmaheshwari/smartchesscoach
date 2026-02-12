@@ -3822,7 +3822,6 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     ).to_list(100)
     queued_game_map = {q["game_id"]: q for q in queue_items}
     queued_game_ids = set(queued_game_map.keys())
-    logger.info(f"Queued game IDs: {queued_game_ids}")
     
     # Get recent games (up to 100)
     all_games = await db.games.find(
@@ -3848,7 +3847,6 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     missing_queued_ids = queued_game_ids - all_game_ids
     
     if missing_queued_ids:
-        logger.info(f"Fetching {len(missing_queued_ids)} queued games not in recent 100")
         missing_games = await db.games.find(
             {"game_id": {"$in": list(missing_queued_ids)}, "user_id": user.user_id},
             {
