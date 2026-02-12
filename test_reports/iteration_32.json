@@ -65,7 +65,7 @@
   },
 
   "test_credentials_used": {
-    "dev_login": "https://game-discipline.preview.emergentagent.com/api/auth/dev-login",
+    "dev_login": "https://milestone-lab.preview.emergentagent.com/api/auth/dev-login",
     "test_game_id": "game_c1658a380825"
   },
 
