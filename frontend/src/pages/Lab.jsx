@@ -1715,6 +1715,19 @@ const getContextLabel = (move) => {
   return "";
 };
 
+const getPositiveContext = (move) => {
+  const evalBefore = (move.eval_before || 0) / 100; // Convert cp to pawns
+  const evalAfter = (move.eval_after || 0) / 100;
+  const evalSwing = evalAfter - evalBefore;
+  
+  if (evalSwing > 2) return "Found a winning shot!";
+  if (evalBefore < -1 && evalAfter > 0) return "Turned the game around!";
+  if (evalBefore < -0.5 && move.cp_loss === 0) return "Held strong under pressure";
+  if (Math.abs(evalBefore) < 0.5 && move.cp_loss <= 5) return "Maintained the balance";
+  if (evalBefore > 1 && move.cp_loss <= 5) return "Kept the pressure";
+  return "Solid choice";
+};
+
 const formatGroupLabel = (type) => {
   const labels = {
     blunders: "Major Blunders",
