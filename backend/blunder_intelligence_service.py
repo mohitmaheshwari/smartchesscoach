@@ -1355,18 +1355,18 @@ def check_milestones(analyses: List[Dict], user_stats: Dict = None) -> List[Dict
     return milestones
 
 
-def get_focus_data(analyses: List[Dict], games: List[Dict] = None) -> Dict:
+def get_focus_data(analyses: List[Dict], games: List[Dict] = None, user_rating: int = None) -> Dict:
     """
     Get all data needed for the Focus page (stripped down Coach page).
     
     Returns:
     - ONE dominant weakness with EVIDENCE
-    - ONE mission
+    - ONE mission (scaled by rating tier)
     - ONE behavioral rule
     - ONE pattern reminder
     """
     weakness = get_dominant_weakness_ranking(analyses, games)
-    mission = get_mission(analyses)
+    mission = get_mission(analyses, user_rating=user_rating)
     identity = get_identity_profile(analyses)
     rating_impact = estimate_rating_impact(analyses)
     
