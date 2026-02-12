@@ -667,6 +667,18 @@ const Lab = ({ user }) => {
                     {/* SUMMARY TAB */}
                     <TabsContent value="summary" className="p-4 space-y-4 m-0">
                       {/* Core Lesson */}
+                      {/* AI Coach Commentary */}
+                      {coachCommentary && (
+                        <div className="p-4 rounded-lg bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20">
+                          <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                            <Sparkles className="w-3 h-3" />
+                            Coach's Take
+                          </p>
+                          <p className="text-sm leading-relaxed whitespace-pre-line">{coachCommentary}</p>
+                        </div>
+                      )}
+                      
+                      {/* Core Lesson */}
                       {coreLesson && coreLesson.pattern !== "clean_game" && (
                         <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
                           <p className="text-xs text-amber-500 font-bold uppercase tracking-wider mb-2">Core Lesson</p>
