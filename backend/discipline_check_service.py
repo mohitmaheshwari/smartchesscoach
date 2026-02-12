@@ -109,13 +109,26 @@ def check_opening_compliance(game: Dict, opening_guidance: Dict) -> Dict:
     pgn = game.get("pgn", "")
     opening_name = "Unknown"
     
-    eco_match = re.search(r'\[ECOUrl ".*?/([^"]+)"\]', pgn)
+    # Try ECOUrl first - extract only the last part of the path
+    eco_match = re.search(r'\[ECOUrl "[^"]+/([^/"]+)"\]', pgn)
     if eco_match:
+        # Get the last segment after the final slash
         opening_name = eco_match.group(1).replace("-", " ").title()
-    else:
+    
+    # Fallback to Opening tag
+    if opening_name == "Unknown" or "Www." in opening_name:
         opening_match = re.search(r'\[Opening "([^"]+)"\]', pgn)
         if opening_match:
             opening_name = opening_match.group(1)
+    
+    # Final cleanup - remove any URL artifacts
+    if "/" in opening_name or "Www" in opening_name:
+        # Try to extract from ECO tag as fallback
+        eco_code_match = re.search(r'\[ECO "([^"]+)"\]', pgn)
+        if eco_code_match:
+            opening_name = f"Opening {eco_code_match.group(1)}"
+        else:
+            opening_name = "Standard Opening"
     
     user_color = game.get("user_color", "white")
     
