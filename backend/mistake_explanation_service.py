@@ -406,6 +406,10 @@ def build_explanation_prompt(analysis: Dict, move_data: Dict) -> str:
     elif mistake_type == "ignored_threat" and details.get("threat"):
         context_parts.append(f"IGNORED THREAT: {details['threat']}")
     
+    elif mistake_type == "walked_into_skewer" and details.get("skewer"):
+        skewer = details["skewer"]
+        context_parts.append(f"TACTICAL PATTERN: User walked into a skewer - {skewer.get('front_piece', 'piece')} on {skewer.get('front_square', '?')} is attacked by {skewer.get('attacker', 'opponent piece')}, exposing {skewer.get('back_piece', 'piece')} behind it")
+    
     # Template info
     context_parts.append(f"MISTAKE CATEGORY: {template['short']}")
     context_parts.append(f"PATTERN: {template['pattern']}")
@@ -414,20 +418,27 @@ def build_explanation_prompt(analysis: Dict, move_data: Dict) -> str:
     
     context_str = "\n".join(context_parts)
     
+    # Check if we detected a specific tactical pattern
+    has_specific_pattern = any(k in details for k in ["fork", "pin", "skewer", "hanging", "missed_fork", "missed_pin", "threat"])
+    
     prompt = f"""You are a chess coach writing an educational explanation for a student's mistake.
 
-FACTS ABOUT THIS MISTAKE (these are ACCURATE - do not contradict them):
+FACTS ABOUT THIS MISTAKE (these are VERIFIED by chess engine - NEVER contradict or change them):
 {context_str}
 
 YOUR TASK:
 Write 2-3 sentences explaining WHY this move was a mistake and what the student should learn.
 
-RULES:
-1. Use simple, clear English (8th grade reading level)
-2. Focus on the THINKING ERROR, not just the move
-3. Be supportive, not harsh
-4. Use the specific pattern/tactic information provided
-5. End with a concrete tip the student can use in future games
+CRITICAL RULES:
+1. ONLY mention tactical patterns (fork, pin, skewer, etc.) if explicitly stated in FACTS above
+2. If no TACTICAL PATTERN is listed above, DO NOT invent one - just explain the general issue
+3. NEVER say "fork" "pin" "skewer" "discovered attack" unless the FACTS section explicitly mentions it
+4. Use simple, clear English (8th grade reading level)
+5. Focus on the THINKING ERROR, not just the move
+6. Be supportive, not harsh ("it happens!" "next time try...")
+7. End with a concrete tip from the THINKING HABIT above
+8. Do NOT mention centipawns, engine scores, or technical jargon
+9. Keep it under 50 words
 6. Do NOT mention centipawns, engine scores, or technical jargon
 7. Keep it under 60 words
 
