@@ -985,11 +985,21 @@ const Lab = ({ user }) => {
               if (practiceIndex < practicePositions.length - 1) {
                 setPracticeIndex(i => i + 1);
               } else {
-                setPracticeMode(false);
-                toast.success("Practice complete!");
+                // Will show summary screen inside component
+                setPracticeIndex(i => i);
               }
             }}
-            onClose={() => setPracticeMode(false)}
+            onClose={() => {
+              setPracticeMode(false);
+              setPracticeIndex(0);
+            }}
+            onComplete={(score) => {
+              if (score.correct === score.total) {
+                toast.success(`Perfect! ${score.correct}/${score.total} correct!`);
+              } else {
+                toast.info(`Practice complete: ${score.correct}/${score.total}`);
+              }
+            }}
             userColor={userColor}
           />
         )}
