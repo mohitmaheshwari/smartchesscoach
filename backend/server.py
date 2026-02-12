@@ -3751,8 +3751,19 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     
     recent_games = await db.games.find(
         {"user_id": user.user_id},
-        {"_id": 0}
-    ).sort("imported_at", -1).to_list(5)
+        {
+            "_id": 0,
+            "game_id": 1,
+            "white_player": 1,
+            "black_player": 1,
+            "user_color": 1,
+            "result": 1,
+            "platform": 1,
+            "opening": 1,
+            "is_analyzed": 1,
+            "imported_at": 1
+        }
+    ).sort("imported_at", -1).to_list(10)
     
     analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
