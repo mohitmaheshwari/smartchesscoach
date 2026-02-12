@@ -272,18 +272,39 @@ const Lab = ({ user }) => {
   const coreLesson = labData?.core_lesson;
   const strategicAnalysis = labData?.strategic_analysis;
   
+  // Helper to determine if a move is by user (based on user_color and move_number)
+  const isUserMove = (moveNum) => {
+    // Move numbers are 1-indexed
+    // If user is white: user moves on odd move numbers (1, 3, 5...)
+    // If user is black: user moves on all move numbers (since black moves are stored by move number)
+    // Actually, the move_evaluations store each half-move separately
+    // So black's first move is move_number=1, white's second move is also stored somewhere...
+    // Let's check: in the data, it seems each record is a move by the position's turn
+    // If userColor is black, and the FEN before shows it's black's turn, it's a user move
+    return userColor === 'black'; // Simplified for now - if user is black, all stored moves are user moves
+  };
+  
+  // Determine if move eval is user's move based on FEN (more accurate)
+  const isUserMoveFromFen = (eval_entry) => {
+    if (eval_entry.is_user_move !== undefined) return eval_entry.is_user_move;
+    const fen = eval_entry.fen_before || '';
+    const parts = fen.split(' ');
+    const turn = parts[1]; // 'w' or 'b'
+    return (userColor === 'white' && turn === 'w') || (userColor === 'black' && turn === 'b');
+  };
+  
   // Count mistakes
   const mistakeCounts = useMemo(() => {
     let blunders = 0, mistakes = 0, inaccuracies = 0;
     moveEvaluations.forEach(m => {
-      if (!m.is_user_move) return;
+      if (!isUserMoveFromFen(m)) return;
       const cpLoss = Math.abs(m.cp_loss || 0);
       if (cpLoss >= 300) blunders++;
       else if (cpLoss >= 100) mistakes++;
       else if (cpLoss >= 50) inaccuracies++;
     });
     return { blunders, mistakes, inaccuracies };
-  }, [moveEvaluations]);
+  }, [moveEvaluations, userColor]);
 
   // Group mistakes by type for the Mistakes tab
   const groupedMistakes = useMemo(() => {
