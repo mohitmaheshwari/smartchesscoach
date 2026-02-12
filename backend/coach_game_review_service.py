@@ -57,13 +57,31 @@ async def get_coach_game_review(db, user_id: str, llm_call_func) -> Dict:
     if not analysis:
         return {"has_review": False, "reason": "no_analysis"}
     
-    # 3. Get user's known weaknesses (what we've been telling them to work on)
-    user_profile = await db.user_profiles.find_one(
+    # 3. Get ALL user's games and analyses for opening guidance calculation
+    all_games = await db.games.find(
         {"user_id": user_id},
-        {"_id": 0, "weaknesses": 1, "suggested_openings": 1, "focus_areas": 1}
-    )
+        {"_id": 0}
+    ).to_list(200)
     
-    # 4. Get user's historical average for comparison
+    all_analyses_full = await db.game_analyses.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).to_list(200)
+    
+    # 4. Get opening guidance (what we're suggesting they play)
+    opening_guidance = get_opening_guidance(all_analyses_full, all_games)
+    
+    # Extract suggested openings
+    suggested_white = [o["name"] for o in opening_guidance.get("as_white", {}).get("working_well", [])]
+    suggested_black = [o["name"] for o in opening_guidance.get("as_black", {}).get("working_well", [])]
+    pause_white = [o["name"] for o in opening_guidance.get("as_white", {}).get("pause_for_now", [])]
+    pause_black = [o["name"] for o in opening_guidance.get("as_black", {}).get("pause_for_now", [])]
+    
+    # 5. Get user's weaknesses (what we've been telling them to work on)
+    weakness_data = get_dominant_weakness_ranking(all_analyses_full, all_games)
+    top_weaknesses = [w.get("pattern", "") for w in weakness_data.get("weaknesses", [])[:3]]
+    
+    # 6. Get user's historical average for comparison
     all_analyses = await db.game_analyses.find(
         {"user_id": user_id},
         {"_id": 0, "stockfish_analysis.accuracy": 1, "stockfish_analysis.blunders": 1, 
