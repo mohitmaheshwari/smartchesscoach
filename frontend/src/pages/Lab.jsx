@@ -380,60 +380,112 @@ const Lab = ({ user }) => {
     return { blunders, mistakes, inaccuracies };
   }, [moveEvaluations, userColor]);
 
-  // Group mistakes by type for the Mistakes tab
-  const groupedMistakes = useMemo(() => {
+  // Group milestones - brilliant moves, good moves, and learning moments
+  const groupedMilestones = useMemo(() => {
     const groups = {
-      blunders: [],
-      hanging_pieces: [],
-      tactical_misses: [],
-      positional_errors: [],
-      other: []
+      brilliant_moves: [],  // Outstanding moves - very low cp_loss in complex positions
+      great_moves: [],      // Good tactical/positional decisions
+      learning_moments: [], // Mistakes reframed as growth opportunities
     };
     
     moveEvaluations.forEach(m => {
       if (!isUserMoveFromFen(m)) return;
       const cpLoss = Math.abs(m.cp_loss || 0);
-      if (cpLoss < 50) return; // Not a mistake
+      const evalBefore = m.eval_before || 0;
+      const evalAfter = m.eval_after || 0;
       
-      const mistakeType = m.mistake_type || '';
-      const entry = {
-        move_number: m.move_number,
-        move: m.move,
-        best_move: m.best_move,
-        cp_loss: cpLoss,
-        eval_before: m.eval_before,
-        eval_after: m.eval_after,
-        fen_before: m.fen_before,
-        phase: m.phase || (m.move_number <= 10 ? 'opening' : m.move_number <= 30 ? 'middlegame' : 'endgame'),
-        context: getContextLabel(m),
-        isBlunder: cpLoss >= 300,
-        isMistake: cpLoss >= 100 && cpLoss < 300,
-        isInaccuracy: cpLoss >= 50 && cpLoss < 100
-      };
+      // Brilliant/Great moves: low cp_loss OR gained significant advantage
+      if (cpLoss <= 5) {
+        // Perfect or near-perfect move
+        const evalSwing = evalAfter - evalBefore;
+        const entry = {
+          move_number: m.move_number,
+          move: m.move,
+          best_move: m.best_move,
+          cp_loss: cpLoss,
+          eval_before: evalBefore,
+          eval_after: evalAfter,
+          fen_before: m.fen_before,
+          phase: m.phase || (m.move_number <= 10 ? 'opening' : m.move_number <= 30 ? 'middlegame' : 'endgame'),
+          isBrilliant: evalSwing > 150 || (cpLoss === 0 && Math.abs(evalBefore) < 100), // Found winning move OR played perfectly in balanced position
+          isGreat: cpLoss <= 5,
+          context: getPositiveContext(m),
+          type: 'positive'
+        };
+        
+        // Classify as brilliant if: found a winning shot OR played perfectly when under pressure
+        if (entry.isBrilliant || (evalBefore < -50 && cpLoss === 0)) {
+          groups.brilliant_moves.push(entry);
+        } else if (cpLoss <= 5) {
+          groups.great_moves.push(entry);
+        }
+      }
       
-      // Group by type
-      if (mistakeType.includes('hanging') || mistakeType.includes('material_blunder')) {
-        groups.hanging_pieces.push(entry);
-      } else if (mistakeType.includes('missed_') || mistakeType.includes('tactical')) {
-        groups.tactical_misses.push(entry);
-      } else if (cpLoss >= 300) {
-        groups.blunders.push(entry);
-      } else if (mistakeType.includes('positional') || mistakeType.includes('drift')) {
-        groups.positional_errors.push(entry);
-      } else {
-        groups.other.push(entry);
+      // Learning moments: mistakes/blunders, but framed positively
+      if (cpLoss >= 50) {
+        const mistakeType = m.mistake_type || '';
+        const entry = {
+          move_number: m.move_number,
+          move: m.move,
+          best_move: m.best_move,
+          cp_loss: cpLoss,
+          eval_before: evalBefore,
+          eval_after: evalAfter,
+          fen_before: m.fen_before,
+          phase: m.phase || (m.move_number <= 10 ? 'opening' : m.move_number <= 30 ? 'middlegame' : 'endgame'),
+          context: getContextLabel(m),
+          isBlunder: cpLoss >= 300,
+          isMistake: cpLoss >= 100 && cpLoss < 300,
+          isInaccuracy: cpLoss >= 50 && cpLoss < 100,
+          mistakeType: mistakeType,
+          type: 'learning'
+        };
+        groups.learning_moments.push(entry);
       }
     });
     
-    // Filter empty groups
-    return Object.entries(groups)
-      .filter(([_, items]) => items.length > 0)
-      .map(([type, items]) => ({
-        type,
-        label: formatGroupLabel(type),
-        count: items.length,
-        items: items.sort((a, b) => b.cp_loss - a.cp_loss) // Sort by severity
-      }));
+    // Limit brilliant/great to top 5 each, sort learning by severity
+    groups.brilliant_moves = groups.brilliant_moves.slice(0, 5);
+    groups.great_moves = groups.great_moves.slice(0, 5);
+    groups.learning_moments.sort((a, b) => b.cp_loss - a.cp_loss);
+    
+    // Build final array with proper ordering: brilliant first, then great, then learning
+    const result = [];
+    
+    if (groups.brilliant_moves.length > 0) {
+      result.push({
+        type: 'brilliant_moves',
+        label: "Brilliant Moves",
+        icon: "sparkles",
+        count: groups.brilliant_moves.length,
+        items: groups.brilliant_moves,
+        positive: true
+      });
+    }
+    
+    if (groups.great_moves.length > 0) {
+      result.push({
+        type: 'great_moves', 
+        label: "Great Decisions",
+        icon: "star",
+        count: groups.great_moves.length,
+        items: groups.great_moves,
+        positive: true
+      });
+    }
+    
+    if (groups.learning_moments.length > 0) {
+      result.push({
+        type: 'learning_moments',
+        label: "Learning Moments",
+        icon: "lightbulb",
+        count: groups.learning_moments.length,
+        items: groups.learning_moments,
+        positive: false
+      });
+    }
+    
+    return result;
   }, [moveEvaluations, userColor]);
 
   // Critical moves (eval swing > 1.5 or big cp loss)
