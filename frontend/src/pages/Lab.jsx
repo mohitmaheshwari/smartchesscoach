@@ -1171,11 +1171,11 @@ const Lab = ({ user }) => {
                       )}
                     </TabsContent>
 
-                    {/* MISTAKES TAB - Most Important */}
-                    <TabsContent value="mistakes" className="p-4 space-y-4 m-0">
-                      {groupedMistakes.length > 0 ? (
-                        groupedMistakes.map((group) => (
-                          <MistakeGroup 
+                    {/* MILESTONES TAB - Brilliant Moves & Learning Moments */}
+                    <TabsContent value="milestones" className="p-4 space-y-4 m-0">
+                      {groupedMilestones.length > 0 ? (
+                        groupedMilestones.map((group) => (
+                          <MilestoneGroup 
                             key={group.type}
                             group={group}
                             userColor={userColor}
@@ -1187,9 +1187,9 @@ const Lab = ({ user }) => {
                         ))
                       ) : (
                         <div className="text-center py-8">
-                          <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-green-500" />
-                          <p className="font-medium text-green-500">No significant mistakes!</p>
-                          <p className="text-sm text-muted-foreground">Great game - keep it up!</p>
+                          <Sparkles className="w-12 h-12 mx-auto mb-4 text-amber-500/50" />
+                          <p className="font-medium text-muted-foreground">No key moments identified</p>
+                          <p className="text-sm text-muted-foreground">Analysis may still be processing</p>
                         </div>
                       )}
                     </TabsContent>
