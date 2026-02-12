@@ -990,45 +990,6 @@ const Lab = ({ user }) => {
   );
 };
 
-// Helper components
-const StrategySection = ({ icon, title, color, children, compact }) => (
-  <div className={`p-3 rounded-lg bg-${color}-500/10 border border-${color}-500/20 ${compact ? 'text-sm' : ''}`}>
-    <div className="flex items-center gap-2 mb-2">
-      {icon}
-      <p className={`font-medium ${compact ? 'text-sm' : ''}`}>{title}</p>
-    </div>
-    {children}
-  </div>
-);
-
-const ExecutionBadge = ({ verdict }) => {
-  const isGood = verdict?.includes('Excellent') || verdict?.includes('Good') || verdict?.includes('Solid');
-  const isOk = verdict?.includes('Partial') || verdict?.includes('acceptable');
-  
-  return (
-    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
-      isGood ? 'bg-green-500/20 text-green-400' :
-      isOk ? 'bg-yellow-500/20 text-yellow-400' :
-      'bg-red-500/20 text-red-400'
-    }`}>
-      {isGood ? <CheckCircle2 className="w-3 h-3" /> :
-       isOk ? <AlertCircle className="w-3 h-3" /> :
-       <AlertTriangle className="w-3 h-3" />}
-      {verdict?.split(' - ')[0] || verdict}
-    </div>
-  );
-};
-
-const CriticalMoveCard = ({ label, text, onClick }) => (
-  <button 
-    className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-left w-full hover:bg-red-500/20 transition-colors"
-    onClick={onClick}
-  >
-    <p className="text-xs text-red-400 uppercase mb-0.5">{label}</p>
-    <p className="text-sm text-red-400">{text}</p>
-  </button>
-);
-
 const MistakeGroup = ({ group, userColor, onMoveClick }) => (
   <div className="space-y-2">
     <div className="flex items-center justify-between">
