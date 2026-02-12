@@ -164,6 +164,13 @@ from blunder_intelligence_service import (
 # Import Badge Service
 from badge_service import calculate_all_badges, get_badge_history, calculate_badge_trends
 
+# Import Mistake Explanation Service for educational commentary
+from mistake_explanation_service import (
+    generate_mistake_explanation,
+    analyze_mistake_position,
+    get_quick_explanation
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
