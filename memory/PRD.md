@@ -345,6 +345,39 @@ Created a utility library that converts engine evaluations to intuitive language
 - `DrillMode.jsx`: Shows "You were Completely winning" and "In the game, you played Bb6 (Blunder)"
 - `JourneyV2.jsx`: Shows "374 pawns lost (major weakness)" instead of "~37400 cp lost"
 
+### MISSION SYSTEM REDESIGN (Feb 2026 - COMPLETED)
+**Design Principles (Indian 600-1600 player psychology):**
+- Habit-based + Streak-based missions
+- Short, strong titles (not gimmicky)
+- Clear rules (feels like coaching instructions)
+- Small achievable numbers (3 games, not 10)
+- Performance-focused, not playful
+
+**Mission Examples:**
+- **No Free Pieces** - Play 3 games without hanging a piece
+- **Scan Before Move** - Play 3 games with zero blunders (Check: Checks, Captures, Threats)
+- **Finish Strong** - Convert 3 winning positions without blundering
+- **Threat Check** - Play 3 games without walking into a tactic
+- **Clock Discipline** - Play 3 games without time-pressure blunders
+- **See More** - Play 3 games with 80%+ accuracy
+- **Clean Games** - Play 3 games with 1 or fewer blunders
+
+**UI Structure:**
+```
+🎯 CURRENT DISCIPLINE FOCUS
+
+Finish Strong                                0 / 3
+Convert 3 winning positions without blundering
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HOW TO DO IT
+When ahead, don't rush. Keep checking threats.
+```
+
+**Key Files:**
+- `/app/backend/blunder_intelligence_service.py`: `get_mission()` function
+- `/app/frontend/src/pages/Focus.jsx`: Mission display component
+
 ### RE-ANALYSIS & GAME QUEUE SYSTEM (Feb 2026 - COMPLETED)
 **The Problem Solved**: Users had games that were imported but not properly analyzed (showing "Re-analyze this game..." text but no button). Unanalyzed games were mixed with analyzed ones, making the dashboard cluttered.
 
