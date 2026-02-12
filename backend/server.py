@@ -3769,12 +3769,38 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
             "platform": 1,
             "opening": 1,
             "is_analyzed": 1,
-            "imported_at": 1
+            "imported_at": 1,
+            "pgn": 1  # Need PGN to extract player names if not stored
         }
     ).sort("imported_at", -1).to_list(10)
     
-    # Enrich games with accuracy from analysis
+    # Enrich games with accuracy from analysis and extract player names from PGN
+    import re
     for game in recent_games:
+        # Extract player names from PGN if not already present
+        pgn = game.get("pgn", "")
+        if pgn:
+            if not game.get("white_player") or game.get("white_player") in ["Unknown", "?"]:
+                white_match = re.search(r'\[White "([^"]+)"\]', pgn)
+                if white_match:
+                    game["white_player"] = white_match.group(1)
+            if not game.get("black_player") or game.get("black_player") in ["Unknown", "?"]:
+                black_match = re.search(r'\[Black "([^"]+)"\]', pgn)
+                if black_match:
+                    game["black_player"] = black_match.group(1)
+            
+            # Also extract ratings from PGN
+            white_elo_match = re.search(r'\[WhiteElo "(\d+)"\]', pgn)
+            black_elo_match = re.search(r'\[BlackElo "(\d+)"\]', pgn)
+            if white_elo_match:
+                game["white_rating"] = int(white_elo_match.group(1))
+            if black_elo_match:
+                game["black_rating"] = int(black_elo_match.group(1))
+        
+        # Don't send PGN to frontend (too large)
+        if "pgn" in game:
+            del game["pgn"]
+        
         if game.get("is_analyzed"):
             analysis = await db.game_analyses.find_one(
                 {"game_id": game["game_id"], "user_id": user.user_id},
