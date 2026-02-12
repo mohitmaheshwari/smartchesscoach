@@ -33,7 +33,9 @@ import {
   X,
   RefreshCw,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  FileQuestion,
+  Play
 } from "lucide-react";
 import {
   DropdownMenu,
