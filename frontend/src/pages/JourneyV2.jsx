@@ -11,19 +11,22 @@ import {
   Loader2, 
   Flame,
   AlertTriangle,
-  CheckCircle,
+  CheckCircle2,
+  XCircle,
   TrendingUp,
   TrendingDown,
   Target,
   Zap,
-  Trophy,
   ChevronRight,
   BarChart3,
-  Crosshair,
   Shield,
   Brain,
   Eye,
-  Dumbbell
+  Dumbbell,
+  BookOpen,
+  Clock,
+  Crown,
+  Minus
 } from "lucide-react";
 import EvidenceModal from "@/components/EvidenceModal";
 import DrillMode from "@/components/DrillMode";
@@ -32,112 +35,52 @@ import { formatTotalCpLoss } from "@/utils/evalFormatter";
 /**
  * JOURNEY PAGE - "How you're evolving"
  * 
- * This is the TREND page for long-term intelligence and reflection.
+ * KEPT:
+ * - Weakness ranking (Your Weaknesses Prioritized) with evidence/training
+ * - Win state analysis (Pattern Analysis / When You Blunder)
  * 
- * Structure:
- * - Weakness ranking (not equal badges) with EVIDENCE DRILL-DOWN
- * - Win-state analysis with EVIDENCE DRILL-DOWN
- * - Mistake heatmap
- * - Identity profile
- * - Milestones
+ * NEW:
+ * - Chess Fundamentals Assessment
+ * - Rating Ceiling Assessment
+ * - Opening Progress
+ * 
+ * REMOVED:
+ * - Mistake Heatmap
+ * - Recent Achievements / Milestones
+ * - Stable Strength
+ * - Chess Identity
  */
 
-// Heatmap component for board visualization - NOW WITH CLICKABLE SQUARES
-const MistakeHeatmap = ({ data, onShowEvidence }) => {
-  if (!data || !data.hot_squares || data.hot_squares.length === 0) {
-    return null;
+// Trend indicator component
+const TrendIndicator = ({ trend }) => {
+  if (!trend) return null;
+  
+  const { recent, previous, change, direction } = trend;
+  
+  if (direction === "improving") {
+    return (
+      <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+        <TrendingDown className="w-3 h-3" />
+        {previous} → {recent} ({change}%)
+      </span>
+    );
+  } else if (direction === "worsening") {
+    return (
+      <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+        <TrendingUp className="w-3 h-3" />
+        {previous} → {recent} (+{Math.abs(change)}%)
+      </span>
+    );
   }
-
-  const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-  const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
   
-  // Create intensity map
-  const maxCount = Math.max(...data.hot_squares.map(s => s.count), 1);
-  const squareIntensity = {};
-  const squareData = {};
-  data.hot_squares.forEach(({ square, count, evidence }) => {
-    squareIntensity[square] = count / maxCount;
-    squareData[square] = { count, evidence: evidence || [] };
-  });
-  
-  // Handle square click
-  const handleSquareClick = (sq) => {
-    const sqData = squareData[sq];
-    if (sqData && sqData.evidence && sqData.evidence.length > 0) {
-      onShowEvidence(sq, sqData.evidence, sqData.count);
-    }
-  };
-
   return (
-    <Card className="border-orange-500/20">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Crosshair className="w-5 h-5 text-orange-500" />
-          Mistake Heatmap
-          <span className="text-xs text-muted-foreground font-normal ml-auto">Click hot squares</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-8 gap-0.5 aspect-square max-w-[280px] mx-auto mb-4">
-          {ranks.map(rank => 
-            files.map(file => {
-              const sq = file + rank;
-              const intensity = squareIntensity[sq] || 0;
-              const isLight = (files.indexOf(file) + ranks.indexOf(rank)) % 2 === 0;
-              const hasEvidence = squareData[sq]?.evidence?.length > 0;
-              
-              return (
-                <div
-                  key={sq}
-                  className={`aspect-square flex items-center justify-center text-[8px] font-mono
-                    ${isLight ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-amber-800/30 dark:bg-amber-950/50'}
-                    ${intensity > 0 ? 'relative' : ''}
-                    ${hasEvidence ? 'cursor-pointer hover:ring-2 hover:ring-white/50 transition-all' : ''}
-                  `}
-                  style={{
-                    backgroundColor: intensity > 0 
-                      ? `rgba(239, 68, 68, ${intensity * 0.7})` 
-                      : undefined
-                  }}
-                  onClick={() => hasEvidence && handleSquareClick(sq)}
-                  data-testid={hasEvidence ? `heatmap-square-${sq}` : undefined}
-                >
-                  {intensity > 0.5 && (
-                    <span className="text-white font-bold text-[10px]">
-                      {squareData[sq]?.count}
-                    </span>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-        
-        <p className="text-sm text-muted-foreground text-center">
-          {data.insight}
-        </p>
-        
-        {/* Region breakdown */}
-        <div className="flex justify-center gap-4 mt-4 text-xs">
-          <div className="text-center">
-            <span className="block font-bold">{data.regions?.queenside || 0}</span>
-            <span className="text-muted-foreground">Queenside</span>
-          </div>
-          <div className="text-center">
-            <span className="block font-bold">{data.regions?.center || 0}</span>
-            <span className="text-muted-foreground">Center</span>
-          </div>
-          <div className="text-center">
-            <span className="block font-bold">{data.regions?.kingside || 0}</span>
-            <span className="text-muted-foreground">Kingside</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <span className="text-xs bg-gray-500/20 text-gray-400 px-2 py-0.5 rounded-full">
+      Stable ({recent})
+    </span>
   );
 };
 
-// Win state analysis component - NOW WITH EVIDENCE DRILL-DOWN
+// Win state analysis component - Pattern Analysis / When You Blunder
 const WinStateAnalysis = ({ data, onShowEvidence }) => {
   if (!data || data.total_blunders === 0) {
     return null;
@@ -192,7 +135,6 @@ const WinStateAnalysis = ({ data, onShowEvidence }) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Visual bars - now clickable */}
         <div className="space-y-3">
           <StateRow 
             state="winning"
@@ -222,7 +164,6 @@ const WinStateAnalysis = ({ data, onShowEvidence }) => {
           />
         </div>
         
-        {/* Insight */}
         <div className="p-3 rounded-lg bg-muted/50 text-sm">
           {data.insight}
         </div>
@@ -231,36 +172,7 @@ const WinStateAnalysis = ({ data, onShowEvidence }) => {
   );
 };
 
-// Trend indicator component
-const TrendIndicator = ({ trend }) => {
-  if (!trend) return null;
-  
-  const { recent, previous, change, direction } = trend;
-  
-  if (direction === "improving") {
-    return (
-      <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-        <TrendingDown className="w-3 h-3" />
-        {previous} → {recent} ({change}%)
-      </span>
-    );
-  } else if (direction === "worsening") {
-    return (
-      <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-        <TrendingUp className="w-3 h-3" />
-        {previous} → {recent} (+{Math.abs(change)}%)
-      </span>
-    );
-  }
-  
-  return (
-    <span className="text-xs bg-gray-500/20 text-gray-400 px-2 py-0.5 rounded-full">
-      Stable ({recent})
-    </span>
-  );
-};
-
-// Weakness ranking component - NOW WITH EVIDENCE DRILL-DOWN AND TRENDS
+// Weakness ranking component - Your Weaknesses (Prioritized)
 const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
   if (!data || !data.ranking || data.ranking.length === 0) {
     return null;
@@ -315,7 +227,6 @@ const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
                   )}
                 </div>
                 
-                {/* Trend indicator */}
                 {trend && (
                   <div className="mb-2">
                     <TrendIndicator trend={trend} />
@@ -331,7 +242,6 @@ const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
                   <span>{weakness.occurrences} occurrences</span>
                 </div>
                 
-                {/* Action buttons */}
                 <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                   <Button 
                     variant="outline" 
@@ -362,7 +272,6 @@ const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
 
   return (
     <div className="space-y-4">
-      {/* #1 Rating Killer */}
       {data.rating_killer && (
         <WeaknessCard 
           weakness={data.rating_killer} 
@@ -372,7 +281,6 @@ const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
         />
       )}
 
-      {/* Secondary Weakness */}
       {data.secondary_weakness && (
         <WeaknessCard 
           weakness={data.secondary_weakness} 
@@ -381,93 +289,347 @@ const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
           colorClass="border-amber-500/20"
         />
       )}
-
-      {/* Stable Strength */}
-      {data.stable_strength && (
-        <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card className="border-green-500/20">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-green-500/10">
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-green-500">
-                      Stable Strength
-                    </span>
-                  </div>
-                  <h3 className="font-semibold">{data.stable_strength.label}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {data.stable_strength.message}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
     </div>
   );
 };
 
-// Milestones component
-const Milestones = ({ milestones }) => {
-  if (!milestones || milestones.length === 0) {
+// ============================================
+// NEW SECTION: Chess Fundamentals Assessment
+// ============================================
+const FundamentalsSection = ({ data, onViewGame }) => {
+  if (!data?.has_data) {
     return null;
   }
 
-  const iconMap = {
-    trophy: Trophy,
-    fire: Flame,
-    star: Zap,
-    chart: BarChart3
+  const fundamentalIcons = {
+    positional_play: <Shield className="w-5 h-5" />,
+    tactics: <Zap className="w-5 h-5" />,
+    opening: <BookOpen className="w-5 h-5" />,
+    endgame: <Crown className="w-5 h-5" />,
+    time_management: <Clock className="w-5 h-5" />
+  };
+
+  const levelColors = {
+    strong: "text-emerald-500",
+    developing: "text-blue-500",
+    needs_work: "text-amber-500",
+    focus_area: "text-red-500"
+  };
+
+  const levelBgColors = {
+    strong: "bg-emerald-500/10",
+    developing: "bg-blue-500/10",
+    needs_work: "bg-amber-500/10",
+    focus_area: "bg-red-500/10"
   };
 
   return (
-    <Card className="border-purple-500/20">
+    <Card className="border-indigo-500/20" data-testid="fundamentals-section">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-purple-500" />
-          Recent Achievements
+          <Brain className="w-5 h-5 text-indigo-500" />
+          Chess Fundamentals
+          <span className="text-xs text-muted-foreground font-normal ml-auto">
+            How you compare across key areas
+          </span>
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {milestones.map((milestone, idx) => {
-            const Icon = iconMap[milestone.icon] || Trophy;
-            return (
-              <motion.div
-                key={milestone.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.1 }}
-                className="flex items-center gap-3 p-3 rounded-lg bg-purple-500/10"
-              >
-                <Icon className="w-5 h-5 text-purple-400" />
-                <div>
-                  <h4 className="font-semibold text-purple-300">{milestone.name}</h4>
-                  <p className="text-xs text-muted-foreground">{milestone.description}</p>
+      <CardContent className="space-y-4">
+        {data.fundamentals.map((fund) => (
+          <div key={fund.key} className="group">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${levelBgColors[fund.level]}`}>
+                  {fundamentalIcons[fund.key] || <Target className="w-5 h-5" />}
                 </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                <div>
+                  <p className="font-medium">{fund.name}</p>
+                  <p className="text-xs text-muted-foreground">{fund.description}</p>
+                </div>
+              </div>
+              <span className={`text-sm font-semibold ${levelColors[fund.level]}`}>
+                {fund.score}%
+              </span>
+            </div>
+            
+            <Progress value={fund.score} className="h-2" />
+            
+            {(fund.level === "focus_area" || fund.level === "needs_work") && (
+              <div className="mt-2 p-3 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground">
+                  <AlertTriangle className="w-4 h-4 inline mr-1 text-amber-500" />
+                  {fund.suggestions?.[0]}
+                </p>
+                {fund.tagged_games?.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="text-xs text-muted-foreground">Practice games:</span>
+                    {fund.tagged_games.map((game, i) => (
+                      <button
+                        key={i}
+                        onClick={() => onViewGame(game.game_id)}
+                        className="text-xs px-2 py-1 rounded bg-muted hover:bg-accent transition-colors"
+                      >
+                        vs {game.opponent}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {data.strongest && data.weakest && (
+          <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 gap-4">
+            <div className="p-3 rounded-lg bg-emerald-500/10">
+              <p className="text-xs text-emerald-500 font-medium mb-1">Strongest Area</p>
+              <p className="font-medium">{data.strongest.name}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-red-500/10">
+              <p className="text-xs text-red-500 font-medium mb-1">Focus Area</p>
+              <p className="font-medium">{data.weakest.name}</p>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 };
 
+// ============================================
+// NEW SECTION: Rating Ceiling Assessment
+// ============================================
+const RatingCeilingSection = ({ data }) => {
+  if (!data?.has_data) {
+    return null;
+  }
+
+  const urgencyColors = {
+    high: "border-l-red-500",
+    medium: "border-l-amber-500",
+    low: "border-l-emerald-500"
+  };
+
+  return (
+    <Card className={`border-l-4 ${urgencyColors[data.urgency]}`} data-testid="rating-ceiling-section">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-blue-500" />
+          Rating Ceiling Assessment
+          <span className="text-xs text-muted-foreground font-normal ml-auto">
+            You're not bad, you're unstable
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="text-center p-4 rounded-lg bg-muted/50">
+            <p className="text-xs text-muted-foreground mb-1">Stable Level</p>
+            <p className="text-2xl font-bold text-foreground">{data.stable_level}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {data.stable_games_count} clean games
+            </p>
+          </div>
+          <div className="text-center p-4 rounded-lg bg-primary/10">
+            <p className="text-xs text-muted-foreground mb-1">Demonstrated Peak</p>
+            <p className="text-2xl font-bold text-primary">{data.peak_level}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Top 30% ({data.peak_accuracy}% acc)
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-lg bg-muted/30 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-muted-foreground">Performance Gap</span>
+            <span className="font-bold">
+              {data.gap > 0 ? (
+                <span className="text-amber-500">+{data.gap} points</span>
+              ) : (
+                <span className="text-emerald-500">Consistent!</span>
+              )}
+            </span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-emerald-500 to-primary transition-all"
+              style={{ width: `${Math.min(100, (data.stable_level / data.peak_level) * 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {data.gap > 50 && (
+          <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5" />
+              <div>
+                <p className="font-medium text-amber-500">Gap Driver: {data.gap_driver}</p>
+                <p className="text-sm text-muted-foreground mt-1">{data.gap_description}</p>
+                <p className="text-sm mt-2 font-medium">{data.fix_suggestion}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <p className="text-sm text-muted-foreground mt-4 text-center italic">
+          {data.message}
+        </p>
+      </CardContent>
+    </Card>
+  );
+};
+
+// ============================================
+// NEW SECTION: Opening Progress
+// ============================================
+const OpeningProgressSection = ({ data, onViewGame }) => {
+  const [showColor, setShowColor] = useState("white");
+
+  if (!data?.has_data) {
+    return null;
+  }
+
+  const statusIcons = {
+    working: <CheckCircle2 className="w-4 h-4 text-emerald-500" />,
+    struggling: <XCircle className="w-4 h-4 text-red-500" />,
+    error_prone: <AlertTriangle className="w-4 h-4 text-amber-500" />,
+    needs_study: <BookOpen className="w-4 h-4 text-blue-500" />,
+    neutral: <Minus className="w-4 h-4 text-muted-foreground" />
+  };
+
+  const currentData = showColor === "white" ? data.as_white : data.as_black;
+
+  return (
+    <Card className="border-purple-500/20" data-testid="opening-progress-section">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <BookOpen className="w-5 h-5 text-purple-500" />
+          Opening Progress
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={() => setShowColor("white")}
+              className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                showColor === "white" 
+                  ? "bg-primary text-primary-foreground" 
+                  : "bg-muted hover:bg-accent"
+              }`}
+            >
+              White ({data.as_white.total_games})
+            </button>
+            <button
+              onClick={() => setShowColor("black")}
+              className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                showColor === "black" 
+                  ? "bg-primary text-primary-foreground" 
+                  : "bg-muted hover:bg-accent"
+              }`}
+            >
+              Black ({data.as_black.total_games})
+            </button>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {currentData.openings.map((opening, idx) => (
+          <div 
+            key={idx}
+            className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                {statusIcons[opening.status]}
+                <span className="font-medium">{opening.name}</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-muted-foreground">{opening.games} games</span>
+                <span className={
+                  opening.win_rate >= 60 ? "text-emerald-500 font-semibold" :
+                  opening.win_rate < 40 ? "text-red-500 font-semibold" :
+                  "text-foreground"
+                }>
+                  {opening.win_rate}% WR
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex h-2 rounded-full overflow-hidden bg-muted">
+              <div 
+                className="bg-emerald-500 transition-all"
+                style={{ width: `${(opening.wins / opening.games) * 100}%` }}
+              />
+              <div 
+                className="bg-slate-400 transition-all"
+                style={{ width: `${(opening.draws / opening.games) * 100}%` }}
+              />
+              <div 
+                className="bg-red-500 transition-all"
+                style={{ width: `${(opening.losses / opening.games) * 100}%` }}
+              />
+            </div>
+            
+            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                {opening.wins}W
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                {opening.draws}D
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                {opening.losses}L
+              </span>
+              {opening.avg_accuracy > 0 && (
+                <span className="ml-auto">{opening.avg_accuracy}% avg acc</span>
+              )}
+            </div>
+            
+            {opening.suggestion && (
+              <p className="text-xs text-muted-foreground mt-2 pl-4 border-l-2 border-primary/30">
+                {opening.suggestion}
+              </p>
+            )}
+          </div>
+        ))}
+
+        {(data.working_well?.length > 0 || data.needs_work?.length > 0) && (
+          <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 gap-4">
+            {data.working_well?.length > 0 && (
+              <div className="p-3 rounded-lg bg-emerald-500/10">
+                <p className="text-xs text-emerald-500 font-medium mb-2">Working Well</p>
+                <div className="space-y-1">
+                  {data.working_well.slice(0, 2).map((o, i) => (
+                    <p key={i} className="text-sm truncate">{o.name}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+            {data.needs_work?.length > 0 && (
+              <div className="p-3 rounded-lg bg-red-500/10">
+                <p className="text-xs text-red-500 font-medium mb-2">Needs Work</p>
+                <div className="space-y-1">
+                  {data.needs_work.slice(0, 2).map((o, i) => (
+                    <p key={i} className="text-sm truncate">{o.name}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ============================================
+// MAIN PAGE COMPONENT
+// ============================================
 const JourneyPage = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [journeyData, setJourneyData] = useState(null);
   
-  // Evidence modal state
   const [evidenceModal, setEvidenceModal] = useState({
     isOpen: false,
     title: "",
@@ -477,7 +639,6 @@ const JourneyPage = ({ user }) => {
     state: null
   });
   
-  // Drill mode state
   const [drillMode, setDrillMode] = useState({
     active: false,
     pattern: null,
@@ -503,7 +664,6 @@ const JourneyPage = ({ user }) => {
     fetchData();
   }, []);
   
-  // Handle showing evidence for weakness patterns
   const handleShowWeaknessEvidence = (weakness, evidence) => {
     setEvidenceModal({
       isOpen: true,
@@ -515,7 +675,6 @@ const JourneyPage = ({ user }) => {
     });
   };
   
-  // Handle showing evidence for win state
   const handleShowStateEvidence = (state, evidence) => {
     const stateLabels = {
       winning: "Blunders When Winning",
@@ -533,25 +692,16 @@ const JourneyPage = ({ user }) => {
     });
   };
   
-  // Handle showing evidence for heatmap square
-  const handleShowHeatmapEvidence = (square, evidence, count) => {
-    setEvidenceModal({
-      isOpen: true,
-      title: `Mistakes on ${square.toUpperCase()}`,
-      subtitle: `${count} mistake${count !== 1 ? 's' : ''} occurred on this square`,
-      evidence: evidence,
-      type: "heatmap",
-      state: null
-    });
-  };
-  
-  // Handle starting drill mode
   const handleStartDrill = (pattern, patternLabel) => {
     setDrillMode({
       active: true,
       pattern: pattern,
       patternLabel: patternLabel
     });
+  };
+
+  const handleViewGame = (gameId) => {
+    navigate(`/lab/${gameId}`);
   };
 
   if (loading) {
@@ -566,7 +716,6 @@ const JourneyPage = ({ user }) => {
 
   const gamesAnalyzed = journeyData?.games_analyzed || 0;
   
-  // Show drill mode if active
   if (drillMode.active) {
     return (
       <Layout user={user}>
@@ -584,7 +733,7 @@ const JourneyPage = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8">
         
         {/* Header */}
         <motion.div 
@@ -599,7 +748,6 @@ const JourneyPage = ({ user }) => {
         </motion.div>
 
         {gamesAnalyzed < 5 ? (
-          /* Not enough data */
           <Card className="border-2 border-dashed border-muted-foreground/20">
             <CardContent className="py-12 text-center">
               <Brain className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
@@ -615,7 +763,7 @@ const JourneyPage = ({ user }) => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            {/* LEFT COLUMN - Weakness Hierarchy */}
+            {/* LEFT COLUMN */}
             <div className="space-y-6">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Target className="w-5 h-5" />
@@ -628,26 +776,11 @@ const JourneyPage = ({ user }) => {
                 onStartDrill={handleStartDrill}
               />
 
-              {/* Identity */}
-              {journeyData?.identity && journeyData.identity.profile !== "unknown" && (
-                <Card className="border-indigo-500/20">
-                  <CardContent className="py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-full bg-indigo-500/10">
-                        <Zap className="w-5 h-5 text-indigo-500" />
-                      </div>
-                      <div>
-                        <span className="text-xs text-muted-foreground">Chess Identity</span>
-                        <h3 className="font-bold text-indigo-400">{journeyData.identity.label}</h3>
-                        <p className="text-sm text-muted-foreground">{journeyData.identity.description}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Rating Ceiling Assessment */}
+              <RatingCeilingSection data={journeyData?.rating_ceiling} />
             </div>
 
-            {/* RIGHT COLUMN - Analytics */}
+            {/* RIGHT COLUMN */}
             <div className="space-y-6">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" />
@@ -659,12 +792,17 @@ const JourneyPage = ({ user }) => {
                 onShowEvidence={handleShowStateEvidence}
               />
               
-              <MistakeHeatmap 
-                data={journeyData?.heatmap} 
-                onShowEvidence={handleShowHeatmapEvidence}
+              {/* Chess Fundamentals */}
+              <FundamentalsSection 
+                data={journeyData?.fundamentals} 
+                onViewGame={handleViewGame}
               />
               
-              <Milestones milestones={journeyData?.milestones} />
+              {/* Opening Progress */}
+              <OpeningProgressSection 
+                data={journeyData?.opening_progress}
+                onViewGame={handleViewGame}
+              />
             </div>
           </div>
         )}
