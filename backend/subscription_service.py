@@ -135,7 +135,7 @@ async def has_feature_access(db, user_id: str, feature: str) -> bool:
     Check if user has access to a specific feature.
     Features: auto_sync, immediate_feedback, llm_commentary, priority_analysis
     """
-    plan_info = await get_user_plan(db, user_id)
+    plan_info = await get_effective_plan(db, user_id)
     return plan_info["limits"].get(feature, False)
 
 
