@@ -14,9 +14,7 @@ import {
   AlertCircle,
   Lightbulb,
   Flame,
-  Trophy,
   ChevronRight,
-  Zap,
   Brain,
   Eye,
   Dumbbell,
@@ -24,9 +22,10 @@ import {
   CheckCircle2,
   TrendingUp,
   TrendingDown,
-  MessageCircle,
-  Award,
-  XCircle
+  XCircle,
+  Shield,
+  Crosshair,
+  Activity
 } from "lucide-react";
 import MistakeMastery from "@/components/MistakeMastery";
 import EvidenceModal from "@/components/EvidenceModal";
@@ -35,16 +34,13 @@ import DrillMode from "@/components/DrillMode";
 /**
  * FOCUS PAGE - "What should I focus on in my next game?"
  * 
- * This page answers ONE question only.
- * 
  * Structure:
+ * - DISCIPLINE CHECK: Sharp, data-driven review of last game
  * - ONE dominant weakness (CLICKABLE - see evidence)
  * - ONE mission
- * - ONE behavioral rule
- * - ONE interactive puzzle
+ * - Opening Guidance
  * 
- * No badge grid. No phase breakdown. No heavy stats.
- * This page = ACTIONABLE.
+ * No fluff. Evidence-based. Actionable.
  */
 
 const FocusPage = ({ user }) => {
@@ -52,7 +48,7 @@ const FocusPage = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [focusData, setFocusData] = useState(null);
   const [coachData, setCoachData] = useState(null);
-  const [coachReview, setCoachReview] = useState(null);
+  const [disciplineCheck, setDisciplineCheck] = useState(null);
   
   // Evidence modal state
   const [showEvidence, setShowEvidence] = useState(false);
@@ -63,11 +59,11 @@ const FocusPage = ({ user }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch focus data, coach data, and coach review
-        const [focusRes, coachRes, reviewRes] = await Promise.all([
+        // Fetch focus data, coach data, and discipline check
+        const [focusRes, coachRes, disciplineRes] = await Promise.all([
           fetch(`${API}/focus`, { credentials: "include" }),
           fetch(`${API}/coach/today`, { credentials: "include" }),
-          fetch(`${API}/coach-review`, { credentials: "include" })
+          fetch(`${API}/discipline-check`, { credentials: "include" })
         ]);
         
         if (focusRes.ok) {
@@ -80,9 +76,9 @@ const FocusPage = ({ user }) => {
           setCoachData(data);
         }
         
-        if (reviewRes.ok) {
-          const data = await reviewRes.json();
-          setCoachReview(data);
+        if (disciplineRes.ok) {
+          const data = await disciplineRes.json();
+          setDisciplineCheck(data);
         }
       } catch (err) {
         console.error("Failed to load focus data:", err);
