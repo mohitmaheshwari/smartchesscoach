@@ -294,9 +294,10 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
     if mistake_type == "inaccuracy":
         walked_into_fork = detect_walked_into_fork(board, board_after, color)
         if walked_into_fork:
-            # Only count as fork if it's a knight fork (classic tactical pattern)
-            # Rook/Queen "forks" are usually just attacks on hanging pieces
-            if walked_into_fork.get("attacker_piece") in ["knight", "pawn"]:
+            # Any piece can fork - the key is whether targets are valuable (not just pawns)
+            # The fork is only relevant if total target value is significant
+            total_value = walked_into_fork.get("total_value", 0)
+            if total_value >= 6:  # At least a minor piece + something else
                 mistake_type = "walked_into_fork"
                 details["fork"] = walked_into_fork
     
