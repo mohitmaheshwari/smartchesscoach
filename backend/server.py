@@ -3826,6 +3826,7 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     # Categorize games
     analyzed_list = []
     in_queue_list = []
+    not_analyzed_list = []  # NEW: Games that haven't been analyzed
     recent_games = []  # For backward compatibility, top 10
     
     # Enrich games with accuracy from analysis and extract player names from PGN
