@@ -226,6 +226,42 @@ Maps mistake types to human behaviors:
 - "misses_tactical_opportunities" → "You miss winning tactics that were available"
 - etc.
 
+### LAB PAGE - SURGICAL GAME CORRECTION ENVIRONMENT (Feb 2026 - Phase 1+3 COMPLETED)
+**Purpose**: Deep correction of a single game. Not diagnosis, not trends - surgical understanding of where control was lost.
+
+**Design Philosophy**: "I understand exactly where I lost control" - not "I read advice"
+
+**Phase 1: Core Structure (COMPLETED)**
+- Two-panel design: Board (left) + Tabs (right)
+- Sticky header showing: opponent name, rating badge, WIN/LOSS result, accuracy
+- Navigation controls: Play, Forward, Back, Flip Board, "Critical Only" toggle
+- Move list with color-coded mistakes (red for blunders, orange for mistakes)
+- 3 tabs: Summary, Strategy, Mistakes
+
+**Phase 3: Mistakes Tab (STRUCTURE COMPLETED)**
+- Grouped by type: Major Blunders, Hanging Pieces, Missed Tactics, Positional Errors
+- Each mistake shows: move number, severity badge, played move vs best move, phase, context
+- Clickable - jumps board to that position
+- Mini prompt: "What should you have checked here?"
+- Note: Full data requires detailed `move_evaluations` from Stockfish analysis
+
+**Dashboard Enhancements (COMPLETED)**
+- Opponent names displayed from PGN extraction
+- Opponent ratings shown as badges (e.g., "1340", "1303")
+- Filter dropdown: All / Stronger / Equal / Weaker opponents
+- Rating comparison based on user's estimated_elo from profile
+
+**API Updates:**
+- `GET /api/dashboard-stats` now extracts player names and ratings from PGN
+- `GET /api/games/{game_id}` extracts WhiteElo and BlackElo from PGN
+- `GET /api/lab/{game_id}` returns core_lesson, strategic_analysis, and move evaluations
+
+**Files Created/Modified:**
+- `/app/frontend/src/pages/Lab.jsx` - New Lab page (replaced GameAnalysis)
+- `/app/frontend/src/pages/Dashboard.jsx` - Added filter, opponent ratings
+- `/app/backend/server.py` - Enhanced endpoints with PGN extraction
+- `/app/backend/blunder_intelligence_service.py` - Improved core_lesson messages
+
 ### HUMAN-FRIENDLY EVALUATION DISPLAY (Feb 2026 - COMPLETED)
 **The Problem Solved**: Users found raw engine evaluations like "+464.0" or "-9335 cp" (centipawns) confusing and intimidating - it felt like reading raw engine output.
 
