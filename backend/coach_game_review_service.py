@@ -170,10 +170,12 @@ async def get_coach_game_review(db, user_id: str, llm_call_func) -> Dict:
         "opening_check": {
             "played": opening_name,
             "was_suggested": played_suggested,
-            "suggested_openings": suggested_for_color[:2] if suggested_for_color else []
+            "played_paused_opening": played_paused,
+            "suggested_openings": suggested_for_color[:2] if suggested_for_color else [],
+            "paused_openings": pause_for_color[:2] if pause_for_color else []
         },
         "weakness_check": {
-            "known_weaknesses": known_weaknesses[:3] if known_weaknesses else [],
+            "known_weaknesses": top_weaknesses,
             "blunders_in_game": blunder_types[:5],
             "repeated_weakness": False  # Will calculate below
         },
@@ -187,12 +189,14 @@ async def get_coach_game_review(db, user_id: str, llm_call_func) -> Dict:
     # Check if they repeated a known weakness
     # (This would require more sophisticated pattern matching - simplified for now)
     
-    # 9. Generate coach message using LLM
+    # 10. Generate coach message using LLM
     coach_message = await generate_coach_message(facts, llm_call_func)
     
-    # 10. Determine overall sentiment
+    # 11. Determine overall sentiment
     sentiment = "neutral"
-    if facts["comparison"]["is_improvement"]:
+    if played_paused:
+        sentiment = "disappointed"  # They played an opening we told them to avoid
+    elif facts["comparison"]["is_improvement"]:
         sentiment = "proud"
     elif game_blunders > avg_blunders + 1:
         sentiment = "concerned"
@@ -200,6 +204,10 @@ async def get_coach_game_review(db, user_id: str, llm_call_func) -> Dict:
         sentiment = "impressed"
     elif facts["performance"]["total_errors"] == 0:
         sentiment = "excellent"
+    
+    # Extra proud if they played suggested opening AND improved
+    if played_suggested and facts["comparison"]["is_improvement"]:
+        sentiment = "very_proud"
     
     return {
         "has_review": True,
