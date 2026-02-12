@@ -79,73 +79,73 @@ MISTAKE_TEMPLATES = {
         "severity": "tactical"
     },
     "missed_fork": {
-        "short": "Missed a fork",
-        "pattern": "You had a chance to fork two pieces but played something else.",
-        "thinking_habit": "Before each move, scan for fork opportunities.",
+        "short": "Fork opportunity spotted!",
+        "pattern": "There was a chance to attack two pieces at once. Good ones to look for!",
+        "thinking_habit": "Quick check: Can any of my knights or pawns hit two targets?",
         "severity": "missed_tactic"
     },
     "missed_pin": {
-        "short": "Missed a pin",
-        "pattern": "You could have pinned an opponent's piece but didn't see it.",
-        "thinking_habit": "Look for chances to immobilize pieces by pinning them.",
+        "short": "Pin was available",
+        "pattern": "You could have frozen an opponent's piece by pinning it. Next time!",
+        "thinking_habit": "Scan for pieces that are lined up with their King or Queen behind them.",
         "severity": "missed_tactic"
     },
     "missed_skewer": {
-        "short": "Missed a skewer",
-        "pattern": "You had a skewer available but didn't find it.",
-        "thinking_habit": "When pieces line up, check for skewer potential.",
+        "short": "Skewer opportunity",
+        "pattern": "A skewer was on the board - these are satisfying to find!",
+        "thinking_habit": "When heavy pieces line up, check if you can attack through them.",
         "severity": "missed_tactic"
     },
     "missed_discovered_attack": {
-        "short": "Missed a discovered attack",
-        "pattern": "Moving one piece could have revealed an attack from another.",
-        "thinking_habit": "Check if your pieces can 'unmask' attacks.",
+        "short": "Hidden attack available",
+        "pattern": "One of your pieces could have 'revealed' another attacker. Sneaky tactic!",
+        "thinking_habit": "Check if moving a piece can unmask an attack from behind.",
         "severity": "missed_tactic"
     },
     "missed_winning_tactic": {
-        "short": "Missed winning tactic",
-        "pattern": "A winning tactical shot was available.",
-        "thinking_habit": "Checks, captures, threats - scan in that order.",
+        "short": "Winning shot was there!",
+        "pattern": "A decisive tactical blow was available. These are what we practice for!",
+        "thinking_habit": "Remember the order: Checks, Captures, Threats. Scan each move.",
         "severity": "missed_tactic"
     },
     "ignored_threat": {
-        "short": "Ignored opponent's threat",
-        "pattern": "Your opponent had a threat that you didn't address.",
-        "thinking_habit": "Always ask: 'What is my opponent threatening?'",
+        "short": "Opponent's plan overlooked",
+        "pattern": "The opponent had something brewing that needed attention.",
+        "thinking_habit": "Golden question: What's their best move? Always ask it.",
         "severity": "threat_blindness"
     },
     
     # Positional/conversion mistakes
     "blunder_when_ahead": {
-        "short": "Threw away the win",
-        "pattern": "You were winning but relaxed and made a critical error.",
-        "thinking_habit": "When ahead, play like you're still equal. Stay focused.",
+        "short": "Victory slipped away",
+        "pattern": "You were in control but relaxed a bit too much. Happens to grandmasters too!",
+        "thinking_habit": "When winning, pretend it's still equal. Stay sharp until the end.",
         "severity": "conversion"
     },
     "failed_conversion": {
-        "short": "Failed to convert advantage",
-        "pattern": "You had a winning position but couldn't finish the game.",
-        "thinking_habit": "In winning positions, simplify and trade down carefully.",
+        "short": "Advantage needed one more push",
+        "pattern": "You had them on the ropes but the finish was tricky.",
+        "thinking_habit": "In winning positions, simplify! Trade pieces and keep it clean.",
         "severity": "conversion"
     },
     
     # Phase-specific mistakes
     "opening_inaccuracy": {
-        "short": "Opening inaccuracy",
-        "pattern": "This move doesn't follow opening principles.",
-        "thinking_habit": "Develop pieces, control center, castle early.",
+        "short": "Opening wobble",
+        "pattern": "This strayed a bit from solid opening ideas. Easy to fix!",
+        "thinking_habit": "Opening checklist: Develop, control center, castle, connect rooks.",
         "severity": "positional"
     },
     "positional_drift": {
-        "short": "Positional drift",
-        "pattern": "Small inaccuracies accumulated, losing your advantage.",
-        "thinking_habit": "Every few moves, reassess: What's the plan?",
+        "short": "Position slowly slipped",
+        "pattern": "Small choices added up and the position got trickier. Subtle but important!",
+        "thinking_habit": "Every 3-4 moves, pause and ask: What's my plan from here?",
         "severity": "positional"
     },
     "king_safety_error": {
-        "short": "King safety issue",
-        "pattern": "Your king became vulnerable.",
-        "thinking_habit": "Keep your king safe - castle early and protect it.",
+        "short": "King needed more protection",
+        "pattern": "The king got a bit exposed. Safety first!",
+        "thinking_habit": "Castle early, keep pawns in front of your king, watch for back-rank issues.",
         "severity": "positional"
     },
     
