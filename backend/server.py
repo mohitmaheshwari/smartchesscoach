@@ -178,6 +178,9 @@ from mistake_explanation_service import (
     get_quick_explanation
 )
 
+# Import Discipline Check Service for sharp, data-driven analysis
+from discipline_check_service import get_discipline_check
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
