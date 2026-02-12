@@ -4,8 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Layout from "@/components/Layout";
 import StatsDetailModal from "@/components/StatsDetailModal";
+import { toast } from "sonner";
 import { 
   StatCard,
   ProgressRing,
@@ -28,7 +30,10 @@ import {
   Star,
   Flame,
   Award,
-  X
+  X,
+  RefreshCw,
+  Clock,
+  CheckCircle2
 } from "lucide-react";
 import {
   DropdownMenu,
