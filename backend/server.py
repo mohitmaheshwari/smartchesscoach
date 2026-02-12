@@ -4825,22 +4825,23 @@ async def get_focus_page_data(user: User = Depends(get_current_user)):
     Returns:
     - ONE dominant weakness
     - ONE mission (scaled by rating tier)
-    - ONE behavioral rule
-    - Identity profile
+    - Opening Guidance (what's working, what to pause)
     - Rating impact estimate
     """
     # Get analyses
     analyses = await db.game_analyses.find(
         {"user_id": user.user_id}
-    ).sort("created_at", -1).limit(15).to_list(15)
+    ).sort("created_at", -1).limit(50).to_list(50)
     
+    # Get more games for opening guidance (need at least 4 per opening)
     games = await db.games.find(
-        {"user_id": user.user_id}
-    ).sort("date", -1).limit(15).to_list(15)
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "opening": 1, "pgn": 1, "user_color": 1, "result": 1, "date": 1}
+    ).sort("date", -1).limit(100).to_list(100)
     
     # Extract user's rating from recent games
     user_rating = None
-    for game in games:
+    for game in games[:10]:
         pgn = game.get("pgn", "")
         user_color = game.get("user_color", "white")
         
