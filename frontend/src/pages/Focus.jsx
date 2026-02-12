@@ -242,12 +242,26 @@ const FocusPage = ({ user }) => {
               >
                 <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
                   <CardContent className="py-5">
-                    {/* Header */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <Target className="w-4 h-4 text-amber-500" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                        Current Discipline Focus
-                      </span>
+                    {/* Header with Rating Tier */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Target className="w-4 h-4 text-amber-500" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                          Current Discipline Focus
+                        </span>
+                      </div>
+                      {focusData.mission.rating_tier && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          focusData.mission.rating_tier === 'beginner' ? 'bg-green-500/20 text-green-400' :
+                          focusData.mission.rating_tier === 'intermediate' ? 'bg-yellow-500/20 text-yellow-400' :
+                          focusData.mission.rating_tier === 'advanced' ? 'bg-blue-500/20 text-blue-400' :
+                          'bg-purple-500/20 text-purple-400'
+                        }`}>
+                          {focusData.mission.rating_tier === 'beginner' ? '600-1000' :
+                           focusData.mission.rating_tier === 'intermediate' ? '1000-1600' :
+                           focusData.mission.rating_tier === 'advanced' ? '1600-2000' : '2000+'}
+                        </span>
+                      )}
                     </div>
                     
                     {/* Mission Name & Progress */}
