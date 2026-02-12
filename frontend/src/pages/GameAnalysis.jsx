@@ -111,6 +111,21 @@ const GameAnalysis = ({ user }) => {
     fetchData();
   }, [gameId, navigate]);
 
+  // Jump to initial move from URL parameter (e.g., ?move=28)
+  useEffect(() => {
+    if (!initialMoveHandled && initialMove && boardRef.current && !loading) {
+      const moveNum = parseInt(initialMove, 10);
+      if (!isNaN(moveNum) && moveNum > 0) {
+        // Small delay to ensure board is ready
+        setTimeout(() => {
+          boardRef.current.goToMove(moveNum - 1);
+          setCurrentMoveNumber(moveNum);
+          setInitialMoveHandled(true);
+        }, 500);
+      }
+    }
+  }, [initialMove, loading, initialMoveHandled]);
+
   // Voice functions
   const playVoiceSummary = async (gId) => {
     if (!voiceEnabled) return;
