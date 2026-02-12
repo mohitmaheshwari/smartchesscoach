@@ -646,18 +646,20 @@ def generate_personalized_verdict(
         elif stability_score >= 80:
             positives.append(f"Held advantage well ({stability_score}% stable)")
     
-    # 5. Blunder context
+    # 5. Blunder check - use ACTUAL stockfish blunder count for consistency
     primary_trigger = blunder_context.get("primary_trigger", "none")
-    total_blunders = blunder_context.get("total_blunders", 0)
+    context_blunders = blunder_context.get("total_blunders", 0)
     
-    if total_blunders > 0:
-        if primary_trigger == "winning":
+    # Use actual_blunders for the display, context_blunders for "when" analysis
+    if actual_blunders > 0:
+        if context_blunders > 0 and primary_trigger == "winning":
             when_winning = blunder_context.get("when_winning", 0)
-            issues.append(f"{when_winning}/{total_blunders} errors when ahead")
-        elif primary_trigger == "losing":
+            issues.append(f"{when_winning}/{context_blunders} errors when ahead")
+        elif context_blunders > 0 and primary_trigger == "losing":
             when_losing = blunder_context.get("when_losing", 0)
-            issues.append(f"{when_losing}/{total_blunders} errors under pressure")
-    elif total_blunders == 0:
+            issues.append(f"{when_losing}/{context_blunders} errors under pressure")
+        # If actual_blunders > 0 but context_blunders = 0, don't add "zero blunders"
+    elif actual_blunders == 0:
         positives.append("Zero blunders")
     
     # 6. Conversion
@@ -671,7 +673,7 @@ def generate_personalized_verdict(
     # === GENERATE HEADLINE AND GRADE ===
     
     # Clean game with good practices
-    if len(issues) == 0 and (avoided_rating_killer or total_blunders == 0):
+    if len(issues) == 0 and (avoided_rating_killer or actual_blunders == 0):
         if accuracy >= 80:
             headline = "Clean game - you stayed disciplined"
             grade = "A"
