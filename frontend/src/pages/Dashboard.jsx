@@ -430,6 +430,41 @@ const Dashboard = ({ user }) => {
     fetchStats();
   }, []);
 
+  // Real-time queue polling - auto-refresh when games are being analyzed
+  useEffect(() => {
+    // Only poll if there are games in queue
+    const queuedCount = stats?.queued_games || 0;
+    if (queuedCount === 0) return;
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API}/dashboard-stats`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const newData = await response.json();
+          const newQueuedCount = newData?.queued_games || 0;
+          const oldQueuedCount = stats?.queued_games || 0;
+          
+          // If queue count changed, update stats
+          if (newQueuedCount !== oldQueuedCount) {
+            setStats(newData);
+            
+            // If a game finished (queue count decreased), show toast
+            if (newQueuedCount < oldQueuedCount) {
+              const gamesFinished = oldQueuedCount - newQueuedCount;
+              toast.success(`${gamesFinished} game${gamesFinished > 1 ? 's' : ''} analyzed!`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Poll error:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+    
+    return () => clearInterval(pollInterval);
+  }, [stats?.queued_games]);
+
   if (loading) {
     return (
       <Layout user={user}>
