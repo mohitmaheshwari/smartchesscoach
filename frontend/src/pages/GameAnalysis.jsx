@@ -25,12 +25,19 @@ import {
   Target,
   Lightbulb,
   TrendingUp,
+  TrendingDown,
   Play,
   MessageCircle,
   Send,
-  X
+  X,
+  Eye,
+  Repeat,
+  Trophy,
+  Zap
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Chessboard } from "react-chessboard";
+import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
 const GameAnalysis = ({ user }) => {
   const { gameId } = useParams();
