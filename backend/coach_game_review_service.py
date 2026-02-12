@@ -72,11 +72,9 @@ async def get_coach_game_review(db, user_id: str, llm_call_func) -> Dict:
     if other_analyses:
         avg_accuracy = sum(a.get("stockfish_analysis", {}).get("accuracy", 0) for a in other_analyses) / len(other_analyses)
         avg_blunders = sum(a.get("stockfish_analysis", {}).get("blunders", 0) for a in other_analyses) / len(other_analyses)
-        avg_mistakes = sum(a.get("stockfish_analysis", {}).get("mistakes", 0) for a in other_analyses) / len(other_analyses)
     else:
         avg_accuracy = 0
         avg_blunders = 0
-        avg_mistakes = 0
     
     # 5. Extract facts about this game
     sf_analysis = analysis.get("stockfish_analysis", {})
