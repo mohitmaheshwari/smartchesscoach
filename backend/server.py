@@ -3905,11 +3905,10 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         
         # Determine analysis status - CHECK QUEUE FIRST (priority)
         if game_id in queued_game_ids:
-            logger.info(f"Game {game_id[:20]}... is in queue!")
             # Game is in queue - show it there regardless of is_analyzed flag
             queue_info = queued_game_map.get(game_id, {})
             game["analysis_status"] = queue_info.get("status", "pending")
-            game["queued_at"] = queue_info.get("created_at")
+            game["queued_at"] = queue_info.get("queued_at")
             in_queue_list.append(game)
         elif game.get("is_analyzed"):
             analysis = await db.game_analyses.find_one(
