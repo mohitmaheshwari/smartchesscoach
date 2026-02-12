@@ -82,6 +82,7 @@ const Dashboard = ({ user }) => {
   const totalGames = stats?.total_games || 0;
   const analyzedGames = stats?.analyzed_games || 0;
   const analysisProgress = totalGames > 0 ? Math.round((analyzedGames / totalGames) * 100) : 0;
+  const ratingImpact = stats?.rating_impact;
 
   // User's estimated rating from profile
   const userRating = stats?.profile_summary?.estimated_elo || 1200;
