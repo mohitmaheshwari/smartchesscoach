@@ -486,7 +486,8 @@ async def get_discipline_check(db, user_id: str) -> Dict:
     verdict = generate_personalized_verdict(
         stability, opening_check, blunder_context, winning_position,
         game_result, accuracy, avg_accuracy,
-        rating_killer_pattern, rating_killer_label, avoided_rating_killer
+        rating_killer_pattern, rating_killer_label, avoided_rating_killer,
+        blunders  # Pass actual stockfish blunder count
     )
     
     # 10. Extract opponent name from PGN
