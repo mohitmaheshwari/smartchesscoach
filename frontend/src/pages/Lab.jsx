@@ -679,105 +679,246 @@ const Lab = ({ user }) => {
                     <TabsContent value="strategy" className="p-4 space-y-4 m-0">
                       {strategicAnalysis?.has_strategy ? (
                         <>
-                          {/* Opening */}
+                          {/* OPENING STRATEGY */}
                           {strategicAnalysis.opening && (
-                            <StrategySection
-                              icon={<BookOpen className="w-4 h-4 text-green-500" />}
-                              title={`Opening: ${strategicAnalysis.opening.name}`}
-                              color="green"
-                            >
+                            <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20">
+                              <div className="flex items-center gap-2 mb-3">
+                                <BookOpen className="w-5 h-5 text-green-500" />
+                                <p className="font-semibold">Opening: {strategicAnalysis.opening.name}</p>
+                                <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
+                                  {userColor}
+                                </span>
+                              </div>
+                              
+                              {/* Main Idea */}
+                              {strategicAnalysis.opening.main_idea && (
+                                <p className="text-sm text-green-400 font-medium mb-3">
+                                  {strategicAnalysis.opening.main_idea}
+                                </p>
+                              )}
+                              
+                              {/* The Plan */}
                               {strategicAnalysis.opening.plan && (
-                                <div className="mb-2">
-                                  <p className="text-xs text-muted-foreground uppercase mb-1">Intended Plan</p>
+                                <div className="p-3 rounded bg-background/50 border border-border/50 mb-3">
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">The Plan</p>
                                   <p className="text-sm font-mono">{strategicAnalysis.opening.plan}</p>
                                 </div>
                               )}
+                              
+                              {/* Your Execution */}
                               {strategicAnalysis.opening.execution && (
-                                <ExecutionBadge verdict={strategicAnalysis.opening.execution.verdict} />
-                              )}
-                              {strategicAnalysis.opening.execution?.critical_deviation && (
-                                <CriticalMoveCard 
-                                  label="Critical Move"
-                                  text={strategicAnalysis.opening.execution.critical_deviation.explanation}
-                                  onClick={() => {
-                                    const moveNum = strategicAnalysis.opening.execution.critical_deviation.move_number;
-                                    if (moveNum) {
-                                      const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
-                                      goToMove(targetIdx);
-                                    }
-                                  }}
-                                />
-                              )}
-                            </StrategySection>
-                          )}
-
-                          {/* Pawn Structure */}
-                          {strategicAnalysis.pawn_structure?.type && (
-                            <StrategySection
-                              icon={<Target className="w-4 h-4 text-yellow-500" />}
-                              title={`Structure: ${strategicAnalysis.pawn_structure.type}`}
-                              color="yellow"
-                            >
-                              {strategicAnalysis.pawn_structure.your_plan && (
-                                <div className="mb-2">
-                                  <p className="text-xs text-muted-foreground uppercase mb-1">Recommended Plan</p>
-                                  <p className="text-sm">{strategicAnalysis.pawn_structure.your_plan}</p>
-                                </div>
-                              )}
-                              {strategicAnalysis.pawn_structure.execution && (
-                                <ExecutionBadge verdict={strategicAnalysis.pawn_structure.execution.verdict} />
-                              )}
-                              {strategicAnalysis.pawn_structure.execution?.critical_moment && (
-                                <CriticalMoveCard 
-                                  label="Where Structure Misplayed"
-                                  text={strategicAnalysis.pawn_structure.execution.critical_moment.what_went_wrong}
-                                  onClick={() => {
-                                    const moveNum = strategicAnalysis.pawn_structure.execution.critical_moment.move_number;
-                                    if (moveNum) {
-                                      const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
-                                      goToMove(targetIdx);
-                                    }
-                                  }}
-                                />
-                              )}
-                            </StrategySection>
-                          )}
-
-                          {/* Strategic Themes */}
-                          {strategicAnalysis.strategic_themes?.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="text-xs text-muted-foreground uppercase">Strategic Themes</p>
-                              {strategicAnalysis.strategic_themes.map((theme, idx) => (
-                                <StrategySection
-                                  key={idx}
-                                  icon={getThemeIcon(theme.icon)}
-                                  title={theme.theme}
-                                  color="purple"
-                                  compact
-                                >
-                                  <p className="text-sm text-muted-foreground mb-1">{theme.description}</p>
-                                  {theme.verdict && (
-                                    <p className={`text-sm font-medium ${
-                                      theme.verdict.includes('✓') ? 'text-green-400' :
-                                      theme.verdict.includes('⚠') ? 'text-yellow-400' :
-                                      'text-red-400'
-                                    }`}>
-                                      {theme.verdict}
-                                    </p>
-                                  )}
-                                  {theme.critical_moment && (
-                                    <CriticalMoveCard 
-                                      label={`Move ${theme.critical_moment.move_number}`}
-                                      text={theme.critical_moment.description}
+                                <div className="p-3 rounded bg-background/50 border border-red-500/20 mb-3">
+                                  <p className="text-xs text-red-400 uppercase tracking-wide mb-2">Your Execution</p>
+                                  <p className={`text-sm font-medium mb-2 ${
+                                    strategicAnalysis.opening.execution.verdict?.includes('Excellent') ? 'text-green-400' :
+                                    strategicAnalysis.opening.execution.verdict?.includes('Solid') ? 'text-yellow-400' :
+                                    'text-red-400'
+                                  }`}>
+                                    {strategicAnalysis.opening.execution.verdict}
+                                  </p>
+                                  {strategicAnalysis.opening.execution.details?.map((detail, i) => (
+                                    <p key={i} className="text-sm text-muted-foreground">{detail}</p>
+                                  ))}
+                                  
+                                  {/* Critical Deviation - Clickable */}
+                                  {strategicAnalysis.opening.execution.critical_deviation && (
+                                    <button 
+                                      className="mt-3 p-2 rounded bg-red-500/10 border border-red-500/30 w-full text-left hover:bg-red-500/20 transition-colors"
                                       onClick={() => {
-                                        const moveNum = theme.critical_moment.move_number;
+                                        const moveNum = strategicAnalysis.opening.execution.critical_deviation.move_number;
                                         if (moveNum) {
                                           const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
                                           goToMove(targetIdx);
                                         }
                                       }}
-                                    />
+                                    >
+                                      <p className="text-xs text-red-400 uppercase mb-1">Critical Deviation</p>
+                                      <p className="text-sm font-medium text-red-400">
+                                        {strategicAnalysis.opening.execution.critical_deviation.explanation}
+                                      </p>
+                                    </button>
                                   )}
+                                </div>
+                              )}
+                              
+                              {/* Key Ideas */}
+                              {strategicAnalysis.opening.key_ideas?.length > 0 && (
+                                <div className="space-y-1.5">
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Key Ideas to Remember</p>
+                                  {strategicAnalysis.opening.key_ideas.map((idea, i) => (
+                                    <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                                      <span className="text-green-500 mt-0.5">•</span>
+                                      <span>{idea}</span>
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* PAWN STRUCTURE */}
+                          {strategicAnalysis.pawn_structure?.type && (
+                            <div className="p-4 rounded-lg bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Target className="w-5 h-5 text-yellow-500" />
+                                <p className="font-semibold">Pawn Structure: {strategicAnalysis.pawn_structure.type}</p>
+                              </div>
+                              
+                              {/* The Plan */}
+                              {strategicAnalysis.pawn_structure.your_plan && (
+                                <div className="p-3 rounded bg-background/50 border border-border/50 mb-3">
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">The Plan</p>
+                                  <p className="text-sm">{strategicAnalysis.pawn_structure.your_plan}</p>
+                                </div>
+                              )}
+                              
+                              {/* Your Execution */}
+                              {strategicAnalysis.pawn_structure.execution?.details?.length > 0 && (
+                                <div className="p-3 rounded bg-background/50 border border-yellow-500/20 mb-3">
+                                  <p className="text-xs text-yellow-400 uppercase tracking-wide mb-2">Your Execution</p>
+                                  <p className={`text-sm font-medium mb-2 ${
+                                    strategicAnalysis.pawn_structure.execution.verdict?.includes('Good') ? 'text-green-400' :
+                                    strategicAnalysis.pawn_structure.execution.verdict?.includes('Partial') ? 'text-yellow-400' :
+                                    'text-red-400'
+                                  }`}>
+                                    {strategicAnalysis.pawn_structure.execution.verdict}
+                                  </p>
+                                  {strategicAnalysis.pawn_structure.execution.details?.map((detail, i) => (
+                                    <p key={i} className="text-sm text-muted-foreground">{detail}</p>
+                                  ))}
+                                  
+                                  {/* Critical Moment - Clickable */}
+                                  {strategicAnalysis.pawn_structure.execution.critical_moment && (
+                                    <button 
+                                      className="mt-3 p-2 rounded bg-red-500/10 border border-red-500/30 w-full text-left hover:bg-red-500/20 transition-colors"
+                                      onClick={() => {
+                                        const moveNum = strategicAnalysis.pawn_structure.execution.critical_moment.move_number;
+                                        if (moveNum) {
+                                          const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                                          goToMove(targetIdx);
+                                        }
+                                      }}
+                                    >
+                                      <p className="text-xs text-red-400 uppercase mb-1">Critical Moment</p>
+                                      <p className="text-sm text-red-400">
+                                        {strategicAnalysis.pawn_structure.execution.critical_moment.what_went_wrong}
+                                      </p>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Pawn Breaks */}
+                              {strategicAnalysis.pawn_structure.pawn_breaks?.length > 0 && (
+                                <div className="space-y-1 mb-2">
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Pawn Breaks</p>
+                                  {strategicAnalysis.pawn_structure.pawn_breaks.map((breakMove, i) => (
+                                    <p key={i} className="text-sm text-yellow-400 font-mono">{breakMove}</p>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Key Squares */}
+                              {strategicAnalysis.pawn_structure.key_squares?.length > 0 && (
+                                <div className="space-y-1">
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Key Squares</p>
+                                  {strategicAnalysis.pawn_structure.key_squares.map((sq, i) => (
+                                    <p key={i} className="text-sm text-muted-foreground">{sq}</p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* STRATEGIC THEMES */}
+                          {strategicAnalysis.strategic_themes?.length > 0 && (
+                            <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-violet-500/10 border border-purple-500/20">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Brain className="w-5 h-5 text-purple-500" />
+                                <p className="font-semibold">Strategic Themes in This Game</p>
+                              </div>
+                              
+                              <div className="space-y-3">
+                                {strategicAnalysis.strategic_themes.map((theme, idx) => (
+                                  <div key={idx} className="p-3 rounded bg-background/50 border border-border/50">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      {getThemeIcon(theme.icon)}
+                                      <span className="font-medium text-sm">{theme.theme}</span>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mb-2">{theme.description}</p>
+                                    
+                                    {/* Verdict */}
+                                    {theme.verdict && (
+                                      <p className={`text-sm font-medium mb-2 ${
+                                        theme.verdict.includes('✓') ? 'text-green-400' :
+                                        theme.verdict.includes('⚠') ? 'text-yellow-400' :
+                                        'text-red-400'
+                                      }`}>
+                                        {theme.verdict}
+                                      </p>
+                                    )}
+                                    
+                                    {/* Critical Moment - Clickable */}
+                                    {theme.critical_moment && (
+                                      <button 
+                                        className="p-2 rounded bg-red-500/10 border border-red-500/20 mb-2 w-full text-left hover:bg-red-500/20 transition-colors"
+                                        onClick={() => {
+                                          const moveNum = theme.critical_moment.move_number;
+                                          if (moveNum) {
+                                            const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                                            goToMove(targetIdx);
+                                          }
+                                        }}
+                                      >
+                                        <p className="text-xs text-red-400 uppercase mb-1">Move {theme.critical_moment.move_number}</p>
+                                        <p className="text-sm text-red-400">{theme.critical_moment.description}</p>
+                                        {theme.critical_moment.impact && (
+                                          <p className="text-xs text-muted-foreground mt-1">{theme.critical_moment.impact}</p>
+                                        )}
+                                      </button>
+                                    )}
+                                    
+                                    {theme.principle && <p className="text-sm">{theme.principle}</p>}
+                                    {theme.remember && (
+                                      <p className="text-xs text-purple-400 mt-2 italic">Remember: {theme.remember}</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* FUTURE ADVICE */}
+                          {strategicAnalysis.future_advice?.length > 0 && (
+                            <div className="p-4 rounded-lg bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Lightbulb className="w-5 h-5 text-blue-500" />
+                                <p className="font-semibold">For Future Games Like This</p>
+                              </div>
+                              
+                              <div className="space-y-3">
+                                {strategicAnalysis.future_advice.map((advice, idx) => (
+                                  <div key={idx} className="p-3 rounded bg-background/50 border border-border/50">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      {getAdviceIcon(advice.icon)}
+                                      <span className="text-xs text-muted-foreground uppercase tracking-wide">{advice.category}</span>
+                                    </div>
+                                    {advice.advice && <p className="text-sm font-medium">{advice.advice}</p>}
+                                    {advice.action && <p className="text-sm text-muted-foreground mt-1">{advice.action}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                          <p>Strategic analysis not available</p>
+                          <p className="text-sm mt-2">Re-analyze this game to see opening, pawn structure, and strategic insights.</p>
+                        </div>
+                      )}
+                    </TabsContent>
                                 </StrategySection>
                               ))}
                             </div>
