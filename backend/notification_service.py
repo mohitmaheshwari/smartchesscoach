@@ -59,7 +59,8 @@ async def create_notification(
     
     result = await db.notifications.insert_one(notification)
     notification["id"] = str(result.inserted_id)
-    del notification["_id"] if "_id" in notification else None
+    if "_id" in notification:
+        del notification["_id"]
     
     logger.info(f"Created notification for user {user_id}: {title}")
     return notification
