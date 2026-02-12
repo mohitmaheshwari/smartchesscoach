@@ -319,7 +319,6 @@ def build_explanation_prompt(analysis: Dict, move_data: Dict) -> str:
     template = MISTAKE_TEMPLATES.get(mistake_type, MISTAKE_TEMPLATES["inaccuracy"])
     details = analysis.get("details", {})
     phase = analysis.get("phase", "middlegame")
-    severity = analysis.get("severity", "minor")
     
     # Build the context for GPT
     context_parts = []
