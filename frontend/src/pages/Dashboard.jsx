@@ -117,6 +117,134 @@ const MilestoneBanner = ({ milestone, onDismiss }) => {
   );
 };
 
+// Game list item component for analyzed games
+const GameListItem = ({ game, userRating, onNavigate, onReanalyze, isReanalyzing }) => {
+  const opponent = game.user_color === 'white' ? game.black_player : game.white_player;
+  const opponentRating = game.user_color === 'white' ? game.black_rating : game.white_rating;
+  
+  const resultText = game.result === '1-0' 
+    ? (game.user_color === 'white' ? 'Won' : 'Lost')
+    : game.result === '0-1'
+    ? (game.user_color === 'black' ? 'Won' : 'Lost')
+    : 'Draw';
+  
+  const resultColor = resultText === 'Won' 
+    ? 'text-emerald-500' 
+    : resultText === 'Lost' 
+    ? 'text-red-500' 
+    : 'text-yellow-500';
+  
+  return (
+    <motion.div 
+      whileHover={{ x: 4 }}
+      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer group"
+      onClick={onNavigate}
+      data-testid={`game-item-${game.game_id}`}
+    >
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
+          game.user_color === 'white' 
+            ? 'bg-white text-black border border-border' 
+            : 'bg-zinc-800 text-white'
+        }`}>
+          {game.user_color === 'white' ? 'W' : 'B'}
+        </span>
+        
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-sm truncate">
+              vs {opponent || 'Opponent'}
+            </p>
+            {opponentRating && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+                {opponentRating}
+              </span>
+            )}
+            <span className={`text-xs font-semibold ${resultColor}`}>
+              {resultText}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {game.opening && (
+              <span className="truncate max-w-[120px]">{game.opening}</span>
+            )}
+            {!game.opening && game.platform && (
+              <span>{game.platform}</span>
+            )}
+            {game.accuracy && (
+              <span className="text-emerald-500">{game.accuracy.toFixed(1)}%</span>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+      </div>
+    </motion.div>
+  );
+};
+
+// Queued game item with progress indicator
+const QueuedGameItem = ({ game, onNavigate }) => {
+  const opponent = game.user_color === 'white' ? game.black_player : game.white_player;
+  const isProcessing = game.analysis_status === 'processing';
+  
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-center justify-between p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 cursor-pointer group hover:bg-amber-500/10 transition-colors"
+      onClick={onNavigate}
+      data-testid={`queued-game-${game.game_id}`}
+    >
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="relative">
+          <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
+            game.user_color === 'white' 
+              ? 'bg-white text-black border border-border' 
+              : 'bg-zinc-800 text-white'
+          }`}>
+            {game.user_color === 'white' ? 'W' : 'B'}
+          </span>
+          {isProcessing && (
+            <div className="absolute -top-1 -right-1">
+              <Loader2 className="w-3 h-3 text-amber-500 animate-spin" />
+            </div>
+          )}
+        </div>
+        
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-sm truncate">
+              vs {opponent || 'Opponent'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className={isProcessing ? 'text-amber-400' : 'text-muted-foreground'}>
+              {isProcessing ? 'Analyzing...' : 'Waiting in queue'}
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        {isProcessing ? (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-xs text-amber-500 font-medium">Processing</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted">
+            <Clock className="w-3 h-3 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Queued</span>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
