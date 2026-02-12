@@ -1811,6 +1811,15 @@ const getMistakeIcon = (type) => {
   return icons[type] || icons.other;
 };
 
+const getMilestoneIcon = (type) => {
+  const icons = {
+    brilliant_moves: <Sparkles className="w-4 h-4 text-amber-500" />,
+    great_moves: <Star className="w-4 h-4 text-green-500" />,
+    learning_moments: <Lightbulb className="w-4 h-4 text-blue-500" />
+  };
+  return icons[type] || <Trophy className="w-4 h-4 text-muted-foreground" />;
+};
+
 const getThemeIcon = (iconName) => {
   const icons = {
     'trending-up': <TrendingUp className="w-4 h-4 text-green-500" />,
