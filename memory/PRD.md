@@ -191,6 +191,21 @@ Renamed "Mistakes" tab to "Milestones" on the Lab page with positive, coach-like
 - Instead of "Missed a fork" → "Fork opportunity spotted! Good ones to look for!"
 - Instead of "Threw away the win" → "Victory slipped away - happens to grandmasters too!"
 
+### Mistake Explanation Accuracy Fix (Feb 12, 2026 - COMPLETED)
+Fixed GPT hallucination in mistake explanations:
+
+**Problem:** GPT was inventing tactical patterns (e.g., claiming "fork with rook" when queen simply moved to attacked square)
+
+**Solution:**
+1. **Stricter GPT Prompt**: Added explicit rules - "NEVER say fork/pin/skewer unless FACTS section mentions it"
+2. **Better Detection Order**: Check if moved piece is hanging BEFORE checking for forks
+3. **Fork Type Filter**: Only knight/pawn forks count as tactical "walked_into_fork" - rook/queen attacks are classified as "material_blunder" or "hanging_piece"
+4. **Added Skewer Detection**: `detect_walked_into_skewer()` function for queen-in-front-of-rook patterns
+
+**Example Fix:**
+- Before: "fork with their rook" (nonsense - rooks don't fork!)  
+- After: "gave away material without any gain" (correct - queen moved to attacked square)
+
 ### Real-time Queue Updates (Feb 12, 2026 - COMPLETED)
 Dashboard now auto-updates when games finish analysis:
 
