@@ -1237,7 +1237,8 @@ def get_game_strategic_analysis(analysis: Dict, game: Dict = None) -> Dict:
 
 
 def _analyze_opening_strategy(opening_name: str, user_color: str, pgn: str, move_evals: List) -> Dict:
-    """Analyze the opening and provide the correct strategic plan."""
+    """Analyze the opening: Plan + How you executed it + Where you deviated."""
+    import chess
     
     # Import opening coaching data
     from opening_service import OPENING_COACHING
@@ -1248,7 +1249,11 @@ def _analyze_opening_strategy(opening_name: str, user_color: str, pgn: str, move
         "plan": "",
         "key_ideas": [],
         "theory_tip": "",
-        "how_you_did": ""
+        "execution": {
+            "verdict": "",
+            "details": [],
+            "critical_deviation": None
+        }
     }
     
     # Find matching opening coaching
@@ -1281,16 +1286,107 @@ def _analyze_opening_strategy(opening_name: str, user_color: str, pgn: str, move
                 "Don't be passive - create your own threats"
             ]
     
-    # Analyze how opening went (first 10 moves)
-    opening_moves = [m for m in move_evals if m.get("move_number", 99) <= 10 and m.get("is_user_move", True)]
-    if opening_moves:
-        total_cp_lost = sum(abs(m.get("cp_loss", 0)) for m in opening_moves)
-        if total_cp_lost < 50:
-            opening_info["how_you_did"] = "Solid opening play - you followed good principles"
-        elif total_cp_lost < 150:
-            opening_info["how_you_did"] = "Slight inaccuracies in the opening, but nothing major"
-        else:
-            opening_info["how_you_did"] = "Opening had issues - review the plan above"
+    # ===== EXECUTION ANALYSIS =====
+    opening_moves = [m for m in move_evals if m.get("move_number", 99) <= 12 and m.get("is_user_move", True)]
+    
+    if not opening_moves:
+        return opening_info
+    
+    execution_details = []
+    critical_deviation = None
+    
+    # Track key opening metrics
+    castling_move = None
+    development_count = 0  # How many unique pieces developed
+    pawn_moves_count = 0
+    center_pawn_played = False
+    worst_opening_mistake = None
+    
+    developed_pieces = set()
+    
+    for move in opening_moves:
+        move_san = move.get("move", "")
+        move_num = move.get("move_number", 0)
+        cp_loss = abs(move.get("cp_loss", 0))
+        fen = move.get("fen_before", "")
+        
+        # Track worst mistake
+        if worst_opening_mistake is None or cp_loss > worst_opening_mistake.get("cp_loss", 0):
+            if cp_loss >= 50:
+                worst_opening_mistake = {
+                    "move_number": move_num,
+                    "move": move_san,
+                    "cp_loss": cp_loss,
+                    "best_move": move.get("best_move", ""),
+                    "fen": fen
+                }
+        
+        # Detect castling
+        if "O-O" in move_san or "0-0" in move_san:
+            castling_move = move_num
+        
+        # Detect piece development vs pawn moves
+        if move_san and len(move_san) >= 2:
+            first_char = move_san[0]
+            if first_char in "NBRQK":
+                developed_pieces.add(first_char)
+                development_count += 1
+            elif first_char.islower():  # Pawn move
+                pawn_moves_count += 1
+                if 'd' in move_san or 'e' in move_san:
+                    center_pawn_played = True
+    
+    # === Generate execution feedback ===
+    
+    # 1. Castling analysis
+    if castling_move:
+        if castling_move <= 8:
+            execution_details.append(f"✓ Castled early (move {castling_move}) - good king safety")
+        elif castling_move <= 12:
+            execution_details.append(f"⚠ Castled on move {castling_move} - slightly late but acceptable")
+    else:
+        execution_details.append("✗ Did not castle in the opening - king safety was neglected")
+    
+    # 2. Development analysis
+    unique_pieces_developed = len(developed_pieces)
+    if unique_pieces_developed >= 3:
+        execution_details.append(f"✓ Good development - {unique_pieces_developed} piece types developed")
+    elif unique_pieces_developed >= 2:
+        execution_details.append(f"⚠ Limited development - only {unique_pieces_developed} piece types moved")
+    else:
+        execution_details.append(f"✗ Poor development - only {unique_pieces_developed} piece type developed")
+    
+    # 3. Pawn moves vs piece moves
+    if pawn_moves_count > development_count and pawn_moves_count > 3:
+        execution_details.append(f"✗ Too many pawn moves ({pawn_moves_count}) instead of developing pieces")
+    
+    # 4. Critical deviation
+    if worst_opening_mistake and worst_opening_mistake["cp_loss"] >= 100:
+        critical_deviation = {
+            "move_number": worst_opening_mistake["move_number"],
+            "your_move": worst_opening_mistake["move"],
+            "better_move": worst_opening_mistake["best_move"],
+            "cp_loss": worst_opening_mistake["cp_loss"],
+            "fen": worst_opening_mistake["fen"],
+            "explanation": f"Move {worst_opening_mistake['move_number']}: You played {worst_opening_mistake['move']} instead of {worst_opening_mistake['best_move']}"
+        }
+    
+    # 5. Overall verdict
+    total_cp_lost = sum(abs(m.get("cp_loss", 0)) for m in opening_moves)
+    if total_cp_lost < 50 and castling_move and castling_move <= 10:
+        verdict = "Excellent opening execution - you followed the plan well"
+    elif total_cp_lost < 100:
+        verdict = "Solid opening - minor inaccuracies"
+    elif total_cp_lost < 200:
+        verdict = "Opening had issues - see where you deviated below"
+    else:
+        verdict = "Opening went poorly - significant deviations from the plan"
+    
+    opening_info["execution"] = {
+        "verdict": verdict,
+        "details": execution_details,
+        "critical_deviation": critical_deviation
+    }
     
     return opening_info
 
