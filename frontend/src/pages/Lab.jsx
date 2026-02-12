@@ -801,11 +801,11 @@ const Lab = ({ user }) => {
                   <TabsList className="grid w-full grid-cols-3 rounded-none border-b shrink-0">
                     <TabsTrigger value="summary">Summary</TabsTrigger>
                     <TabsTrigger value="strategy">Strategy</TabsTrigger>
-                    <TabsTrigger value="mistakes" className="relative">
-                      Mistakes
-                      {mistakeCounts.blunders > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
-                          {mistakeCounts.blunders}
+                    <TabsTrigger value="milestones" className="relative">
+                      Milestones
+                      {(groupedMilestones.find(g => g.type === 'brilliant_moves')?.count || 0) > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-[10px] rounded-full flex items-center justify-center">
+                          {groupedMilestones.find(g => g.type === 'brilliant_moves')?.count || 0}
                         </span>
                       )}
                     </TabsTrigger>
