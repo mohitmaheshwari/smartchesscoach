@@ -239,6 +239,16 @@ const Dashboard = ({ user }) => {
   return (
     <Layout user={user}>
       <div className="space-y-8 max-w-5xl" data-testid="dashboard-page">
+        {/* Milestone Celebration Banner */}
+        <AnimatePresence>
+          {newMilestone && (
+            <MilestoneBanner 
+              milestone={newMilestone} 
+              onDismiss={() => dismissMilestone(newMilestone.id)} 
+            />
+          )}
+        </AnimatePresence>
+        
         {/* Header */}
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
