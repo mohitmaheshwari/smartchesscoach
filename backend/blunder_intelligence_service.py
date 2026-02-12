@@ -1910,3 +1910,59 @@ def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
         "strategic_analysis": strategic_analysis,
         "analysis": analysis
     }
+
+
+def find_similar_pattern_games(current_analysis: Dict, all_analyses: List[Dict], all_games: List[Dict], limit: int = 3) -> List[Dict]:
+    """
+    Find other games where the user made similar mistakes.
+    
+    Returns: List of related games with the same dominant pattern.
+    """
+    if not current_analysis or not all_analyses:
+        return []
+    
+    # Get dominant pattern from current game
+    current_core_lesson = get_core_lesson(current_analysis)
+    current_pattern = current_core_lesson.get("pattern") if current_core_lesson else None
+    
+    if not current_pattern or current_pattern == "clean_game":
+        return []
+    
+    current_game_id = current_analysis.get("game_id")
+    
+    # Build games lookup
+    games_lookup = {g.get("game_id"): g for g in all_games} if all_games else {}
+    
+    # Find other games with the same pattern
+    similar_games = []
+    
+    for analysis in all_analyses:
+        if analysis.get("game_id") == current_game_id:
+            continue
+            
+        other_lesson = get_core_lesson(analysis)
+        if other_lesson and other_lesson.get("pattern") == current_pattern:
+            game_info = games_lookup.get(analysis.get("game_id"), {})
+            user_color = game_info.get("user_color", "white")
+            opponent = game_info.get("black_player") if user_color == "white" else game_info.get("white_player")
+            result = game_info.get("result", "")
+            
+            # Determine win/loss
+            if result:
+                is_win = (result == "1-0" and user_color == "white") or (result == "0-1" and user_color == "black")
+                result_text = "Won" if is_win else "Lost" if result != "1/2-1/2" else "Draw"
+            else:
+                result_text = ""
+            
+            similar_games.append({
+                "game_id": analysis.get("game_id"),
+                "opponent": opponent or "Opponent",
+                "result": result_text,
+                "pattern": current_pattern,
+                "lesson": other_lesson.get("lesson", ""),
+                "imported_at": game_info.get("imported_at")
+            })
+    
+    # Sort by most recent and limit
+    similar_games.sort(key=lambda x: x.get("imported_at") or "", reverse=True)
+    return similar_games[:limit]
