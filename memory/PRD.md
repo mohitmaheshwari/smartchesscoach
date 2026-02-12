@@ -226,6 +226,39 @@ Maps mistake types to human behaviors:
 - "misses_tactical_opportunities" → "You miss winning tactics that were available"
 - etc.
 
+### HUMAN-FRIENDLY EVALUATION DISPLAY (Feb 2026 - COMPLETED)
+**The Problem Solved**: Users found raw engine evaluations like "+464.0" or "-9335 cp" (centipawns) confusing and intimidating - it felt like reading raw engine output.
+
+**Solution: `evalFormatter.js` Utility**
+Created a utility library that converts engine evaluations to intuitive language:
+
+**Evaluation to Words (`formatEvalWithContext`):**
+| Engine Value | Human-Friendly |
+|-------------|----------------|
+| 0 to 0.3    | Equal position |
+| 0.3 to 1.0  | Slight edge / Slightly worse |
+| 1.0 to 2.0  | Clear advantage / Clearly worse |
+| 2.0 to 4.0  | Winning / Losing |
+| 4.0+        | Completely winning / Hopeless |
+
+**Centipawn Loss to Severity (`formatCpLoss`):**
+| CP Loss | Human-Friendly |
+|---------|----------------|
+| 0-50    | Minor inaccuracy |
+| 50-100  | Inaccuracy |
+| 100-200 | Mistake |
+| 200-400 | Serious mistake |
+| 400+    | Blunder |
+
+**Total CP Loss for Weaknesses (`formatTotalCpLoss`):**
+- Converts centipawns to pawns (100cp = 1 pawn)
+- Adds context: "15 pawns lost (major weakness)"
+
+**Components Updated:**
+- `EvidenceModal.jsx`: Shows "Completely winning → Ke7 (Blunder)" instead of "+9.3 → -499 cp"
+- `DrillMode.jsx`: Shows "You were Completely winning" and "In the game, you played Bb6 (Blunder)"
+- `JourneyV2.jsx`: Shows "374 pawns lost (major weakness)" instead of "~37400 cp lost"
+
 ## Upcoming Tasks (P0)
 1. **Rating Impact Estimator Visualization** - Display "Fixing Hanging Pieces would have saved ~86 rating points" prominently
 2. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
