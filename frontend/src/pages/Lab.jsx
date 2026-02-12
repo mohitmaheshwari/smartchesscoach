@@ -1445,8 +1445,8 @@ const LearningMomentItem = ({ mistake, onClick, userColor }) => {
         data-testid={`explain-btn-${mistake.move_number}`}
       >
         <span className="flex items-center gap-1.5 text-primary">
-          <HelpCircle className="w-3.5 h-3.5" />
-          Why was this a mistake?
+          <Lightbulb className="w-3.5 h-3.5" />
+          What can I learn here?
         </span>
         {loading ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
