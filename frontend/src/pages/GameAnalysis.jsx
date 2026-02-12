@@ -105,8 +105,8 @@ const GameAnalysis = ({ user }) => {
             if (labData.core_lesson) {
               setCoreLesson(labData.core_lesson);
             }
-            if (labData.game_strategy) {
-              setGameStrategy(labData.game_strategy);
+            if (labData.strategic_analysis) {
+              setStrategicAnalysis(labData.strategic_analysis);
             }
           }
         } catch (labErr) {
