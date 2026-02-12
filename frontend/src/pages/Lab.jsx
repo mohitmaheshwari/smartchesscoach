@@ -402,11 +402,17 @@ const Lab = ({ user }) => {
       move_number: m.move_number,
       best_move: m.best_move,
       played_move: m.move,
-      cp_loss: Math.abs(m.cp_loss || 0)
+      cp_loss: Math.abs(m.cp_loss || 0),
+      eval_before: m.eval_before
     }));
     setPracticePositions(positions);
     setPracticeIndex(0);
     setPracticeMode(true);
+  };
+  
+  // Reset practice to first position (for retry all)
+  const resetPractice = () => {
+    setPracticeIndex(0);
   };
 
   // Loading state
