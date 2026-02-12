@@ -173,6 +173,40 @@ MISTAKE_TEMPLATES = {
 }
 
 
+def detect_walked_into_skewer(board_before: chess.Board, board_after: chess.Board, user_color: bool) -> Optional[Dict]:
+    """
+    Detect if the user's move created a skewer opportunity for opponent.
+    A skewer is when a high-value piece is attacked and must move, exposing a lower-value piece behind it.
+    Classic example: Queen moves in front of King/Rook on same file/diagonal.
+    """
+    opponent = not user_color
+    
+    # Check for skewers that exist AFTER the move that didn't exist BEFORE
+    skewers_after = find_skewers(board_after, opponent)
+    skewers_before = find_skewers(board_before, opponent)
+    
+    # Get squares that were skewered before
+    skewered_before = set()
+    for s in skewers_before:
+        skewered_before.add(s.get("front_square"))
+    
+    # Find NEW skewers created by the user's move
+    for skewer in skewers_after:
+        front_sq = skewer.get("front_square")
+        if front_sq not in skewered_before:
+            # This is a NEW skewer the user walked into
+            return {
+                "front_piece": skewer.get("front_piece"),
+                "front_square": front_sq,
+                "back_piece": skewer.get("back_piece"),
+                "back_square": skewer.get("back_square"),
+                "attacker": skewer.get("attacker_piece"),
+                "attacker_square": skewer.get("attacker_square")
+            }
+    
+    return None
+
+
 def analyze_mistake_position(fen_before: str, move_played: str, best_move: str, 
                               cp_loss: int, user_color: str) -> Dict:
     """
