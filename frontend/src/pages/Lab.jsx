@@ -317,7 +317,7 @@ const Lab = ({ user }) => {
     };
     
     moveEvaluations.forEach(m => {
-      if (!m.is_user_move) return;
+      if (!isUserMoveFromFen(m)) return;
       const cpLoss = Math.abs(m.cp_loss || 0);
       if (cpLoss < 50) return; // Not a mistake
       
@@ -360,29 +360,29 @@ const Lab = ({ user }) => {
         count: items.length,
         items: items.sort((a, b) => b.cp_loss - a.cp_loss) // Sort by severity
       }));
-  }, [moveEvaluations]);
+  }, [moveEvaluations, userColor]);
 
   // Critical moves (eval swing > 1.5 or big cp loss)
   const criticalMoves = useMemo(() => {
     return moveEvaluations.filter(m => {
-      if (!m.is_user_move) return false;
+      if (!isUserMoveFromFen(m)) return false;
       const cpLoss = Math.abs(m.cp_loss || 0);
       return cpLoss >= 150; // 1.5 pawns
     });
-  }, [moveEvaluations]);
+  }, [moveEvaluations, userColor]);
 
   // Get biggest eval swing
   const biggestEvalSwing = useMemo(() => {
     let maxSwing = null;
     moveEvaluations.forEach(m => {
-      if (!m.is_user_move) return;
+      if (!isUserMoveFromFen(m)) return;
       const cpLoss = Math.abs(m.cp_loss || 0);
       if (!maxSwing || cpLoss > maxSwing.cp_loss) {
         maxSwing = { ...m, cp_loss: cpLoss };
       }
     });
     return maxSwing;
-  }, [moveEvaluations]);
+  }, [moveEvaluations, userColor]);
 
   // Move list for the board panel
   const movePairs = useMemo(() => {
