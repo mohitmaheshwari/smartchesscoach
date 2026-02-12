@@ -61,6 +61,7 @@ const GameAnalysis = ({ user }) => {
   const [conversationHistory, setConversationHistory] = useState([]);  // Q&A history for follow-up questions
   const [lastAskedMoveNumber, setLastAskedMoveNumber] = useState(null);  // Track which move the conversation is about
   const [coreLesson, setCoreLesson] = useState(null);  // Core lesson of the game
+  const [gameStrategy, setGameStrategy] = useState(null);  // Evidence-based strategy
 
   // Clear conversation when move changes significantly
   useEffect(() => {
@@ -88,7 +89,7 @@ const GameAnalysis = ({ user }) => {
           setAnalysis(analysisData);
         }
 
-        // Fetch core lesson from Lab endpoint
+        // Fetch core lesson and game strategy from Lab endpoint
         try {
           const labUrl = API + "/lab/" + gameId;
           const labResponse = await fetch(labUrl, { credentials: "include" });
@@ -97,9 +98,12 @@ const GameAnalysis = ({ user }) => {
             if (labData.core_lesson) {
               setCoreLesson(labData.core_lesson);
             }
+            if (labData.game_strategy) {
+              setGameStrategy(labData.game_strategy);
+            }
           }
         } catch (labErr) {
-          console.log("Core lesson not available yet");
+          console.log("Lab data not available yet");
         }
       } catch (error) {
         toast.error("Failed to load game");
