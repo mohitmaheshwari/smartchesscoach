@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,12 +35,16 @@ import { Input } from "@/components/ui/input";
 const GameAnalysis = ({ user }) => {
   const { gameId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialMove = searchParams.get('move');
+  
   const [game, setGame] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [currentMoveNumber, setCurrentMoveNumber] = useState(0);
   const [expandedMoves, setExpandedMoves] = useState({});
+  const [initialMoveHandled, setInitialMoveHandled] = useState(false);
   
   // Voice coaching state
   const [voiceLoading, setVoiceLoading] = useState(false);
