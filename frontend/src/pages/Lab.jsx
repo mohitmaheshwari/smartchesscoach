@@ -609,8 +609,8 @@ const Lab = ({ user }) => {
           {!rightPanelCollapsed && (
             <div className="w-[400px] lg:w-[450px] border-l border-border/50 flex flex-col overflow-hidden">
               {analysis ? (
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                  <TabsList className="grid w-full grid-cols-3 rounded-none border-b">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+                  <TabsList className="grid w-full grid-cols-3 rounded-none border-b shrink-0">
                     <TabsTrigger value="summary">Summary</TabsTrigger>
                     <TabsTrigger value="strategy">Strategy</TabsTrigger>
                     <TabsTrigger value="mistakes" className="relative">
@@ -623,7 +623,8 @@ const Lab = ({ user }) => {
                     </TabsTrigger>
                   </TabsList>
                   
-                  <ScrollArea className="flex-1">
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <ScrollArea className="h-full">
                     {/* SUMMARY TAB */}
                     <TabsContent value="summary" className="p-4 space-y-4 m-0">
                       {/* Core Lesson */}
