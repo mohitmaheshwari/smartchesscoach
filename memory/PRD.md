@@ -345,13 +345,49 @@ Created a utility library that converts engine evaluations to intuitive language
 - `DrillMode.jsx`: Shows "You were Completely winning" and "In the game, you played Bb6 (Blunder)"
 - `JourneyV2.jsx`: Shows "374 pawns lost (major weakness)" instead of "~37400 cp lost"
 
+### RE-ANALYSIS & GAME QUEUE SYSTEM (Feb 2026 - COMPLETED)
+**The Problem Solved**: Users had games that were imported but not properly analyzed (showing "Re-analyze this game..." text but no button). Unanalyzed games were mixed with analyzed ones, making the dashboard cluttered.
+
+**Backend Implementation:**
+- `POST /api/games/{game_id}/reanalyze`: Queues game for Stockfish analysis in background
+- `GET /api/games/{game_id}/analysis-status`: Returns status (analyzed/pending/processing/failed)
+- `GET /api/analysis-queue`: Returns all queued games for user
+- `GET /api/dashboard-stats`: Now returns `analyzed_list`, `in_queue_list`, and `queued_games` count
+
+**Frontend Implementation:**
+- **Dashboard Tabs**: "Analyzed" and "In Queue" tabs with count badges
+- **GameListItem**: Shows analyzed games with accuracy, opponent, result
+- **QueuedGameItem**: Shows queued games with progress indicator (animated spinner for processing)
+- **Lab Page**: Re-analyze button appears for games with `coreLesson.pattern === 'needs_detailed_analysis'`
+- **Toast Notifications**: "Game queued for re-analysis!" on button click
+- **Polling**: Frontend polls analysis status every 3 seconds until complete
+
+**Key Files Modified:**
+- `/app/backend/server.py`: Added reanalyze endpoint and updated dashboard-stats
+- `/app/frontend/src/pages/Dashboard.jsx`: Added tabs, GameListItem, QueuedGameItem components
+- `/app/frontend/src/pages/Lab.jsx`: Added handleReanalyze function and reanalyze button
+
+**Test Coverage:**
+- `/app/backend/tests/test_reanalyze_feature.py`: 11 tests for API endpoints
+- Testing agent validation: 100% backend, 100% frontend pass rate
+
 ## Upcoming Tasks (P0)
 - None - all P0 tasks completed
 
 ## Next Tasks (P1)
 1. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
+2. **Backfill Legacy Game Analysis Script** - Queue all historical games missing detailed analysis
 
 ## Completed Tasks (This Session - Feb 2026)
+
+### P0: Re-Analysis & Game Queue System (COMPLETED)
+- Dashboard tabs: "Analyzed" (with count badge) and "In Queue" tabs
+- Games categorized by analysis status
+- Re-analyze button on Lab page for games needing analysis
+- Backend queue system with Stockfish analysis
+- Progress indicators for games being analyzed
+- Notifications when analysis completes
+- data-testid attributes: analyzed-tab, in-queue-tab, reanalyze-banner-btn
 
 ### P0: "Show Only Critical Moves" Toggle Enhancement (COMPLETED)
 - Toggle now shows count: "Critical (1)" when active
@@ -387,13 +423,11 @@ Created a utility library that converts engine evaluations to intuitive language
 - data-testid="milestone-banner" for testing
 
 ## Remaining Backlog
-1. **Fix Focus Areas to Show Multiple Weaknesses** - Currently only shows one weakness on Dashboard
-2. **Rating Impact Estimator Visualization** - Display "Fixing Hanging Pieces would have saved ~86 rating points" prominently
-3. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
+1. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
 
 ## Future/Backlog Tasks (P2-P3)
-1. **Lab Page Phase 5 (Advanced Features)** - Behavior Memory System (pattern cross-linking), relative strength tracking
-2. **Improvement Milestones Celebration** - Banners for achievements like "First 0-blunder game"
+1. **Backfill Legacy Game Analysis Script** - Queue all historical games missing detailed analysis
+2. **Lab Page Phase 5 (Advanced Features)** - Behavior Memory System (pattern cross-linking), relative strength tracking
 3. **Personalized Puzzles from Mistakes** - Generate puzzles based on user's frequent mistake patterns
 4. **"What If" Scenarios** - Enhance InteractiveBoard.jsx to allow users to explore alternative move sequences
 5. **Opening Explorer Integration** - Connect user's game statistics to a database of chess openings
@@ -401,8 +435,8 @@ Created a utility library that converts engine evaluations to intuitive language
 7. Stockfish persistence fix (currently needs reinstall on environment restart)
 
 ## Known Issues
-1. Stockfish not persistent between environment restarts (temporary fix: reinstall manually)
-2. Some games still need Stockfish analysis
+1. Stockfish not persistent between environment restarts (temporary fix: reinstall manually `sudo apt-get install stockfish`)
+2. Some games still need Stockfish analysis (use re-analyze button)
 
 ## Test Credentials
 - DEV_MODE=true in backend/.env enables dev login
