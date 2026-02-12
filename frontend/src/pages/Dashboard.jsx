@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +23,12 @@ import {
   Zap,
   Loader2,
   Filter,
-  ChevronDown
+  ChevronDown,
+  Trophy,
+  Star,
+  Flame,
+  Award,
+  X
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -32,6 +37,81 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Milestone celebration banner component
+const MilestoneBanner = ({ milestone, onDismiss }) => {
+  const iconMap = {
+    trophy: <Trophy className="w-6 h-6" />,
+    fire: <Flame className="w-6 h-6" />,
+    star: <Star className="w-6 h-6" />,
+    chart: <Award className="w-6 h-6" />
+  };
+  
+  const rarityColors = {
+    common: "from-green-500/20 to-emerald-500/20 border-green-500/30",
+    rare: "from-blue-500/20 to-indigo-500/20 border-blue-500/30",
+    epic: "from-purple-500/20 to-pink-500/20 border-purple-500/30"
+  };
+  
+  const textColors = {
+    common: "text-green-400",
+    rare: "text-blue-400",
+    epic: "text-purple-400"
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.95 }}
+      className={`relative p-4 rounded-xl bg-gradient-to-r ${rarityColors[milestone.rarity]} border mb-6 overflow-hidden`}
+      data-testid="milestone-banner"
+    >
+      {/* Animated background particles */}
+      <div className="absolute inset-0 overflow-hidden">
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={i}
+            className={`absolute w-1 h-1 rounded-full ${textColors[milestone.rarity]}`}
+            initial={{ opacity: 0 }}
+            animate={{
+              opacity: [0, 1, 0],
+              y: [-20, -40],
+              x: [0, (i % 2 === 0 ? 10 : -10)]
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              delay: i * 0.3
+            }}
+            style={{ left: `${15 + i * 15}%`, top: '80%' }}
+          />
+        ))}
+      </div>
+      
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className={`p-3 rounded-full bg-background/50 ${textColors[milestone.rarity]}`}>
+            {iconMap[milestone.icon] || <Trophy className="w-6 h-6" />}
+          </div>
+          <div>
+            <p className={`text-xs uppercase tracking-wide font-bold ${textColors[milestone.rarity]}`}>
+              Milestone Unlocked!
+            </p>
+            <p className="font-bold text-lg">{milestone.name}</p>
+            <p className="text-sm text-muted-foreground">{milestone.description}</p>
+          </div>
+        </div>
+        <button 
+          onClick={onDismiss}
+          className="p-2 hover:bg-background/50 rounded-full transition-colors"
+        >
+          <X className="w-4 h-4 text-muted-foreground" />
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
@@ -39,10 +119,47 @@ const Dashboard = ({ user }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null);
   const [opponentFilter, setOpponentFilter] = useState("all"); // all, stronger, equal, weaker
+  const [newMilestone, setNewMilestone] = useState(null);
+  const [dismissedMilestones, setDismissedMilestones] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('dismissedMilestones') || '[]');
+    } catch {
+      return [];
+    }
+  });
 
   const openStatsModal = (type) => {
     setModalType(type);
     setModalOpen(true);
+  };
+  
+  // Check for new milestones
+  useEffect(() => {
+    const checkMilestones = async () => {
+      try {
+        const res = await fetch(`${API}/milestones`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          const achieved = data.achieved || [];
+          // Find the first milestone not yet dismissed
+          const unshown = achieved.find(m => !dismissedMilestones.includes(m.id));
+          if (unshown) {
+            setNewMilestone(unshown);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check milestones:", err);
+      }
+    };
+    
+    checkMilestones();
+  }, [dismissedMilestones]);
+  
+  const dismissMilestone = (id) => {
+    const updated = [...dismissedMilestones, id];
+    setDismissedMilestones(updated);
+    localStorage.setItem('dismissedMilestones', JSON.stringify(updated));
+    setNewMilestone(null);
   };
 
   useEffect(() => {
