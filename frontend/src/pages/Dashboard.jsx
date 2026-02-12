@@ -240,9 +240,34 @@ const Dashboard = ({ user }) => {
               <AnimatedItem>
                 <Card className="surface h-full">
                   <CardContent className="py-6">
-                    <SectionHeader 
-                      label="Recent Games" 
-                      action={
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="label-caps">Recent Games</p>
+                      <div className="flex items-center gap-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
+                              <Filter className="w-3 h-3" />
+                              {opponentFilter === "all" ? "All" : 
+                               opponentFilter === "stronger" ? "Stronger" :
+                               opponentFilter === "weaker" ? "Weaker" : "Equal"}
+                              <ChevronDown className="w-3 h-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setOpponentFilter("all")}>
+                              All Opponents
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setOpponentFilter("stronger")}>
+                              Stronger Opponents
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setOpponentFilter("equal")}>
+                              Equal Opponents
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setOpponentFilter("weaker")}>
+                              Weaker Opponents
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <Button 
                           variant="ghost" 
                           size="sm"
