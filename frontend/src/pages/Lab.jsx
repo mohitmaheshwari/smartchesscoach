@@ -576,7 +576,20 @@ const Lab = ({ user }) => {
             )}
             
             {/* Core Lesson - One sentence */}
-            {coreLesson && coreLesson.pattern !== "clean_game" && (
+            {coreLesson && coreLesson.pattern === "needs_detailed_analysis" ? (
+              <Button 
+                onClick={handleReanalyze} 
+                disabled={reanalyzing}
+                variant="outline"
+                size="sm"
+                className="gap-2 bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-400"
+                data-testid="reanalyze-banner-btn"
+              >
+                <Lightbulb className="w-4 h-4" />
+                {reanalyzing ? "Analyzing..." : "Re-analyze for detailed insights"}
+                {reanalyzing && <Loader2 className="w-3 h-3 animate-spin ml-1" />}
+              </Button>
+            ) : coreLesson && coreLesson.pattern !== "clean_game" && (
               <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 max-w-md">
                 <Lightbulb className="w-4 h-4 text-amber-500 shrink-0" />
                 <span className="text-sm truncate">{coreLesson.lesson}</span>
