@@ -2511,17 +2511,45 @@ def get_journey_data(analyses: List[Dict], games: List[Dict] = None, badge_data:
     """
     Get all data needed for the Journey page (Progress page with hierarchy).
     
-    NEW DESIGN (user requested):
-    1. Chess Fundamentals Assessment - Compare performance across key areas
-    2. Rating Ceiling Assessment - Stable vs Peak performance, gap driver
-    3. Opening Progress - Win/loss by opening with suggestions
+    KEPT (user requested):
+    - Weakness ranking (Your Weaknesses Prioritized) with evidence/training
+    - Win state analysis (When You Blunder / Pattern Analysis)
+    - Chess Fundamentals Assessment
+    - Rating Ceiling Assessment  
+    - Opening Progress
     
     REMOVED:
-    - Recent Achievements
+    - Recent Achievements / Milestones
     - Stable Strength section
     - Mistake Heatmap
+    - Identity profile
     """
+    weakness_ranking = get_dominant_weakness_ranking(analyses, games)
+    pattern_trends = calculate_pattern_trends(analyses)
+    
+    # Merge trend data into weakness ranking
+    if pattern_trends.get("has_enough_data") and weakness_ranking.get("ranking"):
+        for item in weakness_ranking["ranking"]:
+            pattern = item.get("pattern")
+            if pattern and pattern in pattern_trends.get("patterns", {}):
+                trend_info = pattern_trends["patterns"][pattern]
+                item["trend"] = {
+                    "recent": trend_info["recent"],
+                    "previous": trend_info["previous"],
+                    "change": trend_info["change"],
+                    "direction": trend_info["trend"]
+                }
+    
     return {
+        # KEPT: Weakness ranking with evidence and training
+        "weakness_ranking": weakness_ranking,
+        
+        # KEPT: Win state analysis (Pattern Analysis / When You Blunder)
+        "win_state": get_win_state_analysis(analyses, games),
+        
+        # KEPT: Pattern trends for improvement tracking
+        "pattern_trends": pattern_trends,
+        
         # NEW: Chess Fundamentals - Comparison across key areas with tagged games
         "fundamentals": get_chess_fundamentals_assessment(analyses, games),
         
@@ -2531,7 +2559,7 @@ def get_journey_data(analyses: List[Dict], games: List[Dict] = None, badge_data:
         # NEW: Opening Progress - Win/loss ratio with suggestions
         "opening_progress": get_opening_progress(analyses, games),
         
-        # KEPT: Total games count
+        # Total games count
         "games_analyzed": len(analyses) if analyses else 0
     }
 
