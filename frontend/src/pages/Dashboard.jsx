@@ -247,6 +247,82 @@ const QueuedGameItem = ({ game, onNavigate }) => {
   );
 };
 
+// Not Analyzed Game Item - for games that need analysis
+const NotAnalyzedGameItem = ({ game, onQueue, isQueuing }) => {
+  const opponent = game.user_color === 'white' ? game.black_player : game.white_player;
+  const opponentRating = game.user_color === 'white' ? game.black_rating : game.white_rating;
+  
+  // Determine result display
+  const getResultDisplay = () => {
+    if (!game.result) return null;
+    if (game.result === '1-0') {
+      return game.user_color === 'white' ? 
+        <span className="text-emerald-500 font-medium">Won</span> : 
+        <span className="text-red-500 font-medium">Lost</span>;
+    }
+    if (game.result === '0-1') {
+      return game.user_color === 'black' ? 
+        <span className="text-emerald-500 font-medium">Won</span> : 
+        <span className="text-red-500 font-medium">Lost</span>;
+    }
+    return <span className="text-muted-foreground">Draw</span>;
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+      data-testid={`not-analyzed-game-${game.game_id}`}
+    >
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
+          game.user_color === 'white' 
+            ? 'bg-white text-black border border-border' 
+            : 'bg-zinc-800 text-white'
+        }`}>
+          {game.user_color === 'white' ? 'W' : 'B'}
+        </span>
+        
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-sm truncate">
+              vs {opponent || 'Opponent'}
+            </p>
+            {opponentRating && (
+              <span className="text-xs text-muted-foreground">({opponentRating})</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {getResultDisplay()}
+            <span className="text-muted-foreground">• Not analyzed</span>
+          </div>
+        </div>
+      </div>
+      
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={(e) => onQueue(game.game_id, e)}
+        disabled={isQueuing}
+        className="gap-1.5"
+      >
+        {isQueuing ? (
+          <>
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Queuing
+          </>
+        ) : (
+          <>
+            <Play className="w-3 h-3" />
+            Analyze
+          </>
+        )}
+      </Button>
+    </motion.div>
+  );
+};
+
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
