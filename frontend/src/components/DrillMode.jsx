@@ -19,6 +19,7 @@ import {
   Loader2,
   HelpCircle
 } from "lucide-react";
+import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
 /**
  * DrillMode - "What would you play here?" training from user's own games
@@ -230,12 +231,8 @@ const DrillMode = ({
               vs {currentPosition?.opponent || "Opponent"} • Move {currentPosition?.move_number}
             </p>
             <p className="text-sm">
-              You had <span className={`font-bold ${
-                currentPosition?.eval_before > 1 ? 'text-green-500' :
-                currentPosition?.eval_before < -1 ? 'text-red-500' :
-                'text-yellow-500'
-              }`}>
-                {currentPosition?.eval_before >= 0 ? '+' : ''}{currentPosition?.eval_before?.toFixed(1)}
+              You were <span className={`font-bold ${formatEvalWithContext(currentPosition?.eval_before).className}`}>
+                {formatEvalWithContext(currentPosition?.eval_before).text}
               </span>
             </p>
           </div>
@@ -331,7 +328,12 @@ const DrillMode = ({
                       
                       {/* What you actually played in the game */}
                       <p className="text-xs text-muted-foreground mt-2">
-                        In the game, you played <span className="font-mono text-red-400">{currentPosition?.move_played}</span> (−{currentPosition?.cp_loss} cp)
+                        In the game, you played <span className="font-mono text-red-400">{currentPosition?.move_played}</span>
+                        {currentPosition?.cp_loss && (
+                          <span className={`ml-1 ${formatCpLoss(currentPosition.cp_loss).className}`}>
+                            ({formatCpLoss(currentPosition.cp_loss).text})
+                          </span>
+                        )}
                       </p>
                     </div>
 
