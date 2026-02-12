@@ -1183,16 +1183,259 @@ def get_journey_data(analyses: List[Dict], games: List[Dict] = None, badge_data:
     }
 
 
-def get_lab_data(analysis: Dict) -> Dict:
+def get_game_specific_strategy(analysis: Dict, game: Dict = None) -> Dict:
+    """
+    Generate EVIDENCE-BASED strategy for a specific game.
+    
+    Unlike generic phase theory, this returns:
+    1. Actual positions where mistakes happened, grouped by phase
+    2. The SPECIFIC tactical/strategic lessons from THIS game
+    3. Clickable evidence for each insight
+    
+    This is the "proof" that makes coaching concrete rather than abstract.
+    """
+    if not analysis:
+        return {"phases": [], "insights": [], "has_evidence": False}
+    
+    sf_analysis = analysis.get("stockfish_analysis", {})
+    move_evals = sf_analysis.get("move_evaluations", [])
+    
+    if not move_evals:
+        return {"phases": [], "insights": [], "has_evidence": False}
+    
+    # Get game metadata
+    game_id = analysis.get("game_id", "")
+    user_color = game.get("user_color", "white") if game else "white"
+    opponent = game.get("white_player" if user_color == "black" else "black_player", "Opponent") if game else "Opponent"
+    
+    # Group mistakes by phase
+    phase_mistakes = {
+        "opening": [],      # Moves 1-10
+        "middlegame": [],   # Moves 11-30
+        "endgame": []       # Moves 31+
+    }
+    
+    phase_ranges = {
+        "opening": (1, 10),
+        "middlegame": (11, 30),
+        "endgame": (31, 999)
+    }
+    
+    for move in move_evals:
+        if not move.get("is_user_move", True):
+            continue
+        
+        cp_loss = abs(move.get("cp_loss", 0))
+        if cp_loss < 50:  # Only significant mistakes
+            continue
+        
+        move_number = move.get("move_number", 0)
+        
+        # Determine phase
+        phase = "middlegame"
+        for phase_name, (start, end) in phase_ranges.items():
+            if start <= move_number <= end:
+                phase = phase_name
+                break
+        
+        # Get mistake details
+        mistake_type = move.get("mistake_type", "")
+        if not mistake_type:
+            mistake_type = infer_mistake_type_from_eval(move)
+        
+        # Get behavioral pattern
+        pattern_label = "Mistake"
+        pattern_fix = ""
+        for pattern_key, pattern_data in BEHAVIORAL_PATTERNS.items():
+            if mistake_type in pattern_data.get("triggers", []):
+                pattern_label = pattern_data.get("short", pattern_key)
+                pattern_fix = pattern_data.get("fix", "")
+                break
+        
+        # Classify severity
+        if cp_loss >= 300:
+            severity = "blunder"
+        elif cp_loss >= 150:
+            severity = "mistake"
+        else:
+            severity = "inaccuracy"
+        
+        phase_mistakes[phase].append({
+            "move_number": move_number,
+            "move_played": move.get("move", ""),
+            "best_move": move.get("best_move", ""),
+            "fen_before": move.get("fen_before", move.get("fen", "")),
+            "cp_loss": round(cp_loss),
+            "eval_before": round(move.get("eval_before", 0), 1),
+            "eval_after": round(move.get("eval_after", 0), 1),
+            "severity": severity,
+            "pattern": pattern_label,
+            "fix": pattern_fix,
+            "game_id": game_id,
+            "opponent": opponent
+        })
+    
+    # Build phase-by-phase strategy
+    phase_strategies = []
+    
+    for phase_name in ["opening", "middlegame", "endgame"]:
+        mistakes = phase_mistakes[phase_name]
+        if not mistakes:
+            continue
+        
+        # Sort by severity (worst first)
+        mistakes = sorted(mistakes, key=lambda x: x["cp_loss"], reverse=True)
+        
+        # Calculate stats
+        total_cp_lost = sum(m["cp_loss"] for m in mistakes)
+        worst_mistake = mistakes[0]
+        
+        # Get dominant pattern in this phase
+        pattern_counts = {}
+        for m in mistakes:
+            p = m["pattern"]
+            pattern_counts[p] = pattern_counts.get(p, 0) + 1
+        
+        dominant_pattern = max(pattern_counts.items(), key=lambda x: x[1])[0] if pattern_counts else "Various"
+        
+        # Generate phase-specific insight
+        phase_insight = _generate_phase_insight(phase_name, mistakes, dominant_pattern)
+        
+        phase_strategies.append({
+            "phase": phase_name,
+            "phase_label": phase_name.capitalize(),
+            "move_range": f"Moves {phase_ranges[phase_name][0]}-{phase_ranges[phase_name][1] if phase_ranges[phase_name][1] < 100 else 'end'}",
+            "mistake_count": len(mistakes),
+            "total_cp_lost": total_cp_lost,
+            "dominant_pattern": dominant_pattern,
+            "insight": phase_insight,
+            "worst_mistake": worst_mistake,
+            "evidence": mistakes[:3],  # Top 3 worst mistakes
+            "fix": worst_mistake.get("fix", "")
+        })
+    
+    # Generate overall insights
+    all_mistakes = []
+    for phase_list in phase_mistakes.values():
+        all_mistakes.extend(phase_list)
+    
+    insights = _generate_game_insights(all_mistakes, phase_strategies)
+    
+    return {
+        "phases": phase_strategies,
+        "insights": insights,
+        "has_evidence": len(all_mistakes) > 0,
+        "total_mistakes": len(all_mistakes),
+        "total_cp_lost": sum(m["cp_loss"] for m in all_mistakes)
+    }
+
+
+def _generate_phase_insight(phase: str, mistakes: List[Dict], dominant_pattern: str) -> str:
+    """Generate a specific insight for a game phase based on actual mistakes."""
+    
+    if not mistakes:
+        return f"Clean {phase} - no significant mistakes!"
+    
+    count = len(mistakes)
+    total_cp = sum(m["cp_loss"] for m in mistakes)
+    worst = mistakes[0]
+    
+    phase_insights = {
+        "opening": {
+            "Relaxes when winning": f"You got a good position but relaxed too early. Move {worst['move_number']}: had {'+' if worst['eval_before'] > 0 else ''}{worst['eval_before']}, then played {worst['move_played']} losing your edge.",
+            "Impulsive attacker": f"You attacked before securing your position. The {worst['move_played']} on move {worst['move_number']} ignored opponent's threats.",
+            "Tactical blind spots": f"Missed a winning tactic in the opening! Move {worst['move_number']}: {worst['best_move']} was much better than {worst['move_played']}.",
+            "default": f"Opening had {count} mistake(s) costing ~{total_cp}cp. Key moment: move {worst['move_number']} where {worst['best_move']} was better."
+        },
+        "middlegame": {
+            "Relaxes when winning": f"Critical conversion failure! You were winning but threw it away. Move {worst['move_number']}: from {'+' if worst['eval_before'] > 0 else ''}{worst['eval_before']} you played {worst['move_played']} instead of {worst['best_move']}.",
+            "Impulsive attacker": f"Attacked without checking threats. Move {worst['move_number']}: {worst['move_played']} walked into trouble. Always ask 'What can they do to me?'",
+            "Tactical blind spots": f"Missed winning combinations! Move {worst['move_number']} had {worst['best_move']} winning material, but you played {worst['move_played']}.",
+            "Poor piece safety": f"Left pieces hanging. Move {worst['move_number']}: {worst['move_played']} dropped material. {worst['best_move']} kept everything safe.",
+            "default": f"Middlegame struggles: {count} mistake(s) totaling ~{total_cp}cp. Worst was move {worst['move_number']}."
+        },
+        "endgame": {
+            "Relaxes when winning": f"Endgame conversion failed! From a winning position ({'+' if worst['eval_before'] > 0 else ''}{worst['eval_before']}), move {worst['move_number']} ({worst['move_played']}) let the win slip.",
+            "Impulsive attacker": f"Rushed the endgame! Move {worst['move_number']}: {worst['move_played']} was hasty. In endgames, accuracy beats speed.",
+            "default": f"Endgame had {count} mistake(s). Move {worst['move_number']}: {worst['best_move']} was more precise than {worst['move_played']}."
+        }
+    }
+    
+    phase_dict = phase_insights.get(phase, phase_insights["middlegame"])
+    return phase_dict.get(dominant_pattern, phase_dict.get("default", f"{count} mistakes in {phase}"))
+
+
+def _generate_game_insights(all_mistakes: List[Dict], phase_strategies: List[Dict]) -> List[Dict]:
+    """Generate overall game insights based on mistake distribution."""
+    
+    insights = []
+    
+    if not all_mistakes:
+        insights.append({
+            "type": "positive",
+            "title": "Clean Game!",
+            "message": "No significant mistakes in this game. Great discipline!",
+            "icon": "trophy"
+        })
+        return insights
+    
+    # Find where most damage occurred
+    if phase_strategies:
+        worst_phase = max(phase_strategies, key=lambda x: x["total_cp_lost"])
+        insights.append({
+            "type": "warning",
+            "title": f"{worst_phase['phase_label']} Troubles",
+            "message": f"Lost {worst_phase['total_cp_lost']}cp in the {worst_phase['phase']}. Pattern: {worst_phase['dominant_pattern']}",
+            "icon": "alert",
+            "phase": worst_phase["phase"],
+            "evidence": worst_phase["evidence"]
+        })
+    
+    # Check for conversion issues (mistakes when winning)
+    winning_mistakes = [m for m in all_mistakes if m.get("eval_before", 0) > 1.5]
+    if len(winning_mistakes) >= 2:
+        insights.append({
+            "type": "critical",
+            "title": "Conversion Problem",
+            "message": f"You were winning {len(winning_mistakes)} times but made mistakes. When ahead, play like you're still equal!",
+            "icon": "trending-down",
+            "evidence": winning_mistakes[:2]
+        })
+    
+    # Check for repeated pattern
+    pattern_counts = {}
+    for m in all_mistakes:
+        p = m.get("pattern", "Unknown")
+        pattern_counts[p] = pattern_counts.get(p, 0) + 1
+    
+    if pattern_counts:
+        top_pattern = max(pattern_counts.items(), key=lambda x: x[1])
+        if top_pattern[1] >= 2:
+            pattern_mistakes = [m for m in all_mistakes if m.get("pattern") == top_pattern[0]]
+            insights.append({
+                "type": "pattern",
+                "title": f"Recurring: {top_pattern[0]}",
+                "message": f"This pattern appeared {top_pattern[1]} times. Focus on: {pattern_mistakes[0].get('fix', 'improving this area')}",
+                "icon": "repeat",
+                "evidence": pattern_mistakes[:2]
+            })
+    
+    return insights
+
+
+def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
     """
     Get data needed for the Lab page (detailed game analysis).
     
     Adds:
     - Core lesson of the game
+    - Evidence-based strategy
     """
     core_lesson = get_core_lesson(analysis)
+    game_strategy = get_game_specific_strategy(analysis, game)
     
     return {
         "core_lesson": core_lesson,
+        "game_strategy": game_strategy,
         "analysis": analysis
     }
