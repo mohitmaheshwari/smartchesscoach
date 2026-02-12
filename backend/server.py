@@ -3875,7 +3875,7 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
             in_queue_list.append(game)
         else:
             game["analysis_status"] = "not_analyzed"
-            # Unanalyzed games go to neither list - they will need re-analysis
+            not_analyzed_list.append(game)  # Add to not_analyzed list
     
     # Build recent_games for backward compatibility (top 10 of all games)
     recent_games = all_games[:10]
