@@ -5056,6 +5056,219 @@ async def get_milestones(user: User = Depends(get_current_user)):
     }
 
 
+# ============== NOTIFICATION ENDPOINTS ==============
+
+@api_router.get("/notifications")
+async def get_notifications(
+    unread_only: bool = False,
+    limit: int = 20,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get user's notifications.
+    """
+    notifications = await get_user_notifications(db, user.user_id, unread_only, limit)
+    unread_count = await get_unread_count(db, user.user_id)
+    
+    return {
+        "notifications": notifications,
+        "unread_count": unread_count
+    }
+
+
+@api_router.post("/notifications/read")
+async def mark_notifications_read(
+    notification_id: str = None,
+    user: User = Depends(get_current_user)
+):
+    """
+    Mark notification(s) as read.
+    If notification_id is provided, marks only that notification.
+    Otherwise marks all as read.
+    """
+    success = await mark_notification_read(db, user.user_id, notification_id)
+    return {"success": success}
+
+
+@api_router.post("/notifications/{notification_id}/dismiss")
+async def dismiss_user_notification(
+    notification_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Dismiss a notification.
+    """
+    success = await dismiss_notification(db, user.user_id, notification_id)
+    return {"success": success}
+
+
+@api_router.get("/notifications/push-payload/{notification_id}")
+async def get_notification_push_payload(
+    notification_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get push notification payload for browser Notification API.
+    """
+    from bson import ObjectId
+    notification = await db.notifications.find_one(
+        {"_id": ObjectId(notification_id), "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    notification["id"] = notification_id
+    return get_push_notification_payload(notification)
+
+
+# ============== SUBSCRIPTION/PLAN ENDPOINTS ==============
+
+@api_router.get("/subscription")
+async def get_subscription_info(user: User = Depends(get_current_user)):
+    """
+    Get user's subscription/plan information.
+    """
+    return await get_effective_plan(db, user.user_id)
+
+
+@api_router.post("/subscription/upgrade")
+async def upgrade_subscription(user: User = Depends(get_current_user)):
+    """
+    Upgrade user to Pro plan.
+    NOTE: This is a mock endpoint. Real implementation would involve payment.
+    """
+    success = await upgrade_to_pro(db, user.user_id)
+    if success:
+        return {"success": True, "message": "Upgraded to Pro!", "plan": "pro"}
+    return {"success": False, "message": "Failed to upgrade"}
+
+
+@api_router.get("/subscription/can-analyze")
+async def check_can_analyze(user: User = Depends(get_current_user)):
+    """
+    Check if user can analyze another game.
+    """
+    return await can_analyze_game(db, user.user_id)
+
+
+# ============== AUTO-COACH ENDPOINTS ==============
+
+@api_router.get("/coach/commentary/{game_id}")
+async def get_coach_commentary(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Get or generate coaching commentary for a game.
+    """
+    # Check if user has LLM commentary access
+    has_access = await has_feature_access(db, user.user_id, "llm_commentary")
+    
+    if not has_access:
+        return {
+            "commentary": None,
+            "access_denied": True,
+            "message": "Upgrade to Pro for AI coaching commentary"
+        }
+    
+    # Get analysis
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    # Check if commentary already exists
+    if analysis.get("coach_commentary"):
+        return {
+            "commentary": analysis["coach_commentary"],
+            "generated_at": analysis.get("coach_commentary_generated_at"),
+            "cached": True
+        }
+    
+    # Get game data
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    # Generate commentary
+    commentary = await generate_and_save_commentary(db, analysis, game)
+    
+    if commentary:
+        return {
+            "commentary": commentary,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "cached": False
+        }
+    
+    return {
+        "commentary": None,
+        "error": "Failed to generate commentary"
+    }
+
+
+@api_router.post("/coach/trigger-analysis/{game_id}")
+async def trigger_auto_coach_analysis(
+    game_id: str,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user)
+):
+    """
+    Trigger auto-coach analysis for a specific game.
+    This generates deterministic summary + LLM commentary + notification.
+    """
+    # Check analysis limit
+    can_do = await can_analyze_game(db, user.user_id)
+    if not can_do["allowed"]:
+        return can_do
+    
+    # Get analysis and game
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    # Build deterministic summary
+    summary = build_deterministic_summary(analysis, game)
+    
+    # Generate notification message
+    notification_message = get_quick_notification_message(summary)
+    
+    # Create notification
+    await notify_game_analyzed(
+        db,
+        user.user_id,
+        game_id,
+        notification_message,
+        summary["result"]
+    )
+    
+    # Generate LLM commentary in background if user has access
+    has_llm_access = await has_feature_access(db, user.user_id, "llm_commentary")
+    if has_llm_access:
+        background_tasks.add_task(generate_and_save_commentary, db, analysis, game)
+    
+    # Increment analysis count
+    await increment_analysis_count(db, user.user_id)
+    
+    return {
+        "success": True,
+        "summary": summary,
+        "notification": notification_message,
+        "llm_commentary_queued": has_llm_access
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
