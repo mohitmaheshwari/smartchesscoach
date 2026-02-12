@@ -196,14 +196,21 @@ Fixed GPT hallucination in mistake explanations:
 
 **Problem:** GPT was inventing tactical patterns (e.g., claiming "fork with rook" when queen simply moved to attacked square)
 
-**Solution:**
-1. **Stricter GPT Prompt**: Added explicit rules - "NEVER say fork/pin/skewer unless FACTS section mentions it"
-2. **Better Detection Order**: Check if moved piece is hanging BEFORE checking for forks
-3. **Fork Type Filter**: Only knight/pawn forks count as tactical "walked_into_fork" - rook/queen attacks are classified as "material_blunder" or "hanging_piece"
-4. **Added Skewer Detection**: `detect_walked_into_skewer()` function for queen-in-front-of-rook patterns
+**Solution - Stockfish is Source of Truth:**
+1. **cp_loss gate**: Detection logic ONLY runs when Stockfish says move is bad (cp_loss >= 50)
+   - If cp_loss < 50, returns "good_move" - no mistake detection at all
+   - This means a queen "sacrifice" in front of rook is correctly handled:
+     - Low cp_loss → Brilliant sacrifice → No "mistake" detected
+     - High cp_loss → Blunder → Detection explains why
+   
+2. **All pieces can fork**: Removed incorrect piece-type filter. Rook can fork queen+bishop. Key is target value (>= 6 points total)
+
+3. **Priority fix**: Check hanging piece FIRST before fork detection (moving to attacked square = hanging, not fork)
+
+4. **Stricter GPT prompt**: "NEVER say fork/pin/skewer unless FACTS section mentions it"
 
 **Example Fix:**
-- Before: "fork with their rook" (nonsense - rooks don't fork!)  
+- Before: "fork with their rook" (nonsense!)  
 - After: "gave away material without any gain" (correct - queen moved to attacked square)
 
 ### Real-time Queue Updates (Feb 12, 2026 - COMPLETED)
