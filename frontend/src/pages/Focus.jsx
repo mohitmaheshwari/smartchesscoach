@@ -21,7 +21,12 @@ import {
   Eye,
   Dumbbell,
   BookOpen,
-  CheckCircle2
+  CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  MessageCircle,
+  Award,
+  XCircle
 } from "lucide-react";
 import MistakeMastery from "@/components/MistakeMastery";
 import EvidenceModal from "@/components/EvidenceModal";
