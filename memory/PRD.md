@@ -5,6 +5,37 @@ Build an AI-powered chess coaching application that analyzes games, identifies p
 
 ## Core Features Implemented
 
+### Live Auto-Coach (Feb 2026 - COMPLETED)
+Real-time post-game coaching feedback system:
+
+**Architecture:**
+1. **Deterministic Analysis Layer** - Computes eval swings, blunders, phase breakdown without LLM
+2. **LLM Commentary Service** - GPT-4o-mini generates 100-200 word coaching summary
+3. **Notification System** - In-app + browser push notifications
+4. **Subscription/Plan System** - Free (5 games/month) vs Pro (25 games/month, auto-sync, LLM)
+
+**Key Endpoints:**
+- `GET /api/subscription` - Returns plan info, limits, and usage
+- `GET /api/coach/commentary/{game_id}` - Generates/returns cached LLM commentary
+- `POST /api/coach/trigger-analysis/{game_id}` - Creates notification + queues LLM
+- `GET /api/notifications` - Returns user notifications with unread count
+- `POST /api/notifications/read` - Marks notifications as read
+
+**Frontend Components:**
+- **Coach's Take** - Purple gradient section in Lab Summary tab showing LLM commentary
+- **Notification Bell** - Shows unread count badge, clickable notifications navigate to game
+- **Browser Notifications** - Push notifications for new analyzed games
+
+**Files Created:**
+- `/app/backend/auto_coach_service.py` - LLM commentary generation
+- `/app/backend/notification_service.py` - Notification management
+- `/app/backend/subscription_service.py` - Plan/limit management
+
+**Cost Control:**
+- Target: ~$0.002-$0.004 per game
+- 25 games/month: <$0.10-$0.15 per user monthly
+- Commentary cached permanently, never regenerated
+
 ### Game Analysis
 - Import games from Chess.com and Lichess
 - Stockfish engine analysis (depth 18) for accurate move evaluation
