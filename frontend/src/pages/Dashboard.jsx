@@ -389,6 +389,32 @@ const Dashboard = ({ user }) => {
                       }
                     />
                     <div className="space-y-3">
+                      {/* Rating Impact Banner */}
+                      {ratingImpact?.potential_gain > 0 && (
+                        <div 
+                          className="p-3 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 cursor-pointer hover:border-green-500/40 transition-colors"
+                          onClick={() => navigate('/focus')}
+                          data-testid="rating-impact-card"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <TrendingUp className="w-4 h-4 text-green-500" />
+                                <span className="text-xs text-green-400 uppercase tracking-wide font-semibold">
+                                  Potential Gain
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {ratingImpact.message}
+                              </p>
+                            </div>
+                            <span className="text-2xl font-bold text-green-500">
+                              +{ratingImpact.potential_gain}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
                       {topWeaknesses.length > 0 ? (
                         <>
                           {/* Primary Focus - Highlighted */}
