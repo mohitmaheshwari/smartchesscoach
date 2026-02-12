@@ -1068,7 +1068,19 @@ const Lab = ({ user }) => {
                         <div className="text-center py-8 text-muted-foreground">
                           <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-30" />
                           <p>Strategic analysis not available</p>
-                          <p className="text-sm mt-2">Re-analyze this game to see opening, pawn structure, and strategic insights.</p>
+                          <p className="text-sm mt-2 mb-4">Re-analyze this game to see opening, pawn structure, and strategic insights.</p>
+                          <Button 
+                            onClick={handleReanalyze} 
+                            disabled={reanalyzing}
+                            variant="outline"
+                            data-testid="reanalyze-strategy-btn"
+                          >
+                            {reanalyzing ? (
+                              <><Loader2 className="w-4 h-4 animate-spin mr-2" />Analyzing...</>
+                            ) : (
+                              <><RefreshCw className="w-4 h-4 mr-2" />Re-analyze Game</>
+                            )}
+                          </Button>
                         </div>
                       )}
                     </TabsContent>
