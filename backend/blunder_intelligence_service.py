@@ -175,6 +175,24 @@ def get_core_lesson(analysis: Dict) -> Dict:
     move_evals = sf_analysis.get("move_evaluations", [])
     
     if not move_evals:
+        # Check if there's basic analysis even without detailed move evals
+        has_basic_analysis = sf_analysis.get("accuracy") is not None or analysis.get("blunders") is not None
+        
+        if has_basic_analysis:
+            accuracy = sf_analysis.get("accuracy", 0)
+            if accuracy >= 90:
+                return {
+                    "lesson": "Excellent accuracy! Consider re-analyzing for detailed move-by-move insights.",
+                    "pattern": "clean_game",
+                    "behavioral_fix": None,
+                    "severity": "none"
+                }
+            return {
+                "lesson": "Re-analyze this game for detailed move-by-move correction insights.",
+                "pattern": "needs_detailed_analysis",
+                "behavioral_fix": None,
+                "severity": "unknown"
+            }
         return {
             "lesson": "Game not yet analyzed with engine.",
             "pattern": None,
