@@ -1151,6 +1151,14 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
         game["white_player"] = white_match.group(1) if white_match else "White"
         game["black_player"] = black_match.group(1) if black_match else "Black"
         
+        # Extract ratings from PGN
+        white_elo_match = re.search(r'\[WhiteElo "(\d+)"\]', pgn)
+        black_elo_match = re.search(r'\[BlackElo "(\d+)"\]', pgn)
+        if white_elo_match:
+            game["white_rating"] = int(white_elo_match.group(1))
+        if black_elo_match:
+            game["black_rating"] = int(black_elo_match.group(1))
+        
         # Also try to extract termination from PGN if not stored
         if not game.get("termination"):
             term_match = re.search(r'\[Termination "([^"]+)"\]', pgn)
