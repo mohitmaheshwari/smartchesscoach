@@ -4964,6 +4964,60 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     return lab_data
 
 
+class MistakeExplanationRequest(BaseModel):
+    """Request for on-demand mistake explanation"""
+    fen_before: str
+    move: str
+    best_move: str
+    cp_loss: int
+    user_color: str
+    move_number: Optional[int] = None
+
+
+@api_router.post("/explain-mistake")
+async def explain_mistake(req: MistakeExplanationRequest, user: User = Depends(get_current_user)):
+    """
+    Generate an educational explanation for a specific mistake.
+    
+    This endpoint:
+    1. Uses deterministic chess rules to identify WHAT went wrong
+    2. Uses GPT to write a human-readable explanation of WHY
+    
+    GPT does NOT analyze chess - it only writes commentary based on our analysis.
+    """
+    move_data = {
+        "fen_before": req.fen_before,
+        "move": req.move,
+        "best_move": req.best_move,
+        "cp_loss": req.cp_loss,
+        "user_color": req.user_color,
+        "move_number": req.move_number
+    }
+    
+    try:
+        # Generate the explanation (uses LLM for commentary)
+        explanation = await generate_mistake_explanation(move_data, call_llm)
+        return explanation
+    except Exception as e:
+        logger.error(f"Error generating mistake explanation: {e}")
+        # Return a fallback explanation based on templates
+        analysis = analyze_mistake_position(
+            req.fen_before, req.move, req.best_move, req.cp_loss, req.user_color
+        )
+        return {
+            "explanation": get_quick_explanation(
+                analysis.get("mistake_type", "inaccuracy"),
+                analysis.get("details", {})
+            ),
+            "mistake_type": analysis.get("mistake_type", "inaccuracy"),
+            "short_label": "Mistake",
+            "thinking_habit": None,
+            "severity": analysis.get("severity", "minor"),
+            "phase": analysis.get("phase", "middlegame"),
+            "details": analysis.get("details", {})
+        }
+
+
 @api_router.get("/weakness-ranking")
 async def get_weakness_ranking(user: User = Depends(get_current_user)):
     """
