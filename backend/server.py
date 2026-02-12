@@ -4924,6 +4924,22 @@ async def get_coach_review_data(user: User = Depends(get_current_user)):
     return review_data
 
 
+@api_router.get("/discipline-check")
+async def get_discipline_check_data(user: User = Depends(get_current_user)):
+    """
+    Get Discipline Check data for user's last game.
+    
+    This is a sharp, data-driven accountability check:
+    - Did you follow opening advice?
+    - Did you maintain composure when winning?
+    - Decision Stability metric
+    - Evidence-based verdict (no fluff)
+    
+    Returns compact card-based data with deterministic metrics.
+    """
+    return await get_discipline_check(db, user.user_id)
+
+
 @api_router.get("/journey/v2")
 async def get_journey_page_data(user: User = Depends(get_current_user)):
     """
