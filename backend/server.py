@@ -4824,7 +4824,7 @@ async def get_focus_page_data(user: User = Depends(get_current_user)):
     
     Returns:
     - ONE dominant weakness
-    - ONE mission
+    - ONE mission (scaled by rating tier)
     - ONE behavioral rule
     - Identity profile
     - Rating impact estimate
@@ -4838,7 +4838,23 @@ async def get_focus_page_data(user: User = Depends(get_current_user)):
         {"user_id": user.user_id}
     ).sort("date", -1).limit(15).to_list(15)
     
-    focus_data = get_focus_data(analyses, games)
+    # Extract user's rating from recent games
+    user_rating = None
+    for game in games:
+        pgn = game.get("pgn", "")
+        user_color = game.get("user_color", "white")
+        
+        import re
+        if user_color == "white":
+            match = re.search(r'\[WhiteElo "(\d+)"\]', pgn)
+        else:
+            match = re.search(r'\[BlackElo "(\d+)"\]', pgn)
+        
+        if match:
+            user_rating = int(match.group(1))
+            break
+    
+    focus_data = get_focus_data(analyses, games, user_rating=user_rating)
     
     return focus_data
 
