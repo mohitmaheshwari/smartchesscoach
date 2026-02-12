@@ -3815,7 +3815,16 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         ).sort("occurrences", -1).to_list(5)
         top_weaknesses = patterns
     
-    # Get ALL user games (not just 10) for proper categorization
+    # Get queued game IDs FIRST (so we can include them in the query)
+    queue_items = await db.analysis_queue.find(
+        {"user_id": user.user_id, "status": {"$in": ["pending", "processing"]}},
+        {"_id": 0, "game_id": 1, "status": 1, "queued_at": 1}
+    ).to_list(100)
+    queued_game_map = {q["game_id"]: q for q in queue_items}
+    queued_game_ids = set(queued_game_map.keys())
+    logger.info(f"Queued game IDs: {queued_game_ids}")
+    
+    # Get recent games (up to 100)
     all_games = await db.games.find(
         {"user_id": user.user_id},
         {
@@ -3834,19 +3843,30 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         }
     ).sort("imported_at", -1).to_list(100)
     
-    # Get queued game IDs
-    queued_game_ids = set()
-    queue_items = await db.analysis_queue.find(
-        {"user_id": user.user_id, "status": {"$in": ["pending", "processing"]}},
-        {"_id": 0, "game_id": 1, "status": 1, "created_at": 1}
-    ).to_list(100)
-    queued_game_map = {q["game_id"]: q for q in queue_items}
-    queued_game_ids = set(queued_game_map.keys())
-    logger.info(f"Queued game IDs: {queued_game_ids}")
+    # Also fetch any queued games that might not be in the top 100
+    all_game_ids = {g["game_id"] for g in all_games}
+    missing_queued_ids = queued_game_ids - all_game_ids
     
-    # DEBUG: Log all game IDs
-    all_game_ids = [g.get("game_id") for g in all_games]
-    logger.info(f"All games count: {len(all_game_ids)}, first 5: {all_game_ids[:5]}")
+    if missing_queued_ids:
+        logger.info(f"Fetching {len(missing_queued_ids)} queued games not in recent 100")
+        missing_games = await db.games.find(
+            {"game_id": {"$in": list(missing_queued_ids)}, "user_id": user.user_id},
+            {
+                "_id": 0,
+                "game_id": 1,
+                "white_player": 1,
+                "black_player": 1,
+                "user_color": 1,
+                "result": 1,
+                "platform": 1,
+                "opening": 1,
+                "is_analyzed": 1,
+                "analysis_status": 1,
+                "imported_at": 1,
+                "pgn": 1
+            }
+        ).to_list(100)
+        all_games.extend(missing_games)
     
     # Categorize games
     analyzed_list = []
