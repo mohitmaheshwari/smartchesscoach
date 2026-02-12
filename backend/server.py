@@ -3831,6 +3831,11 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         }
     }
     
+    # Add rating impact estimate
+    if len(analyses) >= 5:
+        rating_impact = estimate_rating_impact(analyses)
+        response["rating_impact"] = rating_impact
+    
     # Add profile summary if available
     if profile:
         response["profile_summary"] = {
