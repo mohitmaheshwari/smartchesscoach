@@ -273,7 +273,14 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
             mistake_type = "missed_pin"
             details["missed_pin"] = missed_pin
     
-    # 6. Check for opponent threats that were ignored
+    # 6. Check if walked into a skewer (e.g., queen moved in front of king/rook)
+    if mistake_type == "inaccuracy":
+        walked_into_skewer = detect_walked_into_skewer(board, board_after, color)
+        if walked_into_skewer:
+            mistake_type = "walked_into_skewer"
+            details["skewer"] = walked_into_skewer
+    
+    # 7. Check for opponent threats that were ignored
     if mistake_type == "inaccuracy":
         # Get opponent's threatening moves BEFORE user's move
         board_opponent_turn = board.copy()
@@ -284,15 +291,23 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
         if opponent_forks and opponent_forks[0].get("includes_king") or (opponent_forks and opponent_forks[0].get("total_value", 0) >= 8):
             mistake_type = "ignored_threat"
             details["threat"] = f"Opponent has {opponent_forks[0]['attacker_piece']} fork"
+        
+        # Check for opponent skewers after our move
+        if mistake_type == "inaccuracy":
+            opponent_skewers = find_skewers(board_after, opponent)
+            if opponent_skewers:
+                # The user walked into a position where they can be skewered
+                mistake_type = "walked_into_skewer"
+                details["skewer"] = opponent_skewers[0]
     
-    # 7. Determine if it's a conversion failure (was ahead, now not)
+    # 8. Determine if it's a conversion failure (was ahead, now not)
     # This would need eval_before which we don't have in this function
     # So we'll mark it based on phase and severity
     if severity == "blunder" and phase == GamePhase.ENDGAME:
         if mistake_type == "inaccuracy":
             mistake_type = "failed_conversion"
     
-    # 8. Phase-specific defaults
+    # 9. Phase-specific defaults
     if mistake_type == "inaccuracy":
         if phase == GamePhase.OPENING and cp_loss >= 50:
             mistake_type = "opening_inaccuracy"
