@@ -244,7 +244,7 @@ const Layout = ({ children, user }) => {
                               <p className="text-sm font-medium">{notif.title}</p>
                               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.message}</p>
                               <p className="text-[10px] text-muted-foreground/60 mt-1">
-                                {new Date(notif.created_at).toLocaleDateString()}}
+                                {new Date(notif.created_at).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
