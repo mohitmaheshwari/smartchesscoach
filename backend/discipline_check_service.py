@@ -593,7 +593,8 @@ def generate_personalized_verdict(
     avg_accuracy: float,
     rating_killer_pattern: str,
     rating_killer_label: str,
-    avoided_rating_killer: bool
+    avoided_rating_killer: bool,
+    actual_blunders: int = 0  # Actual stockfish blunder count
 ) -> Dict:
     """
     Generate a PERSONALIZED verdict that references our guidance.
