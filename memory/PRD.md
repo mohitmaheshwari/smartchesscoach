@@ -3,6 +3,44 @@
 ## Original Problem Statement
 Build an AI-powered chess coaching application that analyzes games, identifies patterns in player mistakes, and provides personalized coaching feedback. The Progress page should provide deep, personalized coaching with interactive chess boards, rating-aware explanations, and deterministic feedback (no LLM hallucinations).
 
+## Architecture
+
+### Worker-Based Analysis (Feb 2026 - IMPLEMENTED)
+Scalable game analysis using separate worker processes:
+
+```
+┌──────────────┐       ┌──────────────┐       ┌──────────────┐
+│  Web Server  │──────▶│   MongoDB    │──────▶│    Worker    │
+│   (fast)     │ queue │   (queue)    │ poll  │  (Stockfish) │
+└──────────────┘       └──────────────┘       └──────────────┘
+     Port 8001           analysis_queue         Separate process
+```
+
+**Benefits:**
+- Web server never blocks on Stockfish analysis
+- Can run multiple workers for parallelism
+- Scales independently from web traffic
+- Failed analyses don't crash web server
+
+**Key Files:**
+- `/app/backend/analysis_worker.py` - Worker process that polls queue and runs Stockfish
+- `/app/backend/server.py` - Web server just queues jobs, returns immediately
+- `/app/backend/config.py` - STOCKFISH_DEPTH = 18 (configurable)
+- `/etc/supervisor/conf.d/worker.conf` - Supervisor config for worker
+
+**How it works:**
+1. User clicks "Analyze" → Web server adds job to `analysis_queue` → Returns "queued" instantly
+2. Worker polls MongoDB every 2 seconds
+3. Worker claims job atomically (prevents race conditions with multiple workers)
+4. Worker runs Stockfish analysis (depth 18, ~3 min per game)
+5. Worker writes results to `game_analyses` collection
+6. Worker marks job as "completed"
+
+**Scaling:**
+- Add more workers by running `python analysis_worker.py` on separate pods
+- Each worker can process 1 game at a time
+- Multiple workers = parallel analysis
+
 ## Core Features Implemented
 
 ### Live Auto-Coach (Feb 2026 - COMPLETED)
