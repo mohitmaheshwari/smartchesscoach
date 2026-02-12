@@ -84,6 +84,7 @@ const Lab = ({ user }) => {
   const [labData, setLabData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [coachCommentary, setCoachCommentary] = useState(null);
   
   // Board states
   const [moves, setMoves] = useState([]);
