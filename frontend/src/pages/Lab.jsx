@@ -596,13 +596,30 @@ const Lab = ({ user }) => {
               </Button>
             )}
             
-            {/* Analyze Button */}
+            {/* Analyze Button (for unanalyzed games) */}
             {!analysis && (
               <Button onClick={handleAnalyze} disabled={analyzing}>
                 {analyzing ? (
                   <><Loader2 className="w-4 h-4 animate-spin mr-2" />Analyzing...</>
                 ) : (
                   <><Brain className="w-4 h-4 mr-2" />Analyze</>
+                )}
+              </Button>
+            )}
+            
+            {/* Re-analyze Button (for games missing strategic analysis) */}
+            {analysis && !strategicAnalysis?.has_strategy && (
+              <Button 
+                onClick={handleReanalyze} 
+                disabled={reanalyzing}
+                variant="outline"
+                size="sm"
+                data-testid="reanalyze-header-btn"
+              >
+                {reanalyzing ? (
+                  <><Loader2 className="w-4 h-4 animate-spin mr-2" />Re-analyzing...</>
+                ) : (
+                  <><RefreshCw className="w-4 h-4 mr-2" />Re-analyze</>
                 )}
               </Button>
             )}
