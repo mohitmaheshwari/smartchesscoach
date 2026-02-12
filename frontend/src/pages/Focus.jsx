@@ -431,6 +431,7 @@ const FocusPage = ({ user }) => {
                 </CardContent>
               </Card>
             </motion.div>
+            )}
 
             {/* MISSION */}
             {focusData?.mission && (
