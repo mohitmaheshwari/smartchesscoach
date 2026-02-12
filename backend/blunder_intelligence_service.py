@@ -899,6 +899,103 @@ def get_opening_guidance(analyses: List[Dict], games: List[Dict]) -> Dict:
             "message": "Play more analyzed games to unlock opening guidance"
         }
     
+    # ECO code to opening name mapping (common openings)
+    ECO_TO_NAME = {
+        "A00": "Uncommon Opening",
+        "A04": "Reti Opening",
+        "A06": "Reti Opening",
+        "A10": "English Opening",
+        "A20": "English Opening",
+        "A40": "Queen's Pawn",
+        "A45": "Indian Game",
+        "A46": "Indian Game",
+        "B00": "Uncommon Defense",
+        "B01": "Scandinavian Defense",
+        "B02": "Alekhine Defense",
+        "B06": "Modern Defense",
+        "B07": "Pirc Defense",
+        "B10": "Caro-Kann Defense",
+        "B12": "Caro-Kann Defense",
+        "B20": "Sicilian Defense",
+        "B21": "Sicilian Defense",
+        "B22": "Sicilian Defense",
+        "B23": "Sicilian Defense",
+        "B27": "Sicilian Defense",
+        "B30": "Sicilian Defense",
+        "B40": "Sicilian Defense",
+        "B50": "Sicilian Defense",
+        "C00": "French Defense",
+        "C01": "French Defense",
+        "C02": "French Defense",
+        "C10": "French Defense",
+        "C20": "King's Pawn Game",
+        "C21": "Center Game",
+        "C23": "Bishop's Opening",
+        "C24": "Bishop's Opening",
+        "C25": "Vienna Game",
+        "C30": "King's Gambit",
+        "C40": "King's Knight Opening",
+        "C42": "Petrov Defense",
+        "C44": "Scotch Game",
+        "C45": "Scotch Game",
+        "C46": "Three Knights Game",
+        "C47": "Four Knights Game",
+        "C48": "Four Knights Game",
+        "C50": "Italian Game",
+        "C51": "Italian Game",
+        "C52": "Italian Game",
+        "C53": "Italian Game",
+        "C54": "Italian Game",
+        "C55": "Italian Game",
+        "C57": "Italian Game",
+        "C60": "Ruy Lopez",
+        "C65": "Ruy Lopez",
+        "C70": "Ruy Lopez",
+        "C78": "Ruy Lopez",
+        "C80": "Ruy Lopez",
+        "D00": "Queen's Pawn Game",
+        "D02": "London System",
+        "D04": "Queen's Pawn Game",
+        "D06": "Queen's Gambit",
+        "D10": "Queen's Gambit",
+        "D20": "Queen's Gambit Accepted",
+        "D30": "Queen's Gambit Declined",
+        "D35": "Queen's Gambit Declined",
+        "E00": "Indian Defense",
+        "E10": "Indian Defense",
+        "E20": "Nimzo-Indian Defense",
+        "E60": "King's Indian Defense",
+        "E70": "King's Indian Defense",
+        "E90": "King's Indian Defense"
+    }
+    
+    def get_opening_name(eco_code: str, pgn: str = "") -> str:
+        """Convert ECO code to readable name, or extract from PGN"""
+        # First try to get from PGN Opening tag
+        if pgn:
+            import re
+            match = re.search(r'\[Opening "([^"]+)"\]', pgn)
+            if match:
+                full_name = match.group(1)
+                # Take base name (before variations)
+                base = full_name.split(":")[0].split(",")[0].strip()
+                if len(base) >= 4:
+                    return base
+        
+        # Fall back to ECO mapping
+        if eco_code:
+            # Try exact match first
+            if eco_code in ECO_TO_NAME:
+                return ECO_TO_NAME[eco_code]
+            # Try prefix match (B01 -> B0 -> B)
+            for prefix_len in [2, 1]:
+                prefix = eco_code[:prefix_len]
+                for code, name in ECO_TO_NAME.items():
+                    if code.startswith(prefix):
+                        return name
+        
+        return eco_code if eco_code else "Unknown"
+    
     # Build opening stats from games + analyses
     opening_stats = defaultdict(lambda: {
         "games": 0,
@@ -926,8 +1023,9 @@ def get_opening_guidance(analyses: List[Dict], games: List[Dict]) -> Dict:
     # Process each game
     for game in games:
         game_id = game.get("game_id")
-        opening = game.get("opening", "").strip()
+        eco_code = game.get("opening", "").strip()
         user_color = game.get("user_color", "white")
+        pgn = game.get("pgn", "")
         result = game.get("result", "")
         
         if not opening or opening in ["Unknown", "?", ""]:
