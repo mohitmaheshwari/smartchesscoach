@@ -125,6 +125,8 @@ const Dashboard = ({ user }) => {
   const [modalType, setModalType] = useState(null);
   const [opponentFilter, setOpponentFilter] = useState("all"); // all, stronger, equal, weaker
   const [newMilestone, setNewMilestone] = useState(null);
+  const [activeTab, setActiveTab] = useState("analyzed"); // analyzed, in_queue
+  const [reanalyzing, setReanalyzing] = useState({}); // Track which games are being reanalyzed
   const [dismissedMilestones, setDismissedMilestones] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('dismissedMilestones') || '[]');
@@ -136,6 +138,36 @@ const Dashboard = ({ user }) => {
   const openStatsModal = (type) => {
     setModalType(type);
     setModalOpen(true);
+  };
+  
+  // Reanalyze a game
+  const handleReanalyze = async (gameId, e) => {
+    e.stopPropagation(); // Prevent navigation
+    setReanalyzing(prev => ({ ...prev, [gameId]: true }));
+    
+    try {
+      const res = await fetch(`${API}/games/${gameId}/reanalyze`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (res.ok) {
+        toast.success("Game queued for analysis!");
+        // Refetch stats to update lists
+        const statsRes = await fetch(`${API}/dashboard-stats`, { credentials: 'include' });
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          setStats(data);
+        }
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || "Failed to queue game");
+      }
+    } catch (err) {
+      toast.error("Failed to queue game for analysis");
+    } finally {
+      setReanalyzing(prev => ({ ...prev, [gameId]: false }));
+    }
   };
   
   // Check for new milestones
