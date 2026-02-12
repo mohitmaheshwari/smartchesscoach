@@ -1235,4 +1235,17 @@ const getThemeIcon = (iconName) => {
   return icons[iconName] || <Brain className="w-4 h-4 text-purple-500" />;
 };
 
+const getAdviceIcon = (iconName) => {
+  const icons = {
+    'book-open': <BookOpen className="w-4 h-4 text-green-500" />,
+    'grid': <Target className="w-4 h-4 text-yellow-500" />,
+    'lightbulb': <Lightbulb className="w-4 h-4 text-amber-500" />,
+    'zap': <Zap className="w-4 h-4 text-purple-500" />,
+    'trending-up': <TrendingUp className="w-4 h-4 text-green-500" />,
+    'shield': <Target className="w-4 h-4 text-blue-500" />,
+    'target': <Target className="w-4 h-4 text-amber-500" />
+  };
+  return icons[iconName] || <Lightbulb className="w-4 h-4 text-blue-500" />;
+};
+
 export default Lab;
