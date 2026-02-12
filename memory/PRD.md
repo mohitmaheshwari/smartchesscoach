@@ -260,20 +260,22 @@ Created a utility library that converts engine evaluations to intuitive language
 - `JourneyV2.jsx`: Shows "374 pawns lost (major weakness)" instead of "~37400 cp lost"
 
 ## Upcoming Tasks (P0)
-1. **Rating Impact Estimator Visualization** - Display "Fixing Hanging Pieces would have saved ~86 rating points" prominently
-2. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
+1. **Complete Lab Page Phase 2 (Strategy Tab)** - Implement Plan vs Execution comparison for opening, pawn structure, and strategic themes
+2. **Complete Lab Page Phase 4 (Practice Mode)** - Critical positions drill within the Lab page
 
 ## Next Tasks (P1)
-1. **Improvement Milestones Celebration** - Banners for achievements like "First 0-blunder game"
-2. **10-Game Mission Progress Tracking** - Visual progress towards mission goals
+1. **Fix Focus Areas to Show Multiple Weaknesses** - Currently only shows one weakness on Dashboard
+2. **Rating Impact Estimator Visualization** - Display "Fixing Hanging Pieces would have saved ~86 rating points" prominently
+3. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
 
 ## Future/Backlog Tasks (P2-P3)
-1. **Personalized Puzzles from Mistakes** - Generate puzzles based on user's frequent mistake patterns
-2. **"What If" Scenarios** - Enhance InteractiveBoard.jsx to allow users to explore alternative move sequences
-3. **Opening Explorer Integration** - Connect user's game statistics to a database of chess openings
-4. **Long-term King Safety Metric** - Track and visualize king safety trends across games
-5. Production-Ready Cron Job - Robust background game sync/analysis
-6. Stockfish persistence fix (currently needs reinstall on environment restart)
+1. **Lab Page Phase 5 (Advanced Features)** - Behavior Memory System (pattern cross-linking), relative strength tracking
+2. **Improvement Milestones Celebration** - Banners for achievements like "First 0-blunder game"
+3. **Personalized Puzzles from Mistakes** - Generate puzzles based on user's frequent mistake patterns
+4. **"What If" Scenarios** - Enhance InteractiveBoard.jsx to allow users to explore alternative move sequences
+5. **Opening Explorer Integration** - Connect user's game statistics to a database of chess openings
+6. Production-Ready Cron Job - Robust background game sync/analysis
+7. Stockfish persistence fix (currently needs reinstall on environment restart)
 
 ## Known Issues
 1. Stockfish not persistent between environment restarts (temporary fix: reinstall manually)
