@@ -35,6 +35,33 @@ const Layout = ({ children, user }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [prevUnreadCount, setPrevUnreadCount] = useState(0);
+
+  // Request browser notification permission
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      // Will request on first interaction
+    }
+  }, []);
+
+  // Show browser notification for new items
+  const showBrowserNotification = (notif) => {
+    if (Notification.permission === "granted") {
+      const notification = new Notification(notif.title || "Chess Coach", {
+        body: notif.message,
+        icon: "/logo192.png",
+        tag: "chess-coach-" + (notif.id || Date.now())
+      });
+      
+      notification.onclick = () => {
+        window.focus();
+        if (notif.action_url) {
+          navigate(notif.action_url);
+        }
+        notification.close();
+      };
+    }
+  };
 
   // Fetch notifications
   useEffect(() => {
@@ -43,8 +70,20 @@ const Layout = ({ children, user }) => {
         const res = await fetch(`${API}/notifications?limit=10`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          setNotifications(data.notifications || []);
-          setUnreadCount(data.unread_count || 0);
+          const newNotifications = data.notifications || [];
+          const newUnread = data.unread_count || 0;
+          
+          // Show browser notification if there are new unread notifications
+          if (newUnread > prevUnreadCount && newNotifications.length > 0) {
+            const newest = newNotifications.find(n => !n.read);
+            if (newest) {
+              showBrowserNotification(newest);
+            }
+          }
+          
+          setNotifications(newNotifications);
+          setUnreadCount(newUnread);
+          setPrevUnreadCount(newUnread);
         }
       } catch (e) {
         console.error('Failed to fetch notifications:', e);
@@ -52,18 +91,19 @@ const Layout = ({ children, user }) => {
     };
     
     fetchNotifications();
-    // Poll every 60 seconds
-    const interval = setInterval(fetchNotifications, 60000);
+    // Poll every 30 seconds for faster notification delivery
+    const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [prevUnreadCount]);
 
   const markAllRead = async () => {
     try {
-      await fetch(`${API}/notifications/read-all`, { 
+      await fetch(`${API}/notifications/read`, { 
         method: 'POST', 
         credentials: 'include' 
       });
       setUnreadCount(0);
+      setPrevUnreadCount(0);
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     } catch (e) {
       console.error('Failed to mark notifications read:', e);
