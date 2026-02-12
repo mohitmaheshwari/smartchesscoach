@@ -3865,8 +3865,14 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         
         game_id = game.get("game_id")
         
-        # Determine analysis status
-        if game.get("is_analyzed"):
+        # Determine analysis status - CHECK QUEUE FIRST (priority)
+        if game_id in queued_game_ids:
+            # Game is in queue - show it there regardless of is_analyzed flag
+            queue_info = queued_game_map.get(game_id, {})
+            game["analysis_status"] = queue_info.get("status", "pending")
+            game["queued_at"] = queue_info.get("created_at")
+            in_queue_list.append(game)
+        elif game.get("is_analyzed"):
             analysis = await db.game_analyses.find_one(
                 {"game_id": game_id, "user_id": user.user_id},
                 {"_id": 0, "stockfish_analysis.accuracy": 1, "stockfish_analysis.move_evaluations": 1}
@@ -3887,11 +3893,6 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
                 # No analysis record found - treat as not analyzed
                 game["analysis_status"] = "not_analyzed"
                 not_analyzed_list.append(game)
-        elif game_id in queued_game_ids:
-            queue_info = queued_game_map.get(game_id, {})
-            game["analysis_status"] = queue_info.get("status", "pending")
-            game["queued_at"] = queue_info.get("created_at")
-            in_queue_list.append(game)
         else:
             game["analysis_status"] = "not_analyzed"
             not_analyzed_list.append(game)  # Add to not_analyzed list
