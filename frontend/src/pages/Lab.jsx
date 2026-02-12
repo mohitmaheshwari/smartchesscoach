@@ -697,6 +697,44 @@ const Lab = ({ user }) => {
                           <p className="text-sm">{coreLesson.behavioral_fix}</p>
                         </div>
                       )}
+                      
+                      {/* Similar Games - Behavior Memory */}
+                      {labData?.similar_games?.length > 0 && (
+                        <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                          <p className="text-xs text-purple-500 uppercase mb-2 flex items-center gap-1.5">
+                            <Brain className="w-3 h-3" />
+                            Similar Pattern Detected
+                          </p>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            You've made this same mistake in other games:
+                          </p>
+                          <div className="space-y-2">
+                            {labData.similar_games.map((sg, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => navigate(`/game/${sg.game_id}`)}
+                                className="w-full text-left p-2 rounded bg-background/50 hover:bg-background/80 transition-colors flex items-center justify-between group"
+                                data-testid={`similar-game-${idx}`}
+                              >
+                                <div>
+                                  <p className="text-sm font-medium">vs {sg.opponent}</p>
+                                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">{sg.lesson}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs font-medium ${
+                                    sg.result === 'Won' ? 'text-green-500' : 
+                                    sg.result === 'Lost' ? 'text-red-500' : 
+                                    'text-muted-foreground'
+                                  }`}>
+                                    {sg.result}
+                                  </span>
+                                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </TabsContent>
 
                     {/* STRATEGY TAB */}
