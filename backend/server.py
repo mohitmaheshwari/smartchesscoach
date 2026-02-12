@@ -3894,10 +3894,12 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         "total_games": total_games,
         "analyzed_games": analyzed_games,
         "queued_games": len(in_queue_list),
+        "not_analyzed_games": len(not_analyzed_list),  # NEW: count of unanalyzed games
         "top_weaknesses": top_weaknesses,
         "recent_games": recent_games,  # Backward compatibility
-        "analyzed_list": analyzed_list,  # New: only analyzed games
-        "in_queue_list": in_queue_list,  # New: games currently being analyzed
+        "analyzed_list": analyzed_list,  # Only analyzed games
+        "in_queue_list": in_queue_list,  # Games currently being analyzed
+        "not_analyzed_list": not_analyzed_list,  # NEW: Games that need analysis
         "stats": {
             "total_blunders": total_blunders,
             "total_mistakes": total_mistakes,
