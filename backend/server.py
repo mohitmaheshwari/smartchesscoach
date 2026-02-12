@@ -144,6 +144,13 @@ from mistake_card_service import (
 # Import Chess Journey service for comprehensive progress tracking
 from chess_journey_service import get_chess_journey
 
+# Import Coach Game Review Service
+from coach_game_review_service import (
+    get_coach_game_review,
+    get_improvement_highlights,
+    get_concern_areas
+)
+
 # Import Blunder Intelligence Service for the Blunder Reduction System
 from blunder_intelligence_service import (
     get_core_lesson,
