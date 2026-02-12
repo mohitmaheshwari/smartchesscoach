@@ -612,7 +612,7 @@ def generate_personalized_verdict(
     # 1. Did they avoid their #1 pattern?
     if avoided_rating_killer is True and rating_killer_label:
         observations.append(f"No {rating_killer_label.lower()} mistakes this game")
-        positives.append(f"Avoided your #1 pattern")
+        positives.append("Avoided your #1 pattern")
     elif avoided_rating_killer is False and rating_killer_label:
         observations.append(f"Your pattern showed up again: {rating_killer_label.lower()}")
     
