@@ -226,7 +226,7 @@ Maps mistake types to human behaviors:
 - "misses_tactical_opportunities" → "You miss winning tactics that were available"
 - etc.
 
-### LAB PAGE - SURGICAL GAME CORRECTION ENVIRONMENT (Feb 2026 - Phase 1+3 COMPLETED)
+### LAB PAGE - SURGICAL GAME CORRECTION ENVIRONMENT (Feb 2026 - Phase 1+3+4 COMPLETED)
 **Purpose**: Deep correction of a single game. Not diagnosis, not trends - surgical understanding of where control was lost.
 
 **Design Philosophy**: "I understand exactly where I lost control" - not "I read advice"
@@ -238,12 +238,31 @@ Maps mistake types to human behaviors:
 - Move list with color-coded mistakes (red for blunders, orange for mistakes)
 - 3 tabs: Summary, Strategy, Mistakes
 
+**Phase 2: Strategy Tab (COMPLETED)**
+- Rich content merged from old design with new layout
+- Opening section with plan vs execution
+- Pawn structure analysis
+- Strategic themes with clickable critical moments
+- "For Future Games Like This" section with personalized advice
+- Scrolling fixed to show all content
+
 **Phase 3: Mistakes Tab (STRUCTURE COMPLETED)**
 - Grouped by type: Major Blunders, Hanging Pieces, Missed Tactics, Positional Errors
 - Each mistake shows: move number, severity badge, played move vs best move, phase, context
 - Clickable - jumps board to that position
 - Mini prompt: "What should you have checked here?"
-- Note: Full data requires detailed `move_evaluations` from Stockfish analysis
+- User move detection fixed using FEN turn indicator
+
+**Phase 4: Practice Mode (COMPLETED - Feb 2026)**
+- "Practice Critical Moments" button appears when game has critical positions (cp_loss >= 150)
+- Extracts up to 5 critical positions from the game
+- Multiple choice format: best move vs played move (shuffled)
+- Score tracking with progress bar
+- Show hint feature with position context
+- Correct/Incorrect feedback with detailed explanation
+- Retry option for wrong answers
+- Summary screen with performance message and percentage
+- Try Again / Done buttons
 
 **Dashboard Enhancements (COMPLETED)**
 - Opponent names displayed from PGN extraction
@@ -257,7 +276,7 @@ Maps mistake types to human behaviors:
 - `GET /api/lab/{game_id}` returns core_lesson, strategic_analysis, and move evaluations
 
 **Files Created/Modified:**
-- `/app/frontend/src/pages/Lab.jsx` - New Lab page (replaced GameAnalysis)
+- `/app/frontend/src/pages/Lab.jsx` - New Lab page with Practice Mode
 - `/app/frontend/src/pages/Dashboard.jsx` - Added filter, opponent ratings
 - `/app/backend/server.py` - Enhanced endpoints with PGN extraction
 - `/app/backend/blunder_intelligence_service.py` - Improved core_lesson messages
