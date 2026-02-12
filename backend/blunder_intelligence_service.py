@@ -1279,53 +1279,6 @@ def get_mission(analyses: List[Dict], current_missions: List[Dict] = None, user_
             "hung_piece_rate": round(hung_piece_rate, 2)
         }
     }
-        return {
-            "name": "Threat Check",
-            "goal": "Play 3 games without walking into a tactic",
-            "instruction": "Every move, ask: What is my opponent threatening?",
-            "check_rule": "A game passes if you don't lose material to a simple tactic",
-            "target": 3,
-            "progress": 0,
-            "weakness_target": "threats",
-            "status": "active"
-        }
-    
-    elif pattern == "time_pressure_collapse":
-        return {
-            "name": "Clock Discipline",
-            "goal": "Play 3 games without time-pressure blunders",
-            "instruction": "Use your time wisely. No rushing.",
-            "check_rule": "A game passes if all your blunders came with 2+ min on clock",
-            "target": 3,
-            "progress": 0,
-            "weakness_target": "time_management",
-            "status": "active"
-        }
-    
-    elif pattern == "misses_tactical_opportunities":
-        return {
-            "name": "See More",
-            "goal": "Play 3 games with 80%+ accuracy",
-            "instruction": "Look for checks and captures before each move",
-            "check_rule": "A game passes if your accuracy is 80% or higher",
-            "target": 3,
-            "progress": 0,
-            "weakness_target": "tactics",
-            "status": "active"
-        }
-    
-    else:
-        # Default: general discipline mission
-        return {
-            "name": "Clean Games",
-            "goal": "Play 3 games with 1 or fewer blunders",
-            "instruction": "Take your time. Check twice before moving.",
-            "check_rule": "A game passes if you make at most 1 blunder",
-            "target": 3,
-            "progress": 0,
-            "weakness_target": "general",
-            "status": "active"
-        }
 
 
 def check_milestones(analyses: List[Dict], user_stats: Dict = None) -> List[Dict]:
