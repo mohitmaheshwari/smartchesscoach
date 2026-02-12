@@ -3862,12 +3862,24 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         if game.get("is_analyzed"):
             analysis = await db.game_analyses.find_one(
                 {"game_id": game_id, "user_id": user.user_id},
-                {"_id": 0, "stockfish_analysis.accuracy": 1}
+                {"_id": 0, "stockfish_analysis.accuracy": 1, "stockfish_analysis.move_evaluations": 1}
             )
             if analysis:
-                game["accuracy"] = analysis.get("stockfish_analysis", {}).get("accuracy")
-            game["analysis_status"] = "analyzed"
-            analyzed_list.append(game)
+                accuracy = analysis.get("stockfish_analysis", {}).get("accuracy", 0)
+                move_evals = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+                game["accuracy"] = accuracy
+                
+                # If accuracy is 0 and no move evaluations, treat as NOT analyzed (incomplete analysis)
+                if accuracy == 0 and len(move_evals) == 0:
+                    game["analysis_status"] = "not_analyzed"
+                    not_analyzed_list.append(game)
+                else:
+                    game["analysis_status"] = "analyzed"
+                    analyzed_list.append(game)
+            else:
+                # No analysis record found - treat as not analyzed
+                game["analysis_status"] = "not_analyzed"
+                not_analyzed_list.append(game)
         elif game_id in queued_game_ids:
             queue_info = queued_game_map.get(game_id, {})
             game["analysis_status"] = queue_info.get("status", "pending")
@@ -3876,6 +3888,9 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         else:
             game["analysis_status"] = "not_analyzed"
             not_analyzed_list.append(game)  # Add to not_analyzed list
+    
+    # Update analyzed_games count to reflect actual valid analyses
+    analyzed_games = len(analyzed_list)
     
     # Build recent_games for backward compatibility (top 10 of all games)
     recent_games = all_games[:10]
