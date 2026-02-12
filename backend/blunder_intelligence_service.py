@@ -865,74 +865,156 @@ def get_identity_profile(analyses: List[Dict]) -> Dict:
 
 def get_mission(analyses: List[Dict], current_missions: List[Dict] = None) -> Dict:
     """
-    Generate a 10-game mission based on dominant weakness.
+    Generate discipline-focused missions based on actual game behavior.
+    
+    Design principles (Indian 600-1600 player psychology):
+    - Habit-based + Streak-based
+    - Short, strong titles (not gimmicky)
+    - Clear rules (feels like coaching instructions)
+    - Small achievable numbers (3 games, not 10)
+    - Performance-focused, not playful
     
     Example:
-    Mission: Discipline Builder
-    Goal: Reduce hanging pieces below 1 per game in next 10 games.
+    Mission: No Free Pieces
+    Goal: Play 3 games without hanging a piece
+    Progress: 1 / 3
     """
-    weakness = get_dominant_weakness_ranking(analyses)
     
-    if not weakness.get("rating_killer"):
+    # Calculate actual stats from recent games
+    recent_analyses = analyses[-10:] if analyses else []
+    
+    if len(recent_analyses) < 3:
         return {
-            "name": "Foundation Builder",
-            "goal": "Play 10 games with engine analysis",
-            "target_metric": "games_analyzed",
-            "target_value": 10,
-            "progress": len(analyses) if analyses else 0,
-            "reward": "Unlock your Chess DNA profile"
+            "name": "First Steps",
+            "goal": "Analyze 3 games to unlock your discipline focus",
+            "instruction": "Import and analyze your recent games",
+            "target": 3,
+            "progress": len(recent_analyses),
+            "status": "active"
         }
     
-    rk = weakness["rating_killer"]
+    # Calculate behavioral metrics from games
+    games_with_hung_pieces = 0
+    games_with_blunders = 0
+    games_won_when_winning = 0
+    games_where_winning = 0
+    total_blunders = 0
     
-    # Mission based on dominant weakness
-    missions = {
-        "attacks_before_checking_threats": {
-            "name": "Threat Scanner",
-            "goal": "Check opponent threats before each move",
-            "target_metric": "hanging_pieces_per_game",
-            "target_value": 1,
-            "description": f"Reduce '{rk['label']}' mistakes to less than 1 per game"
-        },
-        "loses_focus_when_winning": {
-            "name": "Closer",
-            "goal": "Convert winning positions",
-            "target_metric": "conversion_rate",
-            "target_value": 80,
-            "description": "Win 80% of games where you had +2 advantage"
-        },
-        "misses_tactical_opportunities": {
-            "name": "Tactics Hunter",
-            "goal": "Find more tactics in your games",
-            "target_metric": "tactics_found_per_game",
-            "target_value": 2,
-            "description": "Execute at least 2 tactics per game"
-        },
-        "time_pressure_collapse": {
-            "name": "Time Lord",
-            "goal": "Manage your clock better",
-            "target_metric": "time_blunders",
-            "target_value": 0,
-            "description": "No time pressure blunders in 10 games"
+    for analysis in recent_analyses:
+        blunders = analysis.get("blunders", 0)
+        total_blunders += blunders
+        
+        if blunders > 0:
+            games_with_blunders += 1
+        
+        # Check for hanging pieces (one-move blunders)
+        sf_analysis = analysis.get("stockfish_analysis", {})
+        moves = sf_analysis.get("move_evaluations", [])
+        for move in moves:
+            if move.get("classification") == "blunder":
+                # If cp_loss > 300, likely hung a piece
+                if abs(move.get("cp_loss", 0)) > 300:
+                    games_with_hung_pieces += 1
+                    break
+    
+    # Determine dominant issue and assign mission
+    hung_piece_rate = games_with_hung_pieces / len(recent_analyses)
+    blunder_rate = games_with_blunders / len(recent_analyses)
+    avg_blunders = total_blunders / len(recent_analyses)
+    
+    weakness = get_dominant_weakness_ranking(analyses)
+    rk = weakness.get("rating_killer", {})
+    pattern = rk.get("pattern", "")
+    
+    # Mission catalog - discipline-focused, clear rules
+    # Each mission has: name, goal, instruction, how to track
+    
+    if hung_piece_rate > 0.5:
+        # More than half games have hung pieces
+        return {
+            "name": "No Free Pieces",
+            "goal": "Play 3 games without hanging a piece",
+            "instruction": "Before every move, ask: Is this piece protected?",
+            "check_rule": "A game passes if you don't give away material for free",
+            "target": 3,
+            "progress": 0,  # Reset - they need to prove it
+            "weakness_target": "hanging_pieces",
+            "status": "active"
         }
-    }
     
-    mission_data = missions.get(rk["pattern"], {
-        "name": "Skill Builder",
-        "goal": f"Improve {rk['label']}",
-        "target_metric": "cp_loss_reduction",
-        "target_value": 50,
-        "description": f"Reduce average centipawn loss from {rk['label']} by 50%"
-    })
+    elif avg_blunders > 1.5:
+        # Averaging more than 1.5 blunders per game
+        return {
+            "name": "Scan Before Move",
+            "goal": "Play 3 games with zero blunders",
+            "instruction": "Before every move, check: Checks, Captures, Threats",
+            "check_rule": "A game passes if Stockfish finds 0 blunders",
+            "target": 3,
+            "progress": 0,
+            "weakness_target": "blunders",
+            "status": "active"
+        }
     
-    return {
-        **mission_data,
-        "weakness_target": rk["pattern"],
-        "games_required": 10,
-        "games_completed": 0,
-        "status": "active",
-        "reward": "+50 rating potential"
-    }
+    elif pattern == "loses_focus_when_winning":
+        return {
+            "name": "Finish Strong",
+            "goal": "Convert 3 winning positions without blundering",
+            "instruction": "When ahead, don't rush. Keep checking threats.",
+            "check_rule": "A game passes if you win from a +2 or better position",
+            "target": 3,
+            "progress": 0,
+            "weakness_target": "conversion",
+            "status": "active"
+        }
+    
+    elif pattern == "attacks_before_checking_threats":
+        return {
+            "name": "Threat Check",
+            "goal": "Play 3 games without walking into a tactic",
+            "instruction": "Every move, ask: What is my opponent threatening?",
+            "check_rule": "A game passes if you don't lose material to a simple tactic",
+            "target": 3,
+            "progress": 0,
+            "weakness_target": "threats",
+            "status": "active"
+        }
+    
+    elif pattern == "time_pressure_collapse":
+        return {
+            "name": "Clock Discipline",
+            "goal": "Play 3 games without time-pressure blunders",
+            "instruction": "Use your time wisely. No rushing.",
+            "check_rule": "A game passes if all your blunders came with 2+ min on clock",
+            "target": 3,
+            "progress": 0,
+            "weakness_target": "time_management",
+            "status": "active"
+        }
+    
+    elif pattern == "misses_tactical_opportunities":
+        return {
+            "name": "See More",
+            "goal": "Play 3 games with 80%+ accuracy",
+            "instruction": "Look for checks and captures before each move",
+            "check_rule": "A game passes if your accuracy is 80% or higher",
+            "target": 3,
+            "progress": 0,
+            "weakness_target": "tactics",
+            "status": "active"
+        }
+    
+    else:
+        # Default: general discipline mission
+        return {
+            "name": "Clean Games",
+            "goal": "Play 3 games with 1 or fewer blunders",
+            "instruction": "Take your time. Check twice before moving.",
+            "check_rule": "A game passes if you make at most 1 blunder",
+            "target": 3,
+            "progress": 0,
+            "weakness_target": "general",
+            "status": "active"
+        }
 
 
 def check_milestones(analyses: List[Dict], user_stats: Dict = None) -> List[Dict]:
