@@ -126,7 +126,8 @@ from blunder_intelligence_service import (
     get_focus_data,
     get_journey_data,
     get_lab_data,
-    get_drill_positions
+    get_drill_positions,
+    find_similar_pattern_games
 )
 
 # Import Badge Service
