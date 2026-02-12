@@ -1392,7 +1392,7 @@ def _analyze_opening_strategy(opening_name: str, user_color: str, pgn: str, move
 
 
 def _analyze_pawn_structure(move_evals: List, user_color: str) -> Dict:
-    """Analyze the pawn structure that arose and what plans it suggests."""
+    """Analyze the pawn structure: Plan + How you executed it."""
     import chess
     
     structure_info = {
@@ -1400,111 +1400,241 @@ def _analyze_pawn_structure(move_evals: List, user_color: str) -> Dict:
         "your_plan": "",
         "opponent_plan": "",
         "key_squares": [],
-        "pawn_breaks": []
+        "pawn_breaks": [],
+        "execution": {
+            "verdict": "",
+            "details": [],
+            "critical_moment": None
+        }
     }
     
     # Get a middlegame position (around move 15-20)
     mid_position = None
+    mid_move_num = None
     for move in move_evals:
         if 15 <= move.get("move_number", 0) <= 25:
             fen = move.get("fen_before", move.get("fen", ""))
             if fen:
                 try:
                     mid_position = chess.Board(fen)
+                    mid_move_num = move.get("move_number", 0)
                     break
                 except:
                     pass
     
     if not mid_position:
-        # Fallback to any available position
         for move in move_evals:
             fen = move.get("fen_before", move.get("fen", ""))
             if fen:
                 try:
                     mid_position = chess.Board(fen)
+                    mid_move_num = move.get("move_number", 0)
                     break
                 except:
                     pass
     
-    if mid_position:
-        # Analyze pawn structure
-        white_pawns = []
-        black_pawns = []
-        
-        for square in chess.SQUARES:
-            piece = mid_position.piece_at(square)
-            if piece and piece.piece_type == chess.PAWN:
-                file = chess.square_file(square)
-                rank = chess.square_rank(square)
-                if piece.color == chess.WHITE:
-                    white_pawns.append((file, rank))
-                else:
-                    black_pawns.append((file, rank))
-        
-        # Detect common structures
-        w_files = set(p[0] for p in white_pawns)
-        b_files = set(p[0] for p in black_pawns)
-        
-        # Check for isolated pawns
-        isolated_white = [f for f in w_files if f-1 not in w_files and f+1 not in w_files]
-        isolated_black = [f for f in b_files if f-1 not in b_files and f+1 not in b_files]
-        
-        # Check for doubled pawns
-        w_file_counts = {}
-        b_file_counts = {}
-        for f, r in white_pawns:
-            w_file_counts[f] = w_file_counts.get(f, 0) + 1
-        for f, r in black_pawns:
-            b_file_counts[f] = b_file_counts.get(f, 0) + 1
-        
-        doubled_white = [f for f, c in w_file_counts.items() if c > 1]
-        doubled_black = [f for f, c in b_file_counts.items() if c > 1]
-        
-        # Detect structure type and give advice
-        if 3 in isolated_white or 3 in isolated_black:  # d-file isolated pawn
-            structure_info["type"] = "Isolated Queen's Pawn (IQP)"
-            if (user_color == "white" and 3 in isolated_white) or (user_color == "black" and 3 in isolated_black):
-                structure_info["your_plan"] = "Attack! Use piece activity. Push the d-pawn when ready. Avoid endgames."
-                structure_info["pawn_breaks"] = ["d4-d5 (or d5-d4) breakthrough at the right moment"]
-                structure_info["key_squares"] = ["e5/c5 outpost squares for knights", "Open c and e files for rooks"]
+    if not mid_position:
+        return structure_info
+    
+    # Analyze pawn structure
+    white_pawns = []
+    black_pawns = []
+    
+    for square in chess.SQUARES:
+        piece = mid_position.piece_at(square)
+        if piece and piece.piece_type == chess.PAWN:
+            file = chess.square_file(square)
+            rank = chess.square_rank(square)
+            if piece.color == chess.WHITE:
+                white_pawns.append((file, rank))
             else:
-                structure_info["your_plan"] = "Blockade the isolated pawn. Trade pieces. Head for endgame."
-                structure_info["key_squares"] = ["d4/d5 blockade square for knight"]
-        
-        elif doubled_white or doubled_black:
-            structure_info["type"] = "Doubled Pawns Structure"
-            has_doubled = (user_color == "white" and doubled_white) or (user_color == "black" and doubled_black)
-            if has_doubled:
-                structure_info["your_plan"] = "Use the open file created. Your pieces have more activity to compensate."
-            else:
-                structure_info["your_plan"] = "Target the doubled pawns in endgame. They're weak."
-        
+                black_pawns.append((file, rank))
+    
+    # Detect common structures
+    w_files = set(p[0] for p in white_pawns)
+    b_files = set(p[0] for p in black_pawns)
+    
+    # Check for isolated pawns
+    isolated_white = [f for f in w_files if f-1 not in w_files and f+1 not in w_files]
+    isolated_black = [f for f in b_files if f-1 not in b_files and f+1 not in b_files]
+    
+    # Check for doubled pawns
+    w_file_counts = {}
+    b_file_counts = {}
+    for f, r in white_pawns:
+        w_file_counts[f] = w_file_counts.get(f, 0) + 1
+    for f, r in black_pawns:
+        b_file_counts[f] = b_file_counts.get(f, 0) + 1
+    
+    doubled_white = [f for f, c in w_file_counts.items() if c > 1]
+    doubled_black = [f for f, c in b_file_counts.items() if c > 1]
+    
+    # ===== STRUCTURE TYPE + PLAN =====
+    structure_plan = ""
+    opponent_has_iqp = False
+    user_has_iqp = False
+    
+    if 3 in isolated_white or 3 in isolated_black:  # d-file isolated pawn
+        structure_info["type"] = "Isolated Queen's Pawn (IQP)"
+        if (user_color == "white" and 3 in isolated_white) or (user_color == "black" and 3 in isolated_black):
+            user_has_iqp = True
+            structure_info["your_plan"] = "Attack! Use piece activity. Push the d-pawn when ready. Avoid endgames."
+            structure_plan = "attack_with_iqp"
+            structure_info["pawn_breaks"] = ["d4-d5 (or d5-d4) breakthrough at the right moment"]
+            structure_info["key_squares"] = ["e5/c5 outpost squares for knights", "Open c and e files for rooks"]
         else:
-            # Check for pawn majority
-            kingside_w = len([p for p in white_pawns if p[0] >= 4])
-            queenside_w = len([p for p in white_pawns if p[0] <= 3])
-            kingside_b = len([p for p in black_pawns if p[0] >= 4])
-            queenside_b = len([p for p in black_pawns if p[0] <= 3])
-            
-            if user_color == "white":
-                if kingside_w > kingside_b:
-                    structure_info["type"] = "Kingside Pawn Majority"
-                    structure_info["your_plan"] = "Advance kingside pawns to create a passed pawn"
-                    structure_info["pawn_breaks"] = ["f4-f5 or g4-g5 to open lines"]
-                elif queenside_w > queenside_b:
-                    structure_info["type"] = "Queenside Pawn Majority"
-                    structure_info["your_plan"] = "Push queenside pawns (a4-b4-c4 or similar)"
-            else:
-                if kingside_b > kingside_w:
-                    structure_info["type"] = "Kingside Pawn Majority"
-                    structure_info["your_plan"] = "Advance kingside pawns to create a passed pawn"
-                elif queenside_b > queenside_w:
-                    structure_info["type"] = "Queenside Pawn Majority"
-                    structure_info["your_plan"] = "Push queenside pawns to create a passed pawn"
+            opponent_has_iqp = True
+            structure_info["your_plan"] = "Blockade the isolated pawn. Trade pieces. Head for endgame."
+            structure_plan = "blockade_iqp"
+            structure_info["key_squares"] = ["d4/d5 blockade square for knight"]
+    
+    elif doubled_white or doubled_black:
+        structure_info["type"] = "Doubled Pawns Structure"
+        has_doubled = (user_color == "white" and doubled_white) or (user_color == "black" and doubled_black)
+        if has_doubled:
+            structure_info["your_plan"] = "Use the open file created. Your pieces have more activity to compensate."
+            structure_plan = "compensate_doubled"
+        else:
+            structure_info["your_plan"] = "Target the doubled pawns in endgame. They're weak."
+            structure_plan = "target_doubled"
+    
+    else:
+        # Check for pawn majority
+        kingside_w = len([p for p in white_pawns if p[0] >= 4])
+        queenside_w = len([p for p in white_pawns if p[0] <= 3])
+        kingside_b = len([p for p in black_pawns if p[0] >= 4])
+        queenside_b = len([p for p in black_pawns if p[0] <= 3])
         
-        if not structure_info["your_plan"]:
-            structure_info["type"] = "Balanced Structure"
-            structure_info["your_plan"] = "Focus on piece activity and look for tactical opportunities"
+        if user_color == "white":
+            if kingside_w > kingside_b:
+                structure_info["type"] = "Kingside Pawn Majority"
+                structure_info["your_plan"] = "Advance kingside pawns to create a passed pawn"
+                structure_plan = "kingside_majority"
+                structure_info["pawn_breaks"] = ["f4-f5 or g4-g5 to open lines"]
+            elif queenside_w > queenside_b:
+                structure_info["type"] = "Queenside Pawn Majority"
+                structure_info["your_plan"] = "Push queenside pawns (a4-b4-c4 or similar)"
+                structure_plan = "queenside_majority"
+        else:
+            if kingside_b > kingside_w:
+                structure_info["type"] = "Kingside Pawn Majority"
+                structure_info["your_plan"] = "Advance kingside pawns to create a passed pawn"
+                structure_plan = "kingside_majority"
+            elif queenside_b > queenside_w:
+                structure_info["type"] = "Queenside Pawn Majority"
+                structure_info["your_plan"] = "Push queenside pawns to create a passed pawn"
+                structure_plan = "queenside_majority"
+    
+    if not structure_info["your_plan"]:
+        structure_info["type"] = "Balanced Structure"
+        structure_info["your_plan"] = "Focus on piece activity and look for tactical opportunities"
+        structure_plan = "balanced"
+    
+    # ===== EXECUTION ANALYSIS =====
+    execution_details = []
+    critical_moment = None
+    
+    # Analyze middlegame moves (11-35) for structure execution
+    middlegame_moves = [m for m in move_evals if 11 <= m.get("move_number", 0) <= 40 and m.get("is_user_move", True)]
+    
+    # Track execution metrics
+    pieces_traded = 0
+    major_pieces_remaining = True  # Assume true initially
+    knight_on_blockade = False
+    advantage_moments = []
+    blunder_in_advantage = None
+    
+    for move in middlegame_moves:
+        move_san = move.get("move", "")
+        move_num = move.get("move_number", 0)
+        eval_before = move.get("eval_before", 0)
+        eval_after = move.get("eval_after", 0)
+        cp_loss = abs(move.get("cp_loss", 0))
+        
+        # Adjust eval for black
+        if user_color == "black":
+            eval_before = -eval_before
+            eval_after = -eval_after
+        
+        # Track when user had advantage
+        if eval_before >= 1.5:
+            advantage_moments.append({
+                "move_number": move_num,
+                "eval": round(eval_before, 1),
+                "move": move_san,
+                "cp_loss": cp_loss,
+                "fen": move.get("fen_before", "")
+            })
+            
+            # Check if they blundered while winning
+            if cp_loss >= 150 and blunder_in_advantage is None:
+                blunder_in_advantage = {
+                    "move_number": move_num,
+                    "eval_before": round(eval_before, 1),
+                    "move": move_san,
+                    "cp_loss": cp_loss,
+                    "fen": move.get("fen_before", "")
+                }
+        
+        # Track trades (captures that exchange)
+        if 'x' in move_san:
+            pieces_traded += 1
+        
+        # Check for knight on d4/d5 (blockade squares)
+        if move_san and move_san[0] == 'N' and ('d4' in move_san or 'd5' in move_san):
+            knight_on_blockade = True
+    
+    # ===== Generate Execution Feedback Based on Structure =====
+    
+    if structure_plan == "blockade_iqp":
+        # They should have: traded pieces, put knight on blockade, headed to endgame
+        if knight_on_blockade:
+            execution_details.append("✓ Good! You placed a knight on the blockade square")
+        else:
+            execution_details.append("✗ Missed opportunity: No knight on d4/d5 to blockade the IQP")
+        
+        if pieces_traded >= 3:
+            execution_details.append(f"✓ Good trading: {pieces_traded} exchanges toward endgame")
+        else:
+            execution_details.append(f"⚠ Limited trading ({pieces_traded} exchanges) - should trade more vs IQP")
+    
+    elif structure_plan == "attack_with_iqp":
+        # They should have: kept pieces, attacked, avoided trades
+        if pieces_traded <= 2:
+            execution_details.append("✓ Good! Kept pieces on to maintain attacking chances")
+        else:
+            execution_details.append(f"⚠ Too many trades ({pieces_traded}) - IQP positions need pieces for attack")
+    
+    # Check for advantage conversion
+    if advantage_moments:
+        if blunder_in_advantage:
+            execution_details.append(f"✗ Critical: You were +{blunder_in_advantage['eval_before']} on move {blunder_in_advantage['move_number']} but blundered")
+            critical_moment = {
+                "move_number": blunder_in_advantage["move_number"],
+                "description": f"You had +{blunder_in_advantage['eval_before']} advantage",
+                "your_move": blunder_in_advantage["move"],
+                "what_went_wrong": f"Move {blunder_in_advantage['move_number']}: {blunder_in_advantage['move']} lost {blunder_in_advantage['cp_loss']}cp",
+                "fen": blunder_in_advantage["fen"]
+            }
+        else:
+            if len(advantage_moments) > 3:
+                execution_details.append(f"⚠ You had advantage {len(advantage_moments)} times - did you simplify enough?")
+    
+    # Overall verdict
+    if blunder_in_advantage:
+        verdict = "Followed the structure plan but failed to convert advantage"
+    elif len(execution_details) > 0 and all("✓" in d for d in execution_details):
+        verdict = "Good structural understanding and execution"
+    elif len(execution_details) > 0:
+        verdict = "Partial execution - see details below"
+    else:
+        verdict = "No major structural violations"
+    
+    structure_info["execution"] = {
+        "verdict": verdict,
+        "details": execution_details,
+        "critical_moment": critical_moment
+    }
     
     return structure_info
 
