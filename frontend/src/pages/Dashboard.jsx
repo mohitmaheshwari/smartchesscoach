@@ -359,7 +359,9 @@ const Dashboard = ({ user }) => {
                         })
                       ) : (
                         <p className="text-muted-foreground text-sm text-center py-8">
-                          No games yet
+                          {opponentFilter !== "all" 
+                            ? `No games against ${opponentFilter} opponents`
+                            : "No games yet"}
                         </p>
                       )}
                     </div>
