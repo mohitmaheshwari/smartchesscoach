@@ -4717,7 +4717,7 @@ async def get_notifications(limit: int = 20, unread_only: bool = False, user: Us
     }
 
 @api_router.post("/notifications/{notification_id}/read")
-async def mark_notification_read(notification_id: str, user: User = Depends(get_current_user)):
+async def mark_single_notification_read(notification_id: str, user: User = Depends(get_current_user)):
     """Mark a notification as read"""
     result = await db.notifications.update_one(
         {"user_id": user.user_id, "notification_id": notification_id},
