@@ -179,12 +179,19 @@ const Layout = ({ children, user }) => {
                     <div className="max-h-80 overflow-y-auto">
                       {notifications.map((notif, idx) => (
                         <div 
-                          key={idx}
+                          key={notif.id || idx}
                           className={`px-3 py-2.5 border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer transition-colors ${
                             !notif.read ? 'bg-amber-500/5' : ''
                           }`}
                           onClick={() => {
-                            if (notif.type === 'game_analyzed') {
+                            // Navigate to action URL if available
+                            if (notif.action_url) {
+                              navigate(notif.action_url);
+                            } else if (notif.type === 'game_analyzed' && notif.data?.game_id) {
+                              navigate(`/game/${notif.data.game_id}`);
+                            } else if (notif.type === 'focus_updated') {
+                              navigate('/focus');
+                            } else {
                               navigate('/dashboard');
                             }
                           }}
@@ -195,9 +202,9 @@ const Layout = ({ children, user }) => {
                             )}
                             <div className={!notif.read ? '' : 'ml-4'}>
                               <p className="text-sm font-medium">{notif.title}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">{notif.message}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.message}</p>
                               <p className="text-[10px] text-muted-foreground/60 mt-1">
-                                {new Date(notif.created_at).toLocaleDateString()}
+                                {new Date(notif.created_at).toLocaleDateString()}}
                               </p>
                             </div>
                           </div>
