@@ -3771,6 +3771,12 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     total_games = await db.games.count_documents({"user_id": user.user_id})
     analyzed_games = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
     
+    # Count games in queue
+    queued_games = await db.analysis_queue.count_documents({
+        "user_id": user.user_id,
+        "status": {"$in": ["pending", "processing"]}
+    })
+    
     # Get player profile for coaching context
     profile = await db.player_profiles.find_one(
         {"user_id": user.user_id},
@@ -3789,7 +3795,8 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         ).sort("occurrences", -1).to_list(5)
         top_weaknesses = patterns
     
-    recent_games = await db.games.find(
+    # Get ALL user games (not just 10) for proper categorization
+    all_games = await db.games.find(
         {"user_id": user.user_id},
         {
             "_id": 0,
@@ -3801,10 +3808,25 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
             "platform": 1,
             "opening": 1,
             "is_analyzed": 1,
+            "analysis_status": 1,
             "imported_at": 1,
             "pgn": 1  # Need PGN to extract player names if not stored
         }
-    ).sort("imported_at", -1).to_list(10)
+    ).sort("imported_at", -1).to_list(100)
+    
+    # Get queued game IDs
+    queued_game_ids = set()
+    queue_items = await db.analysis_queue.find(
+        {"user_id": user.user_id, "status": {"$in": ["pending", "processing"]}},
+        {"_id": 0, "game_id": 1, "status": 1, "created_at": 1}
+    ).to_list(100)
+    queued_game_map = {q["game_id"]: q for q in queue_items}
+    queued_game_ids = set(queued_game_map.keys())
+    
+    # Categorize games
+    analyzed_list = []
+    in_queue_list = []
+    recent_games = []  # For backward compatibility, top 10
     
     # Enrich games with accuracy from analysis and extract player names from PGN
     import re
