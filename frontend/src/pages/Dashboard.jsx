@@ -255,8 +255,9 @@ const Dashboard = ({ user }) => {
   const [modalType, setModalType] = useState(null);
   const [opponentFilter, setOpponentFilter] = useState("all"); // all, stronger, equal, weaker
   const [newMilestone, setNewMilestone] = useState(null);
-  const [activeTab, setActiveTab] = useState("analyzed"); // analyzed, in_queue
+  const [activeTab, setActiveTab] = useState("analyzed"); // analyzed, in_queue, not_analyzed
   const [reanalyzing, setReanalyzing] = useState({}); // Track which games are being reanalyzed
+  const [queuingAll, setQueuingAll] = useState(false); // Track batch queue status
   const [dismissedMilestones, setDismissedMilestones] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('dismissedMilestones') || '[]');
