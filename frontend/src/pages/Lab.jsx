@@ -573,15 +573,21 @@ const Lab = ({ user }) => {
                   variant={showOnlyCritical ? "default" : "outline"} 
                   size="sm"
                   onClick={() => setShowOnlyCritical(!showOnlyCritical)}
-                  className="ml-2 gap-1"
+                  className={`ml-2 gap-1.5 ${showOnlyCritical ? 'bg-red-500 hover:bg-red-600 text-white' : ''}`}
+                  data-testid="critical-toggle"
                 >
                   {showOnlyCritical ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                  Critical Only
+                  {showOnlyCritical ? `Critical (${criticalMoves.length})` : 'Critical Only'}
                 </Button>
               </div>
               
               {/* Move List */}
               <div className="w-full max-w-[500px] bg-muted/30 rounded-lg p-3 max-h-48 overflow-y-auto">
+                {showOnlyCritical && criticalMoves.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No critical moves in this game - great job!
+                  </p>
+                )}
                 <div className="grid grid-cols-[auto_1fr_1fr] gap-x-3 gap-y-1 text-sm font-mono">
                   {movePairs.map((p) => {
                     // Filter if showing only critical
