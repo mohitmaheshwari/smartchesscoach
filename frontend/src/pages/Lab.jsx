@@ -1059,39 +1059,146 @@ const MistakeItem = ({ mistake, onClick }) => {
   );
 };
 
-const PracticeModeOverlay = ({ positions, currentIndex, onNext, onClose, userColor }) => {
+const PracticeModeOverlay = ({ positions, currentIndex, onNext, onClose, userColor, onComplete }) => {
   const [selectedMove, setSelectedMove] = useState(null);
   const [showResult, setShowResult] = useState(false);
+  const [score, setScore] = useState({ correct: 0, total: 0 });
+  const [showSummary, setShowSummary] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const pos = positions[currentIndex];
   
+  // Shuffle options so best move isn't always first
+  const shuffledOptions = useMemo(() => {
+    if (!pos) return [];
+    const opts = [
+      { move: pos.best_move, isBest: true },
+      { move: pos.played_move, isBest: false, label: "(what you played)" }
+    ];
+    // Simple shuffle - sometimes show played move first
+    return pos.move_number % 2 === 0 ? opts : opts.reverse();
+  }, [pos]);
+  
   const handleCheck = () => {
+    const isCorrect = selectedMove === pos?.best_move;
+    setScore(prev => ({
+      correct: prev.correct + (isCorrect ? 1 : 0),
+      total: prev.total + 1
+    }));
     setShowResult(true);
   };
   
   const handleNext = () => {
     setShowResult(false);
     setSelectedMove(null);
-    onNext();
+    setShowHint(false);
+    
+    if (currentIndex >= positions.length - 1) {
+      setShowSummary(true);
+    } else {
+      onNext();
+    }
   };
   
+  const handleRetry = () => {
+    setShowResult(false);
+    setSelectedMove(null);
+    setShowHint(false);
+  };
+  
+  const handleFinish = () => {
+    if (onComplete) onComplete(score);
+    onClose();
+  };
+  
+  // Get eval context for hint
+  const getEvalContext = () => {
+    if (!pos?.eval_before) return "";
+    const eval_val = pos.eval_before / 100;
+    if (eval_val > 4) return "You were completely winning here.";
+    if (eval_val > 2) return "You had a winning advantage.";
+    if (eval_val > 0.5) return "You had a comfortable position.";
+    if (eval_val > -0.5) return "The position was roughly equal.";
+    return "You were under pressure here.";
+  };
+  
+  // Summary screen
+  if (showSummary) {
+    const percentage = Math.round((score.correct / score.total) * 100);
+    const isGood = percentage >= 60;
+    
+    return (
+      <div className="fixed inset-0 z-50 bg-background/95 flex items-center justify-center p-4" data-testid="practice-summary">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center ${isGood ? 'bg-green-500/20' : 'bg-amber-500/20'}`}>
+            {isGood ? (
+              <CheckCircle2 className="w-10 h-10 text-green-500" />
+            ) : (
+              <Target className="w-10 h-10 text-amber-500" />
+            )}
+          </div>
+          
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Practice Complete!</h2>
+            <p className="text-4xl font-bold text-primary mb-2">{score.correct} / {score.total}</p>
+            <p className="text-muted-foreground">
+              {percentage >= 80 ? "Excellent! You found the best moves." :
+               percentage >= 60 ? "Good job! Keep practicing these patterns." :
+               percentage >= 40 ? "You're learning. Review these positions again." :
+               "These positions need more study. Try again!"}
+            </p>
+          </div>
+          
+          <div className="flex gap-3 justify-center">
+            <Button variant="outline" onClick={() => {
+              setShowSummary(false);
+              setScore({ correct: 0, total: 0 });
+              onNext(); // Reset to first position
+            }}>
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Try Again
+            </Button>
+            <Button onClick={handleFinish}>
+              Done
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
-    <div className="fixed inset-0 z-50 bg-background/95 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full space-y-4">
+    <div className="fixed inset-0 z-50 bg-background/95 flex items-center justify-center p-4" data-testid="practice-mode">
+      <div className="max-w-3xl w-full space-y-4">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Target className="w-5 h-5 text-primary" />
             Practice Critical Positions
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted">
+              <span className="text-sm font-medium text-green-500">{score.correct}</span>
+              <span className="text-muted-foreground">/</span>
+              <span className="text-sm">{score.total + (showResult ? 0 : 1)}</span>
+            </div>
             <span className="text-sm text-muted-foreground">
-              {currentIndex + 1} / {positions.length}
+              Position {currentIndex + 1} of {positions.length}
             </span>
             <Button variant="ghost" size="sm" onClick={onClose}>Exit</Button>
           </div>
         </div>
         
+        {/* Progress bar */}
+        <div className="h-1 bg-muted rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-primary transition-all duration-300"
+            style={{ width: `${((currentIndex + 1) / positions.length) * 100}%` }}
+          />
+        </div>
+        
         <div className="flex gap-6">
-          <div className="w-[350px]">
+          {/* Board */}
+          <div className="w-[400px] shrink-0">
             <Chessboard
               position={pos?.fen || "start"}
               boardOrientation={userColor}
@@ -1101,52 +1208,108 @@ const PracticeModeOverlay = ({ positions, currentIndex, onNext, onClose, userCol
                 boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
               }}
             />
+            
+            {/* Context info below board */}
+            <div className="mt-3 p-3 rounded-lg bg-muted/50 text-sm">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Move {pos?.move_number}</span>
+                <span>Lost {((pos?.cp_loss || 0) / 100).toFixed(1)} pawns</span>
+              </div>
+            </div>
           </div>
           
-          <div className="flex-1 flex flex-col justify-center">
-            <p className="text-lg mb-4">Move {pos?.move_number}: What's the best move?</p>
-            
-            {!showResult ? (
-              <>
-                <div className="space-y-2 mb-4">
-                  <Button
-                    variant={selectedMove === pos?.best_move ? "default" : "outline"}
-                    className="w-full justify-start font-mono"
-                    onClick={() => setSelectedMove(pos?.best_move)}
-                  >
-                    {pos?.best_move}
-                  </Button>
-                  <Button
-                    variant={selectedMove === pos?.played_move ? "default" : "outline"}
-                    className="w-full justify-start font-mono"
-                    onClick={() => setSelectedMove(pos?.played_move)}
-                  >
-                    {pos?.played_move} <span className="ml-auto text-xs text-muted-foreground">(what you played)</span>
-                  </Button>
+          {/* Question panel */}
+          <div className="flex-1 flex flex-col">
+            <div className="flex-1">
+              <p className="text-lg font-medium mb-2">What's the best move here?</p>
+              
+              {/* Hint */}
+              {!showResult && (
+                <button 
+                  className="text-sm text-muted-foreground hover:text-primary mb-4 flex items-center gap-1"
+                  onClick={() => setShowHint(!showHint)}
+                >
+                  <Lightbulb className="w-3 h-3" />
+                  {showHint ? "Hide hint" : "Show hint"}
+                </button>
+              )}
+              
+              {showHint && !showResult && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-4 text-sm">
+                  <p className="text-amber-400">{getEvalContext()}</p>
+                  <p className="text-muted-foreground mt-1">Think about what this position needs.</p>
                 </div>
-                <Button onClick={handleCheck} disabled={!selectedMove}>Check</Button>
-              </>
-            ) : (
-              <div className={`p-4 rounded-lg ${selectedMove === pos?.best_move ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-                {selectedMove === pos?.best_move ? (
-                  <div className="flex items-center gap-2 text-green-500 mb-2">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span className="font-bold">Correct!</span>
+              )}
+              
+              {!showResult ? (
+                <>
+                  <div className="space-y-3 mb-6">
+                    {shuffledOptions.map((opt, idx) => (
+                      <Button
+                        key={idx}
+                        variant={selectedMove === opt.move ? "default" : "outline"}
+                        className={`w-full justify-start font-mono text-lg h-14 ${
+                          selectedMove === opt.move ? 'ring-2 ring-primary' : ''
+                        }`}
+                        onClick={() => setSelectedMove(opt.move)}
+                        data-testid={`option-${idx}`}
+                      >
+                        {opt.move}
+                        {opt.label && (
+                          <span className="ml-auto text-xs text-muted-foreground font-sans">{opt.label}</span>
+                        )}
+                      </Button>
+                    ))}
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-red-500 mb-2">
-                    <AlertTriangle className="w-5 h-5" />
-                    <span className="font-bold">Not quite</span>
+                  <Button 
+                    onClick={handleCheck} 
+                    disabled={!selectedMove}
+                    className="w-full h-12"
+                    data-testid="check-btn"
+                  >
+                    Check Answer
+                  </Button>
+                </>
+              ) : (
+                <div className={`p-5 rounded-lg ${selectedMove === pos?.best_move ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+                  {selectedMove === pos?.best_move ? (
+                    <div className="flex items-center gap-2 text-green-500 mb-3">
+                      <CheckCircle2 className="w-6 h-6" />
+                      <span className="text-xl font-bold">Correct!</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-red-500 mb-3">
+                      <AlertTriangle className="w-6 h-6" />
+                      <span className="text-xl font-bold">Not quite</span>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2 mb-4">
+                    <p className="text-sm">
+                      <span className="text-muted-foreground">Best move:</span>{' '}
+                      <span className="font-mono text-green-400 text-lg">{pos?.best_move}</span>
+                    </p>
+                    <p className="text-sm">
+                      <span className="text-muted-foreground">You played:</span>{' '}
+                      <span className="font-mono text-red-400">{pos?.played_move}</span>
+                      <span className="text-muted-foreground ml-2">(-{((pos?.cp_loss || 0) / 100).toFixed(1)} pawns)</span>
+                    </p>
                   </div>
-                )}
-                <p className="text-sm mb-3">
-                  Best move: <span className="font-mono text-green-400">{pos?.best_move}</span>
-                </p>
-                <Button onClick={handleNext}>
-                  {currentIndex < positions.length - 1 ? 'Next Position' : 'Finish'}
-                </Button>
-              </div>
-            )}
+                  
+                  <div className="flex gap-3">
+                    {selectedMove !== pos?.best_move && (
+                      <Button variant="outline" onClick={handleRetry} data-testid="retry-btn">
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Retry
+                      </Button>
+                    )}
+                    <Button onClick={handleNext} className="flex-1" data-testid="next-btn">
+                      {currentIndex < positions.length - 1 ? 'Next Position' : 'See Results'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
