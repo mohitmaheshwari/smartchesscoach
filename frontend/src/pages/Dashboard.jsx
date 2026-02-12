@@ -83,6 +83,39 @@ const Dashboard = ({ user }) => {
   const analyzedGames = stats?.analyzed_games || 0;
   const analysisProgress = totalGames > 0 ? Math.round((analyzedGames / totalGames) * 100) : 0;
 
+  // User's estimated rating from profile
+  const userRating = stats?.profile_summary?.estimated_elo || 1200;
+
+  // Filter games based on opponent strength
+  const filteredGames = recentGames.filter(game => {
+    if (opponentFilter === "all") return true;
+    
+    const opponentRating = game.user_color === 'white' 
+      ? game.black_rating 
+      : game.white_rating;
+    
+    if (!opponentRating) return opponentFilter === "all";
+    
+    const ratingDiff = opponentRating - userRating;
+    
+    if (opponentFilter === "stronger") return ratingDiff > 50;
+    if (opponentFilter === "weaker") return ratingDiff < -50;
+    if (opponentFilter === "equal") return Math.abs(ratingDiff) <= 50;
+    
+    return true;
+  });
+
+  // Get opponent strength label
+  const getOpponentStrengthLabel = (opponentRating) => {
+    if (!opponentRating) return null;
+    const diff = opponentRating - userRating;
+    if (diff > 100) return { label: "Higher", color: "text-red-400" };
+    if (diff > 50) return { label: "Higher", color: "text-orange-400" };
+    if (diff < -100) return { label: "Lower", color: "text-green-400" };
+    if (diff < -50) return { label: "Lower", color: "text-green-400" };
+    return { label: "Equal", color: "text-muted-foreground" };
+  };
+
   const firstName = user?.name?.split(' ')[0] || 'Player';
 
   return (
