@@ -414,6 +414,43 @@ When ahead, don't rush. Keep checking threats.
 
 ## Completed Tasks (This Session - Feb 2026)
 
+### DISCIPLINE CHECK FEATURE (Feb 2026 - COMPLETED)
+**User Request**: Replace the soft "Coach's Review" section with a sharp, data-driven "Discipline Check" feature.
+
+**Design Principles:**
+- NO fluffy language, NO conversational praise
+- ALL metrics are DETERMINISTIC (calculated from game data)
+- Compact card-based UI
+- Evidence-based verdicts with grades (A/B/C/D/F)
+
+**Metrics Implemented:**
+1. **Decision Stability After Advantage**: When winning (+2.0), what % of moves maintained advantage?
+2. **Opening Compliance**: Did user play suggested opening (FOLLOWED/IGNORED/NEUTRAL)?
+3. **Blunder Context**: Were blunders when winning, losing, or equal?
+4. **Winning Position Check**: Did user reach +2.0 and convert?
+
+**Verdict System:**
+- **Grade**: A (clean execution) → F (multiple issues)
+- **Headline**: Sharp statement like "Collapsed when winning" or "Clean execution"
+- **Tone**: positive/neutral/critical (affects card styling)
+- **Issues**: List of specific problems with evidence
+- **Positives**: List of things done well
+
+**Backend:**
+- New service: `/app/backend/discipline_check_service.py`
+- New endpoint: `GET /api/discipline-check`
+- Functions: `calculate_decision_stability()`, `check_opening_compliance()`, `calculate_blunder_context()`, `did_reach_winning_position()`, `generate_verdict()`
+
+**Frontend:**
+- Updated `/app/frontend/src/pages/Focus.jsx`
+- Replaced "Coach's Review" section (lines 168-285)
+- New Discipline Check card with data-testid attributes
+- Color-coded based on verdict tone
+
+**Test Files:**
+- `/app/backend/tests/test_discipline_check.py` - 12 tests covering all metrics
+- `/app/test_reports/iteration_33.json` - Full test report
+
 ### JOURNEY PAGE REDESIGN (Feb 2026 - COMPLETED)
 **User Request**: Replace old sections (Recent Achievements, Stable Strength, Mistake Heatmap) with more actionable data-driven sections.
 
