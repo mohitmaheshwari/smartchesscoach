@@ -16,6 +16,9 @@ import logging
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
 
+# Import opening guidance function from blunder intelligence service
+from blunder_intelligence_service import get_opening_guidance, get_dominant_weakness_ranking
+
 logger = logging.getLogger(__name__)
 
 
