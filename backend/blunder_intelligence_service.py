@@ -863,6 +863,309 @@ def get_identity_profile(analyses: List[Dict]) -> Dict:
     }
 
 
+def get_opening_guidance(analyses: List[Dict], games: List[Dict]) -> Dict:
+    """
+    Opening Guidance - Direction, not labels.
+    
+    Design Rules:
+    1. Don't base on win rate alone - use blunder frequency, eval drops, conversion
+    2. "Pause For Now" instead of "Don't Play" - coach tone, not dictator
+    3. Minimum 4-5 games per opening before showing guidance
+    4. Update slowly - stable guidance builds trust
+    
+    Returns:
+    {
+        "as_white": {
+            "working_well": [{"name": "Italian Game", "reason": "..."}],
+            "pause_for_now": [{"name": "King's Gambit", "reason": "..."}]
+        },
+        "as_black": {
+            "working_well": [...],
+            "pause_for_now": [...]
+        },
+        "sample_size": 15,
+        "ready": True/False
+    }
+    """
+    
+    MIN_GAMES_PER_OPENING = 4
+    
+    if not analyses or not games or len(analyses) < 10:
+        return {
+            "as_white": {"working_well": [], "pause_for_now": []},
+            "as_black": {"working_well": [], "pause_for_now": []},
+            "sample_size": len(analyses) if analyses else 0,
+            "ready": False,
+            "message": "Play more analyzed games to unlock opening guidance"
+        }
+    
+    # Build opening stats from games + analyses
+    opening_stats = defaultdict(lambda: {
+        "games": 0,
+        "wins": 0,
+        "losses": 0,
+        "draws": 0,
+        "blunders_first_15": 0,
+        "mistakes_first_15": 0,
+        "total_moves_first_15": 0,
+        "eval_drops": 0,  # Significant eval drops (>1.5)
+        "conversions_attempted": 0,
+        "conversions_succeeded": 0,
+        "avg_accuracy": 0,
+        "accuracy_sum": 0,
+        "color": None
+    })
+    
+    # Map game_id to analysis for quick lookup
+    analysis_map = {}
+    for analysis in analyses:
+        gid = analysis.get("game_id")
+        if gid:
+            analysis_map[gid] = analysis
+    
+    # Process each game
+    for game in games:
+        game_id = game.get("game_id")
+        opening = game.get("opening", "").strip()
+        user_color = game.get("user_color", "white")
+        result = game.get("result", "")
+        
+        if not opening or opening in ["Unknown", "?", ""]:
+            # Try to extract from PGN
+            pgn = game.get("pgn", "")
+            import re
+            opening_match = re.search(r'\[Opening "([^"]+)"\]', pgn)
+            if opening_match:
+                opening = opening_match.group(1)
+            else:
+                continue  # Skip games without opening info
+        
+        # Normalize opening name (take first part before variation)
+        opening_base = opening.split(":")[0].split(",")[0].strip()
+        if len(opening_base) < 3:
+            continue
+        
+        key = f"{user_color}_{opening_base}"
+        stats = opening_stats[key]
+        stats["name"] = opening_base
+        stats["color"] = user_color
+        stats["games"] += 1
+        
+        # Win/loss/draw
+        if result == "1-0":
+            if user_color == "white":
+                stats["wins"] += 1
+            else:
+                stats["losses"] += 1
+        elif result == "0-1":
+            if user_color == "black":
+                stats["wins"] += 1
+            else:
+                stats["losses"] += 1
+        else:
+            stats["draws"] += 1
+        
+        # Get analysis data
+        analysis = analysis_map.get(game_id)
+        if analysis:
+            sf_analysis = analysis.get("stockfish_analysis", {})
+            accuracy = sf_analysis.get("accuracy", 0)
+            if accuracy > 0:
+                stats["accuracy_sum"] += accuracy
+            
+            # Analyze first 15 moves
+            move_evals = sf_analysis.get("move_evaluations", [])
+            first_15_user_moves = []
+            prev_eval = 0
+            
+            for move in move_evals[:30]:  # First 30 half-moves = 15 full moves
+                move_num = move.get("move_number", 0)
+                is_user = move.get("is_user_move", False)
+                
+                if move_num <= 15 and is_user:
+                    first_15_user_moves.append(move)
+                    classification = move.get("classification", "")
+                    
+                    if classification == "blunder":
+                        stats["blunders_first_15"] += 1
+                    elif classification in ["mistake", "serious_mistake"]:
+                        stats["mistakes_first_15"] += 1
+                    
+                    # Check for significant eval drops
+                    eval_after = move.get("eval_after", 0)
+                    cp_loss = abs(move.get("cp_loss", 0))
+                    if cp_loss > 150:  # Significant drop
+                        stats["eval_drops"] += 1
+                    
+                    stats["total_moves_first_15"] += 1
+            
+            # Conversion analysis
+            # Did user have a winning position (+2 or more)?
+            had_winning_pos = False
+            converted = False
+            
+            for i, move in enumerate(move_evals):
+                eval_after = move.get("eval_after", 0)
+                is_user = move.get("is_user_move", False)
+                
+                # User had +2 or better (from their perspective)
+                if user_color == "white" and eval_after >= 200:
+                    had_winning_pos = True
+                elif user_color == "black" and eval_after <= -200:
+                    had_winning_pos = True
+            
+            if had_winning_pos:
+                stats["conversions_attempted"] += 1
+                if (user_color == "white" and result == "1-0") or (user_color == "black" and result == "0-1"):
+                    stats["conversions_succeeded"] += 1
+    
+    # Calculate scores for each opening
+    def calculate_opening_score(stats: Dict) -> Tuple[float, str]:
+        """
+        Score opening performance. Higher = better.
+        Returns (score, reason)
+        
+        Factors:
+        - Blunder rate in first 15 moves (40% weight)
+        - Eval drop rate (20% weight)  
+        - Conversion rate (20% weight)
+        - Accuracy (20% weight)
+        """
+        if stats["games"] < MIN_GAMES_PER_OPENING:
+            return (0, "insufficient_data")
+        
+        n = stats["games"]
+        
+        # Blunder rate in opening (lower is better)
+        moves_15 = stats["total_moves_first_15"] or 1
+        blunder_rate = stats["blunders_first_15"] / moves_15
+        blunder_score = max(0, 1 - (blunder_rate * 10))  # 10 blunders per 100 moves = 0 score
+        
+        # Mistake rate in opening
+        mistake_rate = stats["mistakes_first_15"] / moves_15
+        mistake_score = max(0, 1 - (mistake_rate * 5))
+        
+        # Eval drop rate (lower is better)
+        eval_drop_rate = stats["eval_drops"] / n
+        eval_drop_score = max(0, 1 - (eval_drop_rate * 0.5))
+        
+        # Conversion rate (higher is better)
+        if stats["conversions_attempted"] > 0:
+            conversion_rate = stats["conversions_succeeded"] / stats["conversions_attempted"]
+        else:
+            conversion_rate = 0.5  # Neutral if no conversion situations
+        
+        # Average accuracy
+        if stats["games"] > 0 and stats["accuracy_sum"] > 0:
+            avg_accuracy = stats["accuracy_sum"] / n
+            accuracy_score = avg_accuracy / 100
+        else:
+            accuracy_score = 0.7  # Neutral
+        
+        # Weighted score
+        score = (
+            blunder_score * 0.35 +
+            mistake_score * 0.15 +
+            eval_drop_score * 0.20 +
+            conversion_rate * 0.15 +
+            accuracy_score * 0.15
+        )
+        
+        # Generate reason
+        if blunder_rate > 0.15:
+            reason = "High tactical losses in first 15 moves"
+        elif mistake_rate > 0.2:
+            reason = "Frequent early mistakes"
+        elif eval_drop_rate > 1.5:
+            reason = "Unstable positions leading to drops"
+        elif conversion_rate < 0.4 and stats["conversions_attempted"] >= 2:
+            reason = "Difficulty converting advantages"
+        elif blunder_rate < 0.05 and mistake_rate < 0.1:
+            reason = "Stable positions. Low early mistakes."
+        elif conversion_rate > 0.7 and stats["conversions_attempted"] >= 2:
+            reason = "Strong conversion rate"
+        elif accuracy_score > 0.75:
+            reason = "Consistent development. Good accuracy."
+        else:
+            reason = "Solid middlegame performance"
+        
+        return (score, reason)
+    
+    # Categorize openings
+    white_openings = []
+    black_openings = []
+    
+    for key, stats in opening_stats.items():
+        if stats["games"] < MIN_GAMES_PER_OPENING:
+            continue
+        
+        score, reason = calculate_opening_score(stats)
+        stats["score"] = score
+        stats["reason"] = reason
+        
+        opening_data = {
+            "name": stats["name"],
+            "games": stats["games"],
+            "score": round(score, 2),
+            "reason": reason,
+            "win_rate": round(stats["wins"] / stats["games"] * 100) if stats["games"] > 0 else 0,
+            "blunders_per_game": round(stats["blunders_first_15"] / stats["games"], 1)
+        }
+        
+        if stats["color"] == "white":
+            white_openings.append(opening_data)
+        else:
+            black_openings.append(opening_data)
+    
+    # Sort and categorize
+    def categorize(openings: List[Dict]) -> Dict:
+        if not openings:
+            return {"working_well": [], "pause_for_now": []}
+        
+        # Sort by score descending
+        sorted_openings = sorted(openings, key=lambda x: x["score"], reverse=True)
+        
+        working_well = []
+        pause_for_now = []
+        
+        for op in sorted_openings:
+            if op["score"] >= 0.6:
+                working_well.append({
+                    "name": op["name"],
+                    "reason": op["reason"],
+                    "games": op["games"]
+                })
+            elif op["score"] < 0.45:
+                pause_for_now.append({
+                    "name": op["name"],
+                    "reason": op["reason"],
+                    "games": op["games"]
+                })
+        
+        # Limit to top 2 each
+        return {
+            "working_well": working_well[:2],
+            "pause_for_now": pause_for_now[:2]
+        }
+    
+    white_guidance = categorize(white_openings)
+    black_guidance = categorize(black_openings)
+    
+    has_guidance = (
+        len(white_guidance["working_well"]) > 0 or 
+        len(white_guidance["pause_for_now"]) > 0 or
+        len(black_guidance["working_well"]) > 0 or
+        len(black_guidance["pause_for_now"]) > 0
+    )
+    
+    return {
+        "as_white": white_guidance,
+        "as_black": black_guidance,
+        "sample_size": len(analyses),
+        "ready": has_guidance,
+        "message": None if has_guidance else "Play more games with varied openings to unlock guidance"
+    }
+
 def get_mission(analyses: List[Dict], current_missions: List[Dict] = None, user_rating: int = None) -> Dict:
     """
     MISSION ENGINE - 3 Layer Architecture
