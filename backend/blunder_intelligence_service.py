@@ -1183,41 +1183,401 @@ def get_journey_data(analyses: List[Dict], games: List[Dict] = None, badge_data:
     }
 
 
-def get_game_specific_strategy(analysis: Dict, game: Dict = None) -> Dict:
+def get_game_strategic_analysis(analysis: Dict, game: Dict = None) -> Dict:
     """
-    Generate EVIDENCE-BASED strategy for a specific game.
+    Generate TRUE STRATEGIC ANALYSIS for a specific game.
     
-    Unlike generic phase theory, this returns:
-    1. Actual positions where mistakes happened, grouped by phase
-    2. The SPECIFIC tactical/strategic lessons from THIS game
-    3. Clickable evidence for each insight
+    This is NOT about listing mistakes. It's about:
+    1. What opening was played and what the correct PLAN should have been
+    2. What pawn structure arose and what it dictates
+    3. Key strategic themes (piece activity, weak squares, etc.)
+    4. What to remember for future games with similar positions
     
-    This is the "proof" that makes coaching concrete rather than abstract.
+    Uses evidence from the game to back up recommendations.
     """
+    import chess
+    
     if not analysis:
-        return {"phases": [], "insights": [], "has_evidence": False}
+        return {"has_strategy": False}
     
     sf_analysis = analysis.get("stockfish_analysis", {})
     move_evals = sf_analysis.get("move_evaluations", [])
     
-    if not move_evals:
-        return {"phases": [], "insights": [], "has_evidence": False}
-    
     # Get game metadata
     game_id = analysis.get("game_id", "")
     user_color = game.get("user_color", "white") if game else "white"
-    opponent = game.get("white_player" if user_color == "black" else "black_player", "Opponent") if game else "Opponent"
+    opening_name = game.get("opening", "") if game else ""
+    pgn = game.get("pgn", "") if game else ""
     
-    # Group mistakes by phase
-    phase_mistakes = {
-        "opening": [],      # Moves 1-10
-        "middlegame": [],   # Moves 11-30
-        "endgame": []       # Moves 31+
+    result = {
+        "has_strategy": True,
+        "opening": {},
+        "pawn_structure": {},
+        "strategic_themes": [],
+        "key_moments": [],
+        "future_advice": []
     }
     
-    phase_ranges = {
-        "opening": (1, 10),
-        "middlegame": (11, 30),
+    # 1. OPENING ANALYSIS - What was the plan?
+    result["opening"] = _analyze_opening_strategy(opening_name, user_color, pgn, move_evals)
+    
+    # 2. PAWN STRUCTURE ANALYSIS - What does it dictate?
+    result["pawn_structure"] = _analyze_pawn_structure(move_evals, user_color)
+    
+    # 3. STRATEGIC THEMES - What patterns emerged?
+    result["strategic_themes"] = _identify_strategic_themes(move_evals, user_color)
+    
+    # 4. KEY STRATEGIC MOMENTS - Important decision points (not mistakes)
+    result["key_moments"] = _find_key_strategic_moments(move_evals, user_color)
+    
+    # 5. FUTURE ADVICE - What to remember
+    result["future_advice"] = _generate_future_advice(result, game)
+    
+    return result
+
+
+def _analyze_opening_strategy(opening_name: str, user_color: str, pgn: str, move_evals: List) -> Dict:
+    """Analyze the opening and provide the correct strategic plan."""
+    
+    # Import opening coaching data
+    from opening_service import OPENING_COACHING
+    
+    opening_info = {
+        "name": opening_name or "Unknown Opening",
+        "your_color": user_color,
+        "plan": "",
+        "key_ideas": [],
+        "theory_tip": "",
+        "how_you_did": ""
+    }
+    
+    # Find matching opening coaching
+    matched_opening = None
+    for name, coaching in OPENING_COACHING.items():
+        if opening_name and name.lower() in opening_name.lower():
+            matched_opening = coaching
+            opening_info["name"] = name
+            break
+    
+    if matched_opening:
+        opening_info["plan"] = matched_opening.get("simple_plan", "")
+        opening_info["key_ideas"] = matched_opening.get("must_know", [])[:3]
+        opening_info["main_idea"] = matched_opening.get("main_idea", "")
+        opening_info["theory_tip"] = matched_opening.get("practice_tip", "")
+    else:
+        # Generic opening advice based on color
+        if user_color == "white":
+            opening_info["plan"] = "Control center (e4/d4) → Develop knights → Develop bishops → Castle → Connect rooks"
+            opening_info["key_ideas"] = [
+                "As White, you have the first-move advantage - use it to control the center",
+                "Develop pieces toward the center before starting attacks",
+                "Complete development before move 10-12"
+            ]
+        else:
+            opening_info["plan"] = "Counter center control → Develop pieces → Neutralize White's initiative → Castle → Look for counterplay"
+            opening_info["key_ideas"] = [
+                "As Black, focus on equalizing first, then look for chances",
+                "Challenge White's center with ...d5 or ...c5 when ready",
+                "Don't be passive - create your own threats"
+            ]
+    
+    # Analyze how opening went (first 10 moves)
+    opening_moves = [m for m in move_evals if m.get("move_number", 99) <= 10 and m.get("is_user_move", True)]
+    if opening_moves:
+        total_cp_lost = sum(abs(m.get("cp_loss", 0)) for m in opening_moves)
+        if total_cp_lost < 50:
+            opening_info["how_you_did"] = "Solid opening play - you followed good principles"
+        elif total_cp_lost < 150:
+            opening_info["how_you_did"] = "Slight inaccuracies in the opening, but nothing major"
+        else:
+            opening_info["how_you_did"] = "Opening had issues - review the plan above"
+    
+    return opening_info
+
+
+def _analyze_pawn_structure(move_evals: List, user_color: str) -> Dict:
+    """Analyze the pawn structure that arose and what plans it suggests."""
+    import chess
+    
+    structure_info = {
+        "type": "Standard",
+        "your_plan": "",
+        "opponent_plan": "",
+        "key_squares": [],
+        "pawn_breaks": []
+    }
+    
+    # Get a middlegame position (around move 15-20)
+    mid_position = None
+    for move in move_evals:
+        if 15 <= move.get("move_number", 0) <= 25:
+            fen = move.get("fen_before", move.get("fen", ""))
+            if fen:
+                try:
+                    mid_position = chess.Board(fen)
+                    break
+                except:
+                    pass
+    
+    if not mid_position:
+        # Fallback to any available position
+        for move in move_evals:
+            fen = move.get("fen_before", move.get("fen", ""))
+            if fen:
+                try:
+                    mid_position = chess.Board(fen)
+                    break
+                except:
+                    pass
+    
+    if mid_position:
+        # Analyze pawn structure
+        white_pawns = []
+        black_pawns = []
+        
+        for square in chess.SQUARES:
+            piece = mid_position.piece_at(square)
+            if piece and piece.piece_type == chess.PAWN:
+                file = chess.square_file(square)
+                rank = chess.square_rank(square)
+                if piece.color == chess.WHITE:
+                    white_pawns.append((file, rank))
+                else:
+                    black_pawns.append((file, rank))
+        
+        # Detect common structures
+        w_files = set(p[0] for p in white_pawns)
+        b_files = set(p[0] for p in black_pawns)
+        
+        # Check for isolated pawns
+        isolated_white = [f for f in w_files if f-1 not in w_files and f+1 not in w_files]
+        isolated_black = [f for f in b_files if f-1 not in b_files and f+1 not in b_files]
+        
+        # Check for doubled pawns
+        w_file_counts = {}
+        b_file_counts = {}
+        for f, r in white_pawns:
+            w_file_counts[f] = w_file_counts.get(f, 0) + 1
+        for f, r in black_pawns:
+            b_file_counts[f] = b_file_counts.get(f, 0) + 1
+        
+        doubled_white = [f for f, c in w_file_counts.items() if c > 1]
+        doubled_black = [f for f, c in b_file_counts.items() if c > 1]
+        
+        # Detect structure type and give advice
+        if 3 in isolated_white or 3 in isolated_black:  # d-file isolated pawn
+            structure_info["type"] = "Isolated Queen's Pawn (IQP)"
+            if (user_color == "white" and 3 in isolated_white) or (user_color == "black" and 3 in isolated_black):
+                structure_info["your_plan"] = "Attack! Use piece activity. Push the d-pawn when ready. Avoid endgames."
+                structure_info["pawn_breaks"] = ["d4-d5 (or d5-d4) breakthrough at the right moment"]
+                structure_info["key_squares"] = ["e5/c5 outpost squares for knights", "Open c and e files for rooks"]
+            else:
+                structure_info["your_plan"] = "Blockade the isolated pawn. Trade pieces. Head for endgame."
+                structure_info["key_squares"] = ["d4/d5 blockade square for knight"]
+        
+        elif doubled_white or doubled_black:
+            structure_info["type"] = "Doubled Pawns Structure"
+            has_doubled = (user_color == "white" and doubled_white) or (user_color == "black" and doubled_black)
+            if has_doubled:
+                structure_info["your_plan"] = "Use the open file created. Your pieces have more activity to compensate."
+            else:
+                structure_info["your_plan"] = "Target the doubled pawns in endgame. They're weak."
+        
+        else:
+            # Check for pawn majority
+            kingside_w = len([p for p in white_pawns if p[0] >= 4])
+            queenside_w = len([p for p in white_pawns if p[0] <= 3])
+            kingside_b = len([p for p in black_pawns if p[0] >= 4])
+            queenside_b = len([p for p in black_pawns if p[0] <= 3])
+            
+            if user_color == "white":
+                if kingside_w > kingside_b:
+                    structure_info["type"] = "Kingside Pawn Majority"
+                    structure_info["your_plan"] = "Advance kingside pawns to create a passed pawn"
+                    structure_info["pawn_breaks"] = ["f4-f5 or g4-g5 to open lines"]
+                elif queenside_w > queenside_b:
+                    structure_info["type"] = "Queenside Pawn Majority"
+                    structure_info["your_plan"] = "Push queenside pawns (a4-b4-c4 or similar)"
+            else:
+                if kingside_b > kingside_w:
+                    structure_info["type"] = "Kingside Pawn Majority"
+                    structure_info["your_plan"] = "Advance kingside pawns to create a passed pawn"
+                elif queenside_b > queenside_w:
+                    structure_info["type"] = "Queenside Pawn Majority"
+                    structure_info["your_plan"] = "Push queenside pawns to create a passed pawn"
+        
+        if not structure_info["your_plan"]:
+            structure_info["type"] = "Balanced Structure"
+            structure_info["your_plan"] = "Focus on piece activity and look for tactical opportunities"
+    
+    return structure_info
+
+
+def _identify_strategic_themes(move_evals: List, user_color: str) -> List[Dict]:
+    """Identify strategic themes that were present in the game."""
+    themes = []
+    
+    # Analyze the game for common themes
+    had_advantage = False
+    had_disadvantage = False
+    endgame_reached = False
+    
+    for move in move_evals:
+        eval_before = move.get("eval_before", 0)
+        move_num = move.get("move_number", 0)
+        
+        if user_color == "white":
+            if eval_before > 1.5:
+                had_advantage = True
+            elif eval_before < -1.5:
+                had_disadvantage = True
+        else:
+            if eval_before < -1.5:
+                had_advantage = True
+            elif eval_before > 1.5:
+                had_disadvantage = True
+        
+        if move_num > 35:
+            endgame_reached = True
+    
+    # Add relevant themes based on what happened
+    if had_advantage:
+        themes.append({
+            "theme": "Converting Advantage",
+            "icon": "trending-up",
+            "description": "You had a winning position at some point",
+            "principle": "When ahead in material or position, simplify! Trade pieces (not pawns), reduce opponent's counterplay.",
+            "remember": "The most important skill at higher levels is converting won positions."
+        })
+    
+    if had_disadvantage:
+        themes.append({
+            "theme": "Defensive Play",
+            "icon": "shield",
+            "description": "You were under pressure at some point",
+            "principle": "When worse, create complications! Avoid trades, keep pieces active, look for counterplay.",
+            "remember": "Defense is about making your opponent prove they can win."
+        })
+    
+    if endgame_reached:
+        themes.append({
+            "theme": "Endgame Technique",
+            "icon": "target",
+            "description": "The game reached an endgame",
+            "principle": "In endgames: activate your king, create passed pawns, and calculate precisely.",
+            "remember": "Endgame knowledge is the most efficient way to gain rating points."
+        })
+    
+    # Always add piece activity theme
+    themes.append({
+        "theme": "Piece Activity",
+        "icon": "zap",
+        "description": "The battle for piece coordination",
+        "principle": "An active piece is worth more than a passive one. Before each move, ask: 'Which piece is my worst?'",
+        "remember": "Improve your worst piece, then reassess."
+    })
+    
+    return themes
+
+
+def _find_key_strategic_moments(move_evals: List, user_color: str) -> List[Dict]:
+    """Find key strategic decision points (not necessarily mistakes)."""
+    import chess
+    
+    moments = []
+    
+    # Look for significant evaluation swings (>1.0)
+    for i, move in enumerate(move_evals):
+        if not move.get("is_user_move", True):
+            continue
+        
+        eval_before = move.get("eval_before", 0)
+        eval_after = move.get("eval_after", 0)
+        move_num = move.get("move_number", 0)
+        
+        # Adjust for color
+        if user_color == "black":
+            eval_before = -eval_before
+            eval_after = -eval_after
+        
+        # Significant positive swing - you gained advantage
+        if eval_after - eval_before > 0.8:
+            moments.append({
+                "move_number": move_num,
+                "type": "opportunity_seized",
+                "description": f"Good decision! You improved your position significantly with {move.get('move', '')}",
+                "fen": move.get("fen_before", ""),
+                "icon": "check-circle"
+            })
+        
+        # Critical moment - where game changed
+        if move_num in [15, 20, 25, 30] and abs(eval_before) < 1.5:  # Roughly equal positions
+            moments.append({
+                "move_number": move_num,
+                "type": "critical_moment",
+                "description": f"Move {move_num} was a key moment - the position was balanced and required careful play",
+                "fen": move.get("fen_before", ""),
+                "icon": "alert-circle"
+            })
+    
+    # Limit to 3 most important moments
+    return moments[:3]
+
+
+def _generate_future_advice(analysis_result: Dict, game: Dict) -> List[Dict]:
+    """Generate actionable advice for future games."""
+    advice = []
+    
+    opening_info = analysis_result.get("opening", {})
+    structure_info = analysis_result.get("pawn_structure", {})
+    themes = analysis_result.get("strategic_themes", [])
+    
+    # Opening-based advice
+    if opening_info.get("how_you_did") and "issues" in opening_info.get("how_you_did", ""):
+        advice.append({
+            "category": "Opening Preparation",
+            "icon": "book-open",
+            "advice": f"Study the main ideas of the {opening_info.get('name', 'opening')}",
+            "action": opening_info.get("plan", "Focus on development and center control")
+        })
+    
+    # Structure-based advice
+    if structure_info.get("type") and structure_info.get("type") != "Standard":
+        advice.append({
+            "category": "Pawn Structure",
+            "icon": "grid",
+            "advice": f"You played a {structure_info.get('type')} position",
+            "action": structure_info.get("your_plan", "")
+        })
+    
+    # Theme-based advice
+    for theme in themes[:2]:
+        advice.append({
+            "category": theme.get("theme", "Strategy"),
+            "icon": theme.get("icon", "lightbulb"),
+            "advice": theme.get("remember", ""),
+            "action": theme.get("principle", "")
+        })
+    
+    return advice[:4]  # Limit to 4 pieces of advice
+
+
+def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
+    """
+    Get data needed for the Lab page (detailed game analysis).
+    
+    Adds:
+    - Core lesson of the game
+    - Strategic analysis (opening, structure, themes)
+    """
+    core_lesson = get_core_lesson(analysis)
+    strategic_analysis = get_game_strategic_analysis(analysis, game)
+    
+    return {
+        "core_lesson": core_lesson,
+        "strategic_analysis": strategic_analysis,
+        "analysis": analysis
+    }
         "endgame": (31, 999)
     }
     
