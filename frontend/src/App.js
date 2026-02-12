@@ -9,7 +9,7 @@ import Focus from "@/pages/Focus";
 import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
 import ImportGames from "@/pages/ImportGames";
-import GameAnalysis from "@/pages/GameAnalysis";
+import Lab from "@/pages/Lab";
 import WeaknessTracker from "@/pages/WeaknessTracker";
 import Training from "@/pages/Training";
 import Challenge from "@/pages/Challenge";
