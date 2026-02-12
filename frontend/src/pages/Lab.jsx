@@ -919,18 +919,6 @@ const Lab = ({ user }) => {
                         </div>
                       )}
                     </TabsContent>
-                                </StrategySection>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                          <p>Strategic analysis not available</p>
-                        </div>
-                      )}
-                    </TabsContent>
 
                     {/* MISTAKES TAB - Most Important */}
                     <TabsContent value="mistakes" className="p-4 space-y-4 m-0">
