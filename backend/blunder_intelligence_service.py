@@ -1899,6 +1899,614 @@ def get_drill_positions(analyses: List[Dict], games: List[Dict] = None,
     return positions[:limit]
 
 
+# ============================================
+# NEW JOURNEY PAGE FEATURES (Chess Fundamentals, Rating Ceiling, Opening Progress)
+# ============================================
+
+def get_chess_fundamentals_assessment(analyses: List[Dict], games: List[Dict] = None) -> Dict:
+    """
+    Assess user performance across chess fundamentals:
+    - Positional Play (pawn structure, piece activity, space control)
+    - Tactics (finding combinations, defensive tactics)
+    - Opening Preparation (accuracy in first 10-15 moves)
+    - Endgame Technique (conversion, king activity)
+    - Time Management (time pressure mistakes)
+    
+    Returns comparison bars and tagged games for training.
+    """
+    if not analyses or len(analyses) < 3:
+        return {
+            "has_data": False,
+            "message": "Need at least 3 analyzed games for fundamentals assessment"
+        }
+    
+    # Build games lookup
+    games_lookup = {}
+    if games:
+        for g in games:
+            games_lookup[g.get("game_id")] = g
+    
+    # Initialize fundamental categories
+    fundamentals = {
+        "positional_play": {
+            "name": "Positional Play",
+            "description": "Pawn structure, piece activity, space control",
+            "good_count": 0,
+            "mistake_count": 0,
+            "total_moves": 0,
+            "tagged_games": [],
+            "suggestions": []
+        },
+        "tactics": {
+            "name": "Tactics",
+            "description": "Finding and defending against combinations",
+            "good_count": 0,
+            "mistake_count": 0,
+            "total_moves": 0,
+            "tagged_games": [],
+            "suggestions": []
+        },
+        "opening": {
+            "name": "Opening Preparation",
+            "description": "First 10-15 moves accuracy",
+            "good_count": 0,
+            "mistake_count": 0,
+            "total_moves": 0,
+            "tagged_games": [],
+            "suggestions": []
+        },
+        "endgame": {
+            "name": "Endgame Technique",
+            "description": "Conversion and king activity",
+            "good_count": 0,
+            "mistake_count": 0,
+            "total_moves": 0,
+            "tagged_games": [],
+            "suggestions": []
+        },
+        "time_management": {
+            "name": "Time Management",
+            "description": "Avoiding time pressure mistakes",
+            "good_count": 0,
+            "mistake_count": 0,
+            "total_moves": 0,
+            "tagged_games": [],
+            "suggestions": []
+        }
+    }
+    
+    # Tactical patterns
+    tactical_patterns = [
+        "fork", "pin", "skewer", "discovered_attack", "overloaded",
+        "tactical_miss", "walked_into_fork", "walked_into_pin",
+        "missed_fork", "missed_pin", "missed_winning_tactic"
+    ]
+    
+    # Positional patterns
+    positional_patterns = [
+        "positional_drift", "piece_activity", "pawn_structure",
+        "king_safety_error", "space_advantage"
+    ]
+    
+    for analysis in analyses[-20:]:  # Last 20 games
+        sf_analysis = analysis.get("stockfish_analysis", {})
+        move_evals = sf_analysis.get("move_evaluations", [])
+        game_id = analysis.get("game_id", "")
+        accuracy = sf_analysis.get("accuracy", 0)
+        
+        if not move_evals:
+            continue
+        
+        # Get game info
+        game_info = games_lookup.get(game_id, {})
+        user_color = game_info.get("user_color", "white")
+        opponent = game_info.get("black_player") if user_color == "white" else game_info.get("white_player")
+        opponent = opponent or "Opponent"
+        
+        # Track mistakes per fundamental for this game
+        game_fundamental_mistakes = {k: 0 for k in fundamentals}
+        game_fundamental_goods = {k: 0 for k in fundamentals}
+        total_moves = len([m for m in move_evals if m.get("is_user_move", True)])
+        
+        for move in move_evals:
+            if not move.get("is_user_move", True):
+                continue
+            
+            move_number = move.get("move_number", 0)
+            cp_loss = abs(move.get("cp_loss", 0))
+            eval_type = move.get("evaluation", "")
+            if hasattr(eval_type, "value"):
+                eval_type = eval_type.value
+            
+            mistake_type = move.get("mistake_type", "")
+            if not mistake_type:
+                mistake_type = infer_mistake_type_from_eval(move)
+            
+            is_mistake = eval_type in ["blunder", "mistake", "inaccuracy"] or cp_loss > 50
+            is_good = cp_loss <= 10
+            
+            # Categorize by fundamental
+            # Opening: moves 1-12
+            if move_number <= 12:
+                fundamentals["opening"]["total_moves"] += 1
+                if is_mistake:
+                    fundamentals["opening"]["mistake_count"] += 1
+                    game_fundamental_mistakes["opening"] += 1
+                elif is_good:
+                    fundamentals["opening"]["good_count"] += 1
+                    game_fundamental_goods["opening"] += 1
+            
+            # Endgame: moves after 30 (simplified)
+            elif move_number > 30:
+                fundamentals["endgame"]["total_moves"] += 1
+                if is_mistake:
+                    fundamentals["endgame"]["mistake_count"] += 1
+                    game_fundamental_mistakes["endgame"] += 1
+                elif is_good:
+                    fundamentals["endgame"]["good_count"] += 1
+                    game_fundamental_goods["endgame"] += 1
+            
+            # Tactics: check if mistake_type is tactical
+            if any(p in mistake_type.lower() for p in tactical_patterns):
+                fundamentals["tactics"]["total_moves"] += 1
+                if is_mistake:
+                    fundamentals["tactics"]["mistake_count"] += 1
+                    game_fundamental_mistakes["tactics"] += 1
+                elif is_good:
+                    fundamentals["tactics"]["good_count"] += 1
+                    game_fundamental_goods["tactics"] += 1
+            
+            # Positional: check if mistake_type is positional
+            if any(p in mistake_type.lower() for p in positional_patterns):
+                fundamentals["positional_play"]["total_moves"] += 1
+                if is_mistake:
+                    fundamentals["positional_play"]["mistake_count"] += 1
+                    game_fundamental_mistakes["positional_play"] += 1
+                elif is_good:
+                    fundamentals["positional_play"]["good_count"] += 1
+                    game_fundamental_goods["positional_play"] += 1
+            
+            # Time management: infer from high cp_loss in late game or multiple mistakes
+            if cp_loss > 200 and move_number > 25:
+                fundamentals["time_management"]["total_moves"] += 1
+                fundamentals["time_management"]["mistake_count"] += 1
+                game_fundamental_mistakes["time_management"] += 1
+        
+        # Tag games for each fundamental where mistakes occurred
+        for fund_key, mistake_count in game_fundamental_mistakes.items():
+            if mistake_count > 0 and len(fundamentals[fund_key]["tagged_games"]) < 5:
+                fundamentals[fund_key]["tagged_games"].append({
+                    "game_id": game_id,
+                    "opponent": opponent,
+                    "mistakes": mistake_count,
+                    "accuracy": accuracy
+                })
+    
+    # Calculate scores and generate suggestions
+    result = {
+        "has_data": True,
+        "fundamentals": [],
+        "strongest": None,
+        "weakest": None
+    }
+    
+    fund_scores = []
+    for key, data in fundamentals.items():
+        total = data["total_moves"]
+        if total == 0:
+            # Use general game data for fundamentals with no specific moves
+            total = len(analyses) * 5  # Estimate
+            data["good_count"] = int(total * 0.7)  # Assume 70% good by default
+        
+        # Calculate score (0-100)
+        good_ratio = data["good_count"] / max(total, 1)
+        mistake_ratio = data["mistake_count"] / max(total, 1)
+        score = max(0, min(100, int((good_ratio * 100) - (mistake_ratio * 50))))
+        
+        # Determine level
+        if score >= 80:
+            level = "strong"
+        elif score >= 60:
+            level = "developing"
+        elif score >= 40:
+            level = "needs_work"
+        else:
+            level = "focus_area"
+        
+        # Generate suggestion based on score
+        suggestions_map = {
+            "positional_play": {
+                "low": "Practice evaluating pawn structures. Ask 'what squares are weak?' before each move.",
+                "medium": "Work on piece coordination. Your pieces should work together toward one plan.",
+                "high": "Solid positional understanding. Focus on deeper strategic concepts."
+            },
+            "tactics": {
+                "low": "Daily tactics puzzles are essential. Start with 10-15 puzzles per day.",
+                "medium": "Good tactical awareness. Work on calculation depth - see 3 moves ahead.",
+                "high": "Strong tactical vision. Focus on defensive tactics and prophylaxis."
+            },
+            "opening": {
+                "low": "Learn the ideas behind your openings, not just moves. Focus on development principles.",
+                "medium": "Solid opening play. Consider building a smaller, deeper repertoire.",
+                "high": "Excellent opening preparation. You're ready for more advanced theory."
+            },
+            "endgame": {
+                "low": "Study basic endgames: King+Pawn, Rook endings. These are must-know patterns.",
+                "medium": "Practice endgame calculation. Precision matters more in endings.",
+                "high": "Strong endgame technique. Work on complex multi-piece endings."
+            },
+            "time_management": {
+                "low": "Use more time in complex positions. Don't rush critical decisions.",
+                "medium": "Good clock management. Work on playing faster in known positions.",
+                "high": "Excellent time management. Maintain this discipline."
+            }
+        }
+        
+        suggestion_level = "low" if score < 50 else "medium" if score < 75 else "high"
+        data["suggestions"] = [suggestions_map.get(key, {}).get(suggestion_level, "Keep practicing.")]
+        
+        fund_entry = {
+            "key": key,
+            "name": data["name"],
+            "description": data["description"],
+            "score": score,
+            "level": level,
+            "good_moves": data["good_count"],
+            "mistakes": data["mistake_count"],
+            "tagged_games": data["tagged_games"][:3],  # Limit to 3 games
+            "suggestions": data["suggestions"]
+        }
+        
+        result["fundamentals"].append(fund_entry)
+        fund_scores.append((key, score, fund_entry))
+    
+    # Sort by score to find strongest and weakest
+    fund_scores.sort(key=lambda x: x[1], reverse=True)
+    result["strongest"] = fund_scores[0][2] if fund_scores else None
+    result["weakest"] = fund_scores[-1][2] if fund_scores else None
+    
+    # Sort fundamentals by score for display
+    result["fundamentals"].sort(key=lambda x: x["score"], reverse=True)
+    
+    return result
+
+
+def get_rating_ceiling_assessment(analyses: List[Dict], games: List[Dict] = None) -> Dict:
+    """
+    Calculate Rating Ceiling Assessment:
+    - Stable Performance Level: Based on games without major eval drops (top 30% by accuracy)
+    - Peak Demonstrated Level: Based on best 30% games
+    - Gap Driver: What's causing the instability
+    
+    Reframes improvement from "you're bad" to "you're unstable."
+    """
+    import re
+    
+    if not analyses or len(analyses) < 5:
+        return {
+            "has_data": False,
+            "message": "Need at least 5 analyzed games for rating ceiling assessment"
+        }
+    
+    # Build games lookup and extract ratings
+    games_lookup = {}
+    game_ratings = []
+    if games:
+        for g in games:
+            games_lookup[g.get("game_id")] = g
+            pgn = g.get("pgn", "")
+            user_color = g.get("user_color", "white")
+            
+            # Extract rating from PGN
+            white_elo = re.search(r'\[WhiteElo "(\d+)"\]', pgn)
+            black_elo = re.search(r'\[BlackElo "(\d+)"\]', pgn)
+            
+            user_rating = None
+            if user_color == "white" and white_elo:
+                user_rating = int(white_elo.group(1))
+            elif user_color == "black" and black_elo:
+                user_rating = int(black_elo.group(1))
+            
+            if user_rating:
+                game_ratings.append(user_rating)
+    
+    current_rating = game_ratings[-1] if game_ratings else 1200
+    
+    # Calculate accuracy for each game
+    game_accuracies = []
+    for analysis in analyses:
+        sf = analysis.get("stockfish_analysis", {})
+        accuracy = sf.get("accuracy", 0)
+        game_id = analysis.get("game_id", "")
+        
+        # Get game info for rating context
+        game_info = games_lookup.get(game_id, {})
+        
+        if accuracy > 0:
+            game_accuracies.append({
+                "game_id": game_id,
+                "accuracy": accuracy,
+                "blunders": sf.get("blunders", 0) or sum(1 for m in sf.get("move_evaluations", []) if m.get("evaluation") == "blunder"),
+                "avg_cp_loss": sf.get("avg_cp_loss", 0)
+            })
+    
+    if len(game_accuracies) < 5:
+        return {
+            "has_data": False,
+            "message": "Need more games with accuracy data"
+        }
+    
+    # Sort by accuracy (highest first)
+    sorted_by_accuracy = sorted(game_accuracies, key=lambda x: x["accuracy"], reverse=True)
+    
+    # Top 30% games = Peak Demonstrated Level
+    top_30_count = max(1, int(len(sorted_by_accuracy) * 0.3))
+    top_30_games = sorted_by_accuracy[:top_30_count]
+    peak_accuracy = sum(g["accuracy"] for g in top_30_games) / len(top_30_games)
+    
+    # Games without major blunders = Stable Performance Level
+    # Filter games with 0-1 blunders
+    stable_games = [g for g in game_accuracies if g["blunders"] <= 1]
+    if not stable_games:
+        stable_games = sorted_by_accuracy[:int(len(sorted_by_accuracy) * 0.5)]  # Top 50% if no clean games
+    
+    stable_accuracy = sum(g["accuracy"] for g in stable_games) / len(stable_games)
+    
+    # Estimate rating levels based on accuracy
+    # Rough formula: Each 1% accuracy ≈ 20-30 rating points (at amateur level)
+    # Base reference: 85% accuracy ≈ 1500 rating
+    def accuracy_to_rating(acc):
+        # Linear approximation
+        return int(1500 + (acc - 85) * 25)
+    
+    stable_level = accuracy_to_rating(stable_accuracy)
+    peak_level = accuracy_to_rating(peak_accuracy)
+    
+    # Ensure peak >= stable
+    if peak_level < stable_level:
+        peak_level = stable_level + 50
+    
+    gap = peak_level - stable_level
+    
+    # Determine gap driver
+    # Analyze what's causing the instability
+    low_games = sorted_by_accuracy[-top_30_count:]  # Bottom 30%
+    
+    # Count common issues in low games
+    blunder_heavy = sum(1 for g in low_games if g["blunders"] >= 2)
+    cp_loss_heavy = sum(1 for g in low_games if g["avg_cp_loss"] > 30)
+    
+    # Determine primary gap driver
+    if blunder_heavy > len(low_games) * 0.5:
+        gap_driver = "Blunder Prevention"
+        gap_description = "Your worst games have multiple blunders. Focus on checking for threats before each move."
+        fix_suggestion = "Before every move, ask: 'What can my opponent do to me?'"
+    elif cp_loss_heavy > len(low_games) * 0.5:
+        gap_driver = "Conversion Discipline"
+        gap_description = "You accumulate small inaccuracies that add up. Focus on maintaining quality throughout the game."
+        fix_suggestion = "Stay focused even in winning positions. Treat every move as important."
+    else:
+        gap_driver = "Consistency"
+        gap_description = "Your performance varies significantly between games. Work on maintaining focus."
+        fix_suggestion = "Develop a pre-move checklist to stay consistent."
+    
+    # Determine urgency based on gap
+    if gap > 200:
+        urgency = "high"
+        message = f"There's significant room to grow! Your unstable games are holding you back by ~{gap} points."
+    elif gap > 100:
+        urgency = "medium"
+        message = f"You're close to playing at a higher level consistently. Bridging this {gap}-point gap is your next milestone."
+    else:
+        urgency = "low"
+        message = f"Your performance is fairly consistent. Keep refining your {gap_driver.lower()}."
+    
+    return {
+        "has_data": True,
+        "stable_level": stable_level,
+        "peak_level": peak_level,
+        "gap": gap,
+        "gap_driver": gap_driver,
+        "gap_description": gap_description,
+        "fix_suggestion": fix_suggestion,
+        "urgency": urgency,
+        "message": message,
+        "current_rating": current_rating,
+        "stable_accuracy": round(stable_accuracy, 1),
+        "peak_accuracy": round(peak_accuracy, 1),
+        "stable_games_count": len(stable_games),
+        "peak_games_count": len(top_30_games),
+        "total_games": len(game_accuracies)
+    }
+
+
+def get_opening_progress(analyses: List[Dict], games: List[Dict] = None) -> Dict:
+    """
+    Get opening progress with win/loss ratio and suggestions.
+    Shows all openings played as White and Black with performance data.
+    """
+    import re
+    import json
+    from pathlib import Path
+    
+    if not games or len(games) < 3:
+        return {
+            "has_data": False,
+            "message": "Need at least 3 games to analyze opening progress"
+        }
+    
+    # Load ECO-to-opening mapping
+    eco_file = Path(__file__).parent / "data" / "eco_openings.json"
+    try:
+        with open(eco_file, "r") as f:
+            ECO_TO_OPENING = json.load(f)
+            ECO_TO_OPENING = {k: v for k, v in ECO_TO_OPENING.items() if not k.startswith("_")}
+    except Exception:
+        ECO_TO_OPENING = {}
+    
+    def get_opening_name(eco_code, pgn):
+        """Get opening name from ECO code or PGN"""
+        # First try to get from Opening header in PGN
+        opening_match = re.search(r'\[Opening "([^"]+)"\]', pgn, re.IGNORECASE)
+        if opening_match:
+            name = opening_match.group(1)
+            # Don't use if it's just the ECO code
+            if not re.match(r'^[A-E]\d{2}$', name):
+                return name.split(":")[0].split(",")[0].strip()[:30]
+        
+        # Fall back to ECO mapping
+        if eco_code and eco_code in ECO_TO_OPENING:
+            return ECO_TO_OPENING[eco_code]
+        
+        # Generic based on ECO letter
+        if eco_code:
+            letter_map = {
+                "A": "Flank Opening",
+                "B": "Semi-Open Game",
+                "C": "Open Game",
+                "D": "Closed Game",
+                "E": "Indian Defense"
+            }
+            return letter_map.get(eco_code[0], "Unknown Opening")
+        
+        return "Unknown Opening"
+    
+    # Build analyses lookup
+    analyses_lookup = {}
+    for a in analyses:
+        analyses_lookup[a.get("game_id")] = a
+    
+    # Track openings by color
+    white_openings = defaultdict(lambda: {
+        "wins": 0, "losses": 0, "draws": 0, "total": 0,
+        "total_accuracy": 0, "blunders": 0, "games": []
+    })
+    black_openings = defaultdict(lambda: {
+        "wins": 0, "losses": 0, "draws": 0, "total": 0,
+        "total_accuracy": 0, "blunders": 0, "games": []
+    })
+    
+    for game in games:
+        pgn = game.get("pgn", "")
+        user_color = game.get("user_color", "white")
+        result = game.get("result", "*")
+        game_id = game.get("game_id", "")
+        
+        # Extract ECO code
+        eco_match = re.search(r'\[ECO "([A-E]\d{2})"\]', pgn, re.IGNORECASE)
+        eco_code = eco_match.group(1).upper() if eco_match else None
+        
+        # Get opening name
+        opening = get_opening_name(eco_code, pgn)
+        
+        # Determine outcome for user
+        if result == "1-0":
+            user_won = user_color == "white"
+        elif result == "0-1":
+            user_won = user_color == "black"
+        else:
+            user_won = None  # Draw or unknown
+        
+        # Get analysis data
+        analysis = analyses_lookup.get(game_id, {})
+        sf = analysis.get("stockfish_analysis", {})
+        accuracy = sf.get("accuracy", 0)
+        blunders = sf.get("blunders", 0) or sum(1 for m in sf.get("move_evaluations", []) if m.get("evaluation") == "blunder")
+        
+        # Update stats
+        openings = white_openings if user_color == "white" else black_openings
+        openings[opening]["total"] += 1
+        openings[opening]["total_accuracy"] += accuracy
+        openings[opening]["blunders"] += blunders
+        
+        if user_won is True:
+            openings[opening]["wins"] += 1
+        elif user_won is False:
+            openings[opening]["losses"] += 1
+        else:
+            openings[opening]["draws"] += 1
+        
+        # Store game reference (limit to 5)
+        if len(openings[opening]["games"]) < 5:
+            opponent = game.get("black_player") if user_color == "white" else game.get("white_player")
+            openings[opening]["games"].append({
+                "game_id": game_id,
+                "opponent": opponent or "Opponent",
+                "result": "win" if user_won else ("loss" if user_won is False else "draw"),
+                "accuracy": accuracy
+            })
+    
+    def process_openings(openings_dict, color):
+        """Process openings and generate suggestions"""
+        result = []
+        for name, stats in openings_dict.items():
+            total = stats["total"]
+            if total < 1:
+                continue
+            
+            win_rate = round((stats["wins"] / total) * 100) if total > 0 else 0
+            avg_accuracy = round(stats["total_accuracy"] / total) if total > 0 else 0
+            blunders_per_game = round(stats["blunders"] / total, 1) if total > 0 else 0
+            
+            # Generate suggestion based on performance
+            if win_rate >= 60 and avg_accuracy >= 75:
+                status = "working"
+                suggestion = f"This is working well for you! Keep building on your {name} knowledge."
+            elif win_rate < 40 and total >= 3:
+                status = "struggling"
+                suggestion = f"Consider reviewing {name} theory or trying alternative lines. You might be missing key ideas."
+            elif blunders_per_game > 1.5:
+                status = "error_prone"
+                suggestion = f"You're making too many mistakes in the {name}. Focus on understanding the plans, not memorizing moves."
+            elif avg_accuracy < 60:
+                status = "needs_study"
+                suggestion = f"Your {name} accuracy is below average. Study the main ideas and typical plans."
+            else:
+                status = "neutral"
+                suggestion = f"Solid results with {name}. Keep playing it to build experience."
+            
+            result.append({
+                "name": name,
+                "games": total,
+                "wins": stats["wins"],
+                "losses": stats["losses"],
+                "draws": stats["draws"],
+                "win_rate": win_rate,
+                "avg_accuracy": avg_accuracy,
+                "blunders_per_game": blunders_per_game,
+                "status": status,
+                "suggestion": suggestion,
+                "sample_games": stats["games"][:3]
+            })
+        
+        # Sort by games played (most played first)
+        result.sort(key=lambda x: x["games"], reverse=True)
+        return result
+    
+    white_data = process_openings(white_openings, "white")
+    black_data = process_openings(black_openings, "black")
+    
+    # Find best and worst openings
+    all_openings = white_data + black_data
+    working_well = [o for o in all_openings if o["status"] == "working"]
+    needs_work = [o for o in all_openings if o["status"] in ["struggling", "error_prone", "needs_study"]]
+    
+    return {
+        "has_data": True,
+        "as_white": {
+            "total_games": sum(o["games"] for o in white_data),
+            "openings": white_data[:7]  # Top 7
+        },
+        "as_black": {
+            "total_games": sum(o["games"] for o in black_data),
+            "openings": black_data[:7]  # Top 7
+        },
+        "working_well": working_well[:3],
+        "needs_work": needs_work[:3],
+        "total_openings": len(set(o["name"] for o in all_openings))
+    }
+
+
 def get_journey_data(analyses: List[Dict], games: List[Dict] = None, badge_data: Dict = None) -> Dict:
     """
     Get all data needed for the Journey page (Progress page with hierarchy).
