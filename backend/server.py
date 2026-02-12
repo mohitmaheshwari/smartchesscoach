@@ -4893,6 +4893,34 @@ async def get_focus_page_data(user: User = Depends(get_current_user)):
     return focus_data
 
 
+@api_router.get("/coach-review")
+async def get_coach_review_data(user: User = Depends(get_current_user)):
+    """
+    Get personalized coach review of user's last game.
+    
+    This endpoint acts like a personal chess coach reviewing the student's most recent game:
+    - Did they follow our opening suggestions?
+    - Are they fixing the mistakes we identified?
+    - Where did they improve? Where do they still struggle?
+    - Personalized, factual feedback based on real data
+    
+    Returns:
+    - Coach's personalized message
+    - Performance comparison (vs their average)
+    - Opening check (did they play what we suggested?)
+    - Improvement highlights
+    - Areas of concern
+    """
+    review_data = await get_coach_game_review(db, user.user_id, call_llm)
+    
+    if review_data.get("has_review") and review_data.get("facts"):
+        # Add highlights and concerns
+        review_data["highlights"] = get_improvement_highlights(review_data["facts"])
+        review_data["concerns"] = get_concern_areas(review_data["facts"])
+    
+    return review_data
+
+
 @api_router.get("/journey/v2")
 async def get_journey_page_data(user: User = Depends(get_current_user)):
     """
