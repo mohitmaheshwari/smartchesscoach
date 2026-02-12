@@ -1209,11 +1209,12 @@ const MistakeGroup = ({ group, userColor, onMoveClick }) => (
       </h3>
       <Badge variant="outline" className="text-xs">{group.count}</Badge>
     </div>
-    <div className="space-y-1">
+    <div className="space-y-2">
       {group.items.map((mistake, idx) => (
         <MistakeItem 
           key={idx} 
           mistake={mistake} 
+          userColor={userColor}
           onClick={() => onMoveClick(mistake.move_number)}
         />
       ))}
