@@ -1221,49 +1221,177 @@ const MistakeGroup = ({ group, userColor, onMoveClick }) => (
   </div>
 );
 
-const MistakeItem = ({ mistake, onClick }) => {
+const MistakeItem = ({ mistake, onClick, userColor }) => {
   const cpLossInfo = formatCpLoss(mistake.cp_loss);
+  const [expanded, setExpanded] = useState(false);
+  const [explanation, setExplanation] = useState(null);
+  const [loading, setLoading] = useState(false);
+  
+  // Fetch explanation on-demand when expanded
+  const handleExpand = async (e) => {
+    e.stopPropagation();
+    
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
+    
+    setExpanded(true);
+    
+    // Don't fetch if we already have it
+    if (explanation) return;
+    
+    // Need fen_before to analyze
+    if (!mistake.fen_before) {
+      setExplanation({
+        explanation: "Position data not available for analysis.",
+        mistake_type: "unknown",
+        short_label: "Unknown"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`${API}/explain-mistake`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen_before: mistake.fen_before,
+          move: mistake.move,
+          best_move: mistake.best_move,
+          cp_loss: mistake.cp_loss,
+          user_color: userColor,
+          move_number: mistake.move_number
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setExplanation(data);
+      } else {
+        setExplanation({
+          explanation: "Could not generate explanation. Try re-analyzing the game.",
+          mistake_type: "error",
+          short_label: "Error"
+        });
+      }
+    } catch (err) {
+      console.error("Explanation fetch error:", err);
+      setExplanation({
+        explanation: "Could not generate explanation.",
+        mistake_type: "error",
+        short_label: "Error"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   
   return (
-    <button
-      className={`w-full text-left p-2 rounded-lg border-l-4 hover:ring-1 hover:ring-primary/30 transition-all ${
+    <div
+      className={`w-full text-left rounded-lg border-l-4 transition-all ${
         mistake.isBlunder ? 'border-l-red-500 bg-red-500/5' :
         mistake.isMistake ? 'border-l-orange-500 bg-orange-500/5' :
         'border-l-yellow-500 bg-yellow-500/5'
       }`}
-      onClick={onClick}
       data-testid={`mistake-${mistake.move_number}`}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm">Move {mistake.move_number}</span>
-          <span className={`text-xs px-1.5 py-0.5 rounded ${cpLossInfo.className} bg-current/10`}>
-            {cpLossInfo.text}
+      {/* Clickable header - goes to position */}
+      <button
+        className="w-full text-left p-2 hover:bg-white/5 transition-colors"
+        onClick={onClick}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm">Move {mistake.move_number}</span>
+            <span className={`text-xs px-1.5 py-0.5 rounded ${cpLossInfo.className} bg-current/10`}>
+              {cpLossInfo.text}
+            </span>
+          </div>
+          <span className="text-xs text-muted-foreground">{mistake.phase}</span>
+        </div>
+        
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-sm">
+            <span className="text-muted-foreground">Played:</span>{' '}
+            <span className="font-mono text-red-400">{mistake.move}</span>
+          </span>
+          <span className="text-muted-foreground">→</span>
+          <span className="text-sm">
+            <span className="text-muted-foreground">Better:</span>{' '}
+            <span className="font-mono text-green-400">{mistake.best_move}</span>
           </span>
         </div>
-        <span className="text-xs text-muted-foreground">{mistake.phase}</span>
-      </div>
+      </button>
       
-      <div className="flex items-center gap-2 mt-1">
-        <span className="text-sm">
-          <span className="text-muted-foreground">Played:</span>{' '}
-          <span className="font-mono text-red-400">{mistake.move}</span>
+      {/* Expandable explanation section */}
+      <button
+        className="w-full px-2 py-1.5 flex items-center justify-between text-xs border-t border-border/30 hover:bg-white/5 transition-colors"
+        onClick={handleExpand}
+        data-testid={`explain-btn-${mistake.move_number}`}
+      >
+        <span className="flex items-center gap-1.5 text-primary">
+          <HelpCircle className="w-3.5 h-3.5" />
+          Why was this a mistake?
         </span>
-        <span className="text-muted-foreground">→</span>
-        <span className="text-sm">
-          <span className="text-muted-foreground">Better:</span>{' '}
-          <span className="font-mono text-green-400">{mistake.best_move}</span>
-        </span>
-      </div>
+        {loading ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+        ) : (
+          expanded ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+        )}
+      </button>
       
-      {mistake.context && (
-        <p className="text-xs text-muted-foreground mt-1">{mistake.context}</p>
+      {/* Explanation content */}
+      {expanded && (
+        <div className="px-3 pb-3 space-y-2 animate-in slide-in-from-top-2 duration-200">
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Analyzing position...
+            </div>
+          ) : explanation ? (
+            <>
+              {/* Mistake type badge */}
+              {explanation.short_label && (
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${
+                      explanation.severity === 'blunder' ? 'border-red-500/50 text-red-400' :
+                      explanation.severity === 'mistake' ? 'border-orange-500/50 text-orange-400' :
+                      'border-yellow-500/50 text-yellow-400'
+                    }`}
+                  >
+                    {explanation.short_label}
+                  </Badge>
+                </div>
+              )}
+              
+              {/* Main explanation */}
+              <p className="text-sm leading-relaxed">
+                {explanation.explanation}
+              </p>
+              
+              {/* Thinking habit tip */}
+              {explanation.thinking_habit && (
+                <div className="p-2 rounded bg-primary/10 border border-primary/20">
+                  <p className="text-xs text-primary flex items-start gap-1.5">
+                    <Lightbulb className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <span><strong>Tip:</strong> {explanation.thinking_habit}</span>
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground py-2">
+              Click to load explanation
+            </p>
+          )}
+        </div>
       )}
-      
-      <p className="text-xs text-primary mt-1 opacity-70">
-        What should you have checked here?
-      </p>
-    </button>
+    </div>
   );
 };
 
