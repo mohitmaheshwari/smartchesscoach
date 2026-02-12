@@ -165,7 +165,7 @@ const FocusPage = ({ user }) => {
           </motion.div>
         ) : (
           <>
-            {/* DISCIPLINE CHECK - Sharp, Data-Driven Review */}
+            {/* UNIFIED LAST GAME SECTION - Personalized & Connected */}
             {disciplineCheck?.has_data && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -177,20 +177,20 @@ const FocusPage = ({ user }) => {
                   disciplineCheck.verdict?.tone === 'positive' 
                     ? 'border-emerald-500/40 bg-gradient-to-br from-emerald-500/5 to-green-500/5' 
                     : disciplineCheck.verdict?.tone === 'critical'
-                    ? 'border-red-500/40 bg-gradient-to-br from-red-500/5 to-orange-500/5'
+                    ? 'border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-red-500/5'
                     : 'border-slate-500/30 bg-gradient-to-br from-slate-500/5 to-zinc-500/5'
                 }`}>
                   <CardContent className="py-5">
                     {/* Header Row */}
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <Shield className={`w-4 h-4 ${
                           disciplineCheck.verdict?.tone === 'positive' ? 'text-emerald-500' :
-                          disciplineCheck.verdict?.tone === 'critical' ? 'text-red-500' :
+                          disciplineCheck.verdict?.tone === 'critical' ? 'text-orange-500' :
                           'text-slate-400'
                         }`} />
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Discipline Check
+                          Last Game Check
                         </span>
                       </div>
                       
@@ -206,97 +206,132 @@ const FocusPage = ({ user }) => {
                       </div>
                     </div>
                     
-                    {/* Verdict Headline */}
+                    {/* Headline + Opponent */}
                     <div className="mb-4">
                       <h3 className={`text-lg font-bold ${
                         disciplineCheck.verdict?.tone === 'positive' ? 'text-emerald-400' :
-                        disciplineCheck.verdict?.tone === 'critical' ? 'text-red-400' :
+                        disciplineCheck.verdict?.tone === 'critical' ? 'text-orange-400' :
                         'text-foreground'
                       }`} data-testid="discipline-headline">
                         {disciplineCheck.verdict?.headline || 'Analysis Complete'}
                       </h3>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-muted-foreground mt-0.5">
                         vs {disciplineCheck.opponent} · {disciplineCheck.result?.toUpperCase()}
                       </p>
                     </div>
                     
-                    {/* Metrics Grid - Compact Cards */}
-                    <div className="grid grid-cols-2 gap-2 mb-4">
-                      {/* Accuracy Card */}
-                      <div className="p-2.5 rounded-lg bg-background/50 border border-border/30">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Accuracy</span>
-                          <Activity className="w-3 h-3 text-muted-foreground" />
-                        </div>
-                        <span className="text-xl font-bold" data-testid="discipline-accuracy">
+                    {/* Personalized Summary - THE KEY DIFFERENTIATOR */}
+                    {disciplineCheck.verdict?.summary && (
+                      <div className={`p-3 rounded-lg mb-4 ${
+                        disciplineCheck.verdict?.tone === 'positive' 
+                          ? 'bg-emerald-500/10 border border-emerald-500/20' 
+                          : disciplineCheck.verdict?.tone === 'critical'
+                          ? 'bg-orange-500/10 border border-orange-500/20'
+                          : 'bg-slate-500/10 border border-slate-500/20'
+                      }`}>
+                        <p className="text-sm font-medium" data-testid="discipline-summary">
+                          {disciplineCheck.verdict.summary}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Quick Stats Row */}
+                    <div className="flex items-center gap-4 mb-4">
+                      {/* Accuracy with comparison */}
+                      <div className="flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-lg font-bold" data-testid="discipline-accuracy">
                           {disciplineCheck.metrics?.accuracy || 0}%
                         </span>
-                      </div>
-                      
-                      {/* Decision Stability Card */}
-                      <div className="p-2.5 rounded-lg bg-background/50 border border-border/30">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Stability</span>
-                          <Crosshair className="w-3 h-3 text-muted-foreground" />
-                        </div>
-                        {disciplineCheck.metrics?.decision_stability?.score !== null ? (
-                          <span className={`text-xl font-bold ${
-                            disciplineCheck.metrics.decision_stability.score >= 80 ? 'text-emerald-500' :
-                            disciplineCheck.metrics.decision_stability.score >= 50 ? 'text-amber-500' :
-                            'text-red-500'
-                          }`} data-testid="discipline-stability">
-                            {disciplineCheck.metrics.decision_stability.score}%
+                        {disciplineCheck.personalization?.accuracy_vs_avg !== null && (
+                          <span className={`text-xs ${
+                            disciplineCheck.personalization.accuracy_vs_avg >= 5 ? 'text-emerald-500' :
+                            disciplineCheck.personalization.accuracy_vs_avg <= -5 ? 'text-red-500' :
+                            'text-muted-foreground'
+                          }`}>
+                            {disciplineCheck.personalization.accuracy_vs_avg >= 0 ? '+' : ''}
+                            {disciplineCheck.personalization.accuracy_vs_avg}%
                           </span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">N/A</span>
                         )}
                       </div>
-                    </div>
-                    
-                    {/* Issues and Positives */}
-                    <div className="space-y-1.5">
-                      {disciplineCheck.verdict?.issues?.slice(0, 2).map((issue, i) => (
-                        <div 
-                          key={i}
-                          className="flex items-center gap-2 text-xs p-2 rounded bg-red-500/10 border border-red-500/20 text-red-400"
-                          data-testid={`discipline-issue-${i}`}
-                        >
-                          <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{issue}</span>
-                        </div>
-                      ))}
-                      {disciplineCheck.verdict?.positives?.slice(0, 2).map((pos, i) => (
-                        <div 
-                          key={i}
-                          className="flex items-center gap-2 text-xs p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                          data-testid={`discipline-positive-${i}`}
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{pos}</span>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {/* Opening Compliance Indicator */}
-                    {disciplineCheck.metrics?.opening_compliance && (
-                      <div className="mt-3 pt-3 border-t border-border/30">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              Opening: {disciplineCheck.metrics.opening_compliance.played}
+                      
+                      <div className="h-5 w-px bg-border/50" />
+                      
+                      {/* Blunders */}
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-lg font-bold ${
+                          disciplineCheck.metrics?.blunders === 0 ? 'text-emerald-500' :
+                          disciplineCheck.metrics?.blunders >= 3 ? 'text-red-500' :
+                          'text-orange-500'
+                        }`}>
+                          {disciplineCheck.metrics?.blunders || 0}
+                        </span>
+                        <span className="text-xs text-muted-foreground">blunders</span>
+                      </div>
+                      
+                      {/* Stability if available */}
+                      {disciplineCheck.metrics?.decision_stability?.score !== null && (
+                        <>
+                          <div className="h-5 w-px bg-border/50" />
+                          <div className="flex items-center gap-1.5">
+                            <Crosshair className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className={`text-lg font-bold ${
+                              disciplineCheck.metrics.decision_stability.score >= 80 ? 'text-emerald-500' :
+                              disciplineCheck.metrics.decision_stability.score >= 50 ? 'text-amber-500' :
+                              'text-red-500'
+                            }`} data-testid="discipline-stability">
+                              {disciplineCheck.metrics.decision_stability.score}%
                             </span>
                           </div>
+                        </>
+                      )}
+                    </div>
+                    
+                    {/* What We Noticed - Personalized Observations */}
+                    {(disciplineCheck.verdict?.positives?.length > 0 || disciplineCheck.verdict?.issues?.length > 0) && (
+                      <div className="space-y-1.5 mb-3">
+                        {disciplineCheck.verdict?.positives?.slice(0, 2).map((pos, i) => (
+                          <div 
+                            key={`pos-${i}`}
+                            className="flex items-center gap-2 text-xs p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                            data-testid={`discipline-positive-${i}`}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>{pos}</span>
+                          </div>
+                        ))}
+                        {disciplineCheck.verdict?.issues?.slice(0, 2).map((issue, i) => (
+                          <div 
+                            key={`issue-${i}`}
+                            className="flex items-center gap-2 text-xs p-2 rounded bg-orange-500/10 border border-orange-500/20 text-orange-400"
+                            data-testid={`discipline-issue-${i}`}
+                          >
+                            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>{issue}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Opening Info - Compact */}
+                    {disciplineCheck.metrics?.opening_compliance?.played && 
+                     disciplineCheck.metrics.opening_compliance.played !== "Unknown" && (
+                      <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                            {disciplineCheck.metrics.opening_compliance.played}
+                          </span>
+                        </div>
+                        {disciplineCheck.metrics.opening_compliance.verdict !== 'NEUTRAL' && (
                           <span className={`text-xs font-medium px-2 py-0.5 rounded ${
                             disciplineCheck.metrics.opening_compliance.verdict === 'FOLLOWED' 
                               ? 'bg-emerald-500/20 text-emerald-400' 
-                              : disciplineCheck.metrics.opening_compliance.verdict === 'IGNORED'
-                              ? 'bg-red-500/20 text-red-400'
-                              : 'bg-slate-500/20 text-slate-400'
+                              : 'bg-orange-500/20 text-orange-400'
                           }`} data-testid="opening-compliance">
                             {disciplineCheck.metrics.opening_compliance.verdict}
                           </span>
-                        </div>
+                        )}
                       </div>
                     )}
                     
@@ -317,7 +352,8 @@ const FocusPage = ({ user }) => {
               </motion.div>
             )}
 
-            {/* MAIN FOCUS - The ONE thing - NOW CLICKABLE */}
+            {/* RATING KILLER - Only show when relevant (game was bad OR no discipline data) */}
+            {(!disciplineCheck?.has_data || disciplineCheck?.verdict?.show_rating_killer !== false) && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
