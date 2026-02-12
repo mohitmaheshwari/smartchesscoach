@@ -20,6 +20,7 @@ import {
   Play,
   Eye
 } from "lucide-react";
+import { formatEvalWithContext, formatCpLoss, getEvalChangeIndicator } from "@/utils/evalFormatter";
 
 /**
  * EvidenceModal - Shows specific game positions where a pattern occurred
@@ -68,11 +69,9 @@ const EvidenceModal = ({
     onClose();
   };
 
-  // Format eval for display
-  const formatEval = (evalBefore) => {
-    if (evalBefore === undefined || evalBefore === null) return "";
-    const sign = evalBefore >= 0 ? "+" : "";
-    return `${sign}${evalBefore.toFixed(1)}`;
+  // Format eval for display - now using human-friendly descriptions
+  const getEvalDisplay = (evalBefore) => {
+    return formatEvalWithContext(evalBefore);
   };
 
   return (
@@ -120,13 +119,9 @@ const EvidenceModal = ({
                   </div>
                   
                   <div className="flex items-center gap-2 text-xs">
-                    {/* Eval before */}
-                    <span className={`font-mono ${
-                      item.eval_before > 1 ? 'text-green-500' :
-                      item.eval_before < -1 ? 'text-red-500' :
-                      'text-yellow-500'
-                    }`}>
-                      {formatEval(item.eval_before)}
+                    {/* Eval before - human readable */}
+                    <span className={getEvalDisplay(item.eval_before).className}>
+                      {getEvalDisplay(item.eval_before).text}
                     </span>
                     
                     {/* Arrow showing what happened */}
@@ -137,9 +132,9 @@ const EvidenceModal = ({
                       {item.move_played}
                     </span>
                     
-                    {/* CP loss */}
-                    <span className="text-red-500/70 ml-auto">
-                      -{item.cp_loss} cp
+                    {/* Mistake severity instead of raw cp */}
+                    <span className={`ml-auto ${formatCpLoss(item.cp_loss).className}`}>
+                      {formatCpLoss(item.cp_loss).text}
                     </span>
                   </div>
                   
@@ -178,20 +173,21 @@ const EvidenceModal = ({
                   </div>
                 </div>
                 
-                {/* Position details */}
+                {/* Position details - human friendly */}
                 <div className="mt-4 space-y-3">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">
-                      You had <span className={`font-bold ${
-                        evidence[previewIndex].eval_before > 1 ? 'text-green-500' :
-                        evidence[previewIndex].eval_before < -1 ? 'text-red-500' :
-                        'text-yellow-500'
-                      }`}>
-                        {formatEval(evidence[previewIndex].eval_before)}
+                      You were <span className={`font-bold ${getEvalDisplay(evidence[previewIndex].eval_before).className}`}>
+                        {getEvalDisplay(evidence[previewIndex].eval_before).text}
                       </span>
                     </p>
                     <p className="text-sm mt-1">
                       You played <span className="font-mono text-red-400">{evidence[previewIndex].move_played}</span>
+                      {evidence[previewIndex].cp_loss && (
+                        <span className={`ml-2 ${formatCpLoss(evidence[previewIndex].cp_loss).className}`}>
+                          ({formatCpLoss(evidence[previewIndex].cp_loss).text})
+                        </span>
+                      )}
                     </p>
                     {evidence[previewIndex].best_move && (
                       <p className="text-sm text-emerald-500 mt-1">
