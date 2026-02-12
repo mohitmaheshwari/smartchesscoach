@@ -46,7 +46,9 @@ import {
   Pause,
   Sparkles,
   RefreshCw,
-  HelpCircle
+  HelpCircle,
+  Star,
+  Trophy
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
