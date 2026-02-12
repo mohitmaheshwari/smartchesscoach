@@ -1790,10 +1790,6 @@ def _identify_strategic_themes(move_evals: List, user_color: str) -> List[Dict]:
         "principle": "An active piece is worth more than a passive one. Before each move, ask: 'Which piece is my worst?'",
         "remember": "Improve your worst piece, then reassess."
     })
-        "description": "The battle for piece coordination",
-        "principle": "An active piece is worth more than a passive one. Before each move, ask: 'Which piece is my worst?'",
-        "remember": "Improve your worst piece, then reassess."
-    })
     
     return themes
 
