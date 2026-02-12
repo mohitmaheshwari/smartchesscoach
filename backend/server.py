@@ -94,6 +94,37 @@ from phase_theory_service import (
     get_rating_bracket
 )
 
+# Import Auto-Coach service for live post-game feedback
+from auto_coach_service import (
+    build_deterministic_summary,
+    generate_and_save_commentary,
+    get_quick_notification_message
+)
+
+# Import Notification service
+from notification_service import (
+    create_notification,
+    get_user_notifications,
+    get_unread_count,
+    mark_notification_read,
+    dismiss_notification,
+    notify_game_analyzed,
+    notify_focus_updated,
+    get_push_notification_payload,
+    NotificationType,
+    NotificationPriority
+)
+
+# Import Subscription service
+from subscription_service import (
+    get_user_plan,
+    get_effective_plan,
+    can_analyze_game,
+    increment_analysis_count,
+    has_feature_access,
+    upgrade_to_pro
+)
+
 # Import Mistake Card service for the Mistake Mastery System
 from mistake_card_service import (
     extract_mistake_cards_from_analysis,
