@@ -42,7 +42,8 @@ import {
   TrendingUp,
   TrendingDown,
   Pause,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
