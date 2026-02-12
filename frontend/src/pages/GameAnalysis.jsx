@@ -1177,143 +1177,152 @@ const GameAnalysis = ({ user }) => {
 
                   {/* STRATEGY TAB - Phase-Aware Coaching */}
                   <TabsContent value="strategy" className="space-y-4 mt-4">
-                    {gameStrategy && gameStrategy.has_evidence ? (
+                    {strategicAnalysis && strategicAnalysis.has_strategy ? (
                       <>
-                        {/* Evidence-Based Strategy Header */}
-                        <div className="p-4 rounded-lg bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Brain className="w-5 h-5 text-violet-500" />
-                              <p className="font-semibold">Strategy Based on YOUR Mistakes</p>
+                        {/* OPENING STRATEGY */}
+                        {strategicAnalysis.opening && (
+                          <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <BookOpen className="w-5 h-5 text-green-500" />
+                              <p className="font-semibold">Opening: {strategicAnalysis.opening.name}</p>
+                              <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
+                                {userColor}
+                              </span>
                             </div>
-                            <div className="text-right">
-                              <p className="text-sm text-violet-400 font-bold">{gameStrategy.total_mistakes} mistakes</p>
-                              <p className="text-xs text-muted-foreground">~{gameStrategy.total_cp_lost}cp lost</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Phase-by-Phase Analysis */}
-                        {gameStrategy.phases && gameStrategy.phases.map((phase, idx) => (
-                          <div 
-                            key={phase.phase} 
-                            className={`p-4 rounded-lg border ${
-                              phase.phase === 'opening' ? 'border-green-500/20 bg-green-500/5' :
-                              phase.phase === 'middlegame' ? 'border-yellow-500/20 bg-yellow-500/5' :
-                              'border-blue-500/20 bg-blue-500/5'
-                            }`}
-                          >
-                            {/* Phase Header */}
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded ${
-                                  phase.phase === 'opening' ? 'bg-green-500/20 text-green-400' :
-                                  phase.phase === 'middlegame' ? 'bg-yellow-500/20 text-yellow-400' :
-                                  'bg-blue-500/20 text-blue-400'
-                                }`}>
-                                  {phase.phase_label}
-                                </span>
-                                <span className="text-xs text-muted-foreground">{phase.move_range}</span>
-                              </div>
-                              <div className="text-right">
-                                <span className="text-sm font-bold text-red-400">-{phase.total_cp_lost}cp</span>
-                                <span className="text-xs text-muted-foreground ml-2">({phase.mistake_count} mistake{phase.mistake_count !== 1 ? 's' : ''})</span>
-                              </div>
-                            </div>
-
-                            {/* Phase Insight */}
-                            <p className="text-sm mb-4">{phase.insight}</p>
-
-                            {/* Worst Mistake with Board */}
-                            {phase.worst_mistake && (
-                              <div className="p-3 rounded-lg bg-background/50 border border-border/50 mb-3">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <AlertTriangle className="w-4 h-4 text-red-500" />
-                                  <span className="text-sm font-medium text-red-400">Worst Mistake: Move {phase.worst_mistake.move_number}</span>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {/* Mini Board */}
-                                  <div className="flex justify-center">
-                                    <div className="w-[180px]">
-                                      <Chessboard
-                                        position={phase.worst_mistake.fen_before || "start"}
-                                        boardWidth={180}
-                                        arePiecesDraggable={false}
-                                        customBoardStyle={{
-                                          borderRadius: '4px',
-                                          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Mistake Details */}
-                                  <div className="flex flex-col justify-center">
-                                    <p className="text-sm mb-1">
-                                      You were <span className={`font-bold ${formatEvalWithContext(phase.worst_mistake.eval_before).className}`}>
-                                        {formatEvalWithContext(phase.worst_mistake.eval_before).text}
-                                      </span>
-                                    </p>
-                                    <p className="text-sm mb-1">
-                                      You played <span className="font-mono text-red-400">{phase.worst_mistake.move_played}</span>
-                                      <span className={`ml-2 ${formatCpLoss(phase.worst_mistake.cp_loss).className}`}>
-                                        ({formatCpLoss(phase.worst_mistake.cp_loss).text})
-                                      </span>
-                                    </p>
-                                    <p className="text-sm text-emerald-500">
-                                      Better: <span className="font-mono">{phase.worst_mistake.best_move}</span>
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-2">
-                                      Pattern: {phase.worst_mistake.pattern}
-                                    </p>
-                                  </div>
-                                </div>
+                            
+                            {strategicAnalysis.opening.main_idea && (
+                              <p className="text-sm text-green-400 font-medium mb-3">
+                                {strategicAnalysis.opening.main_idea}
+                              </p>
+                            )}
+                            
+                            {/* The Plan */}
+                            {strategicAnalysis.opening.plan && (
+                              <div className="p-3 rounded bg-background/50 border border-border/50 mb-3">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">The Plan</p>
+                                <p className="text-sm font-mono">{strategicAnalysis.opening.plan}</p>
                               </div>
                             )}
-
-                            {/* The Fix */}
-                            {phase.fix && (
-                              <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20">
-                                <div className="flex items-center gap-2">
-                                  <Lightbulb className="w-4 h-4 text-yellow-500" />
-                                  <span className="text-sm">{phase.fix}</span>
-                                </div>
+                            
+                            {/* Key Ideas */}
+                            {strategicAnalysis.opening.key_ideas && strategicAnalysis.opening.key_ideas.length > 0 && (
+                              <div className="space-y-1.5">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Key Ideas</p>
+                                {strategicAnalysis.opening.key_ideas.map((idea, i) => (
+                                  <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                                    <span className="text-green-500 mt-0.5">•</span>
+                                    <span>{idea}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* How You Did */}
+                            {strategicAnalysis.opening.how_you_did && (
+                              <div className="mt-3 pt-3 border-t border-green-500/20">
+                                <p className="text-xs text-muted-foreground">
+                                  <span className="text-green-500 font-medium">Result:</span>{" "}
+                                  {strategicAnalysis.opening.how_you_did}
+                                </p>
                               </div>
                             )}
                           </div>
-                        ))}
+                        )}
 
-                        {/* Overall Insights */}
-                        {gameStrategy.insights && gameStrategy.insights.length > 0 && (
-                          <div className="space-y-3">
-                            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Key Takeaways</p>
-                            {gameStrategy.insights.map((insight, idx) => (
-                              <div 
-                                key={idx}
-                                className={`p-3 rounded-lg border ${
-                                  insight.type === 'critical' ? 'border-red-500/30 bg-red-500/10' :
-                                  insight.type === 'warning' ? 'border-orange-500/30 bg-orange-500/10' :
-                                  insight.type === 'positive' ? 'border-green-500/30 bg-green-500/10' :
-                                  'border-purple-500/30 bg-purple-500/10'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 mb-1">
-                                  {insight.type === 'critical' && <TrendingDown className="w-4 h-4 text-red-500" />}
-                                  {insight.type === 'warning' && <AlertCircle className="w-4 h-4 text-orange-500" />}
-                                  {insight.type === 'positive' && <Trophy className="w-4 h-4 text-green-500" />}
-                                  {insight.type === 'pattern' && <Repeat className="w-4 h-4 text-purple-500" />}
-                                  <span className="font-medium text-sm">{insight.title}</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground">{insight.message}</p>
+                        {/* PAWN STRUCTURE */}
+                        {strategicAnalysis.pawn_structure && strategicAnalysis.pawn_structure.type && (
+                          <div className="p-4 rounded-lg bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Target className="w-5 h-5 text-yellow-500" />
+                              <p className="font-semibold">Pawn Structure: {strategicAnalysis.pawn_structure.type}</p>
+                            </div>
+                            
+                            {strategicAnalysis.pawn_structure.your_plan && (
+                              <div className="p-3 rounded bg-background/50 border border-border/50 mb-3">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Your Plan</p>
+                                <p className="text-sm">{strategicAnalysis.pawn_structure.your_plan}</p>
                               </div>
-                            ))}
+                            )}
+                            
+                            {strategicAnalysis.pawn_structure.pawn_breaks && strategicAnalysis.pawn_structure.pawn_breaks.length > 0 && (
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Pawn Breaks</p>
+                                {strategicAnalysis.pawn_structure.pawn_breaks.map((breakMove, i) => (
+                                  <p key={i} className="text-sm text-yellow-400 font-mono">{breakMove}</p>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {strategicAnalysis.pawn_structure.key_squares && strategicAnalysis.pawn_structure.key_squares.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Key Squares</p>
+                                {strategicAnalysis.pawn_structure.key_squares.map((sq, i) => (
+                                  <p key={i} className="text-sm text-muted-foreground">{sq}</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* STRATEGIC THEMES */}
+                        {strategicAnalysis.strategic_themes && strategicAnalysis.strategic_themes.length > 0 && (
+                          <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-violet-500/10 border border-purple-500/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Brain className="w-5 h-5 text-purple-500" />
+                              <p className="font-semibold">Strategic Themes in This Game</p>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              {strategicAnalysis.strategic_themes.map((theme, idx) => (
+                                <div key={idx} className="p-3 rounded bg-background/50 border border-border/50">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {theme.icon === 'trending-up' && <TrendingUp className="w-4 h-4 text-green-500" />}
+                                    {theme.icon === 'shield' && <Target className="w-4 h-4 text-blue-500" />}
+                                    {theme.icon === 'target' && <Target className="w-4 h-4 text-amber-500" />}
+                                    {theme.icon === 'zap' && <Zap className="w-4 h-4 text-yellow-500" />}
+                                    <span className="font-medium text-sm">{theme.theme}</span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mb-2">{theme.description}</p>
+                                  <p className="text-sm">{theme.principle}</p>
+                                  <p className="text-xs text-purple-400 mt-2 italic">Remember: {theme.remember}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* FUTURE ADVICE */}
+                        {strategicAnalysis.future_advice && strategicAnalysis.future_advice.length > 0 && (
+                          <div className="p-4 rounded-lg bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Lightbulb className="w-5 h-5 text-blue-500" />
+                              <p className="font-semibold">For Future Games Like This</p>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              {strategicAnalysis.future_advice.map((advice, idx) => (
+                                <div key={idx} className="p-3 rounded bg-background/50 border border-border/50">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {advice.icon === 'book-open' && <BookOpen className="w-4 h-4 text-green-500" />}
+                                    {advice.icon === 'grid' && <Target className="w-4 h-4 text-yellow-500" />}
+                                    {advice.icon === 'lightbulb' && <Lightbulb className="w-4 h-4 text-amber-500" />}
+                                    {advice.icon === 'zap' && <Zap className="w-4 h-4 text-purple-500" />}
+                                    {advice.icon === 'trending-up' && <TrendingUp className="w-4 h-4 text-green-500" />}
+                                    {advice.icon === 'shield' && <Target className="w-4 h-4 text-blue-500" />}
+                                    {advice.icon === 'target' && <Target className="w-4 h-4 text-amber-500" />}
+                                    <span className="text-xs text-muted-foreground uppercase tracking-wide">{advice.category}</span>
+                                  </div>
+                                  {advice.advice && <p className="text-sm font-medium">{advice.advice}</p>}
+                                  {advice.action && <p className="text-sm text-muted-foreground mt-1">{advice.action}</p>}
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </>
                     ) : strategicLesson ? (
                       <>
-                        {/* Fallback to generic strategy if no evidence-based strategy */}
+                        {/* Fallback to generic strategy if no strategic analysis */}
                         {/* Game Phase Summary */}
                         {phaseAnalysis && (
                           <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20">
