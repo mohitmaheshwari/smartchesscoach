@@ -1322,6 +1322,31 @@ const GameAnalysis = ({ user }) => {
                                     <span className="font-medium text-sm">{theme.theme}</span>
                                   </div>
                                   <p className="text-sm text-muted-foreground mb-2">{theme.description}</p>
+                                  
+                                  {/* Verdict - How you handled it */}
+                                  {theme.verdict && (
+                                    <p className={`text-sm font-medium mb-2 ${
+                                      theme.verdict.includes('✓') ? 'text-green-400' :
+                                      theme.verdict.includes('⚠') ? 'text-yellow-400' :
+                                      'text-red-400'
+                                    }`}>
+                                      {theme.verdict}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Critical Moment with Move Reference */}
+                                  {theme.critical_moment && (
+                                    <div className="p-2 rounded bg-red-500/10 border border-red-500/20 mb-2">
+                                      <p className="text-xs text-red-400 uppercase mb-1">Move {theme.critical_moment.move_number}</p>
+                                      <p className="text-sm text-red-400">
+                                        {theme.critical_moment.description}
+                                      </p>
+                                      {theme.critical_moment.impact && (
+                                        <p className="text-xs text-muted-foreground mt-1">{theme.critical_moment.impact}</p>
+                                      )}
+                                    </div>
+                                  )}
+                                  
                                   <p className="text-sm">{theme.principle}</p>
                                   <p className="text-xs text-purple-400 mt-2 italic">Remember: {theme.remember}</p>
                                 </div>
