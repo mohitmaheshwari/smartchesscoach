@@ -287,7 +287,7 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
                     mistake_type = "material_blunder" if h["value"] >= 5 else "hanging_piece"
                     details["hanging"] = h
                     break
-        except:
+        except (ValueError, chess.InvalidMoveError, chess.IllegalMoveError):
             pass
     
     # 2. Check if walked into a fork (only if we didn't just hang the moved piece)
