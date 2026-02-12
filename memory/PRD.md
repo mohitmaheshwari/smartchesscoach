@@ -315,8 +315,7 @@ Created a utility library that converts engine evaluations to intuitive language
 - `JourneyV2.jsx`: Shows "374 pawns lost (major weakness)" instead of "~37400 cp lost"
 
 ## Upcoming Tasks (P0)
-1. **Complete Lab Page Phase 2 (Strategy Tab)** - Implement Plan vs Execution comparison for opening, pawn structure, and strategic themes
-2. **Complete Lab Page Phase 4 (Practice Mode)** - Critical positions drill within the Lab page
+1. **"Show Only Critical Moves" Toggle Enhancement** - Improve the existing toggle to better filter move list
 
 ## Next Tasks (P1)
 1. **Fix Focus Areas to Show Multiple Weaknesses** - Currently only shows one weakness on Dashboard
