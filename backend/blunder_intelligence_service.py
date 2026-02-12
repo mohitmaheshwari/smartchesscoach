@@ -1028,22 +1028,13 @@ def get_opening_guidance(analyses: List[Dict], games: List[Dict]) -> Dict:
         pgn = game.get("pgn", "")
         result = game.get("result", "")
         
+        # Get readable opening name from ECO code or PGN
+        opening = get_opening_name(eco_code, pgn)
+        
         if not opening or opening in ["Unknown", "?", ""]:
-            # Try to extract from PGN
-            pgn = game.get("pgn", "")
-            import re
-            opening_match = re.search(r'\[Opening "([^"]+)"\]', pgn)
-            if opening_match:
-                opening = opening_match.group(1)
-            else:
-                continue  # Skip games without opening info
+            continue  # Skip games without opening info
         
-        # Normalize opening name (take first part before variation)
-        opening_base = opening.split(":")[0].split(",")[0].strip()
-        if len(opening_base) < 3:
-            continue
-        
-        key = f"{user_color}_{opening_base}"
+        key = f"{user_color}_{opening}"
         stats = opening_stats[key]
         stats["name"] = opening_base
         stats["color"] = user_color
