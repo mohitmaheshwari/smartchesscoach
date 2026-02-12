@@ -212,6 +212,14 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
     """
     Analyze a mistake position to determine what went wrong.
     
+    IMPORTANT: This function should ONLY be called when Stockfish has determined
+    the move is a mistake (cp_loss >= 50). Stockfish is the source of truth for
+    whether a move is good or bad. This function only explains WHY it's bad.
+    
+    Example: Queen moves in front of rook
+    - If cp_loss is LOW → Stockfish says it's GOOD (maybe a brilliant sacrifice) → DON'T call this
+    - If cp_loss is HIGH → Stockfish says it's BAD (blunder) → Call this to explain why
+    
     Returns structured tags that can be turned into an explanation.
     This is 100% DETERMINISTIC - no LLM involved.
     
@@ -219,12 +227,22 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
         fen_before: FEN position before the mistake
         move_played: The move the user played (SAN notation)
         best_move: The engine's best move (SAN notation)
-        cp_loss: Centipawn loss (always positive)
+        cp_loss: Centipawn loss (always positive, should be >= 50)
         user_color: "white" or "black"
     
     Returns:
         Dict with tags describing the mistake
     """
+    # Early return if this isn't actually a mistake according to Stockfish
+    if cp_loss < 50:
+        return {
+            "mistake_type": "good_move",
+            "details": {},
+            "phase": "unknown",
+            "severity": "none",
+            "note": "Not a mistake - cp_loss too low"
+        }
+    
     try:
         board = chess.Board(fen_before)
     except (ValueError, chess.InvalidFenError):
