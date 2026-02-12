@@ -5063,18 +5063,39 @@ async def get_identity(user: User = Depends(get_current_user)):
 @api_router.get("/mission")
 async def get_current_mission(user: User = Depends(get_current_user)):
     """
-    Get current mission.
+    Get current mission based on weakness + rating tier.
     
-    Returns:
-    - Mission name and goal
-    - Progress
-    - Reward
+    Mission Engine - 3 Layer Architecture:
+    Layer 1: Weakness Type → Determines THEME
+    Layer 2: Rating Tier → Adjusts DIFFICULTY  
+    Layer 3: Mission Difficulty → Actual challenge
     """
     analyses = await db.game_analyses.find(
         {"user_id": user.user_id}
     ).sort("created_at", -1).limit(15).to_list(15)
     
-    return get_mission(analyses)
+    # Get user's rating from recent games
+    user_rating = None
+    recent_games = await db.games.find(
+        {"user_id": user.user_id, "is_analyzed": True}
+    ).sort("imported_at", -1).limit(5).to_list(5)
+    
+    for game in recent_games:
+        pgn = game.get("pgn", "")
+        user_color = game.get("user_color", "white")
+        
+        # Extract user's rating from PGN
+        import re
+        if user_color == "white":
+            match = re.search(r'\[WhiteElo "(\d+)"\]', pgn)
+        else:
+            match = re.search(r'\[BlackElo "(\d+)"\]', pgn)
+        
+        if match:
+            user_rating = int(match.group(1))
+            break
+    
+    return get_mission(analyses, user_rating=user_rating)
 
 
 @api_router.get("/milestones")
