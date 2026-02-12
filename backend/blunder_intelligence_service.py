@@ -1640,64 +1640,156 @@ def _analyze_pawn_structure(move_evals: List, user_color: str) -> Dict:
 
 
 def _identify_strategic_themes(move_evals: List, user_color: str) -> List[Dict]:
-    """Identify strategic themes that were present in the game."""
+    """Identify strategic themes with SPECIFIC MOVE EVIDENCE."""
     themes = []
     
-    # Analyze the game for common themes
-    had_advantage = False
-    had_disadvantage = False
-    endgame_reached = False
+    # Collect evidence for each theme
+    advantage_positions = []  # Moves where user had +1.5 or more
+    disadvantage_positions = []  # Moves where user was -1.5 or worse
+    endgame_moves = []  # Moves after move 35
+    conversion_failures = []  # Moves where user blundered while winning
     
     for move in move_evals:
+        if not move.get("is_user_move", True):
+            continue
+            
         eval_before = move.get("eval_before", 0)
+        eval_after = move.get("eval_after", 0)
         move_num = move.get("move_number", 0)
+        move_san = move.get("move", "")
+        cp_loss = abs(move.get("cp_loss", 0))
         
-        if user_color == "white":
-            if eval_before > 1.5:
-                had_advantage = True
-            elif eval_before < -1.5:
-                had_disadvantage = True
-        else:
-            if eval_before < -1.5:
-                had_advantage = True
-            elif eval_before > 1.5:
-                had_disadvantage = True
+        # Adjust eval for black
+        if user_color == "black":
+            eval_before = -eval_before
+            eval_after = -eval_after
         
+        # Track advantage positions
+        if eval_before >= 1.5:
+            advantage_positions.append({
+                "move_number": move_num,
+                "eval": round(eval_before, 1),
+                "move": move_san,
+                "cp_loss": cp_loss,
+                "fen": move.get("fen_before", "")
+            })
+            
+            # Check for conversion failure (blunder while winning)
+            if cp_loss >= 100:
+                conversion_failures.append({
+                    "move_number": move_num,
+                    "eval_before": round(eval_before, 1),
+                    "eval_after": round(eval_after, 1),
+                    "move": move_san,
+                    "cp_loss": cp_loss,
+                    "fen": move.get("fen_before", "")
+                })
+        
+        # Track disadvantage positions
+        if eval_before <= -0.5:
+            disadvantage_positions.append({
+                "move_number": move_num,
+                "eval": round(eval_before, 1),
+                "move": move_san,
+                "fen": move.get("fen_before", "")
+            })
+        
+        # Track endgame
         if move_num > 35:
-            endgame_reached = True
+            endgame_moves.append({
+                "move_number": move_num,
+                "eval": round(eval_before, 1),
+                "move": move_san,
+                "cp_loss": cp_loss
+            })
     
-    # Add relevant themes based on what happened
-    if had_advantage:
-        themes.append({
+    # ===== BUILD THEMES WITH EVIDENCE =====
+    
+    # 1. CONVERTING ADVANTAGE
+    if advantage_positions:
+        theme = {
             "theme": "Converting Advantage",
             "icon": "trending-up",
-            "description": "You had a winning position at some point",
+            "description": f"You had a winning position {len(advantage_positions)} times",
             "principle": "When ahead in material or position, simplify! Trade pieces (not pawns), reduce opponent's counterplay.",
             "remember": "The most important skill at higher levels is converting won positions."
-        })
+        }
+        
+        # Add critical evidence
+        if conversion_failures:
+            worst_failure = max(conversion_failures, key=lambda x: x["cp_loss"])
+            theme["critical_moment"] = {
+                "move_number": worst_failure["move_number"],
+                "description": f"You were +{worst_failure['eval_before']} but played {worst_failure['move']}",
+                "eval_before": worst_failure["eval_before"],
+                "your_move": worst_failure["move"],
+                "impact": f"Lost {worst_failure['cp_loss']}cp - position went from winning to uncertain",
+                "fen": worst_failure["fen"]
+            }
+            theme["verdict"] = f"❌ Failed to convert: Move {worst_failure['move_number']} threw away a +{worst_failure['eval_before']} position"
+        else:
+            # Find the best moment
+            best_advantage = max(advantage_positions, key=lambda x: x["eval"])
+            theme["critical_moment"] = {
+                "move_number": best_advantage["move_number"],
+                "description": f"Peak advantage: +{best_advantage['eval']}",
+                "eval_before": best_advantage["eval"],
+                "your_move": best_advantage["move"],
+                "fen": best_advantage["fen"]
+            }
+            theme["verdict"] = "✓ Handled the advantage reasonably well"
+        
+        themes.append(theme)
     
-    if had_disadvantage:
-        themes.append({
+    # 2. DEFENSIVE PLAY
+    if disadvantage_positions:
+        theme = {
             "theme": "Defensive Play",
             "icon": "shield",
-            "description": "You were under pressure at some point",
+            "description": f"You were under pressure for {len(disadvantage_positions)} moves",
             "principle": "When worse, create complications! Avoid trades, keep pieces active, look for counterplay.",
             "remember": "Defense is about making your opponent prove they can win."
-        })
+        }
+        
+        # Find worst moment
+        worst_moment = min(disadvantage_positions, key=lambda x: x["eval"])
+        theme["critical_moment"] = {
+            "move_number": worst_moment["move_number"],
+            "description": f"Worst position: {worst_moment['eval']}",
+            "eval_before": worst_moment["eval"],
+            "your_move": worst_moment["move"],
+            "fen": worst_moment["fen"]
+        }
+        
+        themes.append(theme)
     
-    if endgame_reached:
-        themes.append({
+    # 3. ENDGAME TECHNIQUE
+    if endgame_moves:
+        endgame_cp_lost = sum(m["cp_loss"] for m in endgame_moves)
+        theme = {
             "theme": "Endgame Technique",
             "icon": "target",
-            "description": "The game reached an endgame",
+            "description": f"The game reached an endgame ({len(endgame_moves)} moves)",
             "principle": "In endgames: activate your king, create passed pawns, and calculate precisely.",
             "remember": "Endgame knowledge is the most efficient way to gain rating points."
-        })
+        }
+        
+        if endgame_cp_lost > 200:
+            worst_endgame = max(endgame_moves, key=lambda x: x["cp_loss"])
+            theme["verdict"] = f"⚠ Endgame struggles: Lost ~{endgame_cp_lost}cp. Worst move: {worst_endgame['move_number']}"
+        else:
+            theme["verdict"] = "✓ Reasonable endgame play"
+        
+        themes.append(theme)
     
-    # Always add piece activity theme
+    # 4. PIECE ACTIVITY (always include)
     themes.append({
         "theme": "Piece Activity",
         "icon": "zap",
+        "description": "The battle for piece coordination",
+        "principle": "An active piece is worth more than a passive one. Before each move, ask: 'Which piece is my worst?'",
+        "remember": "Improve your worst piece, then reassess."
+    })
         "description": "The battle for piece coordination",
         "principle": "An active piece is worth more than a passive one. Before each move, ask: 'Which piece is my worst?'",
         "remember": "Improve your worst piece, then reassess."
