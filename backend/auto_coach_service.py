@@ -128,7 +128,17 @@ def build_deterministic_summary(analysis: Dict, game: Dict = None) -> Dict:
             break
     
     # Get dominant mistake pattern from core lesson
-    dominant_mistake = analysis.get("commentary", {}).get("core_lesson", {}).get("pattern", "general_errors")
+    # Handle both dict and list commentary formats
+    commentary = analysis.get("commentary", {})
+    if isinstance(commentary, dict):
+        dominant_mistake = commentary.get("core_lesson", {}).get("pattern", "general_errors")
+    else:
+        # Commentary is a list or other format, try to extract pattern from stockfish analysis
+        dominant_mistake = "general_errors"
+        if blunders >= 2:
+            dominant_mistake = "one_move_blunders"
+        elif was_ahead and outcome == "Loss":
+            dominant_mistake = "relaxes_when_winning"
     
     # Map pattern to readable text
     pattern_labels = {
