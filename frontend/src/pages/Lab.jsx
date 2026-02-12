@@ -120,6 +120,21 @@ const Lab = ({ user }) => {
         if (analysisResponse.ok) {
           const analysisData = await analysisResponse.json();
           setAnalysis(analysisData);
+          
+          // Fetch coach commentary if analysis exists
+          if (analysisData) {
+            try {
+              const coachResponse = await fetch(`${API}/coach/commentary/${gameId}`, { credentials: "include" });
+              if (coachResponse.ok) {
+                const coachData = await coachResponse.json();
+                if (coachData.commentary) {
+                  setCoachCommentary(coachData.commentary);
+                }
+              }
+            } catch (e) {
+              console.log("Coach commentary not available");
+            }
+          }
         }
         
         // Fetch lab-specific data
