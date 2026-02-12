@@ -24,7 +24,7 @@ TTS_VOICE = "alloy"
 # STOCKFISH CONFIGURATION
 # =============================================================================
 
-STOCKFISH_PATH = "/usr/games/stockfish"
+STOCKFISH_PATH = "/app/stockfish"
 STOCKFISH_DEPTH = 18              # Main analysis depth (15-20 recommended)
 STOCKFISH_QUICK_DEPTH = 12        # Quick analysis depth
 STOCKFISH_PV_DEPTH = 12           # Depth for principal variation
