@@ -11,6 +11,7 @@ import {
   Loader2, 
   Target,
   AlertTriangle,
+  AlertCircle,
   Lightbulb,
   Flame,
   Trophy,
@@ -18,7 +19,9 @@ import {
   Zap,
   Brain,
   Eye,
-  Dumbbell
+  Dumbbell,
+  BookOpen,
+  CheckCircle2
 } from "lucide-react";
 import MistakeMastery from "@/components/MistakeMastery";
 import EvidenceModal from "@/components/EvidenceModal";
