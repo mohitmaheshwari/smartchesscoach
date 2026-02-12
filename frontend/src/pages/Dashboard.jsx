@@ -277,17 +277,18 @@ const Dashboard = ({ user }) => {
                           All
                           <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
-                      }
-                    />
+                      </div>
+                    </div>
                     <div className="space-y-2">
-                      {recentGames.length > 0 ? (
-                        recentGames.slice(0, 5).map((game) => {
+                      {filteredGames.length > 0 ? (
+                        filteredGames.slice(0, 5).map((game) => {
                           const opponent = game.user_color === 'white' 
                             ? game.black_player 
                             : game.white_player;
                           const opponentRating = game.user_color === 'white'
                             ? game.black_rating
                             : game.white_rating;
+                          const strengthInfo = getOpponentStrengthLabel(opponentRating);
                           const resultText = game.result === '1-0' 
                             ? (game.user_color === 'white' ? 'Won' : 'Lost')
                             : game.result === '0-1'
