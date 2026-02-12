@@ -169,6 +169,125 @@ const FocusPage = ({ user }) => {
           </motion.div>
         ) : (
           <>
+            {/* COACH'S REVIEW OF LAST GAME */}
+            {coachReview?.has_review && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+              >
+                <Card className="border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/5 via-indigo-500/5 to-blue-500/5 overflow-hidden">
+                  <CardContent className="py-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-full ${
+                          coachReview.sentiment === 'proud' ? 'bg-emerald-500/20' :
+                          coachReview.sentiment === 'excellent' ? 'bg-yellow-500/20' :
+                          coachReview.sentiment === 'impressed' ? 'bg-blue-500/20' :
+                          coachReview.sentiment === 'concerned' ? 'bg-orange-500/20' :
+                          'bg-purple-500/20'
+                        }`}>
+                          <MessageCircle className={`w-5 h-5 ${
+                            coachReview.sentiment === 'proud' ? 'text-emerald-500' :
+                            coachReview.sentiment === 'excellent' ? 'text-yellow-500' :
+                            coachReview.sentiment === 'impressed' ? 'text-blue-500' :
+                            coachReview.sentiment === 'concerned' ? 'text-orange-500' :
+                            'text-purple-500'
+                          }`} />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold uppercase tracking-wider text-purple-400">
+                            Coach's Review
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            Your last game vs {coachReview.quick_stats?.opponent || "opponent"}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Quick result badge */}
+                      <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        coachReview.quick_stats?.result === 'win' ? 'bg-emerald-500/20 text-emerald-400' :
+                        coachReview.quick_stats?.result === 'loss' ? 'bg-red-500/20 text-red-400' :
+                        'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {coachReview.quick_stats?.result?.toUpperCase() || "GAME"}
+                      </div>
+                    </div>
+                    
+                    {/* Stats Row */}
+                    <div className="flex items-center gap-4 mb-4 p-3 rounded-lg bg-background/50 border border-border/30">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold">{coachReview.quick_stats?.accuracy || 0}%</span>
+                        <span className="text-xs text-muted-foreground">accuracy</span>
+                        {coachReview.quick_stats?.accuracy_trend === 'up' && (
+                          <TrendingUp className="w-4 h-4 text-emerald-500" />
+                        )}
+                        {coachReview.quick_stats?.accuracy_trend === 'down' && (
+                          <TrendingDown className="w-4 h-4 text-red-500" />
+                        )}
+                      </div>
+                      <div className="h-8 w-px bg-border" />
+                      <div className="flex items-center gap-2">
+                        <span className={`text-2xl font-bold ${
+                          coachReview.quick_stats?.blunders === 0 ? 'text-emerald-500' :
+                          coachReview.quick_stats?.blunders >= 3 ? 'text-red-500' :
+                          'text-orange-500'
+                        }`}>
+                          {coachReview.quick_stats?.blunders || 0}
+                        </span>
+                        <span className="text-xs text-muted-foreground">blunders</span>
+                      </div>
+                    </div>
+                    
+                    {/* Coach Message */}
+                    <div className="relative pl-4 border-l-2 border-purple-500/50 mb-4">
+                      <p className="text-sm leading-relaxed italic text-foreground/90">
+                        "{coachReview.coach_message}"
+                      </p>
+                    </div>
+                    
+                    {/* Highlights & Concerns */}
+                    <div className="flex flex-wrap gap-2">
+                      {coachReview.highlights?.slice(0, 2).map((h, i) => (
+                        <span 
+                          key={i} 
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          {h.text}
+                        </span>
+                      ))}
+                      {coachReview.concerns?.slice(0, 2).map((c, i) => (
+                        <span 
+                          key={i} 
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20"
+                        >
+                          <AlertCircle className="w-3 h-3" />
+                          {c.text}
+                        </span>
+                      ))}
+                    </div>
+                    
+                    {/* View Game Link */}
+                    {coachReview.game_id && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-4 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 p-0 h-auto"
+                        onClick={() => navigate(`/game/${coachReview.game_id}`)}
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1.5" />
+                        Review this game in Lab
+                        <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
             {/* MAIN FOCUS - The ONE thing - NOW CLICKABLE */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
