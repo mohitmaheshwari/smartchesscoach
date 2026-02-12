@@ -381,7 +381,7 @@ const Dashboard = ({ user }) => {
               </AnimatedItem>
             </div>
 
-            {/* Quick Actions */}
+            {/* Quick Actions - More Specific */}
             <AnimatedItem>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
@@ -399,7 +399,7 @@ const Dashboard = ({ user }) => {
                   <Button 
                     variant="outline" 
                     className="w-full h-auto py-5 flex flex-col items-center gap-2"
-                    onClick={() => navigate('/journey')}
+                    onClick={() => navigate('/progress')}
                     data-testid="quick-journey-btn"
                   >
                     <TrendingUp className="w-5 h-5" />
@@ -410,11 +410,11 @@ const Dashboard = ({ user }) => {
                   <Button 
                     variant="outline" 
                     className="w-full h-auto py-5 flex flex-col items-center gap-2"
-                    onClick={() => navigate('/challenge')}
-                    data-testid="quick-challenge-btn"
+                    onClick={() => navigate('/coach')}
+                    data-testid="quick-focus-btn"
                   >
                     <Target className="w-5 h-5" />
-                    <span className="text-sm">Practice</span>
+                    <span className="text-sm">Today's Focus</span>
                   </Button>
                 </motion.div>
               </div>
