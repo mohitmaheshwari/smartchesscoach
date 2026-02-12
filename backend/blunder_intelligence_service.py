@@ -863,24 +863,26 @@ def get_identity_profile(analyses: List[Dict]) -> Dict:
     }
 
 
-def get_mission(analyses: List[Dict], current_missions: List[Dict] = None) -> Dict:
+def get_mission(analyses: List[Dict], current_missions: List[Dict] = None, user_rating: int = None) -> Dict:
     """
-    Generate discipline-focused missions based on actual game behavior.
+    MISSION ENGINE - 3 Layer Architecture
     
-    Design principles (Indian 600-1600 player psychology):
-    - Habit-based + Streak-based
-    - Short, strong titles (not gimmicky)
-    - Clear rules (feels like coaching instructions)
-    - Small achievable numbers (3 games, not 10)
-    - Performance-focused, not playful
+    Layer 1: Weakness Type → Determines THEME
+    Layer 2: Rating Tier → Adjusts DIFFICULTY  
+    Layer 3: Mission Difficulty → Actual challenge
     
-    Example:
-    Mission: No Free Pieces
-    Goal: Play 3 games without hanging a piece
-    Progress: 1 / 3
+    Key Principle: Weakness > Rating
+    A 2000 player who relaxes when winning gets "Finish Strong" mission,
+    but with harder criteria than a 1200 player.
+    
+    Rating Bands:
+    - 600-1000: Basic blunder elimination (simple, direct)
+    - 1000-1600: Pattern correction (slightly strategic)
+    - 1600-2000: Efficiency & conversion (precision-based)
+    - 2000+: Marginal gains (serious metrics)
     """
     
-    # Calculate actual stats from recent games
+    # Calculate stats from recent games
     recent_analyses = analyses[-10:] if analyses else []
     
     if len(recent_analyses) < 3:
@@ -890,84 +892,393 @@ def get_mission(analyses: List[Dict], current_missions: List[Dict] = None) -> Di
             "instruction": "Import and analyze your recent games",
             "target": 3,
             "progress": len(recent_analyses),
+            "rating_tier": "starter",
             "status": "active"
         }
     
-    # Calculate behavioral metrics from games
-    games_with_hung_pieces = 0
-    games_with_blunders = 0
-    games_won_when_winning = 0
-    games_where_winning = 0
+    # Estimate rating if not provided (from game data or default)
+    rating = user_rating or 1200  # Default to intermediate
+    
+    # Determine rating tier
+    if rating < 1000:
+        tier = "beginner"  # 600-1000
+    elif rating < 1600:
+        tier = "intermediate"  # 1000-1600
+    elif rating < 2000:
+        tier = "advanced"  # 1600-2000
+    else:
+        tier = "expert"  # 2000+
+    
+    # Calculate behavioral metrics
     total_blunders = 0
+    total_mistakes = 0
+    total_inaccuracies = 0
+    total_cp_loss = 0
+    games_with_hung_pieces = 0
+    total_accuracy = 0
+    accuracy_count = 0
     
     for analysis in recent_analyses:
         blunders = analysis.get("blunders", 0)
+        mistakes = analysis.get("mistakes", 0)
+        inaccuracies = analysis.get("inaccuracies", 0)
         total_blunders += blunders
+        total_mistakes += mistakes
+        total_inaccuracies += inaccuracies
         
-        if blunders > 0:
-            games_with_blunders += 1
-        
-        # Check for hanging pieces (one-move blunders)
         sf_analysis = analysis.get("stockfish_analysis", {})
+        accuracy = sf_analysis.get("accuracy", 0)
+        if accuracy > 0:
+            total_accuracy += accuracy
+            accuracy_count += 1
+        
+        avg_cp = sf_analysis.get("avg_cp_loss", 0)
+        total_cp_loss += avg_cp
+        
+        # Check for hanging pieces
         moves = sf_analysis.get("move_evaluations", [])
         for move in moves:
-            if move.get("classification") == "blunder":
-                # If cp_loss > 300, likely hung a piece
-                if abs(move.get("cp_loss", 0)) > 300:
-                    games_with_hung_pieces += 1
-                    break
+            if move.get("classification") == "blunder" and abs(move.get("cp_loss", 0)) > 300:
+                games_with_hung_pieces += 1
+                break
     
-    # Determine dominant issue and assign mission
-    hung_piece_rate = games_with_hung_pieces / len(recent_analyses)
-    blunder_rate = games_with_blunders / len(recent_analyses)
-    avg_blunders = total_blunders / len(recent_analyses)
+    n = len(recent_analyses)
+    avg_blunders = total_blunders / n
+    avg_mistakes = total_mistakes / n
+    avg_inaccuracies = total_inaccuracies / n
+    avg_accuracy = total_accuracy / accuracy_count if accuracy_count > 0 else 70
+    avg_cp_loss = total_cp_loss / n
+    hung_piece_rate = games_with_hung_pieces / n
     
+    # Get dominant weakness
     weakness = get_dominant_weakness_ranking(analyses)
     rk = weakness.get("rating_killer", {})
     pattern = rk.get("pattern", "")
     
-    # Mission catalog - discipline-focused, clear rules
-    # Each mission has: name, goal, instruction, how to track
+    # ==================== MISSION TEMPLATES BY WEAKNESS × RATING ====================
     
-    if hung_piece_rate > 0.5:
-        # More than half games have hung pieces
-        return {
-            "name": "No Free Pieces",
-            "goal": "Play 3 games without hanging a piece",
-            "instruction": "Before every move, ask: Is this piece protected?",
-            "check_rule": "A game passes if you don't give away material for free",
-            "target": 3,
-            "progress": 0,  # Reset - they need to prove it
-            "weakness_target": "hanging_pieces",
-            "status": "active"
+    mission_templates = {
+        # WEAKNESS: Hanging pieces / One-move blunders
+        "hanging_pieces": {
+            "beginner": {
+                "name": "No Free Pieces",
+                "goal": "Play 3 games without hanging a piece",
+                "instruction": "Before every move, ask: Is this piece protected?",
+                "check_rule": "No blunders with cp_loss > 300",
+                "target": 3
+            },
+            "intermediate": {
+                "name": "Piece Safety",
+                "goal": "Play 5 games without giving away material",
+                "instruction": "Before moving, check if your piece is defended",
+                "check_rule": "No blunders with cp_loss > 200",
+                "target": 5
+            },
+            "advanced": {
+                "name": "Material Discipline",
+                "goal": "Play 5 games with no material blunders",
+                "instruction": "Visualize opponent responses before committing",
+                "check_rule": "No blunders with cp_loss > 150",
+                "target": 5
+            },
+            "expert": {
+                "name": "Tactical Precision",
+                "goal": "Play 5 games with no tactical oversights",
+                "instruction": "Calculate all forcing lines before playing",
+                "check_rule": "No blunders with cp_loss > 100",
+                "target": 5
+            }
+        },
+        
+        # WEAKNESS: High blunder count (general)
+        "high_blunders": {
+            "beginner": {
+                "name": "Scan Before Move",
+                "goal": "Play 3 games with zero blunders",
+                "instruction": "Every move, check: Checks, Captures, Threats",
+                "check_rule": "0 blunders in game",
+                "target": 3
+            },
+            "intermediate": {
+                "name": "Clean Games",
+                "goal": "Play 5 games with at most 1 blunder each",
+                "instruction": "Take your time. No rushed moves.",
+                "check_rule": "≤1 blunder per game",
+                "target": 5
+            },
+            "advanced": {
+                "name": "Blunder-Free Streak",
+                "goal": "Play 3 consecutive games with 0 blunders",
+                "instruction": "Double-check every move before playing",
+                "check_rule": "0 blunders for 3 games in a row",
+                "target": 3
+            },
+            "expert": {
+                "name": "Zero Tolerance",
+                "goal": "Play 5 games with 0 blunders total",
+                "instruction": "Maintain focus throughout the game",
+                "check_rule": "0 blunders across all 5 games",
+                "target": 5
+            }
+        },
+        
+        # WEAKNESS: Loses focus when winning
+        "loses_focus_when_winning": {
+            "beginner": {
+                "name": "Finish Strong",
+                "goal": "Convert 3 winning positions without blundering",
+                "instruction": "When ahead, don't rush. Keep checking threats.",
+                "check_rule": "Win from +2 or better without blunder",
+                "target": 3
+            },
+            "intermediate": {
+                "name": "Close It Out",
+                "goal": "Convert 5 winning positions cleanly",
+                "instruction": "Trade pieces when ahead. Simplify to win.",
+                "check_rule": "Win from +1.5 without eval drop >1.5",
+                "target": 5
+            },
+            "advanced": {
+                "name": "Winning Technique",
+                "goal": "Convert 90% of winning positions in 5 games",
+                "instruction": "Maintain pressure. Don't let opponent back in.",
+                "check_rule": "Convert 90%+ of +1.5 positions",
+                "target": 5
+            },
+            "expert": {
+                "name": "Conversion Mastery",
+                "goal": "Maintain eval above +1 for 10 moves when winning",
+                "instruction": "Keep steady pressure. No eval drops.",
+                "check_rule": "No eval drop >0.5 in winning positions",
+                "target": 5
+            }
+        },
+        
+        # WEAKNESS: Misses opponent threats
+        "attacks_before_checking_threats": {
+            "beginner": {
+                "name": "Threat Check",
+                "goal": "Play 3 games without walking into a tactic",
+                "instruction": "Every move, ask: What is opponent threatening?",
+                "check_rule": "No losses to simple tactics",
+                "target": 3
+            },
+            "intermediate": {
+                "name": "Defensive Awareness",
+                "goal": "Play 5 games with no tactical oversights",
+                "instruction": "Check all opponent checks and captures first",
+                "check_rule": "No blunders from missed threats",
+                "target": 5
+            },
+            "advanced": {
+                "name": "Threat Recognition",
+                "goal": "Identify all threats for 5 games",
+                "instruction": "Before your move, list opponent's best responses",
+                "check_rule": "No eval drops >1.5 from missed tactics",
+                "target": 5
+            },
+            "expert": {
+                "name": "Prophylaxis Master",
+                "goal": "Prevent all opponent threats in 5 games",
+                "instruction": "Think prophylactically - what does opponent want?",
+                "check_rule": "No tactical losses, maintain eval stability",
+                "target": 5
+            }
+        },
+        
+        # WEAKNESS: Time pressure collapse
+        "time_pressure_collapse": {
+            "beginner": {
+                "name": "Clock Discipline",
+                "goal": "Play 3 games without time-pressure blunders",
+                "instruction": "Use your time wisely. Don't rush.",
+                "check_rule": "No blunders with <2 min on clock",
+                "target": 3
+            },
+            "intermediate": {
+                "name": "Time Management",
+                "goal": "Play 5 games with at least 1 min remaining",
+                "instruction": "Move faster in the opening. Save time for tactics.",
+                "check_rule": "End game with >60 seconds",
+                "target": 5
+            },
+            "advanced": {
+                "name": "Clock Control",
+                "goal": "Play 5 games with consistent move times",
+                "instruction": "Avoid long thinks. Trust your preparation.",
+                "check_rule": "No extreme time usage patterns",
+                "target": 5
+            },
+            "expert": {
+                "name": "Time Efficiency",
+                "goal": "Improve move-time consistency in critical positions",
+                "instruction": "Allocate time based on position complexity",
+                "check_rule": "Efficient time use in complex positions",
+                "target": 5
+            }
+        },
+        
+        # WEAKNESS: Misses tactical opportunities
+        "misses_tactical_opportunities": {
+            "beginner": {
+                "name": "See More",
+                "goal": "Play 3 games with 75%+ accuracy",
+                "instruction": "Look for checks and captures before each move",
+                "check_rule": "Accuracy ≥75%",
+                "target": 3
+            },
+            "intermediate": {
+                "name": "Tactics Finder",
+                "goal": "Play 5 games with 80%+ accuracy",
+                "instruction": "Every position, ask: Is there a tactic here?",
+                "check_rule": "Accuracy ≥80%",
+                "target": 5
+            },
+            "advanced": {
+                "name": "Tactical Sharpness",
+                "goal": "Play 5 games with 85%+ accuracy",
+                "instruction": "Calculate all forcing sequences",
+                "check_rule": "Accuracy ≥85%",
+                "target": 5
+            },
+            "expert": {
+                "name": "Tactical Precision",
+                "goal": "Play 5 games with 90%+ accuracy",
+                "instruction": "Find the best move in critical positions",
+                "check_rule": "Accuracy ≥90%",
+                "target": 5
+            }
+        },
+        
+        # WEAKNESS: Poor accuracy (general improvement)
+        "low_accuracy": {
+            "beginner": {
+                "name": "Better Moves",
+                "goal": "Play 3 games with fewer than 3 blunders each",
+                "instruction": "Take 10 seconds before every move",
+                "check_rule": "<3 blunders per game",
+                "target": 3
+            },
+            "intermediate": {
+                "name": "Quality Over Speed",
+                "goal": "Play 5 games with 75%+ accuracy",
+                "instruction": "Think first, move second",
+                "check_rule": "Accuracy ≥75%",
+                "target": 5
+            },
+            "advanced": {
+                "name": "Precision Play",
+                "goal": "Improve accuracy to 82%+ for 5 games",
+                "instruction": "Focus on move quality over quick wins",
+                "check_rule": "Accuracy ≥82%",
+                "target": 5
+            },
+            "expert": {
+                "name": "Elite Accuracy",
+                "goal": "Maintain 88%+ accuracy for 5 games",
+                "instruction": "Every move should be engine-approved quality",
+                "check_rule": "Accuracy ≥88%",
+                "target": 5
+            }
+        },
+        
+        # WEAKNESS: High centipawn loss
+        "high_cp_loss": {
+            "beginner": {
+                "name": "Fewer Mistakes",
+                "goal": "Play 3 games with avg cp loss under 80",
+                "instruction": "Avoid obvious mistakes",
+                "check_rule": "Avg cp loss <80",
+                "target": 3
+            },
+            "intermediate": {
+                "name": "Reduce Errors",
+                "goal": "Play 5 games with avg cp loss under 50",
+                "instruction": "Think longer on critical moves",
+                "check_rule": "Avg cp loss <50",
+                "target": 5
+            },
+            "advanced": {
+                "name": "Tight Play",
+                "goal": "Play 5 games with avg cp loss under 35",
+                "instruction": "Every move counts. No slack.",
+                "check_rule": "Avg cp loss <35",
+                "target": 5
+            },
+            "expert": {
+                "name": "Marginal Gains",
+                "goal": "Play 5 games with avg cp loss under 25",
+                "instruction": "Optimize every decision",
+                "check_rule": "Avg cp loss <25",
+                "target": 5
+            }
         }
+    }
     
-    elif avg_blunders > 1.5:
-        # Averaging more than 1.5 blunders per game
-        return {
-            "name": "Scan Before Move",
-            "goal": "Play 3 games with zero blunders",
-            "instruction": "Before every move, check: Checks, Captures, Threats",
-            "check_rule": "A game passes if Stockfish finds 0 blunders",
-            "target": 3,
-            "progress": 0,
-            "weakness_target": "blunders",
-            "status": "active"
-        }
+    # ==================== MISSION SELECTION LOGIC ====================
     
+    # Priority 1: Hanging pieces (most critical for beginners)
+    if hung_piece_rate > 0.4 and tier in ["beginner", "intermediate"]:
+        weakness_key = "hanging_pieces"
+    
+    # Priority 2: High blunder rate
+    elif avg_blunders > 2 and tier == "beginner":
+        weakness_key = "high_blunders"
+    elif avg_blunders > 1.5 and tier == "intermediate":
+        weakness_key = "high_blunders"
+    elif avg_blunders > 0.5 and tier in ["advanced", "expert"]:
+        weakness_key = "high_blunders"
+    
+    # Priority 3: Pattern-based weakness from analysis
     elif pattern == "loses_focus_when_winning":
-        return {
-            "name": "Finish Strong",
-            "goal": "Convert 3 winning positions without blundering",
-            "instruction": "When ahead, don't rush. Keep checking threats.",
-            "check_rule": "A game passes if you win from a +2 or better position",
-            "target": 3,
-            "progress": 0,
-            "weakness_target": "conversion",
-            "status": "active"
-        }
-    
+        weakness_key = "loses_focus_when_winning"
     elif pattern == "attacks_before_checking_threats":
+        weakness_key = "attacks_before_checking_threats"
+    elif pattern == "time_pressure_collapse":
+        weakness_key = "time_pressure_collapse"
+    elif pattern == "misses_tactical_opportunities":
+        weakness_key = "misses_tactical_opportunities"
+    
+    # Priority 4: Accuracy-based weakness
+    elif avg_accuracy < 65 and tier == "beginner":
+        weakness_key = "low_accuracy"
+    elif avg_accuracy < 75 and tier == "intermediate":
+        weakness_key = "low_accuracy"
+    elif avg_accuracy < 82 and tier == "advanced":
+        weakness_key = "low_accuracy"
+    elif avg_accuracy < 88 and tier == "expert":
+        weakness_key = "low_accuracy"
+    
+    # Priority 5: CP loss based
+    elif avg_cp_loss > 60 and tier == "beginner":
+        weakness_key = "high_cp_loss"
+    elif avg_cp_loss > 40 and tier in ["intermediate", "advanced"]:
+        weakness_key = "high_cp_loss"
+    elif avg_cp_loss > 25 and tier == "expert":
+        weakness_key = "high_cp_loss"
+    
+    # Default: General improvement
+    else:
+        weakness_key = "low_accuracy"
+    
+    # Get mission template
+    template = mission_templates.get(weakness_key, mission_templates["low_accuracy"])
+    mission = template.get(tier, template["intermediate"])
+    
+    return {
+        **mission,
+        "weakness_key": weakness_key,
+        "rating_tier": tier,
+        "user_rating": rating,
+        "progress": 0,
+        "status": "active",
+        "metrics": {
+            "avg_blunders": round(avg_blunders, 2),
+            "avg_accuracy": round(avg_accuracy, 1),
+            "avg_cp_loss": round(avg_cp_loss, 1),
+            "hung_piece_rate": round(hung_piece_rate, 2)
+        }
+    }
         return {
             "name": "Threat Check",
             "goal": "Play 3 games without walking into a tactic",
