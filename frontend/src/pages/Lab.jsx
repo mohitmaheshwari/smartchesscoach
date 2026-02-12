@@ -441,7 +441,6 @@ const Lab = ({ user }) => {
   // Extract game info
   const whitePlayer = game?.white_player || "White";
   const blackPlayer = game?.black_player || "Black";
-  const userColor = game?.user_color || "white";
   const result = game?.result || "";
   const opponent = userColor === "white" ? blackPlayer : whitePlayer;
   const opponentRating = userColor === "white" ? game?.black_rating : game?.white_rating;
