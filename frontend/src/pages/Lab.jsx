@@ -104,7 +104,7 @@ const Lab = ({ user }) => {
   // UI states
   const [showOnlyCritical, setShowOnlyCritical] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState("mistakes");
+  const [activeTab, setActiveTab] = useState("milestones");
   
   // Practice mode
   const [practiceMode, setPracticeMode] = useState(false);
