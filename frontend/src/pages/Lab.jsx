@@ -41,7 +41,8 @@ import {
   Lightbulb,
   TrendingUp,
   TrendingDown,
-  Pause
+  Pause,
+  Sparkles
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
