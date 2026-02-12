@@ -3830,7 +3830,7 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     
     # Enrich games with accuracy from analysis and extract player names from PGN
     import re
-    for game in recent_games:
+    for game in all_games:
         # Extract player names from PGN if not already present
         pgn = game.get("pgn", "")
         if pgn:
@@ -3855,13 +3855,29 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         if "pgn" in game:
             del game["pgn"]
         
+        game_id = game.get("game_id")
+        
+        # Determine analysis status
         if game.get("is_analyzed"):
             analysis = await db.game_analyses.find_one(
-                {"game_id": game["game_id"], "user_id": user.user_id},
+                {"game_id": game_id, "user_id": user.user_id},
                 {"_id": 0, "stockfish_analysis.accuracy": 1}
             )
             if analysis:
                 game["accuracy"] = analysis.get("stockfish_analysis", {}).get("accuracy")
+            game["analysis_status"] = "analyzed"
+            analyzed_list.append(game)
+        elif game_id in queued_game_ids:
+            queue_info = queued_game_map.get(game_id, {})
+            game["analysis_status"] = queue_info.get("status", "pending")
+            game["queued_at"] = queue_info.get("created_at")
+            in_queue_list.append(game)
+        else:
+            game["analysis_status"] = "not_analyzed"
+            # Unanalyzed games go to neither list - they will need re-analysis
+    
+    # Build recent_games for backward compatibility (top 10 of all games)
+    recent_games = all_games[:10]
     
     analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
