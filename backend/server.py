@@ -3785,6 +3785,8 @@ async def send_push_notification(user_id: str, title: str, body: str, data: dict
 @api_router.get("/dashboard-stats")
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
     """Get dashboard statistics including player profile for the current user"""
+    logger.info(f"Dashboard stats for user: {user.user_id}")
+    
     total_games = await db.games.count_documents({"user_id": user.user_id})
     analyzed_games = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
     
@@ -3793,6 +3795,7 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         "user_id": user.user_id,
         "status": {"$in": ["pending", "processing"]}
     })
+    logger.info(f"Queue count for {user.user_id}: {queued_games}")
     
     # Get player profile for coaching context
     profile = await db.player_profiles.find_one(
