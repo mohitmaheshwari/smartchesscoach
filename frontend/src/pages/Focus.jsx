@@ -305,7 +305,7 @@ const FocusPage = ({ user }) => {
                       variant="ghost"
                       size="sm"
                       className="mt-3 text-slate-400 hover:text-slate-300 p-0 h-auto text-xs"
-                      onClick={() => navigate(`/lab/${disciplineCheck.game_id}`)}
+                      onClick={() => navigate(`/game/${disciplineCheck.game_id}`)}
                       data-testid="discipline-view-game"
                     >
                       <Eye className="w-3 h-3 mr-1" />
