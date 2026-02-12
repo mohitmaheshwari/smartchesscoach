@@ -5520,7 +5520,7 @@ async def reanalyze_game(
         "game_id": game_id,
         "user_id": user.user_id,
         "status": "pending",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "queued_at": datetime.now(timezone.utc),
         "priority": 1  # User-requested re-analysis gets priority
     }
     
@@ -5537,107 +5537,16 @@ async def reanalyze_game(
         {"$set": {"analysis_status": "queued", "is_analyzed": False}}
     )
     
-    # Process in background
-    async def process_reanalysis():
-        try:
-            # Update queue status
-            await db.analysis_queue.update_one(
-                {"game_id": game_id},
-                {"$set": {"status": "processing"}}
-            )
-            
-            # Run Stockfish analysis in thread pool to avoid blocking event loop
-            user_color = game.get('user_color', 'white')
-            loop = asyncio.get_event_loop()
-            stockfish_result = await loop.run_in_executor(
-                None,  # Use default executor
-                lambda: analyze_game_with_stockfish(
-                    game['pgn'], 
-                    user_color=user_color,
-                    depth=STOCKFISH_DEPTH
-                )
-            )
-            
-            if not stockfish_result or not stockfish_result.get("success"):
-                await db.analysis_queue.update_one(
-                    {"game_id": game_id},
-                    {"$set": {"status": "failed", "error": "Stockfish analysis failed"}}
-                )
-                await db.games.update_one(
-                    {"game_id": game_id},
-                    {"$set": {"analysis_status": "failed"}}
-                )
-                return
-            
-            sf_stats = stockfish_result.get("user_stats", {})
-            
-            # Create or update analysis record
-            analysis_doc = {
-                "game_id": game_id,
-                "user_id": user.user_id,
-                "stockfish_analysis": {
-                    "accuracy": sf_stats.get("accuracy", 0),
-                    "blunders": sf_stats.get("blunders", 0),
-                    "mistakes": sf_stats.get("mistakes", 0),
-                    "inaccuracies": sf_stats.get("inaccuracies", 0),
-                    "best_moves": sf_stats.get("best_moves", 0),
-                    "avg_cp_loss": sf_stats.get("avg_cp_loss", 0),
-                    "move_evaluations": stockfish_result.get("moves", [])
-                },
-                "blunders": sf_stats.get("blunders", 0),
-                "mistakes": sf_stats.get("mistakes", 0),
-                "inaccuracies": sf_stats.get("inaccuracies", 0),
-                "best_moves": sf_stats.get("best_moves", 0),
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            
-            # Upsert analysis
-            await db.game_analyses.update_one(
-                {"game_id": game_id},
-                {"$set": analysis_doc},
-                upsert=True
-            )
-            
-            # Update game as analyzed
-            await db.games.update_one(
-                {"game_id": game_id},
-                {"$set": {"is_analyzed": True, "analysis_status": "analyzed"}}
-            )
-            
-            # Update queue status
-            await db.analysis_queue.update_one(
-                {"game_id": game_id},
-                {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}}
-            )
-            
-            # Create notification for the user
-            await notify_game_analyzed(
-                db,
-                user.user_id,
-                game_id,
-                f"Re-analysis complete! Accuracy: {sf_stats.get('accuracy', 0):.1f}%",
-                game.get("result", "")
-            )
-            
-            logger.info(f"Re-analysis completed for game {game_id}")
-            
-        except Exception as e:
-            logger.error(f"Re-analysis failed for game {game_id}: {e}")
-            await db.analysis_queue.update_one(
-                {"game_id": game_id},
-                {"$set": {"status": "failed", "error": str(e)}}
-            )
-            await db.games.update_one(
-                {"game_id": game_id},
-                {"$set": {"analysis_status": "failed"}}
-            )
+    # NOTE: Analysis is now handled by the separate analysis_worker.py process
+    # The worker polls the analysis_queue collection and processes pending jobs
+    # This keeps the web server fast and responsive
     
-    background_tasks.add_task(process_reanalysis)
+    logger.info(f"Game {game_id} queued for analysis (worker will process)")
     
     return {
         "success": True,
         "status": "queued",
-        "message": "Game queued for re-analysis"
+        "message": "Game queued for analysis. The analysis worker will process it shortly."
     }
 
 
