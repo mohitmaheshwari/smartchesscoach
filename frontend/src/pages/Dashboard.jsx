@@ -21,8 +21,16 @@ import {
   TrendingUp,
   AlertTriangle,
   Zap,
-  Loader2
+  Loader2,
+  Filter,
+  ChevronDown
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Dashboard = ({ user }) => {
   const navigate = useNavigate();
@@ -30,6 +38,7 @@ const Dashboard = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null);
+  const [opponentFilter, setOpponentFilter] = useState("all"); // all, stronger, equal, weaker
 
   const openStatsModal = (type) => {
     setModalType(type);
