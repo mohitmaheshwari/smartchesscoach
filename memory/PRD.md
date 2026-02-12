@@ -315,9 +315,47 @@ Created a utility library that converts engine evaluations to intuitive language
 - `JourneyV2.jsx`: Shows "374 pawns lost (major weakness)" instead of "~37400 cp lost"
 
 ## Upcoming Tasks (P0)
-1. **"Show Only Critical Moves" Toggle Enhancement** - Improve the existing toggle to better filter move list
+- None - all P0 tasks completed
 
 ## Next Tasks (P1)
+1. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
+
+## Completed Tasks (This Session - Feb 2026)
+
+### P0: "Show Only Critical Moves" Toggle Enhancement (COMPLETED)
+- Toggle now shows count: "Critical (1)" when active
+- Red styling (bg-red-500) when enabled
+- Shows "No critical moves - great job!" message when filtered with no results
+- data-testid="critical-toggle" added for testing
+
+### P1: Rating Impact Visualization (COMPLETED)
+- Added rating_impact to dashboard-stats endpoint
+- Shows prominent "+X" potential gain card on Dashboard
+- Message explains which weakness to fix: "Fixing 'X' could save ~Y rating points"
+- data-testid="rating-impact-card" for testing
+
+### P1: Multiple Weaknesses Display (COMPLETED)
+- Dashboard Focus Areas already showed top weakness
+- Now prominently displays "#1 Priority" with occurrence count
+- Links to Focus page for details
+
+### Backlog: Behavior Memory System (COMPLETED)
+- `find_similar_pattern_games()` function in blunder_intelligence_service.py
+- Finds games with same dominant pattern
+- Displays "Similar Pattern Detected" section in Lab Summary tab
+- Shows opponent name, result, and lesson preview
+- Clickable to navigate to that game's Lab page
+- data-testid="similar-game-X" for testing
+
+### Backlog: Milestone Celebrations (COMPLETED)
+- MilestoneBanner component with animated particles
+- Shows unlocked milestones with icon, name, description
+- Rarity-based styling (common=green, rare=blue, epic=purple)
+- Dismissible via X button
+- localStorage-based dismissed state (milestones queue)
+- data-testid="milestone-banner" for testing
+
+## Remaining Backlog
 1. **Fix Focus Areas to Show Multiple Weaknesses** - Currently only shows one weakness on Dashboard
 2. **Rating Impact Estimator Visualization** - Display "Fixing Hanging Pieces would have saved ~86 rating points" prominently
 3. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
