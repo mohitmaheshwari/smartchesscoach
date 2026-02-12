@@ -65,7 +65,7 @@ const EvidenceModal = ({
 
   // Navigate to game at specific move
   const goToGame = (item) => {
-    navigate(`/games/dashboard/${item.game_id}?move=${item.move_number}`);
+    navigate(`/game/${item.game_id}?move=${item.move_number}`);
     onClose();
   };
 
