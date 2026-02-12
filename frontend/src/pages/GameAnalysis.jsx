@@ -1199,26 +1199,43 @@ const GameAnalysis = ({ user }) => {
                               </div>
                             )}
                             
+                            {/* YOUR EXECUTION - New! */}
+                            {strategicAnalysis.opening.execution && (
+                              <div className="p-3 rounded bg-background/50 border border-red-500/20 mb-3">
+                                <p className="text-xs text-red-400 uppercase tracking-wide mb-2">Your Execution</p>
+                                <p className={`text-sm font-medium mb-2 ${
+                                  strategicAnalysis.opening.execution.verdict?.includes('Excellent') ? 'text-green-400' :
+                                  strategicAnalysis.opening.execution.verdict?.includes('Solid') ? 'text-yellow-400' :
+                                  'text-red-400'
+                                }`}>
+                                  {strategicAnalysis.opening.execution.verdict}
+                                </p>
+                                {strategicAnalysis.opening.execution.details?.map((detail, i) => (
+                                  <p key={i} className="text-sm text-muted-foreground">{detail}</p>
+                                ))}
+                                
+                                {/* Critical Deviation */}
+                                {strategicAnalysis.opening.execution.critical_deviation && (
+                                  <div className="mt-3 p-2 rounded bg-red-500/10 border border-red-500/30">
+                                    <p className="text-xs text-red-400 uppercase mb-1">Critical Deviation</p>
+                                    <p className="text-sm font-medium text-red-400">
+                                      {strategicAnalysis.opening.execution.critical_deviation.explanation}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
                             {/* Key Ideas */}
                             {strategicAnalysis.opening.key_ideas && strategicAnalysis.opening.key_ideas.length > 0 && (
                               <div className="space-y-1.5">
-                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Key Ideas</p>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Key Ideas to Remember</p>
                                 {strategicAnalysis.opening.key_ideas.map((idea, i) => (
                                   <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                                     <span className="text-green-500 mt-0.5">•</span>
                                     <span>{idea}</span>
                                   </p>
                                 ))}
-                              </div>
-                            )}
-                            
-                            {/* How You Did */}
-                            {strategicAnalysis.opening.how_you_did && (
-                              <div className="mt-3 pt-3 border-t border-green-500/20">
-                                <p className="text-xs text-muted-foreground">
-                                  <span className="text-green-500 font-medium">Result:</span>{" "}
-                                  {strategicAnalysis.opening.how_you_did}
-                                </p>
                               </div>
                             )}
                           </div>
@@ -1234,8 +1251,35 @@ const GameAnalysis = ({ user }) => {
                             
                             {strategicAnalysis.pawn_structure.your_plan && (
                               <div className="p-3 rounded bg-background/50 border border-border/50 mb-3">
-                                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Your Plan</p>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">The Plan</p>
                                 <p className="text-sm">{strategicAnalysis.pawn_structure.your_plan}</p>
+                              </div>
+                            )}
+                            
+                            {/* YOUR EXECUTION - New! */}
+                            {strategicAnalysis.pawn_structure.execution && strategicAnalysis.pawn_structure.execution.details?.length > 0 && (
+                              <div className="p-3 rounded bg-background/50 border border-yellow-500/20 mb-3">
+                                <p className="text-xs text-yellow-400 uppercase tracking-wide mb-2">Your Execution</p>
+                                <p className={`text-sm font-medium mb-2 ${
+                                  strategicAnalysis.pawn_structure.execution.verdict?.includes('Good') ? 'text-green-400' :
+                                  strategicAnalysis.pawn_structure.execution.verdict?.includes('Partial') ? 'text-yellow-400' :
+                                  'text-red-400'
+                                }`}>
+                                  {strategicAnalysis.pawn_structure.execution.verdict}
+                                </p>
+                                {strategicAnalysis.pawn_structure.execution.details?.map((detail, i) => (
+                                  <p key={i} className="text-sm text-muted-foreground">{detail}</p>
+                                ))}
+                                
+                                {/* Critical Moment */}
+                                {strategicAnalysis.pawn_structure.execution.critical_moment && (
+                                  <div className="mt-3 p-2 rounded bg-red-500/10 border border-red-500/30">
+                                    <p className="text-xs text-red-400 uppercase mb-1">Critical Moment</p>
+                                    <p className="text-sm text-red-400">
+                                      {strategicAnalysis.pawn_structure.execution.critical_moment.what_went_wrong}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             )}
                             
