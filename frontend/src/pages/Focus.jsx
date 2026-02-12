@@ -52,6 +52,7 @@ const FocusPage = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [focusData, setFocusData] = useState(null);
   const [coachData, setCoachData] = useState(null);
+  const [coachReview, setCoachReview] = useState(null);
   
   // Evidence modal state
   const [showEvidence, setShowEvidence] = useState(false);
@@ -62,10 +63,11 @@ const FocusPage = ({ user }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch focus data from new endpoint
-        const [focusRes, coachRes] = await Promise.all([
+        // Fetch focus data, coach data, and coach review
+        const [focusRes, coachRes, reviewRes] = await Promise.all([
           fetch(`${API}/focus`, { credentials: "include" }),
-          fetch(`${API}/coach/today`, { credentials: "include" })  // Fixed: use /coach/today
+          fetch(`${API}/coach/today`, { credentials: "include" }),
+          fetch(`${API}/coach-review`, { credentials: "include" })
         ]);
         
         if (focusRes.ok) {
@@ -76,6 +78,11 @@ const FocusPage = ({ user }) => {
         if (coachRes.ok) {
           const data = await coachRes.json();
           setCoachData(data);
+        }
+        
+        if (reviewRes.ok) {
+          const data = await reviewRes.json();
+          setCoachReview(data);
         }
       } catch (err) {
         console.error("Failed to load focus data:", err);
