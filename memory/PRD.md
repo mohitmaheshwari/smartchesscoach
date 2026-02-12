@@ -511,6 +511,48 @@ Win/loss ratio per opening with suggestions:
 ## Remaining Backlog
 1. **Improvement Trend vs Rating Trend Graph** - Compare blunder rate against rating over time
 
+### MISTAKE EXPLANATION FEATURE (Feb 2026 - COMPLETED)
+**User Request**: Provide more descriptive, educational explanations for mistakes on the Lab page's Mistakes tab, focusing on WHY a move was bad (positional loss, tactical pattern missed).
+
+**Architecture:**
+- **Our Chess Logic (Tags/Rules)** → determines WHY the move is bad (deterministic)
+- **GPT** → only writes the human-readable commentary based on those tags (no chess analysis)
+
+**Backend Implementation:**
+- `/app/backend/mistake_explanation_service.py`: New service containing:
+  - `analyze_mistake_position()`: Deterministic analysis using `mistake_classifier.py`
+  - `generate_mistake_explanation()`: Combines tags with GPT commentary
+  - `MISTAKE_TEMPLATES`: 20+ mistake type templates with patterns, labels, and thinking habits
+- `POST /api/explain-mistake`: On-demand endpoint returning:
+  - `explanation`: Human-readable educational text
+  - `mistake_type`: Category (walked_into_fork, hanging_piece, missed_pin, etc.)
+  - `short_label`: UI badge text
+  - `thinking_habit`: Actionable tip for improvement
+  - `severity`: blunder/mistake/inaccuracy/minor
+  - `phase`: opening/middlegame/endgame
+  - `details`: Tactical pattern details (fork targets, pin info, etc.)
+
+**Frontend Implementation:**
+- Enhanced `MistakeItem` component in `/app/frontend/src/pages/Lab.jsx`:
+  - Expandable "Why was this a mistake?" section
+  - On-demand API call when expanded (no pre-loading)
+  - Badge showing mistake type (e.g., "Walked into a fork")
+  - GPT-generated explanation text
+  - Thinking habit tip with lightbulb icon
+  - Loading state with spinner
+  - Error fallback to template-based explanation
+
+**Mistake Types Supported:**
+- Tactical: walked_into_fork, walked_into_pin, missed_fork, missed_pin, hanging_piece
+- Material: material_blunder, blunder_when_ahead, failed_conversion
+- Positional: positional_drift, king_safety_error, opening_inaccuracy
+- Time: time_pressure_blunder
+- Threats: ignored_threat
+
+**Test Coverage:**
+- `/app/backend/tests/test_explain_mistake.py`: 9 tests for endpoint validation
+- Testing agent: 100% backend, 100% frontend pass rate
+
 ## Future/Backlog Tasks (P2-P3)
 1. **Backfill Legacy Game Analysis Script** - Queue all historical games missing detailed analysis
 2. **Lab Page Phase 5 (Advanced Features)** - Behavior Memory System (pattern cross-linking), relative strength tracking
