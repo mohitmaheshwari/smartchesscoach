@@ -218,6 +218,9 @@ const Dashboard = ({ user }) => {
                           const opponent = game.user_color === 'white' 
                             ? game.black_player 
                             : game.white_player;
+                          const opponentRating = game.user_color === 'white'
+                            ? game.black_rating
+                            : game.white_rating;
                           const resultText = game.result === '1-0' 
                             ? (game.user_color === 'white' ? 'Won' : 'Lost')
                             : game.result === '0-1'
@@ -252,6 +255,11 @@ const Dashboard = ({ user }) => {
                                     <p className="font-medium text-sm truncate">
                                       vs {opponent || 'Opponent'}
                                     </p>
+                                    {opponentRating && (
+                                      <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+                                        {opponentRating}
+                                      </span>
+                                    )}
                                     <span className={`text-xs font-semibold ${resultColor}`}>
                                       {resultText}
                                     </span>
