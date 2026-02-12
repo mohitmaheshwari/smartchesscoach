@@ -414,6 +414,40 @@ When ahead, don't rush. Keep checking threats.
 
 ## Completed Tasks (This Session - Feb 2026)
 
+### UNIFIED LAST GAME CHECK + SMART RATING KILLER (Feb 2026 - COMPLETED)
+**User Request**: The Discipline Check felt disconnected from the app's guidance and conflicted with Rating Killer when the game was good.
+
+**Solution: Unified, Personalized Focus Page**
+
+**Key Changes:**
+1. **"Last Game Check" instead of "Discipline Check"** - More personal
+2. **Personalized observations** that reference our guidance:
+   - "Accuracy up X% from your average"
+   - "Avoided your #1 pattern" (when they do well)
+   - "Played [Opening] as suggested" (when following advice)
+3. **Smart Rating Killer visibility**:
+   - `show_rating_killer: true/false` based on game quality
+   - HIDDEN when game was good (Grade A/B)
+   - SHOWN when game was bad (Grade C/D) - flows naturally into "here's what to work on"
+4. **Consistent blunder counting** - Uses actual stockfish blunder count for accuracy
+
+**Backend Updates:**
+- `discipline_check_service.py`:
+  - Added `check_avoided_pattern()` function
+  - Added `generate_personalized_verdict()` with observations
+  - Added `personalization` context (rating_killer_pattern, accuracy_vs_avg)
+  - `verdict.show_rating_killer` boolean for UI hint
+
+**Frontend Updates:**
+- `Focus.jsx`:
+  - Renamed to "LAST GAME CHECK" header
+  - Personalized summary box
+  - Quick stats row with accuracy comparison
+  - Conditional Rating Killer: `{(!disciplineCheck?.has_data || disciplineCheck?.verdict?.show_rating_killer !== false) && ...}`
+
+**Test File:**
+- `/app/backend/tests/test_discipline_check.py`
+
 ### DISCIPLINE CHECK FEATURE (Feb 2026 - COMPLETED)
 **User Request**: Replace the soft "Coach's Review" section with a sharp, data-driven "Discipline Check" feature.
 
