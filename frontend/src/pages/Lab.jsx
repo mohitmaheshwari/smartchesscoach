@@ -34,6 +34,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
+  ChevronUp,
   RotateCcw,
   Eye,
   EyeOff,
@@ -43,7 +45,8 @@ import {
   TrendingDown,
   Pause,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  HelpCircle
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
