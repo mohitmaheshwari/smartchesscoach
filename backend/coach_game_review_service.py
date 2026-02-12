@@ -241,53 +241,61 @@ async def generate_coach_message(facts: Dict, llm_call_func) -> str:
     perf = facts["performance"]
     comp = facts["comparison"]
     opening = facts["opening_check"]
+    weaknesses = facts["weakness_check"]
     
     context_parts.append(f"GAME: vs {game['opponent']}, played as {game['user_color']}, result: {game['result']}")
     context_parts.append(f"ACCURACY: {perf['accuracy']}% (their average is {comp['avg_accuracy']}%)")
     context_parts.append(f"BLUNDERS: {perf['blunders']} (their average is {comp['avg_blunders']})")
     context_parts.append(f"OPENING PLAYED: {opening['played']}")
     
-    if opening['was_suggested'] is True:
-        context_parts.append("OPENING CHECK: They played an opening we suggested!")
-    elif opening['was_suggested'] is False and opening['suggested_openings']:
-        context_parts.append(f"OPENING CHECK: They did NOT play our suggested openings ({', '.join(opening['suggested_openings'])})")
+    # Opening guidance check
+    if opening.get('played_paused_opening'):
+        context_parts.append(f"OPENING WARNING: They played {opening['played']} which we told them to PAUSE/AVOID!")
+        if opening.get('suggested_openings'):
+            context_parts.append(f"WE SUGGESTED: {', '.join(opening['suggested_openings'])} instead")
+    elif opening['was_suggested'] is True:
+        context_parts.append(f"OPENING CHECK: Great! They played {opening['played']} which we recommended!")
+    elif opening['was_suggested'] is False and opening.get('suggested_openings'):
+        context_parts.append(f"OPENING CHECK: They played {opening['played']} instead of our suggestions: {', '.join(opening['suggested_openings'])}")
+    
+    # Weakness check
+    if weaknesses.get('known_weaknesses'):
+        context_parts.append(f"THEIR KNOWN WEAKNESSES: {', '.join(weaknesses['known_weaknesses'])}")
     
     if comp['is_improvement']:
-        context_parts.append("TREND: This game was BETTER than their average")
+        context_parts.append("TREND: This game was BETTER than their average - they're improving!")
     elif comp['vs_avg_accuracy'] and comp['vs_avg_accuracy'] < -5:
-        context_parts.append("TREND: This game was WORSE than their average")
+        context_parts.append("TREND: This game was WORSE than their average - need to refocus")
     
     phases = facts["phases"]
     if phases['opening_blunders'] > 0:
-        context_parts.append(f"CONCERN: {phases['opening_blunders']} blunders in the opening")
+        context_parts.append(f"CONCERN: {phases['opening_blunders']} blunders in the opening phase")
     if phases['endgame_blunders'] > 0:
         context_parts.append(f"CONCERN: {phases['endgame_blunders']} blunders in the endgame")
     
     context_str = "\n".join(context_parts)
     
-    prompt = f"""You are a personal chess coach reviewing your student's most recent game. You've been working with them, suggesting openings and helping them fix weaknesses.
+    prompt = f"""You are a personal chess coach reviewing your student's most recent game. You've been working with them - you suggested specific openings and identified their weaknesses.
 
 FACTS ABOUT THIS GAME (these are accurate - do not contradict):
 {context_str}
 
 Write a 2-3 sentence personalized review. Be:
-- SPECIFIC: Reference actual numbers and facts
-- HONEST: Praise improvement, but note concerns
+- SPECIFIC: Reference the exact opening they played, numbers, and compare to what you suggested
+- HONEST: Praise when they follow advice, gently call out when they don't
 - SUPPORTIVE: Like a coach who believes in them
-- ACTIONABLE: End with one thing to focus on next
+- ACTIONABLE: End with one specific thing to work on
 
-Tone: Warm but direct, like a mentor. Not generic praise.
+If they played an opening we told them to avoid, address that directly but supportively.
+If they played what we suggested and improved, celebrate it.
 
-Examples of good openings:
-- "78% accuracy against a tough opponent - that's solid work."
-- "I noticed you went back to the Sicilian instead of the Italian we discussed..."
-- "Zero blunders! That discipline is showing."
+Tone: Warm but direct, like a mentor who remembers everything. Not generic praise.
 
 Write the review (no preamble):"""
 
     try:
         message = await llm_call_func(
-            system_message="You are a supportive chess coach giving brief, specific feedback on a student's game.",
+            system_message="You are a supportive chess coach giving brief, specific feedback on a student's game. You remember what openings you suggested and their weaknesses.",
             user_message=prompt,
             model="gpt-4o-mini"
         )
