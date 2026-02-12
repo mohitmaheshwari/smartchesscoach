@@ -418,9 +418,6 @@ def build_explanation_prompt(analysis: Dict, move_data: Dict) -> str:
     
     context_str = "\n".join(context_parts)
     
-    # Check if we detected a specific tactical pattern
-    has_specific_pattern = any(k in details for k in ["fork", "pin", "skewer", "hanging", "missed_fork", "missed_pin", "threat"])
-    
     prompt = f"""You are a chess coach writing an educational explanation for a student's mistake.
 
 FACTS ABOUT THIS MISTAKE (these are VERIFIED by chess engine - NEVER contradict or change them):
