@@ -271,9 +271,9 @@ const Dashboard = ({ user }) => {
     setModalOpen(true);
   };
   
-  // Reanalyze a game
-  const handleReanalyze = async (gameId, e) => {
-    e.stopPropagation(); // Prevent navigation
+  // Queue a single game for analysis
+  const handleQueueGame = async (gameId, e) => {
+    if (e) e.stopPropagation();
     setReanalyzing(prev => ({ ...prev, [gameId]: true }));
     
     try {
@@ -299,6 +299,11 @@ const Dashboard = ({ user }) => {
     } finally {
       setReanalyzing(prev => ({ ...prev, [gameId]: false }));
     }
+  };
+  
+  // Reanalyze a game (same as queue but for already analyzed games)
+  const handleReanalyze = async (gameId, e) => {
+    handleQueueGame(gameId, e);
   };
   
   // Check for new milestones
