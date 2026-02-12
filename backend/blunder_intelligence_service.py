@@ -1036,7 +1036,7 @@ def get_opening_guidance(analyses: List[Dict], games: List[Dict]) -> Dict:
         
         key = f"{user_color}_{opening}"
         stats = opening_stats[key]
-        stats["name"] = opening_base
+        stats["name"] = opening
         stats["color"] = user_color
         stats["games"] += 1
         
