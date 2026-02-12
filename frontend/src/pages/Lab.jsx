@@ -272,17 +272,8 @@ const Lab = ({ user }) => {
   const coreLesson = labData?.core_lesson;
   const strategicAnalysis = labData?.strategic_analysis;
   
-  // Helper to determine if a move is by user (based on user_color and move_number)
-  const isUserMove = (moveNum) => {
-    // Move numbers are 1-indexed
-    // If user is white: user moves on odd move numbers (1, 3, 5...)
-    // If user is black: user moves on all move numbers (since black moves are stored by move number)
-    // Actually, the move_evaluations store each half-move separately
-    // So black's first move is move_number=1, white's second move is also stored somewhere...
-    // Let's check: in the data, it seems each record is a move by the position's turn
-    // If userColor is black, and the FEN before shows it's black's turn, it's a user move
-    return userColor === 'black'; // Simplified for now - if user is black, all stored moves are user moves
-  };
+  // User color from game data (needed for move filtering)
+  const userColor = game?.user_color || "white";
   
   // Determine if move eval is user's move based on FEN (more accurate)
   const isUserMoveFromFen = (eval_entry) => {
