@@ -194,7 +194,7 @@ const Dashboard = ({ user }) => {
 
             {/* Two Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Games */}
+              {/* Recent Games - Enhanced */}
               <AnimatedItem>
                 <Card className="surface h-full">
                   <CardContent className="py-6">
@@ -214,33 +214,73 @@ const Dashboard = ({ user }) => {
                     />
                     <div className="space-y-2">
                       {recentGames.length > 0 ? (
-                        recentGames.slice(0, 5).map((game) => (
-                          <motion.div 
-                            key={game.game_id}
-                            whileHover={{ x: 4 }}
-                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer"
-                            onClick={() => navigate(`/game/${game.game_id}`)}
-                            data-testid={`game-item-${game.game_id}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className={`w-2 h-2 rounded-full ${game.is_analyzed ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-                              <div>
-                                <p className="font-medium text-sm">
-                                  {game.white_player} vs {game.black_player}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {game.platform} · {game.result}
-                                </p>
+                        recentGames.slice(0, 5).map((game) => {
+                          const opponent = game.user_color === 'white' 
+                            ? game.black_player 
+                            : game.white_player;
+                          const resultText = game.result === '1-0' 
+                            ? (game.user_color === 'white' ? 'Won' : 'Lost')
+                            : game.result === '0-1'
+                            ? (game.user_color === 'black' ? 'Won' : 'Lost')
+                            : 'Draw';
+                          const resultColor = resultText === 'Won' 
+                            ? 'text-emerald-500' 
+                            : resultText === 'Lost' 
+                            ? 'text-red-500' 
+                            : 'text-yellow-500';
+                          
+                          return (
+                            <motion.div 
+                              key={game.game_id}
+                              whileHover={{ x: 4 }}
+                              className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer group"
+                              onClick={() => navigate(`/game/${game.game_id}`)}
+                              data-testid={`game-item-${game.game_id}`}
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                {/* Color indicator */}
+                                <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
+                                  game.user_color === 'white' 
+                                    ? 'bg-white text-black border border-border' 
+                                    : 'bg-zinc-800 text-white'
+                                }`}>
+                                  {game.user_color === 'white' ? 'W' : 'B'}
+                                </span>
+                                
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm truncate">
+                                      vs {opponent || 'Opponent'}
+                                    </p>
+                                    <span className={`text-xs font-semibold ${resultColor}`}>
+                                      {resultText}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    {game.opening && (
+                                      <span className="truncate max-w-[120px]">{game.opening}</span>
+                                    )}
+                                    {!game.opening && (
+                                      <span>{game.platform}</span>
+                                    )}
+                                    {game.is_analyzed && game.accuracy && (
+                                      <span className="text-emerald-500">{game.accuracy}%</span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs px-2 py-0.5 rounded font-mono ${game.user_color === 'white' ? 'bg-white text-black border border-border' : 'bg-zinc-800 text-white'}`}>
-                                {game.user_color === 'white' ? 'W' : 'B'}
-                              </span>
-                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                          </motion.div>
-                        ))
+                              
+                              <div className="flex items-center gap-2">
+                                {!game.is_analyzed && (
+                                  <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-500">
+                                    Not analyzed
+                                  </span>
+                                )}
+                                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                              </div>
+                            </motion.div>
+                          );
+                        })
                       ) : (
                         <p className="text-muted-foreground text-sm text-center py-8">
                           No games yet
@@ -251,7 +291,7 @@ const Dashboard = ({ user }) => {
                 </Card>
               </AnimatedItem>
 
-              {/* Top Weaknesses */}
+              {/* Focus Areas - Enhanced */}
               <AnimatedItem>
                 <Card className="surface h-full">
                   <CardContent className="py-6">
@@ -261,7 +301,7 @@ const Dashboard = ({ user }) => {
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => navigate('/journey')}
+                          onClick={() => navigate('/progress')}
                           className="text-muted-foreground hover:text-foreground -mr-2"
                         >
                           Journey
@@ -269,39 +309,61 @@ const Dashboard = ({ user }) => {
                         </Button>
                       }
                     />
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {topWeaknesses.length > 0 ? (
-                        topWeaknesses.slice(0, 4).map((weakness, index) => (
+                        <>
+                          {/* Primary Focus - Highlighted */}
                           <div 
-                            key={index}
-                            className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                            data-testid={`weakness-item-${index}`}
+                            className="p-4 rounded-lg bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20 cursor-pointer hover:border-red-500/40 transition-colors"
+                            onClick={() => navigate('/coach')}
                           >
-                            <div>
-                              <p className="font-medium text-sm capitalize">
-                                {(weakness.subcategory || weakness.name || '').replace(/_/g, ' ')}
-                              </p>
-                              <p className="text-xs text-muted-foreground capitalize">
-                                {weakness.category}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono text-muted-foreground">
-                                {weakness.occurrences || weakness.decayed_score?.toFixed(1) || '—'}
+                            <div className="flex items-center gap-2 mb-2">
+                              <Target className="w-4 h-4 text-red-500" />
+                              <span className="text-xs text-red-400 uppercase tracking-wide font-semibold">
+                                #1 Priority
                               </span>
-                              <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-amber-500 rounded-full"
-                                  style={{ width: `${Math.min((weakness.occurrences || weakness.decayed_score || 0) * 10, 100)}%` }}
-                                />
-                              </div>
                             </div>
+                            <p className="font-semibold capitalize">
+                              {(topWeaknesses[0]?.subcategory || topWeaknesses[0]?.name || '').replace(/_/g, ' ')}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {topWeaknesses[0]?.occurrences || Math.round(topWeaknesses[0]?.decayed_score || 0)} occurrences · 
+                              <span className="text-red-400"> Fix this first</span>
+                            </p>
                           </div>
-                        ))
+                          
+                          {/* Other focus areas */}
+                          {topWeaknesses.slice(1, 4).map((weakness, index) => (
+                            <div 
+                              key={index}
+                              className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer"
+                              onClick={() => navigate('/progress')}
+                              data-testid={`weakness-item-${index}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  #{index + 2}
+                                </span>
+                                <div>
+                                  <p className="font-medium text-sm capitalize">
+                                    {(weakness.subcategory || weakness.name || '').replace(/_/g, ' ')}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground capitalize">
+                                    {weakness.category}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="text-xs font-mono text-muted-foreground">
+                                {weakness.occurrences || Math.round(weakness.decayed_score || 0)}×
+                              </span>
+                            </div>
+                          ))}
+                        </>
                       ) : (
                         <div className="text-center py-8">
+                          <Target className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                           <p className="text-muted-foreground text-sm mb-3">
-                            Analyze games to discover patterns
+                            Analyze games to discover your weaknesses
                           </p>
                           <Button 
                             variant="outline" 
