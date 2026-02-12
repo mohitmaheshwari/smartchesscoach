@@ -165,120 +165,153 @@ const FocusPage = ({ user }) => {
           </motion.div>
         ) : (
           <>
-            {/* COACH'S REVIEW OF LAST GAME */}
-            {coachReview?.has_review && (
+            {/* DISCIPLINE CHECK - Sharp, Data-Driven Review */}
+            {disciplineCheck?.has_data && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
+                data-testid="discipline-check"
               >
-                <Card className="border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/5 via-indigo-500/5 to-blue-500/5 overflow-hidden">
-                  <CardContent className="py-6">
-                    {/* Header */}
+                <Card className={`border-2 overflow-hidden ${
+                  disciplineCheck.verdict?.tone === 'positive' 
+                    ? 'border-emerald-500/40 bg-gradient-to-br from-emerald-500/5 to-green-500/5' 
+                    : disciplineCheck.verdict?.tone === 'critical'
+                    ? 'border-red-500/40 bg-gradient-to-br from-red-500/5 to-orange-500/5'
+                    : 'border-slate-500/30 bg-gradient-to-br from-slate-500/5 to-zinc-500/5'
+                }`}>
+                  <CardContent className="py-5">
+                    {/* Header Row */}
                     <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2.5 rounded-full ${
-                          coachReview.sentiment === 'proud' ? 'bg-emerald-500/20' :
-                          coachReview.sentiment === 'excellent' ? 'bg-yellow-500/20' :
-                          coachReview.sentiment === 'impressed' ? 'bg-blue-500/20' :
-                          coachReview.sentiment === 'concerned' ? 'bg-orange-500/20' :
-                          'bg-purple-500/20'
-                        }`}>
-                          <MessageCircle className={`w-5 h-5 ${
-                            coachReview.sentiment === 'proud' ? 'text-emerald-500' :
-                            coachReview.sentiment === 'excellent' ? 'text-yellow-500' :
-                            coachReview.sentiment === 'impressed' ? 'text-blue-500' :
-                            coachReview.sentiment === 'concerned' ? 'text-orange-500' :
-                            'text-purple-500'
-                          }`} />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold uppercase tracking-wider text-purple-400">
-                            Coach's Review
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            Your last game vs {coachReview.quick_stats?.opponent || "opponent"}
-                          </p>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Shield className={`w-4 h-4 ${
+                          disciplineCheck.verdict?.tone === 'positive' ? 'text-emerald-500' :
+                          disciplineCheck.verdict?.tone === 'critical' ? 'text-red-500' :
+                          'text-slate-400'
+                        }`} />
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Discipline Check
+                        </span>
                       </div>
                       
-                      {/* Quick result badge */}
-                      <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        coachReview.quick_stats?.result === 'win' ? 'bg-emerald-500/20 text-emerald-400' :
-                        coachReview.quick_stats?.result === 'loss' ? 'bg-red-500/20 text-red-400' :
-                        'bg-gray-500/20 text-gray-400'
-                      }`}>
-                        {coachReview.quick_stats?.result?.toUpperCase() || "GAME"}
+                      {/* Grade Badge */}
+                      <div className={`px-2.5 py-1 rounded text-xs font-bold ${
+                        disciplineCheck.verdict?.grade === 'A' ? 'bg-emerald-500/20 text-emerald-400' :
+                        disciplineCheck.verdict?.grade === 'B' ? 'bg-blue-500/20 text-blue-400' :
+                        disciplineCheck.verdict?.grade === 'C' ? 'bg-amber-500/20 text-amber-400' :
+                        disciplineCheck.verdict?.grade === 'D' ? 'bg-orange-500/20 text-orange-400' :
+                        'bg-red-500/20 text-red-400'
+                      }`} data-testid="discipline-grade">
+                        {disciplineCheck.verdict?.grade || '-'}
                       </div>
                     </div>
                     
-                    {/* Stats Row */}
-                    <div className="flex items-center gap-4 mb-4 p-3 rounded-lg bg-background/50 border border-border/30">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold">{coachReview.quick_stats?.accuracy || 0}%</span>
-                        <span className="text-xs text-muted-foreground">accuracy</span>
-                        {coachReview.quick_stats?.accuracy_trend === 'up' && (
-                          <TrendingUp className="w-4 h-4 text-emerald-500" />
-                        )}
-                        {coachReview.quick_stats?.accuracy_trend === 'down' && (
-                          <TrendingDown className="w-4 h-4 text-red-500" />
-                        )}
-                      </div>
-                      <div className="h-8 w-px bg-border" />
-                      <div className="flex items-center gap-2">
-                        <span className={`text-2xl font-bold ${
-                          coachReview.quick_stats?.blunders === 0 ? 'text-emerald-500' :
-                          coachReview.quick_stats?.blunders >= 3 ? 'text-red-500' :
-                          'text-orange-500'
-                        }`}>
-                          {coachReview.quick_stats?.blunders || 0}
-                        </span>
-                        <span className="text-xs text-muted-foreground">blunders</span>
-                      </div>
-                    </div>
-                    
-                    {/* Coach Message */}
-                    <div className="relative pl-4 border-l-2 border-purple-500/50 mb-4">
-                      <p className="text-sm leading-relaxed italic text-foreground/90">
-                        "{coachReview.coach_message}"
+                    {/* Verdict Headline */}
+                    <div className="mb-4">
+                      <h3 className={`text-lg font-bold ${
+                        disciplineCheck.verdict?.tone === 'positive' ? 'text-emerald-400' :
+                        disciplineCheck.verdict?.tone === 'critical' ? 'text-red-400' :
+                        'text-foreground'
+                      }`} data-testid="discipline-headline">
+                        {disciplineCheck.verdict?.headline || 'Analysis Complete'}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        vs {disciplineCheck.opponent} · {disciplineCheck.result?.toUpperCase()}
                       </p>
                     </div>
                     
-                    {/* Highlights & Concerns */}
-                    <div className="flex flex-wrap gap-2">
-                      {coachReview.highlights?.slice(0, 2).map((h, i) => (
-                        <span 
-                          key={i} 
-                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        >
-                          <CheckCircle2 className="w-3 h-3" />
-                          {h.text}
+                    {/* Metrics Grid - Compact Cards */}
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      {/* Accuracy Card */}
+                      <div className="p-2.5 rounded-lg bg-background/50 border border-border/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Accuracy</span>
+                          <Activity className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                        <span className="text-xl font-bold" data-testid="discipline-accuracy">
+                          {disciplineCheck.metrics?.accuracy || 0}%
                         </span>
+                      </div>
+                      
+                      {/* Decision Stability Card */}
+                      <div className="p-2.5 rounded-lg bg-background/50 border border-border/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Stability</span>
+                          <Crosshair className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                        {disciplineCheck.metrics?.decision_stability?.score !== null ? (
+                          <span className={`text-xl font-bold ${
+                            disciplineCheck.metrics.decision_stability.score >= 80 ? 'text-emerald-500' :
+                            disciplineCheck.metrics.decision_stability.score >= 50 ? 'text-amber-500' :
+                            'text-red-500'
+                          }`} data-testid="discipline-stability">
+                            {disciplineCheck.metrics.decision_stability.score}%
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">N/A</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Issues and Positives */}
+                    <div className="space-y-1.5">
+                      {disciplineCheck.verdict?.issues?.slice(0, 2).map((issue, i) => (
+                        <div 
+                          key={i}
+                          className="flex items-center gap-2 text-xs p-2 rounded bg-red-500/10 border border-red-500/20 text-red-400"
+                          data-testid={`discipline-issue-${i}`}
+                        >
+                          <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>{issue}</span>
+                        </div>
                       ))}
-                      {coachReview.concerns?.slice(0, 2).map((c, i) => (
-                        <span 
-                          key={i} 
-                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20"
+                      {disciplineCheck.verdict?.positives?.slice(0, 2).map((pos, i) => (
+                        <div 
+                          key={i}
+                          className="flex items-center gap-2 text-xs p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                          data-testid={`discipline-positive-${i}`}
                         >
-                          <AlertCircle className="w-3 h-3" />
-                          {c.text}
-                        </span>
+                          <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>{pos}</span>
+                        </div>
                       ))}
                     </div>
                     
-                    {/* View Game Link */}
-                    {coachReview.game_id && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-4 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 p-0 h-auto"
-                        onClick={() => navigate(`/game/${coachReview.game_id}`)}
-                      >
-                        <Eye className="w-3.5 h-3.5 mr-1.5" />
-                        Review this game in Lab
-                        <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                      </Button>
+                    {/* Opening Compliance Indicator */}
+                    {disciplineCheck.metrics?.opening_compliance && (
+                      <div className="mt-3 pt-3 border-t border-border/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
+                              Opening: {disciplineCheck.metrics.opening_compliance.played}
+                            </span>
+                          </div>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                            disciplineCheck.metrics.opening_compliance.verdict === 'FOLLOWED' 
+                              ? 'bg-emerald-500/20 text-emerald-400' 
+                              : disciplineCheck.metrics.opening_compliance.verdict === 'IGNORED'
+                              ? 'bg-red-500/20 text-red-400'
+                              : 'bg-slate-500/20 text-slate-400'
+                          }`} data-testid="opening-compliance">
+                            {disciplineCheck.metrics.opening_compliance.verdict}
+                          </span>
+                        </div>
+                      </div>
                     )}
+                    
+                    {/* View Game Link */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-3 text-slate-400 hover:text-slate-300 p-0 h-auto text-xs"
+                      onClick={() => navigate(`/lab/${disciplineCheck.game_id}`)}
+                      data-testid="discipline-view-game"
+                    >
+                      <Eye className="w-3 h-3 mr-1" />
+                      Full analysis
+                      <ChevronRight className="w-3 h-3 ml-0.5" />
+                    </Button>
                   </CardContent>
                 </Card>
               </motion.div>
