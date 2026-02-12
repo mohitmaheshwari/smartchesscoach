@@ -41,41 +41,41 @@ logger = logging.getLogger(__name__)
 # ============================================
 
 MISTAKE_TEMPLATES = {
-    # Tactical pattern mistakes
+    # Tactical pattern mistakes - Coach-style feedback
     "hanging_piece": {
-        "short": "Undefended piece",
-        "pattern": "You left a piece where it could be captured for free.",
-        "thinking_habit": "Before moving, scan: 'Is anything I own undefended?'",
+        "short": "Piece left unprotected",
+        "pattern": "That piece was left without backup. It happens to everyone!",
+        "thinking_habit": "Quick tip: Before each move, do a 'safety scan' - which of your pieces are unguarded?",
         "severity": "material_loss"
     },
     "material_blunder": {
-        "short": "Lost material",
-        "pattern": "This move lost material immediately.",
-        "thinking_habit": "After choosing a move, ask: 'What can my opponent capture next?'",
+        "short": "Material slipped away",
+        "pattern": "This one gave away some material. It's a great learning moment.",
+        "thinking_habit": "Try this: After deciding your move, pause and ask 'What can they take next?'",
         "severity": "material_loss"
     },
     "walked_into_fork": {
-        "short": "Walked into a fork",
-        "pattern": "Your move put two pieces on the same attack line, letting opponent fork them.",
-        "thinking_habit": "Watch for knight squares that attack multiple pieces.",
+        "short": "Double attack incoming",
+        "pattern": "Two of your pieces ended up vulnerable to the same attack. Classic trap!",
+        "thinking_habit": "Knight squares are sneaky - always check if they can hit two targets at once.",
         "severity": "tactical"
     },
     "walked_into_pin": {
-        "short": "Created a pin against yourself",
-        "pattern": "Your move lined up your pieces, creating a pin against you.",
-        "thinking_habit": "Check if moving creates an X-ray through your pieces.",
+        "short": "Created a pin situation",
+        "pattern": "Your pieces lined up in a way that created a pin. Happens to the best of us!",
+        "thinking_habit": "Watch out for pieces lining up on same files, ranks, or diagonals.",
         "severity": "tactical"
     },
     "walked_into_skewer": {
-        "short": "Walked into a skewer",
-        "pattern": "Your move put a valuable piece in front of another, allowing a skewer.",
-        "thinking_habit": "Avoid lining up your valuable pieces on the same diagonal or file.",
+        "short": "Skewer opportunity given",
+        "pattern": "A valuable piece ended up in front of another on the same line.",
+        "thinking_habit": "Keep your heavy pieces (Queen, Rooks) spread out to avoid skewers.",
         "severity": "tactical"
     },
     "walked_into_discovered_attack": {
-        "short": "Discovered attack incoming",
-        "pattern": "Your move allowed opponent to create a discovered attack.",
-        "thinking_habit": "Watch for pieces that could 'unmask' another attacker.",
+        "short": "Discovered attack set up",
+        "pattern": "The opponent got to 'unmask' a hidden attacker. Tricky pattern!",
+        "thinking_habit": "Look for enemy pieces that could reveal another attacker when they move.",
         "severity": "tactical"
     },
     "missed_fork": {
