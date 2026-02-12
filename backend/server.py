@@ -5461,7 +5461,7 @@ async def reanalyze_game(
             "message": "Game is already queued for analysis"
         }
     
-    # Add to queue
+    # Add to queue (or update existing entry)
     queue_item = {
         "game_id": game_id,
         "user_id": user.user_id,
@@ -5470,7 +5470,12 @@ async def reanalyze_game(
         "priority": 1  # User-requested re-analysis gets priority
     }
     
-    await db.analysis_queue.insert_one(queue_item)
+    # Use upsert to avoid duplicate entries - update existing or create new
+    await db.analysis_queue.update_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"$set": queue_item},
+        upsert=True
+    )
     
     # Update game status - set is_analyzed to False so it shows in queue
     await db.games.update_one(
