@@ -439,8 +439,6 @@ CRITICAL RULES:
 7. End with a concrete tip from the THINKING HABIT above
 8. Do NOT mention centipawns, engine scores, or technical jargon
 9. Keep it under 50 words
-6. Do NOT mention centipawns, engine scores, or technical jargon
-7. Keep it under 60 words
 
 Write the explanation now (no preamble, just the explanation):"""
     
