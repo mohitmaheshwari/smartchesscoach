@@ -273,34 +273,58 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
     
     # 1. Check if walked into a fork
     walked_into_fork = detect_walked_into_fork(board, board_after, color)
-    if walked_into_fork:
-        mistake_type = "walked_into_fork"
-        details["fork"] = walked_into_fork
+    # 1. FIRST check if the moved piece is now hanging (directly capturable)
+    # This takes priority over "fork" because moving to an attacked square = blunder
+    hanging = find_hanging_pieces(board_after, color)
+    moved_piece_hanging = False
+    if hanging:
+        # Get the destination square of the move we played
+        try:
+            move_obj = board.parse_san(move_played)
+            to_square = chess.square_name(move_obj.to_square)
+            # Check if the piece we just moved is now hanging
+            for h in hanging:
+                if h.get("square") == to_square:
+                    moved_piece_hanging = True
+                    mistake_type = "material_blunder" if h["value"] >= 5 else "hanging_piece"
+                    details["hanging"] = h
+                    break
+        except:
+            pass
     
-    # 2. Check if walked into a pin
+    # 2. Check if walked into a fork (only if we didn't just hang the moved piece)
+    if mistake_type == "inaccuracy":
+        walked_into_fork = detect_walked_into_fork(board, board_after, color)
+        if walked_into_fork:
+            # Only count as fork if it's a knight fork (classic tactical pattern)
+            # Rook/Queen "forks" are usually just attacks on hanging pieces
+            if walked_into_fork.get("attacker_piece") in ["knight", "pawn"]:
+                mistake_type = "walked_into_fork"
+                details["fork"] = walked_into_fork
+    
+    # 3. Check if walked into a pin
     if mistake_type == "inaccuracy":
         walked_into_pin = detect_walked_into_pin(board, board_after, color)
         if walked_into_pin:
             mistake_type = "walked_into_pin"
             details["pin"] = walked_into_pin
     
-    # 3. Check for hanging pieces after the move
-    if mistake_type == "inaccuracy":
-        hanging = find_hanging_pieces(board_after, color)
+    # 4. Check for other hanging pieces after the move (not the moved piece)
+    if mistake_type == "inaccuracy" and not moved_piece_hanging:
         if hanging:
             highest_value = max(h["value"] for h in hanging)
             if highest_value >= 3:  # At least a minor piece
                 mistake_type = "hanging_piece"
                 details["hanging"] = hanging[0]
     
-    # 4. Check if missed a fork with the best move
+    # 5. Check if missed a fork with the best move
     if mistake_type == "inaccuracy" and best_move:
         missed_fork = detect_missed_fork(board, best_move, color)
         if missed_fork:
             mistake_type = "missed_fork"
             details["missed_fork"] = missed_fork
     
-    # 5. Check if missed a pin with the best move
+    # 6. Check if missed a pin with the best move
     if mistake_type == "inaccuracy" and best_move:
         missed_pin = detect_missed_pin(board, best_move, color)
         if missed_pin:
