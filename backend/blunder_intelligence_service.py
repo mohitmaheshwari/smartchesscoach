@@ -888,9 +888,9 @@ def get_opening_guidance(analyses: List[Dict], games: List[Dict]) -> Dict:
     }
     """
     
-    MIN_GAMES_PER_OPENING = 4
+    MIN_GAMES_PER_OPENING = 3  # Lower threshold for early users
     
-    if not analyses or not games or len(analyses) < 10:
+    if not analyses or not games or len(analyses) < 5:
         return {
             "as_white": {"working_well": [], "pause_for_now": []},
             "as_black": {"working_well": [], "pause_for_now": []},
