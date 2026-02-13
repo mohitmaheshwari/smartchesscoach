@@ -823,4 +823,190 @@ const FocusPage = ({ user }) => {
   );
 };
 
+// =============================================================================
+// HELPER COMPONENTS FOR COACHING LOOP
+// =============================================================================
+
+/**
+ * Get icon character for domain
+ */
+function getDomainIcon(domain) {
+  const icons = {
+    opening: 'O',
+    middlegame: 'M',
+    tactics: 'T',
+    endgame: 'E',
+    time: '⏱'
+  };
+  return icons[domain] || domain.charAt(0).toUpperCase();
+}
+
+/**
+ * Get domain display name
+ */
+function getDomainName(domain) {
+  const names = {
+    opening: 'Opening Strategy',
+    middlegame: 'Middlegame Objective',
+    tactics: 'Tactical Protocol',
+    endgame: 'Endgame Plan',
+    time: 'Time Plan'
+  };
+  return names[domain] || domain;
+}
+
+/**
+ * Domain Plan Card - For Round Preparation
+ * Shows the plan for a specific domain (goal + rules)
+ */
+function DomainPlanCard({ card }) {
+  const priorityColors = {
+    primary: 'border-blue-500/40 bg-blue-500/5',
+    secondary: 'border-slate-500/30 bg-slate-500/5',
+    baseline: 'border-border/30 bg-background/50'
+  };
+  
+  const priorityBadge = {
+    primary: 'bg-blue-500/20 text-blue-400',
+    secondary: 'bg-slate-500/20 text-slate-400',
+    baseline: 'bg-muted text-muted-foreground'
+  };
+
+  return (
+    <div 
+      className={`p-3 rounded-lg border ${priorityColors[card.priority] || priorityColors.baseline}`}
+      data-testid={`prep-${card.domain}`}
+    >
+      {/* Domain Header */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-bold uppercase tracking-wider text-foreground/80">
+          {getDomainName(card.domain)}
+        </span>
+        <span className={`text-xs font-medium px-2 py-0.5 rounded ${priorityBadge[card.priority] || priorityBadge.baseline}`}>
+          {card.priority}
+        </span>
+      </div>
+      
+      {/* Goal */}
+      <p className="text-sm font-medium mb-2">
+        {card.goal}
+      </p>
+      
+      {/* Rules */}
+      {card.rules?.length > 0 && (
+        <div className="space-y-0.5">
+          {card.rules.map((rule, i) => (
+            <p key={i} className="text-xs text-muted-foreground">
+              • {rule}
+            </p>
+          ))}
+        </div>
+      )}
+      
+      {/* Success Criteria (for primary/secondary) */}
+      {card.priority !== 'baseline' && card.success_criteria?.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-border/30">
+          <p className="text-xs text-muted-foreground">
+            Success: {card.success_criteria.map(c => 
+              `${c.metric.replace(/_/g, ' ')} ${c.op} ${c.value}`
+            ).join(', ')}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Domain Audit Card - For Plan Audit
+ * Shows how well the user followed the plan (status + evidence)
+ */
+function DomainAuditCard({ card, gameId, navigate }) {
+  const statusColors = {
+    executed: 'border-emerald-500/40 bg-emerald-500/5',
+    partial: 'border-amber-500/40 bg-amber-500/5',
+    missed: 'border-orange-500/40 bg-orange-500/5'
+  };
+  
+  const statusBadge = {
+    executed: 'bg-emerald-500/20 text-emerald-400',
+    partial: 'bg-amber-500/20 text-amber-400',
+    missed: 'bg-orange-500/20 text-orange-400'
+  };
+  
+  const statusIcon = {
+    executed: '✓',
+    partial: '~',
+    missed: '✗'
+  };
+
+  const audit = card.audit || {};
+
+  return (
+    <div 
+      className={`p-3 rounded-lg border ${statusColors[audit.status] || 'border-border/30 bg-background/50'}`}
+      data-testid={`audit-${card.domain}`}
+    >
+      {/* Domain Header */}
+      <div className="flex items-center justify-between mb-2">
+        <span className={`text-xs font-bold uppercase tracking-wider ${
+          audit.status === 'executed' ? 'text-emerald-400' :
+          audit.status === 'missed' ? 'text-orange-400' :
+          'text-amber-400'
+        }`}>
+          {getDomainName(card.domain)}
+        </span>
+        <span className={`text-xs font-medium px-2 py-0.5 rounded ${statusBadge[audit.status] || statusBadge.partial}`}>
+          {audit.status?.charAt(0).toUpperCase() + audit.status?.slice(1) || 'Unknown'} {statusIcon[audit.status]}
+        </span>
+      </div>
+      
+      {/* Plan */}
+      <p className="text-xs text-muted-foreground mb-1.5">
+        <span className="font-medium">Plan:</span> {card.goal}
+      </p>
+      
+      {/* Data Points */}
+      {audit.data_points?.length > 0 && (
+        <div className="space-y-0.5 mb-2">
+          {audit.data_points.map((point, i) => (
+            <p key={i} className="text-xs text-foreground/80">
+              • {point}
+            </p>
+          ))}
+        </div>
+      )}
+      
+      {/* Evidence Links */}
+      {audit.evidence?.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {audit.evidence.map((ev, i) => (
+            <button
+              key={i}
+              className="text-xs bg-background/50 px-2 py-1 rounded hover:bg-background/80 transition-colors flex items-center gap-1 cursor-pointer"
+              onClick={() => gameId && navigate(`/game/${gameId}?move=${ev.move}`)}
+              title={ev.note}
+            >
+              <Eye className="w-3 h-3" />
+              Move {ev.move}
+              {ev.delta && <span className={ev.delta < 0 ? 'text-orange-400' : 'text-emerald-400'}>{ev.delta > 0 ? '+' : ''}{ev.delta}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      
+      {/* Coach Note */}
+      {audit.coach_note && (
+        <p className={`text-xs font-medium ${
+          audit.status === 'executed' ? 'text-emerald-400' :
+          audit.status === 'missed' ? 'text-orange-400' :
+          'text-amber-400'
+        }`}>
+          {audit.coach_note}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default FocusPage;
