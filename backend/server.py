@@ -5143,6 +5143,24 @@ async def get_discipline_check_data(user: User = Depends(get_current_user)):
     return await get_discipline_check(db, user.user_id)
 
 
+@api_router.get("/plan-audit")
+async def get_plan_audit_data(user: User = Depends(get_current_user)):
+    """
+    Get Plan Audit data for user's last game.
+    
+    Phase-based execution evaluation across 5 domains:
+    - Opening: Did they follow opening plan?
+    - Middlegame: Did they maintain strategic discipline?
+    - Endgame: Did they apply endgame principles?
+    - Tactics: Did they avoid blunders?
+    - Time: Did they manage clock properly?
+    
+    Only shows domains where plan existed OR something meaningful happened.
+    """
+    from plan_audit_service import get_plan_audit
+    return await get_plan_audit(db, user.user_id)
+
+
 @api_router.get("/journey/v2")
 async def get_journey_page_data(user: User = Depends(get_current_user)):
     """
