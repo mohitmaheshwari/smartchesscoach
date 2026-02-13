@@ -1121,7 +1121,24 @@ def generate_next_plan(
     )
     plan["cards"].append(time_card)
     
+    # Add situational rules based on rating
+    plan["situational_rules"] = get_situational_rules_for_rating(
+        rating_band_to_rating(rating_band)
+    )
+    
     return plan
+
+
+def rating_band_to_rating(rating_band: str) -> int:
+    """Convert rating band to approximate rating for rule selection."""
+    bands = {
+        "beginner": 800,
+        "intermediate": 1300,
+        "club": 1600,
+        "advanced": 1900,
+        "expert": 2100
+    }
+    return bands.get(rating_band, 1300)
 
 
 def _generate_opening_card(
