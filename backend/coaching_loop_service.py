@@ -517,12 +517,20 @@ def calculate_opening_stability(analyses: List[Dict], games: List[Dict]) -> Dict
             "sample_size": len(games) if games else 0
         }
     
+    # Create a lookup map for analyses by game_id
+    analysis_map = {}
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        if game_id:
+            analysis_map[game_id] = analysis
+    
     # Group games by color and opening
     openings_white = {}
     openings_black = {}
     
-    for i, game in enumerate(games[-30:]):  # Last 30 games
-        analysis = analyses[i] if i < len(analyses) else None
+    for game in games[-30:]:  # Last 30 games
+        game_id = game.get("game_id")
+        analysis = analysis_map.get(game_id)
         if not analysis:
             continue
         
