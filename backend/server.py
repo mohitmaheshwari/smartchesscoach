@@ -5096,6 +5096,53 @@ async def explain_mistake(req: MistakeExplanationRequest, user: User = Depends(g
         }
 
 
+@api_router.get("/positional-insight/{structure_id}")
+async def get_structure_deep_dive(structure_id: str, user: User = Depends(get_current_user)):
+    """
+    Get detailed positional insight for a specific pawn structure.
+    
+    Returns complete knowledge base entry with:
+    - Plans for both sides
+    - Typical errors
+    - Conversion patterns
+    - Key squares and piece placement
+    """
+    try:
+        from positional_coaching_service import get_structure_deep_dive as get_deep_dive
+        deep_dive = get_deep_dive(structure_id, "white")  # Color context added dynamically
+        
+        if not deep_dive:
+            raise HTTPException(status_code=404, detail="Structure not found in knowledge base")
+        
+        return deep_dive
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Positional coaching service not available")
+
+
+@api_router.get("/knowledge-base/structures")
+async def get_all_structures(user: User = Depends(get_current_user)):
+    """
+    Get summary of all pawn structures in the knowledge base.
+    """
+    try:
+        from positional_coaching_service import get_all_structures_summary
+        return {"structures": get_all_structures_summary()}
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Knowledge base not available")
+
+
+@api_router.get("/knowledge-base/imbalances")
+async def get_all_imbalances(user: User = Depends(get_current_user)):
+    """
+    Get summary of all strategic imbalances in the knowledge base.
+    """
+    try:
+        from positional_coaching_service import get_all_imbalances_summary
+        return {"imbalances": get_all_imbalances_summary()}
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Knowledge base not available")
+
+
 @api_router.get("/weakness-ranking")
 async def get_weakness_ranking(user: User = Depends(get_current_user)):
     """
