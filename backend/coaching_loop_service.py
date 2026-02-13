@@ -1623,6 +1623,15 @@ def audit_game_against_plan(
     missed = sum(1 for c in audited_plan["cards"] if c["audit"]["status"] == "missed")
     applicable = sum(1 for c in audited_plan["cards"] if c["audit"]["status"] != "n/a")
     
+    # Audit situational rules
+    situational_results = _audit_situational_rules(
+        audited_plan.get("situational_rules", []),
+        moves,
+        user_color,
+        game
+    )
+    audited_plan["situational_rules"] = situational_results
+    
     audited_plan["audit_summary"] = {
         "executed": executed,
         "partial": partial,
@@ -1635,6 +1644,171 @@ def audit_game_against_plan(
     }
     
     return audited_plan
+
+
+def _audit_situational_rules(rules: List[Dict], moves: List[Dict], user_color: str, game: Dict) -> List[Dict]:
+    """
+    Audit situational rules against actual game.
+    
+    Check if each situation occurred and whether the user followed the advice.
+    """
+    if not rules or not moves:
+        return rules
+    
+    audited_rules = []
+    user_is_white = user_color.lower() == "white"
+    
+    # Build evaluation timeline for the user
+    # Positive = user is winning, Negative = user is losing
+    eval_timeline = []
+    for m in moves:
+        move_num = m.get("move_number", 0)
+        cp = m.get("cp_after", 0) or 0
+        
+        # Flip eval if user is black
+        user_eval = cp if user_is_white else -cp
+        eval_timeline.append({
+            "move": move_num,
+            "eval": user_eval,
+            "played_move": m.get("played_move"),
+            "evaluation": m.get("evaluation")  # blunder, mistake, etc.
+        })
+    
+    for rule in rules:
+        audited_rule = rule.copy()
+        rule_id = rule.get("id")
+        
+        situation_occurred = False
+        executed = None
+        evidence = []
+        coach_note = None
+        
+        if rule_id == "when_down_material":
+            # Check if user was ever significantly behind (eval < -150)
+            down_moments = [e for e in eval_timeline if e["eval"] < -150]
+            
+            if down_moments:
+                situation_occurred = True
+                first_down = down_moments[0]["move"]
+                
+                # Check what user did when down
+                # Good: created complications, played aggressively
+                # Bad: traded pieces, played passively, blundered more
+                moves_when_down = [m for m in moves if m.get("move_number", 0) >= first_down]
+                
+                # Check for aggressive play (attacking moves, not trading)
+                blunders_when_down = sum(1 for m in moves_when_down if m.get("evaluation") == "blunder")
+                mistakes_when_down = sum(1 for m in moves_when_down if m.get("evaluation") == "mistake")
+                
+                # Simple heuristic: Did they stabilize or collapse?
+                final_eval = eval_timeline[-1]["eval"] if eval_timeline else 0
+                worst_eval = min(e["eval"] for e in down_moments)
+                
+                if final_eval > worst_eval + 100:
+                    # Fought back!
+                    executed = True
+                    coach_note = f"Good fight! You were down at move {first_down} but created chances."
+                elif blunders_when_down >= 2:
+                    executed = False
+                    coach_note = f"When down at move {first_down}, you made {blunders_when_down} more blunders. Look for counterplay instead!"
+                else:
+                    executed = "partial"
+                    coach_note = f"You were down at move {first_down}. Remember: create problems when losing!"
+                
+                evidence = [{"move": first_down, "eval": worst_eval}]
+        
+        elif rule_id == "when_up_material":
+            # Check if user was significantly ahead (eval > +150)
+            up_moments = [e for e in eval_timeline if e["eval"] > 150]
+            
+            if up_moments:
+                situation_occurred = True
+                first_up = up_moments[0]["move"]
+                
+                # Check if they converted or threw it away
+                final_result = game.get("result", "*")
+                user_won = (final_result == "1-0" and user_is_white) or (final_result == "0-1" and not user_is_white)
+                
+                # Check for blunders when winning
+                moves_when_up = [m for m in moves if m.get("move_number", 0) >= first_up]
+                blunders_when_up = sum(1 for m in moves_when_up if m.get("evaluation") == "blunder")
+                
+                if user_won and blunders_when_up == 0:
+                    executed = True
+                    coach_note = f"Clean conversion! You were +{up_moments[0]['eval']/100:.1f} at move {first_up} and won without drama."
+                elif user_won:
+                    executed = "partial"
+                    coach_note = f"You won, but made {blunders_when_up} blunders when ahead. Simplify next time!"
+                else:
+                    executed = False
+                    coach_note = f"You were winning at move {first_up} but didn't convert. When up, trade pieces and simplify!"
+                
+                evidence = [{"move": first_up, "eval": up_moments[0]["eval"]}]
+        
+        elif rule_id == "when_equal":
+            # Check middle portion of game where eval was roughly equal
+            equal_moments = [e for e in eval_timeline if -50 <= e["eval"] <= 50 and 10 <= e["move"] <= 30]
+            
+            if len(equal_moments) >= 5:
+                situation_occurred = True
+                # Check if user created an advantage from equal position
+                later_evals = [e for e in eval_timeline if e["move"] > 30]
+                
+                if later_evals:
+                    best_later = max(e["eval"] for e in later_evals)
+                    worst_later = min(e["eval"] for e in later_evals)
+                    
+                    if best_later > 100:
+                        executed = True
+                        coach_note = "You created an advantage from the equal middlegame. Nice outplay!"
+                    elif worst_later < -100:
+                        executed = False
+                        coach_note = "Position was equal but you drifted. Improve your worst piece in quiet positions!"
+                    else:
+                        executed = "partial"
+                        coach_note = "Held the balance but didn't create chances. Be more active!"
+        
+        elif rule_id == "in_time_trouble":
+            # This would need time data from the game
+            # For now, mark as N/A if no time data
+            situation_occurred = False
+            coach_note = None
+        
+        elif rule_id == "opponent_attacking":
+            # Check for moments where eval swung against user rapidly
+            attack_moments = []
+            for i in range(1, len(eval_timeline)):
+                prev_eval = eval_timeline[i-1]["eval"]
+                curr_eval = eval_timeline[i]["eval"]
+                
+                # Rapid swing against user (lost 200+ cp in a few moves)
+                if prev_eval - curr_eval > 200:
+                    attack_moments.append(eval_timeline[i])
+            
+            if attack_moments:
+                situation_occurred = True
+                first_attack = attack_moments[0]["move"]
+                
+                # Check if user stabilized
+                later_evals = [e for e in eval_timeline if e["move"] > first_attack]
+                if later_evals:
+                    recovered = any(e["eval"] > attack_moments[0]["eval"] + 100 for e in later_evals)
+                    if recovered:
+                        executed = True
+                        coach_note = f"Under pressure at move {first_attack}, but you defended well!"
+                    else:
+                        executed = False
+                        coach_note = f"Attack at move {first_attack} was decisive. Prioritize king safety!"
+        
+        audited_rule["audit"] = {
+            "situation_occurred": situation_occurred,
+            "executed": executed,
+            "evidence": evidence,
+            "coach_note": coach_note
+        }
+        audited_rules.append(audited_rule)
+    
+    return audited_rules
 
 
 def _audit_opening(card, game, analysis, moves, user_color, opening_played):
