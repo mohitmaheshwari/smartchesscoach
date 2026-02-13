@@ -149,6 +149,12 @@ UI Indicators:
 - **Fixed**: Plan Audit now shows opponent name and game result (e.g., "vs Niwzey · WIN (white)")
 - **Fixed**: Analysis worker now auto-checks and installs Stockfish if missing
 - **Fixed**: Added 10-minute timeout for stuck analysis jobs - automatically reset for retry or marked as failed
+- **Fixed**: Plan Audit now shows the latest analyzed game instead of cached old game
+- **Improved**: Deep tactical analysis for mistake explanations
+  - Added piece trapping detection (e.g., "Trapped queen" instead of misleading "fork")
+  - Added mobility restriction analysis
+  - Added multi-threat detection
+  - Now validates if "fork" targets are actually capturable before reporting
 
 ## Prioritized Backlog
 
