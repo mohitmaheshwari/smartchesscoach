@@ -277,21 +277,32 @@ async def lifespan(app: FastAPI):
     Lifespan context manager for FastAPI.
     Handles startup and shutdown events.
     """
-    global _background_sync_task
+    global _background_sync_task, _quick_sync_task
     
     # === STARTUP ===
-    # Start the background sync loop
+    # Start the background sync loop (every 6 hours)
     _background_sync_task = asyncio.create_task(background_sync_loop())
-    logger.info("Background sync scheduler started")
+    logger.info("Background sync scheduler started (6 hour interval)")
+    
+    # Start quick sync loop (every 5 minutes for real-time game monitoring)
+    _quick_sync_task = asyncio.create_task(quick_sync_loop())
+    logger.info("Quick sync started (5 minute interval for real-time monitoring)")
     
     yield  # App runs here
     
     # === SHUTDOWN ===
-    # Cancel background task
+    # Cancel background tasks
     if _background_sync_task:
         _background_sync_task.cancel()
         try:
             await _background_sync_task
+        except asyncio.CancelledError:
+            pass
+    
+    if _quick_sync_task:
+        _quick_sync_task.cancel()
+        try:
+            await _quick_sync_task
         except asyncio.CancelledError:
             pass
     
