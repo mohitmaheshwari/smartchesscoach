@@ -860,17 +860,24 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
             await db.games.insert_one(game_doc)
             logger.info(f"Auto-synced game {game_doc['game_id']} for user {user_id} from {platform}")
             
-            # Auto-analyze the game with AI
+            # Queue the game for analysis by the worker
             try:
-                analysis_result = await auto_analyze_game(db, user_id, game_doc)
-                if analysis_result:
-                    logger.info(f"Auto-analyzed game {game_doc['game_id']} successfully")
+                existing_queue = await db.analysis_queue.find_one({"game_id": game_doc['game_id']})
+                if not existing_queue:
+                    queue_item = {
+                        "game_id": game_doc['game_id'],
+                        "user_id": user_id,
+                        "pgn": game_doc.get("pgn", ""),
+                        "user_color": game_doc.get("user_color", "white"),
+                        "status": "pending",
+                        "queued_at": datetime.now(timezone.utc).isoformat(),
+                        "auto_synced": True
+                    }
+                    await db.analysis_queue.insert_one(queue_item)
+                    logger.info(f"Queued game {game_doc['game_id']} for analysis")
                     analyzed_count += 1
-                else:
-                    logger.warning(f"Auto-analysis skipped for game {game_doc['game_id']}")
-            except Exception as analysis_error:
-                logger.error(f"Auto-analysis failed for game {game_doc['game_id']}: {analysis_error}")
-                # Game is still imported even if analysis fails
+            except Exception as queue_error:
+                logger.error(f"Failed to queue game {game_doc['game_id']}: {queue_error}")
             
         except Exception as e:
             logger.error(f"Error auto-syncing game for {user_id}: {e}")
