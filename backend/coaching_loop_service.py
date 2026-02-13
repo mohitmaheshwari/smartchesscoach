@@ -946,7 +946,17 @@ def _generate_opening_card(
             "window": "moves 1-10"
         })
     
-    return create_domain_card("opening", priority, goal, rules, criteria)
+    # Apply escalated rules if needed
+    if is_escalated:
+        rules = get_escalated_rules("opening", rules, domain_intensity, is_escalated)
+    
+    card = create_domain_card("opening", priority, goal, rules, criteria)
+    card["escalation"] = {
+        "is_escalated": is_escalated,
+        "intensity": domain_intensity,
+        "consecutive_misses": domain_history.get("consecutive_misses", 0)
+    }
+    return card
 
 
 def _generate_middlegame_card(
@@ -954,22 +964,31 @@ def _generate_middlegame_card(
     rating_band: str,
     primary_weakness: str,
     intensity: int,
-    last_audit: Dict = None
+    last_audit: Dict = None,
+    miss_history: Dict = None
 ) -> Dict:
-    """Generate middlegame domain card."""
+    """Generate middlegame domain card with adaptive escalation."""
+    
+    # Check for escalation
+    domain_history = (miss_history or {}).get("middlegame", {})
+    is_escalated = domain_history.get("needs_escalation", False)
+    domain_intensity = calculate_domain_intensity("middlegame", intensity, miss_history or {})
     
     # Determine goal based on weakness
     if primary_weakness == "advantage_collapse":
-        goal = "When ahead, simplify. Don't give back the advantage."
+        if is_escalated and domain_intensity >= 3:
+            goal = "ONE RULE: When ahead, trade a piece. That's it."
+        else:
+            goal = "When ahead, simplify. Don't give back the advantage."
         
-        if intensity == 1:
+        if domain_intensity == 1:
             rules = [
                 "After +1.5, look for piece trades",
                 "Avoid pawn pushes that open the position",
                 "Keep queens on only if you see mate",
                 "Verify your move doesn't hang anything"
             ]
-        elif intensity == 2:
+        elif domain_intensity == 2:
             rules = [
                 "Pause 5 seconds when eval shows +1.5 or better",
                 "Ask: 'Am I simplifying or complicating?'",
