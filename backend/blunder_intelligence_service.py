@@ -1753,7 +1753,10 @@ def _calculate_mission_progress(analyses: List[Dict], check_rule: str, target: i
                 progress += 1
     
     # Cap progress at target
-    return min(progress, target)def check_milestones(analyses: List[Dict], user_stats: Dict = None) -> List[Dict]:
+    return min(progress, target)
+
+
+def check_milestones(analyses: List[Dict], user_stats: Dict = None) -> List[Dict]:
     """
     Check for achievement milestones.
     
