@@ -358,14 +358,54 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
                 mistake_type = "hanging_piece"
                 details["hanging"] = hanging[0]
     
-    # 5. Check if missed a fork with the best move
+    # 5. DEEP TACTICAL ANALYSIS - Run BEFORE simpler pattern checks
+    # This catches things like piece trapping, mobility restriction that are more accurate
+    # than simple "fork" detection which doesn't account for protected pieces
+    if mistake_type == "inaccuracy" and best_move:
+        try:
+            from position_analyzer import analyze_deep_tactics
+            deep_analysis = analyze_deep_tactics(fen_before, move_played, best_move, user_color)
+            
+            if deep_analysis.get("pattern") and deep_analysis["pattern"] not in ["positional", None]:
+                # Found a meaningful tactical pattern!
+                mistake_type = f"missed_{deep_analysis['pattern']}"
+                details["deep_tactics"] = {
+                    "pattern": deep_analysis["pattern"],
+                    "pattern_name": deep_analysis["pattern_name"],
+                    "explanation": deep_analysis["explanation"],
+                    "key_insight": deep_analysis["key_insight"]
+                }
+        except Exception as e:
+            logger.warning(f"Deep tactical analysis failed: {e}")
+    
+    # 6. Check if missed a fork with the best move (only if deep analysis didn't find anything)
     if mistake_type == "inaccuracy" and best_move:
         missed_fork = detect_missed_fork(board, best_move, color)
         if missed_fork:
-            mistake_type = "missed_fork"
-            details["missed_fork"] = missed_fork
+            # Additional validation: check if targets are actually capturable (not well-protected)
+            # A "fork" where one target is protected isn't as strong
+            board_after_best = board.copy()
+            try:
+                board_after_best.push_san(best_move)
+                actually_winning = False
+                for target in missed_fork.get("targets", []):
+                    target_sq = chess.parse_square(target["square"])
+                    # Count attackers vs defenders
+                    attackers = len(board_after_best.attackers(color, target_sq))
+                    defenders = len(board_after_best.attackers(opponent, target_sq))
+                    if attackers > defenders:
+                        actually_winning = True
+                        break
+                
+                if actually_winning:
+                    mistake_type = "missed_fork"
+                    details["missed_fork"] = missed_fork
+            except:
+                # If we can't verify, still report the fork
+                mistake_type = "missed_fork"
+                details["missed_fork"] = missed_fork
     
-    # 6. Check if missed a pin with the best move
+    # 7. Check if missed a pin with the best move
     if mistake_type == "inaccuracy" and best_move:
         missed_pin = detect_missed_pin(board, best_move, color)
         if missed_pin:
