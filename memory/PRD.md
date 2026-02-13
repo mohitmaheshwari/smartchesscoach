@@ -163,8 +163,57 @@ Each badge rated 1-5 stars with trend tracking:
 - `POST /api/import-games` - Import games from Chess.com/Lichess
 - `GET /api/auth/dev-login` - Dev mode login (when DEV_MODE=true)
 - `POST /api/explain-mistake` - Generate coach-like explanation for learning moments
+- `GET /api/knowledge-base/structures` - List all pawn structures in knowledge base
+- `GET /api/knowledge-base/imbalances` - List all strategic imbalances in knowledge base
+- `GET /api/positional-insight/{structure_id}` - Deep dive into specific pawn structure
 
 ## Recent Changes - February 2026
+
+### Positional Coaching Layer (RAG-Backed) (Feb 13, 2026 - COMPLETED)
+Deep positional coaching using Retrieval-Augmented Generation architecture:
+
+**The ChessGuru Canon Knowledge Base:**
+- `/app/backend/knowledge_base/pawn_structures.py` - 10 core pawn structures
+  - IQP, Hanging Pawns, Doubled Pawns, Kingside/Queenside Majority
+  - Carlsbad, French Advance, Open Sicilian, Symmetrical, Closed Center
+- `/app/backend/knowledge_base/strategic_imbalances.py` - 10 strategic imbalances
+  - Good Bishop, Bishop Pair, Knight Outpost, Weak Squares, Space Advantage
+  - Development Lead, Open File, Two Weaknesses, King Activity, Material Imbalance
+
+**Schema (Deterministic, Structured):**
+```
+structure_id: Unique identifier
+trigger_conditions: Deterministic detection rules
+strategic_goal_with: Plans for side WITH structure
+strategic_goal_against: Plans for side AGAINST structure
+typical_plans: Concrete move patterns
+amateur_errors: Common club-level mistakes
+conversion_pattern: How to win
+key_squares: Important squares
+piece_placement: Where pieces belong
+```
+
+**Architecture:**
+1. **Detection**: `blunder_intelligence_service.py` detects pawn structure type from game
+2. **Retrieval**: `positional_coaching_service.py` fetches matching knowledge from Canon
+3. **Synthesis**: Combines structure insight + theme insights + coaching message
+4. **Display**: Collapsible "Positional Insight (Advanced)" section in Lab Strategy tab
+
+**Key Files:**
+- `backend/positional_coaching_service.py` - Main RAG orchestration service
+- `backend/knowledge_base/__init__.py` - Knowledge base module
+- `frontend/src/pages/Lab.jsx` - Collapsible insight UI with violet/purple theme
+
+**UI Features:**
+- RAG badge on toggle button
+- YOUR STRATEGIC GOAL section
+- KEY PLANS bullet points
+- TYPICAL KEY MOVES (monospace code style)
+- COMMON AMATEUR ERRORS (red warning style)
+- KEY SQUARES section
+- Related Strategic Themes (when applicable)
+
+**No Hallucination**: All insights come from structured knowledge base, not LLM generation.
 
 ### Milestones Feature (Feb 12, 2026 - COMPLETED)
 Renamed "Mistakes" tab to "Milestones" on the Lab page with positive, coach-like feedback:
