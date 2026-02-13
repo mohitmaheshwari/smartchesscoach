@@ -197,6 +197,14 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 _background_sync_task = None
 _quick_sync_task = None
 
+# Sync status tracking
+_sync_status = {
+    "last_sync_at": None,
+    "next_sync_at": None,
+    "is_syncing": False,
+    "games_found_last_sync": 0
+}
+
 # Configure logging (moved up so lifespan can use logger)
 logging.basicConfig(
     level=logging.INFO,
