@@ -356,6 +356,10 @@ const Lab = ({ user }) => {
   const accuracy = stockfishData.accuracy;
   const coreLesson = labData?.core_lesson;
   const strategicAnalysis = labData?.strategic_analysis;
+  const positionalInsight = labData?.positional_insight;
+  
+  // State for collapsible positional insight
+  const [insightExpanded, setInsightExpanded] = useState(false);
   
   // User color from game data (needed for move filtering)
   const userColor = game?.user_color || "white";
