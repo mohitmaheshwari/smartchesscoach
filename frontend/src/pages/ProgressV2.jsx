@@ -293,6 +293,11 @@ const ProgressV2 = ({ user }) => {
           </div>
         </div>
 
+        {/* NEW: Before Coach vs After Coach Comparison */}
+        {data.coaching_comparison && (
+          <CoachingComparisonSection comparison={data.coaching_comparison} />
+        )}
+
         {/* Section 1: Coach's Assessment */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
