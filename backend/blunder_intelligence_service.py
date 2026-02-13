@@ -1663,16 +1663,32 @@ def get_mission(analyses: List[Dict], current_missions: List[Dict] = None, user_
     template = mission_templates.get(weakness_key, mission_templates["low_accuracy"])
     mission = template.get(tier, template["intermediate"])
     
-    # Calculate actual progress based on mission check_rule
-    progress = _calculate_mission_progress(recent_analyses, mission.get("check_rule", ""), mission.get("target", 5))
+    # Calculate STREAK-BASED progress (consecutive games meeting criteria)
+    streak_result = _calculate_streak_progress(recent_analyses, mission.get("check_rule", ""), mission.get("target", 5))
+    current_streak = streak_result["current_streak"]
+    longest_streak = streak_result["longest_streak"]
+    
+    # Use stored longest_streak if provided and it's higher
+    if user_mission_data:
+        stored_longest = user_mission_data.get("longest_streak", 0)
+        if stored_longest > longest_streak:
+            longest_streak = stored_longest
+    
+    # Determine status
+    is_completed = current_streak >= mission.get("target", 5)
     
     return {
         **mission,
         "weakness_key": weakness_key,
         "rating_tier": tier,
         "user_rating": rating,
-        "progress": progress,
-        "status": "completed" if progress >= mission.get("target", 5) else "active",
+        "progress": current_streak,  # Current streak IS the progress
+        "current_streak": current_streak,
+        "longest_streak": longest_streak,
+        "is_streak_based": True,
+        "status": "completed" if is_completed else "active",
+        "streak_broken_in_last_game": streak_result.get("broken_in_last_game", False),
+        "last_game_passed": streak_result.get("last_game_passed", False),
         "metrics": {
             "avg_blunders": round(avg_blunders, 2),
             "avg_accuracy": round(avg_accuracy, 1),
@@ -1682,9 +1698,133 @@ def get_mission(analyses: List[Dict], current_missions: List[Dict] = None, user_
     }
 
 
+def _calculate_streak_progress(analyses: List[Dict], check_rule: str, target: int) -> Dict:
+    """
+    Calculate CONSECUTIVE STREAK progress towards a mission.
+    
+    Returns:
+        {
+            "current_streak": int,  # Current consecutive streak (resets on failure)
+            "longest_streak": int,  # Best streak ever achieved
+            "broken_in_last_game": bool,  # Did the most recent game break the streak?
+            "last_game_passed": bool  # Did the most recent game meet criteria?
+        }
+    
+    Key: Progress must be CONSECUTIVE. One failure resets to 0.
+    """
+    if not analyses:
+        return {"current_streak": 0, "longest_streak": 0, "broken_in_last_game": False, "last_game_passed": False}
+    
+    # Process games from oldest to newest to build streak
+    current_streak = 0
+    longest_streak = 0
+    game_results = []  # Track pass/fail for each game
+    
+    for analysis in analyses:
+        passed = _check_game_meets_criteria(analysis, check_rule)
+        game_results.append(passed)
+        
+        if passed:
+            current_streak += 1
+            longest_streak = max(longest_streak, current_streak)
+        else:
+            current_streak = 0  # RESET on failure
+    
+    # Check if last game broke the streak
+    last_game_passed = game_results[-1] if game_results else False
+    broken_in_last_game = not last_game_passed and len(game_results) > 1 and any(game_results[:-1])
+    
+    return {
+        "current_streak": min(current_streak, target),  # Cap at target
+        "longest_streak": longest_streak,
+        "broken_in_last_game": broken_in_last_game,
+        "last_game_passed": last_game_passed
+    }
+
+
+def _check_game_meets_criteria(analysis: Dict, check_rule: str) -> bool:
+    """
+    Check if a single game meets the mission criteria.
+    
+    Returns True if the game passes, False otherwise.
+    """
+    sf = analysis.get("stockfish_analysis", {})
+    accuracy = sf.get("accuracy", 0)
+    blunders = analysis.get("blunders", 0)
+    avg_cp_loss = sf.get("avg_cp_loss", 999)
+    move_evals = sf.get("move_evaluations", [])
+    
+    # Check for major blunders (cp_loss based)
+    max_cp_loss = 0
+    for move in move_evals:
+        cp_loss = abs(move.get("cp_loss", 0))
+        max_cp_loss = max(max_cp_loss, cp_loss)
+    
+    # Parse check_rule and evaluate
+    rule_lower = check_rule.lower()
+    
+    # Accuracy-based rules
+    if "accuracy" in rule_lower and "≥" in rule_lower:
+        try:
+            threshold = int(''.join(filter(str.isdigit, check_rule)))
+            return accuracy >= threshold
+        except ValueError:
+            return False
+    
+    # Conversion/winning position rules
+    elif "win from" in rule_lower or "convert" in rule_lower:
+        had_winning_position = False
+        had_major_eval_drop = False
+        
+        for move in move_evals:
+            eval_before = move.get("eval_before", 0)
+            eval_after = move.get("eval_after", 0)
+            
+            if eval_before >= 150:
+                had_winning_position = True
+                eval_drop = eval_before - eval_after
+                if eval_drop > 150:
+                    had_major_eval_drop = True
+                    break
+        
+        return had_winning_position and not had_major_eval_drop
+    
+    # Blunder count rules
+    elif "blunder" in rule_lower:
+        if "0 blunders" in rule_lower or "zero blunders" in rule_lower:
+            return blunders == 0
+        elif "≤1 blunder" in rule_lower or "at most 1" in rule_lower:
+            return blunders <= 1
+        elif "<3 blunders" in rule_lower or "fewer than 3" in rule_lower:
+            return blunders < 3
+        elif "cp_loss >" in rule_lower:
+            try:
+                threshold = int(''.join(filter(str.isdigit, check_rule.split(">")[-1])))
+                return max_cp_loss <= threshold
+            except (ValueError, IndexError):
+                return False
+    
+    # CP loss rules
+    elif "cp loss" in rule_lower and "<" in rule_lower:
+        try:
+            threshold = int(''.join(filter(str.isdigit, check_rule)))
+            return avg_cp_loss < threshold
+        except ValueError:
+            return False
+    
+    # Default: assume accuracy-based
+    if not check_rule:
+        return accuracy >= 75
+    
+    return False
+
+
+# Keep the old function for backward compatibility but mark as deprecated
 def _calculate_mission_progress(analyses: List[Dict], check_rule: str, target: int) -> int:
     """
-    Calculate progress towards a mission based on check_rule.
+    DEPRECATED: Use _calculate_streak_progress instead.
+    This function counts total games meeting criteria (non-consecutive).
+    Kept for backward compatibility.
     
     Check rules:
     - "Accuracy ≥X%" - Count games with accuracy >= X
