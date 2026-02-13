@@ -27,22 +27,30 @@ import {
   Crosshair,
   Activity,
   Clock,
-  RefreshCw
+  RefreshCw,
+  Sword,
+  Crown,
+  Zap,
+  Timer,
+  FileText
 } from "lucide-react";
 import MistakeMastery from "@/components/MistakeMastery";
 import EvidenceModal from "@/components/EvidenceModal";
 import DrillMode from "@/components/DrillMode";
 
 /**
- * FOCUS PAGE - "What should I focus on in my next game?"
+ * FOCUS PAGE - GM Coach Style Coaching Loop
+ * 
+ * GOLD FEATURE: Plan → Play → Audit → Adjust
  * 
  * Structure:
- * - DISCIPLINE CHECK: Sharp, data-driven review of last game
- * - ONE dominant weakness (CLICKABLE - see evidence)
- * - ONE mission
- * - Opening Guidance
+ * - ROUND PREPARATION: Plan for next game (5 domains)
+ * - PLAN AUDIT: Evaluation of last game against previous plan
+ * - RATING KILLER: One dominant weakness
+ * - MISSION: Streak-based improvement goal
+ * - OPENING GUIDANCE: What to play/avoid
  * 
- * No fluff. Evidence-based. Actionable.
+ * Feels like: "I gave you a plan. I watched your game. You followed/didn't follow. Here's the adjusted plan."
  */
 
 const FocusPage = ({ user }) => {
