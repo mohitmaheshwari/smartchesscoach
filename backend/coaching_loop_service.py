@@ -1893,7 +1893,7 @@ def _audit_time(card, game, analysis, moves, user_color):
         is_white_move = (move_num % 2 == 1)
         is_user_move = (user_color == "white" and is_white_move) or (user_color == "black" and not is_white_move)
         
-        if is_user_move and m.get("classification") == "blunder":
+        if is_user_move and m.get("evaluation") == "blunder":
             late_blunders.append(m)
     
     # Data points
