@@ -1139,7 +1139,17 @@ def _generate_tactics_card(
             "window": "full game"
         })
     
-    return create_domain_card("tactics", priority, goal, rules, criteria)
+    # Apply escalated rules if needed
+    if is_escalated:
+        rules = get_escalated_rules("tactics", rules, domain_intensity, is_escalated)
+    
+    card = create_domain_card("tactics", priority, goal, rules, criteria)
+    card["escalation"] = {
+        "is_escalated": is_escalated,
+        "intensity": domain_intensity,
+        "consecutive_misses": domain_history.get("consecutive_misses", 0)
+    }
+    return card
 
 
 def _generate_endgame_card(
@@ -1147,11 +1157,20 @@ def _generate_endgame_card(
     rating_band: str,
     endgame_conversion_score: int,
     intensity: int,
-    last_audit: Dict = None
+    last_audit: Dict = None,
+    miss_history: Dict = None
 ) -> Dict:
-    """Generate endgame domain card."""
+    """Generate endgame domain card with adaptive escalation."""
     
-    if priority == "primary" or endgame_conversion_score < 50:
+    # Check for escalation
+    domain_history = (miss_history or {}).get("endgame", {})
+    is_escalated = domain_history.get("needs_escalation", False)
+    domain_intensity = calculate_domain_intensity("endgame", intensity, miss_history or {})
+    
+    if is_escalated and domain_intensity >= 3:
+        goal = "ONE RULE: King to center. Immediately. Every endgame."
+        rules = ["King moves toward the center as soon as queens come off"]
+    elif priority == "primary" or endgame_conversion_score < 50:
         goal = "Activate king immediately. Push passed pawns."
         
         rules = [
@@ -1184,7 +1203,17 @@ def _generate_endgame_card(
         }
     ]
     
-    return create_domain_card("endgame", priority, goal, rules, criteria)
+    # Apply escalated rules if needed (unless already micro-habit)
+    if is_escalated and domain_intensity < 3:
+        rules = get_escalated_rules("endgame", rules, domain_intensity, is_escalated)
+    
+    card = create_domain_card("endgame", priority, goal, rules, criteria)
+    card["escalation"] = {
+        "is_escalated": is_escalated,
+        "intensity": domain_intensity,
+        "consecutive_misses": domain_history.get("consecutive_misses", 0)
+    }
+    return card
 
 
 def _generate_time_card(
@@ -1192,11 +1221,20 @@ def _generate_time_card(
     rating_band: str,
     time_discipline_score: int,
     intensity: int,
-    last_audit: Dict = None
+    last_audit: Dict = None,
+    miss_history: Dict = None
 ) -> Dict:
-    """Generate time domain card."""
+    """Generate time domain card with adaptive escalation."""
     
-    if priority == "primary" or time_discipline_score < 50:
+    # Check for escalation
+    domain_history = (miss_history or {}).get("time", {})
+    is_escalated = domain_history.get("needs_escalation", False)
+    domain_intensity = calculate_domain_intensity("time", intensity, miss_history or {})
+    
+    if is_escalated and domain_intensity >= 3:
+        goal = "ONE RULE: Never think more than 30 seconds on one move."
+        rules = ["30 seconds max per move. Move, don't think."]
+    elif priority == "primary" or time_discipline_score < 50:
         goal = "Manage your clock. No time-trouble blunders."
         
         rules = [
