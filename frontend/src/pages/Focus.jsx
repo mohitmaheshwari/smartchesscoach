@@ -237,117 +237,192 @@ const FocusPage = ({ user }) => {
           </motion.div>
         ) : (
           <>
-            {/* UNIFIED LAST GAME SECTION - Personalized & Connected */}
-            {disciplineCheck?.has_data && (
+            {/* PLAN AUDIT - Phase-Based Execution Evaluation */}
+            {planAudit?.has_data && planAudit?.audits?.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
-                data-testid="discipline-check"
+                data-testid="plan-audit"
               >
-                {/* Analysis Pending State */}
-                {disciplineCheck.analysis_pending ? (
-                  <Card className="border-2 border-blue-500/40 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 overflow-hidden">
-                    <CardContent className="py-5">
-                      {/* Header Row */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-blue-400" />
+                <Card className="border-2 border-slate-500/30 bg-gradient-to-br from-slate-500/5 to-zinc-500/5">
+                  <CardContent className="py-5">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Target className="w-4 h-4 text-slate-400" />
                           <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                            Last Game Check
+                            Plan Audit – Last Game
                           </span>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          vs {planAudit.opponent} · {planAudit.result?.toUpperCase()} · {planAudit.accuracy}% accuracy
+                        </p>
+                      </div>
+                      
+                      {/* Execution Score */}
+                      <div className="text-right">
+                        <span className={`text-2xl font-bold ${
+                          planAudit.summary?.executed === planAudit.summary?.domains_shown ? 'text-emerald-500' :
+                          planAudit.summary?.failed > 0 ? 'text-orange-500' :
+                          'text-amber-500'
+                        }`}>
+                          {planAudit.summary?.executed || 0}/{planAudit.summary?.domains_shown || 0}
+                        </span>
+                        <p className="text-xs text-muted-foreground">domains executed</p>
+                      </div>
+                    </div>
+                    
+                    {/* Domain Audits */}
+                    <div className="space-y-3">
+                      {planAudit.audits.map((audit, idx) => (
+                        <div 
+                          key={audit.domain}
+                          className={`p-3 rounded-lg border ${
+                            audit.verdict_type === 'pass' 
+                              ? 'bg-emerald-500/5 border-emerald-500/20' 
+                              : audit.verdict_type === 'fail'
+                              ? 'bg-orange-500/5 border-orange-500/20'
+                              : 'bg-amber-500/5 border-amber-500/20'
+                          }`}
+                          data-testid={`audit-${audit.domain.toLowerCase()}`}
+                        >
+                          {/* Domain Header */}
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-xs font-bold uppercase tracking-wider ${
+                              audit.verdict_type === 'pass' ? 'text-emerald-500' :
+                              audit.verdict_type === 'fail' ? 'text-orange-500' :
+                              'text-amber-500'
+                            }`}>
+                              {audit.domain}
+                            </span>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                              audit.verdict_type === 'pass' 
+                                ? 'bg-emerald-500/20 text-emerald-400' 
+                                : audit.verdict_type === 'fail'
+                                ? 'bg-orange-500/20 text-orange-400'
+                                : 'bg-amber-500/20 text-amber-400'
+                            }`}>
+                              {audit.verdict_type === 'pass' ? '✓' : audit.verdict_type === 'fail' ? '✗' : '~'}
+                            </span>
+                          </div>
+                          
+                          {/* Plan (if existed) */}
+                          {audit.plan && (
+                            <p className="text-xs text-muted-foreground mb-1.5">
+                              <span className="font-medium">Plan:</span> {audit.plan}
+                            </p>
+                          )}
+                          
+                          {/* What Happened */}
+                          <div className="space-y-0.5 mb-2">
+                            {audit.what_happened?.map((item, i) => (
+                              <p key={i} className="text-xs text-foreground/80">
+                                • {item}
+                              </p>
+                            ))}
+                          </div>
+                          
+                          {/* Data Snapshot */}
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {audit.data?.opening_accuracy && (
+                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
+                                Accuracy: {audit.data.opening_accuracy}%
+                              </span>
+                            )}
+                            {audit.data?.early_eval_stability && (
+                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
+                                Stability: {audit.data.early_eval_stability}
+                              </span>
+                            )}
+                            {audit.data?.max_advantage && (
+                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
+                                Peak: {audit.data.max_advantage}
+                              </span>
+                            )}
+                            {audit.data?.eval_swing && (
+                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
+                                Swing: {audit.data.eval_swing}
+                              </span>
+                            )}
+                            {audit.data?.blunders !== undefined && (
+                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
+                                Blunders: {audit.data.blunders}
+                              </span>
+                            )}
+                            {audit.data?.worst_drop && (
+                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
+                                Worst: {audit.data.worst_drop}
+                              </span>
+                            )}
+                            {audit.data?.conversion && (
+                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
+                                Converted: {audit.data.conversion}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Verdict */}
+                          <p className={`text-xs font-semibold ${
+                            audit.verdict_type === 'pass' ? 'text-emerald-400' :
+                            audit.verdict_type === 'fail' ? 'text-orange-400' :
+                            'text-amber-400'
+                          }`}>
+                            {audit.verdict}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Summary Footer */}
+                    <div className="mt-4 pt-3 border-t border-border/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {/* Quick Score Icons */}
+                          {planAudit.audits.map((audit) => (
+                            <span 
+                              key={audit.domain}
+                              className={`text-xs font-medium ${
+                                audit.verdict_type === 'pass' ? 'text-emerald-400' :
+                                audit.verdict_type === 'fail' ? 'text-orange-400' :
+                                'text-amber-400'
+                              }`}
+                              title={audit.domain}
+                            >
+                              {audit.domain.charAt(0)} {audit.verdict_type === 'pass' ? '✓' : audit.verdict_type === 'fail' ? '✗' : '~'}
+                            </span>
+                          ))}
+                        </div>
                         
-                        {/* Queue Status Badge */}
-                        <div className="px-2.5 py-1 rounded text-xs font-bold bg-blue-500/20 text-blue-400 flex items-center gap-1.5">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          {disciplineCheck.in_queue ? 'Analyzing...' : 'Queuing...'}
-                        </div>
-                      </div>
-                      
-                      {/* Result + Opponent */}
-                      <div className="mb-4">
-                        <h3 className={`text-lg font-bold ${
-                          disciplineCheck.game_result === 'win' ? 'text-emerald-400' :
-                          disciplineCheck.game_result === 'loss' ? 'text-orange-400' :
-                          'text-foreground'
-                        }`} data-testid="pending-headline">
-                          {disciplineCheck.game_result === 'win' ? 'Victory!' :
-                           disciplineCheck.game_result === 'loss' ? 'Tough Game' :
-                           'Hard-Fought Draw'}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          vs {disciplineCheck.opponent} · {disciplineCheck.game_result?.toUpperCase()}
-                        </p>
-                      </div>
-                      
-                      {/* Pending Message */}
-                      <div className="p-3 rounded-lg mb-4 bg-blue-500/10 border border-blue-500/20">
-                        <p className="text-sm font-medium" data-testid="pending-message">
-                          {disciplineCheck.pending_message}
-                        </p>
-                      </div>
-                      
-                      {/* Analysis Progress Indicator */}
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                          <span>Stockfish analysis in progress</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  /* Fully Analyzed State */
-                  <Card className={`border-2 overflow-hidden ${
-                    disciplineCheck.verdict?.tone === 'positive' 
-                      ? 'border-emerald-500/40 bg-gradient-to-br from-emerald-500/5 to-green-500/5' 
-                      : disciplineCheck.verdict?.tone === 'critical'
-                      ? 'border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-red-500/5'
-                      : 'border-slate-500/30 bg-gradient-to-br from-slate-500/5 to-zinc-500/5'
-                  }`}>
-                    <CardContent className="py-5">
-                      {/* Header Row */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Shield className={`w-4 h-4 ${
-                            disciplineCheck.verdict?.tone === 'positive' ? 'text-emerald-500' :
-                            disciplineCheck.verdict?.tone === 'critical' ? 'text-orange-500' :
-                            'text-slate-400'
-                          }`} />
-                          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                            Last Game Check
+                        {/* Training Focus */}
+                        {planAudit.summary?.training_focus && (
+                          <span className="text-xs text-muted-foreground">
+                            Focus: <span className="text-foreground font-medium">{planAudit.summary.training_focus}</span>
                           </span>
-                        </div>
-                        
-                        {/* Grade Badge */}
-                        <div className={`px-2.5 py-1 rounded text-xs font-bold ${
-                          disciplineCheck.verdict?.grade === 'A' ? 'bg-emerald-500/20 text-emerald-400' :
-                          disciplineCheck.verdict?.grade === 'B' ? 'bg-blue-500/20 text-blue-400' :
-                          disciplineCheck.verdict?.grade === 'C' ? 'bg-amber-500/20 text-amber-400' :
-                          disciplineCheck.verdict?.grade === 'D' ? 'bg-orange-500/20 text-orange-400' :
-                          'bg-red-500/20 text-red-400'
-                        }`} data-testid="discipline-grade">
-                          {disciplineCheck.verdict?.grade || '-'}
-                        </div>
+                        )}
                       </div>
                       
-                      {/* Headline + Opponent */}
-                      <div className="mb-4">
-                        <h3 className={`text-lg font-bold ${
-                          disciplineCheck.verdict?.tone === 'positive' ? 'text-emerald-400' :
-                          disciplineCheck.verdict?.tone === 'critical' ? 'text-orange-400' :
-                          'text-foreground'
-                        }`} data-testid="discipline-headline">
-                          {disciplineCheck.verdict?.headline || 'Analysis Complete'}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          vs {disciplineCheck.opponent} · {disciplineCheck.result?.toUpperCase()}
-                        </p>
-                      </div>
-                      
-                      {/* Personalized Summary - THE KEY DIFFERENTIATOR */}
-                      {disciplineCheck.verdict?.summary && (
+                      {/* View Game Link */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2 text-slate-400 hover:text-slate-300 p-0 h-auto text-xs"
+                        onClick={() => navigate(`/game/${planAudit.game_id}`)}
+                        data-testid="audit-view-game"
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        Full analysis
+                        <ChevronRight className="w-3 h-3 ml-0.5" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* RATING KILLER - Only show when relevant */}
+            {focusData?.focus?.pattern && (
                         <div className={`p-3 rounded-lg mb-4 ${
                           disciplineCheck.verdict?.tone === 'positive' 
                             ? 'bg-emerald-500/10 border border-emerald-500/20' 
