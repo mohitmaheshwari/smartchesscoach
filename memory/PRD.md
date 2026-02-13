@@ -139,6 +139,14 @@ UI Indicators:
 ## Known Issues
 - analysis_worker FATAL state (Stockfish needs reinstall: `sudo apt-get install stockfish -y`)
 
+## Bug Fixes (February 2026)
+- **Fixed**: Opening names now display as human-readable names (e.g., "Sicilian Defense") instead of ECO codes (e.g., "B30")
+  - Updated `_extract_opening_name()` to handle ECO codes in game object's `opening` field
+  - Fixed game-analysis matching in `calculate_opening_stability()` using game_id lookup instead of index
+  - Fixed field name from `classification` to `evaluation` for blunder detection
+  - Fixed `games[-30:]` to `games[:30]` to get most recent games instead of oldest
+- **Fixed**: Plan Audit correctly shows "Played: Philidor Defense" instead of "Played: unknown"
+
 ## Prioritized Backlog
 
 ### P1 - High Priority
