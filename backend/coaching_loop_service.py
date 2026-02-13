@@ -708,7 +708,8 @@ def get_training_block(primary_weakness: str, fundamentals: Dict, last_audit: Di
         "name": block["name"],
         "focus": block["focus"],
         "intensity": base_intensity,
-        "consecutive_misses": consecutive_misses
+        "consecutive_misses": consecutive_misses,
+        "escalated": consecutive_misses >= 2
     }
 
 
@@ -722,7 +723,8 @@ def generate_next_plan(
     fundamentals: Dict,
     behavior_patterns: Dict,
     opening_stability: Dict,
-    last_audit: Dict = None
+    last_audit: Dict = None,
+    miss_history: Dict = None
 ) -> Dict:
     """
     Generate the next game plan (DETERMINISTIC).
@@ -735,17 +737,23 @@ def generate_next_plan(
     - behavior_patterns: Determines primary/secondary focus
     - opening_stability: Determines opening recommendations
     - last_audit: Determines persistence and intensity adjustment
+    - miss_history: Tracks consecutive misses per domain for adaptive escalation
+    
+    Adaptive Escalation:
+    - If domain missed 2x in a row → increase intensity, simplify rules
+    - If domain missed 4x in a row → force micro-habit level
+    - If domain executed 3x in a row → mark stable, reduce verbosity
     """
     
     primary_weakness = behavior_patterns.get("primary_weakness")
-    strengths = behavior_patterns.get("strengths", [])
     
-    # Get training block
-    training_block = get_training_block(primary_weakness, fundamentals, last_audit)
+    # Get training block with miss history for adaptive intensity
+    training_block = get_training_block(primary_weakness, fundamentals, last_audit, miss_history)
     
     # Create plan card
     plan = create_empty_plan_card(user_id, rating_band)
     plan["training_block"] = training_block
+    plan["miss_history"] = miss_history or {}  # Store for reference
     
     # === DETERMINE DOMAIN PRIORITIES ===
     # Primary: Main weakness (or tactical if none)
