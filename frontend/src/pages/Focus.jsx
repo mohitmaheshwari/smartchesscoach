@@ -298,6 +298,35 @@ const FocusPage = ({ user }) => {
                       ))}
                     </div>
                     
+                    {/* Situational Rules */}
+                    {roundPrep.situational_rules?.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-border/30">
+                        <div className="flex items-center gap-2 mb-3">
+                          <AlertTriangle className="w-4 h-4 text-amber-400" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                            Situational Rules
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {roundPrep.situational_rules.map((rule) => (
+                            <div key={rule.id} className="bg-amber-500/10 rounded-lg p-3">
+                              <p className="text-sm font-medium text-amber-300 mb-1">
+                                {rule.condition}:
+                              </p>
+                              <ul className="space-y-0.5">
+                                {rule.rules.map((r, i) => (
+                                  <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                                    <span className="text-amber-400 mt-0.5">•</span>
+                                    {r}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* Coach Rule Footer */}
                     <div className="mt-4 pt-3 border-t border-border/30">
                       <div className="flex items-center gap-2">
