@@ -1228,7 +1228,69 @@ def generate_next_plan(
         rating_band_to_rating(rating_band)
     )
     
+    # === ADD CRITICAL FOCUS ITEMS FROM LAST GAME ===
+    # These are specific tactical patterns missed in the last game
+    # that become action items for the next game
+    if critical_insights:
+        focus_items = _generate_focus_items_from_insights(critical_insights)
+        plan["focus_items"] = focus_items
+    else:
+        plan["focus_items"] = []
+    
     return plan
+
+
+def _generate_focus_items_from_insights(insights: List[Dict]) -> List[Dict]:
+    """
+    Generate actionable focus items from critical insights.
+    
+    These are specific things to watch for in the next game,
+    based on what was missed in the last game.
+    """
+    focus_items = []
+    seen_patterns = set()
+    
+    for insight in insights[:3]:  # Max 3 focus items
+        pattern = insight.get("type")
+        
+        # Avoid duplicate patterns
+        if pattern in seen_patterns:
+            continue
+        seen_patterns.add(pattern)
+        
+        # Create the focus item
+        focus_item = {
+            "id": f"focus_{pattern}_{insight.get('move_number', 0)}",
+            "from_last_game": True,
+            "pattern": pattern,
+            "pattern_name": insight.get("pattern_name", pattern),
+            "move_number": insight.get("move_number"),
+            "cp_lost": insight.get("cp_loss", 0),
+            "goal": insight.get("actionable_goal", ""),
+            "explanation": insight.get("explanation", ""),
+            "key_insight": insight.get("key_insight", ""),
+            "icon": _get_pattern_icon(pattern)
+        }
+        
+        focus_items.append(focus_item)
+    
+    return focus_items
+
+
+def _get_pattern_icon(pattern: str) -> str:
+    """Get an icon/emoji for a tactical pattern."""
+    icons = {
+        "piece_trap": "🪤",
+        "missed_piece_trap": "🪤",
+        "fork": "⚔️",
+        "missed_fork": "⚔️",
+        "mobility_restriction": "🔒",
+        "multi_threat": "💥",
+        "attack_valuable": "🎯",
+        "pin": "📌",
+        "missed_pin": "📌",
+    }
+    return icons.get(pattern, "💡")
 
 
 def rating_band_to_rating(rating_band: str) -> int:
