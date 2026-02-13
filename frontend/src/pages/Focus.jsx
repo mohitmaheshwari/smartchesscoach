@@ -475,6 +475,7 @@ const FocusPage = ({ user }) => {
                     </Button>
                   </CardContent>
                 </Card>
+                )}
               </motion.div>
             )}
 
