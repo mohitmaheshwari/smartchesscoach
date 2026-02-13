@@ -1528,8 +1528,8 @@ def _audit_opening(card, game, analysis, moves, user_color, opening_played):
     early_blunders = sum(1 for m in user_early_moves if m.get("classification") == "blunder")
     avg_cp_loss = sum(m.get("cp_loss", 0) for m in user_early_moves) / len(user_early_moves) if user_early_moves else 0
     
-    # Check opening played vs recommended
-    opening_name = opening_played or game.get("opening", "Unknown")
+    # Extract opening name properly
+    opening_name = opening_played or _extract_opening_name(game)
     audit["data_points"].append(f"Played: {opening_name}")
     
     # Evaluate against criteria
