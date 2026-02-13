@@ -194,7 +194,7 @@ def calculate_fundamentals_profile(analyses: List[Dict], games: List[Dict]) -> D
         moves = sf.get("move_evaluations", [])
         blunders = a.get("blunders", 0)
         
-        late_blunders = sum(1 for m in moves if m.get("move_number", 0) > 50 and m.get("classification") == "blunder")
+        late_blunders = sum(1 for m in moves if m.get("move_number", 0) > 50 and m.get("evaluation") == "blunder")
         
         if blunders > 0:
             late_ratio = late_blunders / blunders if blunders > 0 else 0
@@ -266,7 +266,7 @@ def detect_behavior_patterns(analyses: List[Dict], games: List[Dict]) -> Dict:
         moves = sf.get("move_evaluations", [])
         
         for m in moves:
-            if m.get("classification") == "blunder" and m.get("cp_loss", 0) >= 300:
+            if m.get("evaluation") == "blunder" and m.get("cp_loss", 0) >= 300:
                 hung_piece_games += 1
                 break
     
@@ -296,7 +296,7 @@ def detect_behavior_patterns(analyses: List[Dict], games: List[Dict]) -> Dict:
         sf = a.get("stockfish_analysis", {})
         moves = sf.get("move_evaluations", [])
         
-        late_blunders = sum(1 for m in moves if m.get("move_number", 0) > 50 and m.get("classification") == "blunder")
+        late_blunders = sum(1 for m in moves if m.get("move_number", 0) > 50 and m.get("evaluation") == "blunder")
         if late_blunders >= 1:
             late_blunder_games += 1
     
@@ -1534,7 +1534,7 @@ def _audit_opening(card, game, analysis, moves, user_color, opening_played):
             user_early_moves.append(m)
     
     max_drop = max((m.get("cp_loss", 0) for m in user_early_moves), default=0)
-    early_blunders = sum(1 for m in user_early_moves if m.get("classification") == "blunder")
+    early_blunders = sum(1 for m in user_early_moves if m.get("evaluation") == "blunder")
     avg_cp_loss = sum(m.get("cp_loss", 0) for m in user_early_moves) / len(user_early_moves) if user_early_moves else 0
     
     # Extract opening name properly
@@ -1569,7 +1569,7 @@ def _audit_opening(card, game, analysis, moves, user_color, opening_played):
             if _check_criterion(actual, op, value):
                 criteria_met += 1
             else:
-                blunder_moves = [m for m in user_early_moves if m.get("classification") == "blunder"]
+                blunder_moves = [m for m in user_early_moves if m.get("evaluation") == "blunder"]
                 if blunder_moves:
                     audit["evidence"].append({
                         "move": blunder_moves[0].get("move_number"),
@@ -1655,7 +1655,7 @@ def _audit_middlegame(card, game, analysis, moves, user_color):
                 })
     
     # Middlegame blunders
-    mg_blunders = sum(1 for m in user_mg_moves if m.get("classification") == "blunder")
+    mg_blunders = sum(1 for m in user_mg_moves if m.get("evaluation") == "blunder")
     
     # Data points
     if max_advantage >= 150:
@@ -1695,7 +1695,7 @@ def _audit_middlegame(card, game, analysis, moves, user_color):
             if _check_criterion(mg_blunders, op, value):
                 criteria_met += 1
             else:
-                blunder_move = next((m for m in user_mg_moves if m.get("classification") == "blunder"), None)
+                blunder_move = next((m for m in user_mg_moves if m.get("evaluation") == "blunder"), None)
                 if blunder_move:
                     audit["evidence"].append({
                         "move": blunder_move.get("move_number"),
@@ -1747,7 +1747,7 @@ def _audit_tactics(card, game, analysis, moves, user_color):
         is_user_move = (user_color == "white" and is_white_move) or (user_color == "black" and not is_white_move)
         
         if is_user_move:
-            if m.get("classification") == "blunder":
+            if m.get("evaluation") == "blunder":
                 cp_loss = m.get("cp_loss", 0)
                 if cp_loss >= 300:
                     hung_pieces += 1
