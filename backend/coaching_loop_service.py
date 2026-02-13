@@ -1572,9 +1572,8 @@ async def get_or_generate_plan(db, user_id: str, force_new: bool = False) -> Dic
         last_audit=last_audit
     )
     
-    # 6. Store the plan (copy to avoid _id being added to returned dict)
-    plan_to_store = new_plan.copy()
-    await db.user_plans.insert_one(plan_to_store)
+    # 6. Store the plan (insert modifies dict by adding _id)
+    await db.user_plans.insert_one(new_plan)
     
     # 7. Mark previous active plans as inactive
     await db.user_plans.update_many(
@@ -1582,7 +1581,13 @@ async def get_or_generate_plan(db, user_id: str, force_new: bool = False) -> Dic
         {"$set": {"is_active": False}}
     )
     
-    return new_plan
+    # 8. Re-fetch to get clean document without _id
+    clean_plan = await db.user_plans.find_one(
+        {"plan_id": new_plan["plan_id"]},
+        {"_id": 0}
+    )
+    
+    return clean_plan
 
 
 async def get_latest_audit(db, user_id: str) -> Optional[Dict]:
