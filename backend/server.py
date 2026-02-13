@@ -2414,6 +2414,32 @@ async def trigger_game_sync(background_tasks: BackgroundTasks, user: User = Depe
     
     return {"message": "Game sync started. New games will appear shortly."}
 
+@api_router.get("/sync-status")
+async def get_sync_status(user: User = Depends(get_current_user)):
+    """
+    Get the current game sync status including countdown to next sync.
+    Used by frontend to display sync timer.
+    """
+    now = datetime.now(timezone.utc)
+    
+    # Calculate seconds until next sync
+    next_sync_in_seconds = 0
+    if _sync_status.get("next_sync_at"):
+        try:
+            next_sync = datetime.fromisoformat(_sync_status["next_sync_at"].replace('Z', '+00:00'))
+            diff = (next_sync - now).total_seconds()
+            next_sync_in_seconds = max(0, int(diff))
+        except:
+            next_sync_in_seconds = QUICK_SYNC_INTERVAL_SECONDS
+    
+    return {
+        "is_syncing": _sync_status.get("is_syncing", False),
+        "last_sync_at": _sync_status.get("last_sync_at"),
+        "next_sync_in_seconds": next_sync_in_seconds,
+        "sync_interval_seconds": QUICK_SYNC_INTERVAL_SECONDS,
+        "games_found_last_sync": _sync_status.get("games_found_last_sync", 0)
+    }
+
 # ==================== COACH MODE ROUTES ====================
 
 @api_router.post("/coach/start-session")
