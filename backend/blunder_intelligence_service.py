@@ -1718,6 +1718,37 @@ def _calculate_mission_progress(analyses: List[Dict], check_rule: str, target: i
             except ValueError:
                 pass
         
+        # Conversion/winning position rules - "Win from +X without eval drop" or "Convert X%"
+        elif "win from" in rule_lower or "convert" in rule_lower:
+            # Check if user won while converting winning position cleanly
+            result = analysis.get("result", "")
+            user_won = result in ["win", "1-0", "0-1"]  # Need to check based on user color
+            
+            # Check for eval drops in winning positions
+            had_winning_position = False
+            had_major_eval_drop = False
+            
+            for i, move in enumerate(move_evals):
+                eval_before = move.get("eval_before", 0)
+                eval_after = move.get("eval_after", 0)
+                
+                # Was in winning position (+1.5 or better)
+                if eval_before >= 1.5:
+                    had_winning_position = True
+                    
+                    # Check for eval drop
+                    eval_drop = eval_before - eval_after
+                    if eval_drop > 1.5:
+                        had_major_eval_drop = True
+                        break
+            
+            # Count as progress if won from winning position without major eval drop
+            if user_won and had_winning_position and not had_major_eval_drop:
+                progress += 1
+            elif user_won and not had_winning_position:
+                # Won but wasn't in winning position - doesn't count for this mission
+                pass
+        
         # Blunder count rules
         elif "blunder" in rule_lower:
             if "0 blunders" in rule_lower or "zero blunders" in rule_lower:
