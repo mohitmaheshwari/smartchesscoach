@@ -1267,7 +1267,17 @@ def _generate_time_card(
         }
     ]
     
-    return create_domain_card("time", priority, goal, rules, criteria)
+    # Apply escalated rules if needed (unless already micro-habit)
+    if is_escalated and domain_intensity < 3:
+        rules = get_escalated_rules("time", rules, domain_intensity, is_escalated)
+    
+    card = create_domain_card("time", priority, goal, rules, criteria)
+    card["escalation"] = {
+        "is_escalated": is_escalated,
+        "intensity": domain_intensity,
+        "consecutive_misses": domain_history.get("consecutive_misses", 0)
+    }
+    return card
 
 
 # =============================================================================
