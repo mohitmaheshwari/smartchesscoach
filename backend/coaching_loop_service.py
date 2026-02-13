@@ -1525,7 +1525,9 @@ def audit_game_against_plan(
         "missed": missed,
         "applicable": applicable,
         "score": f"{executed}/{applicable}",
-        "game_result": game_result
+        "game_result": game_result,
+        "opponent_name": opponent_name,
+        "user_color": user_color
     }
     
     return audited_plan
