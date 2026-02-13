@@ -431,6 +431,47 @@ const Dashboard = ({ user }) => {
     fetchStats();
   }, []);
 
+  // Sync status timer - fetches and counts down
+  useEffect(() => {
+    const fetchSyncStatus = async () => {
+      try {
+        const response = await fetch(`${API}/sync-status`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSyncStatus(data);
+        }
+      } catch (error) {
+        console.error('Error fetching sync status:', error);
+      }
+    };
+    
+    // Fetch immediately
+    fetchSyncStatus();
+    
+    // Countdown timer - update every second
+    const countdownInterval = setInterval(() => {
+      setSyncStatus(prev => {
+        if (!prev || prev.is_syncing) return prev;
+        const newSeconds = Math.max(0, prev.next_sync_in_seconds - 1);
+        // Refetch when timer hits 0
+        if (newSeconds === 0) {
+          fetchSyncStatus();
+        }
+        return { ...prev, next_sync_in_seconds: newSeconds };
+      });
+    }, 1000);
+    
+    // Refetch status every 30 seconds to stay in sync
+    const refetchInterval = setInterval(fetchSyncStatus, 30000);
+    
+    return () => {
+      clearInterval(countdownInterval);
+      clearInterval(refetchInterval);
+    };
+  }, []);
+
   // Real-time queue polling - auto-refresh when games are being analyzed
   useEffect(() => {
     // Only poll if there are games in queue
