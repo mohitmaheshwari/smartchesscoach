@@ -551,7 +551,8 @@ async def get_discipline_check(db, user_id: str) -> Dict:
         stability, opening_check, blunder_context, winning_position,
         game_result, accuracy, avg_accuracy,
         rating_killer_pattern, rating_killer_label, avoided_rating_killer,
-        blunders  # Pass actual stockfish blunder count
+        blunders,  # Pass actual stockfish blunder count
+        mistakes   # Pass actual stockfish mistake count
     )
     
     # 10. Extract opponent name from PGN
