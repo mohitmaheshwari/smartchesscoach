@@ -396,11 +396,18 @@ def run_worker():
     logger.info(f"Starting analysis worker {WORKER_ID}")
     logger.info(f"Stockfish depth: {STOCKFISH_DEPTH}")
     logger.info(f"Poll interval: {POLL_INTERVAL}s")
+    logger.info(f"Job timeout: {JOB_TIMEOUT_MINUTES} minutes")
     
     # Set up signal handlers for graceful shutdown
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
     
+    # Step 1: Ensure Stockfish is installed
+    if not ensure_stockfish_installed():
+        logger.error("Cannot start worker - Stockfish is not available")
+        sys.exit(1)
+    
+    # Step 2: Connect to MongoDB
     try:
         db = get_database()
         logger.info("Connected to MongoDB")
@@ -408,21 +415,21 @@ def run_worker():
         logger.error(f"Failed to connect to MongoDB: {e}")
         sys.exit(1)
     
-    # Test Stockfish availability
-    try:
-        from config import STOCKFISH_PATH
-        if not os.path.exists(STOCKFISH_PATH):
-            logger.error(f"Stockfish not found at {STOCKFISH_PATH}")
-            sys.exit(1)
-        logger.info(f"Stockfish found at {STOCKFISH_PATH}")
-    except Exception as e:
-        logger.error(f"Failed to verify Stockfish: {e}")
-        sys.exit(1)
+    # Step 3: Clean up any stuck jobs from previous runs
+    logger.info("Checking for stuck jobs...")
+    cleanup_stuck_jobs(db)
     
     jobs_processed = 0
+    last_cleanup = time.time()
+    CLEANUP_INTERVAL = 300  # Run cleanup every 5 minutes
     
     while not shutdown_requested:
         try:
+            # Periodically clean up stuck jobs
+            if time.time() - last_cleanup > CLEANUP_INTERVAL:
+                cleanup_stuck_jobs(db)
+                last_cleanup = time.time()
+            
             # Try to claim a job
             job = claim_next_job(db)
             
