@@ -519,7 +519,7 @@ def audit_time_discipline(
         try:
             base_time = int(time_control.split("+")[0])
             is_fast_game = base_time <= 300  # 5 min or less
-        except:
+        except (ValueError, IndexError):
             pass
     
     if not has_time_data and not is_fast_game:
