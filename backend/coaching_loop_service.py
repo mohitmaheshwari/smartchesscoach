@@ -375,10 +375,9 @@ def calculate_opening_stability(analyses: List[Dict], games: List[Dict]) -> Dict
             continue
         
         user_color = game.get("user_color", "white")
-        opening = game.get("opening", "Unknown")
         
-        # Extract opening family (first 2-3 words)
-        opening_family = " ".join(opening.split()[:2]) if opening else "Unknown"
+        # Extract opening name properly from PGN
+        opening = _extract_opening_name(game)
         
         sf = analysis.get("stockfish_analysis", {})
         moves = sf.get("move_evaluations", [])
@@ -403,21 +402,21 @@ def calculate_opening_stability(analyses: List[Dict], games: List[Dict]) -> Dict
         # Store by color
         target = openings_white if user_color == "white" else openings_black
         
-        if opening_family not in target:
-            target[opening_family] = {
-                "name": opening_family,
+        if opening not in target:
+            target[opening] = {
+                "name": opening,
                 "games": 0,
                 "stability_scores": [],
                 "wins": 0
             }
         
-        target[opening_family]["games"] += 1
-        target[opening_family]["stability_scores"].append(stability)
+        target[opening]["games"] += 1
+        target[opening]["stability_scores"].append(stability)
         
         result = game.get("result", "")
         won = (user_color == "white" and result == "1-0") or (user_color == "black" and result == "0-1")
         if won:
-            target[opening_family]["wins"] += 1
+            target[opening]["wins"] += 1
     
     def process_openings(openings_dict):
         result = []
