@@ -58,6 +58,9 @@ const FocusPage = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [focusData, setFocusData] = useState(null);
   const [coachData, setCoachData] = useState(null);
+  
+  // Coaching Loop State (GOLD FEATURE)
+  const [roundPrep, setRoundPrep] = useState(null);
   const [planAudit, setPlanAudit] = useState(null);
   
   // Evidence modal state
@@ -72,10 +75,11 @@ const FocusPage = ({ user }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch focus data, coach data, and plan audit
-        const [focusRes, coachRes, auditRes] = await Promise.all([
+        // Fetch all coaching data in parallel
+        const [focusRes, coachRes, prepRes, auditRes] = await Promise.all([
           fetch(`${API}/focus`, { credentials: "include" }),
           fetch(`${API}/coach/today`, { credentials: "include" }),
+          fetch(`${API}/round-preparation`, { credentials: "include" }),
           fetch(`${API}/plan-audit`, { credentials: "include" })
         ]);
         
@@ -87,6 +91,11 @@ const FocusPage = ({ user }) => {
         if (coachRes.ok) {
           const data = await coachRes.json();
           setCoachData(data);
+        }
+        
+        if (prepRes.ok) {
+          const data = await prepRes.json();
+          setRoundPrep(data);
         }
         
         if (auditRes.ok) {
