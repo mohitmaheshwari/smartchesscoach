@@ -155,6 +155,11 @@ UI Indicators:
   - Added mobility restriction analysis
   - Added multi-threat detection
   - Now validates if "fork" targets are actually capturable before reporting
+- **NEW (Feb 2026)**: Focus Items from Last Game - Critical Tactical Patterns
+  - Extracts tactical patterns (piece traps, forks, etc.) missed in the last game
+  - Creates actionable "Focus Items" in the next game's plan
+  - Displays in new "FOCUS FROM LAST GAME" section on Focus page
+  - Closes the feedback loop: Analyze Mistake → Create Plan to Fix Mistake
 
 ## Prioritized Backlog
 
@@ -168,4 +173,4 @@ UI Indicators:
 - Rename `/coach` route to `/focus`
 
 ---
-*Last Updated: December 2025*
+*Last Updated: February 2026*
