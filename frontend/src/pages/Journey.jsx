@@ -270,6 +270,15 @@ const Journey = ({ user }) => {
         {/* Main Journey Content */}
         {hasAccount && journeyData && (
           <AnimatedList className="space-y-6">
+            {/* NEW: Progress Tracker - Baseline vs Current */}
+            <ProgressTrackerSection 
+              baseline={journeyData.baseline}
+              current={journeyData.current_stats}
+              progress={journeyData.progress}
+              hasBaseline={journeyData.has_baseline}
+              gamesUntilBaseline={journeyData.games_until_baseline}
+            />
+
             {/* Section 1: Chess Fundamentals Assessment */}
             <FundamentalsSection 
               data={journeyData.fundamentals} 
