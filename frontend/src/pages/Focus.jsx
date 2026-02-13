@@ -148,6 +148,14 @@ const FocusPage = ({ user }) => {
   const focusEvidence = focusData?.focus?.evidence || [];
   const focusOccurrences = focusData?.focus?.occurrences || 0;
 
+  // Format seconds to MM:SS
+  const formatSyncTime = (seconds) => {
+    if (!seconds || seconds <= 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <Layout user={user}>
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
@@ -162,6 +170,30 @@ const FocusPage = ({ user }) => {
           <p className="text-muted-foreground">
             One thing to remember in your next game
           </p>
+          
+          {/* Sync Timer */}
+          {syncStatus && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 mt-4 rounded-full bg-muted/50 border border-border/50"
+              data-testid="sync-timer"
+            >
+              {syncStatus.is_syncing ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 text-primary animate-spin" />
+                  <span className="text-xs text-primary font-medium">Syncing games...</span>
+                </>
+              ) : (
+                <>
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">
+                    Next sync: <span className="font-mono font-medium text-foreground">{formatSyncTime(syncStatus.next_sync_in_seconds)}</span>
+                  </span>
+                </>
+              )}
+            </motion.div>
+          )}
         </motion.div>
 
         {needsMoreGames ? (
