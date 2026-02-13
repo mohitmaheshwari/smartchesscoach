@@ -241,13 +241,17 @@ async def quick_sync_loop():
     Real-time game monitoring - checks for new games every 5 minutes.
     Only syncs games played in the last 30 minutes to catch recent games quickly.
     """
+    global _sync_status
     from journey_service import sync_user_games
     
     # Wait 1 minute before first check (let app stabilize)
+    _sync_status["next_sync_at"] = (datetime.now(timezone.utc) + timedelta(seconds=60)).isoformat()
     await asyncio.sleep(60)
     
     while True:
         try:
+            _sync_status["is_syncing"] = True
+            _sync_status["last_sync_at"] = datetime.now(timezone.utc).isoformat()
             logger.info("Quick sync: Checking for new games...")
             
             # Get all users with linked chess accounts
@@ -267,6 +271,9 @@ async def quick_sync_loop():
                 except Exception as e:
                     logger.error(f"Quick sync error for user {user_doc['user_id']}: {e}")
             
+            _sync_status["games_found_last_sync"] = total_synced
+            _sync_status["is_syncing"] = False
+            
             if total_synced > 0:
                 logger.info(f"Quick sync: Found and queued {total_synced} new games")
             else:
@@ -274,6 +281,10 @@ async def quick_sync_loop():
                 
         except Exception as e:
             logger.error(f"Quick sync loop error: {e}")
+            _sync_status["is_syncing"] = False
+        
+        # Calculate next sync time
+        _sync_status["next_sync_at"] = (datetime.now(timezone.utc) + timedelta(seconds=QUICK_SYNC_INTERVAL_SECONDS)).isoformat()
         
         # Wait 5 minutes before next check
         await asyncio.sleep(QUICK_SYNC_INTERVAL_SECONDS)
