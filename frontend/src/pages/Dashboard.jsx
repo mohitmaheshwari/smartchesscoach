@@ -562,6 +562,14 @@ const Dashboard = ({ user }) => {
 
   const firstName = user?.name?.split(' ')[0] || 'Player';
 
+  // Format seconds to MM:SS
+  const formatSyncTime = (seconds) => {
+    if (!seconds || seconds <= 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <Layout user={user}>
       <div className="space-y-8 max-w-5xl" data-testid="dashboard-page">
@@ -587,16 +595,41 @@ const Dashboard = ({ user }) => {
               Welcome back, {firstName}
             </h1>
           </div>
-          {hasGames && (
-            <Button 
-              onClick={() => navigate('/journey')}
-              variant="outline"
-              className="btn-scale"
-            >
-              View Journey
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Sync Timer */}
+            {syncStatus && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border/50"
+                data-testid="sync-timer"
+              >
+                {syncStatus.is_syncing ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 text-primary animate-spin" />
+                    <span className="text-xs text-primary font-medium">Syncing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      Next sync: <span className="font-mono font-medium text-foreground">{formatSyncTime(syncStatus.next_sync_in_seconds)}</span>
+                    </span>
+                  </>
+                )}
+              </motion.div>
+            )}
+            {hasGames && (
+              <Button 
+                onClick={() => navigate('/journey')}
+                variant="outline"
+                className="btn-scale"
+              >
+                View Journey
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            )}
+          </div>
         </motion.div>
 
         {!hasGames ? (
