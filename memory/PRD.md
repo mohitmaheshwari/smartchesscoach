@@ -40,10 +40,10 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - ✅ Positional Coaching Layer (RAG-backed) - full feature
 - ✅ Bug Fix: Mission progress calculation
 - ✅ Bug Fix: Stuck game in analysis queue (Stockfish path)
+- ✅ Real-time game monitoring (5-minute quick sync)
 
-### Pending User Question
-- User asking about real-time game monitoring from chess.com
-- Current system is NOT real-time (6-hour sync interval)
+### Known Issues
+- analysis_worker in FATAL state - needs investigation
 
 ## Prioritized Backlog
 
