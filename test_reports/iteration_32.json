@@ -65,7 +65,7 @@
   },
 
   "test_credentials_used": {
-    "dev_login": "https://strategy-engine-7.preview.emergentagent.com/api/auth/dev-login",
+    "dev_login": "https://stockfish-dashboard.preview.emergentagent.com/api/auth/dev-login",
     "test_game_id": "game_c1658a380825"
   },
 

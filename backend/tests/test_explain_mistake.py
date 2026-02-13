@@ -7,7 +7,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://strategy-engine-7.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://stockfish-dashboard.preview.emergentagent.com')
 
 # Sample test positions with different mistake types
 SAMPLE_MISTAKES = {
