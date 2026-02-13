@@ -1800,6 +1800,10 @@ async def get_or_generate_plan(db, user_id: str, force_new: bool = False) -> Dic
     Get current active plan or generate a new one.
     
     This is called when user visits Focus page.
+    
+    Adaptive Escalation:
+    - Fetches recent audits to calculate miss history
+    - Passes miss history to plan generator for adaptive intensity
     """
     
     # Check for existing active plan
@@ -1829,38 +1833,44 @@ async def get_or_generate_plan(db, user_id: str, force_new: bool = False) -> Dic
     ).sort("created_at", -1).to_list(50)
     
     # 3. Calculate all inputs
-    rating_band = _get_rating_band(user.get("rating", 1200))
+    rating_band = _get_rating_band(user.get("rating", 1200) if user else 1200)
     fundamentals = calculate_fundamentals_profile(analyses, games)
     behavior_patterns = detect_behavior_patterns(analyses, games)
     opening_stability = calculate_opening_stability(analyses, games)
     
-    # 4. Get last audit if exists
-    last_audit = await db.user_plans.find_one(
+    # 4. Get recent audits for miss history (adaptive escalation)
+    recent_audits = await db.user_plans.find(
         {"user_id": user_id, "is_audited": True},
-        {"_id": 0},
-        sort=[("generated_at", -1)]
-    )
+        {"_id": 0}
+    ).sort("generated_at", -1).limit(10).to_list(10)
     
-    # 5. Generate new plan
+    # Calculate miss history from recent audits
+    miss_history = get_domain_miss_history(recent_audits)
+    
+    # 5. Get last audit if exists
+    last_audit = recent_audits[0] if recent_audits else None
+    
+    # 6. Generate new plan with adaptive escalation
     new_plan = generate_next_plan(
         user_id=user_id,
         rating_band=rating_band,
         fundamentals=fundamentals,
         behavior_patterns=behavior_patterns,
         opening_stability=opening_stability,
-        last_audit=last_audit
+        last_audit=last_audit,
+        miss_history=miss_history
     )
     
-    # 6. Store the plan (insert modifies dict by adding _id)
+    # 7. Store the plan (insert modifies dict by adding _id)
     await db.user_plans.insert_one(new_plan)
     
-    # 7. Mark previous active plans as inactive
+    # 8. Mark previous active plans as inactive
     await db.user_plans.update_many(
         {"user_id": user_id, "is_active": True, "plan_id": {"$ne": new_plan["plan_id"]}},
         {"$set": {"is_active": False}}
     )
     
-    # 8. Re-fetch to get clean document without _id
+    # 9. Re-fetch to get clean document without _id
     clean_plan = await db.user_plans.find_one(
         {"plan_id": new_plan["plan_id"]},
         {"_id": 0}
