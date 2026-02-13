@@ -1155,6 +1155,167 @@ const Lab = ({ user }) => {
                               </div>
                             </div>
                           )}
+
+                          {/* POSITIONAL INSIGHT (ADVANCED) - RAG-Backed */}
+                          {positionalInsight?.has_insight && (
+                            <div className="mt-4">
+                              <button
+                                onClick={() => setInsightExpanded(!insightExpanded)}
+                                className="w-full p-4 rounded-lg bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 hover:border-violet-500/40 transition-colors text-left"
+                                data-testid="positional-insight-toggle"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Brain className="w-5 h-5 text-violet-500" />
+                                    <span className="font-semibold text-violet-400">Positional Insight (Advanced)</span>
+                                    <span className="text-xs px-2 py-0.5 rounded bg-violet-500/20 text-violet-400">RAG</span>
+                                  </div>
+                                  {insightExpanded ? (
+                                    <ChevronUp className="w-5 h-5 text-violet-400" />
+                                  ) : (
+                                    <ChevronDown className="w-5 h-5 text-violet-400" />
+                                  )}
+                                </div>
+                                {!insightExpanded && (
+                                  <p className="text-sm text-muted-foreground mt-2">
+                                    Deep positional coaching based on {positionalInsight.structure_insight?.structure_name || 'this structure'}
+                                  </p>
+                                )}
+                              </button>
+                              
+                              {insightExpanded && (
+                                <div className="mt-3 space-y-4 animate-in slide-in-from-top-2 duration-200" data-testid="positional-insight-content">
+                                  {/* Structure Insight */}
+                                  {positionalInsight.structure_insight && (
+                                    <div className="p-4 rounded-lg bg-background/50 border border-violet-500/20">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <Target className="w-4 h-4 text-violet-500" />
+                                        <p className="font-semibold text-violet-400">
+                                          {positionalInsight.structure_insight.structure_name}
+                                        </p>
+                                      </div>
+                                      
+                                      {/* Strategic Summary */}
+                                      {positionalInsight.structure_insight.summary && (
+                                        <div className="p-3 rounded bg-violet-500/10 border border-violet-500/20 mb-3">
+                                          <p className="text-xs text-violet-400 uppercase tracking-wide mb-1">Your Strategic Goal</p>
+                                          <p className="text-sm font-medium">{positionalInsight.structure_insight.summary}</p>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Key Plans */}
+                                      {positionalInsight.structure_insight.your_plans?.length > 0 && (
+                                        <div className="mb-3">
+                                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Key Plans</p>
+                                          <div className="space-y-1.5">
+                                            {positionalInsight.structure_insight.your_plans.map((plan, i) => (
+                                              <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                                                <span className="text-violet-500 mt-0.5">•</span>
+                                                <span>{plan}</span>
+                                              </p>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Key Moves */}
+                                      {positionalInsight.structure_insight.key_moves?.length > 0 && (
+                                        <div className="mb-3 p-3 rounded bg-background/50 border border-border/50">
+                                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Typical Key Moves</p>
+                                          <div className="flex flex-wrap gap-2">
+                                            {positionalInsight.structure_insight.key_moves.map((move, i) => (
+                                              <span key={i} className="px-2 py-1 rounded bg-violet-500/10 text-sm font-mono text-violet-400">
+                                                {move}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Amateur Errors */}
+                                      {positionalInsight.structure_insight.amateur_errors?.length > 0 && (
+                                        <div className="p-3 rounded bg-red-500/10 border border-red-500/20">
+                                          <p className="text-xs text-red-400 uppercase tracking-wide mb-2">Common Amateur Errors</p>
+                                          <div className="space-y-1.5">
+                                            {positionalInsight.structure_insight.amateur_errors.map((error, i) => (
+                                              <p key={i} className="text-sm text-red-400/80 flex items-start gap-2">
+                                                <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                                <span>{error}</span>
+                                              </p>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Key Squares */}
+                                      {positionalInsight.structure_insight.key_squares?.length > 0 && (
+                                        <div className="mt-3">
+                                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Key Squares</p>
+                                          <div className="flex flex-wrap gap-2">
+                                            {positionalInsight.structure_insight.key_squares.map((sq, i) => (
+                                              <span key={i} className="px-2 py-1 rounded bg-amber-500/10 text-sm text-amber-400">
+                                                {sq}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Theme Insights */}
+                                  {positionalInsight.theme_insights?.length > 0 && (
+                                    <div className="p-4 rounded-lg bg-background/50 border border-violet-500/20">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <Lightbulb className="w-4 h-4 text-amber-500" />
+                                        <p className="font-semibold text-amber-400">Related Strategic Themes</p>
+                                      </div>
+                                      
+                                      <div className="space-y-3">
+                                        {positionalInsight.theme_insights.map((theme, idx) => (
+                                          <div key={idx} className="p-3 rounded bg-amber-500/10 border border-amber-500/20">
+                                            <p className="text-sm font-medium text-amber-400 mb-1">{theme.theme_name}</p>
+                                            <p className="text-sm text-muted-foreground">{theme.summary}</p>
+                                            {theme.plans?.length > 0 && (
+                                              <div className="mt-2 space-y-1">
+                                                {theme.plans.slice(0, 2).map((plan, i) => (
+                                                  <p key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                                                    <span className="text-amber-500">•</span>
+                                                    <span>{plan}</span>
+                                                  </p>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Coaching Synthesis */}
+                                  {positionalInsight.synthesis && (
+                                    <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Star className="w-4 h-4 text-green-500" />
+                                        <p className="font-semibold text-green-400">Coach's Summary</p>
+                                      </div>
+                                      <div className="prose prose-sm prose-invert max-w-none">
+                                        {positionalInsight.synthesis.split('\n').map((line, i) => {
+                                          if (line.startsWith('**') && line.endsWith('**')) {
+                                            return <p key={i} className="font-semibold text-foreground">{line.replace(/\*\*/g, '')}</p>;
+                                          }
+                                          if (line.startsWith('- ')) {
+                                            return <p key={i} className="text-sm text-muted-foreground ml-4">{line}</p>;
+                                          }
+                                          return <p key={i} className="text-sm text-muted-foreground">{line}</p>;
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="text-center py-8 text-muted-foreground">
