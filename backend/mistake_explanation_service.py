@@ -102,6 +102,30 @@ MISTAKE_TEMPLATES = {
         "thinking_habit": "Check if moving a piece can unmask an attack from behind.",
         "severity": "missed_tactic"
     },
+    "missed_piece_trap": {
+        "short": "Trapping opportunity missed!",
+        "pattern": "You could have trapped an enemy piece - limiting where it can go safely.",
+        "thinking_habit": "Look for enemy pieces with limited escape squares. Can you cut off more exits?",
+        "severity": "missed_tactic"
+    },
+    "missed_mobility_restriction": {
+        "short": "Could have restricted enemy piece",
+        "pattern": "There was a way to significantly limit an opponent's piece activity.",
+        "thinking_habit": "Ask: How many squares can their active pieces reach? Can I reduce that?",
+        "severity": "missed_tactic"
+    },
+    "missed_multi_threat": {
+        "short": "Multiple threats were possible!",
+        "pattern": "A move creating several threats at once was available - very powerful!",
+        "thinking_habit": "Best moves often do TWO things at once. Look for double-duty moves.",
+        "severity": "missed_tactic"
+    },
+    "missed_attack_valuable": {
+        "short": "Attack on high-value piece missed",
+        "pattern": "You could have directly threatened a valuable enemy piece.",
+        "thinking_habit": "Where are their queen and rooks? Can I attack them with a lesser piece?",
+        "severity": "missed_tactic"
+    },
     "missed_winning_tactic": {
         "short": "Winning shot was there!",
         "pattern": "A decisive tactical blow was available. These are what we practice for!",
