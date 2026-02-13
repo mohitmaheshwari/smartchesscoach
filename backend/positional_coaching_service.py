@@ -97,8 +97,6 @@ def _format_structure_insight(
 ) -> Dict:
     """Format pawn structure knowledge for display"""
     
-    is_white = user_color.lower() == "white"
-    
     # Determine if user has the structure or is playing against it
     # This would typically come from execution_data
     has_structure = True  # Default assumption
