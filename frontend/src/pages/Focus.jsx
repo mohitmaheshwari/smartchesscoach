@@ -50,7 +50,7 @@ const FocusPage = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [focusData, setFocusData] = useState(null);
   const [coachData, setCoachData] = useState(null);
-  const [disciplineCheck, setDisciplineCheck] = useState(null);
+  const [planAudit, setPlanAudit] = useState(null);
   
   // Evidence modal state
   const [showEvidence, setShowEvidence] = useState(false);
@@ -64,11 +64,11 @@ const FocusPage = ({ user }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch focus data, coach data, and discipline check
-        const [focusRes, coachRes, disciplineRes] = await Promise.all([
+        // Fetch focus data, coach data, and plan audit
+        const [focusRes, coachRes, auditRes] = await Promise.all([
           fetch(`${API}/focus`, { credentials: "include" }),
           fetch(`${API}/coach/today`, { credentials: "include" }),
-          fetch(`${API}/discipline-check`, { credentials: "include" })
+          fetch(`${API}/plan-audit`, { credentials: "include" })
         ]);
         
         if (focusRes.ok) {
@@ -81,9 +81,9 @@ const FocusPage = ({ user }) => {
           setCoachData(data);
         }
         
-        if (disciplineRes.ok) {
-          const data = await disciplineRes.json();
-          setDisciplineCheck(data);
+        if (auditRes.ok) {
+          const data = await auditRes.json();
+          setPlanAudit(data);
         }
       } catch (err) {
         console.error("Failed to load focus data:", err);
