@@ -5087,25 +5087,57 @@ async def get_journey_page_data(user: User = Depends(get_current_user)):
     Get data for the Journey page (TREND - How you're evolving)
     
     Returns:
+    - Baseline vs Current progress tracking
     - Weakness ranking (not equal badges)
     - Win-state analysis
     - Mistake heatmap
     - Identity profile
     - Milestones
     """
-    # Get analyses
-    analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
-    ).sort("created_at", -1).limit(15).to_list(15)
+    from baseline_service import (
+        get_or_create_baseline,
+        calculate_current_stats,
+        calculate_progress,
+        MIN_GAMES_FOR_BASELINE
+    )
     
-    games = await db.games.find(
+    # Get ALL analyses for baseline calculation
+    all_analyses = await db.game_analyses.find(
         {"user_id": user.user_id}
-    ).sort("imported_at", -1).limit(15).to_list(15)
+    ).sort("created_at", -1).to_list(200)
+    
+    # Get last 25 games for current stats
+    analyses = all_analyses[:25] if len(all_analyses) > 25 else all_analyses
+    
+    # Get ALL games for baseline, last 25 for current
+    all_games = await db.games.find(
+        {"user_id": user.user_id}
+    ).sort("imported_at", -1).to_list(200)
+    
+    games = all_games[:25] if len(all_games) > 25 else all_games
+    
+    # Get or create baseline profile
+    baseline = await get_or_create_baseline(db, user.user_id, all_analyses, all_games)
+    
+    # Calculate current stats from recent 25 games
+    current_stats = calculate_current_stats(analyses, games)
+    
+    # Calculate progress if baseline exists
+    progress = None
+    if baseline and current_stats:
+        progress = calculate_progress(baseline, current_stats)
     
     # Get existing badge data
     badge_data = await calculate_all_badges(db, user.user_id)
     
     journey_data = get_journey_data(analyses, games, badge_data)
+    
+    # Add baseline and progress tracking
+    journey_data['baseline'] = baseline
+    journey_data['current_stats'] = current_stats
+    journey_data['progress'] = progress
+    journey_data['has_baseline'] = baseline is not None
+    journey_data['games_until_baseline'] = max(0, MIN_GAMES_FOR_BASELINE - len(all_analyses)) if not baseline else 0
     
     return journey_data
 
