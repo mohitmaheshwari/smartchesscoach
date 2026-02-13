@@ -550,7 +550,7 @@ def calculate_opening_stability(analyses: List[Dict], games: List[Dict]) -> Dict
         
         max_drop = max((m.get("cp_loss", 0) for m in early_moves), default=0)
         avg_cp_loss = sum(m.get("cp_loss", 0) for m in early_moves) / len(early_moves)
-        early_blunders = sum(1 for m in early_moves if m.get("classification") == "blunder")
+        early_blunders = sum(1 for m in early_moves if m.get("evaluation") == "blunder")
         
         # Stability score (0-100)
         stability = 100
