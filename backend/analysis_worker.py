@@ -163,6 +163,36 @@ def process_job(db, job):
         sf_stats = stockfish_result.get("user_stats", {})
         move_evaluations = stockfish_result.get("moves", [])
         
+        # VALIDATION: Ensure analysis is complete and valid
+        # A valid analysis must have:
+        # 1. At least some move evaluations
+        # 2. A non-zero accuracy (unless it's genuinely 0% which is extremely rare)
+        # 3. Total moves analyzed > 0
+        accuracy = sf_stats.get("accuracy", 0)
+        total_moves = len(move_evaluations)
+        blunders = sf_stats.get("blunders", 0)
+        mistakes = sf_stats.get("mistakes", 0)
+        best_moves = sf_stats.get("best_moves", 0)
+        
+        # Check if analysis appears valid
+        is_valid_analysis = True
+        validation_error = None
+        
+        if total_moves < 5:
+            is_valid_analysis = False
+            validation_error = f"Too few moves analyzed ({total_moves})"
+        elif accuracy == 0 and blunders == 0 and mistakes == 0 and best_moves == 0:
+            # All zeros is suspicious - likely failed analysis
+            is_valid_analysis = False
+            validation_error = "Analysis returned all zeros - likely incomplete"
+        
+        if not is_valid_analysis:
+            logger.error(f"Analysis validation failed for {game_id}: {validation_error}")
+            mark_job_failed(db, game_id, validation_error)
+            return False
+        
+        logger.info(f"Analysis validated: {total_moves} moves, {accuracy}% accuracy")
+        
         # Create/update analysis record
         analysis_doc = {
             "game_id": game_id,
