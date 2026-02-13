@@ -1480,6 +1480,24 @@ def audit_game_against_plan(
     else:
         game_result = "win" if result == "0-1" else "loss" if result == "1-0" else "draw"
     
+    # Extract opponent name from PGN or game object
+    opponent_name = None
+    pgn = game.get("pgn", "")
+    if user_color == "white":
+        # Opponent is black
+        opponent_match = re.search(r'\[Black "([^"]+)"\]', pgn)
+        if opponent_match:
+            opponent_name = opponent_match.group(1)
+        else:
+            opponent_name = game.get("black_player", "Opponent")
+    else:
+        # Opponent is white
+        opponent_match = re.search(r'\[White "([^"]+)"\]', pgn)
+        if opponent_match:
+            opponent_name = opponent_match.group(1)
+        else:
+            opponent_name = game.get("white_player", "Opponent")
+    
     # Audit each domain
     for card in audited_plan.get("cards", []):
         domain = card.get("domain")
