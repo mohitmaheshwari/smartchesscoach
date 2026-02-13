@@ -57,6 +57,9 @@ const FocusPage = ({ user }) => {
   
   // Drill mode state
   const [showDrill, setShowDrill] = useState(false);
+  
+  // Sync status state
+  const [syncStatus, setSyncStatus] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,6 +94,41 @@ const FocusPage = ({ user }) => {
     };
 
     fetchData();
+  }, []);
+
+  // Sync status timer
+  useEffect(() => {
+    const fetchSyncStatus = async () => {
+      try {
+        const response = await fetch(`${API}/sync-status`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSyncStatus(data);
+        }
+      } catch (error) {
+        console.error('Error fetching sync status:', error);
+      }
+    };
+    
+    fetchSyncStatus();
+    
+    const countdownInterval = setInterval(() => {
+      setSyncStatus(prev => {
+        if (!prev || prev.is_syncing) return prev;
+        const newSeconds = Math.max(0, prev.next_sync_in_seconds - 1);
+        if (newSeconds === 0) fetchSyncStatus();
+        return { ...prev, next_sync_in_seconds: newSeconds };
+      });
+    }, 1000);
+    
+    const refetchInterval = setInterval(fetchSyncStatus, 30000);
+    
+    return () => {
+      clearInterval(countdownInterval);
+      clearInterval(refetchInterval);
+    };
   }, []);
 
   if (loading) {
