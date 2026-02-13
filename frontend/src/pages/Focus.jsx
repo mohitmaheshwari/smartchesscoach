@@ -413,8 +413,77 @@ const FocusPage = ({ user }) => {
                       )}
                     </div>
                     
-                    {/* What We Noticed - Personalized Observations */}
-                    {(disciplineCheck.verdict?.positives?.length > 0 || disciplineCheck.verdict?.issues?.length > 0) && (
+                    {/* Coach Feedback - What Worked / Needs Work */}
+                    {disciplineCheck.verdict?.coach_feedback && (
+                      <div className="space-y-3 mb-4">
+                        {/* What Worked - for wins and good games */}
+                        {disciplineCheck.verdict.coach_feedback.what_worked?.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-emerald-500 mb-1.5 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              What Worked
+                            </p>
+                            <div className="space-y-1">
+                              {disciplineCheck.verdict.coach_feedback.what_worked.map((item, i) => (
+                                <p key={`worked-${i}`} className="text-xs text-emerald-400/90 pl-4" data-testid={`coach-what-worked-${i}`}>
+                                  • {item}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Good Plays Despite Loss - for losses */}
+                        {disciplineCheck.verdict.coach_feedback.good_plays?.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-blue-500 mb-1.5 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Good Plays Despite the Loss
+                            </p>
+                            <div className="space-y-1">
+                              {disciplineCheck.verdict.coach_feedback.good_plays.map((item, i) => (
+                                <p key={`good-${i}`} className="text-xs text-blue-400/90 pl-4" data-testid={`coach-good-plays-${i}`}>
+                                  • {item}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Core Problem - for losses */}
+                        {disciplineCheck.verdict.coach_feedback.core_problem && (
+                          <div className="p-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                            <p className="text-xs font-semibold text-orange-500 mb-1 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              The Core Issue
+                            </p>
+                            <p className="text-xs text-orange-400" data-testid="coach-core-problem">
+                              {disciplineCheck.verdict.coach_feedback.core_problem}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Needs Work - for wins that weren't clean */}
+                        {disciplineCheck.verdict.coach_feedback.needs_work?.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-amber-500 mb-1.5 flex items-center gap-1">
+                              <Lightbulb className="w-3 h-3" />
+                              Still Needs Work
+                            </p>
+                            <div className="space-y-1">
+                              {disciplineCheck.verdict.coach_feedback.needs_work.map((item, i) => (
+                                <p key={`work-${i}`} className="text-xs text-amber-400/90 pl-4" data-testid={`coach-needs-work-${i}`}>
+                                  • {item}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Fallback: Original What We Noticed - for backward compatibility */}
+                    {!disciplineCheck.verdict?.coach_feedback && (disciplineCheck.verdict?.positives?.length > 0 || disciplineCheck.verdict?.issues?.length > 0) && (
                       <div className="space-y-1.5 mb-3">
                         {disciplineCheck.verdict?.positives?.slice(0, 2).map((pos, i) => (
                           <div 
