@@ -1572,8 +1572,9 @@ async def get_or_generate_plan(db, user_id: str, force_new: bool = False) -> Dic
         last_audit=last_audit
     )
     
-    # 6. Store the plan
-    await db.user_plans.insert_one(new_plan)
+    # 6. Store the plan (copy to avoid _id being added to returned dict)
+    plan_to_store = new_plan.copy()
+    await db.user_plans.insert_one(plan_to_store)
     
     # 7. Mark previous active plans as inactive
     await db.user_plans.update_many(
