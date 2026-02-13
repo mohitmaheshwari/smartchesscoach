@@ -948,7 +948,7 @@ def _generate_loss_feedback(
     
     # Better than average accuracy
     if avg_accuracy and accuracy > avg_accuracy:
-        good_plays.append(f"Accuracy above your average - loss wasn't about bad moves")
+        good_plays.append("Accuracy above your average - loss wasn't about bad moves")
     
     # === IDENTIFY THE CORE PROBLEM ===
     

@@ -2831,7 +2831,6 @@ def get_game_strategic_analysis(analysis: Dict, game: Dict = None) -> Dict:
     
     Uses evidence from the game to back up recommendations.
     """
-    import chess
     
     if not analysis:
         return {"has_strategy": False}
@@ -2874,7 +2873,6 @@ def get_game_strategic_analysis(analysis: Dict, game: Dict = None) -> Dict:
 
 def _analyze_opening_strategy(opening_name: str, user_color: str, pgn: str, move_evals: List) -> Dict:
     """Analyze the opening: Plan + How you executed it + Where you deviated."""
-    import chess
     
     # Import opening coaching data
     from opening_service import OPENING_COACHING
@@ -3029,7 +3027,6 @@ def _analyze_opening_strategy(opening_name: str, user_color: str, pgn: str, move
 
 def _analyze_pawn_structure(move_evals: List, user_color: str) -> Dict:
     """Analyze the pawn structure: Plan + How you executed it."""
-    import chess
     
     structure_info = {
         "type": "Standard",
@@ -3432,7 +3429,6 @@ def _identify_strategic_themes(move_evals: List, user_color: str) -> List[Dict]:
 
 def _find_key_strategic_moments(move_evals: List, user_color: str) -> List[Dict]:
     """Find key strategic decision points (not necessarily mistakes)."""
-    import chess
     
     moments = []
     
