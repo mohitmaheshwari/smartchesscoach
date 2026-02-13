@@ -254,12 +254,73 @@ const FocusPage = ({ user }) => {
           </motion.div>
         ) : (
           <>
-            {/* PLAN AUDIT - Phase-Based Execution Evaluation */}
-            {planAudit?.has_data && planAudit?.audits?.length > 0 && (
+            {/* ===== ROUND PREPARATION - Next Game Plan ===== */}
+            {roundPrep?.cards?.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
+                data-testid="round-preparation"
+              >
+                <Card className="border-2 border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-indigo-500/5">
+                  <CardContent className="py-5">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <FileText className="w-4 h-4 text-blue-400" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-blue-400">
+                            Round Preparation – Next Game
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Your coach's plan for the next game
+                        </p>
+                      </div>
+                      
+                      {/* Training Block Badge */}
+                      {roundPrep.training_block && (
+                        <div className="text-right">
+                          <span className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 font-medium">
+                            {roundPrep.training_block.name}
+                          </span>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Intensity {roundPrep.training_block.intensity}/3
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Domain Cards */}
+                    <div className="space-y-3">
+                      {roundPrep.cards.map((card) => (
+                        <DomainPlanCard key={card.domain} card={card} />
+                      ))}
+                    </div>
+                    
+                    {/* Coach Rule Footer */}
+                    <div className="mt-4 pt-3 border-t border-border/30">
+                      <div className="flex items-center gap-2">
+                        <Brain className="w-4 h-4 text-blue-400" />
+                        <span className="text-xs font-medium text-blue-400">
+                          Coach Rule:
+                        </span>
+                        <span className="text-xs text-foreground">
+                          {roundPrep.training_block?.focus || "Focus on your fundamentals."}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* ===== PLAN AUDIT - Last Game Evaluation ===== */}
+            {planAudit?.has_data && planAudit?.cards?.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
                 data-testid="plan-audit"
               >
                 <Card className="border-2 border-slate-500/30 bg-gradient-to-br from-slate-500/5 to-zinc-500/5">
@@ -274,121 +335,33 @@ const FocusPage = ({ user }) => {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          vs {planAudit.opponent} · {planAudit.result?.toUpperCase()} · {planAudit.accuracy}% accuracy
+                          vs {planAudit.audit_summary?.game_result?.toUpperCase() || 'Unknown'} · 
+                          Execution vs Preparation
                         </p>
                       </div>
                       
                       {/* Execution Score */}
                       <div className="text-right">
                         <span className={`text-2xl font-bold ${
-                          planAudit.summary?.executed === planAudit.summary?.domains_shown ? 'text-emerald-500' :
-                          planAudit.summary?.failed > 0 ? 'text-orange-500' :
+                          planAudit.audit_summary?.executed === planAudit.audit_summary?.applicable ? 'text-emerald-500' :
+                          planAudit.audit_summary?.missed > 0 ? 'text-orange-500' :
                           'text-amber-500'
                         }`}>
-                          {planAudit.summary?.executed || 0}/{planAudit.summary?.domains_shown || 0}
+                          {planAudit.audit_summary?.score || '0/0'}
                         </span>
                         <p className="text-xs text-muted-foreground">domains executed</p>
                       </div>
                     </div>
                     
-                    {/* Domain Audits */}
+                    {/* Domain Audit Cards */}
                     <div className="space-y-3">
-                      {planAudit.audits.map((audit, idx) => (
-                        <div 
-                          key={audit.domain}
-                          className={`p-3 rounded-lg border ${
-                            audit.verdict_type === 'pass' 
-                              ? 'bg-emerald-500/5 border-emerald-500/20' 
-                              : audit.verdict_type === 'fail'
-                              ? 'bg-orange-500/5 border-orange-500/20'
-                              : 'bg-amber-500/5 border-amber-500/20'
-                          }`}
-                          data-testid={`audit-${audit.domain.toLowerCase()}`}
-                        >
-                          {/* Domain Header */}
-                          <div className="flex items-center justify-between mb-2">
-                            <span className={`text-xs font-bold uppercase tracking-wider ${
-                              audit.verdict_type === 'pass' ? 'text-emerald-500' :
-                              audit.verdict_type === 'fail' ? 'text-orange-500' :
-                              'text-amber-500'
-                            }`}>
-                              {audit.domain}
-                            </span>
-                            <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                              audit.verdict_type === 'pass' 
-                                ? 'bg-emerald-500/20 text-emerald-400' 
-                                : audit.verdict_type === 'fail'
-                                ? 'bg-orange-500/20 text-orange-400'
-                                : 'bg-amber-500/20 text-amber-400'
-                            }`}>
-                              {audit.verdict_type === 'pass' ? '✓' : audit.verdict_type === 'fail' ? '✗' : '~'}
-                            </span>
-                          </div>
-                          
-                          {/* Plan (if existed) */}
-                          {audit.plan && (
-                            <p className="text-xs text-muted-foreground mb-1.5">
-                              <span className="font-medium">Plan:</span> {audit.plan}
-                            </p>
-                          )}
-                          
-                          {/* What Happened */}
-                          <div className="space-y-0.5 mb-2">
-                            {audit.what_happened?.map((item, i) => (
-                              <p key={i} className="text-xs text-foreground/80">
-                                • {item}
-                              </p>
-                            ))}
-                          </div>
-                          
-                          {/* Data Snapshot */}
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            {audit.data?.opening_accuracy && (
-                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
-                                Accuracy: {audit.data.opening_accuracy}%
-                              </span>
-                            )}
-                            {audit.data?.early_eval_stability && (
-                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
-                                Stability: {audit.data.early_eval_stability}
-                              </span>
-                            )}
-                            {audit.data?.max_advantage && (
-                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
-                                Peak: {audit.data.max_advantage}
-                              </span>
-                            )}
-                            {audit.data?.eval_swing && (
-                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
-                                Swing: {audit.data.eval_swing}
-                              </span>
-                            )}
-                            {audit.data?.blunders !== undefined && (
-                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
-                                Blunders: {audit.data.blunders}
-                              </span>
-                            )}
-                            {audit.data?.worst_drop && (
-                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
-                                Worst: {audit.data.worst_drop}
-                              </span>
-                            )}
-                            {audit.data?.conversion && (
-                              <span className="text-xs bg-background/50 px-1.5 py-0.5 rounded">
-                                Converted: {audit.data.conversion}
-                              </span>
-                            )}
-                          </div>
-                          
-                          {/* Verdict */}
-                          <p className={`text-xs font-semibold ${
-                            audit.verdict_type === 'pass' ? 'text-emerald-400' :
-                            audit.verdict_type === 'fail' ? 'text-orange-400' :
-                            'text-amber-400'
-                          }`}>
-                            {audit.verdict}
-                          </p>
-                        </div>
+                      {planAudit.cards.filter(c => c.audit?.status && c.audit.status !== 'n/a').map((card) => (
+                        <DomainAuditCard 
+                          key={card.domain} 
+                          card={card} 
+                          gameId={planAudit.audited_against_game_id}
+                          navigate={navigate}
+                        />
                       ))}
                     </div>
                     
@@ -397,41 +370,36 @@ const FocusPage = ({ user }) => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           {/* Quick Score Icons */}
-                          {planAudit.audits.map((audit) => (
+                          {planAudit.cards.filter(c => c.audit?.status && c.audit.status !== 'n/a').map((card) => (
                             <span 
-                              key={audit.domain}
+                              key={card.domain}
                               className={`text-xs font-medium ${
-                                audit.verdict_type === 'pass' ? 'text-emerald-400' :
-                                audit.verdict_type === 'fail' ? 'text-orange-400' :
+                                card.audit.status === 'executed' ? 'text-emerald-400' :
+                                card.audit.status === 'missed' ? 'text-orange-400' :
                                 'text-amber-400'
                               }`}
-                              title={audit.domain}
+                              title={card.domain}
                             >
-                              {audit.domain.charAt(0)} {audit.verdict_type === 'pass' ? '✓' : audit.verdict_type === 'fail' ? '✗' : '~'}
+                              {getDomainIcon(card.domain)} {card.audit.status === 'executed' ? '✓' : card.audit.status === 'missed' ? '✗' : '~'}
                             </span>
                           ))}
                         </div>
                         
-                        {/* Training Focus */}
-                        {planAudit.summary?.training_focus && (
-                          <span className="text-xs text-muted-foreground">
-                            Focus: <span className="text-foreground font-medium">{planAudit.summary.training_focus}</span>
-                          </span>
+                        {/* View Full Analysis */}
+                        {planAudit.audited_against_game_id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-slate-400 hover:text-slate-300 p-0 h-auto text-xs"
+                            onClick={() => navigate(`/game/${planAudit.audited_against_game_id}`)}
+                            data-testid="audit-view-game"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Full analysis
+                            <ChevronRight className="w-3 h-3 ml-0.5" />
+                          </Button>
                         )}
                       </div>
-                      
-                      {/* View Game Link */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-2 text-slate-400 hover:text-slate-300 p-0 h-auto text-xs"
-                        onClick={() => navigate(`/game/${planAudit.game_id}`)}
-                        data-testid="audit-view-game"
-                      >
-                        <Eye className="w-3 h-3 mr-1" />
-                        Full analysis
-                        <ChevronRight className="w-3 h-3 ml-0.5" />
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
