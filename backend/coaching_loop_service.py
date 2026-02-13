@@ -1069,7 +1069,8 @@ def generate_next_plan(
     behavior_patterns: Dict,
     opening_stability: Dict,
     last_audit: Dict = None,
-    miss_history: Dict = None
+    miss_history: Dict = None,
+    critical_insights: List[Dict] = None
 ) -> Dict:
     """
     Generate the next game plan (DETERMINISTIC).
@@ -1083,11 +1084,17 @@ def generate_next_plan(
     - opening_stability: Determines opening recommendations
     - last_audit: Determines persistence and intensity adjustment
     - miss_history: Tracks consecutive misses per domain for adaptive escalation
+    - critical_insights: Tactical patterns missed in the last game (NEW - feeds back into plan)
     
     Adaptive Escalation:
     - If domain missed 2x in a row → increase intensity, simplify rules
     - If domain missed 4x in a row → force micro-habit level
     - If domain executed 3x in a row → mark stable, reduce verbosity
+    
+    Critical Insight Integration:
+    - Missed piece traps → Add "Look for trapping opportunities" to focus items
+    - Missed forks → Add "CCT protocol" to focus items
+    - etc.
     """
     
     primary_weakness = behavior_patterns.get("primary_weakness")
