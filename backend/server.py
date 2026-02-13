@@ -227,6 +227,49 @@ async def background_sync_loop():
         # Wait for next sync interval (6 hours by default)
         await asyncio.sleep(BACKGROUND_SYNC_INTERVAL_SECONDS)
 
+# Quick sync loop - checks for new games every 5 minutes
+async def quick_sync_loop():
+    """
+    Real-time game monitoring - checks for new games every 5 minutes.
+    Only syncs games played in the last 30 minutes to catch recent games quickly.
+    """
+    from journey_service import sync_user_games
+    
+    # Wait 1 minute before first check (let app stabilize)
+    await asyncio.sleep(60)
+    
+    while True:
+        try:
+            logger.info("Quick sync: Checking for new games...")
+            
+            # Get all users with linked chess accounts
+            users = await db.users.find({
+                "$or": [
+                    {"chess_com_username": {"$exists": True, "$ne": None}},
+                    {"lichess_username": {"$exists": True, "$ne": None}}
+                ]
+            }, {"_id": 0}).to_list(100)
+            
+            total_synced = 0
+            for user_doc in users:
+                try:
+                    # Quick sync - only fetch very recent games
+                    count = await sync_user_games(db, user_doc["user_id"], user_doc)
+                    total_synced += count
+                except Exception as e:
+                    logger.error(f"Quick sync error for user {user_doc['user_id']}: {e}")
+            
+            if total_synced > 0:
+                logger.info(f"Quick sync: Found and queued {total_synced} new games")
+            else:
+                logger.debug("Quick sync: No new games found")
+                
+        except Exception as e:
+            logger.error(f"Quick sync loop error: {e}")
+        
+        # Wait 5 minutes before next check
+        await asyncio.sleep(QUICK_SYNC_INTERVAL_SECONDS)
+
 # Lifespan context manager (replaces deprecated on_event)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
