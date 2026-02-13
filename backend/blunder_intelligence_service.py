@@ -1720,34 +1720,46 @@ def _calculate_mission_progress(analyses: List[Dict], check_rule: str, target: i
         
         # Conversion/winning position rules - "Win from +X without eval drop" or "Convert X%"
         elif "win from" in rule_lower or "convert" in rule_lower:
-            # Check if user won while converting winning position cleanly
-            result = analysis.get("result", "")
-            user_won = result in ["win", "1-0", "0-1"]  # Need to check based on user color
+            # Check if user had winning position and converted cleanly
+            # Evals are in centipawns (150 = +1.5 pawn advantage)
             
             # Check for eval drops in winning positions
             had_winning_position = False
             had_major_eval_drop = False
+            won_game = False
             
             for i, move in enumerate(move_evals):
                 eval_before = move.get("eval_before", 0)
                 eval_after = move.get("eval_after", 0)
                 
-                # Was in winning position (+1.5 or better)
-                if eval_before >= 1.5:
+                # Convert to centipawns if stored as pawns
+                if abs(eval_before) < 50:  # Likely in pawns
+                    eval_before = eval_before * 100
+                    eval_after = eval_after * 100
+                
+                # Was in winning position (+150 centipawns = +1.5 pawns or better)
+                if eval_before >= 150:
                     had_winning_position = True
                     
-                    # Check for eval drop
+                    # Check for eval drop (150 centipawns = 1.5 pawns)
                     eval_drop = eval_before - eval_after
-                    if eval_drop > 1.5:
+                    if eval_drop > 150:
                         had_major_eval_drop = True
                         break
+                
+                # Check if game ended with good eval (won)
+                if i == len(move_evals) - 1:
+                    if eval_after >= 200 or eval_after <= -1000:  # Winning or mate
+                        won_game = True
             
-            # Count as progress if won from winning position without major eval drop
-            if user_won and had_winning_position and not had_major_eval_drop:
+            # Also check result if available
+            result = analysis.get("result", "")
+            if result in ["win", "1-0", "0-1"]:
+                won_game = True
+            
+            # Count as progress if had winning position and didn't drop it
+            if had_winning_position and not had_major_eval_drop:
                 progress += 1
-            elif user_won and not had_winning_position:
-                # Won but wasn't in winning position - doesn't count for this mission
-                pass
         
         # Blunder count rules
         elif "blunder" in rule_lower:
