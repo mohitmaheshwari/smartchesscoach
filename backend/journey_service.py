@@ -563,6 +563,16 @@ RULES:
         accuracy = sf_stats.get("accuracy", 0)
         avg_cp_loss = sf_stats.get("avg_cp_loss", 0)
         
+        # VALIDATION: Ensure analysis is valid before proceeding
+        # A valid analysis must have meaningful data
+        total_moves = len(sf_moves)
+        if total_moves < 5:
+            logger.warning(f"Auto-analysis has too few moves ({total_moves}) for game {game_id}")
+            return None
+        if accuracy == 0 and blunders == 0 and mistakes == 0 and best_moves == 0:
+            logger.warning(f"Auto-analysis returned all zeros for game {game_id} - likely failed")
+            return None
+        
         # Merge Stockfish move data with GPT commentary
         commentary = analysis_data.get("move_by_move", [])
         for sf_move in sf_moves:
