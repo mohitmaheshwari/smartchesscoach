@@ -5100,7 +5100,7 @@ async def get_journey_page_data(user: User = Depends(get_current_user)):
     
     games = await db.games.find(
         {"user_id": user.user_id}
-    ).sort("date", -1).limit(15).to_list(15)
+    ).sort("imported_at", -1).limit(15).to_list(15)
     
     # Get existing badge data
     badge_data = await calculate_all_badges(db, user.user_id)
