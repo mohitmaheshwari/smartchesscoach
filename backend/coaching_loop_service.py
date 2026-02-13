@@ -822,7 +822,8 @@ def generate_next_plan(
         rating_band,
         opening_stability,
         training_block["intensity"],
-        last_audit
+        last_audit,
+        miss_history
     )
     plan["cards"].append(opening_card)
     
@@ -832,7 +833,8 @@ def generate_next_plan(
         rating_band,
         primary_weakness,
         training_block["intensity"],
-        last_audit
+        last_audit,
+        miss_history
     )
     plan["cards"].append(middlegame_card)
     
@@ -842,7 +844,8 @@ def generate_next_plan(
         rating_band,
         behavior_patterns,
         training_block["intensity"],
-        last_audit
+        last_audit,
+        miss_history
     )
     plan["cards"].append(tactics_card)
     
@@ -852,7 +855,8 @@ def generate_next_plan(
         rating_band,
         fundamentals.get("endgame_conversion", 50),
         training_block["intensity"],
-        last_audit
+        last_audit,
+        miss_history
     )
     plan["cards"].append(endgame_card)
     
@@ -862,7 +866,8 @@ def generate_next_plan(
         rating_band,
         fundamentals.get("time_discipline", 50),
         training_block["intensity"],
-        last_audit
+        last_audit,
+        miss_history
     )
     plan["cards"].append(time_card)
     
@@ -874,9 +879,15 @@ def _generate_opening_card(
     rating_band: str,
     opening_stability: Dict,
     intensity: int,
-    last_audit: Dict = None
+    last_audit: Dict = None,
+    miss_history: Dict = None
 ) -> Dict:
-    """Generate opening domain card."""
+    """Generate opening domain card with adaptive escalation."""
+    
+    # Check for escalation
+    domain_history = (miss_history or {}).get("opening", {})
+    is_escalated = domain_history.get("needs_escalation", False)
+    domain_intensity = calculate_domain_intensity("opening", intensity, miss_history or {})
     
     # Get opening recommendations
     white_rec = opening_stability.get("as_white", {})
@@ -887,8 +898,10 @@ def _generate_opening_card(
     avoid_white = white_rec.get("avoid_for_now")
     avoid_black = black_rec.get("avoid_for_now")
     
-    # Build goal
-    if play_white or play_black:
+    # Build goal - escalate if needed
+    if is_escalated and domain_intensity >= 3:
+        goal = "ONE opening per color. No switching. No experiments."
+    elif play_white or play_black:
         goal = "Stick to stable openings. No experiments."
     else:
         goal = "Play solid, develop pieces, castle early."
