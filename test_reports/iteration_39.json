@@ -1,0 +1,113 @@
+{
+  "summary": "Tested Focus Items P0 feature - critical tactical patterns (piece traps, forks, etc.) extracted from last game analysis and displayed as actionable 'Focus Items' on Focus page. All 11 backend tests passed. Frontend UI verified showing 'FOCUS FROM LAST GAME' section with Critical badge, pattern name, move number, cp loss, goal, and key insight.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "features_tested": {
+    "backend_focus_items_api": {
+      "endpoint": "GET /api/round-preparation",
+      "status": "PASS",
+      "focus_items_verified": {
+        "structure": [
+          "id - unique identifier (e.g., 'focus_piece_trap_22')",
+          "from_last_game - boolean flag (true)",
+          "pattern - pattern type (e.g., 'piece_trap')",
+          "pattern_name - human readable name (e.g., 'Trapped bishop')",
+          "move_number - move where pattern occurred (e.g., 22)",
+          "cp_lost - centipawn loss (e.g., 470)",
+          "goal - actionable advice for next game",
+          "explanation - detailed explanation of the pattern",
+          "key_insight - quick insight about the position",
+          "icon - emoji icon (e.g., '🪤')"
+        ],
+        "sample_data": {
+          "pattern": "piece_trap",
+          "pattern_name": "Trapped bishop",
+          "move_number": 22,
+          "cp_lost": 470,
+          "goal": "Look for opportunities to trap enemy pieces - check if their pieces have escape squares",
+          "key_insight": "The bishop has only one escape square (d1). Very restricted!",
+          "icon": "🪤"
+        }
+      }
+    },
+    "regenerate_plan_endpoint": {
+      "endpoint": "POST /api/coaching-loop/regenerate-plan",
+      "status": "PASS",
+      "verified": "Returns focus_items array based on deep tactical analysis"
+    },
+    "frontend_focus_items_section": {
+      "status": "PASS",
+      "verified": [
+        "Section header: 'FOCUS FROM LAST GAME' with Crosshair icon",
+        "Critical badge displayed in red",
+        "Pattern icon (🪤) displayed",
+        "Pattern name: 'Trapped bishop'",
+        "Move number and cp loss: 'Move 22 • -4.7'",
+        "Actionable goal displayed",
+        "Key insight with 💭 icon displayed",
+        "Red/orange gradient background for section"
+      ]
+    },
+    "deep_tactical_analysis": {
+      "function": "extract_critical_insights_from_analysis()",
+      "patterns_detected": [
+        "piece_trap - Trapped pieces with limited escape squares",
+        "mobility_restriction - Restricting enemy piece movement",
+        "multi_threat - Creating multiple threats",
+        "attack_valuable - Attacking high-value targets",
+        "fork - Double attacks",
+        "pin - Pinned pieces"
+      ]
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_focus_items.py",
+    "/app/test_reports/pytest/pytest_focus_items.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_focus_items.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (11/11 pytest tests passed)",
+    "frontend": "100% (All UI elements verified via Playwright)"
+  },
+
+  "test_data_verified": {
+    "focus_item_example": {
+      "id": "focus_piece_trap_22",
+      "from_last_game": true,
+      "pattern": "piece_trap",
+      "pattern_name": "Trapped bishop",
+      "move_number": 22,
+      "cp_lost": 470,
+      "goal": "Look for opportunities to trap enemy pieces - check if their pieces have escape squares",
+      "explanation": "This move leaves the opponent's bishop nearly trapped on e2. It can only go to: ['d1']",
+      "key_insight": "The bishop has only one escape square (d1). Very restricted!",
+      "icon": "🪤"
+    }
+  },
+
+  "seed_data_creation": "None - used existing analyzed game data with tactical patterns",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Focus Items P0 feature fully tested. GET /api/round-preparation returns focus_items array with critical tactical patterns from last game. patterns include: piece_trap, mobility_restriction, multi_threat, attack_valuable, fork, pin. Frontend Focus page (/coach) renders 'FOCUS FROM LAST GAME' section with Critical badge, pattern details, and actionable goals. The feature uses position_analyzer.py's analyze_deep_tactics() function to detect patterns in blunders. Test file: /app/backend/tests/test_focus_items.py (11 tests)."
+}
