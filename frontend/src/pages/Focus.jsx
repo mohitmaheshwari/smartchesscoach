@@ -245,89 +245,143 @@ const FocusPage = ({ user }) => {
                 transition={{ delay: 0.05 }}
                 data-testid="discipline-check"
               >
-                <Card className={`border-2 overflow-hidden ${
-                  disciplineCheck.verdict?.tone === 'positive' 
-                    ? 'border-emerald-500/40 bg-gradient-to-br from-emerald-500/5 to-green-500/5' 
-                    : disciplineCheck.verdict?.tone === 'critical'
-                    ? 'border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-red-500/5'
-                    : 'border-slate-500/30 bg-gradient-to-br from-slate-500/5 to-zinc-500/5'
-                }`}>
-                  <CardContent className="py-5">
-                    {/* Header Row */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Shield className={`w-4 h-4 ${
-                          disciplineCheck.verdict?.tone === 'positive' ? 'text-emerald-500' :
-                          disciplineCheck.verdict?.tone === 'critical' ? 'text-orange-500' :
-                          'text-slate-400'
-                        }`} />
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Last Game Check
-                        </span>
+                {/* Analysis Pending State */}
+                {disciplineCheck.analysis_pending ? (
+                  <Card className="border-2 border-blue-500/40 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 overflow-hidden">
+                    <CardContent className="py-5">
+                      {/* Header Row */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-blue-400" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Last Game Check
+                          </span>
+                        </div>
+                        
+                        {/* Queue Status Badge */}
+                        <div className="px-2.5 py-1 rounded text-xs font-bold bg-blue-500/20 text-blue-400 flex items-center gap-1.5">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          {disciplineCheck.in_queue ? 'Analyzing...' : 'Queuing...'}
+                        </div>
                       </div>
                       
-                      {/* Grade Badge */}
-                      <div className={`px-2.5 py-1 rounded text-xs font-bold ${
-                        disciplineCheck.verdict?.grade === 'A' ? 'bg-emerald-500/20 text-emerald-400' :
-                        disciplineCheck.verdict?.grade === 'B' ? 'bg-blue-500/20 text-blue-400' :
-                        disciplineCheck.verdict?.grade === 'C' ? 'bg-amber-500/20 text-amber-400' :
-                        disciplineCheck.verdict?.grade === 'D' ? 'bg-orange-500/20 text-orange-400' :
-                        'bg-red-500/20 text-red-400'
-                      }`} data-testid="discipline-grade">
-                        {disciplineCheck.verdict?.grade || '-'}
-                      </div>
-                    </div>
-                    
-                    {/* Headline + Opponent */}
-                    <div className="mb-4">
-                      <h3 className={`text-lg font-bold ${
-                        disciplineCheck.verdict?.tone === 'positive' ? 'text-emerald-400' :
-                        disciplineCheck.verdict?.tone === 'critical' ? 'text-orange-400' :
-                        'text-foreground'
-                      }`} data-testid="discipline-headline">
-                        {disciplineCheck.verdict?.headline || 'Analysis Complete'}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        vs {disciplineCheck.opponent} · {disciplineCheck.result?.toUpperCase()}
-                      </p>
-                    </div>
-                    
-                    {/* Personalized Summary - THE KEY DIFFERENTIATOR */}
-                    {disciplineCheck.verdict?.summary && (
-                      <div className={`p-3 rounded-lg mb-4 ${
-                        disciplineCheck.verdict?.tone === 'positive' 
-                          ? 'bg-emerald-500/10 border border-emerald-500/20' 
-                          : disciplineCheck.verdict?.tone === 'critical'
-                          ? 'bg-orange-500/10 border border-orange-500/20'
-                          : 'bg-slate-500/10 border border-slate-500/20'
-                      }`}>
-                        <p className="text-sm font-medium" data-testid="discipline-summary">
-                          {disciplineCheck.verdict.summary}
+                      {/* Result + Opponent */}
+                      <div className="mb-4">
+                        <h3 className={`text-lg font-bold ${
+                          disciplineCheck.game_result === 'win' ? 'text-emerald-400' :
+                          disciplineCheck.game_result === 'loss' ? 'text-orange-400' :
+                          'text-foreground'
+                        }`} data-testid="pending-headline">
+                          {disciplineCheck.game_result === 'win' ? 'Victory!' :
+                           disciplineCheck.game_result === 'loss' ? 'Tough Game' :
+                           'Hard-Fought Draw'}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          vs {disciplineCheck.opponent} · {disciplineCheck.game_result?.toUpperCase()}
                         </p>
                       </div>
-                    )}
-                    
-                    {/* Quick Stats Row */}
-                    <div className="flex items-center gap-4 mb-4">
-                      {/* Accuracy with comparison */}
-                      <div className="flex items-center gap-1.5">
-                        <Activity className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-lg font-bold" data-testid="discipline-accuracy">
-                          {disciplineCheck.metrics?.accuracy || 0}%
-                        </span>
-                        {disciplineCheck.personalization?.accuracy_vs_avg !== null && (
-                          <span className={`text-xs ${
-                            disciplineCheck.personalization.accuracy_vs_avg >= 5 ? 'text-emerald-500' :
-                            disciplineCheck.personalization.accuracy_vs_avg <= -5 ? 'text-red-500' :
-                            'text-muted-foreground'
-                          }`}>
-                            {disciplineCheck.personalization.accuracy_vs_avg >= 0 ? '+' : ''}
-                            {disciplineCheck.personalization.accuracy_vs_avg}%
-                          </span>
-                        )}
+                      
+                      {/* Pending Message */}
+                      <div className="p-3 rounded-lg mb-4 bg-blue-500/10 border border-blue-500/20">
+                        <p className="text-sm font-medium" data-testid="pending-message">
+                          {disciplineCheck.pending_message}
+                        </p>
                       </div>
                       
-                      <div className="h-5 w-px bg-border/50" />
+                      {/* Analysis Progress Indicator */}
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                          <span>Stockfish analysis in progress</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  /* Fully Analyzed State */
+                  <Card className={`border-2 overflow-hidden ${
+                    disciplineCheck.verdict?.tone === 'positive' 
+                      ? 'border-emerald-500/40 bg-gradient-to-br from-emerald-500/5 to-green-500/5' 
+                      : disciplineCheck.verdict?.tone === 'critical'
+                      ? 'border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-red-500/5'
+                      : 'border-slate-500/30 bg-gradient-to-br from-slate-500/5 to-zinc-500/5'
+                  }`}>
+                    <CardContent className="py-5">
+                      {/* Header Row */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Shield className={`w-4 h-4 ${
+                            disciplineCheck.verdict?.tone === 'positive' ? 'text-emerald-500' :
+                            disciplineCheck.verdict?.tone === 'critical' ? 'text-orange-500' :
+                            'text-slate-400'
+                          }`} />
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Last Game Check
+                          </span>
+                        </div>
+                        
+                        {/* Grade Badge */}
+                        <div className={`px-2.5 py-1 rounded text-xs font-bold ${
+                          disciplineCheck.verdict?.grade === 'A' ? 'bg-emerald-500/20 text-emerald-400' :
+                          disciplineCheck.verdict?.grade === 'B' ? 'bg-blue-500/20 text-blue-400' :
+                          disciplineCheck.verdict?.grade === 'C' ? 'bg-amber-500/20 text-amber-400' :
+                          disciplineCheck.verdict?.grade === 'D' ? 'bg-orange-500/20 text-orange-400' :
+                          'bg-red-500/20 text-red-400'
+                        }`} data-testid="discipline-grade">
+                          {disciplineCheck.verdict?.grade || '-'}
+                        </div>
+                      </div>
+                      
+                      {/* Headline + Opponent */}
+                      <div className="mb-4">
+                        <h3 className={`text-lg font-bold ${
+                          disciplineCheck.verdict?.tone === 'positive' ? 'text-emerald-400' :
+                          disciplineCheck.verdict?.tone === 'critical' ? 'text-orange-400' :
+                          'text-foreground'
+                        }`} data-testid="discipline-headline">
+                          {disciplineCheck.verdict?.headline || 'Analysis Complete'}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          vs {disciplineCheck.opponent} · {disciplineCheck.result?.toUpperCase()}
+                        </p>
+                      </div>
+                      
+                      {/* Personalized Summary - THE KEY DIFFERENTIATOR */}
+                      {disciplineCheck.verdict?.summary && (
+                        <div className={`p-3 rounded-lg mb-4 ${
+                          disciplineCheck.verdict?.tone === 'positive' 
+                            ? 'bg-emerald-500/10 border border-emerald-500/20' 
+                            : disciplineCheck.verdict?.tone === 'critical'
+                            ? 'bg-orange-500/10 border border-orange-500/20'
+                            : 'bg-slate-500/10 border border-slate-500/20'
+                        }`}>
+                          <p className="text-sm font-medium" data-testid="discipline-summary">
+                            {disciplineCheck.verdict.summary}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Quick Stats Row */}
+                      <div className="flex items-center gap-4 mb-4">
+                        {/* Accuracy with comparison */}
+                        <div className="flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-lg font-bold" data-testid="discipline-accuracy">
+                            {disciplineCheck.metrics?.accuracy || 0}%
+                          </span>
+                          {disciplineCheck.personalization?.accuracy_vs_avg !== null && (
+                            <span className={`text-xs ${
+                              disciplineCheck.personalization.accuracy_vs_avg >= 5 ? 'text-emerald-500' :
+                              disciplineCheck.personalization.accuracy_vs_avg <= -5 ? 'text-red-500' :
+                              'text-muted-foreground'
+                            }`}>
+                              {disciplineCheck.personalization.accuracy_vs_avg >= 0 ? '+' : ''}
+                              {disciplineCheck.personalization.accuracy_vs_avg}%
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="h-5 w-px bg-border/50" />
                       
                       {/* Blunders */}
                       <div className="flex items-center gap-1.5">
