@@ -811,6 +811,7 @@ const JourneyPage = ({ user }) => {
               />
             </div>
           </div>
+          </>
         )}
 
         {/* Navigation */}
