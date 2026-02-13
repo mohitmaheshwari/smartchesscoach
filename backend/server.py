@@ -5181,16 +5181,6 @@ async def get_plan_audit_data(user: User = Depends(get_current_user)):
     """
     from coaching_loop_service import get_latest_audit, audit_game_and_update_plan
     
-    # First check if we have an audited plan
-    latest_audit = await get_latest_audit(db, user.user_id)
-    
-    if latest_audit:
-        return {
-            "has_data": True,
-            **latest_audit
-        }
-    
-    # No audited plan exists - try to audit the latest game
     # Get the most recent analyzed game
     last_game = await db.games.find_one(
         {"user_id": user.user_id, "is_analyzed": True},
@@ -5204,8 +5194,20 @@ async def get_plan_audit_data(user: User = Depends(get_current_user)):
             "reason": "no_analyzed_games"
         }
     
-    # Audit this game
-    result = await audit_game_and_update_plan(db, user.user_id, last_game["game_id"])
+    last_game_id = last_game["game_id"]
+    
+    # Check if we already have an audit for this specific game
+    latest_audit = await get_latest_audit(db, user.user_id)
+    
+    if latest_audit and latest_audit.get("audited_against_game_id") == last_game_id:
+        # We already audited this game, return the cached result
+        return {
+            "has_data": True,
+            **latest_audit
+        }
+    
+    # Either no audit exists, or there's a newer game - audit the latest game
+    result = await audit_game_and_update_plan(db, user.user_id, last_game_id)
     
     if "error" in result:
         return {"has_data": False, "reason": result["error"]}
