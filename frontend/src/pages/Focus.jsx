@@ -406,6 +406,53 @@ const FocusPage = ({ user }) => {
                       ))}
                     </div>
                     
+                    {/* Situational Rules Audit */}
+                    {planAudit.situational_rules?.filter(r => r.audit?.situation_occurred).length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-border/30">
+                        <div className="flex items-center gap-2 mb-3">
+                          <AlertTriangle className="w-4 h-4 text-amber-400" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                            Situational Execution
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {planAudit.situational_rules.filter(r => r.audit?.situation_occurred).map((rule) => (
+                            <div 
+                              key={rule.id} 
+                              className={`rounded-lg p-3 ${
+                                rule.audit?.executed === true ? 'bg-emerald-500/10 border border-emerald-500/30' :
+                                rule.audit?.executed === false ? 'bg-red-500/10 border border-red-500/30' :
+                                'bg-amber-500/10 border border-amber-500/30'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`text-lg ${
+                                  rule.audit?.executed === true ? 'text-emerald-400' :
+                                  rule.audit?.executed === false ? 'text-red-400' :
+                                  'text-amber-400'
+                                }`}>
+                                  {rule.audit?.executed === true ? '✓' : rule.audit?.executed === false ? '✗' : '~'}
+                                </span>
+                                <span className="text-sm font-medium">
+                                  {rule.condition}
+                                </span>
+                              </div>
+                              {rule.audit?.coach_note && (
+                                <p className="text-xs text-muted-foreground pl-6">
+                                  {rule.audit.coach_note}
+                                </p>
+                              )}
+                              {rule.audit?.evidence?.length > 0 && (
+                                <p className="text-xs text-muted-foreground/60 pl-6 mt-1">
+                                  Move {rule.audit.evidence[0].move} • Eval: {(rule.audit.evidence[0].eval / 100).toFixed(1)}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* Summary Footer */}
                     <div className="mt-4 pt-3 border-t border-border/30">
                       <div className="flex items-center justify-between">
