@@ -334,6 +334,7 @@ const Dashboard = ({ user }) => {
   const [activeTab, setActiveTab] = useState("analyzed"); // analyzed, in_queue, not_analyzed
   const [reanalyzing, setReanalyzing] = useState({}); // Track which games are being reanalyzed
   const [queuingAll, setQueuingAll] = useState(false); // Track batch queue status
+  const [syncStatus, setSyncStatus] = useState(null); // Sync timer status
   const [dismissedMilestones, setDismissedMilestones] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('dismissedMilestones') || '[]');
