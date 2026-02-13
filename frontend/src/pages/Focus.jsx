@@ -25,7 +25,9 @@ import {
   XCircle,
   Shield,
   Crosshair,
-  Activity
+  Activity,
+  Clock,
+  RefreshCw
 } from "lucide-react";
 import MistakeMastery from "@/components/MistakeMastery";
 import EvidenceModal from "@/components/EvidenceModal";
