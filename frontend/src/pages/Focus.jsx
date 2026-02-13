@@ -858,16 +858,21 @@ function getDomainName(domain) {
 /**
  * Domain Plan Card - For Round Preparation
  * Shows the plan for a specific domain (goal + rules)
+ * With escalation indicator for adaptive intensity
  */
 function DomainPlanCard({ card }) {
+  const isEscalated = card.escalation?.is_escalated;
+  const escalationIntensity = card.escalation?.intensity || 1;
+  const consecutiveMisses = card.escalation?.consecutive_misses || 0;
+  
   const priorityColors = {
-    primary: 'border-blue-500/40 bg-blue-500/5',
+    primary: isEscalated ? 'border-orange-500/40 bg-orange-500/5' : 'border-blue-500/40 bg-blue-500/5',
     secondary: 'border-slate-500/30 bg-slate-500/5',
     baseline: 'border-border/30 bg-background/50'
   };
   
   const priorityBadge = {
-    primary: 'bg-blue-500/20 text-blue-400',
+    primary: isEscalated ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400',
     secondary: 'bg-slate-500/20 text-slate-400',
     baseline: 'bg-muted text-muted-foreground'
   };
@@ -879,16 +884,42 @@ function DomainPlanCard({ card }) {
     >
       {/* Domain Header */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-foreground/80">
-          {getDomainName(card.domain)}
-        </span>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded ${priorityBadge[card.priority] || priorityBadge.baseline}`}>
-          {card.priority}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-foreground/80">
+            {getDomainName(card.domain)}
+          </span>
+          {/* Escalation Indicator */}
+          {isEscalated && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 flex items-center gap-1" title={`Missed ${consecutiveMisses}x in a row`}>
+              <Zap className="w-3 h-3" />
+              Escalated
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          {/* Intensity Indicator */}
+          {escalationIntensity > 1 && (
+            <span className="text-xs text-muted-foreground">
+              L{escalationIntensity}
+            </span>
+          )}
+          <span className={`text-xs font-medium px-2 py-0.5 rounded ${priorityBadge[card.priority] || priorityBadge.baseline}`}>
+            {card.priority}
+          </span>
+        </div>
       </div>
       
+      {/* Escalation Warning */}
+      {isEscalated && escalationIntensity >= 3 && (
+        <div className="mb-2 p-2 rounded bg-orange-500/10 border border-orange-500/20">
+          <p className="text-xs text-orange-400 font-medium">
+            Micro-habit mode: Focus on ONE thing only.
+          </p>
+        </div>
+      )}
+      
       {/* Goal */}
-      <p className="text-sm font-medium mb-2">
+      <p className={`text-sm font-medium mb-2 ${isEscalated ? 'text-orange-300' : ''}`}>
         {card.goal}
       </p>
       
