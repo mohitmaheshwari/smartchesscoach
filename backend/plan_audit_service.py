@@ -138,11 +138,11 @@ def audit_opening(
         result["what_happened"].append(f"You played {opening_played}")
         
         if opening_accuracy >= 80:
-            result["what_happened"].append(f"Development clean through opening")
+            result["what_happened"].append("Development clean through opening")
         elif opening_accuracy >= 65:
-            result["what_happened"].append(f"Some inaccuracies in development")
+            result["what_happened"].append("Some inaccuracies in development")
         else:
-            result["what_happened"].append(f"Struggled in the opening phase")
+            result["what_happened"].append("Struggled in the opening phase")
         
         if max_eval_drop >= 100:
             result["what_happened"].append(f"Eval dropped {round(max_eval_drop/100, 1)} in first 10 moves")
