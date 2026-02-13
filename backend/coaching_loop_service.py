@@ -73,6 +73,93 @@ def create_domain_card(
 
 
 # =============================================================================
+# SITUATIONAL RULES - Rating-appropriate advice for common game situations
+# =============================================================================
+
+SITUATIONAL_RULES = {
+    "when_down_material": {
+        "condition": "When you're down material (losing)",
+        "rules": [
+            "Look for tactics and attacks - you need to create problems",
+            "Avoid trading pieces - keep the board complex",
+            "Create threats every move, make them work",
+            "Don't go quietly - fight for counterplay"
+        ],
+        "check_trigger": "eval_drops_below_minus_150",  # User is losing
+        "rating_bands": ["beginner", "intermediate", "advanced"]
+    },
+    "when_up_material": {
+        "condition": "When you're up material (winning)",
+        "rules": [
+            "Trade pieces, especially queens - simplify the position",
+            "Don't get fancy - play solid, boring moves",
+            "Avoid unnecessary complications",
+            "Convert your advantage step by step"
+        ],
+        "check_trigger": "eval_above_plus_150",  # User is winning
+        "rating_bands": ["beginner", "intermediate", "advanced"]
+    },
+    "when_equal": {
+        "condition": "When position is equal",
+        "rules": [
+            "Improve your worst-placed piece",
+            "Control the center and key squares",
+            "Create small advantages, don't force things"
+        ],
+        "check_trigger": "eval_between_minus_50_plus_50",
+        "rating_bands": ["beginner", "intermediate"]
+    },
+    "in_time_trouble": {
+        "condition": "When low on time (<2 min)",
+        "rules": [
+            "Play safe, solid moves - not brilliant ones",
+            "Avoid long calculations, trust your instincts",
+            "Keep your position simple and clear"
+        ],
+        "check_trigger": "time_below_2_min",
+        "rating_bands": ["beginner", "intermediate", "advanced"]
+    },
+    "opponent_attacking": {
+        "condition": "When opponent is attacking your king",
+        "rules": [
+            "Prioritize king safety over material",
+            "Look for piece trades to reduce the attack",
+            "Don't panic - find the key defensive move"
+        ],
+        "check_trigger": "king_under_attack",
+        "rating_bands": ["beginner", "intermediate"]
+    }
+}
+
+
+def get_situational_rules_for_rating(rating: int) -> List[Dict]:
+    """Get situational rules appropriate for the user's rating."""
+    if rating < 1000:
+        band = "beginner"
+    elif rating < 1600:
+        band = "intermediate"
+    else:
+        band = "advanced"
+    
+    rules = []
+    for rule_id, rule_data in SITUATIONAL_RULES.items():
+        if band in rule_data["rating_bands"]:
+            rules.append({
+                "id": rule_id,
+                "condition": rule_data["condition"],
+                "rules": rule_data["rules"][:2],  # Max 2 rules per situation
+                "audit": {
+                    "situation_occurred": None,  # True/False after audit
+                    "executed": None,  # True/False/Partial
+                    "evidence": [],  # Move numbers where this applied
+                    "coach_note": None
+                }
+            })
+    
+    return rules
+
+
+# =============================================================================
 # FUNDAMENTALS PROFILE CALCULATOR
 # =============================================================================
 
