@@ -53,6 +53,7 @@ logger = logging.getLogger('analysis_worker')
 POLL_INTERVAL = 2  # Seconds between queue checks
 MAX_RETRIES = 3    # Max retries for failed analysis
 WORKER_ID = f"worker-{os.getpid()}"
+JOB_TIMEOUT_MINUTES = 10  # Timeout for stuck jobs
 
 # Graceful shutdown flag
 shutdown_requested = False
@@ -63,6 +64,127 @@ def signal_handler(signum, frame):
     global shutdown_requested
     logger.info(f"Received signal {signum}, shutting down gracefully...")
     shutdown_requested = True
+
+
+def ensure_stockfish_installed():
+    """
+    Check if Stockfish is installed, and install it if not.
+    Returns True if Stockfish is available, False otherwise.
+    """
+    from config import STOCKFISH_PATH
+    
+    # Check if stockfish exists at configured path
+    if os.path.exists(STOCKFISH_PATH):
+        logger.info(f"Stockfish found at {STOCKFISH_PATH}")
+        return True
+    
+    # Also check via 'which' command
+    try:
+        import subprocess
+        result = subprocess.run(['which', 'stockfish'], capture_output=True, text=True)
+        if result.returncode == 0:
+            found_path = result.stdout.strip()
+            logger.info(f"Stockfish found at {found_path}")
+            return True
+    except Exception as e:
+        logger.warning(f"Could not run 'which stockfish': {e}")
+    
+    # Stockfish not found - try to install it
+    logger.warning("Stockfish not found. Attempting to install...")
+    
+    try:
+        import subprocess
+        
+        # Update apt and install stockfish
+        logger.info("Running: apt-get update && apt-get install -y stockfish")
+        result = subprocess.run(
+            ['sudo', 'apt-get', 'update'],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        if result.returncode != 0:
+            logger.error(f"apt-get update failed: {result.stderr}")
+            return False
+        
+        result = subprocess.run(
+            ['sudo', 'apt-get', 'install', '-y', 'stockfish'],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        
+        if result.returncode == 0:
+            logger.info("Stockfish installed successfully!")
+            return True
+        else:
+            logger.error(f"Failed to install Stockfish: {result.stderr}")
+            return False
+            
+    except subprocess.TimeoutExpired:
+        logger.error("Timeout while installing Stockfish")
+        return False
+    except Exception as e:
+        logger.error(f"Error installing Stockfish: {e}")
+        return False
+
+
+def cleanup_stuck_jobs(db):
+    """
+    Find and reset jobs that have been stuck in 'processing' state for too long.
+    This handles cases where the worker crashed mid-analysis.
+    """
+    timeout_threshold = datetime.now(timezone.utc) - timedelta(minutes=JOB_TIMEOUT_MINUTES)
+    
+    # Find stuck jobs
+    stuck_jobs = db.analysis_queue.find({
+        "status": "processing",
+        "started_at": {"$lt": timeout_threshold}
+    })
+    
+    stuck_count = 0
+    for job in stuck_jobs:
+        game_id = job.get("game_id")
+        started_at = job.get("started_at")
+        retry_count = job.get("retry_count", 0)
+        
+        if retry_count >= MAX_RETRIES:
+            # Mark as permanently failed
+            db.analysis_queue.update_one(
+                {"game_id": game_id},
+                {
+                    "$set": {
+                        "status": "failed",
+                        "error": f"Timed out after {JOB_TIMEOUT_MINUTES} minutes (max retries exceeded)",
+                        "failed_at": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            db.games.update_one(
+                {"game_id": game_id},
+                {"$set": {"analysis_status": "failed"}}
+            )
+            logger.warning(f"Job {game_id} permanently failed after {MAX_RETRIES} retries")
+        else:
+            # Reset to pending for retry
+            db.analysis_queue.update_one(
+                {"game_id": game_id},
+                {
+                    "$set": {
+                        "status": "pending",
+                        "started_at": None,
+                        "worker_id": None
+                    },
+                    "$inc": {"retry_count": 1}
+                }
+            )
+            logger.info(f"Reset stuck job {game_id} for retry (attempt {retry_count + 1}/{MAX_RETRIES})")
+        
+        stuck_count += 1
+    
+    if stuck_count > 0:
+        logger.info(f"Cleaned up {stuck_count} stuck jobs")
 
 
 def get_database():
