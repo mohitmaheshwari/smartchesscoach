@@ -625,6 +625,275 @@ const OpeningProgressSection = ({ data, onViewGame }) => {
 // ============================================
 // MAIN PAGE COMPONENT
 // ============================================
+// Before/After Coach Comparison Component
+const CoachingComparison = ({ data }) => {
+  const [activeTab, setActiveTab] = useState('growth'); // 'before', 'after', 'growth'
+  
+  const { baseline, current_stats, progress, has_baseline, games_until_baseline } = data;
+  
+  // If no baseline yet
+  if (!has_baseline) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6"
+      >
+        <Card className="border-2 border-dashed border-primary/30">
+          <CardContent className="py-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Target className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Getting to Know Your Game</h3>
+                <p className="text-sm text-muted-foreground">
+                  {games_until_baseline > 0 
+                    ? `${games_until_baseline} more games to analyze`
+                    : 'Almost ready...'}
+                </p>
+              </div>
+            </div>
+            <Progress value={((10 - (games_until_baseline || 0)) / 10) * 100} className="h-2" />
+            <p className="text-xs text-muted-foreground mt-3">
+              We're learning your playing style to track your improvement.
+            </p>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  }
+
+  if (!progress) return null;
+
+  // Determine improvements and focus areas
+  const getInsights = () => {
+    const improving = [];
+    const needsWork = [];
+
+    if (progress.accuracy?.delta >= 3) {
+      improving.push({ label: "Move Quality", detail: "Your moves are getting sharper" });
+    } else if (progress.accuracy?.delta <= -3) {
+      needsWork.push({ label: "Move Quality", detail: "Focus on calculating before moving" });
+    }
+
+    if (progress.blunders_per_game?.delta <= -0.5) {
+      improving.push({ label: "Blunder Control", detail: "Making fewer game-losing mistakes" });
+    } else if (progress.blunders_per_game?.delta >= 0.3) {
+      needsWork.push({ label: "Blunder Control", detail: "Double-check before big moves" });
+    }
+
+    if (progress.win_rate?.delta >= 5) {
+      improving.push({ label: "Winning More", detail: "Your results are improving" });
+    } else if (progress.win_rate?.delta <= -5) {
+      needsWork.push({ label: "Game Results", detail: "Focus on converting advantages" });
+    }
+
+    return { improving, needsWork };
+  };
+
+  const { improving, needsWork } = getInsights();
+  const overallImproving = improving.length >= needsWork.length;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-6"
+    >
+      <Card className="overflow-hidden">
+        {/* Tabs */}
+        <div className="flex border-b">
+          <button
+            onClick={() => setActiveTab('before')}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              activeTab === 'before' 
+                ? 'bg-muted/50 border-b-2 border-amber-500 text-amber-500' 
+                : 'text-muted-foreground hover:bg-muted/30'
+            }`}
+          >
+            Before Coach
+          </button>
+          <button
+            onClick={() => setActiveTab('after')}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              activeTab === 'after' 
+                ? 'bg-muted/50 border-b-2 border-emerald-500 text-emerald-500' 
+                : 'text-muted-foreground hover:bg-muted/30'
+            }`}
+          >
+            After Coach
+          </button>
+          <button
+            onClick={() => setActiveTab('growth')}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+              activeTab === 'growth' 
+                ? 'bg-muted/50 border-b-2 border-primary text-primary' 
+                : 'text-muted-foreground hover:bg-muted/30'
+            }`}
+          >
+            Your Growth
+          </button>
+        </div>
+
+        <CardContent className="py-5">
+          {/* Before Coach Tab */}
+          {activeTab === 'before' && baseline && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-4 h-4 text-amber-500" />
+                <span className="text-sm text-muted-foreground">
+                  Your first {baseline.games_analyzed} games
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
+                  <p className="text-2xl font-bold text-amber-500">{baseline.avg_accuracy}%</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Blunders/Game</p>
+                  <p className="text-2xl font-bold text-amber-500">{baseline.blunders_per_game}</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Win Rate</p>
+                  <p className="text-2xl font-bold text-amber-500">{baseline.win_rate}%</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Mistakes/Game</p>
+                  <p className="text-2xl font-bold text-amber-500">{baseline.mistakes_per_game}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* After Coach Tab */}
+          {activeTab === 'after' && current_stats && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="w-4 h-4 text-emerald-500" />
+                <span className="text-sm text-muted-foreground">
+                  Your last {current_stats.games_analyzed} games
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
+                  <p className="text-2xl font-bold text-emerald-500">{current_stats.avg_accuracy}%</p>
+                  {progress.accuracy?.delta !== 0 && (
+                    <p className={`text-xs ${progress.accuracy.delta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {progress.accuracy.delta > 0 ? '+' : ''}{progress.accuracy.delta}%
+                    </p>
+                  )}
+                </div>
+                <div className="text-center p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Blunders/Game</p>
+                  <p className="text-2xl font-bold text-emerald-500">{current_stats.blunders_per_game}</p>
+                  {progress.blunders_per_game?.delta !== 0 && (
+                    <p className={`text-xs ${progress.blunders_per_game.delta < 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {progress.blunders_per_game.delta > 0 ? '+' : ''}{progress.blunders_per_game.delta}
+                    </p>
+                  )}
+                </div>
+                <div className="text-center p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Win Rate</p>
+                  <p className="text-2xl font-bold text-emerald-500">{current_stats.win_rate}%</p>
+                  {progress.win_rate?.delta !== 0 && (
+                    <p className={`text-xs ${progress.win_rate.delta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {progress.win_rate.delta > 0 ? '+' : ''}{progress.win_rate.delta}%
+                    </p>
+                  )}
+                </div>
+                <div className="text-center p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-muted-foreground mb-1">Mistakes/Game</p>
+                  <p className="text-2xl font-bold text-emerald-500">{current_stats.mistakes_per_game}</p>
+                  {progress.mistakes_per_game?.delta !== 0 && (
+                    <p className={`text-xs ${progress.mistakes_per_game.delta < 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {progress.mistakes_per_game.delta > 0 ? '+' : ''}{progress.mistakes_per_game.delta}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Your Growth Tab */}
+          {activeTab === 'growth' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  {overallImproving 
+                    ? <TrendingUp className="w-5 h-5 text-emerald-500" />
+                    : <Target className="w-5 h-5 text-amber-500" />
+                  }
+                  <span className="text-sm text-muted-foreground">
+                    {progress.games_since_baseline} games with your coach
+                  </span>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  overallImproving 
+                    ? 'bg-emerald-500/10 text-emerald-500'
+                    : 'bg-amber-500/10 text-amber-500'
+                }`}>
+                  {overallImproving ? 'Growing!' : 'Keep Going!'}
+                </span>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* What's Improving */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-emerald-500">What's Improving</span>
+                  </div>
+                  {improving.length > 0 ? (
+                    <div className="space-y-2">
+                      {improving.map((item, idx) => (
+                        <div key={idx} className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                          <p className="font-medium text-sm">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">{item.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-3 bg-muted/30 rounded-lg">
+                      Keep playing! We're tracking your progress.
+                    </p>
+                  )}
+                </div>
+
+                {/* Focus Areas */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="w-4 h-4 text-amber-500" />
+                    <span className="text-sm font-medium text-amber-500">Focus Areas</span>
+                  </div>
+                  {needsWork.length > 0 ? (
+                    <div className="space-y-2">
+                      {needsWork.map((item, idx) => (
+                        <div key={idx} className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                          <p className="font-medium text-sm">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">{item.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-3 bg-muted/30 rounded-lg">
+                      Great job! No major concerns right now.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
 const JourneyPage = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
