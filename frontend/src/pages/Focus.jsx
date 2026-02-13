@@ -335,8 +335,20 @@ const FocusPage = ({ user }) => {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          vs {planAudit.audit_summary?.game_result?.toUpperCase() || 'Unknown'} · 
-                          Execution vs Preparation
+                          vs <span className="text-foreground font-medium">{planAudit.audit_summary?.opponent_name || 'Opponent'}</span>
+                          {' · '}
+                          <span className={`font-medium ${
+                            planAudit.audit_summary?.game_result === 'win' ? 'text-emerald-500' :
+                            planAudit.audit_summary?.game_result === 'loss' ? 'text-red-500' :
+                            'text-amber-500'
+                          }`}>
+                            {planAudit.audit_summary?.game_result?.toUpperCase() || 'Unknown'}
+                          </span>
+                          {planAudit.audit_summary?.user_color && (
+                            <span className="text-muted-foreground ml-1">
+                              ({planAudit.audit_summary.user_color})
+                            </span>
+                          )}
                         </p>
                       </div>
                       
