@@ -2429,6 +2429,10 @@ async def get_or_generate_plan(db, user_id: str, force_new: bool = False) -> Dic
     Adaptive Escalation:
     - Fetches recent audits to calculate miss history
     - Passes miss history to plan generator for adaptive intensity
+    
+    Critical Insights Integration:
+    - Extracts tactical patterns missed in the last game
+    - Passes them to plan generator to create focus items
     """
     
     # Check for existing active plan
@@ -2475,7 +2479,24 @@ async def get_or_generate_plan(db, user_id: str, force_new: bool = False) -> Dic
     # 5. Get last audit if exists
     last_audit = recent_audits[0] if recent_audits else None
     
-    # 6. Generate new plan with adaptive escalation
+    # 6. EXTRACT CRITICAL INSIGHTS FROM LAST GAME
+    # This finds tactical patterns missed in the most recent game
+    # and feeds them into the next plan as focus items
+    critical_insights = []
+    if last_audit:
+        last_game_id = last_audit.get("audited_against_game_id")
+        if last_game_id:
+            last_game = await db.games.find_one({"game_id": last_game_id}, {"_id": 0})
+            last_analysis = await db.game_analyses.find_one({"game_id": last_game_id}, {"_id": 0})
+            
+            if last_game and last_analysis:
+                try:
+                    critical_insights = extract_critical_insights_from_analysis(last_analysis, last_game)
+                    logger.info(f"Extracted {len(critical_insights)} critical insights from last game {last_game_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to extract critical insights: {e}")
+    
+    # 7. Generate new plan with adaptive escalation AND critical insights
     new_plan = generate_next_plan(
         user_id=user_id,
         rating_band=rating_band,
@@ -2483,19 +2504,20 @@ async def get_or_generate_plan(db, user_id: str, force_new: bool = False) -> Dic
         behavior_patterns=behavior_patterns,
         opening_stability=opening_stability,
         last_audit=last_audit,
-        miss_history=miss_history
+        miss_history=miss_history,
+        critical_insights=critical_insights
     )
     
-    # 7. Store the plan (insert modifies dict by adding _id)
+    # 8. Store the plan (insert modifies dict by adding _id)
     await db.user_plans.insert_one(new_plan)
     
-    # 8. Mark previous active plans as inactive
+    # 9. Mark previous active plans as inactive
     await db.user_plans.update_many(
         {"user_id": user_id, "is_active": True, "plan_id": {"$ne": new_plan["plan_id"]}},
         {"$set": {"is_active": False}}
     )
     
-    # 9. Re-fetch to get clean document without _id
+    # 10. Re-fetch to get clean document without _id
     clean_plan = await db.user_plans.find_one(
         {"plan_id": new_plan["plan_id"]},
         {"_id": 0}
