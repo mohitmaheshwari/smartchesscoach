@@ -3532,7 +3532,7 @@ async def get_progress_metrics(user: User = Depends(get_current_user)):
 @api_router.get("/progress/v2")
 async def get_progress_v2(user: User = Depends(get_current_user)):
     """
-    NEW Progress Page - Chess DNA Badges + Coach Assessment
+    NEW Progress Page - Chess DNA Badges + Coach Assessment + Before/After Comparison
     
     Returns:
     - Coach's honest assessment (not just stats)
@@ -3541,11 +3541,50 @@ async def get_progress_v2(user: User = Depends(get_current_user)):
     - Proof from games
     - Memorable rules
     - Next 10 games plan
+    - Before Coach vs After Coach comparison
     """
     from coach_assessment_service import generate_full_progress_data
+    from baseline_service import (
+        get_or_create_baseline,
+        calculate_current_stats,
+        calculate_progress,
+        MIN_GAMES_FOR_BASELINE
+    )
     
     try:
         progress_data = await generate_full_progress_data(db, user.user_id)
+        
+        # Add Before/After Coach comparison
+        all_analyses = await db.game_analyses.find(
+            {"user_id": user.user_id}
+        ).sort("created_at", -1).to_list(200)
+        
+        all_games = await db.games.find(
+            {"user_id": user.user_id}
+        ).sort("imported_at", -1).to_list(200)
+        
+        # Get or create baseline (snapshot from when user started)
+        baseline = await get_or_create_baseline(db, user.user_id, all_analyses, all_games)
+        
+        # Calculate current stats from recent 25 games
+        recent_analyses = all_analyses[:25] if len(all_analyses) > 25 else all_analyses
+        recent_games = all_games[:25] if len(all_games) > 25 else all_games
+        current_stats = calculate_current_stats(recent_analyses, recent_games)
+        
+        # Calculate progress
+        comparison = None
+        if baseline and current_stats:
+            comparison = calculate_progress(baseline, current_stats)
+        
+        # Add to response
+        progress_data['coaching_comparison'] = {
+            'has_baseline': baseline is not None,
+            'games_until_baseline': max(0, MIN_GAMES_FOR_BASELINE - len(all_analyses)) if not baseline else 0,
+            'baseline': baseline,
+            'current': current_stats,
+            'progress': comparison
+        }
+        
         return progress_data
     except Exception as e:
         logger.error(f"Progress v2 error: {e}")
