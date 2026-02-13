@@ -532,7 +532,7 @@ def calculate_opening_stability(analyses: List[Dict], games: List[Dict]) -> Dict
     openings_white = {}
     openings_black = {}
     
-    for game in games[-30:]:  # Last 30 games
+    for game in games[:30]:  # First 30 most recent games
         game_id = game.get("game_id")
         analysis = analysis_map.get(game_id)
         if not analysis:
