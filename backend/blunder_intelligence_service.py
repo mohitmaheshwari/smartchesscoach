@@ -1657,13 +1657,16 @@ def get_mission(analyses: List[Dict], current_missions: List[Dict] = None, user_
     template = mission_templates.get(weakness_key, mission_templates["low_accuracy"])
     mission = template.get(tier, template["intermediate"])
     
+    # Calculate actual progress based on mission check_rule
+    progress = _calculate_mission_progress(recent_analyses, mission.get("check_rule", ""), mission.get("target", 5))
+    
     return {
         **mission,
         "weakness_key": weakness_key,
         "rating_tier": tier,
         "user_rating": rating,
-        "progress": 0,
-        "status": "active",
+        "progress": progress,
+        "status": "completed" if progress >= mission.get("target", 5) else "active",
         "metrics": {
             "avg_blunders": round(avg_blunders, 2),
             "avg_accuracy": round(avg_accuracy, 1),
@@ -1673,7 +1676,84 @@ def get_mission(analyses: List[Dict], current_missions: List[Dict] = None, user_
     }
 
 
-def check_milestones(analyses: List[Dict], user_stats: Dict = None) -> List[Dict]:
+def _calculate_mission_progress(analyses: List[Dict], check_rule: str, target: int) -> int:
+    """
+    Calculate progress towards a mission based on check_rule.
+    
+    Check rules:
+    - "Accuracy ≥X%" - Count games with accuracy >= X
+    - "≤N blunder per game" - Count games with <= N blunders
+    - "0 blunders in game" - Count games with 0 blunders
+    - "No blunders with cp_loss > X" - Count games without major blunders
+    - "Avg cp loss <X" - Count games with avg cp loss < X
+    """
+    if not analyses:
+        return 0
+    
+    progress = 0
+    
+    for analysis in analyses:
+        sf = analysis.get("stockfish_analysis", {})
+        accuracy = sf.get("accuracy", 0)
+        blunders = analysis.get("blunders", 0)
+        avg_cp_loss = sf.get("avg_cp_loss", 999)
+        move_evals = sf.get("move_evaluations", [])
+        
+        # Check for major blunders (cp_loss based)
+        max_cp_loss = 0
+        for move in move_evals:
+            cp_loss = abs(move.get("cp_loss", 0))
+            max_cp_loss = max(max_cp_loss, cp_loss)
+        
+        # Parse check_rule and evaluate
+        rule_lower = check_rule.lower()
+        
+        # Accuracy-based rules
+        if "accuracy" in rule_lower and "≥" in rule_lower:
+            # Extract threshold: "Accuracy ≥75%" -> 75
+            try:
+                threshold = int(''.join(filter(str.isdigit, check_rule)))
+                if accuracy >= threshold:
+                    progress += 1
+            except ValueError:
+                pass
+        
+        # Blunder count rules
+        elif "blunder" in rule_lower:
+            if "0 blunders" in rule_lower or "zero blunders" in rule_lower:
+                if blunders == 0:
+                    progress += 1
+            elif "≤1 blunder" in rule_lower or "at most 1" in rule_lower:
+                if blunders <= 1:
+                    progress += 1
+            elif "<3 blunders" in rule_lower or "fewer than 3" in rule_lower:
+                if blunders < 3:
+                    progress += 1
+            elif "cp_loss >" in rule_lower:
+                # "No blunders with cp_loss > 300" - check max_cp_loss
+                try:
+                    threshold = int(''.join(filter(str.isdigit, check_rule.split(">")[-1])))
+                    if max_cp_loss <= threshold:
+                        progress += 1
+                except (ValueError, IndexError):
+                    pass
+        
+        # CP loss rules
+        elif "cp loss" in rule_lower and "<" in rule_lower:
+            try:
+                threshold = int(''.join(filter(str.isdigit, check_rule)))
+                if avg_cp_loss < threshold:
+                    progress += 1
+            except ValueError:
+                pass
+        
+        # Default: assume accuracy-based if nothing else matches
+        elif not check_rule:
+            if accuracy >= 75:  # Default threshold
+                progress += 1
+    
+    # Cap progress at target
+    return min(progress, target)def check_milestones(analyses: List[Dict], user_stats: Dict = None) -> List[Dict]:
     """
     Check for achievement milestones.
     
