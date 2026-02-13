@@ -417,6 +417,282 @@ def _explain_threat_square(board: chess.Board, threat_square_str: str, user_colo
         return f"The square {threat_square_str} controls important space."
 
 
+def analyze_deep_tactics(fen_before: str, played_move: str, best_move: str, user_color: str = "white") -> Dict:
+    """
+    Deep tactical analysis comparing played_move vs best_move.
+    
+    This goes beyond simple pattern detection to find:
+    - Piece trapping opportunities
+    - Follow-up tactical threats
+    - Restricted mobility patterns
+    - Multi-move combinations
+    
+    Returns structured explanation with the ACTUAL reason the best move is better.
+    """
+    try:
+        board = chess.Board(fen_before)
+    except:
+        return {"error": "Invalid position", "pattern": None}
+    
+    user_is_white = user_color.lower() == "white"
+    opponent_color = chess.BLACK if user_is_white else chess.WHITE
+    
+    result = {
+        "pattern": None,
+        "pattern_name": None,
+        "explanation": "",
+        "key_insight": "",
+        "pieces_involved": []
+    }
+    
+    # Play the best move and analyze the resulting position
+    try:
+        board_after_best = board.copy()
+        best_move_obj = board_after_best.parse_san(best_move)
+        board_after_best.push(best_move_obj)
+    except Exception as e:
+        return {"error": f"Cannot parse best move: {e}", "pattern": None}
+    
+    # 1. CHECK FOR PIECE TRAPPING
+    # A piece is "trapped" if after the best move, it has very few safe squares
+    trap_info = _detect_piece_trap(board_after_best, opponent_color)
+    if trap_info:
+        result["pattern"] = "piece_trap"
+        result["pattern_name"] = f"Trapped {PIECE_NAMES[trap_info['piece_type']]}"
+        result["explanation"] = trap_info["explanation"]
+        result["key_insight"] = trap_info["key_insight"]
+        result["pieces_involved"] = [PIECE_NAMES[trap_info['piece_type']]]
+        return result
+    
+    # 2. CHECK FOR RESTRICTING ENEMY PIECE MOBILITY
+    mobility_diff = _compare_piece_mobility(board, board_after_best, opponent_color)
+    if mobility_diff and mobility_diff["significant"]:
+        result["pattern"] = "mobility_restriction"
+        result["pattern_name"] = f"Restricting {mobility_diff['piece_name']}"
+        result["explanation"] = mobility_diff["explanation"]
+        result["key_insight"] = mobility_diff["key_insight"]
+        return result
+    
+    # 3. CHECK FOR CREATING MULTIPLE THREATS
+    threats_after_best = _count_threats(board_after_best, user_is_white)
+    threats_before = _count_threats(board, user_is_white)
+    
+    if threats_after_best["count"] > threats_before["count"] + 1:
+        result["pattern"] = "multi_threat"
+        result["pattern_name"] = "Creating multiple threats"
+        result["explanation"] = f"This move creates {threats_after_best['count']} threats simultaneously."
+        result["key_insight"] = "When you can threaten multiple things at once, your opponent can't defend everything."
+        return result
+    
+    # 4. CHECK FOR ATTACK ON HIGH-VALUE TARGET
+    attack_info = _check_attack_on_valuable_piece(board, board_after_best, best_move_obj, opponent_color)
+    if attack_info:
+        result["pattern"] = "attack_valuable"
+        result["pattern_name"] = f"Attacking {attack_info['target_name']}"
+        result["explanation"] = attack_info["explanation"]
+        result["key_insight"] = attack_info["key_insight"]
+        return result
+    
+    # 5. FALLBACK - positional improvement
+    result["pattern"] = "positional"
+    result["pattern_name"] = "Better piece placement"
+    result["explanation"] = f"The move {best_move} improves your position."
+    result["key_insight"] = "Sometimes the best moves are about improving piece activity, not direct tactics."
+    
+    return result
+
+
+def _detect_piece_trap(board: chess.Board, target_color: chess.Color) -> Optional[Dict]:
+    """
+    Detect if any enemy piece is trapped (has very few safe squares).
+    
+    A piece is considered trapped if:
+    - It has 2 or fewer safe squares to move to
+    - It's a valuable piece (knight, bishop, rook, queen)
+    """
+    valuable_pieces = [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]
+    our_color = not target_color
+    
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if not piece or piece.color != target_color:
+            continue
+        if piece.piece_type not in valuable_pieces:
+            continue
+        
+        # Count safe squares for this piece
+        safe_squares = []
+        unsafe_squares = []
+        
+        for move in board.legal_moves:
+            if move.from_square != sq:
+                continue
+            
+            to_sq = move.to_square
+            
+            # Check if the destination is attacked by opponent after the move
+            board_test = board.copy()
+            board_test.push(move)
+            
+            # Is the piece safe on the new square?
+            is_attacked = board_test.is_attacked_by(our_color, to_sq)
+            
+            # Also check if moving there hangs the piece
+            piece_there = board_test.piece_at(to_sq)
+            if piece_there:
+                defenders = len(board_test.attackers(target_color, to_sq))
+                attackers = len(board_test.attackers(our_color, to_sq))
+                is_hanging = attackers > defenders
+            else:
+                is_hanging = is_attacked
+            
+            if is_hanging or is_attacked:
+                unsafe_squares.append(chess.square_name(to_sq))
+            else:
+                safe_squares.append(chess.square_name(to_sq))
+        
+        # Check if trapped (2 or fewer safe squares for valuable pieces)
+        total_moves = len(safe_squares) + len(unsafe_squares)
+        if total_moves > 0 and len(safe_squares) <= 2:
+            piece_name = PIECE_NAMES[piece.piece_type]
+            
+            if len(safe_squares) == 0:
+                severity = "completely trapped"
+                key_insight = f"The {piece_name} has no safe squares! It can be won."
+            elif len(safe_squares) == 1:
+                severity = "nearly trapped"
+                key_insight = f"The {piece_name} has only one escape square ({safe_squares[0]}). Very restricted!"
+            else:
+                severity = "restricted"
+                key_insight = f"The {piece_name} has limited options ({', '.join(safe_squares)}). This limits opponent's counterplay."
+            
+            return {
+                "piece_type": piece.piece_type,
+                "piece_square": chess.square_name(sq),
+                "safe_squares": safe_squares,
+                "unsafe_squares": unsafe_squares,
+                "explanation": f"This move leaves the opponent's {piece_name} {severity} on {chess.square_name(sq)}. "
+                              f"{'It cannot escape!' if len(safe_squares) == 0 else f'It can only go to: {safe_squares}'}",
+                "key_insight": key_insight
+            }
+    
+    return None
+
+
+def _compare_piece_mobility(board_before: chess.Board, board_after: chess.Board, 
+                           target_color: chess.Color) -> Optional[Dict]:
+    """Compare mobility of enemy pieces before and after the move."""
+    
+    def count_mobility(board: chess.Board, color: chess.Color) -> Dict:
+        mobility = {}
+        for sq in chess.SQUARES:
+            piece = board.piece_at(sq)
+            if piece and piece.color == color:
+                moves = sum(1 for m in board.legal_moves if m.from_square == sq)
+                if piece.piece_type in [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]:
+                    mobility[sq] = {
+                        "piece": piece.piece_type,
+                        "moves": moves,
+                        "square": chess.square_name(sq)
+                    }
+        return mobility
+    
+    # We need to check mobility from opponent's perspective
+    # This is tricky because after our move, it's opponent's turn
+    mob_before = count_mobility(board_before, target_color)
+    
+    # For after, we need to consider opponent's response
+    # Simplified: just check if pieces have fewer options
+    mob_after = {}
+    for sq in chess.SQUARES:
+        piece = board_after.piece_at(sq)
+        if piece and piece.color == target_color:
+            moves = sum(1 for m in board_after.legal_moves if m.from_square == sq)
+            if piece.piece_type in [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]:
+                mob_after[sq] = {
+                    "piece": piece.piece_type,
+                    "moves": moves,
+                    "square": chess.square_name(sq)
+                }
+    
+    # Find pieces with significantly reduced mobility
+    for sq, data_after in mob_after.items():
+        if sq in mob_before:
+            data_before = mob_before[sq]
+            reduction = data_before["moves"] - data_after["moves"]
+            
+            if reduction >= 3 and data_after["moves"] <= 3:
+                piece_name = PIECE_NAMES[data_after["piece"]]
+                return {
+                    "significant": True,
+                    "piece_name": piece_name,
+                    "piece_square": data_after["square"],
+                    "moves_before": data_before["moves"],
+                    "moves_after": data_after["moves"],
+                    "explanation": f"This move restricts the opponent's {piece_name} from {data_before['moves']} moves down to only {data_after['moves']}.",
+                    "key_insight": f"Limiting your opponent's piece activity is a powerful positional idea."
+                }
+    
+    return None
+
+
+def _count_threats(board: chess.Board, user_is_white: bool) -> Dict:
+    """Count how many pieces are under attack by the user."""
+    user_color = chess.WHITE if user_is_white else chess.BLACK
+    opponent_color = not user_color
+    
+    threats = []
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if piece and piece.color == opponent_color:
+            if board.is_attacked_by(user_color, sq):
+                # Check if it's actually hanging
+                attackers = len(board.attackers(user_color, sq))
+                defenders = len(board.attackers(opponent_color, sq))
+                if attackers > defenders or (attackers >= 1 and piece.piece_type in [chess.QUEEN, chess.ROOK]):
+                    threats.append({
+                        "square": chess.square_name(sq),
+                        "piece": PIECE_NAMES[piece.piece_type],
+                        "value": PIECE_VALUES[piece.piece_type]
+                    })
+    
+    return {
+        "count": len(threats),
+        "threats": threats
+    }
+
+
+def _check_attack_on_valuable_piece(board_before: chess.Board, board_after: chess.Board,
+                                    move: chess.Move, opponent_color: chess.Color) -> Optional[Dict]:
+    """Check if the move creates an attack on a valuable enemy piece."""
+    user_color = not opponent_color
+    to_sq = move.to_square
+    
+    # What pieces does the moved piece now attack?
+    piece = board_after.piece_at(to_sq)
+    if not piece:
+        return None
+    
+    attacks = board_after.attacks(to_sq)
+    
+    for attacked_sq in attacks:
+        attacked_piece = board_after.piece_at(attacked_sq)
+        if attacked_piece and attacked_piece.color == opponent_color:
+            if attacked_piece.piece_type in [chess.QUEEN, chess.ROOK]:
+                target_name = PIECE_NAMES[attacked_piece.piece_type]
+                attacker_name = PIECE_NAMES[piece.piece_type]
+                
+                return {
+                    "target_name": target_name,
+                    "target_square": chess.square_name(attacked_sq),
+                    "attacker_name": attacker_name,
+                    "explanation": f"This {attacker_name} move attacks the {target_name} on {chess.square_name(attacked_sq)}.",
+                    "key_insight": f"Attacking high-value pieces forces your opponent to respond, giving you the initiative."
+                }
+    
+    return None
+
+
 # Test the module
 if __name__ == "__main__":
     # Test position with a hanging piece
