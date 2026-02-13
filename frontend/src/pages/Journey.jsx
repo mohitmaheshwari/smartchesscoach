@@ -352,10 +352,10 @@ const Journey = ({ user }) => {
 };
 
 // ============================================
-// Progress Tracker - Baseline vs Current
+// Progress Tracker - Your Coaching Journey
 // ============================================
 const ProgressTrackerSection = ({ baseline, current, progress, hasBaseline, gamesUntilBaseline }) => {
-  // If no baseline yet, show progress toward baseline
+  // If no baseline yet, show progress toward establishing profile
   if (!hasBaseline) {
     return (
       <AnimatedItem>
@@ -366,17 +366,17 @@ const ProgressTrackerSection = ({ baseline, current, progress, hasBaseline, game
                 <Target className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-heading font-semibold">Building Your Baseline</h3>
+                <h3 className="font-heading font-semibold">Getting to Know Your Game</h3>
                 <p className="text-sm text-muted-foreground">
                   {gamesUntilBaseline > 0 
-                    ? `${gamesUntilBaseline} more analyzed games needed`
-                    : 'Analyzing your games...'}
+                    ? `${gamesUntilBaseline} more games to analyze`
+                    : 'Almost there...'}
                 </p>
               </div>
             </div>
             <Progress value={((10 - gamesUntilBaseline) / 10) * 100} className="h-2" />
             <p className="text-xs text-muted-foreground mt-3">
-              We need to analyze at least 10 games to establish your starting point and track your improvement.
+              We're learning your playing style to give you personalized coaching.
             </p>
           </CardContent>
         </Card>
@@ -384,143 +384,170 @@ const ProgressTrackerSection = ({ baseline, current, progress, hasBaseline, game
     );
   }
 
-  // Has baseline - show progress
+  // Has baseline - show coaching progress
   if (!progress) return null;
 
-  const StatComparison = ({ label, baseline: baseVal, current: currVal, delta, improved, lowerIsBetter = false, suffix = '' }) => {
-    const showImproved = lowerIsBetter ? delta < 0 : delta > 0;
-    const deltaDisplay = lowerIsBetter 
-      ? (delta < 0 ? delta : `+${delta}`)
-      : (delta > 0 ? `+${delta}` : delta);
-    
-    return (
-      <div className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">{baseVal}{suffix}</span>
-          <ArrowRight className="w-4 h-4 text-muted-foreground" />
-          <span className="font-semibold">{currVal}{suffix}</span>
-          <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-            showImproved 
-              ? 'bg-emerald-500/10 text-emerald-500' 
-              : delta === 0 
-                ? 'bg-muted text-muted-foreground'
-                : 'bg-red-500/10 text-red-500'
-          }`}>
-            {delta === 0 ? '—' : deltaDisplay}{suffix}
-          </span>
-        </div>
-      </div>
-    );
-  };
+  // Determine what's improving and what needs work
+  const improvements = [];
+  const needsWork = [];
+
+  // Accuracy check
+  if (progress.accuracy.improved && progress.accuracy.delta >= 3) {
+    improvements.push({
+      icon: <Target className="w-4 h-4" />,
+      label: "Move Quality",
+      detail: "Your moves are getting sharper"
+    });
+  } else if (progress.accuracy.delta <= -3) {
+    needsWork.push({
+      icon: <Target className="w-4 h-4" />,
+      label: "Move Quality", 
+      detail: "Focus on calculating before moving"
+    });
+  }
+
+  // Blunders check
+  if (progress.blunders_per_game.improved && progress.blunders_per_game.delta <= -0.5) {
+    improvements.push({
+      icon: <Shield className="w-4 h-4" />,
+      label: "Blunder Control",
+      detail: "Making fewer game-losing mistakes"
+    });
+  } else if (progress.blunders_per_game.delta >= 0.3) {
+    needsWork.push({
+      icon: <AlertTriangle className="w-4 h-4" />,
+      label: "Blunder Control",
+      detail: "Double-check before big moves"
+    });
+  }
+
+  // Win rate check
+  if (progress.win_rate.improved && progress.win_rate.delta >= 5) {
+    improvements.push({
+      icon: <Crown className="w-4 h-4" />,
+      label: "Winning More",
+      detail: "Your results are improving"
+    });
+  } else if (progress.win_rate.delta <= -5) {
+    needsWork.push({
+      icon: <Swords className="w-4 h-4" />,
+      label: "Game Results",
+      detail: "Focus on converting advantages"
+    });
+  }
+
+  // Opening progress
+  const improvedOpenings = (progress.openings || []).filter(o => o.improved && o.delta >= 10);
+  const strugglingOpenings = (progress.openings || []).filter(o => !o.improved && o.delta <= -10);
+
+  if (improvedOpenings.length > 0) {
+    improvements.push({
+      icon: <BookOpen className="w-4 h-4" />,
+      label: improvedOpenings[0].name,
+      detail: "Getting stronger in this opening"
+    });
+  }
+
+  if (strugglingOpenings.length > 0) {
+    needsWork.push({
+      icon: <BookOpen className="w-4 h-4" />,
+      label: strugglingOpenings[0].name,
+      detail: "Review this opening's key ideas"
+    });
+  }
+
+  const overallImproving = improvements.length >= needsWork.length;
 
   return (
     <AnimatedItem>
       <Card className="surface overflow-hidden" data-testid="progress-tracker">
+        {/* Header */}
         <div className="bg-gradient-to-r from-primary/10 to-transparent px-6 py-4 border-b border-border/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-primary" />
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                overallImproving ? 'bg-emerald-500/20' : 'bg-amber-500/20'
+              }`}>
+                {overallImproving 
+                  ? <TrendingUp className="w-5 h-5 text-emerald-500" />
+                  : <Target className="w-5 h-5 text-amber-500" />
+                }
               </div>
               <div>
-                <h3 className="font-heading font-semibold">Your Progress</h3>
+                <h3 className="font-heading font-semibold">Since You Started</h3>
                 <p className="text-xs text-muted-foreground">
-                  Since joining • {progress.games_since_baseline} games played
+                  {progress.games_since_baseline} games with your coach
                 </p>
               </div>
             </div>
             
-            {/* Overall improvement indicator */}
             <div className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-              progress.accuracy.improved 
+              overallImproving 
                 ? 'bg-emerald-500/10 text-emerald-500'
                 : 'bg-amber-500/10 text-amber-500'
             }`}>
-              {progress.accuracy.improved ? 'Improving!' : 'Keep pushing!'}
+              {overallImproving ? 'Growing!' : 'Keep Going!'}
             </div>
           </div>
         </div>
         
-        <CardContent className="py-4">
-          {/* Key Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {/* Accuracy */}
-            <div className="text-center p-4 rounded-lg bg-muted/30">
-              <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
-              <p className="text-2xl font-bold">{progress.accuracy.current}%</p>
-              <p className={`text-xs ${progress.accuracy.improved ? 'text-emerald-500' : 'text-red-500'}`}>
-                {progress.accuracy.delta > 0 ? '+' : ''}{progress.accuracy.delta}% from baseline
-              </p>
+        <CardContent className="py-5">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* What's Improving */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span className="text-sm font-medium text-emerald-500">What's Improving</span>
+              </div>
+              {improvements.length > 0 ? (
+                <div className="space-y-3">
+                  {improvements.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                      <div className="mt-0.5 text-emerald-500">{item.icon}</div>
+                      <div>
+                        <p className="font-medium text-sm">{item.label}</p>
+                        <p className="text-xs text-muted-foreground">{item.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground p-3 rounded-lg bg-muted/30">
+                  Keep playing! We're tracking your progress.
+                </p>
+              )}
             </div>
             
-            {/* Blunders */}
-            <div className="text-center p-4 rounded-lg bg-muted/30">
-              <p className="text-xs text-muted-foreground mb-1">Blunders/Game</p>
-              <p className="text-2xl font-bold">{progress.blunders_per_game.current}</p>
-              <p className={`text-xs ${progress.blunders_per_game.improved ? 'text-emerald-500' : 'text-red-500'}`}>
-                {progress.blunders_per_game.delta > 0 ? '+' : ''}{progress.blunders_per_game.delta} from baseline
-              </p>
-            </div>
-            
-            {/* Win Rate */}
-            <div className="text-center p-4 rounded-lg bg-muted/30">
-              <p className="text-xs text-muted-foreground mb-1">Win Rate</p>
-              <p className="text-2xl font-bold">{progress.win_rate.current}%</p>
-              <p className={`text-xs ${progress.win_rate.improved ? 'text-emerald-500' : 'text-red-500'}`}>
-                {progress.win_rate.delta > 0 ? '+' : ''}{progress.win_rate.delta}% from baseline
-              </p>
-            </div>
-            
-            {/* Mistakes */}
-            <div className="text-center p-4 rounded-lg bg-muted/30">
-              <p className="text-xs text-muted-foreground mb-1">Mistakes/Game</p>
-              <p className="text-2xl font-bold">{progress.mistakes_per_game.current}</p>
-              <p className={`text-xs ${progress.mistakes_per_game.improved ? 'text-emerald-500' : 'text-red-500'}`}>
-                {progress.mistakes_per_game.delta > 0 ? '+' : ''}{progress.mistakes_per_game.delta} from baseline
-              </p>
+            {/* What Needs Work */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-medium text-amber-500">Focus Areas</span>
+              </div>
+              {needsWork.length > 0 ? (
+                <div className="space-y-3">
+                  {needsWork.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                      <div className="mt-0.5 text-amber-500">{item.icon}</div>
+                      <div>
+                        <p className="font-medium text-sm">{item.label}</p>
+                        <p className="text-xs text-muted-foreground">{item.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground p-3 rounded-lg bg-muted/30">
+                  Great job! No major concerns right now.
+                </p>
+              )}
             </div>
           </div>
-          
-          {/* Opening Progress */}
-          {progress.openings && progress.openings.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-border/50">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                Opening Improvement
-              </p>
-              <div className="space-y-2">
-                {progress.openings.slice(0, 3).map((opening, idx) => (
-                  <div key={idx} className="flex items-center justify-between py-2">
-                    <span className="text-sm">{opening.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">{opening.baseline_win_rate}%</span>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">{opening.current_win_rate}%</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        opening.improved 
-                          ? 'bg-emerald-500/10 text-emerald-500' 
-                          : 'bg-red-500/10 text-red-500'
-                      }`}>
-                        {opening.delta > 0 ? '+' : ''}{opening.delta}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     </AnimatedItem>
   );
 };
-
-// Missing import for ArrowRight
-const ArrowRight = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M5 12h14M12 5l7 7-7 7"/>
-  </svg>
-);
 
 // ============================================
 // Section 1: Chess Fundamentals Assessment
