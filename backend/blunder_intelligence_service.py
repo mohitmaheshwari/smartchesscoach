@@ -1721,21 +1721,14 @@ def _calculate_mission_progress(analyses: List[Dict], check_rule: str, target: i
         # Conversion/winning position rules - "Win from +X without eval drop" or "Convert X%"
         elif "win from" in rule_lower or "convert" in rule_lower:
             # Check if user had winning position and converted cleanly
-            # Evals are in centipawns (150 = +1.5 pawn advantage)
+            # Evals are stored in centipawns (150 = +1.5 pawn advantage)
             
-            # Check for eval drops in winning positions
             had_winning_position = False
             had_major_eval_drop = False
-            won_game = False
             
             for i, move in enumerate(move_evals):
                 eval_before = move.get("eval_before", 0)
                 eval_after = move.get("eval_after", 0)
-                
-                # Convert to centipawns if stored as pawns
-                if abs(eval_before) < 50:  # Likely in pawns
-                    eval_before = eval_before * 100
-                    eval_after = eval_after * 100
                 
                 # Was in winning position (+150 centipawns = +1.5 pawns or better)
                 if eval_before >= 150:
@@ -1746,18 +1739,8 @@ def _calculate_mission_progress(analyses: List[Dict], check_rule: str, target: i
                     if eval_drop > 150:
                         had_major_eval_drop = True
                         break
-                
-                # Check if game ended with good eval (won)
-                if i == len(move_evals) - 1:
-                    if eval_after >= 200 or eval_after <= -1000:  # Winning or mate
-                        won_game = True
             
-            # Also check result if available
-            result = analysis.get("result", "")
-            if result in ["win", "1-0", "0-1"]:
-                won_game = True
-            
-            # Count as progress if had winning position and didn't drop it
+            # Count as progress if had winning position and didn't drop it significantly
             if had_winning_position and not had_major_eval_drop:
                 progress += 1
         
