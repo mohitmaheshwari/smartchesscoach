@@ -1255,17 +1255,20 @@ def get_opening_guidance(analyses: List[Dict], games: List[Dict]) -> Dict:
         "message": None if has_guidance else "Play more games with varied openings to unlock guidance"
     }
 
-def get_mission(analyses: List[Dict], current_missions: List[Dict] = None, user_rating: int = None) -> Dict:
+def get_mission(analyses: List[Dict], current_missions: List[Dict] = None, user_rating: int = None, user_mission_data: Dict = None) -> Dict:
     """
-    MISSION ENGINE - 3 Layer Architecture
+    MISSION ENGINE - STREAK-BASED System
     
+    Key Changes (NEW):
+    - Progress must be achieved in CONSECUTIVE games
+    - If user fails mission criteria in any game, streak resets to 0
+    - Tracks both current_streak and longest_streak
+    - "Next Mission" option when completed
+    
+    Layer Architecture:
     Layer 1: Weakness Type → Determines THEME
     Layer 2: Rating Tier → Adjusts DIFFICULTY  
-    Layer 3: Mission Difficulty → Actual challenge
-    
-    Key Principle: Weakness > Rating
-    A 2000 player who relaxes when winning gets "Finish Strong" mission,
-    but with harder criteria than a 1200 player.
+    Layer 3: Consecutive Streak → Actual progress
     
     Rating Bands:
     - 600-1000: Basic blunder elimination (simple, direct)
@@ -1284,8 +1287,11 @@ def get_mission(analyses: List[Dict], current_missions: List[Dict] = None, user_
             "instruction": "Import and analyze your recent games",
             "target": 3,
             "progress": len(recent_analyses),
+            "current_streak": len(recent_analyses),
+            "longest_streak": len(recent_analyses),
             "rating_tier": "starter",
-            "status": "active"
+            "status": "active",
+            "is_streak_based": False
         }
     
     # Estimate rating if not provided (from game data or default)
