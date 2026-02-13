@@ -195,6 +195,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 # Global variable to track the background task
 _background_sync_task = None
+_quick_sync_task = None
 
 # Configure logging (moved up so lifespan can use logger)
 logging.basicConfig(
