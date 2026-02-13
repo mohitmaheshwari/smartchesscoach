@@ -5294,7 +5294,7 @@ async def get_win_state(user: User = Depends(get_current_user)):
     
     games = await db.games.find(
         {"user_id": user.user_id}
-    ).sort("date", -1).limit(15).to_list(15)
+    ).sort("imported_at", -1).limit(15).to_list(15)
     
     # Remove MongoDB _id
     for game in games:
