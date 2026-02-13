@@ -66,7 +66,7 @@
   },
   
   "test_credentials_used": {
-    "dev_login": "https://focus-coaching.preview.emergentagent.com/api/auth/dev-login",
+    "dev_login": "https://gm-coaching-loop.preview.emergentagent.com/api/auth/dev-login",
     "test_game_ids": ["game_13e814f2a224", "game_c1658a380825"]
   },
   
