@@ -1914,10 +1914,27 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
         
         await db.game_analyses.insert_one(analysis_doc)
         
-        await db.games.update_one(
-            {"game_id": req.game_id},
-            {"$set": {"is_analyzed": True}}
-        )
+        # Only mark as analyzed if analysis was complete and valid
+        # If Stockfish failed, we have incomplete data
+        if not analysis_incomplete:
+            await db.games.update_one(
+                {"game_id": req.game_id},
+                {"$set": {
+                    "is_analyzed": True,
+                    "analysis_status": "completed"
+                }}
+            )
+        else:
+            # Mark as incomplete - needs re-analysis
+            await db.games.update_one(
+                {"game_id": req.game_id},
+                {"$set": {
+                    "is_analyzed": False,
+                    "analysis_status": "incomplete",
+                    "analysis_error": "Stockfish analysis failed or returned invalid data"
+                }}
+            )
+            logger.warning(f"Game {req.game_id} marked as incomplete - Stockfish analysis failed")
         
         # Remove _id before returning
         analysis_doc.pop('_id', None)
