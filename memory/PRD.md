@@ -1,7 +1,7 @@
 # Chess Coaching App - Product Requirements Document
 
 ## Original Problem Statement
-Build a full-featured chess coaching application that analyzes games, identifies weaknesses, and provides personalized coaching.
+Build a full-featured chess coaching application that analyzes games, identifies weaknesses, and provides personalized coaching with a GM-coach style coaching loop.
 
 ## Core Architecture
 - **Frontend:** React (port 3000)
@@ -10,56 +10,120 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - **Analysis Engine:** Stockfish
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
 
-## Key Features Implemented
+## GOLD FEATURE: Coaching Loop System
 
-### Dashboard
-- Displays games categorized into "Analyzed," "In Queue," "Not Analyzed"
-- Shows accuracy, blunders, mistakes stats
+### Plan → Play → Audit → Adjust
+
+The core differentiator of ChessGuru.ai. A GM-coach style system that:
+- "I gave you a plan"
+- "I watched your game"
+- "You followed / didn't follow"
+- "Here's the adjusted plan"
+
+### Round Preparation (Next Game Plan)
+- 5 domains: Opening, Middlegame, Tactics, Endgame, Time
+- Each domain has:
+  - Priority (primary/secondary/baseline)
+  - Goal (1-line coach objective)
+  - Rules (4 for primary, 2 for secondary, 1 for baseline)
+  - Success criteria (measurable)
+- Training block with intensity (1-3)
+- Personalized based on: rating band, behavior patterns, fundamentals profile, opening stability
+
+### Plan Audit (Last Game)
+- Evaluates last game against EXACT previous plan
+- Each domain shows:
+  - Status (executed/partial/missed/n/a)
+  - Data points (computed facts)
+  - Evidence links (clickable move references with eval delta)
+  - Coach note (deterministic feedback)
+- Execution score (X/Y domains executed)
+- Game result displayed
+
+### PlanCard Schema (Single Source of Truth)
+```json
+{
+  "plan_id": "uuid",
+  "training_block": {"name": "...", "intensity": 1-3},
+  "cards": [
+    {
+      "domain": "opening|middlegame|tactics|endgame|time",
+      "priority": "primary|secondary|baseline",
+      "goal": "1-line objective",
+      "rules": ["..."],
+      "success_criteria": [{"metric": "...", "op": "<=", "value": 0}],
+      "audit": {"status": "...", "data_points": [], "evidence": [], "coach_note": "..."}
+    }
+  ]
+}
+```
+
+### Deterministic Logic
+- All plan selection, criteria evaluation, compliance scoring is deterministic
+- No LLM dependency for correctness
+- Intensity auto-adjusts based on consecutive misses
+
+## Other Key Features
 
 ### Focus Page (/coach route)
-- **NEW: Plan Audit System** - Phase-based execution evaluation
-  - Evaluates last game across 5 domains: Opening, Middlegame, Endgame, Tactics, Time
-  - Each domain shows: Plan, What Happened (bullet points), Data Snapshot, Verdict
-  - Only shows domains where plan existed OR something meaningful happened
-  - Execution Score (X/Y domains executed)
-  - Verdicts: pass (green), partial (amber), fail (orange)
-  - Training focus recommendation
-- Streak-Based Mission System with consecutive tracking
-- Rating Killer identification with evidence
+- Round Preparation section (top)
+- Plan Audit section
+- Rating Killer with evidence
+- Streak-based Mission system
+- Opening Guidance
 
 ### Lab Page
-- In-depth game analysis with move-by-move commentary
-- "Strategy" tab with collapsible "Positional Insight (Advanced)" section
-- RAG architecture for deep positional coaching
+- In-depth game analysis
+- Move-by-move commentary
+- Strategy tab with positional insights
 
 ### Progress Page (/progress)
-- "Before Coach" vs "After Coach" tabbed comparison
-- Tracks baseline performance from when user joined
+- Before Coach vs After Coach comparison
+- Baseline tracking from when user joined
 
-### Analysis Worker
-- Multi-process Stockfish analysis worker
-- Processes games from analysis queue asynchronously
+### Dashboard
+- Game categorization (Analyzed, In Queue, Not Analyzed)
+- Stats display
 
-### Game Sync System
-- Background sync every 6 hours fetches games from chess.com/lichess
-- Quick sync every 5 minutes for real-time game monitoring
-- Auto-queues games for analysis
+## API Endpoints
 
-## Current Status
+### Coaching Loop (GOLD)
+- `GET /api/round-preparation` - Next game plan
+- `GET /api/plan-audit` - Last game audit
+- `POST /api/coaching-loop/audit-game/{game_id}` - Trigger audit for specific game
+- `POST /api/coaching-loop/regenerate-plan` - Force new plan
+- `GET /api/coaching-loop/profile` - Get all personalization inputs
 
-### Completed (This Session - Dec 2025)
-- ✅ Plan Audit System for Focus Page (5 domains: Opening, Middlegame, Endgame, Tactics, Time)
-- ✅ Phase-based execution evaluation with deterministic verdicts
-- ✅ Coach-Like Feedback for Last Game Check (replaced with Plan Audit)
-- ✅ Streak-Based Mission System with consecutive tracking
+### Focus & Analysis
+- `GET /api/focus` - Focus page data
+- `GET /api/discipline-check` - Legacy discipline check
+- `GET /api/coach/today` - Today's coaching data
 
-### Known Issues
-- analysis_worker in FATAL state (Stockfish executable issue - reinstall with `sudo apt-get install stockfish -y`)
+### Games & Journey
+- `GET /api/progress/v2` - Progress page data
+- `GET /api/sync-status` - Sync timer status
+
+## Database Collections
+- `users` - User profiles
+- `games` - Imported games
+- `game_analyses` - Analysis results
+- `user_plans` - Coaching plans (NEW)
+- `analysis_queue` - Pending analysis
+- `mission_completions` - Completed missions
+
+## Key Files
+- `backend/coaching_loop_service.py` - GOLD FEATURE logic
+- `backend/server.py` - API endpoints
+- `backend/blunder_intelligence_service.py` - Weakness detection
+- `frontend/src/pages/Focus.jsx` - Focus page with coaching loop UI
+
+## Mocked Services
+- `backend/services/subscription_service.py`
+
+## Known Issues
+- analysis_worker FATAL state (Stockfish needs reinstall: `sudo apt-get install stockfish -y`)
 
 ## Prioritized Backlog
-
-### P0 - Critical
-- None (current features complete)
 
 ### P1 - High Priority
 - Backfill script for historical games missing analysis
@@ -67,41 +131,8 @@ Build a full-featured chess coaching application that analyzes games, identifies
 ### P2 - Medium Priority
 - Optimize Stockfish analysis speed (depth 18→12)
 
-### P3 - Low Priority / Refactoring
-- Rename `/coach` route to `/focus` for consistency
-
-## Key Files
-- `backend/server.py` - Main API server
-- `backend/plan_audit_service.py` - Plan Audit logic (5 domain audits)
-- `backend/discipline_check_service.py` - Legacy discipline check
-- `backend/blunder_intelligence_service.py` - Mission streak logic
-- `backend/analysis_worker.py` - Stockfish analysis worker
-- `frontend/src/pages/Focus.jsx` - Focus page with Plan Audit UI
-
-## 3rd Party Integrations
-- OpenAI GPT-4o-mini (via Emergent LLM Key)
-- Stockfish chess engine
-- Chess.com API
-- Lichess API
-
-## Database Collections
-- `users` - User profiles
-- `games` - Imported games
-- `game_analyses` - Analysis results
-- `analysis_queue` - Pending analysis jobs
-- `player_profiles` - Coaching profiles
-- `mission_completions` - Records completed missions
-
-## API Endpoints
-- `GET /api/plan-audit` - Plan Audit data (5 domain evaluation)
-- `GET /api/focus` - Focus page data with streak-based missions
-- `GET /api/discipline-check` - Legacy discipline check
-- `POST /api/focus/next-mission` - Mark mission complete
-- `GET /api/sync-status` - Game sync timer status
-- `GET /api/progress/v2` - Progress page with baseline comparison
-
-## Mocked Services
-- `backend/services/subscription_service.py`
+### P3 - Low Priority
+- Rename `/coach` route to `/focus`
 
 ---
 *Last Updated: December 2025*
