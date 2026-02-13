@@ -5143,22 +5143,161 @@ async def get_discipline_check_data(user: User = Depends(get_current_user)):
     return await get_discipline_check(db, user.user_id)
 
 
+# =============================================================================
+# COACHING LOOP ENDPOINTS (GOLD FEATURE)
+# =============================================================================
+
+@api_router.get("/round-preparation")
+async def get_round_preparation(user: User = Depends(get_current_user)):
+    """
+    Get Round Preparation (Next Game Plan).
+    
+    This is the coach's plan for the user's next game.
+    Generated from: rating band, behavior patterns, fundamentals profile,
+    opening stability, and last audit results.
+    
+    Returns PlanCard with 5 domain cards (opening, middlegame, tactics, endgame, time).
+    """
+    from coaching_loop_service import get_or_generate_plan
+    
+    plan = await get_or_generate_plan(db, user.user_id)
+    
+    # Remove audit fields for preparation view (they should be empty anyway)
+    for card in plan.get("cards", []):
+        card["audit"] = {"status": None, "data_points": [], "evidence": [], "coach_note": None}
+    
+    return plan
+
+
 @api_router.get("/plan-audit")
 async def get_plan_audit_data(user: User = Depends(get_current_user)):
     """
-    Get Plan Audit data for user's last game.
+    Get Plan Audit (Last Game vs Previous Plan).
     
-    Phase-based execution evaluation across 5 domains:
-    - Opening: Did they follow opening plan?
-    - Middlegame: Did they maintain strategic discipline?
-    - Endgame: Did they apply endgame principles?
-    - Tactics: Did they avoid blunders?
-    - Time: Did they manage clock properly?
+    Evaluates the user's last analyzed game against the plan we gave them.
+    This is NOT a game summary - it's compliance evaluation.
     
-    Only shows domains where plan existed OR something meaningful happened.
+    Returns the audited PlanCard with status (executed/partial/missed) for each domain.
     """
-    from plan_audit_service import get_plan_audit
-    return await get_plan_audit(db, user.user_id)
+    from coaching_loop_service import get_latest_audit, audit_game_and_update_plan
+    
+    # First check if we have an audited plan
+    latest_audit = await get_latest_audit(db, user.user_id)
+    
+    if latest_audit:
+        return {
+            "has_data": True,
+            **latest_audit
+        }
+    
+    # No audited plan exists - try to audit the latest game
+    # Get the most recent analyzed game
+    last_game = await db.games.find_one(
+        {"user_id": user.user_id, "is_analyzed": True},
+        {"_id": 0},
+        sort=[("imported_at", -1)]
+    )
+    
+    if not last_game:
+        return {
+            "has_data": False,
+            "reason": "no_analyzed_games"
+        }
+    
+    # Audit this game
+    result = await audit_game_and_update_plan(db, user.user_id, last_game["game_id"])
+    
+    if "error" in result:
+        return {"has_data": False, "reason": result["error"]}
+    
+    return {
+        "has_data": True,
+        **result["audited_plan"]
+    }
+
+
+@api_router.post("/coaching-loop/audit-game/{game_id}")
+async def audit_specific_game(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Manually trigger audit for a specific game.
+    
+    This is called after game analysis completes to:
+    1. Audit the game against the current plan
+    2. Generate a new plan for the next game
+    """
+    from coaching_loop_service import audit_game_and_update_plan
+    
+    result = await audit_game_and_update_plan(db, user.user_id, game_id)
+    
+    return result
+
+
+@api_router.post("/coaching-loop/regenerate-plan")
+async def regenerate_plan(user: User = Depends(get_current_user)):
+    """
+    Force regenerate the user's plan.
+    
+    Use this if the user wants a fresh plan without auditing.
+    """
+    from coaching_loop_service import get_or_generate_plan
+    
+    plan = await get_or_generate_plan(db, user.user_id, force_new=True)
+    
+    return plan
+
+
+@api_router.get("/coaching-loop/profile")
+async def get_coaching_profile(user: User = Depends(get_current_user)):
+    """
+    Get the user's full coaching profile.
+    
+    Returns all the inputs used for plan generation:
+    - Rating band
+    - Fundamentals profile
+    - Behavior patterns
+    - Opening stability
+    - Training block
+    """
+    from coaching_loop_service import (
+        calculate_fundamentals_profile,
+        detect_behavior_patterns,
+        calculate_opening_stability,
+        get_training_block,
+        _get_rating_band
+    )
+    
+    # Get user data
+    user_data = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    
+    # Get games and analyses
+    games = await db.games.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("imported_at", -1).to_list(50)
+    
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    # Calculate profile
+    rating_band = _get_rating_band(user_data.get("rating", 1200) if user_data else 1200)
+    fundamentals = calculate_fundamentals_profile(analyses, games)
+    behavior_patterns = detect_behavior_patterns(analyses, games)
+    opening_stability = calculate_opening_stability(analyses, games)
+    
+    training_block = get_training_block(
+        behavior_patterns.get("primary_weakness"),
+        fundamentals
+    )
+    
+    return {
+        "rating_band": rating_band,
+        "fundamentals": fundamentals,
+        "behavior_patterns": behavior_patterns,
+        "opening_stability": opening_stability,
+        "training_block": training_block
+    }
 
 
 @api_router.get("/journey/v2")
