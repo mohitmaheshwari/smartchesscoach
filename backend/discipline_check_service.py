@@ -403,22 +403,86 @@ async def get_discipline_check(db, user_id: str) -> Dict:
     - Celebrates when they follow advice
     - Connects to their #1 weakness (Rating Killer)
     - Adapts tone based on game quality
-    """
     
-    # 1. Get user's last analyzed game
-    last_game = await db.games.find_one(
-        {"user_id": user_id, "is_analyzed": True},
+    If the most recent game is NOT analyzed yet, returns a pending state.
+    """
+    import re
+    
+    # 1. Get user's MOST RECENT game (regardless of analysis status)
+    most_recent_game = await db.games.find_one(
+        {"user_id": user_id},
         {"_id": 0},
         sort=[("imported_at", -1)]
     )
     
-    if not last_game:
+    if not most_recent_game:
         return {"has_data": False, "reason": "no_games"}
     
+    # Check if most recent game is analyzed
+    most_recent_is_analyzed = most_recent_game.get("is_analyzed", False)
+    
+    # If most recent game is NOT analyzed, return pending state with basic info
+    if not most_recent_is_analyzed:
+        game_id = most_recent_game.get("game_id")
+        user_color = most_recent_game.get("user_color", "white")
+        pgn = most_recent_game.get("pgn", "")
+        result = most_recent_game.get("result", "*")
+        
+        # Determine game result
+        if user_color == "white":
+            game_result = "win" if result == "1-0" else "loss" if result == "0-1" else "draw"
+        else:
+            game_result = "win" if result == "0-1" else "loss" if result == "1-0" else "draw"
+        
+        # Get opponent name
+        opponent = "Opponent"
+        if user_color == "white":
+            match = re.search(r'\[Black "([^"]+)"\]', pgn)
+        else:
+            match = re.search(r'\[White "([^"]+)"\]', pgn)
+        if match:
+            opponent = match.group(1)
+        
+        # Check if in analysis queue
+        queue_item = await db.analysis_queue.find_one({"game_id": game_id})
+        in_queue = queue_item is not None
+        queue_status = queue_item.get("status", "pending") if queue_item else None
+        
+        # Generate appropriate message based on result
+        if game_result == "win":
+            pending_message = "Nice win! Let's see how clean it was once analysis is complete."
+        elif game_result == "loss":
+            pending_message = "Tough loss. Analysis will show what to work on."
+        else:
+            pending_message = "A draw - let's see if there were missed opportunities."
+        
+        return {
+            "has_data": True,
+            "analysis_pending": True,
+            "in_queue": in_queue,
+            "queue_status": queue_status,
+            "game_id": game_id,
+            "opponent": opponent,
+            "game_result": game_result,
+            "user_color": user_color,
+            "pending_message": pending_message,
+            "verdict": {
+                "headline": "Analysis in Queue" if in_queue else "Queuing for Analysis",
+                "tone": "neutral",
+                "result_text": f"{'Won' if game_result == 'win' else 'Lost' if game_result == 'loss' else 'Drew'} vs {opponent}",
+                "opening_line": None,
+                "accuracy_line": "Calculating...",
+                "blunders": None,
+                "checklist": []
+            }
+        }
+    
+    # 2. Most recent game IS analyzed - use it
+    last_game = most_recent_game
     game_id = last_game.get("game_id")
     user_color = last_game.get("user_color", "white")
     
-    # 2. Get analysis for this game
+    # 3. Get analysis for this game
     analysis = await db.game_analyses.find_one(
         {"game_id": game_id, "user_id": user_id},
         {"_id": 0}
