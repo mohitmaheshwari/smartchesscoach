@@ -459,10 +459,159 @@ def calculate_opening_stability(analyses: List[Dict], games: List[Dict]) -> Dict
 
 
 # =============================================================================
+# ADAPTIVE INTENSITY ESCALATION SYSTEM
+# =============================================================================
+
+def get_domain_miss_history(last_audits: List[Dict]) -> Dict[str, Dict]:
+    """
+    Analyze recent audits to track consecutive misses per domain.
+    
+    Returns:
+    {
+        "opening": {"consecutive_misses": 2, "last_status": "missed", "needs_escalation": True},
+        "middlegame": {"consecutive_misses": 0, "last_status": "executed", "needs_escalation": False},
+        ...
+    }
+    
+    Escalation rules:
+    - 2 consecutive misses → Increase intensity, simplify rules
+    - 4 consecutive misses → Force micro-habit level (intensity 3)
+    - 3 consecutive executions → Mark as stable, reduce detail
+    """
+    history = {
+        "opening": {"consecutive_misses": 0, "consecutive_executions": 0, "last_status": None, "needs_escalation": False, "is_stable": False},
+        "middlegame": {"consecutive_misses": 0, "consecutive_executions": 0, "last_status": None, "needs_escalation": False, "is_stable": False},
+        "tactics": {"consecutive_misses": 0, "consecutive_executions": 0, "last_status": None, "needs_escalation": False, "is_stable": False},
+        "endgame": {"consecutive_misses": 0, "consecutive_executions": 0, "last_status": None, "needs_escalation": False, "is_stable": False},
+        "time": {"consecutive_misses": 0, "consecutive_executions": 0, "last_status": None, "needs_escalation": False, "is_stable": False}
+    }
+    
+    if not last_audits:
+        return history
+    
+    # Process audits from oldest to newest
+    for audit in last_audits:
+        for card in audit.get("cards", []):
+            domain = card.get("domain")
+            if domain not in history:
+                continue
+            
+            status = card.get("audit", {}).get("status")
+            if not status or status == "n/a":
+                continue
+            
+            if status == "missed":
+                history[domain]["consecutive_misses"] += 1
+                history[domain]["consecutive_executions"] = 0
+            elif status == "executed":
+                history[domain]["consecutive_executions"] += 1
+                history[domain]["consecutive_misses"] = 0
+            else:  # partial
+                # Partial doesn't break execution streak but doesn't add to it
+                history[domain]["consecutive_misses"] = 0
+            
+            history[domain]["last_status"] = status
+    
+    # Determine escalation and stability
+    for domain, data in history.items():
+        data["needs_escalation"] = data["consecutive_misses"] >= 2
+        data["is_stable"] = data["consecutive_executions"] >= 3
+    
+    return history
+
+
+def calculate_domain_intensity(
+    domain: str,
+    base_intensity: int,
+    miss_history: Dict[str, Dict]
+) -> int:
+    """
+    Calculate intensity for a specific domain based on miss history.
+    
+    Intensity levels:
+    - 1: Outcome focus (e.g., "convert winning positions")
+    - 2: Behavior focus (e.g., "pause when +1.5")
+    - 3: Micro-habit (e.g., "check piece safety before EVERY move")
+    """
+    domain_data = miss_history.get(domain, {})
+    consecutive_misses = domain_data.get("consecutive_misses", 0)
+    
+    if consecutive_misses >= 4:
+        return 3  # Force micro-habit
+    elif consecutive_misses >= 2:
+        return min(3, base_intensity + 1)  # Escalate
+    else:
+        return base_intensity
+
+
+def get_escalated_rules(domain: str, base_rules: List[str], intensity: int, is_escalated: bool) -> List[str]:
+    """
+    Get rules adjusted for intensity level.
+    
+    At higher intensity:
+    - Simplify rules
+    - Focus on micro-habits
+    - More prescriptive language
+    """
+    if not is_escalated or intensity < 2:
+        return base_rules
+    
+    # Intensity 2: Behavior focus
+    intensity_2_rules = {
+        "opening": [
+            "Before move 1: Decide on your opening. No improvisation.",
+            "If unfamiliar position: Castle first, ask questions later.",
+        ],
+        "middlegame": [
+            "When eval shows +1.5: STOP. Count to 5. Then simplify.",
+            "Ask: 'Am I winning? If yes, trade a piece.'",
+        ],
+        "tactics": [
+            "CCT protocol EVERY move: Checks, Captures, Threats.",
+            "Before moving: 'What does opponent want to do next?'",
+        ],
+        "endgame": [
+            "Queens off? King to center immediately.",
+            "One plan only: Push passed pawn or create one.",
+        ],
+        "time": [
+            "Check clock after every 5 moves.",
+            "Under 2 minutes: Play safe, not brilliant.",
+        ]
+    }
+    
+    # Intensity 3: Micro-habit (very specific, one action)
+    intensity_3_rules = {
+        "opening": [
+            "ONE rule: Play your prepared opening. Zero exceptions.",
+        ],
+        "middlegame": [
+            "ONE rule: When ahead, trade ONE piece before doing anything else.",
+        ],
+        "tactics": [
+            "ONE rule: Before EVERY move, say 'checks, captures, threats' out loud.",
+        ],
+        "endgame": [
+            "ONE rule: King moves toward center. Every. Single. Endgame.",
+        ],
+        "time": [
+            "ONE rule: Never think more than 30 seconds on one move.",
+        ]
+    }
+    
+    if intensity >= 3:
+        return intensity_3_rules.get(domain, base_rules[:1])
+    elif intensity >= 2:
+        return intensity_2_rules.get(domain, base_rules[:2])
+    
+    return base_rules
+
+
+# =============================================================================
 # TRAINING BLOCK MANAGER
 # =============================================================================
 
-def get_training_block(primary_weakness: str, fundamentals: Dict, last_audit: Dict = None) -> Dict:
+def get_training_block(primary_weakness: str, fundamentals: Dict, last_audit: Dict = None, miss_history: Dict = None) -> Dict:
     """
     Determine training block based on weakness and fundamentals.
     
@@ -477,14 +626,34 @@ def get_training_block(primary_weakness: str, fundamentals: Dict, last_audit: Di
     - 1: Outcome focus (e.g., convert 4/5 winning positions)
     - 2: Behavior focus (e.g., pause 10 seconds when +1.5)
     - 3: Micro-habit (e.g., check piece safety before every move)
+    
+    Adaptive Escalation:
+    - 2 consecutive misses on primary domain → intensity +1
+    - 4 consecutive misses → force intensity 3
+    - 3 consecutive executions → mark stable, reduce verbosity
     """
     
-    # Determine base intensity from last audit
-    base_intensity = 1
+    # Calculate consecutive misses from history
     consecutive_misses = 0
+    primary_domain = None
     
-    if last_audit:
-        # Count consecutive misses on primary domain
+    # Map weakness to domain
+    weakness_to_domain = {
+        "advantage_collapse": "middlegame",
+        "piece_safety": "tactics",
+        "tactical_blindness": "tactics",
+        "time_trouble": "time",
+        "opening_drift": "opening"
+    }
+    
+    if primary_weakness:
+        primary_domain = weakness_to_domain.get(primary_weakness, "tactics")
+    
+    # Get consecutive misses from history if available
+    if miss_history and primary_domain:
+        consecutive_misses = miss_history.get(primary_domain, {}).get("consecutive_misses", 0)
+    elif last_audit:
+        # Fallback: count from last audit
         for card in last_audit.get("cards", []):
             if card.get("priority") == "primary":
                 status = card.get("audit", {}).get("status")
