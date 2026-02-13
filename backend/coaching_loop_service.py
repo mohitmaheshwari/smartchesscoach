@@ -341,6 +341,157 @@ def detect_behavior_patterns(analyses: List[Dict], games: List[Dict]) -> Dict:
 
 
 # =============================================================================
+# OPENING NAME EXTRACTION
+# =============================================================================
+
+def _extract_opening_name(game: Dict) -> str:
+    """
+    Extract the actual opening name from a game.
+    
+    Priority:
+    1. ECOUrl (e.g., "https://www.chess.com/openings/Sicilian-Defense-Alapin-Variation")
+       → "Sicilian Defense"
+    2. Opening field in game
+    3. ECO code lookup
+    4. Fallback to "Unknown"
+    """
+    pgn = game.get("pgn", "")
+    
+    # Try ECOUrl first (most reliable for chess.com games)
+    eco_url_match = re.search(r'\[ECOUrl "[^"]+/([^/"]+)"\]', pgn)
+    if eco_url_match:
+        # Convert "Sicilian-Defense-Alapin-Variation" to "Sicilian Defense"
+        raw_name = eco_url_match.group(1)
+        # Split by hyphen and take first 2-3 meaningful parts
+        parts = raw_name.split("-")
+        # Filter out common suffixes like "Variation", "Attack", etc for grouping
+        main_parts = []
+        for part in parts:
+            if part.lower() in ["variation", "attack", "defense", "defence", "game", "opening", "gambit"]:
+                main_parts.append(part.title())
+                break
+            main_parts.append(part.title())
+            if len(main_parts) >= 2:
+                break
+        if main_parts:
+            return " ".join(main_parts)
+    
+    # Try Opening field in PGN
+    opening_match = re.search(r'\[Opening "([^"]+)"\]', pgn)
+    if opening_match:
+        opening = opening_match.group(1)
+        # Take first 2-3 words for grouping
+        parts = opening.split()[:3]
+        return " ".join(parts)
+    
+    # Try opening field in game object
+    if game.get("opening"):
+        parts = game["opening"].split()[:3]
+        return " ".join(parts)
+    
+    # Try ECO code and map to opening name
+    eco_match = re.search(r'\[ECO "([^"]+)"\]', pgn)
+    if eco_match:
+        eco = eco_match.group(1)
+        return _eco_to_opening_name(eco)
+    
+    return "Unknown Opening"
+
+
+def _eco_to_opening_name(eco: str) -> str:
+    """
+    Map ECO code to opening family name.
+    """
+    eco_map = {
+        # A - Flank openings
+        "A00": "Irregular Opening",
+        "A01": "Nimzowitsch-Larsen",
+        "A02": "Bird Opening",
+        "A04": "Reti Opening",
+        "A10": "English Opening",
+        "A20": "English Opening",
+        "A30": "English Opening",
+        "A40": "Queen's Pawn",
+        "A45": "Indian Defense",
+        "A50": "Indian Defense",
+        # B - Semi-open games
+        "B00": "King's Pawn",
+        "B01": "Scandinavian Defense",
+        "B02": "Alekhine Defense",
+        "B06": "Modern Defense",
+        "B07": "Pirc Defense",
+        "B10": "Caro-Kann",
+        "B20": "Sicilian Defense",
+        "B30": "Sicilian Defense",
+        "B40": "Sicilian Defense",
+        "B50": "Sicilian Defense",
+        "B60": "Sicilian Defense",
+        "B70": "Sicilian Defense",
+        "B80": "Sicilian Defense",
+        "B90": "Sicilian Defense",
+        # C - Open games
+        "C00": "French Defense",
+        "C10": "French Defense",
+        "C20": "King's Pawn",
+        "C30": "King's Gambit",
+        "C40": "King's Knight",
+        "C41": "Philidor Defense",
+        "C42": "Petrov Defense",
+        "C44": "Scotch Game",
+        "C45": "Scotch Game",
+        "C50": "Italian Game",
+        "C54": "Italian Game",
+        "C55": "Two Knights",
+        "C60": "Ruy Lopez",
+        "C70": "Ruy Lopez",
+        "C80": "Ruy Lopez",
+        "C90": "Ruy Lopez",
+        # D - Closed/Semi-closed games
+        "D00": "Queen's Pawn",
+        "D02": "London System",
+        "D06": "Queen's Gambit",
+        "D10": "Slav Defense",
+        "D20": "Queen's Gambit",
+        "D30": "Queen's Gambit",
+        "D40": "Queen's Gambit",
+        "D50": "Queen's Gambit",
+        "D70": "Grunfeld Defense",
+        "D80": "Grunfeld Defense",
+        "D90": "Grunfeld Defense",
+        # E - Indian defenses
+        "E00": "Indian Defense",
+        "E10": "Indian Defense",
+        "E20": "Nimzo-Indian",
+        "E30": "Nimzo-Indian",
+        "E40": "Nimzo-Indian",
+        "E60": "King's Indian",
+        "E70": "King's Indian",
+        "E80": "King's Indian",
+        "E90": "King's Indian",
+    }
+    
+    # Try exact match first
+    if eco in eco_map:
+        return eco_map[eco]
+    
+    # Try prefix match (e.g., B32 matches B30)
+    eco_prefix = eco[:2] + "0"
+    if eco_prefix in eco_map:
+        return eco_map[eco_prefix]
+    
+    # Try first letter match
+    eco_letter = eco[0]
+    letter_defaults = {
+        "A": "Flank Opening",
+        "B": "Semi-Open Game",
+        "C": "Open Game",
+        "D": "Closed Game",
+        "E": "Indian Defense"
+    }
+    return letter_defaults.get(eco_letter, f"Opening {eco}")
+
+
+# =============================================================================
 # OPENING STABILITY CALCULATOR
 # =============================================================================
 
