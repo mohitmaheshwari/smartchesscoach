@@ -761,7 +761,13 @@ const JourneyPage = ({ user }) => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <>
+            {/* Before/After Coach Comparison */}
+            {journeyData?.progress && (
+              <CoachingComparison data={journeyData} />
+            )}
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* LEFT COLUMN */}
             <div className="space-y-6">
