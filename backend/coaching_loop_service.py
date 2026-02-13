@@ -385,9 +385,13 @@ def _extract_opening_name(game: Dict) -> str:
         parts = opening.split()[:3]
         return " ".join(parts)
     
-    # Try opening field in game object
+    # Try opening field in game object - might be ECO code or name
     if game.get("opening"):
-        parts = game["opening"].split()[:3]
+        opening_val = game["opening"]
+        # Check if it looks like an ECO code (1 letter + 2 digits)
+        if len(opening_val) == 3 and opening_val[0].isupper() and opening_val[1:].isdigit():
+            return _eco_to_opening_name(opening_val)
+        parts = opening_val.split()[:3]
         return " ".join(parts)
     
     # Try ECO code and map to opening name
