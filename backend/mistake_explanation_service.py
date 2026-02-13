@@ -494,6 +494,19 @@ def build_explanation_prompt(analysis: Dict, move_data: Dict) -> str:
         skewer = details["skewer"]
         context_parts.append(f"TACTICAL PATTERN: User walked into a skewer - {skewer.get('front_piece', 'piece')} on {skewer.get('front_square', '?')} is attacked by {skewer.get('attacker', 'opponent piece')}, exposing {skewer.get('back_piece', 'piece')} behind it")
     
+    # Handle deep tactical analysis patterns
+    elif details.get("deep_tactics"):
+        deep = details["deep_tactics"]
+        pattern_name = deep.get("pattern_name", "tactical opportunity")
+        explanation = deep.get("explanation", "")
+        key_insight = deep.get("key_insight", "")
+        
+        context_parts.append(f"TACTICAL PATTERN: {pattern_name}")
+        if explanation:
+            context_parts.append(f"WHAT HAPPENED: {explanation}")
+        if key_insight:
+            context_parts.append(f"KEY INSIGHT: {key_insight}")
+    
     # Template info
     context_parts.append(f"MISTAKE CATEGORY: {template['short']}")
     context_parts.append(f"PATTERN: {template['pattern']}")
