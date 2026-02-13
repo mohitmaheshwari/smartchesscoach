@@ -17,16 +17,15 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - Shows accuracy, blunders, mistakes stats
 
 ### Focus Page (/coach route)
-- Personalized coaching with "Missions" based on detected weaknesses
-- **NEW: Coach-Like Feedback for Last Game**
-  - For wins: Shows "What Worked" and "Still Needs Work"
-  - For losses: Shows "Good Plays Despite the Loss" and "The Core Issue"
-  - Deterministic logic (no LLM)
-- **NEW: Streak-Based Mission System**
-  - Progress requires consecutive games meeting criteria
-  - Displays `current_streak` and `longest_streak`
-  - Shows "Streak reset" message when broken
-  - "Next Mission" button when completed
+- **NEW: Plan Audit System** - Phase-based execution evaluation
+  - Evaluates last game across 5 domains: Opening, Middlegame, Endgame, Tactics, Time
+  - Each domain shows: Plan, What Happened (bullet points), Data Snapshot, Verdict
+  - Only shows domains where plan existed OR something meaningful happened
+  - Execution Score (X/Y domains executed)
+  - Verdicts: pass (green), partial (amber), fail (orange)
+  - Training focus recommendation
+- Streak-Based Mission System with consecutive tracking
+- Rating Killer identification with evidence
 
 ### Lab Page
 - In-depth game analysis with move-by-move commentary
@@ -49,9 +48,10 @@ Build a full-featured chess coaching application that analyzes games, identifies
 ## Current Status
 
 ### Completed (This Session - Dec 2025)
-- ✅ Coach-Like Feedback for Last Game Check
+- ✅ Plan Audit System for Focus Page (5 domains: Opening, Middlegame, Endgame, Tactics, Time)
+- ✅ Phase-based execution evaluation with deterministic verdicts
+- ✅ Coach-Like Feedback for Last Game Check (replaced with Plan Audit)
 - ✅ Streak-Based Mission System with consecutive tracking
-- ✅ "Next Mission" endpoint and button
 
 ### Known Issues
 - analysis_worker in FATAL state (Stockfish executable issue - reinstall with `sudo apt-get install stockfish -y`)
@@ -72,12 +72,11 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Key Files
 - `backend/server.py` - Main API server
-- `backend/config.py` - Centralized configuration
-- `backend/discipline_check_service.py` - Coach-like feedback logic
+- `backend/plan_audit_service.py` - Plan Audit logic (5 domain audits)
+- `backend/discipline_check_service.py` - Legacy discipline check
 - `backend/blunder_intelligence_service.py` - Mission streak logic
-- `backend/journey_service.py` - Game sync logic
 - `backend/analysis_worker.py` - Stockfish analysis worker
-- `frontend/src/pages/Focus.jsx` - Focus page UI
+- `frontend/src/pages/Focus.jsx` - Focus page with Plan Audit UI
 
 ## 3rd Party Integrations
 - OpenAI GPT-4o-mini (via Emergent LLM Key)
@@ -91,11 +90,12 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - `game_analyses` - Analysis results
 - `analysis_queue` - Pending analysis jobs
 - `player_profiles` - Coaching profiles
-- `mission_completions` - (NEW) Records completed missions
+- `mission_completions` - Records completed missions
 
 ## API Endpoints
+- `GET /api/plan-audit` - Plan Audit data (5 domain evaluation)
 - `GET /api/focus` - Focus page data with streak-based missions
-- `GET /api/discipline-check` - Last game coach feedback
+- `GET /api/discipline-check` - Legacy discipline check
 - `POST /api/focus/next-mission` - Mark mission complete
 - `GET /api/sync-status` - Game sync timer status
 - `GET /api/progress/v2` - Progress page with baseline comparison
