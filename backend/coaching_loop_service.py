@@ -1039,7 +1039,17 @@ def _generate_middlegame_card(
         "window": "moves 15-40"
     })
     
-    return create_domain_card("middlegame", priority, goal, rules, criteria)
+    # Apply escalated rules if needed
+    if is_escalated:
+        rules = get_escalated_rules("middlegame", rules, domain_intensity, is_escalated)
+    
+    card = create_domain_card("middlegame", priority, goal, rules, criteria)
+    card["escalation"] = {
+        "is_escalated": is_escalated,
+        "intensity": domain_intensity,
+        "consecutive_misses": domain_history.get("consecutive_misses", 0)
+    }
+    return card
 
 
 def _generate_tactics_card(
@@ -1047,16 +1057,25 @@ def _generate_tactics_card(
     rating_band: str,
     behavior_patterns: Dict,
     intensity: int,
-    last_audit: Dict = None
+    last_audit: Dict = None,
+    miss_history: Dict = None
 ) -> Dict:
-    """Generate tactics domain card."""
+    """Generate tactics domain card with adaptive escalation."""
+    
+    # Check for escalation
+    domain_history = (miss_history or {}).get("tactics", {})
+    is_escalated = domain_history.get("needs_escalation", False)
+    domain_intensity = calculate_domain_intensity("tactics", intensity, miss_history or {})
     
     primary_weakness = behavior_patterns.get("primary_weakness")
     
     if primary_weakness == "piece_safety":
-        goal = "No hanging pieces. Check every piece before you move."
+        if is_escalated and domain_intensity >= 3:
+            goal = "ONE RULE: Before moving, count your hanging pieces."
+        else:
+            goal = "No hanging pieces. Check every piece before you move."
         
-        if intensity >= 2:
+        if domain_intensity >= 2:
             rules = [
                 "Before EVERY move: 'Is anything undefended?'",
                 "After opponent's move: 'What is attacked now?'",
@@ -1071,7 +1090,10 @@ def _generate_tactics_card(
                 "Watch for knight forks"
             ]
     elif primary_weakness == "tactical_blindness":
-        goal = "See the tactics. CCT before every move."
+        if is_escalated and domain_intensity >= 3:
+            goal = "ONE RULE: Say 'checks, captures, threats' before EVERY move."
+        else:
+            goal = "See the tactics. CCT before every move."
         
         rules = [
             "CCT protocol: Checks, Captures, Threats",
