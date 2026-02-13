@@ -629,24 +629,28 @@ const FocusPage = ({ user }) => {
             </motion.div>
             )}
 
-            {/* MISSION */}
+            {/* MISSION - STREAK-BASED */}
             {focusData?.mission && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
+                <Card className={`border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent ${
+                  focusData.mission.status === 'completed' ? 'border-emerald-500/40 from-emerald-500/5' : ''
+                }`}>
                   <CardContent className="py-5">
                     {/* Header with Rating Tier */}
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <Target className="w-4 h-4 text-amber-500" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                          Current Discipline Focus
+                        <Target className={`w-4 h-4 ${focusData.mission.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'}`} />
+                        <span className={`text-xs font-bold uppercase tracking-wider ${
+                          focusData.mission.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'
+                        }`}>
+                          {focusData.mission.status === 'completed' ? 'Mission Complete!' : 'Current Mission'}
                         </span>
                       </div>
-                      {focusData.mission.rating_tier && (
+                      {focusData.mission.rating_tier && focusData.mission.rating_tier !== 'starter' && (
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           focusData.mission.rating_tier === 'beginner' ? 'bg-green-500/20 text-green-400' :
                           focusData.mission.rating_tier === 'intermediate' ? 'bg-yellow-500/20 text-yellow-400' :
@@ -660,14 +664,22 @@ const FocusPage = ({ user }) => {
                       )}
                     </div>
                     
-                    {/* Mission Name & Progress */}
+                    {/* Mission Name & Streak Progress */}
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-bold">{focusData.mission.name}</h3>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold text-amber-500">
-                          {focusData.mission.progress || 0}
-                        </span>
-                        <span className="text-muted-foreground text-sm">/ {focusData.mission.target || 3}</span>
+                      <div className="flex items-center gap-3">
+                        {/* Current Streak */}
+                        <div className="flex items-center gap-1">
+                          <Flame className={`w-4 h-4 ${
+                            focusData.mission.current_streak > 0 ? 'text-orange-500' : 'text-muted-foreground'
+                          }`} />
+                          <span className={`text-2xl font-bold ${
+                            focusData.mission.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'
+                          }`}>
+                            {focusData.mission.current_streak || focusData.mission.progress || 0}
+                          </span>
+                          <span className="text-muted-foreground text-sm">/ {focusData.mission.target || 3}</span>
+                        </div>
                       </div>
                     </div>
                     
@@ -676,17 +688,99 @@ const FocusPage = ({ user }) => {
                       {focusData.mission.goal}
                     </p>
                     
-                    {/* Progress Bar */}
-                    <Progress 
-                      value={((focusData.mission.progress || 0) / (focusData.mission.target || 3)) * 100} 
-                      className="h-1.5 mb-4"
-                    />
+                    {/* Streak Indicator - Visual representation */}
+                    {focusData.mission.is_streak_based && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-1 mb-2">
+                          {[...Array(focusData.mission.target || 3)].map((_, i) => (
+                            <div
+                              key={i}
+                              className={`h-2 flex-1 rounded-full transition-all ${
+                                i < (focusData.mission.current_streak || 0)
+                                  ? 'bg-amber-500'
+                                  : 'bg-muted/50'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        
+                        {/* Streak Status Message */}
+                        {focusData.mission.streak_broken_in_last_game && (
+                          <div className="flex items-center gap-1.5 text-xs text-orange-400">
+                            <XCircle className="w-3 h-3" />
+                            <span>Streak reset - last game didn't meet the criteria</span>
+                          </div>
+                        )}
+                        {focusData.mission.last_game_passed && focusData.mission.status !== 'completed' && (
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Last game counted! Keep it up.</span>
+                          </div>
+                        )}
+                        
+                        {/* Longest Streak Badge */}
+                        {focusData.mission.longest_streak > 0 && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs text-muted-foreground">
+                              Personal best:
+                            </span>
+                            <span className="text-xs font-bold text-amber-500 flex items-center gap-1">
+                              <Flame className="w-3 h-3" />
+                              {focusData.mission.longest_streak} game streak
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Progress Bar - Fallback for non-streak missions */}
+                    {!focusData.mission.is_streak_based && (
+                      <Progress 
+                        value={((focusData.mission.progress || 0) / (focusData.mission.target || 3)) * 100} 
+                        className="h-1.5 mb-4"
+                      />
+                    )}
                     
                     {/* Instruction Box */}
-                    {focusData.mission.instruction && (
-                      <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
+                    {focusData.mission.instruction && focusData.mission.status !== 'completed' && (
+                      <div className="bg-muted/50 rounded-lg p-3 border border-border/50 mb-3">
                         <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">How to do it</p>
                         <p className="text-sm">{focusData.mission.instruction}</p>
+                      </div>
+                    )}
+                    
+                    {/* Completed State - Next Mission Button */}
+                    {focusData.mission.status === 'completed' && (
+                      <div className="pt-3 border-t border-border/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                            <span className="text-sm font-medium text-emerald-400">
+                              Mission accomplished! Great discipline.
+                            </span>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="gap-1.5 bg-amber-500 hover:bg-amber-600"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`${API}/focus/next-mission`, {
+                                  method: 'POST',
+                                  credentials: 'include'
+                                });
+                                if (response.ok) {
+                                  window.location.reload();
+                                }
+                              } catch (err) {
+                                console.error('Failed to get next mission:', err);
+                              }
+                            }}
+                            data-testid="next-mission-btn"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                            Next Mission
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </CardContent>
