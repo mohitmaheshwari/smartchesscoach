@@ -389,6 +389,25 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
         elif cp_loss >= 50:
             mistake_type = "positional_drift"
     
+    # 10. DEEP TACTICAL ANALYSIS - Run when simpler patterns weren't found
+    # This catches things like piece trapping, mobility restriction, etc.
+    if mistake_type in ["inaccuracy", "positional_drift"] and best_move:
+        try:
+            from position_analyzer import analyze_deep_tactics
+            deep_analysis = analyze_deep_tactics(fen_before, move_played, best_move, user_color)
+            
+            if deep_analysis.get("pattern") and deep_analysis["pattern"] not in ["positional", None]:
+                # Found a meaningful tactical pattern!
+                mistake_type = f"missed_{deep_analysis['pattern']}"
+                details["deep_tactics"] = {
+                    "pattern": deep_analysis["pattern"],
+                    "pattern_name": deep_analysis["pattern_name"],
+                    "explanation": deep_analysis["explanation"],
+                    "key_insight": deep_analysis["key_insight"]
+                }
+        except Exception as e:
+            logger.warning(f"Deep tactical analysis failed: {e}")
+    
     return {
         "mistake_type": mistake_type,
         "details": details,
