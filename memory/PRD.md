@@ -20,6 +20,22 @@ The core differentiator of ChessGuru.ai. A GM-coach style system that:
 - "You followed / didn't follow"
 - "Here's the adjusted plan"
 
+### Adaptive Intensity Escalation (NEW)
+When a domain is missed consecutively, the system automatically escalates:
+- **2 consecutive misses**: Increase intensity, simplify rules
+- **4 consecutive misses**: Force micro-habit level (intensity 3)
+- **3 consecutive executions**: Mark domain as stable, reduce verbosity
+
+Intensity Levels:
+- **Level 1**: Outcome focus (e.g., "convert winning positions")
+- **Level 2**: Behavior focus (e.g., "pause 5 seconds when +1.5")
+- **Level 3**: Micro-habit (e.g., "ONE RULE: trade a piece when ahead")
+
+UI Indicators:
+- Escalated domains show orange border + "⚡ Escalated" badge
+- L2/L3 intensity indicator shown
+- At L3: "Micro-habit mode" warning box
+
 ### Round Preparation (Next Game Plan)
 - 5 domains: Opening, Middlegame, Tactics, Endgame, Time
 - Each domain has:
