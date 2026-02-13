@@ -1663,14 +1663,14 @@ def _audit_situational_rules(rules: List[Dict], moves: List[Dict], user_color: s
     eval_timeline = []
     for m in moves:
         move_num = m.get("move_number", 0)
-        cp = m.get("cp_after", 0) or 0
+        cp = m.get("eval_after", 0) or m.get("cp_after", 0) or 0
         
         # Flip eval if user is black
         user_eval = cp if user_is_white else -cp
         eval_timeline.append({
             "move": move_num,
             "eval": user_eval,
-            "played_move": m.get("played_move"),
+            "played_move": m.get("played_move") or m.get("move"),
             "evaluation": m.get("evaluation")  # blunder, mistake, etc.
         })
     
