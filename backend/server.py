@@ -5076,6 +5076,29 @@ async def get_focus_page_data(user: User = Depends(get_current_user)):
     return focus_data
 
 
+@api_router.post("/focus/next-mission")
+async def get_next_mission(user: User = Depends(get_current_user)):
+    """
+    Mark current mission as completed and get a new mission.
+    
+    This endpoint is called when the user completes a mission and wants to 
+    get a new one. It stores the completion record and returns fresh focus data.
+    """
+    # Record mission completion
+    await db.mission_completions.insert_one({
+        "user_id": user.user_id,
+        "completed_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Increment completed missions count for the user
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$inc": {"missions_completed": 1}}
+    )
+    
+    return {"status": "ok", "message": "Mission marked as complete. Refresh to get your next mission."}
+
+
 @api_router.get("/coach-review")
 async def get_coach_review_data(user: User = Depends(get_current_user)):
     """
