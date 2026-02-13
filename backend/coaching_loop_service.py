@@ -1135,7 +1135,7 @@ def _audit_opening(card, game, analysis, moves, user_color, opening_played):
                 if blunder_moves:
                     audit["evidence"].append({
                         "move": blunder_moves[0].get("move_number"),
-                        "note": f"Early blunder"
+                        "note": "Early blunder"
                     })
     
     # Add stability data point
