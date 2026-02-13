@@ -658,22 +658,24 @@ def generate_personalized_verdict(
     rating_killer_pattern: str,
     rating_killer_label: str,
     avoided_rating_killer: bool,
-    actual_blunders: int = 0  # Actual stockfish blunder count
+    actual_blunders: int = 0,  # Actual stockfish blunder count
+    actual_mistakes: int = 0   # Actual stockfish mistake count
 ) -> Dict:
     """
-    Generate a PERSONALIZED verdict that references our guidance.
+    Generate a PERSONALIZED, COACH-LIKE verdict.
     
-    This is NOT generic - it connects to:
-    - Opening suggestions we made
-    - The #1 weakness we identified
-    - Their average performance
+    For WINS: Explain what worked well + what still needs improvement
+    For LOSSES: Highlight good plays despite outcome + identify core problem
+    
+    No fluff - deterministic logic based on actual game data.
     """
     
     observations = []  # Personalized observations that show we're paying attention
     issues = []
     positives = []
+    coach_feedback = {}  # Rich feedback for the coach section
     
-    # === PERSONALIZED OBSERVATIONS ===
+    # === ANALYZE GAME QUALITY REGARDLESS OF RESULT ===
     
     # 1. Did they avoid their #1 pattern?
     if avoided_rating_killer is True and rating_killer_label:
@@ -682,18 +684,15 @@ def generate_personalized_verdict(
     elif avoided_rating_killer is False and rating_killer_label:
         observations.append(f"Your pattern showed up again: {rating_killer_label.lower()}")
     
-    # 2. Opening compliance - reference our specific suggestion
+    # 2. Opening compliance
     if opening_check.get("paused_and_played"):
         issues.append(f"Played {opening_check['played']} (we suggested pausing this)")
         observations.append(f"Tried {opening_check['played']} despite our advice")
     elif opening_check.get("complied") is True:
         positives.append(f"Played {opening_check['played']} as suggested")
         observations.append(f"Followed opening guidance with {opening_check['played']}")
-    elif opening_check.get("suggested") and len(opening_check.get("suggested", [])) > 0:
-        # They played something else - neutral, but note it
-        pass
     
-    # 3. Accuracy vs their average - shows we're tracking them
+    # 3. Accuracy vs their average
     if avg_accuracy:
         diff = accuracy - avg_accuracy
         if diff >= 5:
@@ -710,11 +709,10 @@ def generate_personalized_verdict(
         elif stability_score >= 80:
             positives.append(f"Held advantage well ({stability_score}% stable)")
     
-    # 5. Blunder check - use ACTUAL stockfish blunder count for consistency
+    # 5. Blunder context
     primary_trigger = blunder_context.get("primary_trigger", "none")
     context_blunders = blunder_context.get("total_blunders", 0)
     
-    # Use actual_blunders for the display, context_blunders for "when" analysis
     if actual_blunders > 0:
         if context_blunders > 0 and primary_trigger == "winning":
             when_winning = blunder_context.get("when_winning", 0)
@@ -722,7 +720,6 @@ def generate_personalized_verdict(
         elif context_blunders > 0 and primary_trigger == "losing":
             when_losing = blunder_context.get("when_losing", 0)
             issues.append(f"{when_losing}/{context_blunders} errors under pressure")
-        # If actual_blunders > 0 but context_blunders = 0, don't add "zero blunders"
     elif actual_blunders == 0:
         positives.append("Zero blunders")
     
@@ -734,63 +731,88 @@ def generate_personalized_verdict(
         elif game_result == "loss":
             issues.append(f"Had +{peak} but lost")
     
+    # === COACH-LIKE FEEDBACK BASED ON RESULT ===
+    
+    if game_result == "win":
+        # WIN: What worked + what still needs work
+        coach_feedback = _generate_win_feedback(
+            accuracy, avg_accuracy, actual_blunders, actual_mistakes,
+            stability, winning_position, avoided_rating_killer, 
+            rating_killer_label, opening_check
+        )
+    elif game_result == "loss":
+        # LOSS: Good plays despite outcome + core problem
+        coach_feedback = _generate_loss_feedback(
+            accuracy, avg_accuracy, actual_blunders, actual_mistakes,
+            stability, winning_position, blunder_context, 
+            rating_killer_label, avoided_rating_killer, opening_check
+        )
+    else:  # draw
+        coach_feedback = _generate_draw_feedback(
+            accuracy, avg_accuracy, actual_blunders, actual_mistakes,
+            stability, winning_position
+        )
+    
     # === GENERATE HEADLINE AND GRADE ===
     
-    # Clean game with good practices
-    if len(issues) == 0 and (avoided_rating_killer or actual_blunders == 0):
-        if accuracy >= 80:
-            headline = "Clean game - you stayed disciplined"
+    if game_result == "win":
+        if len(issues) == 0 and accuracy >= 80:
+            headline = "Clean win - you played well"
             grade = "A"
-        else:
-            headline = "Solid discipline, accuracy can improve"
+            tone = "positive"
+        elif len(issues) == 0:
+            headline = "Nice win, some room to grow"
             grade = "B"
-        tone = "positive"
-        show_rating_killer = False  # Don't show Rating Killer section
+            tone = "positive"
+        elif actual_blunders >= 2:
+            headline = "You won, but got lucky"
+            grade = "C"
+            tone = "neutral"
+        else:
+            headline = "Win secured, lessons learned"
+            grade = "B"
+            tone = "positive"
+        show_rating_killer = len(issues) > 0
     
-    # Good but not great
-    elif len(issues) == 0:
-        headline = "Decent game, keep pushing"
-        grade = "B"
-        tone = "positive"
-        show_rating_killer = False
-    
-    # Pattern repeated
-    elif avoided_rating_killer is False:
-        headline = "Same pattern - let's work on this"
-        grade = "C"
-        tone = "neutral"
-        show_rating_killer = True  # Show Rating Killer - it's relevant
-    
-    # Opening ignored
-    elif opening_check.get("paused_and_played"):
-        headline = "Ignored opening advice"
-        grade = "C" if game_result == "win" else "D"
-        tone = "critical"
+    elif game_result == "loss":
+        if avoided_rating_killer and actual_blunders <= 1 and accuracy >= 70:
+            headline = "Tough loss, but you played solid"
+            grade = "B"
+            tone = "neutral"
+        elif avoided_rating_killer is False:
+            headline = "Same pattern cost you again"
+            grade = "C"
+            tone = "critical"
+        elif stability_score is not None and stability_score < 50:
+            headline = "You had it, then let go"
+            grade = "D"
+            tone = "critical"
+        elif actual_blunders >= 3:
+            headline = "Too many errors decided this"
+            grade = "D"
+            tone = "critical"
+        else:
+            headline = "One or two moments changed it"
+            grade = "C"
+            tone = "neutral"
         show_rating_killer = True
     
-    # Collapsed when winning
-    elif stability_score is not None and stability_score < 50:
-        headline = "Collapsed when winning"
-        grade = "D"
-        tone = "critical"
-        show_rating_killer = True
-    
-    # Multiple issues
-    elif len(issues) >= 2:
-        headline = "Rough game - focus needed"
-        grade = "D"
-        tone = "critical"
-        show_rating_killer = True
-    
-    else:
-        headline = "Mixed results"
-        grade = "C"
-        tone = "neutral"
-        show_rating_killer = True
+    else:  # draw
+        if winning_position.get("reached") and winning_position.get("peak_advantage", 0) >= 2:
+            headline = "Should have been a win"
+            grade = "C"
+            tone = "neutral"
+        else:
+            headline = "Fair result"
+            grade = "B"
+            tone = "neutral"
+        show_rating_killer = len(issues) > 0
     
     # Build the personalized summary sentence
-    if observations:
-        summary = observations[0]  # Lead with the most relevant observation
+    if coach_feedback.get("summary"):
+        summary = coach_feedback["summary"]
+    elif observations:
+        summary = observations[0]
     elif positives:
         summary = positives[0]
     elif issues:
@@ -800,11 +822,205 @@ def generate_personalized_verdict(
     
     return {
         "headline": headline,
-        "summary": summary,  # The personalized one-liner
+        "summary": summary,
         "grade": grade,
         "tone": tone,
         "issues": issues,
         "positives": positives,
-        "observations": observations,  # What we noticed that shows we're paying attention
-        "show_rating_killer": show_rating_killer  # UI hint
+        "observations": observations,
+        "show_rating_killer": show_rating_killer,
+        "coach_feedback": coach_feedback  # Rich feedback for UI
+    }
+
+
+def _generate_win_feedback(
+    accuracy: float, avg_accuracy: float, blunders: int, mistakes: int,
+    stability: Dict, winning_position: Dict, avoided_rating_killer: bool,
+    rating_killer_label: str, opening_check: Dict
+) -> Dict:
+    """
+    Generate coach feedback for a WIN.
+    Focus on: What worked well + What still needs improvement
+    """
+    what_worked = []
+    needs_work = []
+    
+    # === WHAT WORKED ===
+    
+    # Accuracy
+    if accuracy >= 85:
+        what_worked.append("Excellent accuracy - you found the right moves consistently")
+    elif accuracy >= 75:
+        what_worked.append("Solid accuracy - good decision making overall")
+    elif avg_accuracy and accuracy > avg_accuracy + 5:
+        what_worked.append(f"Better than your usual {round(avg_accuracy)}% accuracy")
+    
+    # Clean play
+    if blunders == 0:
+        what_worked.append("Zero blunders - stayed focused throughout")
+    elif blunders == 1 and mistakes <= 1:
+        what_worked.append("Mostly clean play with just one slip")
+    
+    # Pattern avoidance
+    if avoided_rating_killer and rating_killer_label:
+        what_worked.append(f"Avoided your usual {rating_killer_label.lower()} issue")
+    
+    # Conversion
+    stability_score = stability.get("score")
+    if stability_score and stability_score >= 80:
+        what_worked.append("Good composure when ahead - didn't let the advantage slip")
+    
+    # Opening
+    if opening_check.get("complied"):
+        what_worked.append(f"Stuck to {opening_check.get('played')} - our suggested approach")
+    
+    # === STILL NEEDS WORK ===
+    
+    # Blunders in a win
+    if blunders >= 2:
+        needs_work.append(f"Still had {blunders} blunders - opponent didn't punish them")
+    
+    # Stability issues
+    if stability_score and stability_score < 60:
+        needs_work.append("Lost focus when winning - got away with it this time")
+    
+    # Below average accuracy in a win
+    if avg_accuracy and accuracy < avg_accuracy - 5:
+        needs_work.append(f"Accuracy was below your usual ({round(accuracy)}% vs {round(avg_accuracy)}%)")
+    
+    # Pattern showed up but still won
+    if avoided_rating_killer is False and rating_killer_label:
+        needs_work.append(f"Your {rating_killer_label.lower()} pattern showed up again")
+    
+    # Had a big advantage earlier
+    peak = winning_position.get("peak_advantage", 0)
+    if peak >= 4 and blunders > 0:
+        needs_work.append(f"Had +{peak} advantage - could have closed faster")
+    
+    # Generate summary
+    if what_worked and not needs_work:
+        summary = what_worked[0]
+    elif what_worked and needs_work:
+        summary = f"{what_worked[0]}, but {needs_work[0].lower()}"
+    else:
+        summary = "A win is a win - good job getting the result"
+    
+    return {
+        "what_worked": what_worked[:3],
+        "needs_work": needs_work[:2],
+        "summary": summary
+    }
+
+
+def _generate_loss_feedback(
+    accuracy: float, avg_accuracy: float, blunders: int, mistakes: int,
+    stability: Dict, winning_position: Dict, blunder_context: Dict,
+    rating_killer_label: str, avoided_rating_killer: bool, opening_check: Dict
+) -> Dict:
+    """
+    Generate coach feedback for a LOSS.
+    Focus on: Good plays despite outcome + The core problem
+    """
+    good_plays = []
+    core_problem = None
+    
+    # === GOOD PLAYS DESPITE THE LOSS ===
+    
+    # Good accuracy despite loss
+    if accuracy >= 75:
+        good_plays.append(f"{round(accuracy)}% accuracy - you played well, just got unlucky")
+    elif accuracy >= 65:
+        good_plays.append("Decent accuracy overall - loss wasn't due to poor play throughout")
+    
+    # Had a winning position
+    peak = winning_position.get("peak_advantage", 0)
+    if peak >= 1.5:
+        good_plays.append(f"You built a +{peak} advantage - showing good play")
+    
+    # Low blunders despite losing
+    if blunders <= 1:
+        good_plays.append("Only 1 or 2 critical moments decided this")
+    
+    # Pattern avoided even though lost
+    if avoided_rating_killer and rating_killer_label:
+        good_plays.append(f"You avoided your usual {rating_killer_label.lower()} issue")
+    
+    # Better than average accuracy
+    if avg_accuracy and accuracy > avg_accuracy:
+        good_plays.append(f"Accuracy above your average - loss wasn't about bad moves")
+    
+    # === IDENTIFY THE CORE PROBLEM ===
+    
+    stability_score = stability.get("score")
+    when_winning = blunder_context.get("when_winning", 0)
+    when_losing = blunder_context.get("when_losing", 0)
+    
+    # Priority 1: Pattern repeated
+    if avoided_rating_killer is False and rating_killer_label:
+        core_problem = f"Your {rating_killer_label.lower()} pattern showed up at a critical moment"
+    
+    # Priority 2: Collapsed when winning
+    elif peak >= 2 and (stability_score is None or stability_score < 60):
+        core_problem = f"You had +{peak} but couldn't hold it - composure is the issue"
+    
+    # Priority 3: Blunders when ahead
+    elif when_winning >= 2:
+        core_problem = f"{when_winning} mistakes happened when you were winning - relaxed too soon"
+    
+    # Priority 4: Panicked when under pressure
+    elif when_losing >= 2:
+        core_problem = f"{when_losing} mistakes under pressure - need to stay calm when behind"
+    
+    # Priority 5: Too many blunders
+    elif blunders >= 3:
+        core_problem = f"{blunders} blunders is too many - slow down and check threats"
+    
+    # Priority 6: Opening issues
+    elif opening_check.get("paused_and_played"):
+        core_problem = f"The {opening_check.get('played')} didn't work - try a different setup"
+    
+    # Default
+    else:
+        core_problem = "One or two moments swung the game - analyze those specific positions"
+    
+    # Generate summary
+    if good_plays:
+        summary = f"{good_plays[0]}. {core_problem}"
+    else:
+        summary = core_problem
+    
+    return {
+        "good_plays": good_plays[:3],
+        "core_problem": core_problem,
+        "summary": summary
+    }
+
+
+def _generate_draw_feedback(
+    accuracy: float, avg_accuracy: float, blunders: int, mistakes: int,
+    stability: Dict, winning_position: Dict
+) -> Dict:
+    """
+    Generate coach feedback for a DRAW.
+    """
+    observations = []
+    
+    peak = winning_position.get("peak_advantage", 0)
+    
+    if peak >= 2:
+        observations.append(f"Had +{peak} advantage - should have been a win")
+        summary = f"You built a +{peak} lead but couldn't convert. Work on winning technique."
+    elif accuracy >= 80:
+        observations.append("Good accuracy - well-fought draw")
+        summary = "Solid play from both sides. Nothing wrong with this draw."
+    elif blunders >= 2:
+        observations.append(f"Had {blunders} blunders - draw might be a fair result")
+        summary = f"With {blunders} blunders, a draw is actually a reasonable outcome."
+    else:
+        observations.append("Fairly played game")
+        summary = "Both sides played well. Look for missed opportunities."
+    
+    return {
+        "observations": observations,
+        "summary": summary
     }
