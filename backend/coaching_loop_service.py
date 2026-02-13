@@ -1844,7 +1844,7 @@ def _audit_endgame(card, game, analysis, moves, user_color, game_result):
         is_white_move = (move_num % 2 == 1)
         is_user_move = (user_color == "white" and is_white_move) or (user_color == "black" and not is_white_move)
         
-        if is_user_move and m.get("classification") == "blunder":
+        if is_user_move and m.get("evaluation") == "blunder":
             endgame_blunders.append(m)
     
     if endgame_blunders:
