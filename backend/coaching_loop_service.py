@@ -15,6 +15,7 @@ Key Principles:
 - Same PlanCard schema for both preparation and audit
 - Evidence-backed with move numbers, eval swings, time markers
 - Short coach bullets, not essays
+- ADAPTIVE: Critical misses from last game generate specific focus items in next plan
 """
 
 import logging
@@ -24,6 +25,100 @@ from datetime import datetime, timezone
 import uuid
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# CRITICAL INSIGHTS EXTRACTION - Learn from Last Game's Mistakes
+# =============================================================================
+
+def extract_critical_insights_from_analysis(analysis: Dict, game: Dict) -> List[Dict]:
+    """
+    Extract critical tactical insights from a game's analysis.
+    
+    Analyzes the worst moves (blunders/big mistakes) to find patterns like:
+    - Missed piece traps
+    - Missed forks
+    - Failed to restrict opponent's pieces
+    - Walked into tactics
+    
+    Returns a list of critical insights that should inform the next plan.
+    """
+    if not analysis:
+        return []
+    
+    user_color = game.get("user_color", "white")
+    sf = analysis.get("stockfish_analysis", {})
+    moves = sf.get("move_evaluations", [])
+    
+    critical_insights = []
+    
+    # Find the worst moves (blunders and big mistakes with cp_loss > 100)
+    worst_moves = []
+    for m in moves:
+        cp_loss = m.get("cp_loss", 0)
+        evaluation = m.get("evaluation", "")
+        
+        if evaluation == "blunder" or cp_loss >= 150:
+            worst_moves.append(m)
+    
+    # Limit to top 3 worst moves
+    worst_moves = sorted(worst_moves, key=lambda x: x.get("cp_loss", 0), reverse=True)[:3]
+    
+    # Analyze each worst move with deep tactical analysis
+    for move_data in worst_moves:
+        fen_before = move_data.get("fen_before") or move_data.get("fen")
+        played_move = move_data.get("played_move") or move_data.get("move")
+        best_move = move_data.get("best_move")
+        move_num = move_data.get("move_number", 0)
+        cp_loss = move_data.get("cp_loss", 0)
+        
+        if not fen_before or not best_move:
+            continue
+        
+        try:
+            from position_analyzer import analyze_deep_tactics
+            deep_analysis = analyze_deep_tactics(fen_before, played_move, best_move, user_color)
+            
+            if deep_analysis.get("pattern") and deep_analysis["pattern"] not in ["positional", None, "error"]:
+                pattern = deep_analysis["pattern"]
+                pattern_name = deep_analysis.get("pattern_name", pattern)
+                
+                # Create a critical insight
+                insight = {
+                    "type": pattern,
+                    "pattern_name": pattern_name,
+                    "move_number": move_num,
+                    "cp_loss": cp_loss,
+                    "best_move": best_move,
+                    "explanation": deep_analysis.get("explanation", ""),
+                    "key_insight": deep_analysis.get("key_insight", ""),
+                    "actionable_goal": _create_actionable_goal_from_pattern(pattern, pattern_name)
+                }
+                
+                critical_insights.append(insight)
+        except Exception as e:
+            logger.warning(f"Deep analysis failed for move {move_num}: {e}")
+            continue
+    
+    return critical_insights
+
+
+def _create_actionable_goal_from_pattern(pattern: str, pattern_name: str) -> str:
+    """
+    Create an actionable goal for the next game based on a missed tactical pattern.
+    """
+    pattern_to_goal = {
+        "piece_trap": "Look for opportunities to trap enemy pieces - check if their pieces have escape squares",
+        "mobility_restriction": "Restrict your opponent's pieces - ask 'can I limit where their pieces can go?'",
+        "multi_threat": "Create multiple threats at once - look for moves that attack two things",
+        "attack_valuable": "Target high-value pieces - look for attacks on queen, rooks, or undefended pieces",
+        "fork": "Scan for double attacks every move - CCT (Checks, Captures, Threats)",
+        "missed_fork": "Scan for double attacks every move - CCT (Checks, Captures, Threats)",
+        "missed_pin": "Look for pins along diagonals, ranks, and files",
+        "missed_piece_trap": "Look for opportunities to trap enemy pieces - check their escape squares",
+    }
+    
+    return pattern_to_goal.get(pattern, f"Watch for {pattern_name} opportunities in your games")
 
 
 # =============================================================================
