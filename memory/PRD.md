@@ -146,6 +146,9 @@ UI Indicators:
   - Fixed field name from `classification` to `evaluation` for blunder detection
   - Fixed `games[-30:]` to `games[:30]` to get most recent games instead of oldest
 - **Fixed**: Plan Audit correctly shows "Played: Philidor Defense" instead of "Played: unknown"
+- **Fixed**: Plan Audit now shows opponent name and game result (e.g., "vs Niwzey · WIN (white)")
+- **Fixed**: Analysis worker now auto-checks and installs Stockfish if missing
+- **Fixed**: Added 10-minute timeout for stuck analysis jobs - automatically reset for retry or marked as failed
 
 ## Prioritized Backlog
 
