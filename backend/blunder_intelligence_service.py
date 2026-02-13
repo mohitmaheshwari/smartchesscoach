@@ -3264,13 +3264,45 @@ def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
     Adds:
     - Core lesson of the game
     - Strategic analysis (opening, structure, themes)
+    - Positional insight (RAG-backed deep coaching) - NEW
     """
     core_lesson = get_core_lesson(analysis)
     strategic_analysis = get_game_strategic_analysis(analysis, game)
     
+    # NEW: Add RAG-backed positional insight
+    positional_insight = None
+    try:
+        from positional_coaching_service import get_positional_insight
+        
+        if strategic_analysis and strategic_analysis.get("has_strategy"):
+            structure_type = strategic_analysis.get("pawn_structure", {}).get("type", "")
+            user_color = game.get("user_color", "white") if game else "white"
+            
+            # Extract theme names from strategic_themes list
+            strategic_themes = []
+            for theme in strategic_analysis.get("strategic_themes", []):
+                if isinstance(theme, dict):
+                    strategic_themes.append(theme.get("theme", ""))
+                elif isinstance(theme, str):
+                    strategic_themes.append(theme)
+            
+            # Get execution data for context
+            execution_data = strategic_analysis.get("pawn_structure", {}).get("execution", {})
+            
+            positional_insight = get_positional_insight(
+                structure_type=structure_type,
+                user_color=user_color,
+                strategic_themes=strategic_themes,
+                execution_data=execution_data
+            )
+    except Exception as e:
+        logger.warning(f"Could not generate positional insight: {e}")
+        positional_insight = None
+    
     return {
         "core_lesson": core_lesson,
         "strategic_analysis": strategic_analysis,
+        "positional_insight": positional_insight,
         "analysis": analysis
     }
 
