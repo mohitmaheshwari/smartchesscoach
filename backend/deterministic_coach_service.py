@@ -1771,6 +1771,7 @@ async def generate_round_preparation(db, user_id: str) -> Dict:
     # Get last audited game for critical insights
     critical_insights = []
     last_audit = None
+    drills = []
     
     plan_history = await db.user_plans.find(
         {"user_id": user_id, "is_audited": True},
@@ -1798,6 +1799,9 @@ async def generate_round_preparation(db, user_id: str) -> Dict:
                     critical_insights = extract_critical_insights_from_analysis(analysis, game)
                 except Exception as e:
                     logger.warning(f"Failed to extract critical insights: {e}")
+                
+                # Extract drill positions from user's mistakes
+                drills = generate_drill_positions(analysis, game, profile.get("weakness_patterns", {}))
     
     # Generate the plan
     plan = generate_deterministic_plan(
@@ -1810,6 +1814,17 @@ async def generate_round_preparation(db, user_id: str) -> Dict:
         last_audit=last_audit,
         critical_insights=critical_insights,
     )
+    
+    # Add drills to the plan
+    plan["drills"] = drills
+    
+    # Add opening recommendation for the Plan tab
+    opening_rec = profile.get("opening_recommendations", {})
+    plan["opening_recommendation"] = {
+        "as_white": opening_rec.get("as_white", {}).get("recommended"),
+        "as_black": opening_rec.get("as_black", {}).get("recommended"),
+        "line": opening_rec.get("as_white", {}).get("recommended", {}).get("main_line", []) if opening_rec.get("as_white") else []
+    }
     
     # Save plan - copy first to avoid _id contamination
     plan_to_save = {k: v for k, v in plan.items() if k != "_id"}
