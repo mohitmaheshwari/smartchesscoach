@@ -899,6 +899,9 @@ const JourneyPage = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [journeyData, setJourneyData] = useState(null);
   
+  // Lifted tab state for coordinating weakness/pattern display
+  const [activeComparisonTab, setActiveComparisonTab] = useState('growth'); // 'before', 'after', 'growth'
+  
   const [evidenceModal, setEvidenceModal] = useState({
     isOpen: false,
     title: "",
@@ -971,6 +974,68 @@ const JourneyPage = ({ user }) => {
 
   const handleViewGame = (gameId) => {
     navigate(`/lab/${gameId}`);
+  };
+  
+  // Get the appropriate patterns based on active tab
+  const getActivePatterns = () => {
+    if (activeComparisonTab === 'before') {
+      return journeyData?.baseline_patterns;
+    }
+    return journeyData?.current_patterns;
+  };
+  
+  // Transform pattern data for WeaknessRanking component
+  const getWeaknessRankingData = () => {
+    const patterns = getActivePatterns();
+    if (!patterns?.weaknesses) return journeyData?.weakness_ranking;
+    
+    // Transform the patterns data to match expected weakness_ranking format
+    const weaknesses = patterns.weaknesses.map((w, index) => ({
+      rank: index + 1,
+      pattern: w.id,
+      label: w.label,
+      message: w.description,
+      severity: w.severity,
+      occurrence_rate: w.occurrence_pct,
+      total_games: w.total_games,
+      occurrence_count: w.occurrence_count,
+      pawns_lost: w.pawns_lost || 0,
+      evidence: w.examples || [],
+      trend: journeyData?.pattern_comparison?.weaknesses?.find(c => c.id === w.id)?.trend || null
+    }));
+    
+    return {
+      weaknesses,
+      primary: weaknesses[0] || null,
+      secondary: weaknesses[1] || null
+    };
+  };
+  
+  // Transform pattern data for WinStateAnalysis component
+  const getWinStateData = () => {
+    const patterns = getActivePatterns();
+    if (!patterns?.blunder_context) return journeyData?.win_state;
+    
+    const bc = patterns.blunder_context;
+    return {
+      when_winning: {
+        count: bc.when_winning?.count || 0,
+        percentage: bc.when_winning?.percentage || 0,
+        evidence: bc.when_winning?.examples || []
+      },
+      when_equal: {
+        count: bc.when_equal?.count || 0,
+        percentage: bc.when_equal?.percentage || 0,
+        evidence: bc.when_equal?.examples || []
+      },
+      when_losing: {
+        count: bc.when_losing?.count || 0,
+        percentage: bc.when_losing?.percentage || 0,
+        evidence: bc.when_losing?.examples || []
+      },
+      total_blunders: bc.total_blunders || 0,
+      insight: bc.insight || ""
+    };
   };
 
   if (loading) {
