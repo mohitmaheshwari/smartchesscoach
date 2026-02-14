@@ -5183,14 +5183,21 @@ async def get_round_preparation(user: User = Depends(get_current_user)):
     Get Round Preparation (Next Game Plan).
     
     This is the coach's plan for the user's next game.
-    Generated from: rating band, behavior patterns, fundamentals profile,
-    opening stability, and last audit results.
+    Generated using the DETERMINISTIC ADAPTIVE COACH system.
     
-    Returns PlanCard with 5 domain cards (opening, middlegame, tactics, endgame, time).
+    Inputs used:
+    - Rating band (granular: 600-1000, 1000-1400, 1400-1800, 1800+)
+    - Last 25 games fundamentals profile
+    - Weakness patterns with evidence
+    - Opening stability recommendations
+    - Domain history (consecutive misses/executions)
+    - Critical insights from last game's mistakes
+    
+    Intensity (1-5) adjusts per domain based on consecutive failures.
     """
-    from coaching_loop_service import get_or_generate_plan
+    from deterministic_coach_service import generate_round_preparation
     
-    plan = await get_or_generate_plan(db, user.user_id)
+    plan = await generate_round_preparation(db, user.user_id)
     
     # Remove audit fields for preparation view (they should be empty anyway)
     for card in plan.get("cards", []):
