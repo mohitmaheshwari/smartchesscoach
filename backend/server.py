@@ -5258,57 +5258,22 @@ async def regenerate_plan(user: User = Depends(get_current_user)):
 
 
 @api_router.get("/coaching-loop/profile")
-async def get_coaching_profile(user: User = Depends(get_current_user)):
+async def get_coaching_loop_profile(user: User = Depends(get_current_user)):
     """
     Get the user's full coaching profile.
     
-    Returns all the inputs used for plan generation:
-    - Rating band
-    - Fundamentals profile
-    - Behavior patterns
-    - Opening stability
-    - Training block
+    Returns all the inputs used for DETERMINISTIC ADAPTIVE COACH:
+    - Rating band (granular: 600-1000, 1000-1400, 1400-1800, 1800+)
+    - Fundamentals profile (last 25 games)
+    - Weakness patterns with evidence
+    - Opening stability recommendations
+    - Domain history (consecutive misses/executions)
+    - Training block with intensity (1-5)
     """
-    from coaching_loop_service import (
-        calculate_fundamentals_profile,
-        detect_behavior_patterns,
-        calculate_opening_stability,
-        get_training_block,
-        _get_rating_band
-    )
+    from deterministic_coach_service import get_coaching_profile
     
-    # Get user data
-    user_data = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
-    
-    # Get games and analyses
-    games = await db.games.find(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    ).sort("imported_at", -1).to_list(50)
-    
-    analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    ).sort("created_at", -1).to_list(50)
-    
-    # Calculate profile
-    rating_band = _get_rating_band(user_data.get("rating", 1200) if user_data else 1200)
-    fundamentals = calculate_fundamentals_profile(analyses, games)
-    behavior_patterns = detect_behavior_patterns(analyses, games)
-    opening_stability = calculate_opening_stability(analyses, games)
-    
-    training_block = get_training_block(
-        behavior_patterns.get("primary_weakness"),
-        fundamentals
-    )
-    
-    return {
-        "rating_band": rating_band,
-        "fundamentals": fundamentals,
-        "behavior_patterns": behavior_patterns,
-        "opening_stability": opening_stability,
-        "training_block": training_block
-    }
+    profile = await get_coaching_profile(db, user.user_id)
+    return profile
 
 
 @api_router.get("/journey/v2")
