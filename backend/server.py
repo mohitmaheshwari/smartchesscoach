@@ -5174,6 +5174,82 @@ async def get_discipline_check_data(user: User = Depends(get_current_user)):
 
 
 # =============================================================================
+# ADAPTIVE PERFORMANCE COACH (NEW GOLD FEATURE - Focus Page v2)
+# =============================================================================
+
+@api_router.get("/adaptive-coach")
+async def get_adaptive_coach_data_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get Adaptive Performance Coach data for Focus page.
+    
+    This is the GM-style performance briefing system with 4 sections:
+    1. Coach Diagnosis - Your Current Growth Priority (ONE primary leak)
+    2. Next Game Plan - 5 domains (Opening, Middlegame, Tactical, Endgame, Time)
+    3. Plan Audit - Last Game Execution Review (audit vs plan)
+    4. Skill Signals - Live Performance Monitoring (trends)
+    
+    Rating-band aware:
+    - 600-1000: Focus on Hanging Pieces
+    - 1000-1600: Focus on Tactical Awareness
+    - 1600-2000: Focus on Advantage Discipline
+    - 2000+: Focus on Conversion Precision
+    """
+    from adaptive_coach_service import get_adaptive_coach_data
+    
+    data = await get_adaptive_coach_data(db, user.user_id)
+    return data
+
+
+@api_router.post("/adaptive-coach/audit-game/{game_id}")
+async def audit_game_adaptive_coach(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Audit a specific game against the current plan and update intensity levels.
+    
+    Called after game analysis completes to:
+    1. Audit the game against the current plan
+    2. Update intensity levels per domain (adaptive loop)
+    3. Mark the plan as audited
+    """
+    from adaptive_coach_service import (
+        audit_last_game_against_plan,
+        update_intensity_after_audit
+    )
+    
+    # Get game and analysis
+    game = await db.games.find_one({"game_id": game_id, "user_id": user.user_id}, {"_id": 0})
+    analysis = await db.game_analyses.find_one({"game_id": game_id, "user_id": user.user_id}, {"_id": 0})
+    
+    if not game or not analysis:
+        return {"error": "Game or analysis not found"}
+    
+    # Get active plan
+    active_plan = await db.user_adaptive_plans.find_one(
+        {"user_id": user.user_id, "is_active": True},
+        {"_id": 0}
+    )
+    
+    if not active_plan:
+        return {"error": "No active plan found"}
+    
+    # Audit the game
+    audit_result = audit_last_game_against_plan(analysis, game, active_plan)
+    
+    # Update intensity levels
+    intensity_update = await update_intensity_after_audit(db, user.user_id, audit_result)
+    
+    # Mark plan as audited
+    await db.user_adaptive_plans.update_one(
+        {"plan_id": active_plan["plan_id"]},
+        {"$set": {"is_active": False, "is_audited": True, "audit_result": audit_result}}
+    )
+    
+    return {
+        "audit_result": audit_result,
+        "intensity_update": intensity_update,
+    }
+
+
+# =============================================================================
 # COACHING LOOP ENDPOINTS (GOLD FEATURE)
 # =============================================================================
 
