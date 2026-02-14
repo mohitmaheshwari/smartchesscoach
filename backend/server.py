@@ -5234,13 +5234,47 @@ async def audit_specific_game(game_id: str, user: User = Depends(get_current_use
     
     This is called after game analysis completes to:
     1. Audit the game against the current plan
-    2. Generate a new plan for the next game
+    2. Generate a new plan for the next game (adaptive loop continues)
     """
-    from coaching_loop_service import audit_game_and_update_plan
+    from deterministic_coach_service import (
+        audit_game_against_plan,
+        generate_round_preparation,
+        get_coaching_profile
+    )
     
-    result = await audit_game_and_update_plan(db, user.user_id, game_id)
+    # Get the active plan
+    active_plan = await db.user_plans.find_one(
+        {"user_id": user.user_id, "is_active": True, "is_audited": False},
+        {"_id": 0}
+    )
     
-    return result
+    if not active_plan:
+        # Generate a plan first
+        active_plan = await generate_round_preparation(db, user.user_id)
+    
+    # Get game and analysis
+    game = await db.games.find_one({"game_id": game_id, "user_id": user.user_id}, {"_id": 0})
+    analysis = await db.game_analyses.find_one({"game_id": game_id, "user_id": user.user_id}, {"_id": 0})
+    
+    if not game or not analysis:
+        return {"error": "Game or analysis not found"}
+    
+    # Audit the game
+    audited_plan = audit_game_against_plan(active_plan, game, analysis)
+    
+    # Update plan in database
+    await db.user_plans.update_one(
+        {"plan_id": active_plan["plan_id"]},
+        {"$set": audited_plan}
+    )
+    
+    # Generate new plan (adaptive loop continues)
+    new_plan = await generate_round_preparation(db, user.user_id)
+    
+    return {
+        "audited_plan": audited_plan,
+        "new_plan": new_plan
+    }
 
 
 @api_router.post("/coaching-loop/regenerate-plan")
@@ -5249,10 +5283,18 @@ async def regenerate_plan(user: User = Depends(get_current_user)):
     Force regenerate the user's plan.
     
     Use this if the user wants a fresh plan without auditing.
+    Uses the DETERMINISTIC ADAPTIVE COACH system.
     """
-    from coaching_loop_service import get_or_generate_plan
+    from deterministic_coach_service import generate_round_preparation
     
-    plan = await get_or_generate_plan(db, user.user_id, force_new=True)
+    # Invalidate existing active plans
+    await db.user_plans.update_many(
+        {"user_id": user.user_id, "is_active": True},
+        {"$set": {"is_active": False}}
+    )
+    
+    # Generate fresh plan
+    plan = await generate_round_preparation(db, user.user_id)
     
     return plan
 
