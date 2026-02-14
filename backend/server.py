@@ -5339,16 +5339,20 @@ async def get_journey_page_data(user: User = Depends(get_current_user)):
     
     Returns:
     - Baseline vs Current progress tracking
+    - Baseline patterns (weaknesses from first games)
+    - Current patterns (weaknesses from recent games)
+    - Pattern comparison (improvement/regression per weakness)
     - Weakness ranking (not equal badges)
     - Win-state analysis
-    - Mistake heatmap
     - Identity profile
-    - Milestones
     """
     from baseline_service import (
         get_or_create_baseline,
+        get_baseline_patterns,
         calculate_current_stats,
         calculate_progress,
+        calculate_pattern_snapshot,
+        compare_patterns,
         MIN_GAMES_FOR_BASELINE
     )
     
@@ -5370,13 +5374,36 @@ async def get_journey_page_data(user: User = Depends(get_current_user)):
     # Get or create baseline profile
     baseline = await get_or_create_baseline(db, user.user_id, all_analyses, all_games)
     
+    # Get baseline patterns (weaknesses from first games)
+    baseline_patterns = await get_baseline_patterns(db, user.user_id)
+    
+    # If baseline exists but patterns don't (legacy user), create patterns now
+    if baseline and not baseline_patterns:
+        baseline_analyses = sorted(all_analyses, key=lambda x: x.get('created_at', ''))[:MIN_GAMES_FOR_BASELINE]
+        baseline_games = sorted(all_games, key=lambda x: x.get('imported_at', ''))[:MIN_GAMES_FOR_BASELINE]
+        baseline_patterns = calculate_pattern_snapshot(baseline_analyses, baseline_games)
+        
+        # Save it for future use
+        await db.users.update_one(
+            {'user_id': user.user_id},
+            {'$set': {'baseline_patterns': baseline_patterns}}
+        )
+    
     # Calculate current stats from recent 25 games
     current_stats = calculate_current_stats(analyses, games)
+    
+    # Calculate current patterns
+    current_patterns = calculate_pattern_snapshot(analyses, games) if analyses else None
     
     # Calculate progress if baseline exists
     progress = None
     if baseline and current_stats:
         progress = calculate_progress(baseline, current_stats)
+    
+    # Calculate pattern comparison
+    pattern_comparison = None
+    if baseline_patterns and current_patterns:
+        pattern_comparison = compare_patterns(baseline_patterns, current_patterns)
     
     # Get existing badge data
     badge_data = await calculate_all_badges(db, user.user_id)
@@ -5389,6 +5416,11 @@ async def get_journey_page_data(user: User = Depends(get_current_user)):
     journey_data['progress'] = progress
     journey_data['has_baseline'] = baseline is not None
     journey_data['games_until_baseline'] = max(0, MIN_GAMES_FOR_BASELINE - len(all_analyses)) if not baseline else 0
+    
+    # Add pattern data for Before/After tabs
+    journey_data['baseline_patterns'] = baseline_patterns
+    journey_data['current_patterns'] = current_patterns
+    journey_data['pattern_comparison'] = pattern_comparison
     
     return journey_data
 
