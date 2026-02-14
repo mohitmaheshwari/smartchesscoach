@@ -1563,6 +1563,139 @@ def _audit_time_domain(card: Dict, moves: List[Dict], thresholds: Dict):
 
 
 # =============================================================================
+# KEY MOMENTS EXTRACTION - For Board-First UI
+# =============================================================================
+
+def extract_key_moments(analysis: Dict, game: Dict, max_moments: int = 5) -> List[Dict]:
+    """
+    Extract 3-5 key teaching moments from a game for the Board-First Coach UI.
+    
+    Selection criteria (in priority order):
+    1. Biggest eval drops (blunders/mistakes)
+    2. First plan violation
+    3. Advantage collapse moments
+    4. Time trouble blunders (if detected)
+    
+    Each moment includes:
+    - FEN position
+    - Move played and best move
+    - Evaluation swing
+    - Category label
+    - Description
+    """
+    
+    moments = []
+    sf = analysis.get("stockfish_analysis", {})
+    moves = sf.get("move_evaluations", [])
+    commentary = analysis.get("commentary", [])
+    user_color = game.get("user_color", "white")
+    
+    if not moves:
+        return []
+    
+    # Build a map of commentary for explanations
+    comment_map = {}
+    for c in commentary:
+        if c.get("move_number"):
+            comment_map[c["move_number"]] = c
+    
+    # 1. Find blunders and mistakes (biggest eval drops first)
+    significant_moves = []
+    for m in moves:
+        cp_loss = m.get("cp_loss", 0)
+        eval_type = m.get("evaluation", "")
+        if hasattr(eval_type, "value"):
+            eval_type = eval_type.value
+        
+        if eval_type in ["blunder", "mistake"] or cp_loss >= 100:
+            significant_moves.append({
+                **m,
+                "eval_type": eval_type,
+                "cp_loss": cp_loss
+            })
+    
+    # Sort by cp_loss (worst first)
+    significant_moves.sort(key=lambda x: x.get("cp_loss", 0), reverse=True)
+    
+    # Track positions we've already added
+    seen_positions = set()
+    
+    for m in significant_moves[:max_moments * 2]:  # Get more than needed, filter later
+        move_num = m.get("move_number")
+        fen = m.get("fen_before", START_FEN)
+        
+        # Skip if we already have this position
+        position_key = fen[:40]  # Use first 40 chars as key
+        if position_key in seen_positions:
+            continue
+        seen_positions.add(position_key)
+        
+        # Get commentary for this move
+        comment = comment_map.get(move_num, {})
+        
+        # Determine category
+        cp_loss = m.get("cp_loss", 0)
+        eval_before = m.get("eval_before", 0)
+        
+        if cp_loss >= 300:
+            category = "hanging_piece"
+            label = "Piece Left Hanging"
+        elif eval_before >= 150 and cp_loss >= 150:
+            category = "advantage_collapse"
+            label = "Lost Winning Position"
+        elif m.get("move_number", 0) > 50 and cp_loss >= 100:
+            category = "time_pressure"
+            label = "Late-Game Mistake"
+        elif cp_loss >= 150:
+            category = "tactical_miss"
+            label = "Tactical Oversight"
+        else:
+            category = "positional"
+            label = "Positional Error"
+        
+        moment = {
+            "moveNumber": move_num,
+            "move": m.get("move", ""),
+            "fen": fen,
+            "fenAfter": m.get("fen_after", fen),
+            "evalSwing": -cp_loss,
+            "evalBefore": eval_before,
+            "evalAfter": m.get("eval_after", 0),
+            "category": category,
+            "label": label,
+            "description": comment.get("feedback", comment.get("comment", "")),
+            "bestMove": m.get("best_move"),
+            "bestMoveExplanation": comment.get("consider", ""),
+            "highlightSquares": _get_highlight_squares(m),
+            "correctMoves": [m.get("best_move")] if m.get("best_move") else []
+        }
+        
+        moments.append(moment)
+        
+        if len(moments) >= max_moments:
+            break
+    
+    return moments
+
+
+def _get_highlight_squares(move_data: Dict) -> List[str]:
+    """Get squares to highlight for a moment."""
+    squares = []
+    
+    move = move_data.get("move", "")
+    
+    # Try to extract destination square from move
+    # Handle algebraic notation like Nf3, Bxe5, e4, O-O
+    if len(move) >= 2:
+        # Get last 2 chars which should be the destination
+        dest = move[-2:]
+        if dest[0] in "abcdefgh" and dest[1] in "12345678":
+            squares.append(dest)
+    
+    return squares
+
+
+# =============================================================================
 # PUBLIC API - Main entry points for the coaching loop
 # =============================================================================
 
