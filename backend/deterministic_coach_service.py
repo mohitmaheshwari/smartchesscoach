@@ -1903,6 +1903,10 @@ async def generate_round_preparation(db, user_id: str) -> Dict:
         "line": opening_rec.get("as_white", {}).get("recommended", {}).get("main_line", []) if opening_rec.get("as_white") else []
     }
     
+    # Add games analyzed count for UI
+    plan["games_analyzed"] = profile.get("games_analyzed", 0)
+    plan["has_enough_data"] = profile.get("has_enough_data", False)
+    
     # Save plan - copy first to avoid _id contamination
     plan_to_save = {k: v for k, v in plan.items() if k != "_id"}
     
