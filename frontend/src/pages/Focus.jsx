@@ -285,7 +285,7 @@ const FocusPage = ({ user }) => {
                             {roundPrep.training_block.name}
                           </span>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Intensity {roundPrep.training_block.intensity}/3
+                            Intensity {roundPrep.training_block.intensity}/5
                           </p>
                         </div>
                       )}
