@@ -1591,7 +1591,6 @@ def extract_key_moments(analysis: Dict, game: Dict, max_moments: int = 5) -> Lis
     sf = analysis.get("stockfish_analysis", {})
     moves = sf.get("move_evaluations", [])
     commentary = analysis.get("commentary", [])
-    user_color = game.get("user_color", "white")
     
     if not moves:
         return []
