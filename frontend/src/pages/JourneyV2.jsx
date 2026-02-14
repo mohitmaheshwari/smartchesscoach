@@ -1110,7 +1110,25 @@ const JourneyPage = ({ user }) => {
           <>
             {/* Before/After Coach Comparison */}
             {journeyData?.progress && (
-              <CoachingComparison data={journeyData} />
+              <CoachingComparison 
+                data={journeyData} 
+                activeTab={activeComparisonTab}
+                onTabChange={setActiveComparisonTab}
+              />
+            )}
+            
+            {/* Tab indicator for weakness sections */}
+            {journeyData?.has_baseline && journeyData?.baseline_patterns && (
+              <div className="flex items-center gap-2 mb-4 text-sm">
+                <span className="text-muted-foreground">Showing:</span>
+                <span className={`px-2 py-0.5 rounded-full font-medium ${
+                  activeComparisonTab === 'before' 
+                    ? 'bg-amber-500/20 text-amber-500' 
+                    : 'bg-emerald-500/20 text-emerald-500'
+                }`}>
+                  {activeComparisonTab === 'before' ? 'First 10 Games' : 'Last 25 Games'}
+                </span>
+              </div>
             )}
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1123,7 +1141,7 @@ const JourneyPage = ({ user }) => {
               </h2>
               
               <WeaknessRanking 
-                data={journeyData?.weakness_ranking} 
+                data={getWeaknessRankingData()} 
                 onShowEvidence={handleShowWeaknessEvidence}
                 onStartDrill={handleStartDrill}
               />
@@ -1140,7 +1158,7 @@ const JourneyPage = ({ user }) => {
               </h2>
               
               <WinStateAnalysis 
-                data={journeyData?.win_state} 
+                data={getWinStateData()} 
                 onShowEvidence={handleShowStateEvidence}
               />
               
