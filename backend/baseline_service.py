@@ -726,9 +726,10 @@ async def get_or_create_baseline(db, user_id: str, analyses: List[Dict], games: 
     Get existing baseline or create one if user has enough games.
     
     Returns baseline profile if exists or was just created.
+    Now also captures baseline_patterns for Before/After comparison.
     """
     # Check if user already has baseline
-    user = await db.users.find_one({'user_id': user_id}, {'_id': 0, 'baseline_profile': 1, 'coaching_started_at': 1})
+    user = await db.users.find_one({'user_id': user_id}, {'_id': 0, 'baseline_profile': 1, 'baseline_patterns': 1, 'coaching_started_at': 1})
     
     if user and user.get('baseline_profile'):
         return user['baseline_profile']
@@ -741,17 +742,30 @@ async def get_or_create_baseline(db, user_id: str, analyses: List[Dict], games: 
         
         baseline = calculate_baseline_profile(baseline_analyses, baseline_games)
         
+        # Also calculate baseline patterns (weaknesses, blunder context) for Before/After comparison
+        baseline_patterns = calculate_pattern_snapshot(baseline_analyses, baseline_games)
+        
         if baseline:
-            # Save baseline to user document
+            # Save baseline AND baseline_patterns to user document
             await db.users.update_one(
                 {'user_id': user_id},
                 {'$set': {
                     'baseline_profile': baseline,
+                    'baseline_patterns': baseline_patterns,  # NEW: Store patterns snapshot
                     'coaching_started_at': datetime.now(timezone.utc).isoformat(),
                     'games_at_baseline': len(games)
                 }}
             )
-            logger.info(f"Created baseline profile for user {user_id}")
+            logger.info(f"Created baseline profile and patterns for user {user_id}")
             return baseline
     
     return None
+
+
+async def get_baseline_patterns(db, user_id: str) -> Optional[Dict]:
+    """Get stored baseline patterns for a user."""
+    user = await db.users.find_one(
+        {'user_id': user_id}, 
+        {'_id': 0, 'baseline_patterns': 1}
+    )
+    return user.get('baseline_patterns') if user else None
