@@ -501,20 +501,24 @@ def compute_primary_leak(
     leak_info = LEAKS_BY_BAND.get(band_name, LEAKS_BY_BAND["beginner"])
     primary_leak = leak_info["primary"].copy()
     
-    # Add evidence based on actual data
-    if band_name == "beginner" and hanging["rate"] >= 0.2:
+    # Always try to get an example position based on the leak type
+    # This makes the "See Typical Pattern" button useful
+    if band_name == "beginner":
+        # For beginners, look for hanging pieces
         primary_leak["evidence_rate"] = hanging["rate"]
         primary_leak["example_position"] = hanging["example_positions"][0] if hanging["example_positions"] else None
-    elif band_name == "club" and tactical["blunders_per_game"] >= 1.5:
+    elif band_name == "club":
+        # For club players, look for tactical misses
         primary_leak["evidence_rate"] = tactical["blunders_per_game"]
         primary_leak["example_position"] = tactical["example_positions"][0] if tactical["example_positions"] else None
-    elif band_name in ["intermediate", "advanced"] and collapse["rate"] >= 0.25:
+    elif band_name in ["intermediate", "advanced"]:
+        # For higher rated players, look for advantage collapses
         primary_leak["evidence_rate"] = collapse["rate"]
         primary_leak["example_position"] = collapse["example_positions"][0] if collapse["example_positions"] else None
-    else:
-        # Default to rating band's expected leak
-        primary_leak["evidence_rate"] = None
-        primary_leak["example_position"] = None
+        
+        # Fallback to tactical if no collapse evidence
+        if not primary_leak["example_position"] and tactical["example_positions"]:
+            primary_leak["example_position"] = tactical["example_positions"][0]
     
     return {
         "leak": primary_leak,
