@@ -5,7 +5,7 @@ import { API } from "@/App";
 import Layout from "@/components/Layout";
 import CoachBoard from "@/components/CoachBoard";
 import KeyMomentCard from "@/components/KeyMomentCard";
-import DrillCard, { OpeningLineDrill, HabitCard } from "@/components/DrillCard";
+import DrillCard, { HabitCard } from "@/components/DrillCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,7 +17,6 @@ import {
   ClipboardCheck,
   BookOpen,
   Dumbbell,
-  ChevronRight,
   Brain,
   Trophy,
   AlertTriangle,
@@ -26,7 +25,8 @@ import {
   Clock,
   RefreshCw,
   Play,
-  RotateCcw
+  Flame,
+  Lightbulb
 } from "lucide-react";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -36,12 +36,7 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
  * 
  * Layout:
  * - LEFT: Sticky interactive chessboard (always visible)
- * - RIGHT: Three tabs - Audit, Plan, Openings
- * 
- * Philosophy:
- * - Every insight backed by a position on the board
- * - Interactive drills instead of reading text
- * - Minimum text, maximum board interaction
+ * - RIGHT: Three tabs - Audit, Plan, Openings + Mission
  */
 const BoardFirstCoach = ({ user }) => {
   const navigate = useNavigate();
@@ -54,6 +49,7 @@ const BoardFirstCoach = ({ user }) => {
   // Data states
   const [auditData, setAuditData] = useState(null);
   const [planData, setPlanData] = useState(null);
+  const [focusData, setFocusData] = useState(null);
   const [keyMoments, setKeyMoments] = useState([]);
   const [drills, setDrills] = useState([]);
   const [openings, setOpenings] = useState(null);
@@ -64,6 +60,8 @@ const BoardFirstCoach = ({ user }) => {
   const [activeDrill, setActiveDrill] = useState(null);
   const [drillMode, setDrillMode] = useState(false);
   const [completedDrills, setCompletedDrills] = useState(new Set());
+  const [openingLineIndex, setOpeningLineIndex] = useState(0);
+  const [isPlayingLine, setIsPlayingLine] = useState(false);
   
   // Sync status
   const [syncStatus, setSyncStatus] = useState(null);
@@ -78,10 +76,11 @@ const BoardFirstCoach = ({ user }) => {
       try {
         setLoading(true);
         
-        // Fetch plan audit and round preparation in parallel
-        const [auditRes, prepRes] = await Promise.all([
+        // Fetch plan audit, round preparation, and focus data in parallel
+        const [auditRes, prepRes, focusRes] = await Promise.all([
           fetch(`${API}/plan-audit`, { credentials: "include" }),
-          fetch(`${API}/round-preparation`, { credentials: "include" })
+          fetch(`${API}/round-preparation`, { credentials: "include" }),
+          fetch(`${API}/focus`, { credentials: "include" })
         ]);
         
         if (auditRes.ok) {
@@ -92,7 +91,6 @@ const BoardFirstCoach = ({ user }) => {
           if (data.key_moments) {
             setKeyMoments(data.key_moments);
           } else {
-            // Derive key moments from audit cards
             const moments = deriveKeyMomentsFromAudit(data);
             setKeyMoments(moments);
           }
@@ -106,7 +104,6 @@ const BoardFirstCoach = ({ user }) => {
           if (data.drills) {
             setDrills(data.drills);
           } else {
-            // Derive drills from plan (focus_items)
             const derivedDrills = deriveDrillsFromPlan(data);
             setDrills(derivedDrills);
           }
@@ -115,6 +112,11 @@ const BoardFirstCoach = ({ user }) => {
           if (data.opening_recommendation) {
             setOpenings(data.opening_recommendation);
           }
+        }
+        
+        if (focusRes.ok) {
+          const data = await focusRes.json();
+          setFocusData(data);
         }
         
       } catch (err) {
@@ -154,7 +156,6 @@ const BoardFirstCoach = ({ user }) => {
     
     const moments = [];
     
-    // Look through domain audits for evidence of mistakes
     for (const card of audit.cards) {
       if (card.audit?.status === 'missed' && card.audit?.evidence?.length > 0) {
         for (const ev of card.audit.evidence.slice(0, 2)) {
@@ -177,7 +178,6 @@ const BoardFirstCoach = ({ user }) => {
       }
     }
     
-    // Also look at focus_items from plan
     if (audit.focus_items) {
       for (const item of audit.focus_items.slice(0, 3)) {
         if (!moments.some(m => m.moveNumber === item.move_number)) {
@@ -196,9 +196,7 @@ const BoardFirstCoach = ({ user }) => {
       }
     }
     
-    // Sort by eval swing (worst first)
     moments.sort((a, b) => a.evalSwing - b.evalSwing);
-    
     return moments.slice(0, 5);
   };
 
@@ -208,7 +206,6 @@ const BoardFirstCoach = ({ user }) => {
     
     const drills = [];
     
-    // Convert focus_items to drills
     if (plan.focus_items) {
       for (const item of plan.focus_items.slice(0, 3)) {
         drills.push({
@@ -232,6 +229,7 @@ const BoardFirstCoach = ({ user }) => {
   const handleViewMoment = useCallback((moment) => {
     setActiveMoment(moment);
     setDrillMode(false);
+    setActiveDrill(null);
     
     if (boardRef.current && moment.fen) {
       boardRef.current.jumpToFen(moment.fen, {
@@ -241,13 +239,13 @@ const BoardFirstCoach = ({ user }) => {
     }
   }, []);
 
-  // Handle "Try Again" click for key moments
+  // Handle "Try Again" click for key moments - STAYS ON CURRENT TAB
   const handleTryAgainMoment = useCallback((moment) => {
     setActiveMoment(moment);
     setDrillMode(true);
     setActiveDrill({
       fen: moment.fen,
-      correctMoves: moment.bestMove ? [moment.bestMove] : [],
+      correctMoves: moment.bestMove ? [moment.bestMove] : moment.correctMoves || [],
       description: `Find a better move than ${moment.move}`
     });
     
@@ -256,13 +254,15 @@ const BoardFirstCoach = ({ user }) => {
       boardRef.current.startDrill(moment.bestMove ? [moment.bestMove] : []);
       setCurrentFen(moment.fen);
     }
+    // DO NOT change tab - stay on Audit
   }, []);
 
-  // Handle starting a drill from Plan tab
+  // Handle starting a drill from Plan tab - STAYS ON PLAN TAB
   const handleStartDrill = useCallback((drill) => {
     setActiveDrill(drill);
     setDrillMode(true);
-    setActiveTab("audit"); // Switch to see the board better
+    setActiveMoment(null);
+    // DO NOT change tab - stay on Plan
     
     if (boardRef.current && drill.fen) {
       boardRef.current.jumpToFen(drill.fen);
@@ -271,15 +271,47 @@ const BoardFirstCoach = ({ user }) => {
     }
   }, []);
 
+  // Handle Practice Line - plays the opening moves on the board
+  const handlePracticeOpeningLine = useCallback(async () => {
+    if (!planData?.opening_recommendation?.line?.length) {
+      toast.info("No opening line available yet");
+      return;
+    }
+    
+    const moves = planData.opening_recommendation.line;
+    setIsPlayingLine(true);
+    
+    // Reset to starting position first
+    if (boardRef.current) {
+      boardRef.current.reset();
+      
+      // Play through the moves with animation
+      await boardRef.current.playMoveSequence(moves, 800);
+      
+      setIsPlayingLine(false);
+      toast.success("Now it's your turn! Repeat the line.");
+      
+      // Start drill mode for user to repeat
+      boardRef.current.reset();
+      setDrillMode(true);
+      setActiveDrill({
+        type: 'opening_line',
+        moves: moves,
+        currentMoveIndex: 0,
+        description: "Repeat the opening line you just saw"
+      });
+    }
+  }, [planData]);
+
   // Handle drill result
   const handleDrillResult = useCallback(({ correct, playedMove }) => {
     if (correct && activeDrill) {
       setCompletedDrills(prev => new Set([...prev, activeDrill.id]));
-      toast.success("Well done!");
+      toast.success("Excellent! That's the move.");
       
-      // Stop drill mode after success
       setTimeout(() => {
         setDrillMode(false);
+        setActiveDrill(null);
         if (boardRef.current) {
           boardRef.current.stopDrill();
         }
@@ -291,6 +323,7 @@ const BoardFirstCoach = ({ user }) => {
   const exitDrill = useCallback(() => {
     setDrillMode(false);
     setActiveDrill(null);
+    setActiveMoment(null);
     if (boardRef.current) {
       boardRef.current.stopDrill();
       boardRef.current.reset();
@@ -317,8 +350,9 @@ const BoardFirstCoach = ({ user }) => {
   }
 
   // Get stats for header
-  const gamesAnalyzed = planData?.games_analyzed || auditData?.games_analyzed || 0;
+  const gamesAnalyzed = planData?.games_analyzed || auditData?.games_analyzed || focusData?.games_analyzed || 0;
   const needsMoreGames = gamesAnalyzed < 5;
+  const mission = focusData?.mission;
 
   return (
     <Layout user={user}>
@@ -448,6 +482,92 @@ const BoardFirstCoach = ({ user }) => {
                   )}
                 </CardContent>
               </Card>
+              
+              {/* Mission Card - Below Board */}
+              {mission && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mt-4"
+                >
+                  <Card className={`border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent ${
+                    mission.status === 'completed' ? 'border-emerald-500/40 from-emerald-500/5' : ''
+                  }`}>
+                    <CardContent className="py-4">
+                      {/* Mission Header */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Target className={`w-4 h-4 ${mission.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'}`} />
+                          <span className={`text-xs font-bold uppercase tracking-wider ${
+                            mission.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'
+                          }`}>
+                            {mission.status === 'completed' ? 'Mission Complete!' : 'Current Mission'}
+                          </span>
+                        </div>
+                        
+                        {/* Streak Counter */}
+                        <div className="flex items-center gap-1">
+                          <Flame className={`w-4 h-4 ${
+                            mission.current_streak > 0 ? 'text-orange-500' : 'text-muted-foreground'
+                          }`} />
+                          <span className={`text-xl font-bold ${
+                            mission.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'
+                          }`}>
+                            {mission.current_streak || mission.progress || 0}
+                          </span>
+                          <span className="text-muted-foreground text-sm">/ {mission.target || 3}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Mission Name & Goal */}
+                      <h3 className="text-base font-bold mb-1">{mission.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-3">{mission.goal}</p>
+                      
+                      {/* Streak Progress Bar */}
+                      {mission.is_streak_based && (
+                        <div className="flex items-center gap-1 mb-2">
+                          {[...Array(mission.target || 3)].map((_, i) => (
+                            <div
+                              key={i}
+                              className={`h-2 flex-1 rounded-full transition-all ${
+                                i < (mission.current_streak || 0)
+                                  ? 'bg-amber-500'
+                                  : 'bg-muted/50'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Streak Status */}
+                      {mission.streak_broken_in_last_game && (
+                        <div className="flex items-center gap-1.5 text-xs text-orange-400">
+                          <XCircle className="w-3 h-3" />
+                          <span>Streak reset - last game didn't meet the criteria</span>
+                        </div>
+                      )}
+                      {mission.last_game_passed && mission.status !== 'completed' && (
+                        <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Last game counted! Keep it up.</span>
+                        </div>
+                      )}
+                      
+                      {/* Longest Streak */}
+                      {mission.longest_streak > 0 && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs text-muted-foreground">Personal best:</span>
+                          <span className="text-xs font-bold text-amber-500 flex items-center gap-1">
+                            <Flame className="w-3 h-3" />
+                            {mission.longest_streak} game streak
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
             </motion.div>
 
             {/* RIGHT PANEL: Three Tabs */}
@@ -478,6 +598,15 @@ const BoardFirstCoach = ({ user }) => {
                     <span className="text-xs text-muted-foreground">
                       {keyMoments.length} moments from last game
                     </span>
+                  </div>
+                  
+                  {/* Coach Intro */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <Lightbulb className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-blue-200/80">
+                      These are the critical moments where the game turned. Click <strong>View Position</strong> to see the board, 
+                      or <strong>Try Again</strong> to practice finding the right move.
+                    </p>
                   </div>
                   
                   {keyMoments.length === 0 ? (
@@ -524,7 +653,7 @@ const BoardFirstCoach = ({ user }) => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-xs text-muted-foreground">Execution</span>
+                            <span className="text-xs text-muted-foreground">Plan Execution</span>
                             <div className="text-lg font-bold">
                               {auditData.audit_summary.score || '0/0'}
                             </div>
@@ -541,22 +670,61 @@ const BoardFirstCoach = ({ user }) => {
                     <h3 className="text-lg font-semibold">Next Game Plan</h3>
                     {planData?.training_block && (
                       <span className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400">
-                        {planData.training_block.name} • L{planData.training_block.intensity}
+                        {planData.training_block.name} - L{planData.training_block.intensity}
                       </span>
                     )}
                   </div>
 
-                  {/* Opening Line Drill */}
-                  {planData?.opening_recommendation && (
-                    <OpeningLineDrill
-                      opening={planData.opening_recommendation}
-                      moves={planData.opening_recommendation.line || []}
-                      onStartDrill={handleStartDrill}
-                      isCompleted={completedDrills.has('opening_line')}
-                    />
-                  )}
+                  {/* Opening Line Section */}
+                  <Card className="border-blue-500/30 bg-blue-500/5">
+                    <CardContent className="py-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Play className="w-4 h-4 text-blue-400" />
+                        <span className="text-sm font-medium text-blue-400">Opening Line</span>
+                      </div>
+                      
+                      <h4 className="font-semibold mb-2">
+                        {planData?.opening_recommendation?.as_white || 
+                         focusData?.opening_to_play?.white?.name || 
+                         "Your Recommended Opening"}
+                      </h4>
+                      
+                      {/* Show the moves if available */}
+                      {planData?.opening_recommendation?.line?.length > 0 && (
+                        <div className="text-sm font-mono text-muted-foreground mb-3">
+                          {planData.opening_recommendation.line.slice(0, 8).map((m, i) => (
+                            <span key={i}>
+                              {i % 2 === 0 && <span className="text-muted-foreground/50">{Math.floor(i/2) + 1}.</span>}
+                              {m}{' '}
+                            </span>
+                          ))}
+                          {planData.opening_recommendation.line.length > 8 && <span>...</span>}
+                        </div>
+                      )}
+                      
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full bg-blue-500 hover:bg-blue-600"
+                        onClick={handlePracticeOpeningLine}
+                        disabled={isPlayingLine}
+                      >
+                        {isPlayingLine ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                            Playing...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3.5 h-3.5 mr-1.5" />
+                            Practice Line on Board
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
 
-                  {/* Coach Habits (Max 2) */}
+                  {/* Focus Habits (Max 2) */}
                   {planData?.cards && (
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground">Focus Habits</h4>
@@ -578,7 +746,7 @@ const BoardFirstCoach = ({ user }) => {
                     </div>
                   )}
 
-                  {/* Drill Positions (3 drills) */}
+                  {/* Practice Drills */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-muted-foreground">Practice Drills</h4>
                     {drills.length === 0 ? (
@@ -610,102 +778,108 @@ const BoardFirstCoach = ({ user }) => {
                 <TabsContent value="openings" className="space-y-4">
                   <h3 className="text-lg font-semibold">Your Repertoire</h3>
                   
-                  {!openings ? (
-                    <Card className="border-dashed">
-                      <CardContent className="py-8 text-center">
-                        <BookOpen className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-                        <p className="text-sm text-muted-foreground">
-                          Play more games to build your opening profile
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="space-y-4">
-                      {/* As White */}
-                      <Card>
-                        <CardContent className="py-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-4 h-4 rounded-full bg-white border border-border" />
-                            <span className="font-medium">As White</span>
+                  {/* Coach Intro */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                    <BookOpen className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-purple-200/80">
+                      Based on your games, here are your most successful openings. 
+                      Stick to what works until you master it.
+                    </p>
+                  </div>
+                  
+                  {/* As White */}
+                  <Card>
+                    <CardContent className="py-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-4 h-4 rounded-full bg-white border border-border" />
+                        <span className="font-medium">As White</span>
+                      </div>
+                      
+                      {(openings?.as_white || focusData?.opening_to_play?.white?.name) ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                            <span className="text-sm font-medium">
+                              {openings?.as_white || focusData?.opening_to_play?.white?.name}
+                            </span>
                           </div>
-                          
-                          {openings.as_white?.recommended ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                <span className="text-sm">{openings.as_white.recommended}</span>
-                              </div>
-                              {openings.as_white.avoid && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <XCircle className="w-4 h-4 text-amber-400" />
-                                  <span className="text-sm">Avoid: {openings.as_white.avoid}</span>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">More data needed</p>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* As Black */}
-                      <Card>
-                        <CardContent className="py-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-4 h-4 rounded-full bg-slate-800 border border-border" />
-                            <span className="font-medium">As Black</span>
-                          </div>
-                          
-                          {openings.as_black?.recommended ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                <span className="text-sm">{openings.as_black.recommended}</span>
-                              </div>
-                              {openings.as_black.avoid && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <XCircle className="w-4 h-4 text-amber-400" />
-                                  <span className="text-sm">Avoid: {openings.as_black.avoid}</span>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">More data needed</p>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* Line to Know Today */}
-                      {openings.line_of_the_day && (
-                        <Card className="bg-blue-500/5 border-blue-500/30">
-                          <CardContent className="py-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Play className="w-4 h-4 text-blue-400" />
-                              <span className="text-sm font-medium text-blue-400">
-                                Line to Know Today
+                          {(openings?.as_white_avoid || focusData?.opening_to_avoid?.white) && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <XCircle className="w-4 h-4 text-amber-400" />
+                              <span className="text-sm">
+                                Avoid: {openings?.as_white_avoid || focusData?.opening_to_avoid?.white}
                               </span>
                             </div>
-                            <p className="text-sm mb-3">{openings.line_of_the_day.name}</p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                if (boardRef.current && openings.line_of_the_day.fen) {
-                                  boardRef.current.jumpToFen(openings.line_of_the_day.fen);
-                                  if (openings.line_of_the_day.moves) {
-                                    boardRef.current.playMoveSequence(openings.line_of_the_day.moves);
-                                  }
-                                }
-                              }}
-                            >
-                              <Play className="w-3.5 h-3.5 mr-1.5" />
-                              Play on Board
-                            </Button>
-                          </CardContent>
-                        </Card>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Play more games to build your profile</p>
                       )}
-                    </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* As Black */}
+                  <Card>
+                    <CardContent className="py-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-4 h-4 rounded-full bg-slate-800 border border-border" />
+                        <span className="font-medium">As Black</span>
+                      </div>
+                      
+                      {(openings?.as_black || focusData?.opening_to_play?.black?.name) ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                            <span className="text-sm font-medium">
+                              {openings?.as_black || focusData?.opening_to_play?.black?.name}
+                            </span>
+                          </div>
+                          {(openings?.as_black_avoid || focusData?.opening_to_avoid?.black) && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <XCircle className="w-4 h-4 text-amber-400" />
+                              <span className="text-sm">
+                                Avoid: {openings?.as_black_avoid || focusData?.opening_to_avoid?.black}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Play more games to build your profile</p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Win Rate Stats */}
+                  {focusData?.opening_stats && (
+                    <Card className="bg-muted/30">
+                      <CardContent className="py-4">
+                        <h4 className="text-sm font-medium mb-3">Your Opening Performance</h4>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Best as White:</span>
+                            <div className="font-medium">
+                              {focusData.opening_stats.best_white?.name || 'N/A'}
+                              {focusData.opening_stats.best_white?.win_rate && (
+                                <span className="text-emerald-400 ml-2">
+                                  {Math.round(focusData.opening_stats.best_white.win_rate * 100)}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Best as Black:</span>
+                            <div className="font-medium">
+                              {focusData.opening_stats.best_black?.name || 'N/A'}
+                              {focusData.opening_stats.best_black?.win_rate && (
+                                <span className="text-emerald-400 ml-2">
+                                  {Math.round(focusData.opening_stats.best_black.win_rate * 100)}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
                 </TabsContent>
               </Tabs>
