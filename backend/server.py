@@ -3541,13 +3541,16 @@ async def get_progress_v2(user: User = Depends(get_current_user)):
     - Proof from games
     - Memorable rules
     - Next 10 games plan
-    - Before Coach vs After Coach comparison
+    - Before Coach vs After Coach comparison (stats AND patterns)
     """
     from coach_assessment_service import generate_full_progress_data
     from baseline_service import (
         get_or_create_baseline,
+        get_baseline_patterns,
         calculate_current_stats,
         calculate_progress,
+        calculate_pattern_snapshot,
+        compare_patterns,
         MIN_GAMES_FOR_BASELINE
     )
     
@@ -3566,15 +3569,38 @@ async def get_progress_v2(user: User = Depends(get_current_user)):
         # Get or create baseline (snapshot from when user started)
         baseline = await get_or_create_baseline(db, user.user_id, all_analyses, all_games)
         
+        # Get baseline patterns (weaknesses, blunder context from first games)
+        baseline_patterns = await get_baseline_patterns(db, user.user_id)
+        
+        # If baseline exists but patterns don't (legacy user), create patterns now
+        if baseline and not baseline_patterns:
+            baseline_analyses = sorted(all_analyses, key=lambda x: x.get('created_at', ''))[:MIN_GAMES_FOR_BASELINE]
+            baseline_games = sorted(all_games, key=lambda x: x.get('imported_at', ''))[:MIN_GAMES_FOR_BASELINE]
+            baseline_patterns = calculate_pattern_snapshot(baseline_analyses, baseline_games)
+            
+            # Save it for future use
+            await db.users.update_one(
+                {'user_id': user.user_id},
+                {'$set': {'baseline_patterns': baseline_patterns}}
+            )
+        
         # Calculate current stats from recent 25 games
         recent_analyses = all_analyses[:25] if len(all_analyses) > 25 else all_analyses
         recent_games = all_games[:25] if len(all_games) > 25 else all_games
         current_stats = calculate_current_stats(recent_analyses, recent_games)
         
-        # Calculate progress
+        # Calculate current patterns
+        current_patterns = calculate_pattern_snapshot(recent_analyses, recent_games) if recent_analyses else None
+        
+        # Calculate progress (stats comparison)
         comparison = None
         if baseline and current_stats:
             comparison = calculate_progress(baseline, current_stats)
+        
+        # Calculate pattern comparison (weaknesses comparison)
+        pattern_comparison = None
+        if baseline_patterns and current_patterns:
+            pattern_comparison = compare_patterns(baseline_patterns, current_patterns)
         
         # Add to response
         progress_data['coaching_comparison'] = {
@@ -3582,7 +3608,11 @@ async def get_progress_v2(user: User = Depends(get_current_user)):
             'games_until_baseline': max(0, MIN_GAMES_FOR_BASELINE - len(all_analyses)) if not baseline else 0,
             'baseline': baseline,
             'current': current_stats,
-            'progress': comparison
+            'progress': comparison,
+            # NEW: Pattern data for Before/After tabs
+            'baseline_patterns': baseline_patterns,
+            'current_patterns': current_patterns,
+            'pattern_comparison': pattern_comparison
         }
         
         return progress_data
