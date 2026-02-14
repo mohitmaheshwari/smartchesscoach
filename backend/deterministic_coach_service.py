@@ -1666,14 +1666,17 @@ async def generate_round_preparation(db, user_id: str) -> Dict:
         critical_insights=critical_insights,
     )
     
-    # Save plan
+    # Save plan - copy first to avoid _id contamination
+    plan_to_save = {k: v for k, v in plan.items() if k != "_id"}
+    
     await db.user_plans.update_one(
         {"user_id": user_id, "is_active": True},
         {"$set": {"is_active": False}},
     )
-    await db.user_plans.insert_one(plan)
+    await db.user_plans.insert_one(plan_to_save)
     
-    return plan
+    # Return clean plan (without _id)
+    return {k: v for k, v in plan.items() if k != "_id"}
 
 
 async def generate_plan_audit(db, user_id: str) -> Dict:
