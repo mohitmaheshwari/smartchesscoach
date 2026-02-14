@@ -1695,6 +1695,82 @@ def _get_highlight_squares(move_data: Dict) -> List[str]:
     return squares
 
 
+def generate_drill_positions(analysis: Dict, game: Dict, weakness_patterns: Dict, max_drills: int = 3) -> List[Dict]:
+    """
+    Generate drill positions from a game's mistakes, targeting the user's weakness cluster.
+    
+    Selection criteria:
+    1. Positions from mistakes matching the user's primary weakness
+    2. Positions with clear correct moves (validated by Stockfish)
+    3. Appropriate difficulty for the user's rating
+    """
+    
+    drills = []
+    sf = analysis.get("stockfish_analysis", {})
+    moves = sf.get("move_evaluations", [])
+    user_color = game.get("user_color", "white")
+    
+    if not moves:
+        return []
+    
+    # Determine target weakness
+    primary_weakness = weakness_patterns.get("primary_weakness", "tactical_blindness")
+    
+    # Map weakness to move characteristics to filter
+    weakness_filter = {
+        "piece_safety": lambda m: m.get("cp_loss", 0) >= 300,  # Big drops = hanging pieces
+        "tactical_blindness": lambda m: m.get("evaluation") in ["blunder", "mistake"],
+        "advantage_collapse": lambda m: m.get("eval_before", 0) >= 150 and m.get("cp_loss", 0) >= 100,
+        "time_trouble": lambda m: m.get("move_number", 0) > 40 and m.get("cp_loss", 0) >= 100,
+    }
+    
+    filter_fn = weakness_filter.get(primary_weakness, weakness_filter["tactical_blindness"])
+    
+    # Find positions matching the weakness
+    candidates = []
+    for m in moves:
+        eval_type = m.get("evaluation", "")
+        if hasattr(eval_type, "value"):
+            eval_type = eval_type.value
+        
+        m_copy = {**m, "evaluation": eval_type}
+        
+        if filter_fn(m_copy) and m.get("best_move") and m.get("fen_before"):
+            candidates.append(m_copy)
+    
+    # Sort by cp_loss (target the biggest mistakes)
+    candidates.sort(key=lambda x: x.get("cp_loss", 0), reverse=True)
+    
+    for m in candidates[:max_drills]:
+        cp_loss = m.get("cp_loss", 0)
+        
+        # Determine difficulty
+        if cp_loss >= 300:
+            difficulty = "hard"
+        elif cp_loss >= 150:
+            difficulty = "medium"
+        else:
+            difficulty = "easy"
+        
+        drill = {
+            "id": f"drill_{game.get('game_id', 'unknown')}_{m.get('move_number', 0)}",
+            "fen": m.get("fen_before", START_FEN),
+            "targetWeakness": primary_weakness,
+            "description": f"Find the best move (you played {m.get('move', '?')})",
+            "difficulty": difficulty,
+            "correctMoves": [m.get("best_move")],
+            "gameId": game.get("game_id"),
+            "moveNumber": m.get("move_number"),
+            "hint": f"Avoid {m.get('move', '')} which loses {round(cp_loss/100, 1)} pawns" if cp_loss >= 100 else None,
+            "yourMove": m.get("move"),
+            "evalSwing": -cp_loss
+        }
+        
+        drills.append(drill)
+    
+    return drills
+
+
 # =============================================================================
 # PUBLIC API - Main entry points for the coaching loop
 # =============================================================================
