@@ -317,7 +317,7 @@ const BoardFirstCoach = ({ user }) => {
   }
 
   // Get stats for header
-  const gamesAnalyzed = auditData?.games_analyzed || 0;
+  const gamesAnalyzed = planData?.games_analyzed || auditData?.games_analyzed || 0;
   const needsMoreGames = gamesAnalyzed < 5;
 
   return (
