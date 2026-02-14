@@ -1,142 +1,173 @@
 <analysis>**original_problem_statement:**
-The user wants to build a GM-style deterministic, adaptive coaching system. The core requirements are:
--   **Adaptive Loop**: After each game analysis, the system must audit the last game against the previous plan, adjust a training intensity level, and generate a new game plan.
--   **Deterministic Intelligence**: The coaching must be highly personalized and not generic. It should be deterministically computed from several factors:
-    -   Player rating band (e.g., 600-1000 vs 1600-2000).
-    -   Last 15-30 games and the latest analyzed game.
-    -   Identified pattern clusters (e.g., advantage collapse, piece safety).
-    -   User's fundamentals profile (Opening, Middlegame, Endgame, Tactics, Time).
-    -   Opening stability stats and the user's preferred openings.
-    -   Results from the last plan audit (what was executed vs. missed).
--   **Contextual Plans**: The generated plan must be specific to the user's weaknesses (e.g., a tactical protocol based on their specific failure types like hung pieces vs. missed forks).
--   **Evidence-Backed Audits**: Every missed item in an audit must link to the specific move in the game.
--   **Consistency**: The opening advice must be consistent across all parts of the application.
--   **GM Tone**: The output should be concise, direct, and avoid praise or long paragraphs. Max 4 bullets per domain.
+The user wants to build a Board-First deterministic, adaptive chess coaching system. This is a major redesign of the existing Coach/Focus page.
 
-The user's goal is that two different players (e.g., an 800-rated vs. an 1800-rated) should see entirely different plans, strictness thresholds, and failure interpretations on the Coach/Focus page.
+**PRODUCT REQUIREMENTS:**
+
+**🚀 FEATURE: Board-First Coach Page (No-Book UX)**
+
+**Goal:** Transform the Focus/Coach page into an interactive session with minimal text and maximum board interaction.
+
+*   **Layout:**
+    *   **Left:** A sticky, always-visible chessboard with controls for highlighting, arrows, stepping through moves (Next/Prev), and a Try Move mode for interactive drills.
+    *   **Right:** A coach panel with a maximum of three tabs: , , and .
+
+*   **1. AUDIT TAB – Show Me Where I Broke The Plan**
+    *   Replace the text-based domain audit with 3-5 Key Moments from the last game.
+    *   Each Key Moment is a card with a label (e.g., Hanging piece), move number, eval swing, a View on Board button, and a Try Again button for a mini-drill.
+    *   **Interactivity:** Clicking View jumps the board to the position and highlights the relevant pieces. Clicking Try Again puts the user in a drill where they must play a correct move to fix the mistake.
+
+*   **2. PLAN TAB – Next Game Plan = 1 Opening Line + 2 Habits + 3 Drills**
+    *   The plan must be playable, not just readable.
+    *   **A) Opening Line Drill:** Show one specific opening line (5-8 moves) based on user stats. The board plays it, then the user must repeat it.
+    *   **B) Coach Habits:** A maximum of two high-level habits (e.g., No hanging pieces), each linked to a drill.
+    *   **C) Drill Positions:** Three interactive drills sourced from the user's own recent games, targeting their specific weakness cluster. Each drill is a single position where the user must find the correct move.
+
+*   **3. OPENINGS TAB – Your Repertoire Trainer**
+    *   A minimal tab showing the user's primary opening for each color, openings to avoid, and a 1 line to know today board demo.
+
+*   **🧠 Deterministic Intelligence (Backend Logic):**
+    *   **Key Moment Selection:** The backend must deterministically select 3-5 key moments from a game based on criteria like the biggest eval drops, first plan violation, hung pieces, advantage collapses, and time trouble blunders.
+    *   **Plan Drill Selection:** Drills should be selected based on the user's repeated failure types and adjusted for their rating band (e.g., 600-1000 focus on hanging pieces; 1600-2000 focus on calculation discipline).
+    *   **Drill Validation:** Use Stockfish to validate user moves in drills, accepting the top 2-3 best moves.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack chess coaching application with two main features:
-1.  **Focus Page (Coach)**: Implements a Plan - - Preparation plan and a Plan Audit for the last game. The plan generation is adaptive, incorporating Focus Items based on critical mistakes (like piece traps) from the previous game's deep tactical analysis.
-2.  **Journey Page (Progress)**: Provides a Before Coach vs. After Coach comparison. It shows separate statistics, weaknesses, and behavioral patterns for a user's baseline games versus their more recent games, allowing them to track tangible improvement.
+The application has a text-based Deterministic Adaptive Coach on the  page. The backend for this is complete, featuring a  that generates plans and audits based on:
+- Granular rating bands (e.g., 1000-1400).
+- A 5-level Training Intensity system that escalates based on consecutive misses in a domain (e.g., Tactics, Middlegame).
+- Analysis of the last 25 games to identify primary and secondary weaknesses.
 
-The application also features a robust background worker for game analysis () that can self-install dependencies (Stockfish) and handle stuck jobs.
+The current UI on the  page renders this text-based plan, showing intensity levels, escalated domains, and focus items from the last game. This backend logic now serves as the foundation for the new Board-First UI.
 
 **Last working item**:
--   **Last item agent was working:** The agent fixed a major UX issue on the Journey/Progress page where the Your Weaknesses and Pattern Analysis sections were showing the same data for both Before Coach and After Coach tabs. The agent implemented a solution to fetch and display separate baseline and current pattern data.
--   **Status:** COMPLETED
--   **Agent Testing Done:** Y
--   **Which testing method agent to use?** NA
+-   **Last item agent was working:** The agent acknowledged and planned the user's major new feature request: The Board-First Coach Page. The agent proposed a phased approach, starting with building the board infrastructure and the 3-tab layout.
+-   **Status:** NOT STARTED
+-   **Agent Testing Done:** N
+-   **Which testing method agent to use?** both
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   None.
+-   **Issue 1: Tactics Audit Data Inconsistency (P1)**
+    -   **Description:** During the development of the text-based coach, the agent noticed the plan audit sometimes reported No blunders in the tactics domain, even when the underlying analysis data contained blunders.
+    -   **Status:** TESTING PENDING. The agent attempted a fix, but it was not rigorously verified before the user pivoted to the new feature. This needs to be re-checked to ensure data integrity for the new Key Moments feature.
 
 **In progress Task List**:
--   None.
+-   **Task 1: Implement Board-First Coach Page (P0)**
+    -   **Description:** This is a complete overhaul of the  page UI and parts of the backend API to align with the user's new Show me, dont tell me" philosophy.
+    -   **Where to resume:** Start with Phase 1:
+        1.  Integrate the `chessground` library into the `Focus.jsx` component to create the sticky chessboard on the left.
+        2.  Implement the basic 3-tab layout on the right (`Audit`, `Plan`, `Openings`).
+        3.  Develop the API for the board (e.g., `jumpToMove(moveNo)`, `highlightSquare()`).
+    -   **What will be achieved with this?** A new, highly interactive coaching experience that replaces long text paragraphs with board-centric drills and visualizations.
+    -   **Status:** NOT STARTED
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on something:** None.
 
 **Upcoming and Future Tasks**
--   **P0: Refactor Coach/Focus Page to be a Deterministic Adaptive Coach:** This is a major overhaul based on the user's latest, detailed requirements.
-    -   Implement the full adaptive loop: Audit last game -> Adjust training intensity -> Generate next game plan. This should trigger after every new game analysis.
-    -   Re-architect the plan generation logic to be fully deterministic based on rating band, last N games, pattern clusters, fundamentals profile, opening stats, and last plan audit results.
-    -   Create different logic and thresholds for different rating bands (e.g., 600-1000 vs 1600-2000).
-    -   Ensure the generated plan is highly specific (e.g., tactical protocol for the user's exact failure type).
-    -   Ensure all audit items are evidence-backed with links to the game.
-    -   Refine the UI/text to have a concise, direct, GM-style tone.
--   **P1: Refactor UI Route:**
-    -   Rename the frontend route from  to  to align with the component name () and API endpoints.
--   **P2: Historical Game Analysis:**
-    -   Create a one-time script to find all games in the database that are missing analysis data and queue them for the .
--   **P3: Optimize Analysis Speed:**
-    -   Consider changing the Stockfish analysis depth from 18 to a lower value (e.g., 12 or 14) in  to speed up analysis.
+-   **P1: Historical Game Analysis:** Create a one-time script to find all games in the database that are missing analysis data and queue them for the `analysis_worker`.
+-   **P2: Optimize Analysis Speed:** Consider changing the Stockfish analysis depth from 18 to a lower value (e.g., 12 or 14) in `backend/config.py` to speed up analysis.
 
 **Completed work in this session**
--   **Progress Page Before vs. After UX Fix:**
-    -   Modified  to calculate and store a snapshot of a user's weaknesses and behavioral patterns during their baseline period.
-    -   Updated the  endpoint in  to return both  and .
-    -   Refactored  to lift state and conditionally render the correct pattern data based on whether the Before Coach or After Coach tab is selected.
--   **Adaptive Focus Items in Game Plan:**
-    -   Implemented logic in  to analyze the last audited game for critical missed opportunities (e.g., piece trap) using the deep tactical analysis engine.
-    -   Added a new FOCUS FROM LAST GAME section to the Round Preparation plan to display these specific, actionable insights.
-    -   Updated  to render the new Focus Items section.
-    -   Validated the full feature with the , which passed all backend and frontend tests.
+-   **Backend for Deterministic Coach (Foundation for new UI):**
+    -   Created `backend/services/deterministic_coaching_service.py` with logic for granular rating bands, a 5-level adaptive intensity system, and plan/audit generation based on weakness patterns from the last 25 games.
+    -   Updated `backend/server.py` to use this new service for coaching endpoints.
+    -   Fixed a critical `ObjectId` JSON serialization bug in the API responses.
+-   **Frontend for Text-Based Coach:**
+    -   Updated `frontend/src/pages/Focus.jsx` and the `DomainPlanCard.jsx` component to render the richer data from the new service, including intensity levels (e.g., "L3", "3/5") and "Escalated" badges.
+-   **Testing:**
+    -   Successfully used the `testing_agent_v3_fork` to validate the entire text-based deterministic coach feature, with all backend and frontend tests passing.
+-   **Routing:**
+    -   Resolved the `/coach` vs. `/focus` route inconsistency. Both URLs now correctly render the `Focus.jsx` component.
 
 **Earlier issues found/mentioned but not fixed**
--   **Issue 1:** The frontend route is , but the component is named  and the API is . This inconsistency remains and is listed as a P1 upcoming task.
+-   None other than the "Tactics Audit Data Inconsistency" listed in pending issues.
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork:** Stockfish executable disappears on container resets, causing the  to crash.
+-   **Issue recurrence in previous fork:** Stockfish executable disappears on container resets.
 -   **Recurrence count:** 1
--   **Status:** RESOLVED. The  function in  mitigates this by checking for and installing Stockfish on startup.
+-   **Status:** RESOLVED. An `ensure_stockfish_installed` function in `backend/analysis_worker.py` handles this.
 
 **Code Architecture**
-
+```
+/app
+├── backend/
+│   ├── services/
+│   │   ├── deterministic_coaching_service.py # NEW: Core logic for new coach.
+│   │   ├── coaching_loop_service.py          # Legacy, to be phased out or refactored.
+│   │   └── ...
+│   ├── server.py                             # MODIFIED: Endpoints use the new deterministic service.
+│   └── ...
+└── frontend/
+    └── src/
+        ├── pages/
+        │   ├── Focus.jsx                     # MODIFIED: Renders new data. Needs full refactor for board-first UI.
+        │   └── ...
+        └── components/
+            ├── DomainPlanCard.jsx            # MODIFIED: Displays intensity levels. Will be replaced.
+            └── ...
+```
 
 **Key Technical Concepts**
--   **Deterministic Coaching:** The new core principle for the Focus page. Plans must be generated based on a strict set of rules and user data, not generic templates.
--   **Adaptive Intensity:** A new concept to be implemented where the coaching plan's strictness adjusts based on the user's repeated failures or successes in specific domains.
--   **Before/After Pattern Analysis:** The system now captures a snapshot of a user's initial weaknesses and compares it against their current state, providing tangible proof of improvement or regression.
--   **Deep Tactical Analysis:** An engine that identifies complex patterns like piece traps to provide insightful explanations for mistakes, which now feeds directly into the next game plan.
+-   **Board-First UX:** The new core principle. User interaction should be centered on the chessboard, not reading text.
+-   **Key Moments:** The backend must identify the 3-5 most important teaching moments from a game to be displayed in the Audit tab.
+-   **Interactive Drills:** Users are given positions from their own games and must play a move, which is then validated by the system.
+-   **Sticky Chessboard:** A persistent UI element that is central to the new design, requiring a library like `chessground`.
+-   **Deterministic Coaching Logic:** The already-built backend system (rating bands, intensity levels, weakness analysis) will be used to select which drills and key moments to show.
 
 **key DB schema**
--   **users:**
-    -   : object now contains a  field which stores a snapshot of weaknesses and behavioral patterns from the user's first 10 games.
-    -   : Stores an array of  objects. The schema was implicitly updated to include .
+-   **users:** The `plan_history` array now stores richer plan objects generated by the `deterministic_coaching_service`, including `intensity` levels and `priority` (primary/secondary). No new tables/collections were added.
 
 **All files of reference**
--   : Core logic for plan generation. Will need a major refactor for the new deterministic approach.
--   : Contains logic for calculating baseline and current patterns.
--   : Defines API endpoints, including the recently modified  and .
--   : The main UI for the coaching loop. Will need significant changes.
--   : The UI for the Before vs. After progress view.
+-   `backend/services/deterministic_coaching_service.py`: Contains the core logic that will power the new UI. Will need to be adapted to generate "Key Moments" and "Drills".
+-   `frontend/src/pages/Focus.jsx`: The main page to be completely refactored for the "Board-First" design.
+-   `backend/server.py`: API endpoints will need to be changed to serve FENs, move numbers, and drill data instead of text blocks.
 
 **Areas that need refactoring**:
--   The route inconsistency ( vs. ) should be resolved.
--   The entire  and  will be refactored to meet the new Deterministic Adaptive Coach requirements.
+-   The entire `frontend/src/pages/Focus.jsx` component and its children must be rebuilt to accommodate the new "Board-First" layout.
+-   The `deterministic_coaching_service.py` needs to be refactored to output "Key Moments" and "Drill Positions" instead of the current text-based plan structure.
 
 **key api endpoints**
--   : Fetches the plan for the user's next game. (Modified to include ).
--   : Fetches all data for the Progress/Journey page, including baseline and current patterns. (Heavily Modified).
--   : Forces regeneration of the coaching plan.
+-   `GET /api/coaching/round-preparation`: Currently returns a text-based plan. **Needs refactor** to return data for the "Plan" tab (Opening line, 2 habits, 3 drills).
+-   `GET /api/coaching/plan-audit`: Currently returns a text-based audit. **Needs refactor** to return data for the "Audit" tab (3-5 Key Moments).
 
 **Critical Info for New Agent**
--   **The user's immediate and non-negotiable priority is to overhaul the Coach/Focus page.** They provided a detailed manifesto of requirements to transform it from its current state into a Deterministic Adaptive Coach. You must read the  carefully and address every point.
--   The previous task of fixing the Progress/Journey page is complete and was successful. However, the user's focus has completely shifted. Do not get distracted by the previous work; the new task is a fundamental refactor of the core coaching feature.
--   The goal is to eliminate any feeling of a generic template. The output must be highly personalized and feel like a real GM is providing a concise, direct plan.
+-   **Major Pivot:** The user has completely changed the direction of the Focus/Coach page. The previous work on a text-based coach is now just a backend foundation. The new, non-negotiable priority is the interactive, "Board-First" UX.
+-   **"Show, Dont Tell:** This is the user's guiding philosophy. Every critical insight must be backed by a clickable position on the board. Minimize text.
+-   **Phased Approach:** The accepted plan is to start with Phase 1: integrating the  chessboard library and building the basic 3-tab shell (, , ) in .
 
 **documents and test reports created in this job**
--    (Updated)
--    (From testing the Focus Items feature)
+-    (Updated with the old deterministic coach details)
+-    (Test report for the text-based coach)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **I have some problems with coach page...its too much and over engineered, but not very wow...I have these suggestions..." (PENDING)** - The user provided a detailed set of requirements to refactor the entire Coach/Focus page to be a "Deterministic Adaptive Coach". This is the new P0 task.
-2.  **"option B please yes" (Completed)** - User approved proceeding with the more comprehensive fix for the Progress page.
-3.  **"I think B makes much more sense..." (Completed)** - User confirmed that showing different "before/after" patterns is the correct product direction.
-4.  **Agent proposed Option A (simple fix) and Option B (comprehensive fix) for the Progress page. (Completed)**
-5.  **"now I clearly see the problem! The user is right..." (Completed)** - Agent identified the root cause of the UX issue on the Progress page.
-6.  **"okay, so now if you see progress page, we are showing Your weakness , pattern analysis sections same between all three tabs, thats bad, right?? (Issue Raised)** - The user reported the core UX bug on the Progress page.
-7.  **Agent successfully implemented and tested the Focus Items feature. (Completed)**
-8.  **Agent successfully implemented the Before vs After comparison on the Journey page. (Completed)**
-9.  **Agent identified and fixed routing/login issues to take screenshots. (Completed)**
-10. **Agent explored the codebase to understand the implementation of the Progress page. (Completed)**
+1.  **User:** yes , and common lines that user should learn first but whenever could be derived , do that too, very smart brother you know - Confirmed drill validation rules and encouraged smart derivation of opening lines.
+2.  **Agent:** Proposed a phased plan to build the Board-First feature, starting with board infrastructure.
+3.  **User:** use chessground , drill validation accept top 2-3 moves - Provided specific technical direction for implementation.
+4.  **Agent:** Acknowledged the user's new feature request and asked for confirmation on the plan.
+5.  **User:** Defined the entire Board-First Coach Page feature in great detail, including layout, the three tabs (Audit, Plan, Openings), interactivity, and the deterministic logic for selecting drills. This is the new primary requirement.
+6.  **User:** Clarified the difference between Plan Audit (report card) and Focus from Last Game (tactical lesson).
+7.  **Agent:** Answered the user's question about the difference between the 'Round Preparation' and 'Plan Audit' sections.
+8.  **Agent:** Successfully completed and verified the text-based deterministic coach implementation with the testing agent.
+9.  **Agent:** Identified an inconsistency in the UI data (primary vs. secondary weakness) and correctly deduced the logic was sound based on the underlying data.
+10. **User:** go with 5 levels, use last 25 games, Yes P0 now - Confirmed the parameters for the deterministic coach logic and set it as the highest priority.
 
 **Project Health Check:**
 -   **Broken:** None
 -   **Mocked:** 
 
 **3rd Party Integrations**
--   **Stockfish:** Chess engine used for game analysis.
+-   **Stockfish:** Chess engine for analysis and drill validation.
+-   **chessground:** (To be added) The required frontend library for the interactive chessboard.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES (For the Focus Items feature)
+-   **Testing agent used after significant changes:** YES (For the previous text-based feature)
 -   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** None.
--   **Known regressions:** None.
+-   **Test files created:** None
+-   **Known regressions:** None
 
 **Credentials to test flow:**
-None required. The Dev Login button on the landing page provides access.
+None required. Use the Dev Login button on the landing page.
 
 **What agent forgot to execute**
-The agent addressed all explicit requests from the user during the session. The user's final message introduced a large new set of requirements which now forms the primary upcoming task.</analysis>
+The agent correctly pivoted to the user's new, major request. All previous plans are now superseded by the Board-First Coach Page implementation. Nothing was forgotten.</analysis>
