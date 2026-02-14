@@ -797,19 +797,19 @@ const BoardFirstCoach = ({ user }) => {
                         <span className="font-medium">As White</span>
                       </div>
                       
-                      {(openings?.as_white || focusData?.opening_to_play?.white?.name) ? (
+                      {(getOpeningName(openings?.as_white) || focusData?.opening_to_play?.white?.name) ? (
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                             <span className="text-sm font-medium">
-                              {openings?.as_white || focusData?.opening_to_play?.white?.name}
+                              {getOpeningName(openings?.as_white) || focusData?.opening_to_play?.white?.name}
                             </span>
                           </div>
                           {(openings?.as_white_avoid || focusData?.opening_to_avoid?.white) && (
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <XCircle className="w-4 h-4 text-amber-400" />
                               <span className="text-sm">
-                                Avoid: {openings?.as_white_avoid || focusData?.opening_to_avoid?.white}
+                                Avoid: {typeof openings?.as_white_avoid === 'string' ? openings.as_white_avoid : openings?.as_white_avoid?.name || focusData?.opening_to_avoid?.white}
                               </span>
                             </div>
                           )}
@@ -828,19 +828,19 @@ const BoardFirstCoach = ({ user }) => {
                         <span className="font-medium">As Black</span>
                       </div>
                       
-                      {(openings?.as_black || focusData?.opening_to_play?.black?.name) ? (
+                      {(getOpeningName(openings?.as_black) || focusData?.opening_to_play?.black?.name) ? (
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                             <span className="text-sm font-medium">
-                              {openings?.as_black || focusData?.opening_to_play?.black?.name}
+                              {getOpeningName(openings?.as_black) || focusData?.opening_to_play?.black?.name}
                             </span>
                           </div>
                           {(openings?.as_black_avoid || focusData?.opening_to_avoid?.black) && (
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <XCircle className="w-4 h-4 text-amber-400" />
                               <span className="text-sm">
-                                Avoid: {openings?.as_black_avoid || focusData?.opening_to_avoid?.black}
+                                Avoid: {typeof openings?.as_black_avoid === 'string' ? openings.as_black_avoid : openings?.as_black_avoid?.name || focusData?.opening_to_avoid?.black}
                               </span>
                             </div>
                           )}
