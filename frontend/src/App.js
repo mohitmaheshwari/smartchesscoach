@@ -100,6 +100,11 @@ function AppRouter() {
           {({ user }) => <Focus user={user} />}
         </ProtectedRoute>
       } />
+      <Route path="/focus" element={
+        <ProtectedRoute>
+          {({ user }) => <Focus user={user} />}
+        </ProtectedRoute>
+      } />
       <Route path="/progress" element={
         <ProtectedRoute>
           {({ user }) => <JourneyV2 user={user} />}
