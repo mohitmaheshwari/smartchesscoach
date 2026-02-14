@@ -1399,7 +1399,7 @@ def _audit_middlegame_domain(card: Dict, moves: List[Dict], thresholds: Dict, ga
     
     data_points = []
     if had_advantage:
-        data_points.append(f"Had winning position: Yes")
+        data_points.append("Had winning position: Yes")
         data_points.append(f"Collapses: {len(collapses)}")
     
     evidence = collapses[:3]  # Top 3
