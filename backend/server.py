@@ -5214,45 +5214,17 @@ async def get_plan_audit_data(user: User = Depends(get_current_user)):
     Evaluates the user's last analyzed game against the plan we gave them.
     This is NOT a game summary - it's compliance evaluation.
     
+    Uses DETERMINISTIC ADAPTIVE COACH for:
+    - Rating-band adjusted thresholds
+    - Evidence-backed audit items (links to specific moves)
+    - Deterministic coach notes
+    
     Returns the audited PlanCard with status (executed/partial/missed) for each domain.
     """
-    from coaching_loop_service import get_latest_audit, audit_game_and_update_plan
+    from deterministic_coach_service import generate_plan_audit
     
-    # Get the most recent analyzed game
-    last_game = await db.games.find_one(
-        {"user_id": user.user_id, "is_analyzed": True},
-        {"_id": 0},
-        sort=[("imported_at", -1)]
-    )
-    
-    if not last_game:
-        return {
-            "has_data": False,
-            "reason": "no_analyzed_games"
-        }
-    
-    last_game_id = last_game["game_id"]
-    
-    # Check if we already have an audit for this specific game
-    latest_audit = await get_latest_audit(db, user.user_id)
-    
-    if latest_audit and latest_audit.get("audited_against_game_id") == last_game_id:
-        # We already audited this game, return the cached result
-        return {
-            "has_data": True,
-            **latest_audit
-        }
-    
-    # Either no audit exists, or there's a newer game - audit the latest game
-    result = await audit_game_and_update_plan(db, user.user_id, last_game_id)
-    
-    if "error" in result:
-        return {"has_data": False, "reason": result["error"]}
-    
-    return {
-        "has_data": True,
-        **result["audited_plan"]
-    }
+    result = await generate_plan_audit(db, user.user_id)
+    return result
 
 
 @api_router.post("/coaching-loop/audit-game/{game_id}")
