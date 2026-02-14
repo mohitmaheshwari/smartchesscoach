@@ -411,23 +411,42 @@ const AdaptiveCoach = ({ user }) => {
                     {plan_audit.audit_cards?.map((card) => (
                       <div
                         key={card.domain_id}
-                        className={`flex items-center justify-between p-2.5 rounded-lg border ${getStatusColor(
-                          card.status
-                        )}`}
+                        className={`p-2.5 rounded-lg border ${getStatusColor(card.status)}`}
                         data-testid={`audit-card-${card.domain_id}`}
                       >
-                        <div className="flex items-center gap-2">
-                          {card.status === "executed" && <CheckCircle2 className="w-4 h-4" />}
-                          {card.status === "partial" && <AlertTriangle className="w-4 h-4" />}
-                          {card.status === "missed" && <XCircle className="w-4 h-4" />}
-                          {card.status === "n/a" && <Minus className="w-4 h-4" />}
-                          <span className="text-sm font-medium">{card.label}</span>
-                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {card.status === "executed" && <CheckCircle2 className="w-4 h-4" />}
+                            {card.status === "partial" && <AlertTriangle className="w-4 h-4" />}
+                            {card.status === "missed" && <XCircle className="w-4 h-4" />}
+                            {card.status === "n/a" && <Minus className="w-4 h-4" />}
+                            <span className="text-sm font-medium">{card.label}</span>
+                          </div>
 
-                        {card.board_link_fen && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                          {card.board_link_fen && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2"
+                              onClick={() =>
+                                handleViewPosition(card.board_link_fen, `${card.label} - Move ${card.move_reference}`)
+                              }
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {/* Data line - single data point */}
+                        {card.data_line && (
+                          <div className="mt-1.5 text-xs text-muted-foreground pl-6">
+                            {card.data_line}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
                             className="h-6 px-2"
                             onClick={() =>
                               handleViewPosition(card.board_link_fen, `${card.label} - Move ${card.move_reference}`)
