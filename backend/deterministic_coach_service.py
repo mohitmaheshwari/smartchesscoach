@@ -1356,10 +1356,13 @@ def _audit_opening_domain(card: Dict, moves: List[Dict], thresholds: Dict, openi
         coach_note = "Solid opening. Development on track."
     elif early_blunders == 0 and max_drop <= thresholds["mistake_cp"]:
         status = "partial"
-        coach_note = "Opening okay, but had some inaccuracies."
-    else:
+        coach_note = "Opening okay, but some inaccuracies."
+    elif early_blunders > 0:
         status = "missed"
         coach_note = f"Opening went wrong. {early_blunders} early blunder(s)."
+    else:
+        status = "partial"
+        coach_note = "Opening had some large inaccuracies. Be more careful."
     
     card["audit"]["status"] = status
     card["audit"]["data_points"] = data_points
