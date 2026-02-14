@@ -1034,9 +1034,9 @@ function DomainPlanCard({ card }) {
         </div>
         <div className="flex items-center gap-1.5">
           {/* Intensity Indicator */}
-          {escalationIntensity > 1 && (
-            <span className="text-xs text-muted-foreground">
-              L{escalationIntensity}
+          {intensity > 1 && (
+            <span className="text-xs text-muted-foreground" title={`Intensity: ${intensityName}`}>
+              L{intensity}
             </span>
           )}
           <span className={`text-xs font-medium px-2 py-0.5 rounded ${priorityBadge[card.priority] || priorityBadge.baseline}`}>
@@ -1046,10 +1046,10 @@ function DomainPlanCard({ card }) {
       </div>
       
       {/* Escalation Warning */}
-      {isEscalated && escalationIntensity >= 3 && (
+      {isEscalated && intensity >= 4 && (
         <div className="mb-2 p-2 rounded bg-orange-500/10 border border-orange-500/20">
           <p className="text-xs text-orange-400 font-medium">
-            Micro-habit mode: Focus on ONE thing only.
+            {intensity >= 5 ? 'CRITICAL: One rule for the entire game.' : 'Micro-habit mode: Focus on ONE thing only.'}
           </p>
         </div>
       )}
