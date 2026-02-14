@@ -1710,7 +1710,6 @@ def generate_drill_positions(analysis: Dict, game: Dict, weakness_patterns: Dict
     drills = []
     sf = analysis.get("stockfish_analysis", {})
     moves = sf.get("move_evaluations", [])
-    user_color = game.get("user_color", "white")
     
     if not moves:
         return []
