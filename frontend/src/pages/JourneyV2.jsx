@@ -626,10 +626,8 @@ const OpeningProgressSection = ({ data, onViewGame }) => {
 // MAIN PAGE COMPONENT
 // ============================================
 // Before/After Coach Comparison Component
-const CoachingComparison = ({ data }) => {
-  const [activeTab, setActiveTab] = useState('growth'); // 'before', 'after', 'growth'
-  
-  const { baseline, current_stats, progress, has_baseline, games_until_baseline } = data;
+const CoachingComparison = ({ data, activeTab, onTabChange }) => {
+  const { baseline, current_stats, progress, has_baseline, games_until_baseline, pattern_comparison } = data;
   
   // If no baseline yet
   if (!has_baseline) {
@@ -688,6 +686,20 @@ const CoachingComparison = ({ data }) => {
     } else if (progress.win_rate?.delta <= -5) {
       needsWork.push({ label: "Game Results", detail: "Focus on converting advantages" });
     }
+    
+    // Add pattern-based insights
+    if (pattern_comparison?.weaknesses) {
+      const fixed = pattern_comparison.weaknesses.filter(w => w.trend === 'fixed' || w.trend === 'improved');
+      const regressed = pattern_comparison.weaknesses.filter(w => w.trend === 'regressed' || w.trend === 'new');
+      
+      fixed.forEach(w => {
+        improving.push({ label: w.label, detail: `${w.trend === 'fixed' ? 'No longer an issue!' : `Improved by ${Math.abs(w.delta)}%`}` });
+      });
+      
+      regressed.forEach(w => {
+        needsWork.push({ label: w.label, detail: `${w.trend === 'new' ? 'New weakness detected' : `Increased by ${w.delta}%`}` });
+      });
+    }
 
     return { improving, needsWork };
   };
@@ -705,7 +717,7 @@ const CoachingComparison = ({ data }) => {
         {/* Tabs */}
         <div className="flex border-b">
           <button
-            onClick={() => setActiveTab('before')}
+            onClick={() => onTabChange('before')}
             className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
               activeTab === 'before' 
                 ? 'bg-muted/50 border-b-2 border-amber-500 text-amber-500' 
@@ -715,7 +727,7 @@ const CoachingComparison = ({ data }) => {
             Before Coach
           </button>
           <button
-            onClick={() => setActiveTab('after')}
+            onClick={() => onTabChange('after')}
             className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
               activeTab === 'after' 
                 ? 'bg-muted/50 border-b-2 border-emerald-500 text-emerald-500' 
@@ -725,7 +737,7 @@ const CoachingComparison = ({ data }) => {
             After Coach
           </button>
           <button
-            onClick={() => setActiveTab('growth')}
+            onClick={() => onTabChange('growth')}
             className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
               activeTab === 'growth' 
                 ? 'bg-muted/50 border-b-2 border-primary text-primary' 
@@ -850,7 +862,7 @@ const CoachingComparison = ({ data }) => {
                   </div>
                   {improving.length > 0 ? (
                     <div className="space-y-2">
-                      {improving.map((item, idx) => (
+                      {improving.slice(0, 4).map((item, idx) => (
                         <div key={idx} className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
                           <p className="font-medium text-sm">{item.label}</p>
                           <p className="text-xs text-muted-foreground">{item.detail}</p>
@@ -872,7 +884,7 @@ const CoachingComparison = ({ data }) => {
                   </div>
                   {needsWork.length > 0 ? (
                     <div className="space-y-2">
-                      {needsWork.map((item, idx) => (
+                      {needsWork.slice(0, 4).map((item, idx) => (
                         <div key={idx} className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
                           <p className="font-medium text-sm">{item.label}</p>
                           <p className="text-xs text-muted-foreground">{item.detail}</p>
