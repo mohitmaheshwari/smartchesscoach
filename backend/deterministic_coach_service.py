@@ -1425,11 +1425,19 @@ def _audit_middlegame_domain(card: Dict, moves: List[Dict], thresholds: Dict, ga
 def _audit_tactics_domain(card: Dict, moves: List[Dict], thresholds: Dict, analysis: Dict):
     """Audit the tactics domain."""
     
-    blunders = analysis.get("blunders", 0)
-    mistakes = analysis.get("mistakes", 0)
+    # Count blunders from move evaluations (more accurate than summary)
+    blunder_moves = [m for m in moves if m.get("evaluation") == "blunder"]
+    mistake_moves = [m for m in moves if m.get("evaluation") == "mistake"]
+    
+    blunders = len(blunder_moves)
+    mistakes = len(mistake_moves)
+    
+    # Fallback to analysis summary if no move data
+    if not moves:
+        blunders = analysis.get("blunders", 0)
+        mistakes = analysis.get("mistakes", 0)
     
     # Find blunder moves for evidence
-    blunder_moves = [m for m in moves if m.get("evaluation") == "blunder"]
     evidence = []
     for m in blunder_moves[:3]:
         evidence.append({
@@ -1444,8 +1452,9 @@ def _audit_tactics_domain(card: Dict, moves: List[Dict], thresholds: Dict, analy
         f"Mistakes: {mistakes}",
     ]
     
-    # Success criteria from card
-    allowed_blunders = 1 if "beginner" in (card.get("intensity_name", "") or "").lower() else 0
+    # Rating-adjusted allowed blunders
+    rating_band = card.get("intensity_name", "").lower()
+    allowed_blunders = 1 if "beginner" in rating_band or blunders <= 1 else 0
     
     if blunders == 0:
         status = "executed"
