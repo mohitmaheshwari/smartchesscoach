@@ -160,6 +160,13 @@ UI Indicators:
   - Creates actionable "Focus Items" in the next game's plan
   - Displays in new "FOCUS FROM LAST GAME" section on Focus page
   - Closes the feedback loop: Analyze Mistake → Create Plan to Fix Mistake
+- **NEW (Feb 2026)**: Before/After Coach Pattern Comparison
+  - Journey page tabs now show DIFFERENT weakness data based on selected period
+  - "Before Coach" tab shows weaknesses from first 10 games (baseline)
+  - "After Coach" tab shows weaknesses from last 25 games (current)
+  - "Your Growth" tab shows improvement/regression for each weakness
+  - Pattern comparison tracks: fixed weaknesses, improved weaknesses, new weaknesses
+  - Blunder context (when winning/equal/losing) also changes per tab
 
 ## Prioritized Backlog
 
