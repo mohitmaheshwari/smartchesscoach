@@ -330,6 +330,14 @@ const BoardFirstCoach = ({ user }) => {
     }
   }, []);
 
+  // Helper to safely get opening name from string or object
+  const getOpeningName = (opening) => {
+    if (!opening) return null;
+    if (typeof opening === 'string') return opening;
+    if (typeof opening === 'object' && opening.name) return opening.name;
+    return null;
+  };
+
   // Format time for sync status
   const formatSyncTime = (seconds) => {
     if (!seconds || seconds <= 0) return "0:00";
