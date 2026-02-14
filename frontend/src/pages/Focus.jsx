@@ -997,7 +997,8 @@ function getDomainName(domain) {
  */
 function DomainPlanCard({ card }) {
   const isEscalated = card.escalation?.is_escalated;
-  const escalationIntensity = card.escalation?.intensity || 1;
+  const intensity = card.intensity || 2;
+  const intensityName = card.intensity_name || "Normal";
   const consecutiveMisses = card.escalation?.consecutive_misses || 0;
   
   const priorityColors = {
