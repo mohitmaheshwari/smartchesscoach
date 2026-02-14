@@ -1029,8 +1029,13 @@ async def get_adaptive_coach_data(db, user_id: str) -> Dict:
     )
     
     plan_audit = {"has_plan": False, "audit_cards": []}
-    if last_analysis and previous_plan:
-        plan_audit = audit_last_game_against_plan(last_analysis, last_game, previous_plan)
+    
+    # If no previous plan exists, use the current plan to audit the last game
+    # This gives users immediate value on first visit
+    plan_to_audit = previous_plan if previous_plan else next_game_plan
+    
+    if last_analysis and plan_to_audit:
+        plan_audit = audit_last_game_against_plan(last_analysis, last_game, plan_to_audit)
     
     # Add last game info to audit
     if last_game:
