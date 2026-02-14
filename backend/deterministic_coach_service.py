@@ -760,8 +760,6 @@ def calculate_opening_recommendations(
     openings_white = {}
     openings_black = {}
     
-    thresholds = get_band_specific_thresholds(rating_band)
-    
     for game in games[-30:]:
         game_id = game.get("game_id")
         analysis = analysis_map.get(game_id)
