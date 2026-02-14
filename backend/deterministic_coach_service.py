@@ -39,6 +39,9 @@ import re
 
 logger = logging.getLogger(__name__)
 
+# Starting FEN position
+START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
 
 # =============================================================================
 # RATING BANDS - Granular System
