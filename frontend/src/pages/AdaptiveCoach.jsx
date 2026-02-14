@@ -447,18 +447,6 @@ const AdaptiveCoach = ({ user }) => {
                     ))}
                   </div>
                 ) : (
-                            className="h-6 px-2"
-                            onClick={() =>
-                              handleViewPosition(card.board_link_fen, `${card.label} - Move ${card.move_reference}`)
-                            }
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
                   <p className="text-sm text-muted-foreground">
                     No previous plan to audit. Play a game and come back!
                   </p>
