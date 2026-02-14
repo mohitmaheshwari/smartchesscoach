@@ -1735,7 +1735,11 @@ async def generate_plan_audit(db, user_id: str) -> Dict:
         {"$set": audited_plan}
     )
     
+    # Extract key moments for Board-First UI
+    key_moments = extract_key_moments(analysis, game)
+    
     return {
         "has_data": True,
+        "key_moments": key_moments,
         **audited_plan
     }
