@@ -684,9 +684,11 @@ const BoardFirstCoach = ({ user }) => {
                       </div>
                       
                       <h4 className="font-semibold mb-2">
-                        {planData?.opening_recommendation?.as_white || 
-                         focusData?.opening_to_play?.white?.name || 
-                         "Your Recommended Opening"}
+                        {typeof planData?.opening_recommendation?.as_white === 'string' 
+                          ? planData.opening_recommendation.as_white 
+                          : planData?.opening_recommendation?.as_white?.name ||
+                            focusData?.opening_to_play?.white?.name || 
+                            "Your Recommended Opening"}
                       </h4>
                       
                       {/* Show the moves if available */}
