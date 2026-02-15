@@ -31,6 +31,11 @@ import {
   ChevronRight,
   Pause,
   RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  BarChart3,
+  Lock,
+  Info,
 } from "lucide-react";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -45,6 +50,7 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
  * D) Your Opening Pack (personalized)
  * E) Start Mission (in-app runner with active time tracking)
  * F) Turning Point Replay
+ * G) Bucket Breakdown (debug panel)
  */
 const FocusPage = ({ user }) => {
   const navigate = useNavigate();
@@ -56,6 +62,11 @@ const FocusPage = ({ user }) => {
   const [focusPlan, setFocusPlan] = useState(null);
   const [coachNote, setCoachNote] = useState("");
   const [streak, setStreak] = useState(0);
+
+  // Bucket breakdown state
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const [bucketBreakdown, setBucketBreakdown] = useState(null);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(false);
 
   // Board state
   const [currentFen, setCurrentFen] = useState(START_FEN);
