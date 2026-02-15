@@ -5416,16 +5416,14 @@ async def get_last_game_audit(user: User = Depends(get_current_user)):
     - violations: Key moments that didn't align with the focus
     - good_moments: Moments that showed good execution
     """
-    from focus_plan_service import audit_last_game
+    from focus_plan_service import get_focus_page_data, audit_last_game
     
-    # Get active plan
-    plan = await db.focus_plans.find_one(
-        {"user_id": user.user_id, "is_active": True},
-        {"_id": 0}
-    )
+    # Use get_focus_page_data to ensure plan is generated/active
+    data = await get_focus_page_data(db, user.user_id)
+    plan = data.get("plan")
     
     if not plan:
-        return {"error": "No active plan found", "has_audit": False}
+        return {"error": "No plan available", "has_audit": False}
     
     audit = await audit_last_game(db, user.user_id, plan)
     return audit
