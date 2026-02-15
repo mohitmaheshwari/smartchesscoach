@@ -10,53 +10,89 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - **Analysis Engine:** Stockfish
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
 
-## GOLD FEATURE: Adaptive Performance Coach (Focus Page v2) - COMPLETE ✅
+---
 
-### Core Philosophy: "Behavioral Coaching"
-Focus page analyzes THINKING PATTERNS across games, not just move mistakes. It feels like a personal coach preparing you for your NEXT game, not reviewing the past.
+## GOLD FEATURE: Deterministic Personalized Coaching (Focus Page) - COMPLETE ✅
 
-### The 3 Sections (Redesigned Dec 2025)
+### Core Philosophy: "Same User + Same Inputs = Same Plan"
+Focus page uses DETERMINISTIC PERSONALIZATION - not random LLM outputs. All coaching recommendations are computed from user's actual game data using rule-based engines.
 
-**Layout:** Single-column flowing page with chessboard embedded in Audit section. No tabs.
+### Key Properties
+- **Deterministic**: Same user + same inputs = same plan (consistent, not random)
+- **Personalized**: Different users + different inputs = different plan (actually personalized)
+- **Rating Band Gated**: Different advice for <900, 900-1400, 1400-1800, 1800+
 
-#### 1️⃣ Last Game Audit - "Did you execute the plan?"
-- Reviews last game against PREVIOUS PLAN
-- **Embedded Chessboard** on left side of section
-- **Audit Cards** on right side showing: Executed ✅ / Partial ⚠️ / Missed ❌
-- Click any card → board updates to show that position
-- Score displayed (e.g., "1/3")
-- Last game result shown (WIN/LOSS/DRAW vs Opponent)
+### The 7 Coaching Buckets (Cost Score System)
+Each bucket computes a Cost Score from last 25 games:
+```
+CostScore = Σ(EvalDrop × ContextWeight × SeverityWeight) + FrequencyWeight × count(events)
+```
 
-#### 2️⃣ Next Game Plan - "Focus on these for your next game"
-- **Primary Focus callout** with explanation (e.g., "Tactical Awareness")
-- Domain goals displayed:
-  - Opening Strategy: Develop pieces, control center
-  - Middlegame Objective: When ahead simplify, when equal improve worst piece
-  - Tactical Protocol: Checks, captures, threats every move
+1. **PIECE_SAFETY** - Hanging pieces (cp_loss >= 300)
+2. **THREAT_AWARENESS** - Missed opponent threats
+3. **TACTICAL_EXECUTION** - Missed tactics (blunders)
+4. **ADVANTAGE_DISCIPLINE** - Failed conversion when ahead
+5. **OPENING_STABILITY** - Weak first 10-12 moves
+6. **TIME_DISCIPLINE** - Late-game blunders
+7. **ENDGAME_FUNDAMENTALS** - Conversion failures
 
-#### 3️⃣ Current Mission - "Your improvement challenge"
-- Gamified streak-based missions (e.g., "Close It Out - Convert 5 winning positions")
-- Progress bar with segments
-- Streak counter with flame icon
-- Status messages (streak reset, last game counted)
-- Personal best displayed
+**Primary Focus** = Highest cost bucket (within rating band)
+**Secondary Focus** = Second highest if >= 70% of primary
 
-### Deterministic Engines (Backend)
-All 12 engines implemented in `/app/backend/adaptive_coach_service.py`:
-- `compute_primary_leak()` / `compute_secondary_leak()`
-- `compute_opening_stability()` / `compute_hanging_piece_frequency()`
-- `compute_tactical_miss_rate()` / `compute_advantage_collapse_rate()`
-- `compute_endgame_conversion_rate()` / `compute_time_trouble_pattern()`
-- `generate_next_game_plan()` / `audit_last_game_against_plan()`
-- `compute_skill_trends()` / `get_adaptive_coach_data()`
+### Focus Page Layout
 
-### Adaptive Loop (Critical)
-After every analyzed game:
-1. Audit previous plan → 2. Update skill signals → 3. Recalculate primary leak → 4. Adjust intensity → 5. Generate next plan → 6. Persist new active plan
+#### A) Coach Note (Personalized)
+"You're stable at 1200 but you've peaked at 1350. The 150-point gap is mainly from Piece Safety. This week: Check all pieces after opponent's move"
+
+#### B) This Week's Focus Card
+- Primary Focus bucket with percentage affected
+- 2 actionable rules (rating-band specific)
+- "See Example Position" button → updates board
+
+#### C) Opening Pack (Personalized)
+- **As White**: Best opening from user's games
+- **vs 1.e4**: Best black response
+- **vs 1.d4**: Best black response
+- Shows: games played, win rate, stability score
+
+#### D) Guided Replay (Turning Points)
+- Top 3 biggest eval swings from user's games
+- Click to load position on board
+- Shows: move number, phase, your move vs best move
+
+#### E) Weekly Requirements (3 Progress Bars)
+- Games with openings: 0/10
+- Missions completed: 0/7
+- Guided replays: 0/2
+
+#### F) Daily Mission (15 Minute Focus)
+- Active time tracking (only counts when interacting)
+- Heartbeat events every 5 seconds
+- Complete at 80%+ (12+ minutes)
 
 ### API Endpoints
-- `GET /api/adaptive-coach` - Returns all 4 sections
-- `POST /api/adaptive-coach/audit-game/{game_id}` - Manual audit trigger
+- `GET /api/focus-plan` - Get complete focus plan
+- `POST /api/focus-plan/regenerate` - Force new plan
+- `POST /api/focus-plan/mission/start` - Start mission session
+- `POST /api/focus-plan/mission/interaction` - Record event/heartbeat
+- `POST /api/focus-plan/mission/complete` - Complete mission
+- `GET /api/focus-plan/bucket-breakdown` - Debug bucket costs
+
+### Key Files
+- `backend/focus_plan_service.py` - Core deterministic coaching service
+- `frontend/src/pages/FocusPage.jsx` - New Focus Page UI
+
+---
+
+## Previous Feature: Adaptive Performance Coach (v1) - DEPRECATED
+
+The old adaptive coach at `/api/adaptive-coach` still exists with:
+- 4-section layout (Diagnosis, Plan, Audit, Signals)
+- Different data model (user_adaptive_plans collection)
+
+Now the Focus page uses the new deterministic system (focus_plans collection).
+
+---
 
 ### Key Files
 - `frontend/src/pages/AdaptiveCoach.jsx` - Main component with 4 sections
