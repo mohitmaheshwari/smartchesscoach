@@ -213,9 +213,12 @@ Collect user's thoughts at the moment of mistakes for future pattern analysis. T
 }
 ```
 
-### Frontend UI (P2)
-- [ ] Add input fields on Game Analysis page for each mistake
-- [ ] Allow users to submit their thoughts
+### Frontend UI ✅ COMPLETE (Feb 2026)
+- [x] "What were you thinking?" prompt in Lab.jsx LearningMomentItem component
+- [x] Users can enter and save thoughts for each mistake/blunder
+- [x] Saved thoughts show checkmark indicator
+- [x] Thoughts persist across page reloads
+- [x] Test-ids: thought-section-{moveNumber}, thought-input-{moveNumber}, thought-save-{moveNumber}, thought-prompt-{moveNumber}
 
 ---
 
