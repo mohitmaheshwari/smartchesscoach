@@ -1422,7 +1422,7 @@ const Lab = ({ user }) => {
   );
 };
 
-const MilestoneGroup = ({ group, userColor, onMoveClick }) => (
+const MilestoneGroup = ({ group, userColor, gameId, onMoveClick }) => (
   <div className="space-y-2">
     <div className="flex items-center justify-between">
       <h3 className="font-medium flex items-center gap-2">
@@ -1449,6 +1449,7 @@ const MilestoneGroup = ({ group, userColor, onMoveClick }) => (
             key={idx} 
             mistake={item} 
             userColor={userColor}
+            gameId={gameId}
             onClick={() => onMoveClick(item.move_number)}
           />
         )
