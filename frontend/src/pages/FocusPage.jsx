@@ -663,9 +663,163 @@ const FocusPage = ({ user }) => {
             </motion.div>
           </div>
         </div>
+
+        {/* ============================================ */}
+        {/* BUCKET BREAKDOWN (Why This Focus?) */}
+        {/* ============================================ */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          transition={{ delay: 0.3 }}
+          className="mt-8"
+        >
+          <button
+            onClick={fetchBucketBreakdown}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto"
+            data-testid="bucket-breakdown-toggle"
+          >
+            {loadingBreakdown ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <BarChart3 className="w-4 h-4" />
+            )}
+            <span>Why this focus?</span>
+            {showBreakdown ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </button>
+
+          <AnimatePresence>
+            {showBreakdown && bucketBreakdown && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <Card className="mt-4 border-muted-foreground/20" data-testid="bucket-breakdown-panel">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-muted-foreground">
+                        <BarChart3 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold">Cost Score Breakdown</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Rating: {bucketBreakdown.rating} ({bucketBreakdown.rating_band})
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mb-4 p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Info className="w-4 h-4 text-blue-400" />
+                        <span className="text-muted-foreground">
+                          Your focus is the bucket with the <span className="text-blue-400 font-medium">highest cost score</span> that's available for your rating band.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {Object.entries(bucketBreakdown.bucket_costs || {})
+                        .sort((a, b) => b[1].score - a[1].score)
+                        .map(([bucketId, data], i) => {
+                          const isSelected = bucketId === primary_focus?.code;
+                          const isLocked = !data.allowed_for_rating;
+                          const maxScore = Math.max(...Object.values(bucketBreakdown.bucket_costs || {}).map(d => d.score));
+                          const barWidth = maxScore > 0 ? (data.score / maxScore) * 100 : 0;
+
+                          return (
+                            <div
+                              key={bucketId}
+                              className={`relative p-3 rounded-lg border transition-colors ${
+                                isSelected 
+                                  ? 'bg-blue-500/10 border-blue-500/30' 
+                                  : isLocked 
+                                    ? 'bg-muted/20 border-muted/30 opacity-60' 
+                                    : 'bg-muted/30 border-border/50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                    isSelected ? 'bg-blue-500 text-white' : 'bg-muted text-muted-foreground'
+                                  }`}>
+                                    {i + 1}
+                                  </div>
+                                  <span className={`font-medium text-sm ${isSelected ? 'text-blue-400' : ''}`}>
+                                    {getBucketLabel(bucketId)}
+                                  </span>
+                                  {isSelected && (
+                                    <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+                                      Selected
+                                    </span>
+                                  )}
+                                  {isLocked && (
+                                    <Lock className="w-3 h-3 text-muted-foreground" />
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <div className={`font-bold ${isSelected ? 'text-blue-400' : 'text-foreground'}`}>
+                                    {Math.round(data.score).toLocaleString()}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {data.games_affected} games affected
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Score Bar */}
+                              <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    isSelected ? 'bg-blue-500' : isLocked ? 'bg-muted-foreground/30' : 'bg-muted-foreground/50'
+                                  }`}
+                                  style={{ width: `${barWidth}%` }}
+                                />
+                              </div>
+
+                              {isLocked && (
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  Locked for {bucketBreakdown.rating_band} players
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-border/50">
+                      <p className="text-xs text-muted-foreground">
+                        <strong>How it works:</strong> Each bucket's cost score = Σ(EvalDrop × ContextWeight) + FrequencyBonus. 
+                        Mistakes when winning cost 40% more. Your rating band ({bucketBreakdown.rating_band}) determines which buckets are available.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </div>
     </Layout>
   );
+};
+
+// Helper function to convert bucket ID to label
+const getBucketLabel = (bucketId) => {
+  const labels = {
+    PIECE_SAFETY: "Piece Safety",
+    THREAT_AWARENESS: "Threat Awareness",
+    TACTICAL_EXECUTION: "Tactical Execution",
+    ADVANTAGE_DISCIPLINE: "Advantage Discipline",
+    OPENING_STABILITY: "Opening Stability",
+    TIME_DISCIPLINE: "Time Discipline",
+    ENDGAME_FUNDAMENTALS: "Endgame Fundamentals",
+  };
+  return labels[bucketId] || bucketId;
 };
 
 export default FocusPage;
