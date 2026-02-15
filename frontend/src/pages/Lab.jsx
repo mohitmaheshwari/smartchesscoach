@@ -48,7 +48,9 @@ import {
   RefreshCw,
   HelpCircle,
   Star,
-  Trophy
+  Trophy,
+  MessageCircle,
+  Send
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
