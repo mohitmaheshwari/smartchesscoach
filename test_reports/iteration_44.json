@@ -1,0 +1,115 @@
+{
+  "summary": "Completed testing of Focus Plan - Deterministic Personalized Coaching System. All 15 backend API tests pass. UI testing confirms all features working: Focus page displays primary focus with rules, opening pack with stats, turning points for guided replay, weekly requirements progress bars, and daily mission with active time tracking.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "features_tested": {
+    "get_focus_plan": {
+      "status": "PASS",
+      "endpoint": "GET /api/focus-plan",
+      "verified": [
+        "Returns complete focus plan with primary_focus, rules, openings, mission, weekly_requirements",
+        "Returns personalized coach_note based on rating and focus area",
+        "Returns streak information",
+        "Primary focus code is one of 7 valid buckets (PIECE_SAFETY, THREAT_AWARENESS, etc)",
+        "Opening recommendations include white, black_vs_e4, black_vs_d4 with stats (games, win_rate)"
+      ]
+    },
+    "regenerate_focus_plan": {
+      "status": "PASS",
+      "endpoint": "POST /api/focus-plan/regenerate",
+      "verified": [
+        "Forces new plan generation",
+        "Returns new plan_id"
+      ]
+    },
+    "mission_start": {
+      "status": "PASS",
+      "endpoint": "POST /api/focus-plan/mission/start",
+      "verified": [
+        "Creates new session with session_id, user_id, plan_id",
+        "Returns session data for time tracking"
+      ]
+    },
+    "mission_interaction": {
+      "status": "PASS",
+      "endpoint": "POST /api/focus-plan/mission/interaction",
+      "verified": [
+        "Records heartbeat events",
+        "Records position_attempted events with correct/incorrect status",
+        "Tracks active_seconds that accumulate with rapid interactions",
+        "Returns active_seconds and target_seconds"
+      ]
+    },
+    "mission_complete": {
+      "status": "PASS",
+      "endpoint": "POST /api/focus-plan/mission/complete",
+      "verified": [
+        "Marks mission as complete",
+        "Updates weekly_requirements.missions_completed"
+      ]
+    },
+    "bucket_breakdown": {
+      "status": "PASS",
+      "endpoint": "GET /api/focus-plan/bucket-breakdown",
+      "verified": [
+        "Returns all 7 bucket costs with scores"
+      ]
+    },
+    "determinism": {
+      "status": "PASS",
+      "verified": [
+        "Same user + same inputs = same plan_id",
+        "Primary focus is deterministic for same input data"
+      ]
+    },
+    "focus_page_ui": {
+      "status": "PASS",
+      "verified": [
+        "Focus card with primary focus code (PIECE_SAFETY) and 72% frequency rate",
+        "2 rules displayed: 'Check all pieces after opponent's move', 'Don't leave pieces undefended'",
+        "'See Example Position' button updates chessboard to show FEN position",
+        "Opening Pack shows white (Sicilian Defense 4 games 50% win), black vs e4 (King's Pawn 2 games 100% win), black vs d4 (Queen's Pawn 2 games 100% win)",
+        "Turning Points card with 3 positions from user's games",
+        "Clicking turning point updates chessboard position",
+        "Weekly Requirements shows 3 progress bars: Games with openings 0/10, Missions completed 1/7, Guided replays 0/2",
+        "Mission card with Start Mission button",
+        "Mission active state shows timer (0:00 / 15:00), Pause and Complete buttons",
+        "Coach note personalized: 'You're playing consistently at 1200. Your main gap is Piece Safety...'"
+      ]
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_focus_plan.py",
+    "/app/test_reports/pytest/pytest_focus_plan.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_focus_plan.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100% (All UI features verified via Playwright)"
+  },
+  "data_testid_verification": {
+    "present_and_working": [
+      "primary-focus-card",
+      "opening-pack-card",
+      "turning-points-card",
+      "weekly-requirements-card",
+      "mission-card"
+    ]
+  },
+  "seed_data_creation": "None - used existing dev user with session_token=test_session_356539ff12b1",
+  "test_credentials": "session_token=test_session_356539ff12b1 or use Dev Login button",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Focus Plan feature complete and working. Backend service computes bucket costs from stockfish_analysis.move_evaluations data. Primary focus is deterministically selected as highest cost bucket within rating band. Opening recommendations computed from game opening stability scores. Mission sessions track active time via heartbeat events. All 7 buckets: PIECE_SAFETY, THREAT_AWARENESS, TACTICAL_EXECUTION, ADVANTAGE_DISCIPLINE, OPENING_STABILITY, TIME_DISCIPLINE, ENDGAME_FUNDAMENTALS. UI displays everything correctly with interactive chessboard that updates when clicking 'See Example Position' or turning point items."
+}
