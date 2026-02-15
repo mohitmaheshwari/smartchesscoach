@@ -29,6 +29,7 @@ import {
   Timer,
   TrendingUp,
   ChevronRight,
+  ChevronLeft,
   Pause,
   RotateCcw,
   ChevronDown,
@@ -36,6 +37,8 @@ import {
   BarChart3,
   Lock,
   Info,
+  FileSearch,
+  ExternalLink,
 } from "lucide-react";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
