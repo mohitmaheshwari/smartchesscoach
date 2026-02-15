@@ -15,42 +15,31 @@ Build a full-featured chess coaching application that analyzes games, identifies
 ### Core Philosophy: "Behavioral Coaching"
 Focus page analyzes THINKING PATTERNS across games, not just move mistakes. It feels like a personal coach preparing you for your NEXT game, not reviewing the past.
 
-### The 4 Sections
+### The 3 Sections (Redesigned Dec 2025)
 
-#### 1️⃣ Coach Diagnosis - "Your Current Growth Priority"
-- Identifies ONE primary leak limiting user's rating
-- Rating-band aware:
-  - 600-1000: Hanging Pieces
-  - 1000-1600: Tactical Awareness  
-  - 1600-2000: Advantage Discipline
-  - 2000+: Conversion Precision
-- **"See Typical Pattern" button** loads representative position on board
-- Secondary leak shown when available
+**Layout:** Single-column flowing page with chessboard embedded in Audit section. No tabs.
 
-#### 2️⃣ Next Game Plan - 5 Domains
-- **Opening Strategy**: Based on opening stability score, not popularity
-- **Middlegame Objective**: Based on primary weakness
-- **Tactical Protocol**: Rating-specific (e.g., "Checks, captures, threats")
-- **Endgame Reminder**: Only if endgame issues detected
-- **Time Discipline**: Only if time trouble pattern exists
-- Intensity levels (1-5) adjust based on compliance
+#### 1️⃣ Last Game Audit - "Did you execute the plan?"
+- Reviews last game against PREVIOUS PLAN
+- **Embedded Chessboard** on left side of section
+- **Audit Cards** on right side showing: Executed ✅ / Partial ⚠️ / Missed ❌
+- Click any card → board updates to show that position
+- Score displayed (e.g., "1/3")
+- Last game result shown (WIN/LOSS/DRAW vs Opponent)
 
-#### 3️⃣ Plan Audit - "Last Game Execution Review"
-- Audits last game against PREVIOUS PLAN (not Lab-style analysis)
-- 3-5 audit cards showing: Executed ✅ / Partial ⚠️ / Missed ❌
-- Each card has:
-  - Single data line (e.g., "Advantage lost on move 7")
-  - Eye icon to view position on board
-- Score shown (e.g., "1/3")
+#### 2️⃣ Next Game Plan - "Focus on these for your next game"
+- **Primary Focus callout** with explanation (e.g., "Tactical Awareness")
+- Domain goals displayed:
+  - Opening Strategy: Develop pieces, control center
+  - Middlegame Objective: When ahead simplify, when equal improve worst piece
+  - Tactical Protocol: Checks, captures, threats every move
 
-#### 4️⃣ Skill Signals - "Live Performance Monitoring"
-- Shows 5 skill dimensions with trends:
-  - Opening Stability: ↑ ↓ →
-  - Tactical Awareness: ↑ ↓ →
-  - Advantage Discipline: ↑ ↓ →
-  - Endgame Technique: ↑ ↓ →
-  - Time Control: ↑ ↓ →
-- Each signal has: trend arrow, short reason, click-to-view example
+#### 3️⃣ Current Mission - "Your improvement challenge"
+- Gamified streak-based missions (e.g., "Close It Out - Convert 5 winning positions")
+- Progress bar with segments
+- Streak counter with flame icon
+- Status messages (streak reset, last game counted)
+- Personal best displayed
 
 ### Deterministic Engines (Backend)
 All 12 engines implemented in `/app/backend/adaptive_coach_service.py`:
