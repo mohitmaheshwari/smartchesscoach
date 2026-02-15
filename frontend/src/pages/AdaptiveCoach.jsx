@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import CoachBoard from "@/components/CoachBoard";
@@ -12,9 +12,6 @@ import {
   Loader2,
   Target,
   Brain,
-  TrendingUp,
-  TrendingDown,
-  Minus,
   ChevronRight,
   Eye,
   Zap,
@@ -24,21 +21,22 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  Minus,
   RefreshCw,
   Flame,
   Play,
+  ArrowRight,
 } from "lucide-react";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 /**
- * AdaptiveCoach - The GM-Style Performance Briefing System
- *
- * 4 Sections:
- * 1. Coach Diagnosis - Your Current Growth Priority (ONE primary leak)
- * 2. Next Game Plan - 5 domains with intensity levels
- * 3. Plan Audit - Last Game Execution Review
- * 4. Skill Signals - Live Performance Monitoring
+ * AdaptiveCoach - GM-Style Performance Coach
+ * 
+ * 3 Connected Sections (No Tabs):
+ * 1. Last Game Audit - Did you execute the plan?
+ * 2. Next Game Plan - What to focus on next
+ * 3. Mission - Gamified goal tracking
  */
 const AdaptiveCoach = ({ user }) => {
   const navigate = useNavigate();
@@ -48,6 +46,7 @@ const AdaptiveCoach = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [coachData, setCoachData] = useState(null);
+  const [focusData, setFocusData] = useState(null);
 
   // Board state
   const [currentFen, setCurrentFen] = useState(START_FEN);
@@ -56,20 +55,28 @@ const AdaptiveCoach = ({ user }) => {
   // Sync status
   const [syncStatus, setSyncStatus] = useState(null);
 
-  // Fetch Adaptive Coach data
+  // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API}/adaptive-coach`, {
-          credentials: "include",
-        });
+        
+        // Fetch adaptive coach data and focus data (for mission) in parallel
+        const [coachRes, focusRes] = await Promise.all([
+          fetch(`${API}/adaptive-coach`, { credentials: "include" }),
+          fetch(`${API}/focus`, { credentials: "include" })
+        ]);
 
-        if (response.ok) {
-          const data = await response.json();
+        if (coachRes.ok) {
+          const data = await coachRes.json();
           setCoachData(data);
         } else {
           setError("Failed to load coaching data");
+        }
+        
+        if (focusRes.ok) {
+          const data = await focusRes.json();
+          setFocusData(data);
         }
       } catch (err) {
         console.error("Failed to load coaching data:", err);
@@ -87,9 +94,7 @@ const AdaptiveCoach = ({ user }) => {
   useEffect(() => {
     const fetchSyncStatus = async () => {
       try {
-        const response = await fetch(`${API}/sync-status`, {
-          credentials: "include",
-        });
+        const response = await fetch(`${API}/sync-status`, { credentials: "include" });
         if (response.ok) {
           const data = await response.json();
           setSyncStatus(data);
@@ -121,13 +126,6 @@ const AdaptiveCoach = ({ user }) => {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Get trend icon
-  const getTrendIcon = (trend) => {
-    if (trend === "improving") return <TrendingUp className="w-4 h-4 text-emerald-400" />;
-    if (trend === "declining") return <TrendingDown className="w-4 h-4 text-red-400" />;
-    return <Minus className="w-4 h-4 text-amber-400" />;
-  };
-
   // Get domain icon
   const getDomainIcon = (domainId) => {
     const icons = {
@@ -140,12 +138,12 @@ const AdaptiveCoach = ({ user }) => {
     return icons[domainId] || <Target className="w-4 h-4" />;
   };
 
-  // Get status color
-  const getStatusColor = (status) => {
-    if (status === "executed") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30";
-    if (status === "partial") return "text-amber-400 bg-amber-500/10 border-amber-500/30";
-    if (status === "missed") return "text-red-400 bg-red-500/10 border-red-500/30";
-    return "text-muted-foreground bg-muted/30 border-border/50";
+  // Get status styling
+  const getStatusStyle = (status) => {
+    if (status === "executed") return { bg: "bg-emerald-500/10", border: "border-emerald-500/30", text: "text-emerald-400" };
+    if (status === "partial") return { bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-400" };
+    if (status === "missed") return { bg: "bg-red-500/10", border: "border-red-500/30", text: "text-red-400" };
+    return { bg: "bg-muted/30", border: "border-border/50", text: "text-muted-foreground" };
   };
 
   // Loading state
@@ -177,10 +175,7 @@ const AdaptiveCoach = ({ user }) => {
     return (
       <Layout user={user}>
         <div className="max-w-md mx-auto py-12">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <Card className="border-2 border-dashed border-muted-foreground/20">
               <CardContent className="py-12 text-center">
                 <Brain className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
@@ -188,10 +183,7 @@ const AdaptiveCoach = ({ user }) => {
                 <p className="text-muted-foreground mb-6">
                   Analyze {coachData.games_required - coachData.games_analyzed} more games to unlock personalized coaching
                 </p>
-                <Progress
-                  value={(coachData.games_analyzed / coachData.games_required) * 100}
-                  className="w-48 mx-auto mb-4"
-                />
+                <Progress value={(coachData.games_analyzed / coachData.games_required) * 100} className="w-48 mx-auto mb-4" />
                 <p className="text-sm text-muted-foreground mb-4">
                   {coachData.games_analyzed}/{coachData.games_required} games analyzed
                 </p>
@@ -204,7 +196,8 @@ const AdaptiveCoach = ({ user }) => {
     );
   }
 
-  const { diagnosis, next_game_plan, plan_audit, skill_signals, opening_recommendation } = coachData || {};
+  const { diagnosis, next_game_plan, plan_audit } = coachData || {};
+  const mission = focusData?.mission;
 
   return (
     <Layout user={user}>
@@ -218,11 +211,10 @@ const AdaptiveCoach = ({ user }) => {
           <div>
             <h1 className="text-2xl font-bold">Focus</h1>
             <p className="text-sm text-muted-foreground">
-              {coachData?.rating_band} • {coachData?.games_analyzed} games analyzed
+              {coachData?.rating_band} • Your personal game plan
             </p>
           </div>
 
-          {/* Sync Timer */}
           {syncStatus && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
               {syncStatus.is_syncing ? (
@@ -234,10 +226,7 @@ const AdaptiveCoach = ({ user }) => {
                 <>
                   <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">
-                    Next sync:{" "}
-                    <span className="font-mono font-medium text-foreground">
-                      {formatSyncTime(syncStatus.next_sync_in_seconds)}
-                    </span>
+                    Next sync: <span className="font-mono font-medium text-foreground">{formatSyncTime(syncStatus.next_sync_in_seconds)}</span>
                   </span>
                 </>
               )}
@@ -245,9 +234,10 @@ const AdaptiveCoach = ({ user }) => {
           )}
         </motion.div>
 
-        {/* Main Layout: Board on Left, Sections on Right */}
+        {/* Main Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* LEFT PANEL: Interactive Board */}
+          
+          {/* LEFT: Interactive Board */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -267,239 +257,240 @@ const AdaptiveCoach = ({ user }) => {
             </Card>
           </motion.div>
 
-          {/* RIGHT PANEL: 4 Sections */}
+          {/* RIGHT: 3 Connected Sections */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
+            className="space-y-4"
           >
-            {/* SECTION 1: Coach Diagnosis */}
-            <Card className="border-red-500/30 bg-red-500/5" data-testid="coach-diagnosis">
-              <CardContent className="py-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="w-5 h-5 text-red-400" />
-                  <h3 className="font-semibold text-red-400">{diagnosis?.title}</h3>
+            
+            {/* ============================================ */}
+            {/* SECTION 1: LAST GAME AUDIT */}
+            {/* ============================================ */}
+            <div className="relative">
+              {/* Section Header */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <span className="text-amber-400 font-bold text-sm">1</span>
                 </div>
-
-                {/* Primary Leak */}
-                <div className="mb-4">
-                  <div className="text-lg font-bold mb-1">{diagnosis?.primary_leak?.label}</div>
-                  <p className="text-sm text-muted-foreground">
-                    {diagnosis?.primary_leak?.explanation}
-                  </p>
+                <div>
+                  <h2 className="font-semibold">Last Game Review</h2>
+                  <p className="text-xs text-muted-foreground">Did you follow the plan?</p>
                 </div>
-
-                {/* See Pattern Button */}
-                {diagnosis?.primary_leak?.example_position?.fen && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-                    onClick={() =>
-                      handleViewPosition(
-                        diagnosis.primary_leak.example_position.fen,
-                        `Typical ${diagnosis.primary_leak.label} Pattern`
-                      )
-                    }
-                    data-testid="view-leak-pattern"
-                  >
-                    <Eye className="w-3.5 h-3.5 mr-1.5" />
-                    See Typical Pattern
-                  </Button>
+                {plan_audit?.score && (
+                  <span className="ml-auto text-lg font-bold text-amber-400">{plan_audit.score}</span>
                 )}
+              </div>
 
-                {/* Secondary Leak (if any) */}
-                {diagnosis?.secondary_leak && (
-                  <div className="mt-4 pt-4 border-t border-border/30">
-                    <div className="text-xs text-muted-foreground mb-1">Secondary Focus</div>
-                    <div className="text-sm font-medium">{diagnosis.secondary_leak.label}</div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* SECTION 2: Next Game Plan */}
-            <Card className="border-blue-500/30 bg-blue-500/5" data-testid="next-game-plan">
-              <CardContent className="py-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Target className="w-5 h-5 text-blue-400" />
-                  <h3 className="font-semibold text-blue-400">Next Game Plan</h3>
+              {/* Last Game Result */}
+              {plan_audit?.last_game && (
+                <div className="flex items-center gap-2 mb-3 text-sm">
+                  <span className={`font-bold ${
+                    plan_audit.last_game.result === "win" ? "text-emerald-400" :
+                    plan_audit.last_game.result === "loss" ? "text-red-400" : "text-amber-400"
+                  }`}>
+                    {plan_audit.last_game.result?.toUpperCase()}
+                  </span>
+                  <span className="text-muted-foreground">vs {plan_audit.last_game.opponent}</span>
                 </div>
+              )}
 
-                <div className="space-y-3">
-                  {next_game_plan?.domains?.map((domain) => (
-                    <div
-                      key={domain.id}
-                      className="flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border/30"
-                      data-testid={`plan-domain-${domain.id}`}
-                    >
-                      <div className="mt-0.5 text-blue-400">
-                        {getDomainIcon(domain.id)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium mb-0.5">{domain.label}</div>
-                        <p className="text-sm text-muted-foreground">{domain.goal}</p>
-                      </div>
-                      {domain.has_board_drill && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-blue-400"
-                          onClick={() => handleViewPosition(START_FEN, domain.label)}
-                        >
-                          <Play className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Opening Recommendation */}
-                {opening_recommendation?.best_opening_white && (
-                  <div className="mt-4 pt-4 border-t border-border/30">
-                    <div className="text-xs text-muted-foreground mb-2">Recommended Opening</div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-white border border-border" />
-                      <span className="text-sm font-medium">
-                        {opening_recommendation.best_opening_white.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        (Stability: {opening_recommendation.best_opening_white.stability}%)
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* SECTION 3: Plan Audit */}
-            <Card className="border-amber-500/30 bg-amber-500/5" data-testid="plan-audit">
-              <CardContent className="py-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-amber-400" />
-                    <h3 className="font-semibold text-amber-400">Last Game Execution</h3>
-                  </div>
-                  {plan_audit?.score && (
-                    <span className="text-sm font-bold text-amber-400">{plan_audit.score}</span>
-                  )}
-                </div>
-
-                {/* Last Game Info */}
-                {plan_audit?.last_game && (
-                  <div className="flex items-center gap-3 mb-4 p-2 rounded bg-background/30">
-                    <span
-                      className={`text-sm font-bold ${
-                        plan_audit.last_game.result === "win"
-                          ? "text-emerald-400"
-                          : plan_audit.last_game.result === "loss"
-                          ? "text-red-400"
-                          : "text-amber-400"
-                      }`}
-                    >
-                      {plan_audit.last_game.result?.toUpperCase()}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      vs {plan_audit.last_game.opponent}
-                    </span>
-                  </div>
-                )}
-
-                {/* Audit Cards */}
-                {plan_audit?.has_plan ? (
-                  <div className="space-y-2">
-                    {plan_audit.audit_cards?.map((card) => (
+              {/* Audit Cards */}
+              {plan_audit?.has_plan ? (
+                <div className="space-y-2">
+                  {plan_audit.audit_cards?.map((card) => {
+                    const style = getStatusStyle(card.status);
+                    return (
                       <div
                         key={card.domain_id}
-                        className={`p-2.5 rounded-lg border ${getStatusColor(card.status)}`}
+                        className={`p-3 rounded-lg border ${style.bg} ${style.border}`}
                         data-testid={`audit-card-${card.domain_id}`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            {card.status === "executed" && <CheckCircle2 className="w-4 h-4" />}
-                            {card.status === "partial" && <AlertTriangle className="w-4 h-4" />}
-                            {card.status === "missed" && <XCircle className="w-4 h-4" />}
-                            {card.status === "n/a" && <Minus className="w-4 h-4" />}
-                            <span className="text-sm font-medium">{card.label}</span>
+                            {card.status === "executed" && <CheckCircle2 className={`w-4 h-4 ${style.text}`} />}
+                            {card.status === "partial" && <AlertTriangle className={`w-4 h-4 ${style.text}`} />}
+                            {card.status === "missed" && <XCircle className={`w-4 h-4 ${style.text}`} />}
+                            {card.status === "n/a" && <Minus className={`w-4 h-4 ${style.text}`} />}
+                            <span className={`text-sm font-medium ${style.text}`}>{card.label}</span>
                           </div>
-
                           {card.board_link_fen && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 px-2"
-                              onClick={() =>
-                                handleViewPosition(card.board_link_fen, `${card.label} - Move ${card.move_reference}`)
-                              }
+                              className="h-7 px-2"
+                              onClick={() => handleViewPosition(card.board_link_fen, `${card.label} - Move ${card.move_reference}`)}
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-4 h-4" />
                             </Button>
                           )}
                         </div>
-                        
-                        {/* Data line - single data point */}
                         {card.data_line && (
-                          <div className="mt-1.5 text-xs text-muted-foreground pl-6">
-                            {card.data_line}
-                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 pl-6">{card.data_line}</p>
                         )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No previous plan to audit. Play a game and come back!
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* SECTION 4: Skill Signals */}
-            <Card className="border-purple-500/30 bg-purple-500/5" data-testid="skill-signals">
-              <CardContent className="py-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Flame className="w-5 h-5 text-purple-400" />
-                  <h3 className="font-semibold text-purple-400">Skill Development Signals</h3>
+                    );
+                  })}
                 </div>
+              ) : (
+                <Card className="border-dashed">
+                  <CardContent className="py-6 text-center">
+                    <p className="text-sm text-muted-foreground">Play a game to see your execution review</p>
+                  </CardContent>
+                </Card>
+              )}
 
-                {skill_signals?.has_enough_data ? (
-                  <div className="space-y-3">
-                    {skill_signals.signals?.map((signal) => (
-                      <div
-                        key={signal.id}
-                        className="flex items-center justify-between"
-                        data-testid={`signal-${signal.id}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {getTrendIcon(signal.trend)}
-                          <div>
-                            <div className="text-sm font-medium">{signal.label}</div>
-                            <div className="text-xs text-muted-foreground">{signal.reason}</div>
-                          </div>
-                        </div>
+              {/* Connector Arrow */}
+              <div className="flex justify-center my-4">
+                <ArrowRight className="w-5 h-5 text-muted-foreground/50 rotate-90" />
+              </div>
+            </div>
 
-                        {signal.example_position?.fen && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-muted-foreground"
-                            onClick={() =>
-                              handleViewPosition(signal.example_position.fen, signal.label)
-                            }
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
+            {/* ============================================ */}
+            {/* SECTION 2: NEXT GAME PLAN */}
+            {/* ============================================ */}
+            <div className="relative">
+              {/* Section Header */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <span className="text-blue-400 font-bold text-sm">2</span>
+                </div>
+                <div>
+                  <h2 className="font-semibold">Next Game Plan</h2>
+                  <p className="text-xs text-muted-foreground">Focus on these for your next game</p>
+                </div>
+              </div>
+
+              {/* Primary Focus Callout */}
+              {diagnosis?.primary_leak && (
+                <div className="mb-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Target className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm font-medium text-blue-400">Primary Focus: {diagnosis.primary_leak.label}</span>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Analyze more games to see your skill trends
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                  <p className="text-xs text-muted-foreground">{diagnosis.primary_leak.explanation}</p>
+                </div>
+              )}
+
+              {/* Plan Domains */}
+              <div className="space-y-2">
+                {next_game_plan?.domains?.map((domain, i) => (
+                  <div
+                    key={domain.id}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-background/50 border border-border/30 hover:border-blue-500/30 transition-colors"
+                    data-testid={`plan-domain-${domain.id}`}
+                  >
+                    <div className="mt-0.5 text-blue-400">{getDomainIcon(domain.id)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{domain.label}</div>
+                      <p className="text-xs text-muted-foreground">{domain.goal}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Connector Arrow */}
+              <div className="flex justify-center my-4">
+                <ArrowRight className="w-5 h-5 text-muted-foreground/50 rotate-90" />
+              </div>
+            </div>
+
+            {/* ============================================ */}
+            {/* SECTION 3: MISSION */}
+            {/* ============================================ */}
+            <div>
+              {/* Section Header */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <span className="text-amber-400 font-bold text-sm">3</span>
+                </div>
+                <div>
+                  <h2 className="font-semibold">Current Mission</h2>
+                  <p className="text-xs text-muted-foreground">Your improvement challenge</p>
+                </div>
+              </div>
+
+              {/* Mission Card */}
+              {mission ? (
+                <Card className={`border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent ${
+                  mission.status === 'completed' ? 'border-emerald-500/40 from-emerald-500/5' : ''
+                }`}>
+                  <CardContent className="py-4">
+                    {/* Mission Header */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Target className={`w-4 h-4 ${mission.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'}`} />
+                        <span className={`text-xs font-bold uppercase tracking-wider ${
+                          mission.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'
+                        }`}>
+                          {mission.status === 'completed' ? 'Mission Complete!' : 'Active Mission'}
+                        </span>
+                      </div>
+                      
+                      {/* Streak Counter */}
+                      <div className="flex items-center gap-1">
+                        <Flame className={`w-4 h-4 ${mission.current_streak > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
+                        <span className={`text-xl font-bold ${mission.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {mission.current_streak || mission.progress || 0}
+                        </span>
+                        <span className="text-muted-foreground text-sm">/ {mission.target || 3}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Mission Name & Goal */}
+                    <h3 className="text-base font-bold mb-1">{mission.name}</h3>
+                    <p className="text-sm text-muted-foreground mb-3">{mission.goal}</p>
+                    
+                    {/* Streak Progress Bar */}
+                    {mission.is_streak_based && (
+                      <div className="flex items-center gap-1 mb-2">
+                        {[...Array(mission.target || 3)].map((_, i) => (
+                          <div
+                            key={i}
+                            className={`h-2 flex-1 rounded-full transition-all ${
+                              i < (mission.current_streak || 0) ? 'bg-amber-500' : 'bg-muted/50'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Streak Status */}
+                    {mission.streak_broken_in_last_game && (
+                      <div className="flex items-center gap-1.5 text-xs text-orange-400">
+                        <XCircle className="w-3 h-3" />
+                        <span>Streak reset - last game didn't meet the criteria</span>
+                      </div>
+                    )}
+                    {mission.last_game_passed && mission.status !== 'completed' && (
+                      <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Last game counted! Keep it up.</span>
+                      </div>
+                    )}
+                    
+                    {/* Longest Streak */}
+                    {mission.longest_streak > 0 && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs text-muted-foreground">Personal best:</span>
+                        <span className="text-xs font-bold text-amber-500 flex items-center gap-1">
+                          <Flame className="w-3 h-3" />
+                          {mission.longest_streak} game streak
+                        </span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="border-dashed border-amber-500/20">
+                  <CardContent className="py-6 text-center">
+                    <Flame className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">Mission will appear after more games</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
           </motion.div>
         </div>
       </div>
