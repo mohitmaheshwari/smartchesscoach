@@ -64,6 +64,11 @@ const GameAnalysis = ({ user }) => {
   const [lastAskedMoveNumber, setLastAskedMoveNumber] = useState(null);  // Track which move the conversation is about
   const [coreLesson, setCoreLesson] = useState(null);  // Core lesson of the game
   const [strategicAnalysis, setStrategicAnalysis] = useState(null);  // Strategic analysis
+  
+  // "What were you thinking?" state for gold data collection
+  const [userThoughts, setUserThoughts] = useState({});  // { [moveNumber]: { text, saved } }
+  const [thoughtInputOpen, setThoughtInputOpen] = useState({});  // { [moveNumber]: boolean }
+  const [savingThought, setSavingThought] = useState(null);  // moveNumber being saved
 
   // Clear conversation when move changes significantly
   useEffect(() => {
