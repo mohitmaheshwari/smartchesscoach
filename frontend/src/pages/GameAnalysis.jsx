@@ -512,7 +512,7 @@ const GameAnalysis = ({ user }) => {
                   variant="ghost" 
                   size="sm" 
                   className="h-6 px-2 text-xs gap-1 text-emerald-600 hover:text-emerald-700"
-                  onClick={() => playVariationOnBoard(item.move_number, [getBestMoveForMove(item.move_number).best_move, ...getBestMoveForMove(item.move_number).pv.slice(0, 4)])}
+                  onClick={(e) => { e.stopPropagation(); playVariationOnBoard(item.move_number, [getBestMoveForMove(item.move_number).best_move, ...getBestMoveForMove(item.move_number).pv.slice(0, 4)]); }}
                 >
                   <Play className="w-3 h-3" /> Play
                 </Button>
@@ -520,6 +520,77 @@ const GameAnalysis = ({ user }) => {
             </div>
             {getBestMoveForMove(item.move_number).reason && (
               <p className="text-muted-foreground mt-1">{getBestMoveForMove(item.move_number).reason}</p>
+            )}
+          </div>
+        )}
+        
+        {/* "WHAT WERE YOU THINKING?" - Gold Data Collection for mistakes */}
+        {isMistake(item.evaluation) && (
+          <div className="mt-3" data-testid={`thought-section-${item.move_number}`}>
+            {userThoughts[item.move_number]?.saved ? (
+              // Already saved - show checkmark
+              <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>You shared your thought on this move</span>
+              </div>
+            ) : thoughtInputOpen[item.move_number] ? (
+              // Input open - show text area
+              <div 
+                className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Brain className="w-4 h-4 text-violet-500" />
+                  <span className="text-sm font-medium text-violet-600 dark:text-violet-400">
+                    What were you thinking?
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Help us understand your thought process at this moment. This helps improve your coaching.
+                </p>
+                <textarea
+                  value={userThoughts[item.move_number]?.text || ""}
+                  onChange={(e) => updateThoughtText(item.move_number, e.target.value)}
+                  placeholder="e.g., I was trying to attack the queen... I didn't see the pin... I was running low on time..."
+                  className="w-full p-2 text-sm rounded border border-violet-500/30 bg-background/50 resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  rows={3}
+                  data-testid={`thought-input-${item.move_number}`}
+                />
+                <div className="flex justify-end gap-2 mt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={(e) => { e.stopPropagation(); toggleThoughtInput(item.move_number); }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={(e) => { e.stopPropagation(); handleSaveThought(item.move_number, item.fen || getFenAtMove(item.move_number)); }}
+                    disabled={savingThought === item.move_number || !userThoughts[item.move_number]?.text?.trim()}
+                    data-testid={`thought-save-${item.move_number}`}
+                  >
+                    {savingThought === item.move_number ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Send className="w-3 h-3" />
+                    )}
+                    Save
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // Button to open input
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleThoughtInput(item.move_number); }}
+                className="flex items-center gap-2 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition-colors"
+                data-testid={`thought-prompt-${item.move_number}`}
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>What were you thinking here?</span>
+              </button>
             )}
           </div>
         )}
