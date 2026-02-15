@@ -403,8 +403,115 @@ const FocusPage = ({ user }) => {
                     ))}
                   </div>
                   
-                  {/* Example Position */}
-                  {primary_focus?.example_position && (
+                  {/* Example Positions - Cycling UI */}
+                  {primary_focus?.example_positions && primary_focus.example_positions.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-blue-400"
+                        onClick={() => {
+                          setShowExamplePositions(!showExamplePositions);
+                          if (!showExamplePositions) {
+                            // Show first position
+                            const pos = primary_focus.example_positions[currentExampleIndex];
+                            if (pos?.fen) {
+                              handleViewPosition(
+                                pos.fen,
+                                `${primary_focus.label} - Move ${pos.move_number}`
+                              );
+                            }
+                          }
+                        }}
+                        data-testid="toggle-example-positions"
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        {showExamplePositions ? "Hide Examples" : "See Example Positions"}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({primary_focus.example_positions.length})
+                        </span>
+                      </Button>
+
+                      {showExamplePositions && (
+                        <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-muted-foreground">
+                              Example {currentExampleIndex + 1} of {primary_focus.example_positions.length}
+                            </span>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => {
+                                  const newIndex = currentExampleIndex === 0 
+                                    ? primary_focus.example_positions.length - 1 
+                                    : currentExampleIndex - 1;
+                                  setCurrentExampleIndex(newIndex);
+                                  const pos = primary_focus.example_positions[newIndex];
+                                  if (pos?.fen) {
+                                    handleViewPosition(pos.fen, `${primary_focus.label} - Move ${pos.move_number}`);
+                                  }
+                                }}
+                                disabled={primary_focus.example_positions.length <= 1}
+                                data-testid="prev-example-btn"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => {
+                                  const newIndex = currentExampleIndex === primary_focus.example_positions.length - 1 
+                                    ? 0 
+                                    : currentExampleIndex + 1;
+                                  setCurrentExampleIndex(newIndex);
+                                  const pos = primary_focus.example_positions[newIndex];
+                                  if (pos?.fen) {
+                                    handleViewPosition(pos.fen, `${primary_focus.label} - Move ${pos.move_number}`);
+                                  }
+                                }}
+                                disabled={primary_focus.example_positions.length <= 1}
+                                data-testid="next-example-btn"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Current position info */}
+                          {primary_focus.example_positions[currentExampleIndex] && (
+                            <div className="text-sm">
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">
+                                  Move {primary_focus.example_positions[currentExampleIndex].move_number}
+                                </span>
+                                <span className="text-red-400 text-xs">
+                                  -{primary_focus.example_positions[currentExampleIndex].cp_loss} cp
+                                </span>
+                              </div>
+                              {primary_focus.example_positions[currentExampleIndex].move && (
+                                <div className="mt-1 text-xs">
+                                  <span className="text-muted-foreground">You played: </span>
+                                  <span className="font-mono">{primary_focus.example_positions[currentExampleIndex].move}</span>
+                                  {primary_focus.example_positions[currentExampleIndex].best_move && (
+                                    <>
+                                      <span className="text-muted-foreground ml-2">Best: </span>
+                                      <span className="font-mono text-emerald-400">{primary_focus.example_positions[currentExampleIndex].best_move}</span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Fallback for single example_position (backwards compatibility) */}
+                  {(!primary_focus?.example_positions || primary_focus.example_positions.length === 0) && primary_focus?.example_position && (
                     <Button
                       variant="ghost"
                       size="sm"
