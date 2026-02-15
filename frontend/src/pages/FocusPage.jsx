@@ -92,6 +92,23 @@ const FocusPage = ({ user }) => {
 
   // Fetch data
   useEffect(() => {
+    const fetchLastGameAudit = async () => {
+      try {
+        setLoadingAudit(true);
+        const res = await fetch(`${API}/focus-plan/last-game-audit`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.has_audit) {
+            setLastGameAudit(data);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch last game audit:", err);
+      } finally {
+        setLoadingAudit(false);
+      }
+    };
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -126,24 +143,6 @@ const FocusPage = ({ user }) => {
 
     fetchData();
   }, []);
-
-  // Fetch last game audit
-  const fetchLastGameAudit = async () => {
-    try {
-      setLoadingAudit(true);
-      const res = await fetch(`${API}/focus-plan/last-game-audit`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.has_audit) {
-          setLastGameAudit(data);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch last game audit:", err);
-    } finally {
-      setLoadingAudit(false);
-    }
-  };
 
   // Handle viewing position on board
   const handleViewPosition = useCallback((fen, title) => {
