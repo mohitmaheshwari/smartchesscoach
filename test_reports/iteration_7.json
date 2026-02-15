@@ -74,7 +74,7 @@
     "puzzles_auth_required": "Yes - returns 401 without auth",
     "puzzle_solve_auth_required": "Yes - returns 401 without auth",
     "endpoints_exist_not_404": "Yes - all 5 endpoints return 401 (not 404)",
-    "api_accessible_via_react_app_backend_url": "Yes - https://audit-coach.preview.emergentagent.com"
+    "api_accessible_via_react_app_backend_url": "Yes - https://chess-coach-10.preview.emergentagent.com"
   },
 
   "response_structure_verified_via_code_review": {
