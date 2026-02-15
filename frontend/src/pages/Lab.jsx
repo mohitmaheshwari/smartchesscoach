@@ -1724,6 +1724,67 @@ const LearningMomentItem = ({ mistake, onClick, userColor, gameId }) => {
                   </p>
                 </div>
               )}
+              
+              {/* "What were you thinking?" - Gold Data Collection */}
+              <div className="mt-3 pt-2 border-t border-border/30" data-testid={`thought-section-${mistake.move_number}`}>
+                {thoughtSaved ? (
+                  <div className="flex items-center gap-2 text-xs text-emerald-500">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>You shared your thought on this move</span>
+                  </div>
+                ) : showThoughtInput ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-violet-500" />
+                      <span className="text-sm font-medium text-violet-400">What were you thinking?</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Help us understand your thought process. This helps improve your coaching.
+                    </p>
+                    <textarea
+                      value={thoughtText}
+                      onChange={(e) => setThoughtText(e.target.value)}
+                      placeholder="e.g., I was trying to attack... I missed the threat... I was running low on time..."
+                      className="w-full p-2 text-sm rounded border border-violet-500/30 bg-background/50 resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      rows={3}
+                      data-testid={`thought-input-${mistake.move_number}`}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setShowThoughtInput(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs gap-1"
+                        onClick={handleSaveThought}
+                        disabled={savingThought || !thoughtText.trim()}
+                        data-testid={`thought-save-${mistake.move_number}`}
+                      >
+                        {savingThought ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Send className="w-3 h-3" />
+                        )}
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowThoughtInput(true)}
+                    className="flex items-center gap-2 text-xs text-violet-500 hover:text-violet-400 transition-colors"
+                    data-testid={`thought-prompt-${mistake.move_number}`}
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>What were you thinking here?</span>
+                  </button>
+                )}
+              </div>
             </>
           ) : (
             <p className="text-sm text-muted-foreground py-2">
