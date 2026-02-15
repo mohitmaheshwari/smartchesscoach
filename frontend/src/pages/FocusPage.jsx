@@ -95,10 +95,14 @@ const FocusPage = ({ user }) => {
     const fetchLastGameAudit = async () => {
       try {
         setLoadingAudit(true);
+        console.log("Fetching last game audit...");
         const res = await fetch(`${API}/focus-plan/last-game-audit`, { credentials: "include" });
+        console.log("Audit response status:", res.status);
         if (res.ok) {
           const data = await res.json();
+          console.log("Audit data:", data);
           if (data.has_audit) {
+            console.log("Setting lastGameAudit state");
             setLastGameAudit(data);
           }
         }
