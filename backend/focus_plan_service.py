@@ -490,20 +490,45 @@ def _select_best_opening(opening_stats: Dict) -> Optional[Dict]:
 
 def _extract_opening_name(game: Dict) -> str:
     """Extract opening family name from game."""
-    opening = game.get("opening", "")
+    import re
     
-    if not opening:
-        # Try from PGN
-        pgn = game.get("pgn", "")
-        import re
+    opening = game.get("opening", "")
+    pgn = game.get("pgn", "")
+    
+    # Try multiple sources in order of preference
+    if not opening and pgn:
+        # 1. Try [Opening "..."] tag
         match = re.search(r'\[Opening "([^"]+)"\]', pgn)
         if match:
             opening = match.group(1)
+        
+        # 2. Try ECOUrl (Chess.com format) - more detailed
+        if not opening:
+            eco_url_match = re.search(r'\[ECOUrl "[^"]*openings/([^"]+)"\]', pgn)
+            if eco_url_match:
+                # Parse URL path like "Scandinavian-Defense-Mieses-Kotrc-Main-Line-4.Nf3-Nf6-5.Bc4"
+                url_path = eco_url_match.group(1)
+                # Take first part before move numbers (4.Nf3 etc)
+                parts = url_path.split("-")
+                name_parts = []
+                for p in parts:
+                    if re.match(r'^\d+\.', p):  # Stop at move numbers like "4.Nf3"
+                        break
+                    name_parts.append(p)
+                if name_parts:
+                    opening = " ".join(name_parts)
+        
+        # 3. Try ECO code and map to opening name
+        if not opening:
+            eco_match = re.search(r'\[ECO "([A-E]\d{2})"\]', pgn)
+            if eco_match:
+                eco = eco_match.group(1)
+                opening = _eco_to_opening_name(eco)
     
     if not opening:
         return "Unknown"
     
-    # Extract family name
+    # Extract family name (clean up variations)
     family = opening.split(":")[0].split(",")[0].strip()
     
     # Standardize common openings
@@ -511,16 +536,36 @@ def _extract_opening_name(game: Dict) -> str:
         "sicilian": "Sicilian Defense",
         "french": "French Defense",
         "caro": "Caro-Kann Defense",
+        "caro-kann": "Caro-Kann Defense",
         "italian": "Italian Game",
         "ruy": "Ruy Lopez",
         "spanish": "Ruy Lopez",
         "queen's gambit": "Queen's Gambit",
+        "queens gambit": "Queen's Gambit",
         "king's indian": "King's Indian Defense",
+        "kings indian": "King's Indian Defense",
         "english": "English Opening",
         "scandinavian": "Scandinavian Defense",
         "pirc": "Pirc Defense",
         "london": "London System",
         "slav": "Slav Defense",
+        "dutch": "Dutch Defense",
+        "nimzo": "Nimzo-Indian Defense",
+        "grunfeld": "Grünfeld Defense",
+        "benoni": "Benoni Defense",
+        "alekhine": "Alekhine Defense",
+        "petrov": "Petrov Defense",
+        "petroff": "Petrov Defense",
+        "philidor": "Philidor Defense",
+        "scotch": "Scotch Game",
+        "vienna": "Vienna Game",
+        "bishop": "Bishop's Opening",
+        "kings pawn": "King's Pawn Opening",
+        "queens pawn": "Queen's Pawn Opening",
+        "center game": "Center Game",
+        "danish gambit": "Danish Gambit",
+        "smith morra": "Smith-Morra Gambit",
+        "evan": "Evans Gambit",
     }
     
     lower_opening = opening.lower()
