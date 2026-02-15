@@ -5405,6 +5405,32 @@ async def get_bucket_breakdown(user: User = Depends(get_current_user)):
     }
 
 
+@api_router.get("/focus-plan/last-game-audit")
+async def get_last_game_audit(user: User = Depends(get_current_user)):
+    """
+    Audit the user's last game against their active focus plan.
+    
+    Returns:
+    - rules_audit: List of rules with Executed/Partial/Missed status
+    - overall_alignment: Overall alignment status
+    - violations: Key moments that didn't align with the focus
+    - good_moments: Moments that showed good execution
+    """
+    from focus_plan_service import audit_last_game
+    
+    # Get active plan
+    plan = await db.focus_plans.find_one(
+        {"user_id": user.user_id, "is_active": True},
+        {"_id": 0}
+    )
+    
+    if not plan:
+        return {"error": "No active plan found", "has_audit": False}
+    
+    audit = await audit_last_game(db, user.user_id, plan)
+    return audit
+
+
 
 # =============================================================================
 # COACHING LOOP ENDPOINTS (GOLD FEATURE)
