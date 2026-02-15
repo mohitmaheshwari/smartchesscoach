@@ -924,7 +924,10 @@ async def generate_focus_plan(db, user_id: str, force_regenerate: bool = False) 
             "score": primary_focus["score"],
             "games_affected": primary_focus.get("games_affected", 0),
             "frequency_rate": primary_focus.get("frequency_rate", 0),
+            # Include single example_position for backwards compatibility
             "example_position": primary_focus["example_positions"][0] if primary_focus.get("example_positions") else None,
+            # Include ALL example positions for cycling through in UI
+            "example_positions": primary_focus.get("example_positions", [])[:5],
             "reason": primary_focus.get("reason", ""),
         },
         "secondary_focus": {
