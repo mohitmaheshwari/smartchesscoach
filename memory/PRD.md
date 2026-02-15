@@ -130,23 +130,32 @@ Now the Focus page (`/focus`) uses the new Adaptive Performance Coach.
 
 ## Completed Work (Dec 2025)
 
-### Focus Page 3-Section Redesign - COMPLETE ✅ (Dec 2025)
-- [x] Single-column flowing layout (no tabs)
-- [x] Chessboard embedded within Last Game Audit section
-- [x] Clickable audit cards update board position
-- [x] Next Game Plan with Primary Focus callout
-- [x] Mission section with streak progress bar
-- [x] Connector arrows between sections
-- [x] All data-testid attributes for testing
+### Deterministic Personalized Coaching System - COMPLETE ✅ (Dec 2025)
+- [x] Cost Score computation for 7 coaching buckets
+- [x] Primary/Secondary focus selection (deterministic)
+- [x] Rating band gates (<900, 900-1400, 1400-1800, 1800+)
+- [x] Personalized opening recommendations from game data
+- [x] ECO code to opening name mapping
+- [x] Coach note generation (personalized text templates)
+- [x] Daily mission with active time tracking (15 min goal)
+- [x] Mission sessions with heartbeat events
+- [x] Weekly requirements tracking
+- [x] Turning points for guided replay
+- [x] Full test coverage (15 backend tests passed)
 
-### Adaptive Performance Coach - COMPLETE ✅
-- [x] 12 deterministic engines for behavioral analysis
-- [x] Rating-band aware leak detection
-- [x] Plan audit with execution review
-- [x] Full test coverage (12 backend tests)
+### New Focus Page UI - COMPLETE ✅ (Dec 2025)
+- [x] Coach Note (personalized from metrics)
+- [x] Primary Focus card with 2 actionable rules
+- [x] Opening Pack (white, vs e4, vs d4)
+- [x] Guided Replay (turning points)
+- [x] Weekly Requirements (3 progress bars)
+- [x] Daily Mission with active timer
+- [x] Interactive chessboard that updates on position clicks
 
-### Board-First Coach (v3.0) - DEPRECATED
-- Replaced by new 3-section Focus page layout
+### Previous Features - DEPRECATED
+- Adaptive Performance Coach v1 (adaptive_coach_service.py) - replaced
+- Board-First Coach (BoardFirstCoach.jsx) - replaced
+- Old Focus page (Focus.jsx, AdaptiveCoach.jsx) - replaced
 
 ---
 
