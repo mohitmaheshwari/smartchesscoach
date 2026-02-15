@@ -47,7 +47,14 @@ CostScore = Σ(EvalDrop × ContextWeight × SeverityWeight) + FrequencyWeight ×
 #### B) This Week's Focus Card
 - Primary Focus bucket with percentage affected
 - 2 actionable rules (rating-band specific)
-- "See Example Position" button → updates board
+- "See Example Positions" button → **NEW: Cycling UI with prev/next buttons to view up to 5 example positions**
+
+#### C) Last Game Audit ✅ NEW
+Shows how well user followed their focus in their most recent game:
+- Overall alignment: Executed / Partial / Missed (with color coding)
+- Rule-by-rule audit with EXECUTED/PARTIAL/MISSED badges
+- Key moments to review (clickable violations)
+- "Open in Lab" button to study the game
 
 #### C) Opening Pack (Personalized)
 - **As White**: Best opening from user's games
