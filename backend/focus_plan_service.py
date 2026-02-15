@@ -1005,9 +1005,16 @@ async def generate_focus_plan(db, user_id: str, force_regenerate: bool = False) 
     # Check if plan already exists
     existing = await db.focus_plans.find_one({"plan_id": plan_id})
     if existing and not force_regenerate:
-        # Return existing plan
-        existing.pop("_id", None)
-        return existing
+        # Check if existing plan has required schema fields (migration check)
+        primary_focus = existing.get("primary_focus", {})
+        if "example_positions" not in primary_focus:
+            # Schema outdated - regenerate
+            await db.focus_plans.delete_one({"plan_id": plan_id})
+            logger.info(f"Regenerating plan {plan_id} due to schema update (missing example_positions)")
+        else:
+            # Return existing plan
+            existing.pop("_id", None)
+            return existing
     
     # Insert new plan
     await db.focus_plans.insert_one({**plan})
