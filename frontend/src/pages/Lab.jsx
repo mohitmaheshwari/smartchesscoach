@@ -1348,6 +1348,7 @@ const Lab = ({ user }) => {
                             key={group.type}
                             group={group}
                             userColor={userColor}
+                            gameId={gameId}
                             onMoveClick={(moveNum) => {
                               const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
                               goToMove(targetIdx);
