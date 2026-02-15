@@ -105,7 +105,7 @@ function AppRouter() {
       } />
       <Route path="/focus" element={
         <ProtectedRoute>
-          {({ user }) => <AdaptiveCoach user={user} />}
+          {({ user }) => <FocusPage user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/progress" element={
