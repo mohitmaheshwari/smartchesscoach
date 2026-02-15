@@ -122,6 +122,30 @@ const FocusPage = ({ user }) => {
     }
   }, []);
 
+  // Fetch bucket breakdown
+  const fetchBucketBreakdown = async () => {
+    if (bucketBreakdown) {
+      setShowBreakdown(!showBreakdown);
+      return;
+    }
+    
+    setLoadingBreakdown(true);
+    try {
+      const res = await fetch(`${API}/focus-plan/bucket-breakdown`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBucketBreakdown(data);
+        setShowBreakdown(true);
+      }
+    } catch (err) {
+      toast.error("Failed to load breakdown");
+    } finally {
+      setLoadingBreakdown(false);
+    }
+  };
+
   // Start mission
   const startMission = async () => {
     try {
