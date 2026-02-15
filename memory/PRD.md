@@ -161,10 +161,10 @@ Now the Focus page (`/focus`) uses the new Adaptive Performance Coach.
 
 ## Upcoming Tasks
 
-### P1: Adaptive Coach Enhancements
-- [ ] Persist audit results to show improvement over time
-- [ ] Add opening line practice in Plan section
-- [ ] Intensity history visualization
+### P1: Mission Runner UI
+- [ ] Build interactive mission drills (opening positions, threat awareness)
+- [ ] Position bank for missions (beyond user's own games)
+- [ ] Mission step completion tracking
 
 ### P2: Data Quality
 - [ ] Historical game analysis script (find games missing analysis)
@@ -172,13 +172,23 @@ Now the Focus page (`/focus`) uses the new Adaptive Performance Coach.
 ### P3: Performance
 - [ ] Optimize Stockfish analysis depth (18 → 12-14)
 
+### P4: Code Cleanup
+- [ ] Delete unused files: BoardFirstCoach.jsx, AdaptiveCoach.jsx, Focus.jsx
+- [ ] Consolidate coaching services
+
 ---
 
 ## Test Reports
+- `/app/test_reports/iteration_44.json` - Deterministic Focus Plan (100% pass, 15 tests)
 - `/app/test_reports/iteration_43.json` - Focus Page 3-Section Redesign (100% pass)
-- `/app/test_reports/iteration_42.json` - Adaptive Coach (100% pass, 12 tests)
-- `/app/backend/tests/test_adaptive_coach.py` - Backend test file
+- `/app/backend/tests/test_focus_plan.py` - Focus plan backend tests
+
+## Key Files
+- `backend/focus_plan_service.py` - Core deterministic coaching service (1100+ lines)
+- `frontend/src/pages/FocusPage.jsx` - New Focus Page UI
+- `backend/server.py` - API endpoints for /api/focus-plan/*
 
 ## Credentials
 - Test user: session_token=test_session_356539ff12b1 (user with 30+ analyzed games)
 - Dev Login available on landing page
+
