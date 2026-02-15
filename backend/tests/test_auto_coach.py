@@ -16,7 +16,7 @@ import os
 # Use production URL from environment variable
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://think-better-1.preview.emergentagent.com"
+    BASE_URL = "https://game-mission-214.preview.emergentagent.com"
 
 TEST_GAME_ID = "8a8b4f16-201a-4a7c-bc5a-21405c4ff939"
 
