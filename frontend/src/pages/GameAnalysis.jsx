@@ -724,6 +724,63 @@ const GameAnalysis = ({ user }) => {
     setAskQuestion("");
   };
 
+  // Save user's thought on a specific mistake (Gold Data collection)
+  const handleSaveThought = async (moveNumber, fen) => {
+    const thoughtText = userThoughts[moveNumber]?.text?.trim();
+    if (!thoughtText) {
+      toast.error("Please enter your thought");
+      return;
+    }
+    
+    setSavingThought(moveNumber);
+    try {
+      const url = API + "/games/" + gameId + "/thought";
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          move_number: moveNumber,
+          fen: fen || "",
+          thought_text: thoughtText
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to save thought");
+      }
+      
+      // Mark as saved
+      setUserThoughts(prev => ({
+        ...prev,
+        [moveNumber]: { text: thoughtText, saved: true }
+      }));
+      setThoughtInputOpen(prev => ({ ...prev, [moveNumber]: false }));
+      toast.success("Thanks for sharing! This helps us understand your thinking.");
+    } catch (error) {
+      toast.error("Could not save thought");
+      console.error("Save thought error:", error);
+    } finally {
+      setSavingThought(null);
+    }
+  };
+
+  // Toggle thought input for a specific move
+  const toggleThoughtInput = (moveNumber) => {
+    setThoughtInputOpen(prev => ({
+      ...prev,
+      [moveNumber]: !prev[moveNumber]
+    }));
+  };
+
+  // Update thought text for a move
+  const updateThoughtText = (moveNumber, text) => {
+    setUserThoughts(prev => ({
+      ...prev,
+      [moveNumber]: { text, saved: false }
+    }));
+  };
+
   // Get evaluation of current move
   const getCurrentMoveEvaluation = () => {
     // Try fullMoves first
