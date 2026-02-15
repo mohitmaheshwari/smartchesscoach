@@ -6341,6 +6341,150 @@ async def get_analysis_queue_status(user: User = Depends(get_current_user)):
     }
 
 
+# ==================== USER THOUGHT / GOLD DATA ROUTES ====================
+
+class UserThoughtRequest(BaseModel):
+    """Request for saving user's thought on a specific move."""
+    move_number: int
+    fen: str
+    thought_text: str
+    move_played: Optional[str] = None
+    best_move: Optional[str] = None
+    evaluation_type: Optional[str] = None  # "blunder", "mistake", "inaccuracy"
+    cp_loss: Optional[int] = None
+
+
+@api_router.post("/games/{game_id}/thought")
+async def save_user_thought(
+    game_id: str,
+    request: UserThoughtRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Save a user's thought on a specific mistake in a game.
+    
+    This is "Gold Data" - the user's own understanding of what they
+    were thinking when they made a mistake. Used for future pattern
+    analysis to identify recurring thought patterns.
+    
+    Stored with full context:
+    - game_id, move_number, fen
+    - user_rating at time of game
+    - the thought text
+    - what move was played vs what was best
+    - evaluation type and cp loss
+    """
+    # Verify game exists and belongs to user
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Get user's rating (current or from game if available)
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "rating": 1})
+    user_rating = user_doc.get("rating", 1200) if user_doc else 1200
+    
+    # Create thought document
+    thought_id = f"thought_{uuid.uuid4().hex[:12]}"
+    thought_doc = {
+        "thought_id": thought_id,
+        "user_id": user.user_id,
+        "game_id": game_id,
+        "move_number": request.move_number,
+        "fen": request.fen,
+        "thought_text": request.thought_text,
+        "move_played": request.move_played,
+        "best_move": request.best_move,
+        "evaluation_type": request.evaluation_type,
+        "cp_loss": request.cp_loss,
+        "user_rating": user_rating,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        # Additional context from game
+        "platform": game.get("platform"),
+        "opponent": game.get("black_player") if game.get("user_color") == "white" else game.get("white_player"),
+        "result": game.get("result"),
+    }
+    
+    # Check if thought already exists for this game/move
+    existing = await db.user_thoughts.find_one({
+        "user_id": user.user_id,
+        "game_id": game_id,
+        "move_number": request.move_number
+    })
+    
+    if existing:
+        # Update existing thought
+        await db.user_thoughts.update_one(
+            {"thought_id": existing["thought_id"]},
+            {"$set": {
+                "thought_text": request.thought_text,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        return {
+            "success": True,
+            "thought_id": existing["thought_id"],
+            "message": "Thought updated"
+        }
+    
+    # Insert new thought
+    await db.user_thoughts.insert_one(thought_doc)
+    
+    logger.info(f"Saved user thought for game {game_id}, move {request.move_number}")
+    
+    return {
+        "success": True,
+        "thought_id": thought_id,
+        "message": "Thought saved - thank you for sharing!"
+    }
+
+
+@api_router.get("/games/{game_id}/thoughts")
+async def get_game_thoughts(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Get all thoughts the user has recorded for a specific game.
+    """
+    thoughts = await db.user_thoughts.find(
+        {"user_id": user.user_id, "game_id": game_id},
+        {"_id": 0}
+    ).sort("move_number", 1).to_list(100)
+    
+    return {
+        "game_id": game_id,
+        "thoughts": thoughts,
+        "count": len(thoughts)
+    }
+
+
+@api_router.get("/thoughts/all")
+async def get_all_user_thoughts(user: User = Depends(get_current_user)):
+    """
+    Get all thoughts the user has recorded across all games.
+    Useful for pattern analysis.
+    """
+    thoughts = await db.user_thoughts.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    
+    # Group by evaluation type for pattern analysis
+    by_type = {}
+    for t in thoughts:
+        eval_type = t.get("evaluation_type", "unknown")
+        if eval_type not in by_type:
+            by_type[eval_type] = []
+        by_type[eval_type].append(t)
+    
+    return {
+        "thoughts": thoughts,
+        "count": len(thoughts),
+        "by_evaluation_type": {k: len(v) for k, v in by_type.items()}
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
