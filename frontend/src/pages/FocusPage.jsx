@@ -104,6 +104,9 @@ const FocusPage = ({ user }) => {
             setFocusPlan(data.plan);
             setCoachNote(data.coach_note || "");
             setStreak(data.streak || 0);
+            
+            // Fetch last game audit after plan loads
+            fetchLastGameAudit();
           } else if (data.needs_more_games) {
             setFocusPlan({ needs_more_games: true, ...data });
           } else {
@@ -123,6 +126,24 @@ const FocusPage = ({ user }) => {
 
     fetchData();
   }, []);
+
+  // Fetch last game audit
+  const fetchLastGameAudit = async () => {
+    try {
+      setLoadingAudit(true);
+      const res = await fetch(`${API}/focus-plan/last-game-audit`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.has_audit) {
+          setLastGameAudit(data);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch last game audit:", err);
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
 
   // Handle viewing position on board
   const handleViewPosition = useCallback((fen, title) => {
