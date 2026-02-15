@@ -529,6 +529,125 @@ const FocusPage = ({ user }) => {
               </Card>
             </motion.div>
 
+            {/* LAST GAME AUDIT */}
+            {lastGameAudit?.has_audit && (
+              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}>
+                <Card className={`${
+                  lastGameAudit.overall_alignment === 'executed' 
+                    ? 'border-green-500/20 bg-green-500/5' 
+                    : lastGameAudit.overall_alignment === 'partial'
+                      ? 'border-amber-500/20 bg-amber-500/5'
+                      : 'border-red-500/20 bg-red-500/5'
+                }`} data-testid="last-game-audit-card">
+                  <CardContent className="p-5">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          lastGameAudit.overall_alignment === 'executed' 
+                            ? 'bg-green-500/20 text-green-400'
+                            : lastGameAudit.overall_alignment === 'partial'
+                              ? 'bg-amber-500/20 text-amber-400'
+                              : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          <FileSearch className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className={`text-xs font-medium uppercase tracking-wider ${
+                            lastGameAudit.overall_alignment === 'executed' 
+                              ? 'text-green-400'
+                              : lastGameAudit.overall_alignment === 'partial'
+                                ? 'text-amber-400'
+                                : 'text-red-400'
+                          }`}>Last Game Audit</div>
+                          <h2 className="text-lg font-bold">vs {lastGameAudit.opponent}</h2>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground"
+                        onClick={() => navigate(`/lab/${lastGameAudit.game_id}`)}
+                        data-testid="open-in-lab-btn"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Open in Lab
+                      </Button>
+                    </div>
+
+                    {/* Overall Status */}
+                    <div className="mb-4 p-3 rounded-lg bg-background/50 border border-border/50">
+                      <p className="text-sm">{lastGameAudit.overall_text}</p>
+                    </div>
+
+                    {/* Rules Audit */}
+                    <div className="space-y-2 mb-4">
+                      {lastGameAudit.rules_audit?.map((rule, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-3 p-2 rounded-lg bg-muted/30"
+                          data-testid={`rule-audit-${i}`}
+                        >
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                            rule.status === 'executed' 
+                              ? 'bg-green-500/20 text-green-400'
+                              : rule.status === 'partial'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : 'bg-red-500/20 text-red-400'
+                          }`}>
+                            {rule.status === 'executed' ? (
+                              <CheckCircle2 className="w-4 h-4" />
+                            ) : rule.status === 'partial' ? (
+                              <AlertTriangle className="w-3 h-3" />
+                            ) : (
+                              <XCircle className="w-4 h-4" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm">{rule.rule}</p>
+                            <p className="text-xs text-muted-foreground">{rule.note}</p>
+                          </div>
+                          <span className={`text-xs font-medium uppercase px-2 py-0.5 rounded ${
+                            rule.status === 'executed' 
+                              ? 'bg-green-500/20 text-green-400'
+                              : rule.status === 'partial'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : 'bg-red-500/20 text-red-400'
+                          }`}>
+                            {rule.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Key Violations */}
+                    {lastGameAudit.violations?.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider">Key Moments to Review</div>
+                        <div className="flex flex-wrap gap-2">
+                          {lastGameAudit.violations.slice(0, 3).map((v, i) => (
+                            <button
+                              key={i}
+                              className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-sm hover:bg-red-500/20 transition-colors"
+                              onClick={() => {
+                                if (v.fen) {
+                                  handleViewPosition(v.fen, `Move ${v.move_number} - ${v.reason}`);
+                                }
+                              }}
+                              data-testid={`violation-${i}`}
+                            >
+                              <span className="text-red-400">Move {v.move_number}</span>
+                              <span className="text-muted-foreground ml-2">({v.reason})</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
             {/* OPENING PACK */}
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
               <Card className="border-emerald-500/20" data-testid="opening-pack-card">
