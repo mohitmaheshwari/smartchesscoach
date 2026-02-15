@@ -576,6 +576,74 @@ def _extract_opening_name(game: Dict) -> str:
     return family[:40] if len(family) > 40 else family
 
 
+def _eco_to_opening_name(eco: str) -> str:
+    """Map ECO code to opening name."""
+    # ECO code ranges - simplified mapping
+    eco_map = {
+        # A00-A39: Flank openings
+        "A": {
+            (0, 9): "Uncommon Opening",
+            (10, 19): "English Opening",
+            (20, 39): "English Opening",
+            (40, 44): "Queen's Pawn Opening",
+            (45, 55): "Queen's Pawn Opening",
+            (56, 79): "Benoni Defense",
+            (80, 99): "Dutch Defense",
+        },
+        # B00-B99: 1.e4 semi-open
+        "B": {
+            (0, 9): "Uncommon e4 Response",
+            (1, 1): "Scandinavian Defense",
+            (2, 5): "Alekhine Defense",
+            (6, 9): "Pirc/Modern Defense",
+            (10, 19): "Caro-Kann Defense",
+            (20, 99): "Sicilian Defense",
+        },
+        # C00-C99: 1.e4 e5
+        "C": {
+            (0, 19): "French Defense",
+            (20, 29): "King's Pawn Opening",
+            (30, 39): "King's Gambit",
+            (40, 49): "King's Pawn Opening",
+            (50, 59): "Italian Game",
+            (60, 99): "Ruy Lopez",
+        },
+        # D00-D99: 1.d4 d5
+        "D": {
+            (0, 5): "Queen's Pawn Opening",
+            (6, 69): "Queen's Gambit",
+            (70, 79): "Grünfeld Defense",
+            (80, 99): "Grünfeld Defense",
+        },
+        # E00-E99: Indian defenses
+        "E": {
+            (0, 9): "Catalan Opening",
+            (10, 19): "Queen's Indian Defense",
+            (20, 59): "Nimzo-Indian Defense",
+            (60, 99): "King's Indian Defense",
+        },
+    }
+    
+    if not eco or len(eco) < 2:
+        return "Unknown"
+    
+    letter = eco[0].upper()
+    try:
+        number = int(eco[1:])
+    except ValueError:
+        return "Unknown"
+    
+    if letter not in eco_map:
+        return "Unknown"
+    
+    for (low, high), name in eco_map[letter].items():
+        if low <= number <= high:
+            return name
+    
+    return "Unknown"
+
+
+
 def _extract_first_move(game: Dict) -> str:
     """Extract opponent's first move (for black responses)."""
     pgn = game.get("pgn", "")
