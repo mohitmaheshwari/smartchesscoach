@@ -112,6 +112,24 @@ const GameAnalysis = ({ user }) => {
         } catch (labErr) {
           console.log("Lab data not available yet");
         }
+        
+        // Fetch existing user thoughts for this game
+        try {
+          const thoughtsUrl = API + "/games/" + gameId + "/thoughts";
+          const thoughtsResponse = await fetch(thoughtsUrl, { credentials: "include" });
+          if (thoughtsResponse.ok) {
+            const thoughtsData = await thoughtsResponse.json();
+            if (thoughtsData.thoughts && thoughtsData.thoughts.length > 0) {
+              const existingThoughts = {};
+              thoughtsData.thoughts.forEach(t => {
+                existingThoughts[t.move_number] = { text: t.thought_text, saved: true };
+              });
+              setUserThoughts(existingThoughts);
+            }
+          }
+        } catch (thoughtsErr) {
+          console.log("Could not fetch existing thoughts");
+        }
       } catch (error) {
         toast.error("Failed to load game");
         navigate("/import");
