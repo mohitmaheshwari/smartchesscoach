@@ -82,6 +82,14 @@ const FocusPage = ({ user }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [stepProgress, setStepProgress] = useState({});
 
+  // Example positions cycling state
+  const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
+  const [showExamplePositions, setShowExamplePositions] = useState(false);
+
+  // Last Game Audit state
+  const [lastGameAudit, setLastGameAudit] = useState(null);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
