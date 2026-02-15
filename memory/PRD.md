@@ -233,6 +233,7 @@ Collect user's thoughts at the moment of mistakes for future pattern analysis. T
 ## Key Files
 - `backend/focus_plan_service.py` - Core deterministic coaching service (1300+ lines) - includes audit_last_game()
 - `frontend/src/pages/FocusPage.jsx` - Focus Page UI with Last Game Audit and Example Position cycling
+- `frontend/src/pages/Lab.jsx` - Game Analysis (Lab) page with "What were you thinking?" Gold Data collection
 - `backend/server.py` - API endpoints for /api/focus-plan/*, /api/games/{game_id}/thought*
 
 ## Credentials
