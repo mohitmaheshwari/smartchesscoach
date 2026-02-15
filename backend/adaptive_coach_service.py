@@ -791,6 +791,9 @@ def audit_last_game_against_plan(
                 max_drop = max((m.get("cp_loss", 0) for m in early_moves), default=0)
                 avg_cp = sum(m.get("cp_loss", 0) for m in early_moves) / len(early_moves)
                 
+                # Find the move with the biggest cp_loss
+                worst_move = max(early_moves, key=lambda m: m.get("cp_loss", 0))
+                
                 if max_drop < 100 and avg_cp < 30:
                     card["status"] = "executed"
                     card["data_line"] = f"Opening phase: stable ({round(avg_cp)}cp avg loss)"
@@ -799,9 +802,11 @@ def audit_last_game_against_plan(
                     card["data_line"] = f"Opening phase: some inaccuracies"
                 else:
                     card["status"] = "missed"
-                    card["data_line"] = f"Opening mistake on move {early_moves[0].get('move_number')}"
-                    card["board_link_fen"] = early_moves[0].get("fen_before")
-                    card["move_reference"] = early_moves[0].get("move_number")
+                    move_num = worst_move.get("move_number", 0)
+                    card["data_line"] = f"Opening mistake on move {move_num}"
+                    # Use fen_after to show position AFTER the mistake
+                    card["board_link_fen"] = worst_move.get("fen_after") or worst_move.get("fen_before")
+                    card["move_reference"] = move_num
         
         elif domain_id == "middlegame":
             # Check advantage handling
