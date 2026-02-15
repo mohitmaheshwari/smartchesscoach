@@ -92,21 +92,25 @@ Now the Focus page (`/focus`) uses the new Adaptive Performance Coach.
 
 ---
 
-## Completed Work (Feb 2026)
+## Completed Work (Dec 2025)
+
+### Focus Page 3-Section Redesign - COMPLETE ✅ (Dec 2025)
+- [x] Single-column flowing layout (no tabs)
+- [x] Chessboard embedded within Last Game Audit section
+- [x] Clickable audit cards update board position
+- [x] Next Game Plan with Primary Focus callout
+- [x] Mission section with streak progress bar
+- [x] Connector arrows between sections
+- [x] All data-testid attributes for testing
 
 ### Adaptive Performance Coach - COMPLETE ✅
 - [x] 12 deterministic engines for behavioral analysis
 - [x] Rating-band aware leak detection
-- [x] 4-section UI: Diagnosis, Plan, Audit, Signals
-- [x] Board-first interaction (click-to-view positions)
 - [x] Plan audit with execution review
-- [x] Skill trends with arrows
 - [x] Full test coverage (12 backend tests)
 
-### Board-First Coach (v3.0) - COMPLETE ✅
-- [x] Interactive CoachBoard component
-- [x] Key Moments with explanations
-- [x] Mission card with streak counter
+### Board-First Coach (v3.0) - DEPRECATED
+- Replaced by new 3-section Focus page layout
 
 ---
 
