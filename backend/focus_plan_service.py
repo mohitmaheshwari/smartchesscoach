@@ -1225,3 +1225,156 @@ async def get_focus_page_data(db, user_id: str) -> Dict:
         "streak": streak,
         "last_mission_date": recent_sessions[0]["completed_at"] if recent_sessions else None,
     }
+
+
+# =============================================================================
+# LAST GAME AUDIT
+# =============================================================================
+
+async def audit_last_game(db, user_id: str, plan: Dict) -> Dict:
+    """
+    Audit the user's last game against their focus plan rules.
+    
+    Returns:
+    - game_id: The game being audited
+    - primary_focus: The focus being audited against
+    - rules_audit: List of rules with Executed/Partial/Missed status
+    - overall_alignment: "good" / "needs_work" / "missed"
+    - key_moments: List of moments showing alignment or violations
+    """
+    # Get the primary focus from plan
+    primary_focus = plan.get("primary_focus", {})
+    focus_code = primary_focus.get("code", "PIECE_SAFETY")
+    focus_label = primary_focus.get("label", "Piece Safety")
+    rules = plan.get("rules", [])
+    
+    # Get last analyzed game
+    last_game = await db.games.find_one(
+        {"user_id": user_id, "is_analyzed": True},
+        {"_id": 0}
+    )
+    
+    if not last_game:
+        return {"error": "No analyzed games found", "has_audit": False}
+    
+    game_id = last_game.get("game_id")
+    
+    # Get analysis for the game
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id},
+        {"_id": 0}
+    )
+    
+    if not analysis:
+        return {"error": "Analysis not found", "has_audit": False}
+    
+    sf = analysis.get("stockfish_analysis", {})
+    moves = sf.get("move_evaluations", [])
+    
+    # Count violations based on focus type
+    violations = []
+    good_moments = []
+    
+    for m in moves:
+        cp_loss = m.get("cp_loss", 0)
+        eval_before = m.get("eval_before", 0)
+        phase = get_move_phase(m.get("move_number", 0))
+        evaluation = m.get("evaluation", "")
+        
+        moment = {
+            "move_number": m.get("move_number"),
+            "move": m.get("move"),
+            "cp_loss": cp_loss,
+            "fen": m.get("fen_before"),
+            "best_move": m.get("best_move"),
+            "phase": phase,
+        }
+        
+        # Check violations based on focus type
+        if focus_code == "PIECE_SAFETY" and cp_loss >= HANGING_PIECE_THRESHOLD:
+            moment["type"] = "violation"
+            moment["reason"] = "Piece hanging"
+            violations.append(moment)
+        elif focus_code == "THREAT_AWARENESS" and m.get("threat") and cp_loss >= SIGNIFICANT_DROP:
+            moment["type"] = "violation"
+            moment["reason"] = f"Missed threat: {m.get('threat')}"
+            violations.append(moment)
+        elif focus_code == "TACTICAL_EXECUTION" and evaluation in ["blunder", "mistake"] and cp_loss >= BLUNDER_THRESHOLD:
+            moment["type"] = "violation"
+            moment["reason"] = "Tactical error"
+            violations.append(moment)
+        elif focus_code == "ADVANTAGE_DISCIPLINE" and eval_before >= WINNING_THRESHOLD and cp_loss >= SIGNIFICANT_DROP:
+            moment["type"] = "violation"
+            moment["reason"] = "Threw advantage"
+            violations.append(moment)
+        elif focus_code == "OPENING_STABILITY" and phase == "opening" and cp_loss >= SIGNIFICANT_DROP:
+            moment["type"] = "violation"
+            moment["reason"] = "Opening mistake"
+            violations.append(moment)
+        elif focus_code == "ENDGAME_FUNDAMENTALS" and phase == "endgame" and cp_loss >= SIGNIFICANT_DROP:
+            moment["type"] = "violation"
+            moment["reason"] = "Endgame error"
+            violations.append(moment)
+        elif cp_loss <= 10 and m.get("move_number", 0) > 5:
+            # Good move
+            moment["type"] = "good"
+            good_moments.append(moment)
+    
+    # Limit lists
+    violations = violations[:5]
+    good_moments = good_moments[:3]
+    
+    # Audit each rule
+    rules_audit = []
+    violation_count = len(violations)
+    
+    for i, rule in enumerate(rules[:2]):
+        if violation_count == 0:
+            status = "executed"
+            note = "Well done - no major violations"
+        elif violation_count <= 2:
+            status = "partial"
+            note = f"{violation_count} moment(s) needed improvement"
+        else:
+            status = "missed"
+            note = f"{violation_count} violations in this area"
+        
+        rules_audit.append({
+            "rule": rule,
+            "status": status,
+            "note": note,
+        })
+    
+    # Determine overall alignment
+    if violation_count == 0:
+        overall = "executed"
+        overall_text = f"Great work! You followed your {focus_label} focus in this game."
+    elif violation_count <= 2:
+        overall = "partial"
+        overall_text = f"Good progress on {focus_label}, with a few moments to review."
+    else:
+        overall = "missed"
+        overall_text = f"This game shows why {focus_label} is your focus - {violation_count} key moments to study."
+    
+    # Get opponent info
+    user_color = last_game.get("user_color", "white")
+    opponent = last_game.get("black_player") if user_color == "white" else last_game.get("white_player")
+    result = last_game.get("result", "")
+    
+    return {
+        "has_audit": True,
+        "game_id": game_id,
+        "opponent": opponent or "Unknown",
+        "result": result,
+        "user_color": user_color,
+        "primary_focus": {
+            "code": focus_code,
+            "label": focus_label,
+        },
+        "rules_audit": rules_audit,
+        "overall_alignment": overall,
+        "overall_text": overall_text,
+        "violations": violations,
+        "good_moments": good_moments[:2],
+        "violation_count": violation_count,
+    }
