@@ -828,7 +828,8 @@ def audit_last_game_against_plan(
             elif collapsed:
                 card["status"] = "missed"
                 card["data_line"] = f"Advantage lost on move {collapse_move.get('move_number')}"
-                card["board_link_fen"] = collapse_move.get("fen_before")
+                # Use fen_after to show position AFTER the mistake
+                card["board_link_fen"] = collapse_move.get("fen_after") or collapse_move.get("fen_before")
                 card["move_reference"] = collapse_move.get("move_number")
             else:
                 card["status"] = "executed"
@@ -851,7 +852,8 @@ def audit_last_game_against_plan(
                 for m in moves:
                     if m.get("evaluation") == "blunder":
                         card["data_line"] = f"Blunder on move {m.get('move_number')}"
-                        card["board_link_fen"] = m.get("fen_before")
+                        # Use fen_after to show position AFTER the blunder
+                        card["board_link_fen"] = m.get("fen_after") or m.get("fen_before")
                         card["move_reference"] = m.get("move_number")
                         break
         
@@ -866,7 +868,7 @@ def audit_last_game_against_plan(
                 if eg_blunders:
                     card["status"] = "missed"
                     card["data_line"] = f"Endgame error on move {eg_blunders[0].get('move_number')}"
-                    card["board_link_fen"] = eg_blunders[0].get("fen_before")
+                    card["board_link_fen"] = eg_blunders[0].get("fen_after") or eg_blunders[0].get("fen_before")
                 else:
                     card["status"] = "executed"
                     card["data_line"] = "Solid endgame play"
@@ -877,7 +879,7 @@ def audit_last_game_against_plan(
             if late_blunders:
                 card["status"] = "missed"
                 card["data_line"] = f"Late blunder on move {late_blunders[0].get('move_number')}"
-                card["board_link_fen"] = late_blunders[0].get("fen_before")
+                card["board_link_fen"] = late_blunders[0].get("fen_after") or late_blunders[0].get("fen_before")
             else:
                 card["status"] = "executed"
                 card["data_line"] = "Good time management"
