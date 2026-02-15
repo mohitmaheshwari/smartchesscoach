@@ -566,7 +566,7 @@ const FocusPage = ({ user }) => {
                         variant="ghost"
                         size="sm"
                         className="text-muted-foreground"
-                        onClick={() => navigate(`/lab/${lastGameAudit.game_id}`)}
+                        onClick={() => navigate(`/game/${lastGameAudit.game_id}`)}
                         data-testid="open-in-lab-btn"
                       >
                         <ExternalLink className="w-4 h-4 mr-1" />
