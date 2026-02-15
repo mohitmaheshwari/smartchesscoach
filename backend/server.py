@@ -5249,6 +5249,163 @@ async def audit_game_adaptive_coach(game_id: str, user: User = Depends(get_curre
     }
 
 
+
+# =============================================================================
+# FOCUS PLAN (DETERMINISTIC PERSONALIZED COACHING)
+# =============================================================================
+
+@api_router.get("/focus-plan")
+async def get_focus_plan(user: User = Depends(get_current_user)):
+    """
+    Get the complete Focus Plan for the user.
+    
+    This is the new deterministic personalized coaching system that:
+    1. Computes Cost Scores per coaching bucket from last 25 games
+    2. Selects Primary/Secondary focus deterministically
+    3. Selects personalized openings based on usage + stability
+    4. Generates mission positions from user's own games
+    
+    Same user + same inputs = same plan (deterministic)
+    Different users + different inputs = different plan (personalized)
+    
+    Coaching Buckets:
+    - PIECE_SAFETY: Hanging pieces
+    - THREAT_AWARENESS: Missed opponent threats  
+    - TACTICAL_EXECUTION: Missed tactics
+    - ADVANTAGE_DISCIPLINE: Failed conversion when ahead
+    - OPENING_STABILITY: Weak first 10-12 moves
+    - TIME_DISCIPLINE: Late-game blunders
+    - ENDGAME_FUNDAMENTALS: Conversion failures
+    """
+    from focus_plan_service import get_focus_page_data
+    
+    data = await get_focus_page_data(db, user.user_id)
+    return data
+
+
+@api_router.post("/focus-plan/regenerate")
+async def regenerate_focus_plan(user: User = Depends(get_current_user)):
+    """
+    Force regenerate the focus plan.
+    
+    Useful after importing new games or when user wants fresh analysis.
+    """
+    from focus_plan_service import generate_focus_plan
+    
+    plan = await generate_focus_plan(db, user.user_id, force_regenerate=True)
+    return plan
+
+
+@api_router.post("/focus-plan/mission/start")
+async def start_mission_session(user: User = Depends(get_current_user)):
+    """
+    Start a new mission session for active time tracking.
+    
+    Returns a session_id for tracking interactions.
+    Active time is only counted when user interacts within idle threshold (12 sec).
+    """
+    from focus_plan_service import start_mission_session as start_session
+    
+    # Get active plan
+    plan = await db.focus_plans.find_one(
+        {"user_id": user.user_id, "is_active": True},
+        {"_id": 0}
+    )
+    
+    if not plan:
+        return {"error": "No active plan found"}
+    
+    session = await start_session(db, user.user_id, plan["plan_id"])
+    return session
+
+
+class MissionInteractionRequest(BaseModel):
+    session_id: str
+    event_type: str  # "position_attempted", "replay_step", "heartbeat"
+    event_data: Optional[Dict[str, Any]] = None
+
+
+@api_router.post("/focus-plan/mission/interaction")
+async def record_mission_interaction(
+    request: MissionInteractionRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Record a mission interaction to track active time.
+    
+    Event types:
+    - "position_attempted": User attempted a position (correct/incorrect in event_data)
+    - "replay_step": User played a move in guided replay
+    - "heartbeat": Keep session alive (call every 5-10 seconds)
+    
+    Active time is accumulated only when events come within idle_pause_seconds (12 sec).
+    """
+    from focus_plan_service import update_mission_interaction
+    
+    result = await update_mission_interaction(
+        db,
+        request.session_id,
+        request.event_type,
+        request.event_data
+    )
+    return result
+
+
+@api_router.post("/focus-plan/mission/complete")
+async def complete_mission(
+    session_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Mark a mission as complete.
+    
+    Updates weekly progress and records completion.
+    """
+    from focus_plan_service import complete_mission as complete_mission_fn
+    
+    result = await complete_mission_fn(db, session_id)
+    return result
+
+
+@api_router.get("/focus-plan/bucket-breakdown")
+async def get_bucket_breakdown(user: User = Depends(get_current_user)):
+    """
+    Get detailed breakdown of cost scores per bucket.
+    
+    Useful for debugging and showing users why they got their focus.
+    Returns all bucket costs with example positions.
+    """
+    from focus_plan_service import compute_bucket_costs, get_rating_band, DEFAULT_GAME_WINDOW
+    
+    # Get user
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    rating = user_doc.get("rating", 1200) if user_doc else 1200
+    
+    # Get games and analyses
+    games = await db.games.find(
+        {"user_id": user.user_id, "is_analyzed": True},
+        {"_id": 0}
+    ).sort("imported_at", -1).to_list(DEFAULT_GAME_WINDOW)
+    
+    game_ids = [g["game_id"] for g in games]
+    analyses = await db.game_analyses.find(
+        {"game_id": {"$in": game_ids}},
+        {"_id": 0}
+    ).to_list(DEFAULT_GAME_WINDOW)
+    
+    # Compute costs
+    bucket_costs = compute_bucket_costs(analyses, games, rating)
+    band = get_rating_band(rating)
+    
+    return {
+        "rating": rating,
+        "rating_band": band["label"],
+        "allowed_buckets": band["allowed_buckets"],
+        "bucket_costs": bucket_costs,
+    }
+
+
+
 # =============================================================================
 # COACHING LOOP ENDPOINTS (GOLD FEATURE)
 # =============================================================================
