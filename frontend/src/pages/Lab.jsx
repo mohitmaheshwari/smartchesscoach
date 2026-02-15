@@ -1504,11 +1504,69 @@ const BrilliantMoveItem = ({ move, onClick }) => {
 };
 
 // Learning Moment Item - Constructive, coach-like feedback
-const LearningMomentItem = ({ mistake, onClick, userColor }) => {
+const LearningMomentItem = ({ mistake, onClick, userColor, gameId }) => {
   const cpLossInfo = formatCpLoss(mistake.cp_loss);
   const [expanded, setExpanded] = useState(false);
   const [explanation, setExplanation] = useState(null);
   const [loading, setLoading] = useState(false);
+  
+  // "What were you thinking?" state
+  const [thoughtText, setThoughtText] = useState("");
+  const [thoughtSaved, setThoughtSaved] = useState(false);
+  const [savingThought, setSavingThought] = useState(false);
+  const [showThoughtInput, setShowThoughtInput] = useState(false);
+  
+  // Load existing thought on mount
+  useEffect(() => {
+    const loadExistingThought = async () => {
+      if (!gameId) return;
+      try {
+        const response = await fetch(`${API}/games/${gameId}/thoughts`, { credentials: "include" });
+        if (response.ok) {
+          const data = await response.json();
+          const existingThought = data.thoughts?.find(t => t.move_number === mistake.move_number);
+          if (existingThought) {
+            setThoughtText(existingThought.thought_text);
+            setThoughtSaved(true);
+          }
+        }
+      } catch (err) {
+        // Silent fail - not critical
+      }
+    };
+    loadExistingThought();
+  }, [gameId, mistake.move_number]);
+  
+  // Save user thought
+  const handleSaveThought = async () => {
+    if (!thoughtText.trim() || !gameId) return;
+    
+    setSavingThought(true);
+    try {
+      const response = await fetch(`${API}/games/${gameId}/thought`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          move_number: mistake.move_number,
+          fen: mistake.fen_before || "",
+          thought_text: thoughtText.trim()
+        })
+      });
+      
+      if (response.ok) {
+        setThoughtSaved(true);
+        setShowThoughtInput(false);
+        toast.success("Thanks! This helps improve your coaching.");
+      } else {
+        toast.error("Could not save thought");
+      }
+    } catch (err) {
+      toast.error("Could not save thought");
+    } finally {
+      setSavingThought(false);
+    }
+  };
   
   // Fetch explanation on-demand when expanded
   const handleExpand = async (e) => {
