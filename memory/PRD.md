@@ -185,15 +185,51 @@ Now the Focus page (`/focus`) uses the new Adaptive Performance Coach.
 
 ---
 
+## What Were You Thinking? (Gold Data Collection) ✅ NEW
+
+### Purpose
+Collect user's thoughts at the moment of mistakes for future pattern analysis. This "gold data" captures what the user was thinking when they made an error.
+
+### API Endpoints
+- `POST /api/games/{game_id}/thought` - Save user thought
+- `GET /api/games/{game_id}/thoughts` - Get all thoughts for a game
+- `GET /api/thoughts/all` - Get all user thoughts for pattern analysis
+
+### Data Model (user_thoughts collection)
+```json
+{
+  "thought_id": "thought_xxx",
+  "user_id": "user_xxx",
+  "game_id": "xxx",
+  "move_number": 15,
+  "fen": "...",
+  "thought_text": "I thought I could win material",
+  "move_played": "Nc7+",
+  "best_move": "Ne7+",
+  "evaluation_type": "blunder",
+  "cp_loss": 400,
+  "user_rating": 1200,
+  "created_at": "2026-02-15T..."
+}
+```
+
+### Frontend UI (P2)
+- [ ] Add input fields on Game Analysis page for each mistake
+- [ ] Allow users to submit their thoughts
+
+---
+
 ## Test Reports
+- `/app/test_reports/iteration_45.json` - Focus Plan V2 (Example cycling, Last Game Audit, User Thoughts API - 100% pass)
 - `/app/test_reports/iteration_44.json` - Deterministic Focus Plan (100% pass, 15 tests)
 - `/app/test_reports/iteration_43.json` - Focus Page 3-Section Redesign (100% pass)
 - `/app/backend/tests/test_focus_plan.py` - Focus plan backend tests
+- `/app/backend/tests/test_focus_plan_v2.py` - Focus plan v2 tests (example positions, audit, thoughts)
 
 ## Key Files
-- `backend/focus_plan_service.py` - Core deterministic coaching service (1100+ lines)
-- `frontend/src/pages/FocusPage.jsx` - New Focus Page UI
-- `backend/server.py` - API endpoints for /api/focus-plan/*
+- `backend/focus_plan_service.py` - Core deterministic coaching service (1300+ lines) - includes audit_last_game()
+- `frontend/src/pages/FocusPage.jsx` - Focus Page UI with Last Game Audit and Example Position cycling
+- `backend/server.py` - API endpoints for /api/focus-plan/*, /api/games/{game_id}/thought*
 
 ## Credentials
 - Test user: session_token=test_session_356539ff12b1 (user with 30+ analyzed games)
