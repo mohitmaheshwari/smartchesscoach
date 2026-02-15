@@ -1034,10 +1034,7 @@ def generate_coach_note(plan: Dict) -> str:
     """
     Generate personalized coach note from plan data.
     
-    Template:
-    You're stable at {stable} and you've shown {peak}.
-    The gap ({gap}) is mainly from {top_bucket}.
-    This week we fix one habit: {habit_rule}.
+    Template variations based on rating gap.
     """
     ratings = plan.get("ratings", {})
     primary = plan.get("primary_focus", {})
@@ -1046,16 +1043,21 @@ def generate_coach_note(plan: Dict) -> str:
     stable = ratings.get("stable", 1200)
     peak = ratings.get("peak", stable)
     gap = ratings.get("gap", 0)
+    frequency = primary.get("frequency_rate", 0)
     
     focus_label = primary.get("label", "your weakest area")
     first_rule = rules[0] if rules else "Focus on your primary weakness"
     
+    # Build the note based on gap
     if gap <= 50:
-        gap_note = f"You're playing consistently around {stable}."
+        # Consistent player
+        if frequency > 0.5:
+            note = f"You're playing consistently at {stable}. Your main gap is {focus_label} – it's costing you in {int(frequency * 100)}% of games. This week: {first_rule}"
+        else:
+            note = f"You're steady at {stable}. To push higher, focus on {focus_label}. This week: {first_rule}"
     else:
-        gap_note = f"You're stable at {stable} but you've shown {peak}. The {gap}-point gap"
-    
-    note = f"{gap_note} is mainly from {focus_label}. This week: {first_rule}"
+        # Has shown higher potential
+        note = f"You're stable at {stable} but you've peaked at {peak}. The {gap}-point gap is mainly from {focus_label}. This week: {first_rule}"
     
     return note
 
