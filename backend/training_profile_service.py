@@ -907,6 +907,7 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200, preser
         "active_phase_label": TRAINING_LAYERS[active_phase]["label"],
         "active_phase_description": TRAINING_LAYERS[active_phase]["description"],
         "phase_cost": active_layer["cost"],
+        "phase_started_at": phase_started_at or datetime.now(timezone.utc).isoformat(),
         
         # Micro habit
         "micro_habit": micro_habit,
