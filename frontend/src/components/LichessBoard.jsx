@@ -146,12 +146,14 @@ const LichessBoard = forwardRef(({
         viewOnly: viewOnly || !interactive,
         movable: {
           free: false,
-          color: interactive ? "both" : undefined,
-          dests: interactive && showDests ? getMovableDests(chessRef.current) : new Map(),
+          color: (interactive || planMode) ? "both" : undefined,
+          dests: (interactive || planMode) && showDests 
+            ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current)) 
+            : new Map(),
           showDests: showDests,
         },
         draggable: {
-          enabled: interactive && !viewOnly,
+          enabled: (interactive || planMode) && !viewOnly,
           showGhost: true,
         },
         highlight: {
