@@ -3,18 +3,14 @@ import { Chess } from "chess.js";
 import LichessBoard from "./LichessBoard";
 import { Button } from "@/components/ui/button";
 import { 
-  ChevronLeft, 
-  ChevronRight, 
-  ChevronsLeft, 
-  ChevronsRight,
   RotateCcw,
-  Play,
-  Pause,
   Target,
-  ArrowRight
 } from "lucide-react";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+// Reference for the LichessBoard component
+const lichessBoardRef = { current: null };
 
 /**
  * CoachBoard - A sticky, interactive chessboard for the Board-First Coach UI
