@@ -50,8 +50,21 @@ Each layer computes a Cost Score from last 20 games:
 ### Key Files
 - `backend/training_profile_service.py` - Core training engine (900+ lines)
 - `frontend/src/pages/Training.jsx` - Step-by-step wizard UI
-- `frontend/src/components/CoachBoard.jsx` - Reusable chess board with position prop
+- `frontend/src/components/CoachBoard.jsx` - Reusable chess board wrapper (uses LichessBoard)
+- `frontend/src/components/LichessBoard.jsx` - Lichess Chessground library wrapper
 - Navigation: "Training" tab in main nav
+
+### Chessboard Migration (Feb 2026) ✅ COMPLETE
+Migrated from `react-chessboard` to Lichess `chessground` library for better UX:
+- **LichessBoard.jsx**: New wrapper component for Chessground library
+  - Smooth animations, professional Lichess styling
+  - Arrow rendering for showing played vs better moves
+  - Move destinations highlighting when interactive
+  - Board orientation support (white/black perspective)
+- **CoachBoard.jsx**: Updated to use LichessBoard internally
+  - Maintains same API for Training.jsx compatibility
+  - Supports drill mode, arrows, flip board, and position props
+- **Libraries**: `chessground@9.2.1` for board, `chess.js@1.4.0` for move validation
 
 ### Bug Fixes (Dec 2025)
 - ✅ Example positions now load correct FEN (was showing starting position)
