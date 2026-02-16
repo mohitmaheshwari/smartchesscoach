@@ -58,6 +58,17 @@ Each layer computes a Cost Score from last 20 games:
 - ✅ Reflection step includes chessboard showing mistake position
 - ✅ Phase Context framed as "This Week's Focus" / "Weekly Focus"
 
+### Bug Fixes (Feb 2026)
+- ✅ **Phase-Filtered Example Positions**: Example positions now match the current training phase
+  - Opening Principles phase shows only moves 1-12
+  - Each phase has specific filtering criteria (move range, cp loss threshold)
+  - Backend: `collect_all_phase_relevant_positions()` and `filter_positions_for_phase()` in training_profile_service.py
+- ✅ **Meaningful Training Stats UI**: Replaced confusing "Cost: 91,294" with:
+  - "X issues found" - clear count of mistakes per area
+  - Percentage intensity bars showing relative priority
+  - "Focus" badge on the active training area
+  - Sorted by priority (most issues first)
+
 ### Enhanced Reflection System (Dec 2025) ✅ NEW
 Per-position reflection with rich context:
 - **Rating-Based Filtering**: Different thresholds per rating band
