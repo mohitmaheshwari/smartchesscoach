@@ -555,13 +555,13 @@ const Training = ({ user }) => {
                   </div>
                   <div className="bg-background/50 rounded-lg p-2">
                     <p className="text-lg font-bold">
-                      {stats.clean_games || 0}
-                      {(stats.clean_games || 0) >= CLEAN_GAMES_FOR_GRADUATION && (
+                      {stats.clean_streak || 0}
+                      {(stats.clean_streak || 0) >= CLEAN_GAMES_FOR_GRADUATION && (
                         <span className="text-green-400 ml-1">✓</span>
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Clean Games (need {CLEAN_GAMES_FOR_GRADUATION})
+                      Clean Streak (need {CLEAN_GAMES_FOR_GRADUATION})
                     </p>
                   </div>
                   <div className={`bg-background/50 rounded-lg p-2 ${
