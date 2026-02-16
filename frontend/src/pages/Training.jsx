@@ -1414,19 +1414,101 @@ const Training = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* What was your plan? */}
+        {/* What was your plan? - with "Show on Board" option */}
         <div className="space-y-2">
-          <h3 className="font-medium flex items-center gap-2">
-            <Brain className="w-4 h-4" />
-            What was your plan?
-          </h3>
-          <Textarea
-            value={currentPlan}
-            onChange={(e) => updateMilestonePlan(e.target.value)}
-            placeholder="What were you thinking when you played this move?"
-            rows={2}
-            className="text-sm"
-          />
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium flex items-center gap-2">
+              <Brain className="w-4 h-4" />
+              What was your plan?
+            </h3>
+            {!isPlanMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={startPlanMode}
+                className="gap-1 text-xs h-7"
+              >
+                <Play className="w-3 h-3" />
+                Show on board
+              </Button>
+            )}
+          </div>
+          
+          {isPlanMode ? (
+            <Card className="bg-purple-500/10 border-purple-500/30">
+              <CardContent className="py-3 space-y-3">
+                <p className="text-sm text-purple-300">
+                  Play your intended moves on the board above (both colors). 
+                  Show what you planned to do and what you expected from your opponent.
+                </p>
+                
+                {planMoves.length > 0 && (
+                  <div className="bg-background/50 rounded p-2">
+                    <p className="text-xs text-muted-foreground mb-1">Your plan:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {planMoves.map((move, i) => (
+                        <span 
+                          key={i} 
+                          className={`text-sm font-mono px-1.5 py-0.5 rounded ${
+                            i % 2 === 0 ? 'bg-white/10 text-white' : 'bg-black/20 text-gray-300'
+                          }`}
+                        >
+                          {i % 2 === 0 && <span className="text-muted-foreground mr-1">{Math.floor(i/2) + 1}.</span>}
+                          {move}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={undoPlanMove}
+                    disabled={planMoves.length === 0}
+                    className="gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Undo
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={cancelPlanMode}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={finishPlan}
+                    disabled={planMoves.length === 0 || generatingPlanText}
+                    className="gap-1 ml-auto bg-purple-600 hover:bg-purple-700"
+                  >
+                    {generatingPlanText ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Converting...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3 h-3" />
+                        Done
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Textarea
+              value={currentPlan}
+              onChange={(e) => updateMilestonePlan(e.target.value)}
+              placeholder="What were you thinking when you played this move?"
+              rows={2}
+              className="text-sm"
+            />
+          )}
         </div>
 
         {/* Contextual Tags */}
