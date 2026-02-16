@@ -2260,65 +2260,6 @@ DO NOT invent any chess strategy or analysis."""
         "needs_llm_humanization": use_llm,
         "llm_prompt": llm_prompt
     }
-    
-    # ==========================================================================
-    # STEP 3: BUILD LLM PROMPT - GPT only narrates facts
-    # GPT receives ONLY the processed facts - no raw data, no decisions to make
-    # ==========================================================================
-    
-    if is_checkmate:
-        # Checkmate case - GPT just confirms the fact
-        mate_fact = facts.get("critical_fact", f"{sf_best_move} is checkmate")
-        llm_prompt = f"""FACTS (from chess engine analysis - these are 100% accurate):
-• {mate_fact}
-• You played {move_played} instead, missing the checkmate.
-
-Write 1-2 sentences confirming that {sf_best_move} is checkmate.
-DO NOT add any other chess analysis or strategy talk.
-Just state the checkmate fact clearly."""
-    
-    elif sf_line_description and any(keyword in sf_line_description.lower() for keyword in ["captures", "check", "mate"]):
-        # Tactical case - we have specific info about what the line achieves
-        llm_prompt = f"""FACTS (from chess engine analysis - these are 100% accurate):
-• Position: {sf_position_assessment}
-• Mistake type: {mistake_classification['label']} (lost {mistake_classification['pawns_lost']:.1f} pawns worth)
-• Best move: {sf_best_move}
-• What it achieves: {sf_line_description}
-• Best line: {' → '.join(sf_best_line) if sf_best_line else 'not available'}
-• You played: {move_played}
-{f"• Consequence: {facts.get('consequence', '')}" if facts.get('consequence') else ""}
-
-Write 2-3 sentences explaining why {sf_best_move} was better.
-Use ONLY the facts above. Focus on "What it achieves".
-DO NOT make up any chess analysis."""
-    
-    else:
-        # General case - explain based on available facts
-        llm_prompt = f"""FACTS (from chess engine analysis - these are 100% accurate):
-• Position: {sf_position_assessment}
-• Mistake type: {mistake_classification['label']}
-• Best move: {sf_best_move}
-• You played: {move_played}
-{f"• Best continuation: {' → '.join(sf_best_line)}" if sf_best_line else ""}
-{f"• Consequence of your move: {facts.get('consequence', '')}" if facts.get('consequence') else ""}
-
-Write 2-3 sentences explaining why {sf_best_move} was the better choice.
-Base your explanation ONLY on the facts above.
-If key information is missing, simply say "{sf_best_move} was the engine's recommended move."
-DO NOT invent any chess strategy or analysis."""
-    
-    return {
-        "stockfish_analysis": stockfish_result,  # Raw engine data (for debugging)
-        "deterministic_facts": facts,  # Processed facts from our layer
-        "eval_classification": eval_classification,
-        "mistake_classification": mistake_classification,
-        "move_played": move_played,
-        "best_move": sf_best_move,
-        "is_mate": is_checkmate,
-        "is_tactical": sf_line_description and any(k in sf_line_description.lower() for k in ["captures", "check", "mate"]),
-        "needs_llm_humanization": use_llm,
-        "llm_prompt": llm_prompt
-    }
 
 
 async def save_position_reflection(
