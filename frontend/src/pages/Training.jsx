@@ -102,6 +102,8 @@ const Training = ({ user }) => {
   const [milestoneUserPlans, setMilestoneUserPlans] = useState({});
   const [showBetterLine, setShowBetterLine] = useState(false);
   const [variationIndex, setVariationIndex] = useState(0);
+  const [boardMode, setBoardMode] = useState("position"); // "position" | "my_move" | "threat" | "better_line"
+  const [betterLineIndex, setBetterLineIndex] = useState(0);
 
   // Drills state
   const [drills, setDrills] = useState([]);
