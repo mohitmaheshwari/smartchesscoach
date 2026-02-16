@@ -1273,7 +1273,15 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200, preser
     # This is different from the "layer" (stability/conversion/structure/precision)
     current_tier_id = get_tier_for_rating(rating)
     current_tier = TRAINING_TIERS[current_tier_id]
-    current_phase_index = existing_profile.get("phase_index", 0) if existing_profile else 0
+    
+    # IMPORTANT: Get phase_index from database (phase_progress may have updated it via auto-graduation)
+    # First check if there's a stored phase_index in training_profiles
+    stored_profile = await db.training_profiles.find_one({"user_id": user_id})
+    stored_phase_index = stored_profile.get("phase_index", 0) if stored_profile else 0
+    
+    # Use existing_profile if available, otherwise use stored
+    current_phase_index = existing_profile.get("phase_index", stored_phase_index) if existing_profile else stored_phase_index
+    
     if current_phase_index >= len(current_tier["phases"]):
         current_phase_index = 0
     current_training_phase = current_tier["phases"][current_phase_index]
