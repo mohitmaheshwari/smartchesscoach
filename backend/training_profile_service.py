@@ -809,15 +809,22 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200) -> Dic
     - drill_positions: positions for practice
     """
     # Fetch analyzed games
-    analyses = await db.analyses.find(
+    analyses = await db.game_analyses.find(
         {"user_id": user_id},
         {"stockfish_analysis": 1, "game_id": 1}
     ).sort("analyzed_at", -1).limit(DEFAULT_GAME_WINDOW).to_list(length=DEFAULT_GAME_WINDOW)
     
-    if len(analyses) < MIN_GAMES_REQUIRED:
+    # Filter to games with valid analysis
+    valid_analyses = [
+        a for a in analyses
+        if a.get("stockfish_analysis", {}).get("move_evaluations")
+        and len(a.get("stockfish_analysis", {}).get("move_evaluations", [])) >= 3
+    ]
+    
+    if len(valid_analyses) < MIN_GAMES_REQUIRED:
         return {
             "status": "insufficient_data",
-            "games_analyzed": len(analyses),
+            "games_analyzed": len(valid_analyses),
             "games_required": MIN_GAMES_REQUIRED,
             "message": f"Need at least {MIN_GAMES_REQUIRED} analyzed games"
         }
