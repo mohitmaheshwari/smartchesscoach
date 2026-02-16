@@ -555,86 +555,120 @@ const Training = ({ user }) => {
     );
   };
 
-  // Step 4: Reflection
-  const renderReflectionStep = () => (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className="space-y-6"
-    >
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">Quick Reflection</h1>
-        <p className="text-muted-foreground">
-          {profile?.reflection_question}
-        </p>
-      </div>
-
-      {/* Tag Selection */}
-      <div className="space-y-3">
-        <h3 className="font-medium">What happened? (select all that apply)</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {reflectionOptions.map((option) => (
-            <button
-              key={option.tag}
-              onClick={() => toggleTag(option.tag)}
-              className={`p-3 rounded-lg text-left transition-all border ${
-                selectedTags.includes(option.tag)
-                  ? "bg-primary/10 border-primary"
-                  : "bg-muted/30 border-border hover:bg-muted/50"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                {selectedTags.includes(option.tag) && (
-                  <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-                )}
-                <span className={selectedTags.includes(option.tag) ? "font-medium" : ""}>
-                  {option.label}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Free text */}
-      <div className="space-y-2">
-        <h3 className="font-medium">Anything else? (optional)</h3>
-        <Textarea
-          value={reflectionText}
-          onChange={(e) => setReflectionText(e.target.value)}
-          placeholder="What were you thinking? What will you try differently?"
-          rows={3}
-        />
-      </div>
-
-      <div className="flex justify-between">
-        <Button variant="ghost" onClick={prevStep} className="gap-2">
-          <ChevronLeft className="w-4 h-4" /> Back
-        </Button>
-        <Button
-          onClick={handleSaveReflection}
-          disabled={savingReflection || (selectedTags.length === 0 && !reflectionText.trim())}
-          className="gap-2"
-        >
-          {savingReflection ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <MessageSquare className="w-4 h-4" />
-          )}
-          Save & Continue
-        </Button>
-      </div>
-
-      <Button
-        variant="link"
-        onClick={() => setCurrentStep(4)}
-        className="w-full text-muted-foreground"
+  // Step 4: Reflection with Board
+  const renderReflectionStep = () => {
+    const examplePositions = profile?.example_positions || [];
+    const reflectionPosition = examplePositions[0]; // Use the first/worst mistake for reflection
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        className="space-y-6"
       >
-        Skip reflection for now
-      </Button>
-    </motion.div>
-  );
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold mb-2">Quick Reflection</h1>
+          <p className="text-muted-foreground">
+            {profile?.reflection_question}
+          </p>
+        </div>
+
+        {/* Board showing the mistake position */}
+        {reflectionPosition && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-muted-foreground text-center">
+              Position from Move {reflectionPosition.move_number}
+            </h3>
+            <div className="flex justify-center">
+              <div className="w-full max-w-xs">
+                <CoachBoard
+                  ref={boardRef}
+                  position={reflectionPosition.fen || START_FEN}
+                  onMove={() => {}}
+                  interactive={false}
+                  showControls={false}
+                />
+              </div>
+            </div>
+            <Card className="bg-muted/30 max-w-xs mx-auto">
+              <CardContent className="py-2 text-center text-sm">
+                <span className="text-red-400">You played:</span>{" "}
+                <span className="font-mono font-medium">{reflectionPosition.move}</span>
+                <span className="mx-2 text-muted-foreground">→</span>
+                <span className="text-green-400">Better:</span>{" "}
+                <span className="font-mono font-medium">{reflectionPosition.best_move}</span>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Tag Selection */}
+        <div className="space-y-3">
+          <h3 className="font-medium">What happened? (select all that apply)</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {reflectionOptions.map((option) => (
+              <button
+                key={option.tag}
+                onClick={() => toggleTag(option.tag)}
+                className={`p-3 rounded-lg text-left transition-all border ${
+                  selectedTags.includes(option.tag)
+                    ? "bg-primary/10 border-primary"
+                    : "bg-muted/30 border-border hover:bg-muted/50"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {selectedTags.includes(option.tag) && (
+                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                  )}
+                  <span className={selectedTags.includes(option.tag) ? "font-medium" : ""}>
+                    {option.label}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Free text */}
+        <div className="space-y-2">
+          <h3 className="font-medium">Anything else? (optional)</h3>
+          <Textarea
+            value={reflectionText}
+            onChange={(e) => setReflectionText(e.target.value)}
+            placeholder="What were you thinking? What will you try differently?"
+            rows={3}
+          />
+        </div>
+
+        <div className="flex justify-between">
+          <Button variant="ghost" onClick={prevStep} className="gap-2">
+            <ChevronLeft className="w-4 h-4" /> Back
+          </Button>
+          <Button
+            onClick={handleSaveReflection}
+            disabled={savingReflection || (selectedTags.length === 0 && !reflectionText.trim())}
+            className="gap-2"
+          >
+            {savingReflection ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <MessageSquare className="w-4 h-4" />
+            )}
+            Save & Continue
+          </Button>
+        </div>
+
+        <Button
+          variant="link"
+          onClick={() => setCurrentStep(4)}
+          className="w-full text-muted-foreground"
+        >
+          Skip reflection for now
+        </Button>
+      </motion.div>
+    );
+  };
 
   // Step 5: Training Drill
   const renderDrillStep = () => {
