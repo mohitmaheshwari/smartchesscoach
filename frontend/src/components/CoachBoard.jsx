@@ -41,16 +41,14 @@ const CoachBoard = forwardRef(({
   const effectiveDrillMode = interactive !== undefined ? interactive : drillMode;
   
   const [fen, setFen] = useState(effectiveFen);
-  const [positionObject, setPositionObject] = useState(() => fenToPositionObject(effectiveFen));
   const [boardOrientation, setBoardOrientation] = useState(userColor);
-  const [highlightedSquares, setHighlightedSquares] = useState({});
   const [arrows, setArrows] = useState([]);
   const [isDrillActive, setIsDrillActive] = useState(effectiveDrillMode);
   const [drillFeedback, setDrillFeedback] = useState(null);
-  const [moveHistory, setMoveHistory] = useState([]);
-  const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
+  const [lastMove, setLastMove] = useState(null);
   
   const chessRef = useRef(new Chess(effectiveFen));
+  const lichessBoardRef = useRef(null);
 
   // Update board when position/initialFen changes
   useEffect(() => {
