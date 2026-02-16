@@ -702,12 +702,49 @@ const Training = ({ user }) => {
                 <CoachBoard
                   ref={boardRef}
                   position={currentExample?.fen || START_FEN}
+                  userColor={currentExample?.fen?.includes(" b ") ? "black" : "white"}
                   onMove={() => {}}
                   interactive={false}
                   showControls={false}
+                  customArrows={(() => {
+                    // Show arrows: red for played move, green for better move
+                    const arrows = [];
+                    const fen = currentExample?.fen || "";
+                    const playedMove = currentExample?.move || "";
+                    const betterMove = currentExample?.best_move || "";
+                    
+                    // Helper to parse move to squares
+                    const parseMove = (move, fen) => {
+                      if (!move || move.length < 2) return null;
+                      try {
+                        // Try to use chess.js to parse the move
+                        const Chess = require("chess.js").Chess;
+                        const chess = new Chess(fen);
+                        const parsed = chess.move(move, { sloppy: true });
+                        if (parsed) {
+                          return [parsed.from, parsed.to];
+                        }
+                      } catch (e) {}
+                      return null;
+                    };
+                    
+                    // Better move arrow (green)
+                    const betterSquares = parseMove(betterMove, fen);
+                    if (betterSquares) {
+                      arrows.push([betterSquares[0], betterSquares[1], "rgba(0, 200, 100, 0.8)"]);
+                    }
+                    
+                    return arrows;
+                  })()}
                 />
               </div>
             </div>
+            
+            {/* User Color Indicator */}
+            <div className="text-center text-xs text-muted-foreground">
+              You were playing as <span className="font-medium">{currentExample?.fen?.includes(" b ") ? "Black" : "White"}</span>
+            </div>
+            
             <Card className="bg-red-500/10 border-red-500/30">
               <CardContent className="py-3 space-y-3">
                 <div className="flex items-center justify-between text-sm">
