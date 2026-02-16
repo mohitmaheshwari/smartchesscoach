@@ -111,7 +111,7 @@ const Layout = ({ children, user }) => {
   };
 
   const navigation = [
-    { name: 'Focus', href: '/focus', icon: Target },
+    { name: 'Training', href: '/training', icon: Target },
     { name: 'Journey', href: '/progress', icon: TrendingUp },
     { name: 'Lab', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Import', href: '/import', icon: Import },
