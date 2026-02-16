@@ -1468,6 +1468,7 @@ const Lab = ({ user }) => {
                               const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
                               goToMove(targetIdx);
                             }}
+                            onPlayVariation={playVariation}
                           />
                         ))
                       ) : (
