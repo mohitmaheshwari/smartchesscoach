@@ -695,8 +695,8 @@ const Training = ({ user }) => {
         // Move to next milestone or finish
         if (currentMilestoneIndex < totalMilestones - 1) {
           setCurrentMilestoneIndex(i => i + 1);
-          setShowBetterLine(false);
-          setVariationIndex(0);
+          setBoardMode("position");
+          setBetterLineIndex(0);
           toast.success(`Reflection saved! (${currentMilestoneIndex + 1}/${totalMilestones})`);
         } else {
           toast.success("All reflections saved!");
@@ -709,21 +709,57 @@ const Training = ({ user }) => {
       }
     };
     
-    // Play through better line
-    const playBetterLine = () => {
-      setShowBetterLine(true);
-      setVariationIndex(0);
+    // Board interaction handlers
+    const showMyMove = () => {
+      if (!boardRef.current || !currentMilestone) return;
+      boardRef.current.reset();
+      boardRef.current.clearArrows();
+      setBoardMode("my_move");
+      // Play the user's move
+      setTimeout(() => {
+        boardRef.current.playSingleMove(currentMilestone.user_move);
+      }, 100);
     };
     
-    const nextVariationMove = () => {
+    const showThreat = () => {
+      if (!boardRef.current || !currentMilestone?.threat) return;
+      boardRef.current.reset();
+      setBoardMode("threat");
+      // Show threat arrow
+      setTimeout(() => {
+        boardRef.current.showThreat(currentMilestone.threat);
+      }, 100);
+    };
+    
+    const startBetterLine = () => {
+      if (!boardRef.current) return;
+      boardRef.current.reset();
+      boardRef.current.clearArrows();
+      setBoardMode("better_line");
+      setBetterLineIndex(0);
+    };
+    
+    const nextBetterMove = () => {
       const pvBest = currentMilestone?.pv_after_best || [];
-      if (variationIndex < pvBest.length) {
-        setVariationIndex(i => i + 1);
-        // Update board ref if we have one
-        if (boardRef.current && pvBest[variationIndex]) {
-          boardRef.current.playMoveSequence([pvBest[variationIndex]], 0);
-        }
+      if (betterLineIndex < pvBest.length && boardRef.current) {
+        boardRef.current.playSingleMove(pvBest[betterLineIndex]);
+        setBetterLineIndex(i => i + 1);
       }
+    };
+    
+    const prevBetterMove = () => {
+      if (betterLineIndex > 0 && boardRef.current) {
+        boardRef.current.undoMove();
+        setBetterLineIndex(i => i - 1);
+      }
+    };
+    
+    const resetBoard = () => {
+      if (!boardRef.current) return;
+      boardRef.current.reset();
+      boardRef.current.clearArrows();
+      setBoardMode("position");
+      setBetterLineIndex(0);
     };
     
     // Loading state
