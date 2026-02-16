@@ -5607,11 +5607,10 @@ async def explain_milestone(
     # If LLM humanization needed, call GPT
     if explanation.get("needs_llm_humanization"):
         try:
-            from emergentintegrations.llm.chat import chat, UserMessage
+            from emergentintegrations.llm.chat import LlmChat, UserMessage
             
-            response = await chat(
-                api_key=OPENAI_API_KEY,
-                model="gpt-4o-mini",
+            llm = LlmChat(api_key=OPENAI_API_KEY, model="gpt-4o-mini")
+            response = await llm.chat(
                 system_message="You are a chess coach explaining moves to amateur players. Be concrete and simple. Focus on the 'what happens' not abstract strategy.",
                 messages=[UserMessage(content=explanation["llm_prompt"])],
                 temperature=0.7
