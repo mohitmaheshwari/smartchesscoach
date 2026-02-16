@@ -255,6 +255,75 @@ const CoachBoard = forwardRef(({
     // Flip the board
     flipBoard: () => {
       setBoardOrientation(prev => prev === "white" ? "black" : "white");
+    },
+
+    // Show threat with arrow
+    showThreat: (threatMove) => {
+      if (!threatMove) return;
+      try {
+        const chess = new Chess(fen);
+        // Parse the threat move to get from/to squares
+        const move = chess.move(threatMove);
+        if (move) {
+          // Draw red arrow for threat
+          setArrows([[move.from, move.to, "rgb(239, 68, 68)"]]);
+          // Reset after showing
+          chess.undo();
+        }
+      } catch (e) {
+        console.error("Invalid threat move:", threatMove);
+      }
+    },
+
+    // Clear arrows
+    clearArrows: () => {
+      setArrows([]);
+    },
+
+    // Play a single move and show result
+    playSingleMove: (moveStr) => {
+      try {
+        const move = chessRef.current.move(moveStr);
+        if (move) {
+          const newFen = chessRef.current.fen();
+          setFen(newFen);
+          setPositionObject(fenToPositionObject(newFen));
+          setHighlightedSquares({
+            [move.from]: { backgroundColor: "rgba(255, 200, 100, 0.4)" },
+            [move.to]: { backgroundColor: "rgba(255, 200, 100, 0.6)" }
+          });
+          return { success: true, move };
+        }
+      } catch (e) {
+        console.error("Invalid move:", moveStr);
+      }
+      return { success: false };
+    },
+
+    // Go back one move
+    undoMove: () => {
+      const move = chessRef.current.undo();
+      if (move) {
+        const newFen = chessRef.current.fen();
+        setFen(newFen);
+        setPositionObject(fenToPositionObject(newFen));
+        setHighlightedSquares({});
+        return true;
+      }
+      return false;
+    },
+
+    // Get position after sequence (for preview)
+    getPositionAfterMoves: (moves, startFen = null) => {
+      const chess = new Chess(startFen || (position || initialFen));
+      for (const moveStr of moves) {
+        try {
+          chess.move(moveStr);
+        } catch (e) {
+          break;
+        }
+      }
+      return chess.fen();
     }
   }), [fen, initialFen, position]);
 
