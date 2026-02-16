@@ -472,12 +472,23 @@ const Training = ({ user }) => {
     </div>
   );
 
-  // Step 1: Phase Context (Weekly Focus)
+  // Step 1: Phase Context (Weekly Focus) with Progress
   const renderPhaseStep = () => {
     const activePhase = profile?.active_phase;
     const LayerIcon = LAYER_ICONS[activePhase] || Target;
     const examplePositions = profile?.example_positions || [];
     const currentExample = examplePositions[currentExampleIndex];
+    
+    // Progress data
+    const progress = phaseProgress || {};
+    const progressPercent = progress.progress_percent || 0;
+    const gamesInPhase = progress.games_in_phase || 0;
+    const gamesForGraduation = progress.games_for_graduation || 10;
+    const cleanGames = progress.clean_games || 0;
+    const cleanGamesNeeded = progress.clean_games_needed || 3;
+    const improvementPercent = progress.improvement_percent || 0;
+    const trend = progress.trend || "stable";
+    const trendIcon = progress.trend_icon || "→";
     
     return (
       <motion.div
@@ -486,19 +497,36 @@ const Training = ({ user }) => {
         exit={{ opacity: 0, x: -20 }}
         className="space-y-6"
       >
-        <div className="text-center mb-8">
+        {/* Graduation Message */}
+        {graduationMessage && (
+          <Card className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-500/50">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-green-500/20">
+                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                </div>
+                <div>
+                  <p className="font-medium text-green-400">{graduationMessage}</p>
+                  <p className="text-sm text-muted-foreground">Your training has been updated.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="text-center mb-4">
           <Badge variant="outline" className="mb-3 text-amber-500 border-amber-500/50">
             This Week's Focus
           </Badge>
           <h1 className="text-3xl font-bold mb-2">Your Training Phase</h1>
           <p className="text-muted-foreground">
-            Based on your last {profile?.games_analyzed} games, focus on this for the week
+            Based on your last {profile?.games_analyzed} games
           </p>
         </div>
 
-        {/* Active Phase Card */}
+        {/* Active Phase Card with Progress */}
         <Card className={`${LAYER_BG_COLORS[activePhase]} border-2`}>
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 space-y-4">
             <div className="flex items-start gap-4">
               <div className={`p-3 rounded-xl ${LAYER_BG_COLORS[activePhase]}`}>
                 <LayerIcon className={`w-8 h-8 ${LAYER_COLORS[activePhase]}`} />
@@ -506,11 +534,51 @@ const Training = ({ user }) => {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h2 className="text-2xl font-bold">{profile?.active_phase_label}</h2>
-                  <Badge variant="secondary">Weekly Focus</Badge>
                 </div>
-                <p className="text-muted-foreground">{profile?.active_phase_description}</p>
+                <p className="text-muted-foreground text-sm">{profile?.active_phase_description}</p>
               </div>
             </div>
+            
+            {/* Progress Section */}
+            {!loadingProgress && gamesInPhase > 0 && (
+              <div className="pt-4 border-t border-border/50 space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Progress to Graduation</span>
+                  <span className="font-medium">{progressPercent}%</span>
+                </div>
+                <Progress value={progressPercent} className="h-2" />
+                
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-background/50 rounded-lg p-2">
+                    <p className="text-lg font-bold">{gamesInPhase}/{gamesForGraduation}</p>
+                    <p className="text-xs text-muted-foreground">Games</p>
+                  </div>
+                  <div className="bg-background/50 rounded-lg p-2">
+                    <p className="text-lg font-bold">{cleanGames}/{cleanGamesNeeded}</p>
+                    <p className="text-xs text-muted-foreground">Clean Games</p>
+                  </div>
+                  <div className={`bg-background/50 rounded-lg p-2 ${
+                    trend === "improving" ? "text-green-400" : 
+                    trend === "regressing" ? "text-red-400" : ""
+                  }`}>
+                    <p className="text-lg font-bold">{trendIcon} {Math.abs(improvementPercent)}%</p>
+                    <p className="text-xs text-muted-foreground capitalize">{trend}</p>
+                  </div>
+                </div>
+                
+                {progress.ready_to_graduate && (
+                  <Badge className="w-full justify-center bg-green-500/20 text-green-400 border-green-500/50">
+                    Ready to Graduate!
+                  </Badge>
+                )}
+              </div>
+            )}
+            
+            {loadingProgress && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            )}
           </CardContent>
         </Card>
 
