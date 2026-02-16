@@ -1138,6 +1138,11 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
     """
     Collect ALL mistake positions that match the phase criteria from all analyses.
     This gives us phase-relevant examples regardless of the "layer" they came from.
+    
+    Filters:
+    - Move must be different from best_move (actual mistake)
+    - Must meet phase-specific criteria (move range, cp loss, etc.)
+    - For structure phases, prioritizes pawn-related moves
     """
     criteria = get_phase_filter_criteria(phase_id)
     move_range = criteria.get("move_range")
@@ -1153,6 +1158,16 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
         for m in moves:
             cp_loss = abs(m.get("cp_loss", 0))
             move_number = m.get("move_number", 0)
+            move_played = m.get("move", "")
+            best_move = m.get("best_move", "")
+            
+            # CRITICAL: Skip if move == best_move (not a real mistake or corrupted data)
+            if move_played == best_move:
+                continue
+            
+            # Skip if either move is missing
+            if not move_played or not best_move:
+                continue
             
             # Check minimum cp loss
             if cp_loss < min_cp:
@@ -1164,21 +1179,35 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
                 if not (min_move <= move_number <= max_move):
                     continue
             
+            # For pawn_structure phase, prioritize pawn-related mistakes
+            is_pawn_relevant = False
+            if phase_id == "pawn_structure":
+                # Check if move involves pawns (lowercase letter for pawn moves, or captures with pawns)
+                move_lower = move_played.lower()
+                best_lower = best_move.lower()
+                # Pawn moves don't have piece prefix (e.g., "e4", "d5", "exd5")
+                is_pawn_move = move_played[0].islower() if move_played else False
+                is_pawn_best = best_move[0].islower() if best_move else False
+                is_pawn_relevant = is_pawn_move or is_pawn_best
+            
             position = {
                 "game_id": game_id,
                 "move_number": move_number,
                 "cp_loss": cp_loss,
                 "fen": m.get("fen_before"),
-                "move": m.get("move"),
-                "best_move": m.get("best_move"),
+                "move": move_played,
+                "best_move": best_move,
                 "eval_before": m.get("eval_before", 0),
                 "eval_after": m.get("eval_after", 0),
                 "threat": m.get("threat"),
+                "is_phase_relevant": is_pawn_relevant if phase_id == "pawn_structure" else True,
             }
             all_positions.append(position)
     
-    # Sort by cp_loss (worst first) and return
-    return sorted(all_positions, key=lambda x: x["cp_loss"], reverse=True)
+    # Sort: prioritize phase-relevant positions, then by cp_loss
+    all_positions.sort(key=lambda x: (not x.get("is_phase_relevant", False), -x["cp_loss"]))
+    
+    return all_positions
 
 
 # =============================================================================
