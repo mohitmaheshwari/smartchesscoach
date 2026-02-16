@@ -90,6 +90,25 @@ Per-position reflection with rich context:
 - Recent reflections with user's written thoughts
 - Pattern weights updated based on reflections
 
+### Phase Progress & Graduation System (Dec 2025) ✅ NEW
+Track progress within training phase toward graduation:
+- **Progress metrics:**
+  - Games played in phase (X/10)
+  - Clean games (games without target errors)
+  - Improvement % (pattern trend)
+  - Visual progress bar
+- **Graduation criteria:**
+  - 10 games analyzed + (30% improvement OR 3 clean games)
+- **Automatic advancement:**
+  - Click "Ready to Graduate" button when criteria met
+  - System moves user to next highest-cost phase
+  - Graduation history logged
+- **Phase-specific "clean game" definitions:**
+  - Stability: No blunders (≥200cp loss)
+  - Conversion: Max 1 eval drop when winning
+  - Structure: Max 1 opening mistake
+  - Precision: Max 2 tactical misses
+
 ---
 
 ## DEPRECATED: Focus Page (Replaced by Training Engine)
