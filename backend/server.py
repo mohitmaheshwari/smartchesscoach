@@ -5429,6 +5429,124 @@ async def get_last_game_audit(user: User = Depends(get_current_user)):
     return audit
 
 
+# =============================================================================
+# TRAINING ENGINE ENDPOINTS
+# =============================================================================
+
+@api_router.get("/training/profile")
+async def get_training_profile_endpoint(
+    force_regenerate: bool = False,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the user's training profile.
+    
+    The training profile contains:
+    - active_phase: The layer with highest cost (stability/conversion/structure/precision)
+    - micro_habit: The dominant pattern within the active phase
+    - rules: 2 actionable rules for the week
+    - layer_breakdown: Costs for all 4 layers
+    - example_positions: Positions from their mistakes for practice
+    - reflection_question: Question to prompt self-reflection
+    
+    Recalculates automatically every 7 games or when force_regenerate=True.
+    """
+    from training_profile_service import get_or_generate_training_profile
+    
+    # Get user's rating
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("rating", 1200) if user_doc else 1200
+    
+    profile = await get_or_generate_training_profile(db, user.user_id, rating, force_regenerate)
+    return profile
+
+
+@api_router.post("/training/profile/regenerate")
+async def regenerate_training_profile(user: User = Depends(get_current_user)):
+    """Force regenerate the training profile."""
+    from training_profile_service import generate_training_profile
+    
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("rating", 1200) if user_doc else 1200
+    
+    profile = await generate_training_profile(db, user.user_id, rating)
+    return profile
+
+
+@api_router.get("/training/reflection-options")
+async def get_reflection_options_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get reflection options based on the user's active phase.
+    
+    Returns tagged options the user can select from to describe
+    what happened in their game. These options update pattern weights.
+    """
+    from training_profile_service import get_reflection_options
+    
+    options = await get_reflection_options(db, user.user_id)
+    return options
+
+
+@api_router.post("/training/reflection")
+async def save_reflection_endpoint(
+    game_id: str,
+    reflection_data: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Save a reflection for a specific game.
+    
+    Body:
+    - selected_tags: List of pattern tags (e.g., ["rushing", "threat_blindness"])
+    - free_text: Optional free-form reflection text
+    
+    This updates pattern weights to improve personalization.
+    """
+    from training_profile_service import save_reflection
+    
+    result = await save_reflection(db, user.user_id, game_id, reflection_data)
+    return result
+
+
+@api_router.get("/training/drills")
+async def get_training_drills(
+    limit: int = 5,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get drill positions for training.
+    
+    Sources drills from:
+    1. User's own mistakes (priority)
+    2. Similar users' mistakes (same rating band, same micro habit)
+    
+    Each drill contains:
+    - fen: Position to practice
+    - correct_move: The better move
+    - user_move: What was played (if from user's game)
+    - cp_loss: How much the mistake cost
+    - source: "own_game" or "similar_user"
+    """
+    from training_profile_service import get_drill_positions
+    
+    drills = await get_drill_positions(db, user.user_id, limit)
+    return {"drills": drills, "count": len(drills)}
+
+
+@api_router.get("/training/layer-info")
+async def get_layer_info():
+    """
+    Get information about training layers and patterns.
+    
+    Returns static information for UI display.
+    """
+    from training_profile_service import TRAINING_LAYERS, PATTERN_INFO
+    
+    return {
+        "layers": TRAINING_LAYERS,
+        "patterns": PATTERN_INFO,
+    }
+
 
 # =============================================================================
 # COACHING LOOP ENDPOINTS (GOLD FEATURE)
