@@ -80,6 +80,15 @@ const Training = ({ user }) => {
   // Step navigation
   const [currentStep, setCurrentStep] = useState(0);
   const TOTAL_STEPS = 5;
+  
+  // View mode: "training" or "history"
+  const [viewMode, setViewMode] = useState("training");
+  
+  // History & AI Insights state
+  const [reflectionHistory, setReflectionHistory] = useState(null);
+  const [aiInsights, setAiInsights] = useState(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingInsights, setLoadingInsights] = useState(false);
 
   // Board state
   const [currentFen, setCurrentFen] = useState(START_FEN);
