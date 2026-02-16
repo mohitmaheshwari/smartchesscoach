@@ -446,7 +446,10 @@ const Lab = ({ user }) => {
           isMistake: cpLoss >= 100 && cpLoss < 300,
           isInaccuracy: cpLoss >= 50 && cpLoss < 100,
           mistakeType: mistakeType,
-          type: 'learning'
+          type: 'learning',
+          // PV lines for visualization
+          pv_after_played: m.pv_after_played || [],
+          pv_after_best: m.pv_after_best || []
         };
         groups.learning_moments.push(entry);
       }
