@@ -5667,6 +5667,66 @@ async def get_last_game_for_reflection(user: User = Depends(get_current_user)):
     return {"game_id": last_analysis["game_id"]}
 
 
+@api_router.get("/training/reflection-history")
+async def get_reflection_history_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get user's reflection history with pattern evolution.
+    
+    Returns:
+    - reflections: List of past reflections
+    - tag_counts: How often each issue was identified
+    - top_patterns: Most common patterns
+    - user_plans: What user wrote during reflections
+    """
+    from training_profile_service import get_reflection_history
+    
+    result = await get_reflection_history(db, user.user_id, limit=50)
+    return result
+
+
+@api_router.get("/training/ai-insights")
+async def get_ai_insights(user: User = Depends(get_current_user)):
+    """
+    Get AI-powered analysis of user's thinking patterns.
+    
+    Analyzes:
+    - Common themes in their written plans
+    - Recurring patterns in their mistakes
+    - Personalized suggestions based on their data
+    """
+    from training_profile_service import generate_personalized_suggestions
+    
+    suggestion_data = await generate_personalized_suggestions(db, user.user_id)
+    
+    if not suggestion_data.get("ready_for_ai"):
+        return suggestion_data
+    
+    # Use GPT to generate insights
+    try:
+        from emergentintegrations.llm.chat import chat, UserMessage
+        
+        response = await chat(
+            api_key=OPENAI_API_KEY,
+            model="gpt-4o-mini",
+            system_message="You are a chess coach analyzing a player's thinking patterns. Be specific, reference their actual words, and give actionable advice.",
+            messages=[UserMessage(content=suggestion_data["prompt"])],
+            temperature=0.7
+        )
+        
+        return {
+            "has_insights": True,
+            "ai_analysis": response.message,
+            "context": suggestion_data["context"],
+        }
+    except Exception as e:
+        logger.error(f"Error generating AI insights: {e}")
+        return {
+            "has_insights": False,
+            "error": "Could not generate AI insights",
+            "context": suggestion_data.get("context", {}),
+        }
+
+
 # =============================================================================
 # COACHING LOOP ENDPOINTS (GOLD FEATURE)
 # =============================================================================
