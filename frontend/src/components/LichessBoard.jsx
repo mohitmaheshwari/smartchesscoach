@@ -257,6 +257,7 @@ const LichessBoard = forwardRef(({
   useEffect(() => {
     if (groundRef.current) {
       const isInteractive = interactive && !viewOnly;
+      const isPlanMode = planMode && interactive;
       
       // Update chess instance with current FEN
       try {
@@ -269,21 +270,22 @@ const LichessBoard = forwardRef(({
       
       // For plan mode, get moves for BOTH colors
       // For normal mode, only get moves for current turn
-      const dests = isInteractive && showDests 
-        ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current))
+      const dests = (isInteractive || isPlanMode) && showDests 
+        ? (isPlanMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current))
         : new Map();
       
-      console.log("LichessBoard interactivity update:", { isInteractive, planMode, destsSize: dests.size, fenStart: fen?.substring(0, 30) });
+      console.log("LichessBoard interactivity update:", { isInteractive, isPlanMode, planMode, destsSize: dests.size, fenStart: fen?.substring(0, 30) });
+      
       groundRef.current.set({
-        viewOnly: !isInteractive,
+        viewOnly: !(isInteractive || isPlanMode),
         movable: {
-          free: false,
-          color: isInteractive ? "both" : undefined,
-          dests: dests,
-          showDests: showDests && isInteractive,
+          free: isPlanMode,  // In plan mode, allow any move
+          color: (isInteractive || isPlanMode) ? "both" : undefined,
+          dests: isPlanMode ? undefined : dests,  // Don't use dests in free mode
+          showDests: showDests && (isInteractive || isPlanMode),
         },
         draggable: {
-          enabled: isInteractive,
+          enabled: isInteractive || isPlanMode,
           showGhost: true,
         },
       });
