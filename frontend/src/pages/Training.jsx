@@ -282,10 +282,12 @@ const Training = ({ user }) => {
     </div>
   );
 
-  // Step 1: Phase Context
+  // Step 1: Phase Context (Weekly Focus)
   const renderPhaseStep = () => {
     const activePhase = profile?.active_phase;
     const LayerIcon = LAYER_ICONS[activePhase] || Target;
+    const examplePositions = profile?.example_positions || [];
+    const currentExample = examplePositions[currentExampleIndex];
     
     return (
       <motion.div
@@ -295,9 +297,12 @@ const Training = ({ user }) => {
         className="space-y-6"
       >
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Your Training Focus</h1>
+          <Badge variant="outline" className="mb-3 text-amber-500 border-amber-500/50">
+            This Week's Focus
+          </Badge>
+          <h1 className="text-3xl font-bold mb-2">Your Training Phase</h1>
           <p className="text-muted-foreground">
-            Based on your last {profile?.games_analyzed} games, here's what needs work
+            Based on your last {profile?.games_analyzed} games, focus on this for the week
           </p>
         </div>
 
@@ -311,13 +316,70 @@ const Training = ({ user }) => {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h2 className="text-2xl font-bold">{profile?.active_phase_label}</h2>
-                  <Badge variant="secondary">Active Focus</Badge>
+                  <Badge variant="secondary">Weekly Focus</Badge>
                 </div>
                 <p className="text-muted-foreground">{profile?.active_phase_description}</p>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Example Positions from Mistakes */}
+        {examplePositions.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Example Position (Move {currentExample?.move_number})
+            </h3>
+            <div className="flex justify-center">
+              <div className="w-full max-w-sm">
+                <CoachBoard
+                  ref={boardRef}
+                  position={currentExample?.fen || START_FEN}
+                  onMove={() => {}}
+                  interactive={false}
+                  showControls={false}
+                />
+              </div>
+            </div>
+            <Card className="bg-red-500/10 border-red-500/30">
+              <CardContent className="py-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span>
+                    <span className="text-red-400 font-medium">Played:</span>{" "}
+                    <span className="font-mono">{currentExample?.move}</span>
+                  </span>
+                  <span>
+                    <span className="text-green-400 font-medium">Better:</span>{" "}
+                    <span className="font-mono">{currentExample?.best_move}</span>
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+            {examplePositions.length > 1 && (
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentExampleIndex(i => Math.max(0, i - 1))}
+                  disabled={currentExampleIndex === 0}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {currentExampleIndex + 1} / {examplePositions.length}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentExampleIndex(i => Math.min(examplePositions.length - 1, i + 1))}
+                  disabled={currentExampleIndex >= examplePositions.length - 1}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Layer Breakdown */}
         <div className="grid grid-cols-2 gap-3">
