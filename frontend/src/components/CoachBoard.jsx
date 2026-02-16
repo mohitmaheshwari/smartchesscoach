@@ -243,9 +243,10 @@ const CoachBoard = forwardRef(({
 
     // Reset to initial position
     reset: () => {
-      setFen(initialFen);
-      setPositionObject(fenToPositionObject(initialFen));
-      chessRef.current = new Chess(initialFen);
+      const resetFen = position || initialFen;
+      setFen(resetFen);
+      setPositionObject(fenToPositionObject(resetFen));
+      chessRef.current = new Chess(resetFen);
       setHighlightedSquares({});
       setArrows([]);
       setDrillFeedback(null);
@@ -255,7 +256,7 @@ const CoachBoard = forwardRef(({
     flipBoard: () => {
       setBoardOrientation(prev => prev === "white" ? "black" : "white");
     }
-  }), [fen, initialFen]);
+  }), [fen, initialFen, position]);
 
   const flipBoard = useCallback(() => {
     setBoardOrientation(p => p === "white" ? "black" : "white");
