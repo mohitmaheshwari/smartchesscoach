@@ -219,6 +219,11 @@ Collect user's thoughts at the moment of mistakes for future pattern analysis. T
 - [x] Saved thoughts show checkmark indicator
 - [x] Thoughts persist across page reloads
 - [x] Test-ids: thought-section-{moveNumber}, thought-input-{moveNumber}, thought-save-{moveNumber}, thought-prompt-{moveNumber}
+- [x] **"Play the better line on board"** - Visual variation player for learning moments (Feb 2026)
+  - Shows the better move and continuation on the board
+  - Step through moves with Next/Back controls
+  - Green highlighting shows variation moves
+  - Exit button returns to game position
 
 ---
 
