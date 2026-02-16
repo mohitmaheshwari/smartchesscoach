@@ -71,7 +71,42 @@ const CoachBoard = forwardRef(({
     }
   }, [drillMode, interactive]);
 
-  // Handle user making a move
+  // Handle move from LichessBoard
+  const handleLichessMove = useCallback((moveData) => {
+    if (!isDrillActive) return;
+
+    const { san, from, to } = moveData;
+    const isCorrect = expectedMoves.length === 0 || expectedMoves.includes(san);
+    
+    setFen(moveData.fen);
+    setLastMove([from, to]);
+    
+    // Show feedback
+    if (isCorrect) {
+      setDrillFeedback({ type: 'success', message: 'Correct!' });
+    } else {
+      setDrillFeedback({ 
+        type: 'error', 
+        message: `Try again. ${expectedMoves.length > 0 ? `Hint: Consider ${expectedMoves[0]}` : ''}` 
+      });
+      // Undo the wrong move
+      chessRef.current.undo();
+      setTimeout(() => {
+        setFen(chessRef.current.fen());
+        setLastMove(null);
+      }, 1000);
+    }
+
+    if (onDrillResult) {
+      onDrillResult({ correct: isCorrect, playedMove: san, expectedMoves });
+    }
+
+    if (onUserMove) {
+      onUserMove(moveData);
+    }
+  }, [isDrillActive, expectedMoves, onDrillResult, onUserMove]);
+
+  // Legacy onDrop handler (for compatibility)
   const onDrop = useCallback((sourceSquare, targetSquare, piece) => {
     if (!isDrillActive) return false;
 
