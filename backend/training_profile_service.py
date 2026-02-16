@@ -873,8 +873,11 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200, preser
         "precision": precision,
     }
     
-    # Select active phase (highest cost)
-    active_phase = max(layer_costs.keys(), key=lambda k: layer_costs[k]["cost"])
+    # Select active phase (highest cost OR preserved from graduation)
+    if graduated_phase and preserve_phase:
+        active_phase = graduated_phase
+    else:
+        active_phase = max(layer_costs.keys(), key=lambda k: layer_costs[k]["cost"])
     active_layer = layer_costs[active_phase]
     
     # Select micro habit (highest pattern weight in active layer)
