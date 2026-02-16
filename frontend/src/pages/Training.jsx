@@ -59,6 +59,9 @@ const LAYER_BG_COLORS = {
   precision: "bg-orange-500/10 border-orange-500/30",
 };
 
+// Constants
+const CLEAN_GAMES_FOR_GRADUATION = 3;
+
 /**
  * Training Page - Adaptive Behavioral Correction System
  * 
