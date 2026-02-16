@@ -1232,6 +1232,177 @@ const Training = ({ user }) => {
     );
   };
 
+  // Reflection History View
+  const renderHistoryView = () => {
+    const tagLabels = {
+      missed_threat: "Missed Threat",
+      piece_safety: "Piece Safety",
+      lost_advantage: "Lost Advantage",
+      time_pressure: "Time Pressure",
+      saw_but_miscalculated: "Miscalculated",
+      didnt_consider: "Didn't Consider",
+      tunnel_vision: "Tunnel Vision",
+      opening_unfamiliar: "Opening Unfamiliar",
+      endgame_technique: "Endgame Technique",
+    };
+
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6"
+      >
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold mb-2">Your Reflection History</h1>
+          <p className="text-muted-foreground">
+            How your patterns have evolved over time
+          </p>
+        </div>
+
+        {loadingHistory ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : !reflectionHistory || reflectionHistory.total_reflections === 0 ? (
+          <Card className="bg-muted/30">
+            <CardContent className="py-8 text-center">
+              <Brain className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="font-medium mb-2">No Reflections Yet</h3>
+              <p className="text-sm text-muted-foreground">
+                Complete some reflections to see your thinking patterns evolve.
+              </p>
+              <Button 
+                className="mt-4" 
+                onClick={() => setViewMode("training")}
+              >
+                Start Reflecting
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Stats Overview */}
+            <div className="grid grid-cols-2 gap-3">
+              <Card>
+                <CardContent className="py-4 text-center">
+                  <p className="text-3xl font-bold">{reflectionHistory.total_reflections}</p>
+                  <p className="text-sm text-muted-foreground">Total Reflections</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="py-4 text-center">
+                  <p className="text-3xl font-bold">{Object.keys(reflectionHistory.tag_counts || {}).length}</p>
+                  <p className="text-sm text-muted-foreground">Patterns Identified</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* AI Insights Section */}
+            <Card className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-violet-500/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Lightbulb className="w-5 h-5 text-violet-400" />
+                  AI Analysis of Your Patterns
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingInsights ? (
+                  <div className="flex items-center gap-2 py-4">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm text-muted-foreground">Analyzing your thinking patterns...</span>
+                  </div>
+                ) : aiInsights?.has_insights ? (
+                  <div className="prose prose-sm prose-invert max-w-none">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {aiInsights.ai_analysis}
+                    </p>
+                  </div>
+                ) : reflectionHistory.total_reflections < 3 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Complete at least 3 reflections to unlock AI analysis of your thinking patterns.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    AI analysis unavailable. Try again later.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Top Patterns */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Your Most Common Patterns</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {(reflectionHistory.top_patterns || []).map(([tag, count], idx) => {
+                    const percentage = reflectionHistory.tag_percentages?.[tag] || 0;
+                    return (
+                      <div key={tag} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-2">
+                            {idx === 0 && <Badge variant="destructive" className="text-xs">Top</Badge>}
+                            {tagLabels[tag] || tag}
+                          </span>
+                          <span className="text-muted-foreground">{count}x ({percentage}%)</span>
+                        </div>
+                        <Progress value={percentage} className="h-2" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recent Reflections */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Recent Reflections</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 max-h-80 overflow-y-auto">
+                  {(reflectionHistory.reflections || []).slice(0, 10).map((r, idx) => (
+                    <div key={idx} className="border-b border-border/50 pb-3 last:border-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <Badge variant="outline">Move {r.move_number}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {r.created_at ? new Date(r.created_at).toLocaleDateString() : ""}
+                        </span>
+                      </div>
+                      {r.user_plan && (
+                        <p className="text-sm italic text-muted-foreground mb-2">
+                          "{r.user_plan}"
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {(r.selected_tags || []).map(tag => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tagLabels[tag] || tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Back to Training */}
+            <Button 
+              className="w-full" 
+              variant="outline"
+              onClick={() => setViewMode("training")}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Back to Training
+            </Button>
+          </>
+        )}
+      </motion.div>
+    );
+  };
+
   // Main render
   const STEP_RENDERERS = [
     renderPhaseStep,
