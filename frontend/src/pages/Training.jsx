@@ -132,6 +132,11 @@ const Training = ({ user }) => {
   const [boardMode, setBoardMode] = useState("position"); // "position" | "my_move" | "threat" | "better_line"
   const [betterLineIndex, setBetterLineIndex] = useState(0);
 
+  // Plan mode state - for showing plan on board
+  const [isPlanMode, setIsPlanMode] = useState(false);
+  const [planMoves, setPlanMoves] = useState([]);
+  const [generatingPlanText, setGeneratingPlanText] = useState(false);
+
   // Drills state
   const [drills, setDrills] = useState([]);
   const [loadingDrills, setLoadingDrills] = useState(false);
