@@ -2145,6 +2145,8 @@ async def _calculate_phase_specific_stats(analyses: List[Dict], phase: Dict, rat
     total_metric = 0
     clean_count = 0
     per_game_values = []
+    clean_streak = 0  # NEW: Track consecutive clean games
+    max_clean_streak = 0  # NEW: Track best streak
     
     for analysis in analyses:
         sf = analysis.get("stockfish_analysis", {})
