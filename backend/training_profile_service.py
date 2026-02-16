@@ -1853,22 +1853,35 @@ async def generate_position_explanation(
     Generate human-readable explanation for why the better move is better.
     Uses Stockfish data (deterministic) + GPT for natural language.
     """
+    # Try both locations for the data (context_for_explanation or top level)
     context = milestone.get("context_for_explanation", {})
     
     # Build deterministic chess context from Stockfish
-    move_played = context.get("move_played", "?")
-    best_move = context.get("best_move", "?")
-    cp_loss = context.get("cp_loss", 0)
-    eval_before = context.get("eval_before", 0) / 100
-    eval_after = context.get("eval_after", 0) / 100
+    # Check both top-level and context locations
+    move_played = milestone.get("move_played") or context.get("move_played", "?")
+    best_move = milestone.get("best_move") or context.get("best_move", "?")
+    cp_loss = milestone.get("cp_loss") or context.get("cp_loss", 0)
+    eval_before = (milestone.get("eval_before") or context.get("eval_before", 0))
+    eval_after = (milestone.get("eval_after") or context.get("eval_after", 0))
+    
+    # Handle nested context
+    if "context_for_explanation" in milestone:
+        eval_before = context.get("eval_before", eval_before)
+        eval_after = context.get("eval_after", eval_after)
+    
+    # Convert to pawns if in centipawns
+    eval_before_pawns = eval_before / 100 if abs(eval_before) > 10 else eval_before
+    eval_after_pawns = eval_after / 100 if abs(eval_after) > 10 else eval_after
+    cp_loss_pawns = cp_loss / 100 if cp_loss > 10 else cp_loss
+    
     threat = context.get("threat")
     pv_best = context.get("pv_best", [])
     pv_played = context.get("pv_played", [])
     
     # Deterministic analysis
     stockfish_explanation = {
-        "eval_swing": f"Position went from {eval_before:+.1f} to {eval_after:+.1f}",
-        "cp_lost": f"Lost {cp_loss/100:.1f} pawns worth of advantage",
+        "eval_swing": f"Position went from {eval_before_pawns:+.1f} to {eval_after_pawns:+.1f}",
+        "cp_lost": f"Lost {cp_loss_pawns:.1f} pawns worth of advantage",
     }
     
     if threat:
@@ -1881,9 +1894,9 @@ async def generate_position_explanation(
         stockfish_explanation["played_line_consequence"] = f"Your move leads to: {' '.join(pv_played[:4])}"
     
     # Position type
-    if eval_before >= 1.5:
+    if eval_before_pawns >= 1.5:
         stockfish_explanation["position_context"] = "You were winning"
-    elif eval_before <= -1.5:
+    elif eval_before_pawns <= -1.5:
         stockfish_explanation["position_context"] = "You were losing"
     else:
         stockfish_explanation["position_context"] = "Position was roughly equal"
