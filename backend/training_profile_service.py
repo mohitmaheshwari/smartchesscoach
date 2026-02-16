@@ -2192,6 +2192,10 @@ async def _calculate_phase_specific_stats(analyses: List[Dict], phase: Dict, rat
         # Check if this is a "clean" game for this phase
         if game_value <= clean_threshold:
             clean_count += 1
+            clean_streak += 1  # NEW: Increment streak
+            max_clean_streak = max(max_clean_streak, clean_streak)  # NEW: Track best streak
+        else:
+            clean_streak = 0  # NEW: Reset streak on non-clean game
     
     # Calculate average
     avg_value = total_metric / len(analyses) if analyses else 0
