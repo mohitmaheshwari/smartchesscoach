@@ -134,11 +134,21 @@ const LichessBoard = forwardRef(({
     return dests;
   };
 
-  // Initialize chessground
+  // Key to force re-creation when interactivity changes
+  const shouldBeInteractive = planMode || (interactive && !viewOnly);
+  
+  // Initialize and recreate chessground when interactivity mode changes
   useEffect(() => {
-    if (boardRef.current && !groundRef.current) {
+    // Destroy existing instance
+    if (groundRef.current) {
+      groundRef.current.destroy();
+      groundRef.current = null;
+    }
+    
+    if (boardRef.current) {
       chessRef.current = new Chess(fen);
-      const shouldBeInteractive = planMode || (interactive && !viewOnly);
+      
+      console.log("LichessBoard creating instance:", { shouldBeInteractive, planMode, interactive, viewOnly });
       
       groundRef.current = Chessground(boardRef.current, {
         fen: fen,
@@ -188,8 +198,8 @@ const LichessBoard = forwardRef(({
               } catch (e) {
                 // If move fails (wrong turn), try switching turn in plan mode
                 if (planMode) {
-                  const fen = chess.fen();
-                  const parts = fen.split(' ');
+                  const currentFen = chess.fen();
+                  const parts = currentFen.split(' ');
                   parts[1] = parts[1] === 'w' ? 'b' : 'w';
                   try {
                     chessRef.current = new Chess(parts.join(' '));
@@ -240,7 +250,7 @@ const LichessBoard = forwardRef(({
         groundRef.current = null;
       }
     };
-  }, []);
+  }, [shouldBeInteractive, planMode, onMove]);  // Re-create when interactivity changes
 
   // Update position when fen changes AND update interactivity
   // Combined effect to avoid race conditions between fen updates and interactivity changes
