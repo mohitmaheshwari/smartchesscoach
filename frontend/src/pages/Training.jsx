@@ -640,73 +640,296 @@ const Training = ({ user }) => {
     );
   };
 
-  // Step 4: Reflection with Board
+  // Step 4: Enhanced Reflection - Per Position with Context
   const renderReflectionStep = () => {
-    const examplePositions = profile?.example_positions || [];
-    const reflectionPosition = examplePositions[0]; // Use the first/worst mistake for reflection
+    const currentMilestone = gameMilestones[currentMilestoneIndex];
+    const totalMilestones = gameMilestones.length;
+    
+    // Get current milestone's selected tags
+    const currentTags = milestoneSelectedTags[currentMilestoneIndex] || [];
+    const currentPlan = milestoneUserPlans[currentMilestoneIndex] || "";
+    
+    // Toggle tag for current milestone
+    const toggleMilestoneTag = (tag) => {
+      setMilestoneSelectedTags(prev => {
+        const current = prev[currentMilestoneIndex] || [];
+        const newTags = current.includes(tag) 
+          ? current.filter(t => t !== tag)
+          : [...current, tag];
+        return { ...prev, [currentMilestoneIndex]: newTags };
+      });
+    };
+    
+    // Update plan for current milestone
+    const updateMilestonePlan = (plan) => {
+      setMilestoneUserPlans(prev => ({
+        ...prev,
+        [currentMilestoneIndex]: plan
+      }));
+    };
+    
+    // Save current milestone reflection and move to next
+    const handleSaveMilestoneReflection = async () => {
+      if (!currentMilestone) return;
+      
+      try {
+        setSavingReflection(true);
+        
+        const gameIdRes = await fetch(`${API}/training/last-game-for-reflection`, { credentials: "include" });
+        const { game_id } = await gameIdRes.json();
+        
+        await fetch(`${API}/training/milestone/reflect?game_id=${game_id}&move_number=${currentMilestone.move_number}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            selected_tags: currentTags,
+            user_plan: currentPlan,
+            understood: true,
+            fen: currentMilestone.fen,
+          }),
+        });
+        
+        // Move to next milestone or finish
+        if (currentMilestoneIndex < totalMilestones - 1) {
+          setCurrentMilestoneIndex(i => i + 1);
+          setShowBetterLine(false);
+          setVariationIndex(0);
+          toast.success(`Reflection saved! (${currentMilestoneIndex + 1}/${totalMilestones})`);
+        } else {
+          toast.success("All reflections saved!");
+          setCurrentStep(4); // Move to drills
+        }
+      } catch (err) {
+        toast.error("Failed to save reflection");
+      } finally {
+        setSavingReflection(false);
+      }
+    };
+    
+    // Play through better line
+    const playBetterLine = () => {
+      setShowBetterLine(true);
+      setVariationIndex(0);
+    };
+    
+    const nextVariationMove = () => {
+      const pvBest = currentMilestone?.pv_after_best || [];
+      if (variationIndex < pvBest.length) {
+        setVariationIndex(i => i + 1);
+        // Update board ref if we have one
+        if (boardRef.current && pvBest[variationIndex]) {
+          boardRef.current.playMoveSequence([pvBest[variationIndex]], 0);
+        }
+      }
+    };
+    
+    // Loading state
+    if (loadingMilestones) {
+      return (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex items-center justify-center py-20"
+        >
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Loading your game for reflection...</p>
+          </div>
+        </motion.div>
+      );
+    }
+    
+    // No milestones state
+    if (gameMilestones.length === 0) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="space-y-6"
+        >
+          <div className="text-center py-12">
+            <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-green-500" />
+            <h2 className="text-2xl font-bold mb-2">Great Game!</h2>
+            <p className="text-muted-foreground mb-6">
+              No significant mistakes found in your last game at your level.
+            </p>
+            <Button onClick={() => setCurrentStep(4)} className="gap-2">
+              Continue to Drills <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </motion.div>
+      );
+    }
     
     return (
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -20 }}
-        className="space-y-6"
+        className="space-y-4"
       >
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold mb-2">Quick Reflection</h1>
-          <p className="text-muted-foreground">
-            {profile?.reflection_question}
+        {/* Header with progress */}
+        <div className="text-center mb-4">
+          <Badge variant="outline" className="mb-2">
+            Position {currentMilestoneIndex + 1} of {totalMilestones}
+          </Badge>
+          <h1 className="text-2xl font-bold mb-1">Reflect on Your Moves</h1>
+          <p className="text-sm text-muted-foreground">
+            Let's understand what happened at each critical moment
           </p>
         </div>
 
-        {/* Board showing the mistake position */}
-        {reflectionPosition && (
+        {/* Board with Position */}
+        {currentMilestone && (
           <div className="space-y-3">
-            <h3 className="text-sm font-medium text-muted-foreground text-center">
-              Position from Move {reflectionPosition.move_number}
-            </h3>
+            <div className="flex items-center justify-between px-2">
+              <span className="text-sm text-muted-foreground">
+                Move {currentMilestone.move_number}
+              </span>
+              <Badge variant={currentMilestone.evaluation_type === "blunder" ? "destructive" : "secondary"}>
+                {currentMilestone.evaluation_type} (-{(currentMilestone.cp_loss / 100).toFixed(1)})
+              </Badge>
+            </div>
+            
             <div className="flex justify-center">
-              <div className="w-full max-w-xs">
+              <div className="w-full max-w-sm">
                 <CoachBoard
                   ref={boardRef}
-                  position={reflectionPosition.fen || START_FEN}
+                  position={currentMilestone.fen || START_FEN}
                   onMove={() => {}}
                   interactive={false}
-                  showControls={false}
+                  showControls={true}
                 />
               </div>
             </div>
-            <Card className="bg-muted/30 max-w-xs mx-auto">
-              <CardContent className="py-2 text-center text-sm">
-                <span className="text-red-400">You played:</span>{" "}
-                <span className="font-mono font-medium">{reflectionPosition.move}</span>
-                <span className="mx-2 text-muted-foreground">→</span>
-                <span className="text-green-400">Better:</span>{" "}
-                <span className="font-mono font-medium">{reflectionPosition.best_move}</span>
-              </CardContent>
-            </Card>
+            
+            {/* Move Info */}
+            <div className="grid grid-cols-2 gap-2 max-w-sm mx-auto">
+              <Card className="bg-red-500/10 border-red-500/30">
+                <CardContent className="py-2 px-3">
+                  <p className="text-xs text-red-400">You played</p>
+                  <p className="font-mono font-bold">{currentMilestone.user_move}</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-green-500/10 border-green-500/30">
+                <CardContent className="py-2 px-3">
+                  <p className="text-xs text-green-400">Better was</p>
+                  <p className="font-mono font-bold">{currentMilestone.best_move}</p>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Play Better Line Button */}
+            {currentMilestone.pv_after_best?.length > 0 && (
+              <div className="flex justify-center">
+                {!showBetterLine ? (
+                  <Button variant="outline" size="sm" onClick={playBetterLine} className="gap-2">
+                    <Play className="w-4 h-4" />
+                    Play the better line
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {variationIndex}/{currentMilestone.pv_after_best.length} moves
+                    </span>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={nextVariationMove}
+                      disabled={variationIndex >= currentMilestone.pv_after_best.length}
+                    >
+                      Next <ChevronRight className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => {
+                        setShowBetterLine(false);
+                        setVariationIndex(0);
+                        boardRef.current?.reset();
+                      }}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Threat Warning */}
+            {currentMilestone.threat && (
+              <Card className="bg-amber-500/10 border-amber-500/30 max-w-sm mx-auto">
+                <CardContent className="py-2 px-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    <div>
+                      <p className="text-xs text-amber-400">Opponent's threat</p>
+                      <p className="text-sm font-mono">{currentMilestone.threat}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
-        {/* Tag Selection */}
-        <div className="space-y-3">
-          <h3 className="font-medium">What happened? (select all that apply)</h3>
+        {/* Why Better? - GPT Explanation */}
+        <Card className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-violet-500/30">
+          <CardContent className="py-3">
+            <div className="flex items-start gap-2">
+              <Lightbulb className="w-5 h-5 text-violet-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs text-violet-400 font-medium mb-1">Why is {currentMilestone?.best_move} better?</p>
+                {loadingExplanation ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm text-muted-foreground">Analyzing...</span>
+                  </div>
+                ) : (
+                  <p className="text-sm leading-relaxed">
+                    {milestoneExplanation?.human_explanation || milestoneExplanation?.stockfish_analysis?.better_line || "Loading explanation..."}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* What was your plan? */}
+        <div className="space-y-2">
+          <h3 className="font-medium flex items-center gap-2">
+            <Brain className="w-4 h-4" />
+            What was your plan?
+          </h3>
+          <Textarea
+            value={currentPlan}
+            onChange={(e) => updateMilestonePlan(e.target.value)}
+            placeholder="What were you thinking when you played this move?"
+            rows={2}
+            className="text-sm"
+          />
+        </div>
+
+        {/* Contextual Tags */}
+        <div className="space-y-2">
+          <h3 className="font-medium">What happened?</h3>
           <div className="grid grid-cols-2 gap-2">
-            {reflectionOptions.map((option) => (
+            {(currentMilestone?.reflection_options || []).map((option) => (
               <button
                 key={option.tag}
-                onClick={() => toggleTag(option.tag)}
-                className={`p-3 rounded-lg text-left transition-all border ${
-                  selectedTags.includes(option.tag)
+                onClick={() => toggleMilestoneTag(option.tag)}
+                className={`p-2 rounded-lg text-left transition-all border text-sm ${
+                  currentTags.includes(option.tag)
                     ? "bg-primary/10 border-primary"
                     : "bg-muted/30 border-border hover:bg-muted/50"
-                }`}
+                } ${option.contextual ? "border-l-2 border-l-amber-500" : ""}`}
               >
                 <div className="flex items-center gap-2">
-                  {selectedTags.includes(option.tag) && (
-                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                  {currentTags.includes(option.tag) && (
+                    <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
                   )}
-                  <span className={selectedTags.includes(option.tag) ? "font-medium" : ""}>
+                  <span className={currentTags.includes(option.tag) ? "font-medium" : ""}>
                     {option.label}
                   </span>
                 </div>
@@ -715,41 +938,51 @@ const Training = ({ user }) => {
           </div>
         </div>
 
-        {/* Free text */}
-        <div className="space-y-2">
-          <h3 className="font-medium">Anything else? (optional)</h3>
-          <Textarea
-            value={reflectionText}
-            onChange={(e) => setReflectionText(e.target.value)}
-            placeholder="What were you thinking? What will you try differently?"
-            rows={3}
-          />
-        </div>
-
-        <div className="flex justify-between">
-          <Button variant="ghost" onClick={prevStep} className="gap-2">
-            <ChevronLeft className="w-4 h-4" /> Back
+        {/* Navigation */}
+        <div className="flex justify-between pt-2">
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              if (currentMilestoneIndex > 0) {
+                setCurrentMilestoneIndex(i => i - 1);
+                setShowBetterLine(false);
+                setVariationIndex(0);
+              } else {
+                prevStep();
+              }
+            }} 
+            className="gap-2"
+          >
+            <ChevronLeft className="w-4 h-4" /> 
+            {currentMilestoneIndex > 0 ? "Previous" : "Back"}
           </Button>
           <Button
-            onClick={handleSaveReflection}
-            disabled={savingReflection || (selectedTags.length === 0 && !reflectionText.trim())}
+            onClick={handleSaveMilestoneReflection}
+            disabled={savingReflection}
             className="gap-2"
           >
             {savingReflection ? (
               <Loader2 className="w-4 h-4 animate-spin" />
+            ) : currentMilestoneIndex < totalMilestones - 1 ? (
+              <>
+                Save & Next
+                <ChevronRight className="w-4 h-4" />
+              </>
             ) : (
-              <MessageSquare className="w-4 h-4" />
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                Finish Reflection
+              </>
             )}
-            Save & Continue
           </Button>
         </div>
 
         <Button
           variant="link"
           onClick={() => setCurrentStep(4)}
-          className="w-full text-muted-foreground"
+          className="w-full text-muted-foreground text-sm"
         >
-          Skip reflection for now
+          Skip remaining reflections
         </Button>
       </motion.div>
     );
