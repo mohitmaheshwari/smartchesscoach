@@ -24,6 +24,7 @@ const LichessBoard = forwardRef(({
   highlights = [],
   lastMove = null,
   viewOnly = false,
+  planMode = false,  // NEW: Allow moving both colors
 }, ref) => {
   const boardRef = useRef(null);
   const groundRef = useRef(null);
