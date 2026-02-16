@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef } from "react";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "./LichessBoard";
 import { Button } from "@/components/ui/button";
 import { 
   ChevronLeft, 
@@ -16,34 +16,9 @@ import {
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-// Convert FEN to position object
-const fenToPositionObject = (fen) => {
-  const position = {};
-  const parts = fen.split(' ');
-  const rows = parts[0].split('/');
-  
-  for (let row = 0; row < 8; row++) {
-    let col = 0;
-    for (const char of rows[row]) {
-      if (char >= '1' && char <= '8') {
-        col += parseInt(char);
-      } else {
-        const file = String.fromCharCode(97 + col);
-        const rank = 8 - row;
-        const square = file + rank;
-        const color = char === char.toUpperCase() ? 'w' : 'b';
-        const piece = char.toUpperCase();
-        position[square] = color + piece;
-        col++;
-      }
-    }
-  }
-  
-  return position;
-};
-
 /**
  * CoachBoard - A sticky, interactive chessboard for the Board-First Coach UI
+ * Now using Lichess's Chessground for better UX
  * 
  * Features:
  * - Jump to any position by FEN or move number
