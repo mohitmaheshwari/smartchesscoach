@@ -177,20 +177,22 @@ Now the Focus page (`/focus`) uses the new Adaptive Performance Coach.
 
 ## Upcoming Tasks
 
-### P1: Mission Runner UI
-- [ ] Build interactive mission drills (opening positions, threat awareness)
-- [ ] Position bank for missions (beyond user's own games)
-- [ ] Mission step completion tracking
+### P1: Code Cleanup
+- [ ] Delete deprecated files: FocusPage.jsx, Coach.jsx, Focus.jsx
+- [ ] Delete deprecated backend: focus_service.py, adaptive_coaching_service.py
+- [ ] Clean up old routing references
 
-### P2: Data Quality
-- [ ] Historical game analysis script (find games missing analysis)
+### P2: Drill Generation Logic
+- [ ] Implement contextual drills based on user's active phase and micro-habit
+- [ ] Source drills from user's mistakes + similar rating band users
+- [ ] Add interactive drill mode with move validation
 
-### P3: Performance
+### P3: Reflection Reinforcement
+- [ ] User reflections dynamically adjust pattern weights
+- [ ] Analyze accumulated "gold data" for pattern discovery
+
+### P4: Performance
 - [ ] Optimize Stockfish analysis depth (18 → 12-14)
-
-### P4: Code Cleanup
-- [ ] Delete unused files: BoardFirstCoach.jsx, AdaptiveCoach.jsx, Focus.jsx
-- [ ] Consolidate coaching services
 
 ---
 
