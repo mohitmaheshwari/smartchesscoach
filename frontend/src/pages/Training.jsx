@@ -464,30 +464,30 @@ const Training = ({ user }) => {
     </div>
   );
 
-  // Step 1: Phase Context (Weekly Focus) with Progress
+  // Step 1: Phase Context (Tier + Phase Progress) - Auto-graduating
   const renderPhaseStep = () => {
     const activePhase = profile?.active_phase;
     const LayerIcon = LAYER_ICONS[activePhase] || Target;
     const examplePositions = profile?.example_positions || [];
     const currentExample = examplePositions[currentExampleIndex];
     
-    // Progress data
+    // New tier-based progress data
     const progress = phaseProgress || {};
+    const tier = progress.tier_label || "Training";
+    const tierRating = progress.tier_rating_range || [0, 0];
+    const phase = progress.phase || {};
+    const phaseIndex = progress.phase_index || 0;
+    const totalPhases = progress.total_phases || 1;
+    const stats = progress.stats || {};
     const progressPercent = progress.progress_percent || 0;
-    const gamesInPhase = progress.games_in_phase || 0;
-    const gamesForGraduation = progress.games_for_graduation || 10;
-    const cleanGames = progress.clean_games || 0;
-    const cleanGamesNeeded = progress.clean_games_needed || 3;
-    const improvementPercent = progress.improvement_percent || 0;
-    const trend = progress.trend || "stable";
-    const trendIcon = progress.trend_icon || "→";
+    const rating = progress.rating || 1200;
     
     return (
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -20 }}
-        className="space-y-6"
+        className="space-y-5"
       >
         {/* Graduation Message */}
         {graduationMessage && (
@@ -499,75 +499,98 @@ const Training = ({ user }) => {
                 </div>
                 <div>
                   <p className="font-medium text-green-400">{graduationMessage}</p>
-                  <p className="text-sm text-muted-foreground">Your training has been updated.</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        <div className="text-center mb-4">
-          <Badge variant="outline" className="mb-3 text-amber-500 border-amber-500/50">
-            This Week's Focus
+        {/* Tier Header */}
+        <div className="text-center mb-2">
+          <Badge variant="outline" className="mb-2 text-amber-500 border-amber-500/50">
+            {tier} Tier ({tierRating[0]}-{tierRating[1]} Rating)
           </Badge>
-          <h1 className="text-3xl font-bold mb-2">Your Training Phase</h1>
-          <p className="text-muted-foreground">
-            Based on your last {profile?.games_analyzed} games
+          <h1 className="text-2xl font-bold mb-1">Your Training Journey</h1>
+          <p className="text-sm text-muted-foreground">
+            Rating: {rating} • Phase {phaseIndex + 1} of {totalPhases}
           </p>
         </div>
 
-        {/* Active Phase Card with Progress */}
-        <Card className={`${LAYER_BG_COLORS[activePhase]} border-2`}>
-          <CardContent className="pt-6 space-y-4">
-            <div className="flex items-start gap-4">
-              <div className={`p-3 rounded-xl ${LAYER_BG_COLORS[activePhase]}`}>
-                <LayerIcon className={`w-8 h-8 ${LAYER_COLORS[activePhase]}`} />
+        {/* Current Phase Card */}
+        <Card className={`${LAYER_BG_COLORS[activePhase] || "bg-blue-500/10 border-blue-500/30"} border-2`}>
+          <CardContent className="pt-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-xl ${LAYER_BG_COLORS[activePhase] || "bg-blue-500/20"}`}>
+                <LayerIcon className={`w-6 h-6 ${LAYER_COLORS[activePhase] || "text-blue-500"}`} />
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-2xl font-bold">{profile?.active_phase_label}</h2>
-                </div>
-                <p className="text-muted-foreground text-sm">{profile?.active_phase_description}</p>
+                <h2 className="text-xl font-bold">{phase.label || "Training"}</h2>
+                <p className="text-sm text-muted-foreground">{phase.description}</p>
+                {phase.focus && (
+                  <p className="text-xs mt-1 text-primary">Focus: {phase.focus}</p>
+                )}
               </div>
             </div>
             
             {/* Progress Section */}
-            {!loadingProgress && gamesInPhase > 0 && (
-              <div className="pt-4 border-t border-border/50 space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Progress to Graduation</span>
-                  <span className="font-medium">{progressPercent}%</span>
+            {!loadingProgress && progress.games_played >= 0 && (
+              <div className="pt-3 border-t border-border/50 space-y-3">
+                {/* Progress Bar */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-medium">{progressPercent}%</span>
+                  </div>
+                  <Progress value={progressPercent} className="h-2" />
                 </div>
-                <Progress value={progressPercent} className="h-2" />
                 
+                {/* Phase-Specific Stats */}
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="bg-background/50 rounded-lg p-2">
-                    <p className="text-lg font-bold">{gamesInPhase}/{gamesForGraduation}</p>
+                    <p className="text-lg font-bold">{progress.games_played}/{progress.games_needed}</p>
                     <p className="text-xs text-muted-foreground">Games</p>
                   </div>
                   <div className="bg-background/50 rounded-lg p-2">
-                    <p className="text-lg font-bold">{cleanGames}/{cleanGamesNeeded}</p>
+                    <p className="text-lg font-bold">{stats.clean_games || 0}/{CLEAN_GAMES_FOR_GRADUATION || 3}</p>
                     <p className="text-xs text-muted-foreground">Clean Games</p>
                   </div>
                   <div className={`bg-background/50 rounded-lg p-2 ${
-                    trend === "improving" ? "text-green-400" : 
-                    trend === "regressing" ? "text-red-400" : ""
+                    stats.trend === "improving" ? "text-green-400" : 
+                    stats.trend === "regressing" ? "text-red-400" : ""
                   }`}>
-                    <p className="text-lg font-bold">{trendIcon} {Math.abs(improvementPercent)}%</p>
-                    <p className="text-xs text-muted-foreground capitalize">{trend}</p>
+                    <p className="text-lg font-bold">{stats.trend_icon || "→"} {Math.abs(stats.improvement_percent || 0)}%</p>
+                    <p className="text-xs text-muted-foreground capitalize">{stats.trend || "Stable"}</p>
                   </div>
                 </div>
                 
-                {progress.ready_to_graduate && (
-                  <Button 
-                    onClick={handleGraduation}
-                    className="w-full bg-green-500/20 hover:bg-green-500/30 text-green-400 border-green-500/50"
-                    variant="outline"
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Ready to Graduate - Click to Advance!
-                  </Button>
+                {/* Phase-Specific Metric */}
+                {stats.stat_description && (
+                  <div className="bg-background/50 rounded-lg p-2 text-center">
+                    <p className="text-sm">
+                      <span className={stats.metric_value <= (phase.target || 1) ? "text-green-400" : "text-amber-400"}>
+                        {stats.stat_description}
+                      </span>
+                    </p>
+                  </div>
                 )}
+                
+                {/* Phase Roadmap */}
+                <div className="pt-2">
+                  <p className="text-xs text-muted-foreground mb-2">Your {tier} Journey:</p>
+                  <div className="flex gap-1">
+                    {Array.from({ length: totalPhases }).map((_, idx) => (
+                      <div 
+                        key={idx}
+                        className={`flex-1 h-2 rounded-full ${
+                          idx < phaseIndex ? "bg-green-500" :
+                          idx === phaseIndex ? "bg-primary" :
+                          "bg-muted"
+                        }`}
+                        title={`Phase ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
             
