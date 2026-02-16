@@ -1500,20 +1500,29 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
             if is_positional_phase and is_tactical:
                 continue  # Skip tactical positions in positional phases
             
-            # For pawn_structure phase, ONLY include pawn-related mistakes
-            is_pawn_relevant = False
+            # For pawn_structure phase, be VERY strict about relevance
+            # We want positions where the USER made a pawn move that was bad
+            # NOT positions where any pawn move existed
             if phase_id == "pawn_structure":
-                # Pawn moves: start with lowercase (e.g., "e4", "d5", "exd5")
-                # Best move being a pawn move means we should have played a pawn move
-                is_pawn_move = move_played[0].islower() if move_played else False
-                is_pawn_best = best_move[0].islower() if best_move else False
-                # For pawn structure: both moves should ideally involve pawns
-                # Or it's a capture decision affecting structure
-                is_capture = 'x' in move_played or 'x' in best_move
-                is_pawn_relevant = (is_pawn_move and is_pawn_best) or (is_capture and (is_pawn_move or is_pawn_best))
+                # User's move should be a pawn move (lowercase first letter, no piece prefix)
+                is_user_pawn_move = move_played[0].islower() if move_played else False
                 
-                # STRICT: Only include pawn-relevant positions for pawn_structure phase
-                if not is_pawn_relevant:
+                # The move should NOT be a capture that wins material (that's tactics, not structure)
+                # Pawn structure mistakes are: pushing pawns to bad squares, not capturing to fix structure
+                is_pure_pawn_push = is_user_pawn_move and 'x' not in move_played
+                
+                # Also allow pawn captures where the issue is WHICH pawn captured (structure decision)
+                is_pawn_capture = is_user_pawn_move and 'x' in move_played
+                is_pawn_recapture_decision = is_pawn_capture and (best_move[0].islower() if best_move else False)
+                
+                # STRICT: Only include if user made a bad pawn push or wrong pawn capture direction
+                is_pawn_structure_relevant = is_pure_pawn_push or is_pawn_recapture_decision
+                
+                if not is_pawn_structure_relevant:
+                    continue
+                
+                # Additional filter: exclude if cp_loss is too high (likely tactics, not structure)
+                if cp_loss > 250:
                     continue
             
             position = {
