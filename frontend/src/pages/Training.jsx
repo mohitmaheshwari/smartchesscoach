@@ -1280,12 +1280,23 @@ const Training = ({ user }) => {
                   onMove={() => {}}
                   interactive={false}
                   showControls={true}
+                  planMode={isPlanMode}
+                  onPlanMove={handlePlanMove}
                 />
               </div>
             </div>
             
+            {/* Plan Mode Indicator */}
+            {isPlanMode && (
+              <div className="flex justify-center">
+                <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
+                  Plan Mode - Play your intended moves
+                </Badge>
+              </div>
+            )}
+            
             {/* Board Mode Indicator */}
-            {boardMode !== "position" && (
+            {boardMode !== "position" && !isPlanMode && (
               <div className="flex justify-center">
                 <Badge variant="outline" className={`
                   ${boardMode === "my_move" ? "bg-red-500/10 text-red-400 border-red-500/30" : ""}
