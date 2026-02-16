@@ -473,7 +473,6 @@ def compute_stability_cost(analyses: List[Dict], games: List[Dict]) -> Dict:
         for m in moves:
             cp_loss = m.get("cp_loss", 0)
             evaluation = m.get("evaluation", "")
-            eval_before = m.get("eval_before", 0)
             has_threat = m.get("threat") is not None
             
             event = {
