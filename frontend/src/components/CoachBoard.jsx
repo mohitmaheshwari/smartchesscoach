@@ -334,20 +334,17 @@ const CoachBoard = forwardRef(({
         </div>
       )}
 
-      {/* Chessboard */}
+      {/* Lichess Chessground Board */}
       <div className={`relative ${size === "full" ? "w-full" : "w-[320px]"} aspect-square`}>
-        <Chessboard
-          position={positionObject}
-          boardOrientation={boardOrientation}
-          onPieceDrop={onDrop}
-          arePiecesDraggable={isDrillActive}
-          customSquareStyles={highlightedSquares}
-          customArrows={[...arrows, ...customArrows]}
-          animationDuration={200}
-          customBoardStyle={{
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-          }}
+        <LichessBoard
+          ref={lichessBoardRef}
+          fen={currentFen}
+          orientation={boardOrientation}
+          onMove={handleLichessMove}
+          interactive={isDrillActive}
+          viewOnly={!isDrillActive}
+          arrows={[...arrows, ...customArrows]}
+          showDests={isDrillActive}
         />
       </div>
 
