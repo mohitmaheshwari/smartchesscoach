@@ -66,9 +66,248 @@ OPENING_END = 24      # First 12 moves per side
 MIDDLEGAME_END = 60   # Moves 13-30 per side
 
 # =============================================================================
-# LAYER DEFINITIONS
+# TRAINING PROGRESSION SYSTEM - Rating Adaptive
 # =============================================================================
 
+# Training tiers based on rating bands
+# Each tier has multiple phases user must complete before "graduating"
+TRAINING_TIERS = {
+    # Tier 1: Absolute Beginners (200-600)
+    "fundamentals": {
+        "rating_range": (0, 600),
+        "label": "Fundamentals",
+        "phases": [
+            {
+                "id": "piece_safety",
+                "label": "Piece Safety",
+                "description": "Stop hanging pieces for free",
+                "focus": "Don't leave pieces undefended",
+                "metric": "hanging_pieces_per_game",
+                "target": 1.0,  # Max 1 per game
+                "clean_game_threshold": 0,
+            },
+            {
+                "id": "check_awareness",
+                "label": "Check Awareness",
+                "description": "Always see checks before they happen",
+                "focus": "Scan for checks after every move",
+                "metric": "missed_checks_per_game",
+                "target": 0.5,
+                "clean_game_threshold": 0,
+            },
+            {
+                "id": "capture_awareness",
+                "label": "Capture Awareness",
+                "description": "See all captures on the board",
+                "focus": "Check what pieces can be taken",
+                "metric": "missed_captures_per_game",
+                "target": 1.0,
+                "clean_game_threshold": 1,
+            },
+        ]
+    },
+    
+    # Tier 2: Beginners (600-1000)
+    "stability": {
+        "rating_range": (600, 1000),
+        "label": "Stability",
+        "phases": [
+            {
+                "id": "blunder_reduction",
+                "label": "Blunder Reduction",
+                "description": "Cut down on major mistakes",
+                "focus": "Think twice before moving",
+                "metric": "blunders_per_game",
+                "target": 1.5,
+                "clean_game_threshold": 0,
+            },
+            {
+                "id": "threat_detection",
+                "label": "Threat Detection",
+                "description": "See opponent's one-move threats",
+                "focus": "Ask: What does my opponent want?",
+                "metric": "threats_missed_per_game",
+                "target": 1.0,
+                "clean_game_threshold": 0,
+            },
+            {
+                "id": "piece_activity",
+                "label": "Piece Activity",
+                "description": "Keep all your pieces active",
+                "focus": "No piece left behind",
+                "metric": "inactive_pieces_avg",
+                "target": 1.0,
+                "clean_game_threshold": 1,
+            },
+        ]
+    },
+    
+    # Tier 3: Intermediate (1000-1400)
+    "structure": {
+        "rating_range": (1000, 1400),
+        "label": "Structure",
+        "phases": [
+            {
+                "id": "opening_principles",
+                "label": "Opening Principles",
+                "description": "Develop pieces, control center, castle",
+                "focus": "Follow opening fundamentals",
+                "metric": "opening_mistakes_per_game",
+                "target": 1.0,
+                "clean_game_threshold": 0,
+            },
+            {
+                "id": "pawn_structure",
+                "label": "Pawn Structure",
+                "description": "Create healthy pawn formations",
+                "focus": "Avoid weak pawns",
+                "metric": "pawn_weaknesses_created",
+                "target": 2.0,
+                "clean_game_threshold": 1,
+            },
+            {
+                "id": "piece_coordination",
+                "label": "Piece Coordination",
+                "description": "Make your pieces work together",
+                "focus": "Pieces should support each other",
+                "metric": "coordination_score",
+                "target": 0.6,
+                "clean_game_threshold": 1,
+            },
+        ]
+    },
+    
+    # Tier 4: Club Players (1400-1800)
+    "conversion": {
+        "rating_range": (1400, 1800),
+        "label": "Conversion",
+        "phases": [
+            {
+                "id": "advantage_maintenance",
+                "label": "Advantage Maintenance",
+                "description": "Keep your winning positions",
+                "focus": "Don't let advantages slip",
+                "metric": "eval_drops_when_winning",
+                "target": 1.0,
+                "clean_game_threshold": 0,
+            },
+            {
+                "id": "winning_technique",
+                "label": "Winning Technique",
+                "description": "Convert winning positions to wins",
+                "focus": "Simplify when ahead",
+                "metric": "wins_from_winning_positions_pct",
+                "target": 0.75,
+                "clean_game_threshold": 1,
+            },
+            {
+                "id": "endgame_basics",
+                "label": "Endgame Basics",
+                "description": "Know fundamental endgames",
+                "focus": "King activity, passed pawns",
+                "metric": "endgame_mistakes_per_game",
+                "target": 1.0,
+                "clean_game_threshold": 0,
+            },
+        ]
+    },
+    
+    # Tier 5: Advanced (1800-2200)
+    "precision": {
+        "rating_range": (1800, 2200),
+        "label": "Precision",
+        "phases": [
+            {
+                "id": "calculation_depth",
+                "label": "Calculation Depth",
+                "description": "See deeper into positions",
+                "focus": "Calculate 3+ moves ahead",
+                "metric": "tactical_misses_per_game",
+                "target": 0.5,
+                "clean_game_threshold": 0,
+            },
+            {
+                "id": "positional_understanding",
+                "label": "Positional Understanding",
+                "description": "Evaluate positions accurately",
+                "focus": "Feel the position",
+                "metric": "positional_mistakes_per_game",
+                "target": 1.0,
+                "clean_game_threshold": 1,
+            },
+            {
+                "id": "complex_tactics",
+                "label": "Complex Tactics",
+                "description": "Find multi-move combinations",
+                "focus": "Pattern recognition",
+                "metric": "missed_tactics_per_game",
+                "target": 0.5,
+                "clean_game_threshold": 0,
+            },
+        ]
+    },
+    
+    # Tier 6: Expert (2200+)
+    "mastery": {
+        "rating_range": (2200, 9999),
+        "label": "Mastery",
+        "phases": [
+            {
+                "id": "deep_preparation",
+                "label": "Deep Preparation",
+                "description": "Opening theory and novelties",
+                "focus": "Surprise your opponents",
+                "metric": "opening_advantage_pct",
+                "target": 0.55,
+                "clean_game_threshold": 2,
+            },
+            {
+                "id": "time_management",
+                "label": "Time Management",
+                "description": "Use your clock wisely",
+                "focus": "No time trouble blunders",
+                "metric": "time_trouble_mistakes",
+                "target": 0.5,
+                "clean_game_threshold": 0,
+            },
+            {
+                "id": "psychological_resilience",
+                "label": "Psychological Resilience",
+                "description": "Stay strong in difficult positions",
+                "focus": "Fight back from worse positions",
+                "metric": "comeback_rate",
+                "target": 0.3,
+                "clean_game_threshold": 1,
+            },
+        ]
+    },
+}
+
+def get_tier_for_rating(rating: int) -> str:
+    """Get the appropriate training tier for a rating."""
+    for tier_id, tier in TRAINING_TIERS.items():
+        min_r, max_r = tier["rating_range"]
+        if min_r <= rating < max_r:
+            return tier_id
+    return "mastery"  # Default for very high ratings
+
+
+def get_phase_in_tier(tier_id: str, phase_index: int) -> Dict:
+    """Get a specific phase within a tier."""
+    tier = TRAINING_TIERS.get(tier_id, TRAINING_TIERS["stability"])
+    phases = tier["phases"]
+    if phase_index < len(phases):
+        return phases[phase_index]
+    return phases[-1]  # Return last phase if index out of bounds
+
+
+def get_total_phases_in_tier(tier_id: str) -> int:
+    """Get total number of phases in a tier."""
+    tier = TRAINING_TIERS.get(tier_id, TRAINING_TIERS["stability"])
+    return len(tier["phases"])
+
+
+# Legacy mapping for backward compatibility
 TRAINING_LAYERS = {
     "stability": {
         "label": "Stability",
