@@ -837,6 +837,56 @@ const Lab = ({ user }) => {
                 />
               </div>
               
+              {/* Variation Mode Banner */}
+              {variationMode && (
+                <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-3 mb-2 animate-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Play className="w-4 h-4 text-emerald-500" />
+                      <span className="text-sm font-medium text-emerald-400">
+                        Viewing Better Line ({variationIndex}/{variationMoves.length} moves)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 px-2 text-xs"
+                        onClick={variationBack}
+                        disabled={variationIndex <= 0}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700"
+                        onClick={variationNext}
+                        disabled={variationIndex >= variationMoves.length}
+                        data-testid="variation-next-btn"
+                      >
+                        Next Move
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-7 px-2 text-xs"
+                        onClick={exitVariation}
+                        data-testid="variation-exit-btn"
+                      >
+                        Exit
+                      </Button>
+                    </div>
+                  </div>
+                  {variationIndex > 0 && variationIndex <= variationMoves.length && (
+                    <p className="text-xs text-emerald-400/80 mt-2">
+                      Move played: <span className="font-mono font-bold">{variationMoves[variationIndex - 1]}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+              
               {/* Navigation */}
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="icon" onClick={goToStart} disabled={currentMoveIndex < 0}>
