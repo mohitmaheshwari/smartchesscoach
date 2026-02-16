@@ -985,7 +985,7 @@ async def get_or_generate_training_profile(db, user_id: str, rating: int = 1200,
                 grad_dt = datetime.fromisoformat(grad_time.replace('Z', '+00:00'))
                 if datetime.now(timezone.utc) - grad_dt < timedelta(days=1):
                     preserve_phase = True
-            except:
+            except Exception:
                 pass
     
     return await generate_training_profile(db, user_id, rating, preserve_phase=preserve_phase)
