@@ -108,6 +108,10 @@ const Training = ({ user }) => {
   const [exampleExplanation, setExampleExplanation] = useState(null);
   const [loadingExampleExplanation, setLoadingExampleExplanation] = useState(false);
 
+  // Derived state - example positions from profile
+  const examplePositions = profile?.example_positions || [];
+  const currentExample = examplePositions[currentExampleIndex] || null;
+
   // Reflection state - Enhanced
   const [reflectionOptions, setReflectionOptions] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
