@@ -80,6 +80,15 @@ Per-position reflection with rich context:
 - `GET /api/training/game/{game_id}/milestones` - Get filtered milestones with contextual options
 - `POST /api/training/milestone/explain` - Generate GPT explanation
 - `POST /api/training/milestone/reflect` - Save per-position reflection
+- `GET /api/training/reflection-history` - Get reflection history with pattern evolution
+- `GET /api/training/ai-insights` - AI analysis of thinking patterns (NEW)
+
+### Reflection History View (Dec 2025) ✅ NEW
+- Stats overview: Total reflections, patterns identified
+- AI Analysis of thinking patterns using GPT
+- Pattern breakdown with progress bars
+- Recent reflections with user's written thoughts
+- Pattern weights updated based on reflections
 
 ---
 
