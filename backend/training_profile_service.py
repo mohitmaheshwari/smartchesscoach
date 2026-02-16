@@ -1269,6 +1269,26 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200, preser
         "Review your mistakes after each game"
     ])
     
+    # Get the current TIER-BASED training phase for filtering example positions
+    # This is different from the "layer" (stability/conversion/structure/precision)
+    current_tier_id = get_tier_for_rating(rating)
+    current_tier = TRAINING_TIERS[current_tier_id]
+    current_phase_index = existing_profile.get("phase_index", 0) if existing_profile else 0
+    if current_phase_index >= len(current_tier["phases"]):
+        current_phase_index = 0
+    current_training_phase = current_tier["phases"][current_phase_index]
+    current_phase_id = current_training_phase["id"]
+    
+    # CRITICAL FIX: Filter example positions based on the CURRENT TRAINING PHASE
+    # NOT the generic layer. This ensures "Opening Principles" phase shows opening mistakes.
+    phase_filtered_positions = collect_all_phase_relevant_positions(
+        valid_analyses, games, current_phase_id
+    )
+    
+    # Fallback to layer positions if no phase-specific ones found
+    if not phase_filtered_positions:
+        phase_filtered_positions = active_layer.get("example_positions", [])
+    
     # Build training profile
     profile = {
         "user_id": user_id,
@@ -1277,7 +1297,12 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200, preser
         "rating_at_computation": rating,
         "rating_tier": rating_tier,
         
-        # Core training focus
+        # Current tier-based training (new system)
+        "current_tier_id": current_tier_id,
+        "current_phase_id": current_phase_id,
+        "phase_index": current_phase_index,
+        
+        # Core training focus (legacy layer system - kept for backward compat)
         "active_phase": active_phase,
         "active_phase_label": TRAINING_LAYERS[active_phase]["label"],
         "active_phase_description": TRAINING_LAYERS[active_phase]["description"],
@@ -1293,18 +1318,21 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200, preser
         # Rules
         "rules": rules,
         
-        # Full breakdown
+        # Full breakdown with meaningful stats (not just raw cost)
         "layer_breakdown": {
             phase: {
                 "cost": data["cost"],
                 "label": TRAINING_LAYERS[phase]["label"],
                 "is_active": phase == active_phase,
+                # Add meaningful metrics
+                "mistakes_count": len(data.get("example_positions", [])),
+                "avg_loss_per_game": round(data["cost"] / max(len(valid_analyses), 1), 1),
             }
             for phase, data in layer_costs.items()
         },
         
-        # Example positions for drills
-        "example_positions": active_layer.get("example_positions", [])[:5],
+        # Example positions - FILTERED BY CURRENT TRAINING PHASE
+        "example_positions": phase_filtered_positions[:5],
         
         # Reflection question
         "reflection_question": PATTERN_INFO.get(micro_habit, {}).get("question", "What happened in this game?"),
