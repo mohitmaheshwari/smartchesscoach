@@ -1845,41 +1845,41 @@ async def generate_personalized_suggestions(db, user_id: str) -> Dict:
 
 
 # =============================================================================
-# PHASE PROGRESS TRACKING & GRADUATION
+# PHASE PROGRESS TRACKING & AUTO-GRADUATION
 # =============================================================================
 
 async def get_phase_progress(db, user_id: str) -> Dict:
     """
     Calculate user's progress within their current training phase.
+    Automatically graduates user when criteria met.
     
     Returns:
-    - games_in_phase: How many games since phase started
-    - progress_percent: Overall progress toward graduation
-    - pattern_trend: Is the pattern improving?
-    - clean_games: Games without the target pattern
-    - ready_to_graduate: Boolean
-    - metrics: Detailed metrics for display
+    - tier: Current tier info
+    - phase: Current phase within tier
+    - progress: Progress metrics
+    - stats: Phase-specific statistics
     """
+    # Get user rating
+    user_doc = await db.users.find_one({"user_id": user_id})
+    rating = user_doc.get("rating", 1200) if user_doc else 1200
+    
     # Get current profile
     profile = await get_training_profile(db, user_id)
     if not profile:
         return {"error": "No training profile found"}
     
-    active_phase = profile.get("active_phase", "stability")
-    phase_started_at = profile.get("phase_started_at")
+    # Determine tier based on rating
+    current_tier_id = get_tier_for_rating(rating)
+    current_tier = TRAINING_TIERS[current_tier_id]
     
-    # If no phase start date, set it now
-    if not phase_started_at:
-        phase_started_at = datetime.now(timezone.utc).isoformat()
-        await db.training_profiles.update_one(
-            {"user_id": user_id},
-            {"$set": {"phase_started_at": phase_started_at}}
-        )
+    # Get current phase index (stored in profile or default to 0)
+    phase_index = profile.get("phase_index", 0)
+    if phase_index >= len(current_tier["phases"]):
+        phase_index = 0  # Reset if tier changed
     
-    # Get games since phase started (for future filtering)
-    # phase_start = datetime.fromisoformat(phase_started_at.replace('Z', '+00:00')) if isinstance(phase_started_at, str) else phase_started_at
+    current_phase = current_tier["phases"][phase_index]
     
-    # Fetch recent analyses (up to GRADUATION_GAMES)
+    # Fetch recent analyses
     cursor = db.game_analyses.find(
         {"user_id": user_id},
         {"_id": 0, "game_id": 1, "stockfish_analysis": 1, "analyzed_at": 1, "metrics": 1}
@@ -1889,76 +1889,222 @@ async def get_phase_progress(db, user_id: str) -> Dict:
     
     if len(analyses) < 3:
         return {
-            "games_in_phase": len(analyses),
-            "progress_percent": 0,
-            "message": "Need at least 3 games to track progress",
+            "tier_id": current_tier_id,
+            "tier_label": current_tier["label"],
+            "tier_rating_range": current_tier["rating_range"],
+            "phase": current_phase,
+            "phase_index": phase_index,
+            "total_phases": len(current_tier["phases"]),
+            "games_played": len(analyses),
+            "games_needed": GRADUATION_GAMES,
+            "progress_percent": int((len(analyses) / GRADUATION_GAMES) * 100),
+            "message": f"Play {GRADUATION_GAMES - len(analyses)} more games to track progress",
+            "stats": {},
             "ready_to_graduate": False,
         }
     
-    # Calculate phase-specific metrics
-    phase_metrics = await _calculate_phase_metrics(analyses, active_phase)
+    # Calculate phase-specific stats
+    stats = await _calculate_phase_specific_stats(analyses, current_phase, rating)
     
-    # Count clean games
-    clean_games = _count_clean_games(analyses, active_phase)
-    
-    # Calculate trend (comparing first half vs second half of games)
-    half = len(analyses) // 2
-    if half >= 2:
-        first_half_avg = _get_phase_error_rate(analyses[half:], active_phase)
-        second_half_avg = _get_phase_error_rate(analyses[:half], active_phase)
-        
-        if first_half_avg > 0:
-            improvement = (first_half_avg - second_half_avg) / first_half_avg
-        else:
-            improvement = 0
-    else:
-        improvement = 0
-        first_half_avg = 0
-        second_half_avg = 0
+    # Check graduation criteria
+    metric_value = stats.get("metric_value", 999)
+    target = current_phase.get("target", 1.0)
+    clean_games = stats.get("clean_games", 0)
+    clean_threshold = current_phase.get("clean_game_threshold", 0)
     
     # Progress calculation
-    games_progress = min(len(analyses) / GRADUATION_GAMES, 1.0)
-    improvement_progress = min(max(improvement / GRADUATION_IMPROVEMENT_THRESHOLD, 0), 1.0)
-    clean_games_progress = min(clean_games / CLEAN_GAMES_FOR_GRADUATION, 1.0)
-    
-    # Overall progress (weighted average)
-    progress_percent = int((games_progress * 0.3 + improvement_progress * 0.4 + clean_games_progress * 0.3) * 100)
-    
-    # Graduation check
-    ready_to_graduate = (
-        len(analyses) >= GRADUATION_GAMES and
-        (improvement >= GRADUATION_IMPROVEMENT_THRESHOLD or clean_games >= CLEAN_GAMES_FOR_GRADUATION)
-    )
-    
-    # Determine trend direction
-    if improvement > 0.1:
-        trend = "improving"
-        trend_icon = "↓"
-    elif improvement < -0.1:
-        trend = "regressing"
-        trend_icon = "↑"
+    if target > 0:
+        metric_progress = max(0, min(100, int((1 - metric_value / (target * 2)) * 100)))
     else:
-        trend = "stable"
-        trend_icon = "→"
+        metric_progress = 100 if metric_value <= target else 0
+    
+    games_progress = int((len(analyses) / GRADUATION_GAMES) * 100)
+    clean_progress = int((clean_games / max(CLEAN_GAMES_FOR_GRADUATION, 1)) * 100)
+    
+    overall_progress = int((metric_progress * 0.5 + games_progress * 0.2 + clean_progress * 0.3))
+    
+    # Check if ready to graduate
+    meets_metric = metric_value <= target
+    meets_clean = clean_games >= CLEAN_GAMES_FOR_GRADUATION
+    ready_to_graduate = len(analyses) >= GRADUATION_GAMES and (meets_metric or meets_clean)
+    
+    # AUTO-GRADUATE if ready
+    graduation_result = None
+    if ready_to_graduate:
+        graduation_result = await _auto_graduate_phase(db, user_id, current_tier_id, phase_index, stats)
     
     return {
-        "active_phase": active_phase,
-        "games_in_phase": len(analyses),
-        "games_for_graduation": GRADUATION_GAMES,
-        "progress_percent": progress_percent,
-        "clean_games": clean_games,
-        "clean_games_needed": CLEAN_GAMES_FOR_GRADUATION,
-        "improvement_percent": int(improvement * 100),
-        "trend": trend,
-        "trend_icon": trend_icon,
+        "tier_id": current_tier_id,
+        "tier_label": current_tier["label"],
+        "tier_rating_range": current_tier["rating_range"],
+        "phase": current_phase,
+        "phase_index": phase_index,
+        "total_phases": len(current_tier["phases"]),
+        "games_played": len(analyses),
+        "games_needed": GRADUATION_GAMES,
+        "progress_percent": overall_progress,
+        "stats": stats,
+        "meets_metric": meets_metric,
+        "meets_clean": meets_clean,
         "ready_to_graduate": ready_to_graduate,
-        "metrics": {
-            "first_half_avg": round(first_half_avg, 2),
-            "second_half_avg": round(second_half_avg, 2),
-            "phase_metrics": phase_metrics,
-        },
-        "phase_started_at": phase_started_at,
+        "graduated": graduation_result,
+        "rating": rating,
     }
+
+
+async def _calculate_phase_specific_stats(analyses: List[Dict], phase: Dict, rating: int) -> Dict:
+    """Calculate stats specific to the current phase."""
+    phase_id = phase.get("id", "")
+    metric = phase.get("metric", "")
+    target = phase.get("target", 1.0)
+    clean_threshold = phase.get("clean_game_threshold", 0)
+    
+    stats = {
+        "phase_id": phase_id,
+        "metric_name": metric,
+        "target": target,
+        "games_analyzed": len(analyses),
+        "clean_games": 0,
+        "metric_value": 0,
+        "trend": "stable",
+        "trend_icon": "→",
+    }
+    
+    # Calculate based on phase type
+    total_metric = 0
+    clean_count = 0
+    per_game_values = []
+    
+    for analysis in analyses:
+        sf = analysis.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        game_metrics = analysis.get("metrics", {})
+        game_value = 0
+        
+        if phase_id in ["piece_safety", "hanging_pieces", "blunder_reduction"]:
+            # Count blunders/hanging pieces
+            game_value = sum(1 for m in move_evals if abs(m.get("cp_loss", 0)) >= BLUNDER_THRESHOLD)
+            
+        elif phase_id in ["check_awareness", "threat_detection"]:
+            # Count missed threats
+            game_value = sum(1 for m in move_evals if m.get("threat") and abs(m.get("cp_loss", 0)) >= SIGNIFICANT_DROP)
+            
+        elif phase_id in ["capture_awareness"]:
+            # Count missed winning captures
+            game_value = sum(1 for m in move_evals if abs(m.get("cp_loss", 0)) >= SIGNIFICANT_DROP and "x" in (m.get("best_move", "") or ""))
+            
+        elif phase_id in ["opening_principles", "opening_mistakes"]:
+            # Count opening mistakes (first 12 moves)
+            game_value = sum(1 for m in move_evals if m.get("move_number", 100) <= 12 and abs(m.get("cp_loss", 0)) >= SIGNIFICANT_DROP)
+            
+        elif phase_id in ["advantage_maintenance", "eval_drops"]:
+            # Count eval drops when winning
+            game_value = game_metrics.get("eval_drops_when_winning", 0)
+            
+        elif phase_id in ["calculation_depth", "tactical_misses", "complex_tactics"]:
+            # Count tactical misses
+            game_value = sum(1 for m in move_evals if abs(m.get("cp_loss", 0)) >= SIGNIFICANT_DROP)
+            
+        elif phase_id in ["endgame_basics", "endgame_mistakes"]:
+            # Count endgame mistakes (after move 30)
+            game_value = sum(1 for m in move_evals if m.get("move_number", 0) > 30 and abs(m.get("cp_loss", 0)) >= SIGNIFICANT_DROP)
+            
+        else:
+            # Default: count significant mistakes
+            game_value = sum(1 for m in move_evals if abs(m.get("cp_loss", 0)) >= SIGNIFICANT_DROP)
+        
+        per_game_values.append(game_value)
+        total_metric += game_value
+        
+        # Check if this is a "clean" game for this phase
+        if game_value <= clean_threshold:
+            clean_count += 1
+    
+    # Calculate average
+    avg_value = total_metric / len(analyses) if analyses else 0
+    stats["metric_value"] = round(avg_value, 2)
+    stats["clean_games"] = clean_count
+    
+    # Calculate trend (first half vs second half)
+    if len(per_game_values) >= 4:
+        half = len(per_game_values) // 2
+        first_half = sum(per_game_values[half:]) / half
+        second_half = sum(per_game_values[:half]) / half
+        
+        if first_half > 0:
+            improvement = (first_half - second_half) / first_half
+            stats["improvement_percent"] = int(improvement * 100)
+            
+            if improvement > 0.1:
+                stats["trend"] = "improving"
+                stats["trend_icon"] = "↓"
+            elif improvement < -0.1:
+                stats["trend"] = "regressing"
+                stats["trend_icon"] = "↑"
+    
+    # Human-readable stat description
+    stats["stat_description"] = f"{avg_value:.1f} {metric.replace('_', ' ')} (target: ≤{target})"
+    
+    return stats
+
+
+async def _auto_graduate_phase(db, user_id: str, tier_id: str, phase_index: int, stats: Dict) -> Dict:
+    """Automatically graduate user to next phase."""
+    tier = TRAINING_TIERS[tier_id]
+    total_phases = len(tier["phases"])
+    
+    # Check if there's a next phase in this tier
+    if phase_index + 1 < total_phases:
+        # Move to next phase in same tier
+        next_phase_index = phase_index + 1
+        next_phase = tier["phases"][next_phase_index]
+        
+        await db.training_profiles.update_one(
+            {"user_id": user_id},
+            {
+                "$set": {
+                    "phase_index": next_phase_index,
+                    "phase_started_at": datetime.now(timezone.utc).isoformat(),
+                },
+                "$push": {
+                    "graduation_log": {
+                        "tier": tier_id,
+                        "from_phase": phase_index,
+                        "to_phase": next_phase_index,
+                        "at": datetime.now(timezone.utc).isoformat(),
+                        "stats": stats,
+                    }
+                }
+            }
+        )
+        
+        return {
+            "graduated": True,
+            "type": "phase",
+            "from_phase": tier["phases"][phase_index]["label"],
+            "to_phase": next_phase["label"],
+            "tier": tier["label"],
+            "message": f"Phase complete! Moving from {tier['phases'][phase_index]['label']} to {next_phase['label']}",
+        }
+    else:
+        # Completed all phases in tier - ready for next tier
+        # Don't auto-advance tier - that depends on rating improvement
+        await db.training_profiles.update_one(
+            {"user_id": user_id},
+            {
+                "$set": {
+                    "tier_completed": True,
+                    "tier_completed_at": datetime.now(timezone.utc).isoformat(),
+                }
+            }
+        )
+        
+        return {
+            "graduated": True,
+            "type": "tier_complete",
+            "tier": tier["label"],
+            "message": f"Congratulations! You've mastered all {tier['label']} phases! Keep playing to increase your rating and unlock the next tier.",
+        }
 
 
 async def _calculate_phase_metrics(analyses: List[Dict], phase: str) -> Dict:
