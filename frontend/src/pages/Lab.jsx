@@ -318,6 +318,11 @@ const Lab = ({ user }) => {
     // Build the full line: best move + continuation
     const fullLine = [bestMove, ...(pvLine || [])];
     
+    // Check if we have a meaningful line to show
+    if (fullLine.length === 1) {
+      toast.info("Showing the better move (no continuation available)");
+    }
+    
     // Set up variation mode
     setVariationBaseFen(fenBefore);
     setVariationMoves(fullLine);
