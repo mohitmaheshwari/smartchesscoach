@@ -61,13 +61,16 @@ Each layer computes a Cost Score from last 20 games:
 ### Bug Fixes (Feb 2026)
 - ✅ **Phase-Filtered Example Positions**: Example positions now match the current training phase
   - Opening Principles phase shows only moves 1-12
+  - Pawn Structure phase shows moves 1-25
   - Each phase has specific filtering criteria (move range, cp loss threshold)
   - Backend: `collect_all_phase_relevant_positions()` and `filter_positions_for_phase()` in training_profile_service.py
-- ✅ **Meaningful Training Stats UI**: Replaced confusing "Cost: 91,294" with:
-  - "X issues found" - clear count of mistakes per area
-  - Percentage intensity bars showing relative priority
-  - "Focus" badge on the active training area
-  - Sorted by priority (most issues first)
+- ✅ **Merged Training Systems**: Removed confusing "Training Areas" (layer-based cost system)
+  - Now only shows the tier-based training journey (Opening Principles → Pawn Structure → etc.)
+  - Simplified UI with single focus on current phase
+- ✅ **Clearer Stats Display**:
+  - "2 Clean Games (need 3)" instead of confusing "4/3"
+  - "+16% Fewer mistakes" instead of confusing "↓ 90%"
+  - Removed all raw "Cost" numbers from UI
 
 ### Enhanced Reflection System (Dec 2025) ✅ NEW
 Per-position reflection with rich context:
