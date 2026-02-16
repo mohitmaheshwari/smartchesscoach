@@ -551,18 +551,31 @@ const Training = ({ user }) => {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="bg-background/50 rounded-lg p-2">
                     <p className="text-lg font-bold">{progress.games_played}/{progress.games_needed}</p>
-                    <p className="text-xs text-muted-foreground">Games</p>
+                    <p className="text-xs text-muted-foreground">Games Played</p>
                   </div>
                   <div className="bg-background/50 rounded-lg p-2">
-                    <p className="text-lg font-bold">{stats.clean_games || 0}/{CLEAN_GAMES_FOR_GRADUATION || 3}</p>
-                    <p className="text-xs text-muted-foreground">Clean Games</p>
+                    <p className="text-lg font-bold">
+                      {stats.clean_games || 0}
+                      {(stats.clean_games || 0) >= CLEAN_GAMES_FOR_GRADUATION && (
+                        <span className="text-green-400 ml-1">✓</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Clean Games (need {CLEAN_GAMES_FOR_GRADUATION})
+                    </p>
                   </div>
                   <div className={`bg-background/50 rounded-lg p-2 ${
                     stats.trend === "improving" ? "text-green-400" : 
                     stats.trend === "regressing" ? "text-red-400" : ""
                   }`}>
-                    <p className="text-lg font-bold">{stats.trend_icon || "→"} {Math.abs(stats.improvement_percent || 0)}%</p>
-                    <p className="text-xs text-muted-foreground capitalize">{stats.trend || "Stable"}</p>
+                    <p className="text-lg font-bold">
+                      {stats.trend === "improving" ? "+" : stats.trend === "regressing" ? "-" : ""}
+                      {Math.abs(stats.improvement_percent || 0)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {stats.trend === "improving" ? "Fewer mistakes" : 
+                       stats.trend === "regressing" ? "More mistakes" : "Stable"}
+                    </p>
                   </div>
                 </div>
                 
