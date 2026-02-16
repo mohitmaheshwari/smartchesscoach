@@ -91,6 +91,11 @@ const Training = ({ user }) => {
   const [aiInsights, setAiInsights] = useState(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  
+  // Phase Progress state
+  const [phaseProgress, setPhaseProgress] = useState(null);
+  const [loadingProgress, setLoadingProgress] = useState(false);
+  const [graduationMessage, setGraduationMessage] = useState(null);
 
   // Board state
   const [currentFen, setCurrentFen] = useState(START_FEN);
