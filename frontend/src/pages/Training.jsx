@@ -662,32 +662,56 @@ const Training = ({ user }) => {
           </div>
         )}
 
-        {/* Layer Breakdown */}
-        <div className="grid grid-cols-2 gap-3">
-          {Object.entries(profile?.layer_breakdown || {}).map(([phase, data]) => {
-            const Icon = LAYER_ICONS[phase] || Target;
-            const isActive = data.is_active;
-            return (
-              <div
-                key={phase}
-                className={`p-4 rounded-lg border transition-all ${
-                  isActive
-                    ? LAYER_BG_COLORS[phase]
-                    : "bg-muted/30 border-border/50 opacity-60"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon className={`w-4 h-4 ${isActive ? LAYER_COLORS[phase] : "text-muted-foreground"}`} />
-                  <span className={`font-medium ${isActive ? "" : "text-muted-foreground"}`}>
-                    {data.label}
-                  </span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Cost: {Math.round(data.cost).toLocaleString()}
-                </div>
-              </div>
-            );
-          })}
+        {/* Training Areas - Meaningful Stats */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Your Training Areas</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(profile?.layer_breakdown || {})
+              .sort(([,a], [,b]) => b.cost - a.cost)
+              .map(([phase, data]) => {
+                const Icon = LAYER_ICONS[phase] || Target;
+                const isActive = data.is_active;
+                // Calculate relative intensity for visual display
+                const maxCost = Math.max(...Object.values(profile?.layer_breakdown || {}).map(d => d.cost || 0));
+                const intensity = maxCost > 0 ? Math.round((data.cost / maxCost) * 100) : 0;
+                const mistakeCount = data.mistakes_count || Math.round(data.cost / 200);
+                
+                return (
+                  <div
+                    key={phase}
+                    className={`p-3 rounded-lg border transition-all ${
+                      isActive
+                        ? LAYER_BG_COLORS[phase]
+                        : "bg-muted/30 border-border/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon className={`w-4 h-4 ${isActive ? LAYER_COLORS[phase] : "text-muted-foreground"}`} />
+                      <span className={`text-sm font-medium ${isActive ? "" : "text-muted-foreground"}`}>
+                        {data.label}
+                      </span>
+                      {isActive && (
+                        <Badge variant="secondary" className="text-xs ml-auto">Focus</Badge>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{mistakeCount} issues found</span>
+                        <span className={isActive ? LAYER_COLORS[phase] : ""}>{intensity}%</span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all ${
+                            isActive ? "bg-primary" : "bg-muted-foreground/30"
+                          }`}
+                          style={{ width: `${intensity}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </div>
 
         <div className="flex justify-end">
