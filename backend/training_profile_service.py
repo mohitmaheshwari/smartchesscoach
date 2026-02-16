@@ -829,17 +829,17 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200) -> Dic
             "message": f"Need at least {MIN_GAMES_REQUIRED} analyzed games"
         }
     
-    game_ids = [a["game_id"] for a in analyses]
+    game_ids = [a["game_id"] for a in valid_analyses]
     games = await db.games.find(
         {"game_id": {"$in": game_ids}},
         {"game_id": 1, "result": 1, "user_color": 1}
     ).to_list(length=len(game_ids))
     
     # Compute layer costs
-    stability = compute_stability_cost(analyses, games)
-    conversion = compute_conversion_cost(analyses, games)
-    structure = compute_structure_cost(analyses, games)
-    precision = compute_precision_cost(analyses, games)
+    stability = compute_stability_cost(valid_analyses, games)
+    conversion = compute_conversion_cost(valid_analyses, games)
+    structure = compute_structure_cost(valid_analyses, games)
+    precision = compute_precision_cost(valid_analyses, games)
     
     layer_costs = {
         "stability": stability,
