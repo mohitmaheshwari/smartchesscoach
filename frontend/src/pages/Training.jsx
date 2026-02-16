@@ -573,9 +573,14 @@ const Training = ({ user }) => {
                 </div>
                 
                 {progress.ready_to_graduate && (
-                  <Badge className="w-full justify-center bg-green-500/20 text-green-400 border-green-500/50">
-                    Ready to Graduate!
-                  </Badge>
+                  <Button 
+                    onClick={handleGraduation}
+                    className="w-full bg-green-500/20 hover:bg-green-500/30 text-green-400 border-green-500/50"
+                    variant="outline"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Ready to Graduate - Click to Advance!
+                  </Button>
                 )}
               </div>
             )}
