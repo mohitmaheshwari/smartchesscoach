@@ -50,7 +50,13 @@ Each layer computes a Cost Score from last 20 games:
 ### Key Files
 - `backend/training_profile_service.py` - Core training engine (900+ lines)
 - `frontend/src/pages/Training.jsx` - Step-by-step wizard UI
+- `frontend/src/components/CoachBoard.jsx` - Reusable chess board with position prop
 - Navigation: "Training" tab in main nav
+
+### Bug Fixes (Dec 2025)
+- ✅ Example positions now load correct FEN (was showing starting position)
+- ✅ Reflection step includes chessboard showing mistake position
+- ✅ Phase Context framed as "This Week's Focus" / "Weekly Focus"
 
 ---
 
