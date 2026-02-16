@@ -618,6 +618,35 @@ const Training = ({ user }) => {
           </CardContent>
         </Card>
 
+        {/* Phase Theory - Educational Content */}
+        {phase.theory && (
+          <Card className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border-violet-500/30">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-violet-500/20">
+                  <Lightbulb className="w-5 h-5 text-violet-400" />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-violet-300">{phase.theory.title}</h3>
+                  <ul className="space-y-1">
+                    {phase.theory.points?.map((point, idx) => (
+                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-violet-400 mt-1">•</span>
+                        <span>{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {phase.theory.tip && (
+                    <p className="text-xs text-violet-400 mt-2 italic">
+                      💡 {phase.theory.tip}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Example Positions from Mistakes */}
         {examplePositions.length > 0 && (
           <div className="space-y-3">
