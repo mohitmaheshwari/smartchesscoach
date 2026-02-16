@@ -256,8 +256,9 @@ const LichessBoard = forwardRef(({
   // Update interactivity when interactive/viewOnly changes
   useEffect(() => {
     if (groundRef.current) {
-      const isInteractive = interactive && !viewOnly;
-      const isPlanMode = planMode && interactive;
+      // Check planMode first - if planMode is true, we want the board interactive
+      // regardless of the interactive prop
+      const shouldBeInteractive = planMode || (interactive && !viewOnly);
       
       // Update chess instance with current FEN
       try {
@@ -270,22 +271,23 @@ const LichessBoard = forwardRef(({
       
       // For plan mode, get moves for BOTH colors
       // For normal mode, only get moves for current turn
-      const dests = (isInteractive || isPlanMode) && showDests 
-        ? (isPlanMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current))
+      const dests = shouldBeInteractive && showDests 
+        ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current))
         : new Map();
       
-      console.log("LichessBoard interactivity update:", { isInteractive, isPlanMode, planMode, destsSize: dests.size, fenStart: fen?.substring(0, 30) });
+      console.log("LichessBoard interactivity update:", { shouldBeInteractive, planMode, interactive, destsSize: dests.size, fenStart: fen?.substring(0, 30) });
       
+      // Apply configuration - key fix: ensure viewOnly is false and draggable is enabled
       groundRef.current.set({
-        viewOnly: !(isInteractive || isPlanMode),
+        viewOnly: !shouldBeInteractive,
         movable: {
-          free: isPlanMode,  // In plan mode, allow any move
-          color: (isInteractive || isPlanMode) ? "both" : undefined,
-          dests: isPlanMode ? undefined : dests,  // Don't use dests in free mode
-          showDests: showDests && (isInteractive || isPlanMode),
+          free: false,  // Don't use free mode - use dests instead for better control
+          color: shouldBeInteractive ? "both" : undefined,
+          dests: dests,
+          showDests: showDests && shouldBeInteractive,
         },
         draggable: {
-          enabled: isInteractive || isPlanMode,
+          enabled: shouldBeInteractive,
           showGhost: true,
         },
       });
