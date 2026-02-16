@@ -233,10 +233,6 @@ const LichessBoard = forwardRef(({
   useEffect(() => {
     if (groundRef.current) {
       const isInteractive = interactive && !viewOnly;
-      // Get the current FEN from chessground state
-      const currentFen = groundRef.current.state.pieces ? 
-        // Reconstruct FEN from pieces if available
-        fen : chessRef.current.fen();
       
       // Update chess instance with current FEN
       try {
@@ -247,8 +243,13 @@ const LichessBoard = forwardRef(({
         console.warn("Could not sync chess instance:", e);
       }
       
-      const dests = isInteractive && showDests ? getMovableDests(chessRef.current) : new Map();
-      console.log("LichessBoard interactivity update:", { isInteractive, viewOnly, interactive, destsSize: dests.size, fenStart: fen?.substring(0, 30) });
+      // For plan mode, get moves for BOTH colors
+      // For normal mode, only get moves for current turn
+      const dests = isInteractive && showDests 
+        ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current))
+        : new Map();
+      
+      console.log("LichessBoard interactivity update:", { isInteractive, planMode, destsSize: dests.size, fenStart: fen?.substring(0, 30) });
       groundRef.current.set({
         viewOnly: !isInteractive,
         movable: {
@@ -263,7 +264,7 @@ const LichessBoard = forwardRef(({
         },
       });
     }
-  }, [interactive, viewOnly, showDests, fen]);
+  }, [interactive, viewOnly, showDests, fen, planMode]);
 
   // Update orientation
   useEffect(() => {
