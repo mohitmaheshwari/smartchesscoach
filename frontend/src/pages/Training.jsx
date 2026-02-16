@@ -753,9 +753,21 @@ const Training = ({ user }) => {
               </div>
             </div>
             
-            {/* User Color Indicator */}
-            <div className="text-center text-xs text-muted-foreground">
-              You were playing as <span className="font-medium">{currentExample?.fen?.includes(" b ") ? "Black" : "White"}</span>
+            {/* Arrow Legend + User Color Indicator */}
+            <div className="text-center text-xs text-muted-foreground space-y-1">
+              <div className="flex items-center justify-center gap-4">
+                <span className="flex items-center gap-1">
+                  <span className="w-3 h-0.5 bg-red-500 rounded"></span>
+                  <span>Your move</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-3 h-0.5 bg-blue-500 rounded"></span>
+                  <span>Better move</span>
+                </span>
+              </div>
+              <div>
+                You were playing as <span className="font-medium">{currentExample?.fen?.includes(" b ") ? "Black" : "White"}</span>
+              </div>
             </div>
             
             <Card className="bg-red-500/10 border-red-500/30">
@@ -766,7 +778,7 @@ const Training = ({ user }) => {
                     <span className="font-mono">{currentExample?.move}</span>
                   </span>
                   <span>
-                    <span className="text-green-400 font-medium">Better:</span>{" "}
+                    <span className="text-blue-400 font-medium">Better:</span>{" "}
                     <span className="font-mono">{currentExample?.best_move}</span>
                   </span>
                 </div>
