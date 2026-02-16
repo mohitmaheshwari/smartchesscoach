@@ -452,21 +452,40 @@ const Training = ({ user }) => {
     setExampleExplanation(null);
   }, [currentExampleIndex]);
 
-  // Draw arrows when example changes - show the better move
+  // Draw arrows when example changes - show BOTH moves
+  // Red arrow = your move (mistake), Blue arrow = better move
   useEffect(() => {
-    if (boardRef.current && currentExample?.best_move && currentExample?.fen) {
-      // Parse the best move using chess.js
+    if (boardRef.current && currentExample?.best_move && currentExample?.move && currentExample?.fen) {
       try {
         const chess = new Chess(currentExample.fen);
-        const move = chess.move(currentExample.best_move, { sloppy: true });
-        if (move) {
-          // Draw green arrow for better move
-          boardRef.current.drawArrows([
-            [move.from, move.to, "rgba(0, 200, 83, 0.8)"]  // Green arrow
-          ]);
+        const arrows = [];
+        
+        // Parse and draw YOUR move (red arrow - the mistake)
+        try {
+          const userMove = chess.move(currentExample.move, { sloppy: true });
+          if (userMove) {
+            arrows.push([userMove.from, userMove.to, "rgba(239, 68, 68, 0.85)"]);  // Red arrow
+            chess.undo(); // Undo to parse the better move from same position
+          }
+        } catch (e) {
+          console.warn("Could not parse user move:", e);
+        }
+        
+        // Parse and draw BETTER move (blue arrow)
+        try {
+          const bestMove = chess.move(currentExample.best_move, { sloppy: true });
+          if (bestMove) {
+            arrows.push([bestMove.from, bestMove.to, "rgba(59, 130, 246, 0.85)"]);  // Blue arrow
+          }
+        } catch (e) {
+          console.warn("Could not parse best move:", e);
+        }
+        
+        if (arrows.length > 0) {
+          boardRef.current.drawArrows(arrows);
         }
       } catch (e) {
-        console.warn("Could not parse move for arrows:", e);
+        console.warn("Could not parse moves for arrows:", e);
         boardRef.current.clearArrows?.();
       }
     }
