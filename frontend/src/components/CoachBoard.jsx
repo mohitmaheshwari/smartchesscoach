@@ -32,6 +32,8 @@ const CoachBoard = forwardRef(({
   size = "full",
   interactive,  // Alias for drillMode
   customArrows = [],  // Arrows to draw: [[from, to, color], ...]
+  planMode = false,  // NEW: Allow playing both colors to show a plan
+  onPlanMove,  // NEW: Callback when move is made in plan mode
 }, ref) => {
   // Support both position and initialFen props
   const effectiveFen = position || initialFen;
@@ -43,17 +45,22 @@ const CoachBoard = forwardRef(({
   const [isDrillActive, setIsDrillActive] = useState(effectiveDrillMode);
   const [drillFeedback, setDrillFeedback] = useState(null);
   const [lastMove, setLastMove] = useState(null);
+  const [isPlanMode, setIsPlanMode] = useState(planMode);
+  const [planMoves, setPlanMoves] = useState([]);  // Track moves in plan mode
   
   const chessRef = useRef(new Chess(effectiveFen));
   const lichessBoardRef = useRef(null);
+  const initialFenRef = useRef(effectiveFen);  // Remember starting position for plan mode
 
   // Update board when position/initialFen changes
   useEffect(() => {
     const newFen = position || initialFen;
     setFen(newFen);
     chessRef.current = new Chess(newFen);
+    initialFenRef.current = newFen;
     setDrillFeedback(null);
     setLastMove(null);
+    setPlanMoves([]);
   }, [initialFen, position]);
 
   useEffect(() => {
@@ -68,8 +75,37 @@ const CoachBoard = forwardRef(({
     }
   }, [drillMode, interactive]);
 
+  useEffect(() => {
+    setIsPlanMode(planMode);
+    if (!planMode) {
+      setPlanMoves([]);
+    }
+  }, [planMode]);
+
   // Handle move from LichessBoard
   const handleLichessMove = useCallback((moveData) => {
+    // Plan mode: allow all moves, track them
+    if (isPlanMode) {
+      const { san, from, to } = moveData;
+      chessRef.current = new Chess(moveData.fen);
+      setFen(moveData.fen);
+      setLastMove([from, to]);
+      
+      const newMoves = [...planMoves, san];
+      setPlanMoves(newMoves);
+      
+      if (onPlanMove) {
+        onPlanMove({
+          move: san,
+          from,
+          to,
+          fen: moveData.fen,
+          allMoves: newMoves,
+        });
+      }
+      return;
+    }
+    
     if (!isDrillActive) return;
 
     const { san, from, to } = moveData;
