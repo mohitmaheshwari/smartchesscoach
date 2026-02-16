@@ -194,12 +194,15 @@ const LichessBoard = forwardRef(({
   useEffect(() => {
     if (groundRef.current) {
       const isInteractive = interactive && !viewOnly;
+      // Ensure chess instance is current
+      const dests = isInteractive && showDests ? getMovableDests(chessRef.current) : new Map();
+      console.log("LichessBoard interactivity update:", { isInteractive, viewOnly, interactive, destsSize: dests.size });
       groundRef.current.set({
         viewOnly: !isInteractive,
         movable: {
           free: false,
           color: isInteractive ? "both" : undefined,
-          dests: isInteractive && showDests ? getMovableDests(chessRef.current) : new Map(),
+          dests: dests,
           showDests: showDests && isInteractive,
         },
         draggable: {
