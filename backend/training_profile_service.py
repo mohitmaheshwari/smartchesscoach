@@ -2541,30 +2541,6 @@ DO NOT invent any chess strategy or analysis."""
         "needs_llm_humanization": use_llm,
         "llm_prompt": llm_prompt
     }
-    
-    else:
-        # General case - use position assessment and evaluation
-        llm_prompt = f"""FACTS FROM STOCKFISH (chess engine - 100% accurate):
-- Position assessment: {sf_position_assessment}
-- Best move was: {sf_best_move}
-- You played: {move_played}
-{f"- Best continuation: {facts['best_line']}" if facts.get('best_line') else ""}
-{f"- After your move: {facts.get('after_played', '')}" if facts.get('after_played') else ""}
-
-Your task: Write a 2-3 sentence explanation based ONLY on these facts.
-If information is missing, say "The engine recommends {sf_best_move} as a better move."
-DO NOT invent any chess analysis or strategy explanations."""
-    
-    return {
-        "stockfish_analysis": stockfish_result,
-        "facts": facts,
-        "move_played": move_played,
-        "best_move": sf_best_move,
-        "is_mate": is_checkmate,
-        "is_tactical": is_checkmate or (sf_line_description and ("captures" in sf_line_description.lower())),
-        "needs_llm_humanization": use_llm,
-        "llm_prompt": llm_prompt
-    }
 
 
 async def save_position_reflection(
