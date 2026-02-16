@@ -338,7 +338,7 @@ const CoachBoard = forwardRef(({
         lichessBoardRef.current.setPosition(newFen);
       }
     }
-  }), [fen, initialFen, position]);
+  }), [fen, initialFen, position, planMoves]);
 
   const flipBoard = useCallback(() => {
     setBoardOrientation(p => p === "white" ? "black" : "white");
