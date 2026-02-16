@@ -2061,119 +2061,119 @@ async def generate_position_explanation(
 ) -> Dict:
     """
     Generate human-readable explanation for why the better move is better.
-    Uses Stockfish data (deterministic) + GPT for natural language.
     
-    CRITICAL: If Stockfish shows mate or huge eval swing, we MUST tell GPT.
+    ARCHITECTURE:
+    1. Stockfish analyzes the position (DETERMINISTIC - source of truth)
+    2. Stockfish provides: eval, mate detection, best line, what best move achieves
+    3. GPT ONLY narrates these facts - it does NOT make chess evaluations
+    
+    GPT should NEVER:
+    - Decide if a position is winning/losing
+    - Decide if something is checkmate
+    - Make up chess analysis
+    
+    GPT should ONLY:
+    - Take Stockfish facts and write them in natural language
     """
-    # Try both locations for the data (context_for_explanation or top level)
-    context = milestone.get("context_for_explanation", {})
+    # Get position data
+    fen = milestone.get("fen")
+    move_played = milestone.get("move_played") or milestone.get("context_for_explanation", {}).get("move_played", "?")
+    best_move = milestone.get("best_move") or milestone.get("context_for_explanation", {}).get("best_move", "?")
     
-    # Build deterministic chess context from Stockfish
-    # Check both top-level and context locations
-    move_played = milestone.get("move_played") or context.get("move_played", "?")
-    best_move = milestone.get("best_move") or context.get("best_move", "?")
-    cp_loss = milestone.get("cp_loss") or context.get("cp_loss", 0)
-    eval_before = (milestone.get("eval_before") or context.get("eval_before", 0))
-    eval_after = (milestone.get("eval_after") or context.get("eval_after", 0))
+    # ==========================================================================
+    # STEP 1: RUN STOCKFISH - This is the ONLY source of chess truth
+    # ==========================================================================
+    stockfish_result = {}
     
-    # Handle nested context
-    if "context_for_explanation" in milestone:
-        eval_before = context.get("eval_before", eval_before)
-        eval_after = context.get("eval_after", eval_after)
+    if fen:
+        stockfish_result = await analyze_position_with_stockfish(fen, move_played, depth=18)
     
-    # Convert to pawns if in centipawns
-    eval_before_pawns = eval_before / 100 if abs(eval_before) > 10 else eval_before
-    eval_after_pawns = eval_after / 100 if abs(eval_after) > 10 else eval_after
-    cp_loss_pawns = cp_loss / 100 if cp_loss > 10 else cp_loss
+    # Extract Stockfish's DETERMINISTIC analysis
+    sf_eval = stockfish_result.get("eval", 0)
+    sf_is_mate = stockfish_result.get("is_mate", False)
+    sf_mate_in = stockfish_result.get("mate_in")
+    sf_best_move = stockfish_result.get("best_move", best_move)
+    sf_best_line = stockfish_result.get("best_line", [])
+    sf_line_description = stockfish_result.get("best_line_description", "")
+    sf_position_assessment = stockfish_result.get("position_assessment", "unknown")
+    sf_after_played_is_mate = stockfish_result.get("after_played_is_mate", False)
+    sf_opponent_threat = stockfish_result.get("opponent_threat", "")
     
-    threat = context.get("threat")
-    pv_best = context.get("pv_best", [])
-    pv_played = context.get("pv_played", [])
-    
-    # CRITICAL: Detect if this is CHECKMATE or near-checkmate
-    is_mate_missed = False
-    is_huge_blunder = False
-    tactical_nature = None
-    
-    # Eval of 99+ pawns or cp_loss > 1000 usually means MATE
-    if abs(eval_after_pawns) > 50 or cp_loss > 1000:
-        is_mate_missed = True
-        if eval_after_pawns < -50:
-            tactical_nature = f"CHECKMATE! {best_move} delivers checkmate or leads to forced mate."
-        else:
-            tactical_nature = f"CHECKMATE MISSED! {best_move} was checkmate or leads to forced mate."
-    elif cp_loss > 300:
-        is_huge_blunder = True
-        tactical_nature = f"This was a major tactical miss - {best_move} wins significant material or creates a decisive threat."
-    
-    # Deterministic analysis
-    stockfish_explanation = {
-        "eval_swing": f"Position went from {eval_before_pawns:+.1f} to {eval_after_pawns:+.1f}",
-        "cp_lost": f"Lost {cp_loss_pawns:.1f} pawns worth of advantage",
+    # ==========================================================================
+    # STEP 2: BUILD FACTS from Stockfish (no interpretation, just facts)
+    # ==========================================================================
+    facts = {
+        "position_before": sf_position_assessment,
+        "best_move": sf_best_move,
+        "best_line": " ".join(sf_best_line) if sf_best_line else "",
+        "best_line_achieves": sf_line_description,
+        "move_played": move_played,
     }
     
-    if is_mate_missed:
-        stockfish_explanation["critical_info"] = tactical_nature
-    elif is_huge_blunder:
-        stockfish_explanation["critical_info"] = tactical_nature
+    # Determine if this is checkmate
+    is_checkmate = False
+    if sf_is_mate and sf_mate_in and sf_mate_in > 0:
+        is_checkmate = True
+        if sf_mate_in == 1:
+            facts["critical_fact"] = f"{sf_best_move} is CHECKMATE in 1 move."
+        else:
+            facts["critical_fact"] = f"{sf_best_move} leads to CHECKMATE in {sf_mate_in} moves."
+    elif sf_line_description and "CHECKMATE" in sf_line_description:
+        is_checkmate = True
+        facts["critical_fact"] = f"The line starting with {sf_best_move} leads to CHECKMATE."
     
-    if threat:
-        stockfish_explanation["threat_missed"] = f"You missed the threat: {threat}"
+    # What happens after the played move
+    if sf_after_played_is_mate:
+        facts["after_played"] = "After your move, opponent has a forced checkmate."
+    elif sf_opponent_threat:
+        facts["after_played"] = f"After your move, opponent threatens {sf_opponent_threat}."
     
-    if pv_best:
-        stockfish_explanation["better_line"] = f"Better continuation: {' '.join(pv_best[:4])}"
+    # ==========================================================================
+    # STEP 3: BUILD LLM PROMPT - GPT only narrates the facts, no chess decisions
+    # ==========================================================================
+    if is_checkmate:
+        # For checkmate, be very direct - GPT just confirms the fact
+        llm_prompt = f"""FACTS FROM STOCKFISH (chess engine - 100% accurate):
+- The move {sf_best_move} delivers {facts.get('critical_fact', 'checkmate')}
+- You played {move_played} instead, missing the checkmate.
+
+Your task: Write a 1-2 sentence explanation stating that {sf_best_move} is checkmate. 
+DO NOT add any other chess analysis. Just confirm the checkmate fact in natural language."""
     
-    if pv_played:
-        stockfish_explanation["played_line_consequence"] = f"Your move leads to: {' '.join(pv_played[:4])}"
+    elif sf_line_description:
+        # We have specific info about what the line achieves
+        llm_prompt = f"""FACTS FROM STOCKFISH (chess engine - 100% accurate):
+- Position assessment: {sf_position_assessment}
+- Best move was: {sf_best_move}
+- Best line: {facts['best_line']}
+- What this achieves: {sf_line_description}
+- You played: {move_played}
+{f"- After your move: {facts.get('after_played', '')}" if facts.get('after_played') else ""}
+
+Your task: Write a 2-3 sentence explanation based ONLY on these facts.
+Explain what {sf_best_move} achieves (use the 'What this achieves' fact).
+DO NOT invent any chess analysis. Only describe the facts provided."""
     
-    # Position type
-    if is_mate_missed:
-        stockfish_explanation["position_context"] = "This was a CHECKMATE opportunity"
-    elif eval_before_pawns >= 1.5:
-        stockfish_explanation["position_context"] = "You were winning"
-    elif eval_before_pawns <= -1.5:
-        stockfish_explanation["position_context"] = "You were losing but had a chance"
     else:
-        stockfish_explanation["position_context"] = "Position was roughly equal"
-    
-    # Build the LLM prompt with STRONG emphasis on tactical reality
-    if is_mate_missed:
-        llm_prompt = f"""IMPORTANT: This is a CHECKMATE position. The move {best_move} delivers checkmate or leads to forced mate.
+        # General case - use position assessment and evaluation
+        llm_prompt = f"""FACTS FROM STOCKFISH (chess engine - 100% accurate):
+- Position assessment: {sf_position_assessment}
+- Best move was: {sf_best_move}
+- You played: {move_played}
+{f"- Best continuation: {facts['best_line']}" if facts.get('best_line') else ""}
+{f"- After your move: {facts.get('after_played', '')}" if facts.get('after_played') else ""}
 
-DO NOT talk about generic strategy like "controlling the center" or "piece activity".
-The ONLY correct explanation is that {best_move} is CHECKMATE.
-
-You played: {move_played}
-Better was: {best_move} (THIS IS CHECKMATE)
-
-Write a 1-2 sentence explanation that {best_move} is checkmate. Be direct and specific."""
-    elif is_huge_blunder:
-        llm_prompt = f"""This was a major tactical mistake. The evaluation dropped by {cp_loss_pawns:.1f} pawns.
-
-Position: {stockfish_explanation.get('position_context', 'unclear')}
-You played: {move_played}
-Better was: {best_move}
-{stockfish_explanation.get('threat_missed', '')}
-
-The move {best_move} wins material or creates a decisive tactical threat. Explain specifically what {best_move} achieves tactically in 2-3 sentences. Focus on the concrete winning sequence, not general strategy."""
-    else:
-        llm_prompt = f"""Based on this chess position analysis, write a clear 2-3 sentence explanation for a {milestone.get('rating_category', 'club')} level player:
-
-Position: {stockfish_explanation.get('position_context', 'unclear')}
-You played: {move_played}
-Better was: {best_move}
-{stockfish_explanation.get('threat_missed', '')}
-{stockfish_explanation.get('better_line', '')}
-What happens after your move: {stockfish_explanation.get('played_line_consequence', '')}
-
-Explain WHY {best_move} is better in simple terms. Focus on the concrete consequence, not abstract concepts."""
+Your task: Write a 2-3 sentence explanation based ONLY on these facts.
+If information is missing, say "The engine recommends {sf_best_move} as a better move."
+DO NOT invent any chess analysis or strategy explanations."""
     
     return {
-        "stockfish_analysis": stockfish_explanation,
+        "stockfish_analysis": stockfish_result,
+        "facts": facts,
         "move_played": move_played,
-        "best_move": best_move,
-        "is_mate": is_mate_missed,
-        "is_tactical": is_huge_blunder or is_mate_missed,
+        "best_move": sf_best_move,
+        "is_mate": is_checkmate,
+        "is_tactical": is_checkmate or (sf_line_description and ("captures" in sf_line_description.lower())),
         "needs_llm_humanization": use_llm,
         "llm_prompt": llm_prompt
     }
