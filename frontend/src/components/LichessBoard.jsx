@@ -200,11 +200,25 @@ const LichessBoard = forwardRef(({
   // Update arrows
   useEffect(() => {
     if (groundRef.current && arrows.length > 0) {
-      const shapes = arrows.map(([from, to, color]) => ({
-        orig: from,
-        dest: to,
-        brush: color?.includes("green") ? "green" : color?.includes("red") ? "red" : "blue",
-      }));
+      const shapes = arrows.map(([from, to, color]) => {
+        // Determine brush based on color - chessground uses named brushes
+        let brush = "blue";  // default
+        if (color) {
+          const colorLower = color.toLowerCase();
+          if (colorLower.includes("red") || colorLower.includes("239")) {
+            brush = "red";
+          } else if (colorLower.includes("green") || colorLower.includes("34,") || colorLower.includes("200, 83")) {
+            brush = "green";
+          } else if (colorLower.includes("yellow") || colorLower.includes("255, 200")) {
+            brush = "yellow";
+          }
+        }
+        return {
+          orig: from,
+          dest: to,
+          brush: brush,
+        };
+      });
       groundRef.current.setAutoShapes(shapes);
     } else if (groundRef.current) {
       groundRef.current.setAutoShapes([]);
