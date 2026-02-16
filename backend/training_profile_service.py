@@ -31,6 +31,20 @@ import chess
 import chess.engine
 import asyncio
 
+# Import the DETERMINISTIC mistake classifier - this is the TRUTH layer
+try:
+    from mistake_classifier import (
+        classify_mistake,
+        ClassifiedMistake,
+        MistakeType,
+        GamePhase,
+        get_verbalization_template,
+    )
+    HAS_MISTAKE_CLASSIFIER = True
+except ImportError:
+    HAS_MISTAKE_CLASSIFIER = False
+    logging.warning("mistake_classifier not available - using fallback")
+
 logger = logging.getLogger(__name__)
 
 # Stockfish engine path
