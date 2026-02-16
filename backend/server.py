@@ -5608,15 +5608,19 @@ async def explain_milestone(
     if explanation.get("needs_llm_humanization"):
         try:
             from emergentintegrations.llm.chat import LlmChat, UserMessage
+            import os
             
-            llm = LlmChat(api_key=OPENAI_API_KEY, model="gpt-4o-mini")
-            response = await llm.chat(
-                system_message="You are a chess coach explaining moves to amateur players. Be concrete and simple. Focus on the 'what happens' not abstract strategy.",
-                messages=[UserMessage(content=explanation["llm_prompt"])],
-                temperature=0.7
-            )
+            api_key = os.environ.get("EMERGENT_LLM_KEY", OPENAI_API_KEY)
             
-            explanation["human_explanation"] = response.message
+            chat = LlmChat(
+                api_key=api_key,
+                session_id=f"explain_{os.urandom(8).hex()}",
+                system_message="You are a chess coach explaining moves to amateur players. Be concrete and simple. Focus on the 'what happens' not abstract strategy."
+            ).with_model("openai", "gpt-4o-mini")
+            
+            response = await chat.send_message(UserMessage(text=explanation["llm_prompt"]))
+            
+            explanation["human_explanation"] = response
         except Exception as e:
             logger.error(f"Error generating explanation: {e}")
             # Fallback to stockfish analysis
