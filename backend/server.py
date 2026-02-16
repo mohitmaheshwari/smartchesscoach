@@ -5707,17 +5707,21 @@ async def get_ai_insights(user: User = Depends(get_current_user)):
     # Use GPT to generate insights
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
+        import os
         
-        llm = LlmChat(api_key=OPENAI_API_KEY, model="gpt-4o-mini")
-        response = await llm.chat(
-            system_message="You are a chess coach analyzing a player's thinking patterns. Be specific, reference their actual words, and give actionable advice.",
-            messages=[UserMessage(content=suggestion_data["prompt"])],
-            temperature=0.7
-        )
+        api_key = os.environ.get("EMERGENT_LLM_KEY", OPENAI_API_KEY)
+        
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"insights_{os.urandom(8).hex()}",
+            system_message="You are a chess coach analyzing a player's thinking patterns. Be specific, reference their actual words, and give actionable advice."
+        ).with_model("openai", "gpt-4o-mini")
+        
+        response = await chat.send_message(UserMessage(text=suggestion_data["prompt"]))
         
         return {
             "has_insights": True,
-            "ai_analysis": response.message,
+            "ai_analysis": response,
             "context": suggestion_data["context"],
         }
     except Exception as e:
