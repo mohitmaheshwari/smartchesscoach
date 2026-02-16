@@ -1910,7 +1910,6 @@ async def get_phase_progress(db, user_id: str) -> Dict:
     metric_value = stats.get("metric_value", 999)
     target = current_phase.get("target", 1.0)
     clean_games = stats.get("clean_games", 0)
-    clean_threshold = current_phase.get("clean_game_threshold", 0)
     
     # Progress calculation
     if target > 0:
