@@ -12,42 +12,51 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ---
 
-## GOLD FEATURE: Deterministic Personalized Coaching (Focus Page) - COMPLETE ✅
+## GOLD FEATURE: Training Engine - Adaptive Behavioral Correction System ✅ NEW
 
-### Core Philosophy: "Same User + Same Inputs = Same Plan"
-Focus page uses DETERMINISTIC PERSONALIZATION - not random LLM outputs. All coaching recommendations are computed from user's actual game data using rule-based engines.
+### Core Philosophy: "Data-Driven, One Leak at a Time"
+The Training Engine replaces the Focus + Coach pages with a unified, step-by-step training experience. It uses PURE DATA (not rating-band hardcoding) to identify the user's biggest weakness.
 
-### Key Properties
-- **Deterministic**: Same user + same inputs = same plan (consistent, not random)
-- **Personalized**: Different users + different inputs = different plan (actually personalized)
-- **Rating Band Gated**: Different advice for <900, 900-1400, 1400-1800, 1800+
+### The 4 Training Layers
+Each layer computes a Cost Score from last 20 games:
 
-### The 7 Coaching Buckets (Cost Score System)
-Each bucket computes a Cost Score from last 25 games:
-```
-CostScore = Σ(EvalDrop × ContextWeight × SeverityWeight) + FrequencyWeight × count(events)
-```
+1. **STABILITY** - Blunders, hanging pieces, threat blindness, one-move threats
+2. **CONVERSION** - Win-state detection, eval drops when ahead, allowing counterplay
+3. **STRUCTURE** - Opening deviation, equal-position stability, aimless play
+4. **PRECISION** - Tactical misses, calculation depth, endgame technique
 
-1. **PIECE_SAFETY** - Hanging pieces (cp_loss >= 300)
-2. **THREAT_AWARENESS** - Missed opponent threats
-3. **TACTICAL_EXECUTION** - Missed tactics (blunders)
-4. **ADVANTAGE_DISCIPLINE** - Failed conversion when ahead
-5. **OPENING_STABILITY** - Weak first 10-12 moves
-6. **TIME_DISCIPLINE** - Late-game blunders
-7. **ENDGAME_FUNDAMENTALS** - Conversion failures
+**Active Phase** = Highest cost layer (pure data, no rating hardcoding)
+**Micro Habit** = Dominant pattern within the active phase
 
-**Primary Focus** = Highest cost bucket (within rating band)
-**Secondary Focus** = Second highest if >= 70% of primary
+### Training Page Flow (Step-by-Step)
+1. **Phase Context** - Which layer needs work (4-layer cost breakdown)
+2. **Your Pattern** - Dominant micro habit within the phase (with percentage weights)
+3. **Your 2 Rules** - Actionable rules tailored to rating tier (low/mid/high)
+4. **Quick Reflection** - Tag what happened in last game (updates pattern weights)
+5. **Training Drill** - Practice positions from user + similar users' mistakes
 
-### Focus Page Layout
+### Key Technical Concepts
+- **Pattern Weights**: User reflections nudge pattern weights (engine still wins)
+- **Cross-User Drills**: Positions from similar rating + same micro habit users
+- **Recalculation Trigger**: Every 7 new games analyzed
 
-#### A) Coach Note (Personalized)
-"You're stable at 1200 but you've peaked at 1350. The 150-point gap is mainly from Piece Safety. This week: Check all pieces after opponent's move"
+### API Endpoints
+- `GET /api/training/profile` - Get or generate training profile
+- `POST /api/training/profile/regenerate` - Force regenerate
+- `GET /api/training/reflection-options` - Get reflection tags for active phase
+- `POST /api/training/reflection` - Save reflection (updates pattern weights)
+- `GET /api/training/drills` - Get drill positions
 
-#### B) This Week's Focus Card
-- Primary Focus bucket with percentage affected
-- 2 actionable rules (rating-band specific)
-- "See Example Positions" button → **NEW: Cycling UI with prev/next buttons to view up to 5 example positions**
+### Key Files
+- `backend/training_profile_service.py` - Core training engine (900+ lines)
+- `frontend/src/pages/Training.jsx` - Step-by-step wizard UI
+- Navigation: "Training" tab in main nav
+
+---
+
+## DEPRECATED: Focus Page (Replaced by Training Engine)
+
+### What Was Replaced
 
 #### C) Last Game Audit ✅ NEW
 Shows how well user followed their focus in their most recent game:
