@@ -1038,6 +1038,80 @@ const Training = ({ user }) => {
       }));
     };
     
+    // Plan mode handlers
+    const startPlanMode = () => {
+      setIsPlanMode(true);
+      setPlanMoves([]);
+      if (boardRef.current) {
+        boardRef.current.reset();
+        boardRef.current.startPlanMode();
+      }
+    };
+    
+    const cancelPlanMode = () => {
+      setIsPlanMode(false);
+      setPlanMoves([]);
+      if (boardRef.current) {
+        boardRef.current.stopPlanMode();
+        boardRef.current.reset();
+      }
+    };
+    
+    const undoPlanMove = () => {
+      if (boardRef.current) {
+        const newMoves = boardRef.current.undoPlanMove();
+        setPlanMoves(newMoves);
+      }
+    };
+    
+    const finishPlan = async () => {
+      if (planMoves.length === 0) {
+        toast.error("Play at least one move to show your plan");
+        return;
+      }
+      
+      setGeneratingPlanText(true);
+      try {
+        // Get the starting FEN from the current milestone
+        const startFen = currentMilestone?.fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        const userColor = currentMilestone?.fen?.includes(" b ") ? "black" : "white";
+        
+        const res = await fetch(`${API}/training/plan/describe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            fen: startFen,
+            moves: planMoves,
+            user_color: userColor,
+          }),
+        });
+        
+        const data = await res.json();
+        
+        if (data.plan_description) {
+          updateMilestonePlan(data.plan_description);
+          toast.success("Plan captured!");
+        }
+      } catch (err) {
+        toast.error("Failed to describe plan");
+        // Fallback: just show the moves
+        updateMilestonePlan(`My plan: ${planMoves.join(" ")}`);
+      } finally {
+        setGeneratingPlanText(false);
+        setIsPlanMode(false);
+        setPlanMoves([]);
+        if (boardRef.current) {
+          boardRef.current.stopPlanMode();
+          boardRef.current.reset();
+        }
+      }
+    };
+    
+    const handlePlanMove = (moveData) => {
+      setPlanMoves(moveData.allMoves);
+    };
+    
     // Save current milestone reflection and move to next
     const handleSaveMilestoneReflection = async () => {
       if (!currentMilestone) return;
