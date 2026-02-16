@@ -155,6 +155,15 @@ TRAINING_TIERS = {
                 "metric": "opening_mistakes_per_game",
                 "target": 1.0,
                 "clean_game_threshold": 0,
+                "theory": {
+                    "title": "The 3 Opening Goals",
+                    "points": [
+                        "Control the center with pawns (e4, d4) and pieces",
+                        "Develop knights and bishops before moving the same piece twice",
+                        "Castle early (usually by move 10) to protect your king"
+                    ],
+                    "tip": "Don't chase pawns or attack early - development first!"
+                }
             },
             {
                 "id": "pawn_structure",
@@ -164,6 +173,15 @@ TRAINING_TIERS = {
                 "metric": "pawn_weaknesses_created",
                 "target": 2.0,
                 "clean_game_threshold": 1,
+                "theory": {
+                    "title": "Pawn Structure Basics",
+                    "points": [
+                        "Avoid doubled pawns (two pawns on same file) - they can't protect each other",
+                        "Avoid isolated pawns (no friendly pawns on adjacent files) - easy targets",
+                        "Passed pawns (no enemy pawns blocking) are strong - push them!"
+                    ],
+                    "tip": "Pawns can't move backward. Think twice before pushing!"
+                }
             },
             {
                 "id": "piece_coordination",
@@ -173,6 +191,15 @@ TRAINING_TIERS = {
                 "metric": "coordination_score",
                 "target": 0.6,
                 "clean_game_threshold": 1,
+                "theory": {
+                    "title": "Piece Coordination",
+                    "points": [
+                        "Pieces are stronger when they work together (rooks on open files, bishops on diagonals)",
+                        "Look for your worst-placed piece and improve it",
+                        "Knights need outposts (squares protected by pawns where they can't be attacked)"
+                    ],
+                    "tip": "Ask yourself: What is each piece doing? If nothing, move it!"
+                }
             },
         ]
     },
