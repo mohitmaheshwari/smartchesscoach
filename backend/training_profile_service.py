@@ -2116,7 +2116,7 @@ async def get_phase_progress(db, user_id: str) -> Dict:
         "progress_percent": overall_progress,
         "stats": stats,
         "meets_metric": meets_metric,
-        "meets_clean": meets_clean,
+        "meets_streak": meets_streak,  # Changed from meets_clean
         "ready_to_graduate": ready_to_graduate,
         "graduated": graduation_result,
         "rating": rating,
