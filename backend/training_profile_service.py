@@ -1196,11 +1196,17 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
     Filters:
     - Move must be different from best_move (actual mistake)
     - Must meet phase-specific criteria (move range, cp loss, etc.)
+    - EXCLUDES tactical shots (mate, huge material) for positional phases
     - For structure phases, prioritizes pawn-related moves
     """
     criteria = get_phase_filter_criteria(phase_id)
     move_range = criteria.get("move_range")
     min_cp = criteria.get("min_cp_loss", 100)
+    
+    # Positional phases should NOT show tactical shots
+    positional_phases = ["opening_principles", "pawn_structure", "piece_coordination", 
+                        "positional_understanding", "piece_activity"]
+    is_positional_phase = phase_id in positional_phases
     
     all_positions = []
     
@@ -1214,6 +1220,8 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
             move_number = m.get("move_number", 0)
             move_played = m.get("move", "")
             best_move = m.get("best_move", "")
+            eval_before = m.get("eval_before", 0)
+            eval_after = m.get("eval_after", 0)
             
             # CRITICAL: Skip if move == best_move (not a real mistake or corrupted data)
             if move_played == best_move:
@@ -1233,6 +1241,12 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
                 if not (min_move <= move_number <= max_move):
                     continue
             
+            # CRITICAL: For positional phases, EXCLUDE tactical shots
+            # Tactical shots = mate (cp_loss > 1000) or big material (cp_loss > 500)
+            is_tactical_shot = cp_loss > 500 or abs(eval_after) > 5000
+            if is_positional_phase and is_tactical_shot:
+                continue  # Skip tactical positions in positional phases
+            
             # For pawn_structure phase, prioritize pawn-related mistakes
             is_pawn_relevant = False
             if phase_id == "pawn_structure":
@@ -1251,15 +1265,20 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
                 "fen": m.get("fen_before"),
                 "move": move_played,
                 "best_move": best_move,
-                "eval_before": m.get("eval_before", 0),
-                "eval_after": m.get("eval_after", 0),
+                "eval_before": eval_before,
+                "eval_after": eval_after,
                 "threat": m.get("threat"),
                 "is_phase_relevant": is_pawn_relevant if phase_id == "pawn_structure" else True,
+                "is_tactical": is_tactical_shot,
             }
             all_positions.append(position)
     
-    # Sort: prioritize phase-relevant positions, then by cp_loss
-    all_positions.sort(key=lambda x: (not x.get("is_phase_relevant", False), -x["cp_loss"]))
+    # Sort: prioritize phase-relevant positions, then by cp_loss (but not TOO high)
+    all_positions.sort(key=lambda x: (
+        not x.get("is_phase_relevant", False),  # Phase relevant first
+        x.get("is_tactical", False),  # Non-tactical first for positional phases
+        -min(x["cp_loss"], 500)  # Higher loss, but cap at 500 to avoid tactics
+    ))
     
     return all_positions
 
