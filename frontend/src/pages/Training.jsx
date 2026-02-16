@@ -709,7 +709,7 @@ const Training = ({ user }) => {
               </div>
             </div>
             <Card className="bg-red-500/10 border-red-500/30">
-              <CardContent className="py-3">
+              <CardContent className="py-3 space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span>
                     <span className="text-red-400 font-medium">Played:</span>{" "}
@@ -720,6 +720,35 @@ const Training = ({ user }) => {
                     <span className="font-mono">{currentExample?.best_move}</span>
                   </span>
                 </div>
+                
+                {/* Explanation Section */}
+                {!exampleExplanation && !loadingExampleExplanation && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={() => fetchExampleExplanation(currentExample)}
+                  >
+                    <Lightbulb className="w-4 h-4" />
+                    Why is {currentExample?.best_move} better?
+                  </Button>
+                )}
+                
+                {loadingExampleExplanation && (
+                  <div className="flex items-center justify-center py-2">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    <span className="text-sm text-muted-foreground">Analyzing position...</span>
+                  </div>
+                )}
+                
+                {exampleExplanation && (
+                  <div className="bg-background/50 rounded-lg p-3 text-sm">
+                    <div className="flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />
+                      <p className="text-muted-foreground leading-relaxed">{exampleExplanation}</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
             {examplePositions.length > 1 && (
