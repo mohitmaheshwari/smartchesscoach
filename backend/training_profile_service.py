@@ -41,6 +41,19 @@ DEFAULT_GAME_WINDOW = 20
 MIN_GAMES_REQUIRED = 5
 RECALC_THRESHOLD = 7  # Recalculate every 7 games
 
+# Phase graduation settings
+GRADUATION_GAMES = 10  # Games to analyze for graduation
+GRADUATION_IMPROVEMENT_THRESHOLD = 0.30  # 30% improvement required
+CLEAN_GAMES_FOR_GRADUATION = 3  # Or 3 clean games
+
+# Clean game thresholds per phase
+CLEAN_GAME_THRESHOLDS = {
+    "stability": {"max_blunders": 0, "max_cp_loss_total": 400},  # No blunders, max 4 pawns total loss
+    "conversion": {"max_eval_drops_when_winning": 1},  # Max 1 eval drop when ahead
+    "structure": {"max_opening_mistakes": 1},  # Max 1 opening inaccuracy
+    "precision": {"max_tactical_misses": 2},  # Max 2 tactical misses
+}
+
 # Thresholds
 WINNING_THRESHOLD = 150      # +1.5 pawns = winning
 LARGE_ADVANTAGE = 200        # +2 pawns = large advantage
