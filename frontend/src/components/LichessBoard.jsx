@@ -174,25 +174,47 @@ const LichessBoard = forwardRef(({
           move: (orig, dest) => {
             if (onMove) {
               const chess = chessRef.current;
-              const move = chess.move({ from: orig, to: dest, promotion: "q" });
+              let move = null;
+              
+              // Try to make the move normally
+              try {
+                move = chess.move({ from: orig, to: dest, promotion: "q" });
+              } catch (e) {
+                // If move fails (wrong turn), try switching turn in plan mode
+                if (planMode) {
+                  const fen = chess.fen();
+                  const parts = fen.split(' ');
+                  parts[1] = parts[1] === 'w' ? 'b' : 'w';
+                  try {
+                    chessRef.current = new Chess(parts.join(' '));
+                    move = chessRef.current.move({ from: orig, to: dest, promotion: "q" });
+                  } catch (e2) {
+                    console.warn("Could not make move in plan mode:", e2);
+                  }
+                }
+              }
               
               if (move) {
                 onMove({
                   from: orig,
                   to: dest,
                   san: move.san,
-                  fen: chess.fen(),
+                  fen: chessRef.current.fen(),
                   isCapture: move.captured !== undefined,
-                  isCheck: chess.inCheck(),
-                  isCheckmate: chess.isCheckmate(),
+                  isCheck: chessRef.current.inCheck(),
+                  isCheckmate: chessRef.current.isCheckmate(),
                 });
                 
-                // Update board state
+                // Update board state - in plan mode, show moves for both colors
+                const newDests = planMode 
+                  ? getAllPossibleDests(chessRef.current) 
+                  : getMovableDests(chessRef.current);
+                
                 groundRef.current.set({
-                  fen: chess.fen(),
-                  turnColor: getTurnColor(chess.fen()),
+                  fen: chessRef.current.fen(),
+                  turnColor: getTurnColor(chessRef.current.fen()),
                   movable: {
-                    dests: getMovableDests(chess),
+                    dests: newDests,
                   },
                   lastMove: [orig, dest],
                 });
