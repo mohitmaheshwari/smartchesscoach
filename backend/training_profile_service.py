@@ -33,6 +33,194 @@ import asyncio
 
 logger = logging.getLogger(__name__)
 
+# Stockfish engine path
+STOCKFISH_PATH = "/usr/games/stockfish"
+
+# =============================================================================
+# STOCKFISH ANALYSIS - DETERMINISTIC CHESS EVALUATION
+# =============================================================================
+
+async def analyze_position_with_stockfish(fen: str, move_played: str = None, depth: int = 18) -> Dict:
+    """
+    Run Stockfish analysis on a position. This is the ONLY source of chess truth.
+    GPT should NEVER make chess evaluations - only narrate these facts.
+    
+    Returns:
+    - eval: centipawn evaluation or mate score
+    - is_mate: whether position is mate
+    - mate_in: number of moves to mate (if applicable)
+    - best_move: engine's best move
+    - best_line: principal variation (sequence of best moves)
+    - move_played_eval: evaluation after the move that was played
+    - move_played_is_mate: whether played move leads to mate
+    """
+    try:
+        board = chess.Board(fen)
+    except Exception as e:
+        logger.error(f"Invalid FEN: {fen} - {e}")
+        return {"error": f"Invalid FEN: {e}"}
+    
+    result = {
+        "fen": fen,
+        "is_valid": True,
+        "eval": 0,
+        "is_mate": False,
+        "mate_in": None,
+        "best_move": None,
+        "best_line": [],
+        "position_assessment": "unknown",
+    }
+    
+    try:
+        # Run Stockfish synchronously in thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+        analysis = await loop.run_in_executor(None, _sync_stockfish_analysis, fen, move_played, depth)
+        result.update(analysis)
+    except Exception as e:
+        logger.error(f"Stockfish analysis failed: {e}")
+        result["error"] = str(e)
+    
+    return result
+
+
+def _sync_stockfish_analysis(fen: str, move_played: str = None, depth: int = 18) -> Dict:
+    """
+    Synchronous Stockfish analysis (runs in thread pool).
+    """
+    result = {}
+    
+    try:
+        engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
+        board = chess.Board(fen)
+        
+        # Analyze current position
+        info = engine.analyse(board, chess.engine.Limit(depth=depth))
+        
+        # Extract evaluation
+        score = info.get("score")
+        if score:
+            pov_score = score.white()  # From white's perspective
+            if pov_score.is_mate():
+                result["is_mate"] = True
+                result["mate_in"] = pov_score.mate()
+                result["eval"] = 10000 if pov_score.mate() > 0 else -10000
+                if pov_score.mate() > 0:
+                    result["position_assessment"] = f"White has mate in {pov_score.mate()}"
+                else:
+                    result["position_assessment"] = f"Black has mate in {abs(pov_score.mate())}"
+            else:
+                cp = pov_score.score()
+                result["eval"] = cp
+                result["is_mate"] = False
+                # Assess position
+                if cp > 300:
+                    result["position_assessment"] = "White is winning"
+                elif cp > 100:
+                    result["position_assessment"] = "White has an advantage"
+                elif cp < -300:
+                    result["position_assessment"] = "Black is winning"
+                elif cp < -100:
+                    result["position_assessment"] = "Black has an advantage"
+                else:
+                    result["position_assessment"] = "Position is roughly equal"
+        
+        # Get best move and line
+        pv = info.get("pv", [])
+        if pv:
+            result["best_move"] = board.san(pv[0])
+            result["best_line"] = [board.san(m) for m in pv[:5]]
+            # Describe what best line achieves
+            result["best_line_description"] = _describe_line(board, pv[:5])
+        
+        # If a move was played, analyze what happens after it
+        if move_played:
+            try:
+                # Try to parse the move
+                move = None
+                try:
+                    move = board.parse_san(move_played)
+                except:
+                    try:
+                        move = board.parse_uci(move_played)
+                    except:
+                        pass
+                
+                if move and move in board.legal_moves:
+                    board.push(move)
+                    
+                    # Analyze position after played move
+                    info_after = engine.analyse(board, chess.engine.Limit(depth=depth))
+                    score_after = info_after.get("score")
+                    
+                    if score_after:
+                        pov_after = score_after.white()
+                        if pov_after.is_mate():
+                            result["after_played_is_mate"] = True
+                            result["after_played_mate_in"] = pov_after.mate()
+                            result["after_played_eval"] = 10000 if pov_after.mate() > 0 else -10000
+                        else:
+                            result["after_played_is_mate"] = False
+                            result["after_played_eval"] = pov_after.score()
+                    
+                    # Get opponent's threat (their best reply)
+                    pv_after = info_after.get("pv", [])
+                    if pv_after:
+                        result["opponent_threat"] = board.san(pv_after[0])
+                        result["threat_line"] = [board.san(m) for m in pv_after[:3]]
+                    
+                    board.pop()
+            except Exception as e:
+                logger.warning(f"Could not analyze played move {move_played}: {e}")
+        
+        engine.quit()
+        
+    except Exception as e:
+        logger.error(f"Stockfish engine error: {e}")
+        result["error"] = str(e)
+    
+    return result
+
+
+def _describe_line(board: chess.Board, moves: List[chess.Move]) -> str:
+    """
+    Describe what a line of moves achieves (checkmate, wins material, etc.)
+    """
+    if not moves:
+        return ""
+    
+    test_board = board.copy()
+    descriptions = []
+    
+    for move in moves:
+        if move not in test_board.legal_moves:
+            break
+            
+        # Check if it's a capture
+        if test_board.is_capture(move):
+            captured = test_board.piece_at(move.to_square)
+            if captured:
+                piece_names = {
+                    chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+                    chess.ROOK: "rook", chess.QUEEN: "queen"
+                }
+                descriptions.append(f"captures {piece_names.get(captured.piece_type, 'piece')}")
+        
+        test_board.push(move)
+        
+        # Check if it's checkmate
+        if test_board.is_checkmate():
+            descriptions.append("CHECKMATE")
+            break
+        elif test_board.is_check():
+            descriptions.append("check")
+    
+    if "CHECKMATE" in descriptions:
+        return "leads to CHECKMATE"
+    elif descriptions:
+        return ", ".join(descriptions[:2])
+    return ""
+
+
 # =============================================================================
 # CONSTANTS
 # =============================================================================
