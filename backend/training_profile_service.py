@@ -1605,8 +1605,8 @@ async def get_phase_progress(db, user_id: str) -> Dict:
             {"$set": {"phase_started_at": phase_started_at}}
         )
     
-    # Get games since phase started
-    phase_start = datetime.fromisoformat(phase_started_at.replace('Z', '+00:00')) if isinstance(phase_started_at, str) else phase_started_at
+    # Get games since phase started (for future filtering)
+    # phase_start = datetime.fromisoformat(phase_started_at.replace('Z', '+00:00')) if isinstance(phase_started_at, str) else phase_started_at
     
     # Fetch recent analyses (up to GRADUATION_GAMES)
     cursor = db.game_analyses.find(
