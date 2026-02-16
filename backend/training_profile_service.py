@@ -961,9 +961,12 @@ async def get_or_generate_training_profile(db, user_id: str, rating: int = 1200,
     - No profile exists
     - force_regenerate is True
     - Profile is older than 7 games
+    
+    When regenerating after graduation, preserves the active_phase.
     """
+    existing = await get_training_profile(db, user_id)
+    
     if not force_regenerate:
-        existing = await get_training_profile(db, user_id)
         if existing and existing.get("status") != "insufficient_data":
             # Check if we need to recalculate
             games_at_calc = existing.get("games_analyzed", 0)
@@ -972,7 +975,20 @@ async def get_or_generate_training_profile(db, user_id: str, rating: int = 1200,
             if current_games - games_at_calc < RECALC_THRESHOLD:
                 return existing
     
-    return await generate_training_profile(db, user_id, rating)
+    # Check if there was a recent graduation - preserve phase
+    preserve_phase = False
+    if existing and existing.get("graduation_history"):
+        grad_time = existing.get("graduation_history", {}).get("graduated_at")
+        if grad_time:
+            # If graduated within last day, preserve phase
+            try:
+                grad_dt = datetime.fromisoformat(grad_time.replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) - grad_dt < timedelta(days=1):
+                    preserve_phase = True
+            except:
+                pass
+    
+    return await generate_training_profile(db, user_id, rating, preserve_phase=preserve_phase)
 
 
 # =============================================================================
