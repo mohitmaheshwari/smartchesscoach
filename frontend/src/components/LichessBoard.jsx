@@ -95,6 +95,44 @@ const LichessBoard = forwardRef(({
     return dests;
   };
 
+  // Get ALL possible moves for both colors (for plan mode)
+  const getAllPossibleDests = (chess) => {
+    const dests = new Map();
+    
+    // Get current turn's moves
+    const currentMoves = chess.moves({ verbose: true });
+    for (const move of currentMoves) {
+      if (dests.has(move.from)) {
+        dests.get(move.from).push(move.to);
+      } else {
+        dests.set(move.from, [move.to]);
+      }
+    }
+    
+    // Also add opposite color's moves by switching turn
+    const fen = chess.fen();
+    const parts = fen.split(' ');
+    parts[1] = parts[1] === 'w' ? 'b' : 'w'; // Switch turn
+    try {
+      const tempChess = new Chess(parts.join(' '));
+      const oppMoves = tempChess.moves({ verbose: true });
+      for (const move of oppMoves) {
+        if (dests.has(move.from)) {
+          if (!dests.get(move.from).includes(move.to)) {
+            dests.get(move.from).push(move.to);
+          }
+        } else {
+          dests.set(move.from, [move.to]);
+        }
+      }
+    } catch (e) {
+      // If switching turns creates invalid position (e.g., king in check), ignore
+      console.warn("Could not get opposite color moves:", e);
+    }
+    
+    return dests;
+  };
+
   // Initialize chessground
   useEffect(() => {
     if (boardRef.current && !groundRef.current) {
