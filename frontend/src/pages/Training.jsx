@@ -85,11 +85,23 @@ const Training = ({ user }) => {
   const [currentDrillIndex, setCurrentDrillIndex] = useState(0);
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
 
-  // Reflection state
+  // Reflection state - Enhanced
   const [reflectionOptions, setReflectionOptions] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [reflectionText, setReflectionText] = useState("");
   const [savingReflection, setSavingReflection] = useState(false);
+  
+  // Enhanced reflection state
+  const [gameMilestones, setGameMilestones] = useState([]);
+  const [currentMilestoneIndex, setCurrentMilestoneIndex] = useState(0);
+  const [loadingMilestones, setLoadingMilestones] = useState(false);
+  const [milestoneExplanation, setMilestoneExplanation] = useState(null);
+  const [loadingExplanation, setLoadingExplanation] = useState(false);
+  const [userPlan, setUserPlan] = useState("");
+  const [milestoneSelectedTags, setMilestoneSelectedTags] = useState({});
+  const [milestoneUserPlans, setMilestoneUserPlans] = useState({});
+  const [showBetterLine, setShowBetterLine] = useState(false);
+  const [variationIndex, setVariationIndex] = useState(0);
 
   // Drills state
   const [drills, setDrills] = useState([]);
