@@ -29,6 +29,8 @@ import {
   MessageSquare,
   Zap,
   Eye,
+  History,
+  BarChart3,
   ArrowRight,
 } from "lucide-react";
 
