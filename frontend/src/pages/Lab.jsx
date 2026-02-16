@@ -1842,6 +1842,20 @@ const LearningMomentItem = ({ mistake, onClick, userColor, gameId, onPlayVariati
                 </div>
               )}
               
+              {/* Play the better line - Visual learning */}
+              {mistake.best_move && mistake.fen_before && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 text-xs gap-2 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
+                  onClick={() => onPlayVariation(mistake.fen_before, mistake.best_move, mistake.pv_after_best)}
+                  data-testid={`play-variation-${mistake.move_number}`}
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Play the better line on board
+                </Button>
+              )}
+              
               {/* "What were you thinking?" - Gold Data Collection */}
               <div className="mt-3 pt-2 border-t border-border/30" data-testid={`thought-section-${mistake.move_number}`}>
                 {thoughtSaved ? (
