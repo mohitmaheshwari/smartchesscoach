@@ -447,6 +447,27 @@ const Training = ({ user }) => {
     setExampleExplanation(null);
   }, [currentExampleIndex]);
 
+  // Draw arrows when example changes - show the better move
+  useEffect(() => {
+    if (boardRef.current && currentExample?.best_move && currentExample?.fen) {
+      // Parse the best move using chess.js
+      try {
+        const { Chess } = require("chess.js");
+        const chess = new Chess(currentExample.fen);
+        const move = chess.move(currentExample.best_move, { sloppy: true });
+        if (move) {
+          // Draw green arrow for better move
+          boardRef.current.drawArrows([
+            [move.from, move.to, "rgba(0, 200, 83, 0.8)"]  // Green arrow
+          ]);
+        }
+      } catch (e) {
+        console.warn("Could not parse move for arrows:", e);
+        boardRef.current.clearArrows?.();
+      }
+    }
+  }, [currentExample, currentExampleIndex]);
+
   // Toggle reflection tag
   const toggleTag = (tag) => {
     setSelectedTags((prev) =>
