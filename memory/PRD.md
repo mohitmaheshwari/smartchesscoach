@@ -58,6 +58,29 @@ Each layer computes a Cost Score from last 20 games:
 - ✅ Reflection step includes chessboard showing mistake position
 - ✅ Phase Context framed as "This Week's Focus" / "Weekly Focus"
 
+### Enhanced Reflection System (Dec 2025) ✅ NEW
+Per-position reflection with rich context:
+- **Rating-Based Filtering**: Different thresholds per rating band
+  - <1000: Blunders only (≥200cp)
+  - 1000-1400: Blunders + big mistakes (≥150cp)
+  - 1400-1800: All mistakes (≥100cp)
+  - 1800+: Including inaccuracies (≥50cp)
+- **Rich Context Per Position**:
+  - "You played X" / "Better was Y" side-by-side
+  - "Play the better line" interactive visualization
+  - "Opponent's threat" display when applicable
+  - "Why is Y better?" GPT explanation (using Stockfish data)
+- **User Input**:
+  - "What was your plan?" - User shares their thinking
+  - Contextual tags (not static "rushing" but position-specific)
+- **Per-Position Save**: Each milestone saved independently
+
+### API Endpoints (Enhanced Reflection)
+- `GET /api/training/last-game-for-reflection` - Get last analyzed game ID
+- `GET /api/training/game/{game_id}/milestones` - Get filtered milestones with contextual options
+- `POST /api/training/milestone/explain` - Generate GPT explanation
+- `POST /api/training/milestone/reflect` - Save per-position reflection
+
 ---
 
 ## DEPRECATED: Focus Page (Replaced by Training Engine)
