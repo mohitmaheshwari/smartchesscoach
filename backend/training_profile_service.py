@@ -1852,6 +1852,8 @@ async def generate_position_explanation(
     """
     Generate human-readable explanation for why the better move is better.
     Uses Stockfish data (deterministic) + GPT for natural language.
+    
+    CRITICAL: If Stockfish shows mate or huge eval swing, we MUST tell GPT.
     """
     # Try both locations for the data (context_for_explanation or top level)
     context = milestone.get("context_for_explanation", {})
@@ -1878,11 +1880,32 @@ async def generate_position_explanation(
     pv_best = context.get("pv_best", [])
     pv_played = context.get("pv_played", [])
     
+    # CRITICAL: Detect if this is CHECKMATE or near-checkmate
+    is_mate_missed = False
+    is_huge_blunder = False
+    tactical_nature = None
+    
+    # Eval of 99+ pawns or cp_loss > 1000 usually means MATE
+    if abs(eval_after_pawns) > 50 or cp_loss > 1000:
+        is_mate_missed = True
+        if eval_after_pawns < -50:
+            tactical_nature = f"CHECKMATE! {best_move} delivers checkmate or leads to forced mate."
+        else:
+            tactical_nature = f"CHECKMATE MISSED! {best_move} was checkmate or leads to forced mate."
+    elif cp_loss > 300:
+        is_huge_blunder = True
+        tactical_nature = f"This was a major tactical miss - {best_move} wins significant material or creates a decisive threat."
+    
     # Deterministic analysis
     stockfish_explanation = {
         "eval_swing": f"Position went from {eval_before_pawns:+.1f} to {eval_after_pawns:+.1f}",
         "cp_lost": f"Lost {cp_loss_pawns:.1f} pawns worth of advantage",
     }
+    
+    if is_mate_missed:
+        stockfish_explanation["critical_info"] = tactical_nature
+    elif is_huge_blunder:
+        stockfish_explanation["critical_info"] = tactical_nature
     
     if threat:
         stockfish_explanation["threat_missed"] = f"You missed the threat: {threat}"
@@ -1894,19 +1917,37 @@ async def generate_position_explanation(
         stockfish_explanation["played_line_consequence"] = f"Your move leads to: {' '.join(pv_played[:4])}"
     
     # Position type
-    if eval_before_pawns >= 1.5:
+    if is_mate_missed:
+        stockfish_explanation["position_context"] = "This was a CHECKMATE opportunity"
+    elif eval_before_pawns >= 1.5:
         stockfish_explanation["position_context"] = "You were winning"
     elif eval_before_pawns <= -1.5:
-        stockfish_explanation["position_context"] = "You were losing"
+        stockfish_explanation["position_context"] = "You were losing but had a chance"
     else:
         stockfish_explanation["position_context"] = "Position was roughly equal"
     
-    return {
-        "stockfish_analysis": stockfish_explanation,
-        "move_played": move_played,
-        "best_move": best_move,
-        "needs_llm_humanization": use_llm,
-        "llm_prompt": f"""Based on this chess position analysis, write a clear 2-3 sentence explanation for a {milestone.get('rating_category', 'club')} level player:
+    # Build the LLM prompt with STRONG emphasis on tactical reality
+    if is_mate_missed:
+        llm_prompt = f"""IMPORTANT: This is a CHECKMATE position. The move {best_move} delivers checkmate or leads to forced mate.
+
+DO NOT talk about generic strategy like "controlling the center" or "piece activity".
+The ONLY correct explanation is that {best_move} is CHECKMATE.
+
+You played: {move_played}
+Better was: {best_move} (THIS IS CHECKMATE)
+
+Write a 1-2 sentence explanation that {best_move} is checkmate. Be direct and specific."""
+    elif is_huge_blunder:
+        llm_prompt = f"""This was a major tactical mistake. The evaluation dropped by {cp_loss_pawns:.1f} pawns.
+
+Position: {stockfish_explanation.get('position_context', 'unclear')}
+You played: {move_played}
+Better was: {best_move}
+{stockfish_explanation.get('threat_missed', '')}
+
+The move {best_move} wins material or creates a decisive tactical threat. Explain specifically what {best_move} achieves tactically in 2-3 sentences. Focus on the concrete winning sequence, not general strategy."""
+    else:
+        llm_prompt = f"""Based on this chess position analysis, write a clear 2-3 sentence explanation for a {milestone.get('rating_category', 'club')} level player:
 
 Position: {stockfish_explanation.get('position_context', 'unclear')}
 You played: {move_played}
@@ -1916,6 +1957,15 @@ Better was: {best_move}
 What happens after your move: {stockfish_explanation.get('played_line_consequence', '')}
 
 Explain WHY {best_move} is better in simple terms. Focus on the concrete consequence, not abstract concepts."""
+    
+    return {
+        "stockfish_analysis": stockfish_explanation,
+        "move_played": move_played,
+        "best_move": best_move,
+        "is_mate": is_mate_missed,
+        "is_tactical": is_huge_blunder or is_mate_missed,
+        "needs_llm_humanization": use_llm,
+        "llm_prompt": llm_prompt
     }
 
 
