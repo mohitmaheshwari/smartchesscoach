@@ -842,67 +842,105 @@ const Training = ({ user }) => {
               </div>
             </div>
             
+            {/* Board Mode Indicator */}
+            {boardMode !== "position" && (
+              <div className="flex justify-center">
+                <Badge variant="outline" className={`
+                  ${boardMode === "my_move" ? "bg-red-500/10 text-red-400 border-red-500/30" : ""}
+                  ${boardMode === "threat" ? "bg-amber-500/10 text-amber-400 border-amber-500/30" : ""}
+                  ${boardMode === "better_line" ? "bg-green-500/10 text-green-400 border-green-500/30" : ""}
+                `}>
+                  {boardMode === "my_move" && "Showing: Your Move"}
+                  {boardMode === "threat" && "Showing: Opponent's Threat"}
+                  {boardMode === "better_line" && `Better Line: ${betterLineIndex}/${currentMilestone.pv_after_best?.length || 0}`}
+                </Badge>
+              </div>
+            )}
+            
             {/* Move Info */}
             <div className="grid grid-cols-2 gap-2 max-w-sm mx-auto">
-              <Card className="bg-red-500/10 border-red-500/30">
+              <Card 
+                className={`bg-red-500/10 border-red-500/30 cursor-pointer hover:bg-red-500/20 transition-colors ${boardMode === "my_move" ? "ring-2 ring-red-500" : ""}`}
+                onClick={showMyMove}
+              >
                 <CardContent className="py-2 px-3">
-                  <p className="text-xs text-red-400">You played</p>
+                  <p className="text-xs text-red-400">You played (click to see)</p>
                   <p className="font-mono font-bold">{currentMilestone.user_move}</p>
                 </CardContent>
               </Card>
-              <Card className="bg-green-500/10 border-green-500/30">
+              <Card 
+                className={`bg-green-500/10 border-green-500/30 cursor-pointer hover:bg-green-500/20 transition-colors ${boardMode === "better_line" ? "ring-2 ring-green-500" : ""}`}
+                onClick={startBetterLine}
+              >
                 <CardContent className="py-2 px-3">
-                  <p className="text-xs text-green-400">Better was</p>
+                  <p className="text-xs text-green-400">Better was (click to play)</p>
                   <p className="font-mono font-bold">{currentMilestone.best_move}</p>
                 </CardContent>
               </Card>
             </div>
             
-            {/* Play Better Line Button */}
-            {currentMilestone.pv_after_best?.length > 0 && (
-              <div className="flex justify-center">
-                {!showBetterLine ? (
-                  <Button variant="outline" size="sm" onClick={playBetterLine} className="gap-2">
-                    <Play className="w-4 h-4" />
-                    Play the better line
+            {/* Interactive Board Controls */}
+            <div className="flex flex-wrap justify-center gap-2 max-w-sm mx-auto">
+              {/* Show Threat Button */}
+              {currentMilestone.threat && (
+                <Button 
+                  variant={boardMode === "threat" ? "default" : "outline"} 
+                  size="sm" 
+                  onClick={showThreat}
+                  className="gap-1"
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  Show Threat
+                </Button>
+              )}
+              
+              {/* Better Line Controls */}
+              {boardMode === "better_line" && currentMilestone.pv_after_best?.length > 0 && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={prevBetterMove}
+                    disabled={betterLineIndex === 0}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
                   </Button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {variationIndex}/{currentMilestone.pv_after_best.length} moves
-                    </span>
-                    <Button 
-                      variant="default" 
-                      size="sm" 
-                      onClick={nextVariationMove}
-                      disabled={variationIndex >= currentMilestone.pv_after_best.length}
-                    >
-                      Next <ChevronRight className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => {
-                        setShowBetterLine(false);
-                        setVariationIndex(0);
-                        boardRef.current?.reset();
-                      }}
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    onClick={nextBetterMove}
+                    disabled={betterLineIndex >= currentMilestone.pv_after_best.length}
+                    className="gap-1"
+                  >
+                    <Play className="w-3 h-3" />
+                    Next
+                  </Button>
+                </>
+              )}
+              
+              {/* Reset Button */}
+              {boardMode !== "position" && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={resetBoard}
+                >
+                  <RotateCcw className="w-3 h-3 mr-1" />
+                  Reset
+                </Button>
+              )}
+            </div>
             
-            {/* Threat Warning */}
+            {/* Threat Info Card */}
             {currentMilestone.threat && (
-              <Card className="bg-amber-500/10 border-amber-500/30 max-w-sm mx-auto">
+              <Card className={`bg-amber-500/10 border-amber-500/30 max-w-sm mx-auto cursor-pointer hover:bg-amber-500/20 transition-colors ${boardMode === "threat" ? "ring-2 ring-amber-500" : ""}`}
+                onClick={showThreat}
+              >
                 <CardContent className="py-2 px-3">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-amber-500" />
                     <div>
-                      <p className="text-xs text-amber-400">Opponent's threat</p>
+                      <p className="text-xs text-amber-400">Opponent's threat (click to see)</p>
                       <p className="text-sm font-mono">{currentMilestone.threat}</p>
                     </div>
                   </div>
