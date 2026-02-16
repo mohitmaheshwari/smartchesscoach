@@ -1463,22 +1463,58 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
                 if not (min_move <= move_number <= max_move):
                     continue
             
-            # CRITICAL: For positional phases, EXCLUDE tactical shots
-            # Tactical shots = mate (cp_loss > 1000) or big material (cp_loss > 500)
-            is_tactical_shot = cp_loss > 500 or abs(eval_after) > 5000
-            if is_positional_phase and is_tactical_shot:
+            # Use mistake classifier to detect tactical mistakes
+            is_tactical_mistake = False
+            mistake_type = None
+            
+            if HAS_MISTAKE_CLASSIFIER:
+                try:
+                    fen_before = m.get("fen_before")
+                    if fen_before:
+                        classified = classify_mistake(
+                            fen_before=fen_before,
+                            move_played=move_played,
+                            best_move=best_move,
+                            eval_before=eval_before,
+                            eval_after=eval_after,
+                            is_user_white=(m.get("is_user_white", True)),
+                        )
+                        if classified:
+                            mistake_type = classified.mistake_type.value
+                            # Tactical mistakes that should NOT appear in positional phases
+                            tactical_types = [
+                                "walked_into_fork", "walked_into_pin", "walked_into_skewer",
+                                "walked_into_discovered_attack", "missed_fork", "missed_pin",
+                                "missed_skewer", "missed_discovered_attack", "missed_winning_tactic",
+                                "hanging_piece", "material_blunder", "ignored_threat",
+                            ]
+                            is_tactical_mistake = mistake_type in tactical_types
+                except Exception as e:
+                    logger.debug(f"Could not classify mistake: {e}")
+            
+            # Fallback: high cp loss usually indicates tactics
+            is_high_loss_tactical = cp_loss > 300 or abs(eval_after) > 5000
+            is_tactical = is_tactical_mistake or is_high_loss_tactical
+            
+            # CRITICAL: For positional phases, STRICTLY EXCLUDE tactical mistakes
+            if is_positional_phase and is_tactical:
                 continue  # Skip tactical positions in positional phases
             
-            # For pawn_structure phase, prioritize pawn-related mistakes
+            # For pawn_structure phase, ONLY include pawn-related mistakes
             is_pawn_relevant = False
             if phase_id == "pawn_structure":
-                # Check if move involves pawns (lowercase letter for pawn moves, or captures with pawns)
-                move_lower = move_played.lower()
-                best_lower = best_move.lower()
-                # Pawn moves don't have piece prefix (e.g., "e4", "d5", "exd5")
+                # Pawn moves: start with lowercase (e.g., "e4", "d5", "exd5")
+                # Best move being a pawn move means we should have played a pawn move
                 is_pawn_move = move_played[0].islower() if move_played else False
                 is_pawn_best = best_move[0].islower() if best_move else False
-                is_pawn_relevant = is_pawn_move or is_pawn_best
+                # For pawn structure: both moves should ideally involve pawns
+                # Or it's a capture decision affecting structure
+                is_capture = 'x' in move_played or 'x' in best_move
+                is_pawn_relevant = (is_pawn_move and is_pawn_best) or (is_capture and (is_pawn_move or is_pawn_best))
+                
+                # STRICT: Only include pawn-relevant positions for pawn_structure phase
+                if not is_pawn_relevant:
+                    continue
             
             position = {
                 "game_id": game_id,
@@ -1490,8 +1526,9 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
                 "eval_before": eval_before,
                 "eval_after": eval_after,
                 "threat": m.get("threat"),
-                "is_phase_relevant": is_pawn_relevant if phase_id == "pawn_structure" else True,
-                "is_tactical": is_tactical_shot,
+                "mistake_type": mistake_type,
+                "is_phase_relevant": True,  # Only relevant positions make it here now
+                "is_tactical": is_tactical,
             }
             all_positions.append(position)
     
