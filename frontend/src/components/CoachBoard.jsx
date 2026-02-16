@@ -383,6 +383,7 @@ const CoachBoard = forwardRef(({
           arrows={[...arrows, ...customArrows]}
           showDests={isDrillActive || isPlanMode}
           lastMove={lastMove}
+          planMode={isPlanMode}
         />
       </div>
 
