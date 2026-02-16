@@ -367,7 +367,7 @@ const CoachBoard = forwardRef(({
           onPieceDrop={onDrop}
           arePiecesDraggable={isDrillActive}
           customSquareStyles={highlightedSquares}
-          customArrows={arrows}
+          customArrows={[...arrows, ...customArrows]}
           animationDuration={200}
           customBoardStyle={{
             borderRadius: '8px',
