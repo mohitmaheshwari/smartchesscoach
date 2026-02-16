@@ -54,11 +54,9 @@ const CoachBoard = forwardRef(({
   useEffect(() => {
     const newFen = position || initialFen;
     setFen(newFen);
-    setPositionObject(fenToPositionObject(newFen));
     chessRef.current = new Chess(newFen);
-    setMoveHistory([]);
-    setCurrentMoveIndex(-1);
     setDrillFeedback(null);
+    setLastMove(null);
   }, [initialFen, position]);
 
   useEffect(() => {
