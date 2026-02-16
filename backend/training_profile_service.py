@@ -1863,7 +1863,7 @@ async def check_and_graduate_phase(db, user_id: str) -> Dict:
     )
     
     # Force recalculate profile for new phase
-    await recalculate_training_profile(db, user_id)
+    await get_or_generate_training_profile(db, user_id, force_regenerate=True)
     
     return {
         "graduated": True,
