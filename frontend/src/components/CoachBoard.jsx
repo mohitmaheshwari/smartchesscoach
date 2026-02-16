@@ -377,13 +377,40 @@ const CoachBoard = forwardRef(({
           fen={fen}
           orientation={boardOrientation}
           onMove={handleLichessMove}
-          interactive={isDrillActive}
-          viewOnly={!isDrillActive}
+          interactive={isDrillActive || isPlanMode}
+          viewOnly={!isDrillActive && !isPlanMode}
           arrows={[...arrows, ...customArrows]}
-          showDests={isDrillActive}
+          showDests={isDrillActive || isPlanMode}
           lastMove={lastMove}
         />
       </div>
+
+      {/* Plan Mode Indicator */}
+      {isPlanMode && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+          <Brain className="w-4 h-4 text-purple-500" />
+          <span className="text-sm font-medium text-purple-400">
+            Show your plan - play moves for both sides
+          </span>
+        </div>
+      )}
+
+      {/* Plan Moves Display */}
+      {isPlanMode && planMoves.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-3 py-2 bg-muted/30 rounded-lg">
+          {planMoves.map((move, i) => (
+            <span 
+              key={i} 
+              className={`text-sm font-mono px-1.5 py-0.5 rounded ${
+                i % 2 === 0 ? 'bg-white/10 text-white' : 'bg-black/20 text-gray-300'
+              }`}
+            >
+              {i % 2 === 0 && <span className="text-muted-foreground mr-1">{Math.floor(i/2) + 1}.</span>}
+              {move}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Controls */}
       {showControls && (
