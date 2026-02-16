@@ -127,10 +127,27 @@ def _sync_stockfish_analysis(fen: str, move_played: str = None, depth: int = 18)
         # Get best move and line
         pv = info.get("pv", [])
         if pv:
-            result["best_move"] = board.san(pv[0])
-            result["best_line"] = [board.san(m) for m in pv[:5]]
-            # Describe what best line achieves
-            result["best_line_description"] = _describe_line(board, pv[:5])
+            try:
+                # Convert PV moves to SAN notation
+                temp_board = board.copy()
+                san_moves = []
+                for move in pv[:5]:
+                    if move in temp_board.legal_moves:
+                        san_moves.append(temp_board.san(move))
+                        temp_board.push(move)
+                    else:
+                        break
+                
+                if san_moves:
+                    result["best_move"] = san_moves[0]
+                    result["best_line"] = san_moves
+                    # Describe what best line achieves
+                    result["best_line_description"] = _describe_line(board, pv[:len(san_moves)])
+            except Exception as e:
+                logger.warning(f"Error converting PV to SAN: {e}")
+                # Fallback to UCI notation
+                result["best_move"] = pv[0].uci() if pv else None
+                result["best_line"] = [m.uci() for m in pv[:5]]
         
         # If a move was played, analyze what happens after it
         if move_played:
