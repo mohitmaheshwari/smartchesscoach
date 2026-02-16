@@ -9,9 +9,6 @@ import {
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-// Reference for the LichessBoard component
-const lichessBoardRef = { current: null };
-
 /**
  * CoachBoard - A sticky, interactive chessboard for the Board-First Coach UI
  * Now using Lichess's Chessground for better UX
@@ -78,6 +75,8 @@ const CoachBoard = forwardRef(({
     const { san, from, to } = moveData;
     const isCorrect = expectedMoves.length === 0 || expectedMoves.includes(san);
     
+    // Update chess ref with the move
+    chessRef.current = new Chess(moveData.fen);
     setFen(moveData.fen);
     setLastMove([from, to]);
     
@@ -89,10 +88,11 @@ const CoachBoard = forwardRef(({
         type: 'error', 
         message: `Try again. ${expectedMoves.length > 0 ? `Hint: Consider ${expectedMoves[0]}` : ''}` 
       });
-      // Undo the wrong move
-      chessRef.current.undo();
+      // Undo the wrong move - reset to previous position
+      const prevFen = position || initialFen;
+      chessRef.current = new Chess(prevFen);
       setTimeout(() => {
-        setFen(chessRef.current.fen());
+        setFen(prevFen);
         setLastMove(null);
       }, 1000);
     }
@@ -104,110 +104,51 @@ const CoachBoard = forwardRef(({
     if (onUserMove) {
       onUserMove(moveData);
     }
-  }, [isDrillActive, expectedMoves, onDrillResult, onUserMove]);
-
-  // Legacy onDrop handler (for compatibility)
-  const onDrop = useCallback((sourceSquare, targetSquare, piece) => {
-    if (!isDrillActive) return false;
-
-    const chess = chessRef.current;
-    
-    // Try to make the move
-    try {
-      const move = chess.move({
-        from: sourceSquare,
-        to: targetSquare,
-        promotion: 'q' // Default to queen for simplicity
-      });
-
-      if (!move) return false;
-
-      const moveSan = move.san;
-      const isCorrect = expectedMoves.length === 0 || expectedMoves.includes(moveSan);
-      
-      setPositionObject(fenToPositionObject(chess.fen()));
-      setFen(chess.fen());
-      
-      // Show feedback
-      if (isCorrect) {
-        setDrillFeedback({ type: 'success', message: 'Correct!' });
-        setHighlightedSquares({
-          [targetSquare]: { backgroundColor: "rgba(34, 197, 94, 0.5)" }
-        });
-      } else {
-        setDrillFeedback({ 
-          type: 'error', 
-          message: `Try again. ${expectedMoves.length > 0 ? `Hint: Consider ${expectedMoves[0]}` : ''}` 
-        });
-        // Undo the wrong move
-        chess.undo();
-        setTimeout(() => {
-          setPositionObject(fenToPositionObject(chess.fen()));
-          setHighlightedSquares({});
-        }, 1000);
-      }
-
-      if (onDrillResult) {
-        onDrillResult({ correct: isCorrect, playedMove: moveSan, expectedMoves });
-      }
-
-      if (onUserMove) {
-        onUserMove(move);
-      }
-
-      return isCorrect;
-    } catch (e) {
-      return false;
-    }
-  }, [isDrillActive, expectedMoves, onDrillResult, onUserMove]);
+  }, [isDrillActive, expectedMoves, onDrillResult, onUserMove, position, initialFen]);
 
   // Expose methods to parent
   useImperativeHandle(ref, () => ({
     // Jump to a specific FEN position
     jumpToFen: (newFen, options = {}) => {
       setFen(newFen);
-      setPositionObject(fenToPositionObject(newFen));
       chessRef.current = new Chess(newFen);
       setDrillFeedback(null);
-      
-      if (options.highlight) {
-        setHighlightedSquares(
-          Object.fromEntries(
-            options.highlight.map(sq => [sq, { backgroundColor: "rgba(255, 200, 0, 0.5)" }])
-          )
-        );
-      } else {
-        setHighlightedSquares({});
-      }
+      setLastMove(null);
       
       if (options.arrows) {
         setArrows(options.arrows);
       } else {
         setArrows([]);
       }
+      
+      // Use LichessBoard's highlight capability
+      if (lichessBoardRef.current && options.highlight) {
+        lichessBoardRef.current.highlightSquares(options.highlight);
+      }
     },
 
     // Highlight specific squares
-    highlightSquares: (squares, color = "rgba(255, 200, 0, 0.5)") => {
-      setHighlightedSquares(
-        Object.fromEntries(squares.map(sq => [sq, { backgroundColor: color }]))
-      );
+    highlightSquares: (squares) => {
+      if (lichessBoardRef.current) {
+        lichessBoardRef.current.highlightSquares(squares);
+      }
     },
 
     // Clear all highlights
     clearHighlights: () => {
-      setHighlightedSquares({});
       setArrows([]);
+      if (lichessBoardRef.current) {
+        lichessBoardRef.current.clearArrows();
+      }
     },
 
     // Draw arrows on the board
     drawArrows: (arrowsArray) => {
-      // arrowsArray format: [[from, to], [from, to]]
       setArrows(arrowsArray);
     },
 
     // Enable drill mode
-    startDrill: (correctMoves = []) => {
+    startDrill: () => {
       setIsDrillActive(true);
       setDrillFeedback(null);
     },
@@ -227,17 +168,13 @@ const CoachBoard = forwardRef(({
         try {
           const move = chess.move(moveStr);
           if (move) {
-            setPositionObject(fenToPositionObject(chess.fen()));
-            setHighlightedSquares({
-              [move.from]: { backgroundColor: "rgba(255, 200, 100, 0.4)" },
-              [move.to]: { backgroundColor: "rgba(255, 200, 100, 0.6)" }
-            });
+            setFen(chess.fen());
+            setLastMove([move.from, move.to]);
           }
         } catch (e) {
           console.error("Invalid move:", moveStr);
         }
       }
-      setFen(chess.fen());
       chessRef.current = chess;
     },
 
@@ -248,11 +185,10 @@ const CoachBoard = forwardRef(({
     reset: () => {
       const resetFen = position || initialFen;
       setFen(resetFen);
-      setPositionObject(fenToPositionObject(resetFen));
       chessRef.current = new Chess(resetFen);
-      setHighlightedSquares({});
       setArrows([]);
       setDrillFeedback(null);
+      setLastMove(null);
     },
 
     // Flip the board
@@ -265,12 +201,9 @@ const CoachBoard = forwardRef(({
       if (!threatMove) return;
       try {
         const chess = new Chess(fen);
-        // Parse the threat move to get from/to squares
         const move = chess.move(threatMove);
         if (move) {
-          // Draw red arrow for threat
           setArrows([[move.from, move.to, "rgb(239, 68, 68)"]]);
-          // Reset after showing
           chess.undo();
         }
       } catch (e) {
@@ -290,11 +223,7 @@ const CoachBoard = forwardRef(({
         if (move) {
           const newFen = chessRef.current.fen();
           setFen(newFen);
-          setPositionObject(fenToPositionObject(newFen));
-          setHighlightedSquares({
-            [move.from]: { backgroundColor: "rgba(255, 200, 100, 0.4)" },
-            [move.to]: { backgroundColor: "rgba(255, 200, 100, 0.6)" }
-          });
+          setLastMove([move.from, move.to]);
           return { success: true, move };
         }
       } catch (e) {
@@ -309,8 +238,7 @@ const CoachBoard = forwardRef(({
       if (move) {
         const newFen = chessRef.current.fen();
         setFen(newFen);
-        setPositionObject(fenToPositionObject(newFen));
-        setHighlightedSquares({});
+        setLastMove(null);
         return true;
       }
       return false;
@@ -327,6 +255,15 @@ const CoachBoard = forwardRef(({
         }
       }
       return chess.fen();
+    },
+
+    // Set position directly via LichessBoard
+    setPosition: (newFen) => {
+      setFen(newFen);
+      chessRef.current = new Chess(newFen);
+      if (lichessBoardRef.current) {
+        lichessBoardRef.current.setPosition(newFen);
+      }
     }
   }), [fen, initialFen, position]);
 
@@ -335,7 +272,7 @@ const CoachBoard = forwardRef(({
   }, []);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-testid="coach-board">
       {/* Drill Mode Indicator */}
       {isDrillActive && (
         <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
@@ -352,7 +289,7 @@ const CoachBoard = forwardRef(({
           drillFeedback.type === 'success' 
             ? 'bg-emerald-500/10 border border-emerald-500/30' 
             : 'bg-red-500/10 border border-red-500/30'
-        }`}>
+        }`} data-testid="drill-feedback">
           <span className={`text-sm font-medium ${
             drillFeedback.type === 'success' ? 'text-emerald-400' : 'text-red-400'
           }`}>
@@ -365,13 +302,14 @@ const CoachBoard = forwardRef(({
       <div className={`relative ${size === "full" ? "w-full" : "w-[320px]"} aspect-square`}>
         <LichessBoard
           ref={lichessBoardRef}
-          fen={currentFen}
+          fen={fen}
           orientation={boardOrientation}
           onMove={handleLichessMove}
           interactive={isDrillActive}
           viewOnly={!isDrillActive}
           arrows={[...arrows, ...customArrows]}
           showDests={isDrillActive}
+          lastMove={lastMove}
         />
       </div>
 
@@ -383,6 +321,7 @@ const CoachBoard = forwardRef(({
             size="sm" 
             onClick={flipBoard}
             className="text-muted-foreground hover:text-foreground"
+            data-testid="flip-board-btn"
           >
             <RotateCcw className="w-4 h-4" />
           </Button>
