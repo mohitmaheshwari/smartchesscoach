@@ -190,6 +190,26 @@ const LichessBoard = forwardRef(({
     }
   }, [fen, interactive, showDests, lastMove]);
 
+  // Update interactivity when interactive/viewOnly changes
+  useEffect(() => {
+    if (groundRef.current) {
+      const isInteractive = interactive && !viewOnly;
+      groundRef.current.set({
+        viewOnly: !isInteractive,
+        movable: {
+          free: false,
+          color: isInteractive ? "both" : undefined,
+          dests: isInteractive && showDests ? getMovableDests(chessRef.current) : new Map(),
+          showDests: showDests && isInteractive,
+        },
+        draggable: {
+          enabled: isInteractive,
+          showGhost: true,
+        },
+      });
+    }
+  }, [interactive, viewOnly, showDests]);
+
   // Update orientation
   useEffect(() => {
     if (groundRef.current) {
