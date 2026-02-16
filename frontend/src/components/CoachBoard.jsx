@@ -96,11 +96,12 @@ const CoachBoard = forwardRef(({
   }, [userColor]);
 
   useEffect(() => {
-    setIsDrillActive(drillMode);
-    if (!drillMode) {
+    const newDrillMode = interactive !== undefined ? interactive : drillMode;
+    setIsDrillActive(newDrillMode);
+    if (!newDrillMode) {
       setDrillFeedback(null);
     }
-  }, [drillMode]);
+  }, [drillMode, interactive]);
 
   // Handle user making a move
   const onDrop = useCallback((sourceSquare, targetSquare, piece) => {
