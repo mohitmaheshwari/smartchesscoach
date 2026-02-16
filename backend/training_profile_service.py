@@ -2081,7 +2081,7 @@ async def get_phase_progress(db, user_id: str) -> Dict:
     # Check graduation criteria
     metric_value = stats.get("metric_value", 999)
     target = current_phase.get("target", 1.0)
-    clean_games = stats.get("clean_games", 0)
+    clean_streak = stats.get("clean_streak", 0)  # Use STREAK, not total
     
     # Progress calculation
     if target > 0:
@@ -2090,14 +2090,14 @@ async def get_phase_progress(db, user_id: str) -> Dict:
         metric_progress = 100 if metric_value <= target else 0
     
     games_progress = int((len(analyses) / GRADUATION_GAMES) * 100)
-    clean_progress = int((clean_games / max(CLEAN_GAMES_FOR_GRADUATION, 1)) * 100)
+    streak_progress = int((clean_streak / max(CLEAN_GAMES_FOR_GRADUATION, 1)) * 100)
     
-    overall_progress = int((metric_progress * 0.5 + games_progress * 0.2 + clean_progress * 0.3))
+    overall_progress = int((metric_progress * 0.5 + games_progress * 0.2 + streak_progress * 0.3))
     
-    # Check if ready to graduate
+    # Check if ready to graduate - use STREAK for clean games requirement
     meets_metric = metric_value <= target
-    meets_clean = clean_games >= CLEAN_GAMES_FOR_GRADUATION
-    ready_to_graduate = len(analyses) >= GRADUATION_GAMES and (meets_metric or meets_clean)
+    meets_streak = clean_streak >= CLEAN_GAMES_FOR_GRADUATION  # 3 consecutive clean games
+    ready_to_graduate = len(analyses) >= GRADUATION_GAMES and (meets_metric or meets_streak)
     
     # AUTO-GRADUATE if ready
     graduation_result = None
