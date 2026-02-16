@@ -5670,6 +5670,37 @@ async def get_last_game_for_reflection(user: User = Depends(get_current_user)):
     return {"game_id": last_analysis["game_id"]}
 
 
+@api_router.get("/training/phase-progress")
+async def get_phase_progress_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get user's progress within their current training phase.
+    
+    Returns:
+    - games_in_phase: How many games analyzed
+    - progress_percent: Overall progress toward graduation
+    - clean_games: Games without target pattern errors
+    - improvement_percent: Pattern reduction percentage
+    - trend: "improving" | "stable" | "regressing"
+    - ready_to_graduate: Boolean
+    """
+    from training_profile_service import get_phase_progress
+    
+    result = await get_phase_progress(db, user.user_id)
+    return result
+
+
+@api_router.post("/training/check-graduation")
+async def check_graduation(user: User = Depends(get_current_user)):
+    """
+    Check if user is ready to graduate from current phase.
+    If ready, automatically move them to next phase.
+    """
+    from training_profile_service import check_and_graduate_phase
+    
+    result = await check_and_graduate_phase(db, user.user_id)
+    return result
+
+
 @api_router.get("/training/reflection-history")
 async def get_reflection_history_endpoint(user: User = Depends(get_current_user)):
     """
