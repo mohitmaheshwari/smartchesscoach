@@ -572,7 +572,6 @@ def compute_conversion_cost(analyses: List[Dict], games: List[Dict]) -> Dict:
         
         for m in moves:
             eval_before = m.get("eval_before", 0)
-            eval_after = m.get("eval_after", 0)
             cp_loss = m.get("cp_loss", 0)
             phase = get_move_phase(m.get("move_number", 0))
             
