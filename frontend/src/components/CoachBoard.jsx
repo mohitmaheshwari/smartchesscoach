@@ -54,35 +54,42 @@ const fenToPositionObject = (fen) => {
  */
 const CoachBoard = forwardRef(({
   initialFen = START_FEN,
+  position,  // Alias for initialFen
   userColor = "white",
   onUserMove,
   drillMode = false,
   expectedMoves = [],  // Array of acceptable moves in SAN notation
   onDrillResult,
   showControls = true,
-  size = "full"
+  size = "full",
+  interactive  // Alias for drillMode
 }, ref) => {
-  const [fen, setFen] = useState(initialFen);
-  const [positionObject, setPositionObject] = useState(() => fenToPositionObject(initialFen));
+  // Support both position and initialFen props
+  const effectiveFen = position || initialFen;
+  const effectiveDrillMode = interactive !== undefined ? interactive : drillMode;
+  
+  const [fen, setFen] = useState(effectiveFen);
+  const [positionObject, setPositionObject] = useState(() => fenToPositionObject(effectiveFen));
   const [boardOrientation, setBoardOrientation] = useState(userColor);
   const [highlightedSquares, setHighlightedSquares] = useState({});
   const [arrows, setArrows] = useState([]);
-  const [isDrillActive, setIsDrillActive] = useState(drillMode);
+  const [isDrillActive, setIsDrillActive] = useState(effectiveDrillMode);
   const [drillFeedback, setDrillFeedback] = useState(null);
   const [moveHistory, setMoveHistory] = useState([]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
   
-  const chessRef = useRef(new Chess(initialFen));
+  const chessRef = useRef(new Chess(effectiveFen));
 
-  // Update board when initialFen changes
+  // Update board when position/initialFen changes
   useEffect(() => {
-    setFen(initialFen);
-    setPositionObject(fenToPositionObject(initialFen));
-    chessRef.current = new Chess(initialFen);
+    const newFen = position || initialFen;
+    setFen(newFen);
+    setPositionObject(fenToPositionObject(newFen));
+    chessRef.current = new Chess(newFen);
     setMoveHistory([]);
     setCurrentMoveIndex(-1);
     setDrillFeedback(null);
-  }, [initialFen]);
+  }, [initialFen, position]);
 
   useEffect(() => {
     setBoardOrientation(userColor === "black" ? "black" : "white");
