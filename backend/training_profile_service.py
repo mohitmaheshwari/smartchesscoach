@@ -120,6 +120,15 @@ TRAINING_TIERS = {
                 "metric": "blunders_per_game",
                 "target": 1.5,
                 "clean_game_threshold": 0,
+                "theory": {
+                    "title": "Stop Blundering",
+                    "points": [
+                        "Before every move, check: Can my piece be captured?",
+                        "Look for checks, captures, and threats (CCT) after opponent moves",
+                        "If in doubt, take an extra 10 seconds to double-check"
+                    ],
+                    "tip": "Blunders happen when we move too fast. Slow down!"
+                }
             },
             {
                 "id": "threat_detection",
@@ -129,6 +138,15 @@ TRAINING_TIERS = {
                 "metric": "threats_missed_per_game",
                 "target": 1.0,
                 "clean_game_threshold": 0,
+                "theory": {
+                    "title": "See Their Plan",
+                    "points": [
+                        "After every opponent move, ask: What does this threaten?",
+                        "Look for attacks on your pieces, especially undefended ones",
+                        "Check if they're setting up a fork, pin, or skewer"
+                    ],
+                    "tip": "Your opponent has plans too. Find them before they happen!"
+                }
             },
             {
                 "id": "piece_activity",
@@ -138,6 +156,15 @@ TRAINING_TIERS = {
                 "metric": "inactive_pieces_avg",
                 "target": 1.0,
                 "clean_game_threshold": 1,
+                "theory": {
+                    "title": "Activate Your Pieces",
+                    "points": [
+                        "Every piece should have a job - if it's doing nothing, move it",
+                        "Knights love central squares (d4, d5, e4, e5)",
+                        "Rooks belong on open files and the 7th rank"
+                    ],
+                    "tip": "Count your active pieces vs theirs. More active = better position!"
+                }
             },
         ]
     },
