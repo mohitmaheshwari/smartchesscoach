@@ -138,23 +138,27 @@ const LichessBoard = forwardRef(({
   useEffect(() => {
     if (boardRef.current && !groundRef.current) {
       chessRef.current = new Chess(fen);
+      const shouldBeInteractive = planMode || (interactive && !viewOnly);
       
       groundRef.current = Chessground(boardRef.current, {
         fen: fen,
         orientation: orientation,
         turnColor: getTurnColor(fen),
-        viewOnly: viewOnly || !interactive,
+        viewOnly: !shouldBeInteractive,
         movable: {
           free: false,
-          color: (interactive || planMode) ? "both" : undefined,
-          dests: (interactive || planMode) && showDests 
+          color: shouldBeInteractive ? "both" : undefined,
+          dests: shouldBeInteractive && showDests 
             ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current)) 
             : new Map(),
-          showDests: showDests,
+          showDests: showDests && shouldBeInteractive,
         },
         draggable: {
-          enabled: (interactive || planMode) && !viewOnly,
+          enabled: shouldBeInteractive,
           showGhost: true,
+        },
+        selectable: {
+          enabled: shouldBeInteractive,
         },
         highlight: {
           lastMove: true,
