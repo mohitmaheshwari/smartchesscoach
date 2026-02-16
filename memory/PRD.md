@@ -75,6 +75,15 @@ Fixed data issue where tactical mistakes were shown in positional training phase
 - **Uses Mistake Classifier**: Forks, pins, etc. properly excluded from positional phases
 - **No Fallback to Unrelated Positions**: Shows helpful message instead of irrelevant examples
 
+### "Show Plan on Board" Feature (Feb 2026) ✅ NEW
+Users can now show their plan by playing moves on the board instead of typing:
+- **Plan Mode**: Click "Show on board" button in reflection step
+- **Both Colors**: User can play moves for both sides to show expected sequence
+- **Move Tracking**: Shows moves as they're played: 1. e4 e5 2. Nf3 etc.
+- **LLM Conversion**: Backend endpoint converts move sequence to natural language
+- **Controls**: Undo, Cancel, Done buttons for managing the plan
+- **Files**: `CoachBoard.jsx` (planMode prop), `server.py` (/api/training/plan/describe)
+
 ### Bug Fixes (Dec 2025)
 - ✅ Example positions now load correct FEN (was showing starting position)
 - ✅ Reflection step includes chessboard showing mistake position
