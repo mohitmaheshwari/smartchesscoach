@@ -5630,6 +5630,82 @@ async def explain_milestone(
     return explanation
 
 
+@api_router.post("/training/plan/describe")
+async def describe_plan_moves(
+    plan_data: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Convert a sequence of chess moves into a natural language description of the plan.
+    
+    This lets users "show their plan on the board" instead of typing it out.
+    
+    Body:
+    - fen: Starting position FEN
+    - moves: List of moves in SAN notation (e.g., ["Nf3", "e4", "d4"])
+    - user_color: "white" or "black" - which color the user was playing
+    """
+    fen = plan_data.get("fen")
+    moves = plan_data.get("moves", [])
+    user_color = plan_data.get("user_color", "white")
+    
+    if not fen or not moves:
+        return {"error": "Missing fen or moves", "plan_description": ""}
+    
+    # Build a prompt for the LLM to describe the plan
+    moves_str = " ".join([
+        f"{i//2 + 1}. {moves[i]}" if i % 2 == 0 else moves[i]
+        for i in range(len(moves))
+    ])
+    
+    prompt = f"""You are a chess coach helping a player articulate their thinking.
+
+The player was {user_color} in this position:
+FEN: {fen}
+
+They showed their intended plan by playing these moves on the board:
+{moves_str}
+
+Convert this move sequence into a brief, natural description of what the player was planning to do.
+Focus on:
+- What was the main idea/goal?
+- What pieces were they trying to move and where?
+- What were they hoping to achieve?
+
+Keep it conversational and in first person, as if the player is explaining their thinking.
+Be concise (2-3 sentences max). Start with "I wanted to..." or "My plan was to..."
+"""
+    
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        import os
+        
+        api_key = os.environ.get("EMERGENT_LLM_KEY", OPENAI_API_KEY)
+        
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"plan_{os.urandom(8).hex()}",
+            system_message="You are a helpful chess coach who helps players articulate their thinking. Be concise and natural."
+        ).with_model("openai", "gpt-4o-mini")
+        
+        response = await chat.send_message(UserMessage(text=prompt))
+        
+        return {
+            "plan_description": response,
+            "moves": moves,
+            "fen": fen,
+        }
+    except Exception as e:
+        logger.error(f"Error generating plan description: {e}")
+        # Fallback: just list the moves
+        return {
+            "plan_description": f"My plan was: {moves_str}",
+            "moves": moves,
+            "fen": fen,
+            "error": str(e)
+        }
+
+
 @api_router.post("/training/milestone/reflect")
 async def save_milestone_reflection(
     game_id: str,
