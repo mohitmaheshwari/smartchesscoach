@@ -808,6 +808,26 @@ const Training = ({ user }) => {
           </div>
         )}
 
+        {/* Message when no examples found for positional phases */}
+        {examplePositions.length === 0 && profile?.no_phase_examples && (
+          <Card className="bg-blue-500/10 border-blue-500/30">
+            <CardContent className="py-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-blue-300">
+                    No specific mistakes found for this phase
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Great job! We couldn't find clear pawn structure mistakes in your recent games. 
+                    Keep playing and focusing on the theory above, and we'll track your progress.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="flex justify-end">
           <Button onClick={nextStep} className="gap-2">
             See Your Pattern <ChevronRight className="w-4 h-4" />
