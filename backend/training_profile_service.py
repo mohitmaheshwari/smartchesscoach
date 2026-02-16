@@ -1659,8 +1659,12 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200, preser
         valid_analyses, games, current_phase_id
     )
     
-    # Fallback to layer positions if no phase-specific ones found
-    if not phase_filtered_positions:
+    # For positional phases (like pawn_structure), DON'T fallback to unrelated positions
+    # It's better to show "No examples found" than show tactical mistakes
+    positional_phases_no_fallback = ["pawn_structure", "piece_coordination", "positional_understanding"]
+    
+    if not phase_filtered_positions and current_phase_id not in positional_phases_no_fallback:
+        # Fallback to layer positions only for non-positional phases
         phase_filtered_positions = active_layer.get("example_positions", [])
     
     # Build training profile
