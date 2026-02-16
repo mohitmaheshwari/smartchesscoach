@@ -2427,97 +2427,120 @@ async def generate_position_explanation(
     """
     Generate human-readable explanation for why the better move is better.
     
-    ARCHITECTURE:
-    1. Stockfish analyzes the position (DETERMINISTIC - source of truth)
-    2. Stockfish provides: eval, mate detection, best line, what best move achieves
-    3. GPT ONLY narrates these facts - it does NOT make chess evaluations
+    ARCHITECTURE (CRITICAL - DO NOT CHANGE):
+    1. Stockfish analyzes the position (RAW ENGINE DATA)
+    2. DeterministicChessAnalyzer processes it (CLASSIFIES, CATEGORIZES)
+    3. GPT ONLY narrates the facts (NO CHESS DECISIONS)
     
-    GPT should NEVER:
-    - Decide if a position is winning/losing
-    - Decide if something is checkmate
-    - Make up chess analysis
-    
-    GPT should ONLY:
-    - Take Stockfish facts and write them in natural language
+    The DeterministicChessAnalyzer is the ONLY layer that makes chess-related
+    decisions like "is this checkmate?", "is this a blunder?", etc.
     """
     # Get position data
     fen = milestone.get("fen")
     move_played = milestone.get("move_played") or milestone.get("context_for_explanation", {}).get("move_played", "?")
-    best_move = milestone.get("best_move") or milestone.get("context_for_explanation", {}).get("best_move", "?")
+    best_move_input = milestone.get("best_move") or milestone.get("context_for_explanation", {}).get("best_move", "?")
     
     # ==========================================================================
-    # STEP 1: RUN STOCKFISH - This is the ONLY source of chess truth
+    # STEP 1: RUN STOCKFISH - Raw engine data
     # ==========================================================================
     stockfish_result = {}
     
     if fen:
         stockfish_result = await analyze_position_with_stockfish(fen, move_played, depth=18)
     
-    # Extract Stockfish's DETERMINISTIC analysis
-    sf_eval = stockfish_result.get("eval", 0)
-    sf_is_mate = stockfish_result.get("is_mate", False)
-    sf_mate_in = stockfish_result.get("mate_in")
-    sf_best_move = stockfish_result.get("best_move", best_move)
+    # ==========================================================================
+    # STEP 2: DETERMINISTIC LAYER - Process Stockfish output
+    # This is where ALL chess decisions are made
+    # ==========================================================================
+    
+    # Build facts using the deterministic analyzer
+    facts = DeterministicChessAnalyzer.build_explanation_facts(
+        fen=fen,
+        move_played=move_played,
+        stockfish_data=stockfish_result
+    )
+    
+    # Get eval classification
+    eval_classification = DeterministicChessAnalyzer.classify_eval(
+        stockfish_result.get("eval", 0),
+        stockfish_result.get("is_mate", False),
+        stockfish_result.get("mate_in")
+    )
+    
+    # Classify the mistake severity
+    cp_loss = milestone.get("cp_loss") or milestone.get("context_for_explanation", {}).get("cp_loss", 0)
+    mistake_classification = DeterministicChessAnalyzer.classify_mistake(cp_loss)
+    
+    # Add classifications to facts
+    facts["eval_classification"] = eval_classification
+    facts["mistake_severity"] = mistake_classification["severity"]
+    facts["mistake_label"] = mistake_classification["label"]
+    
+    # Determine key characteristics from deterministic analysis
+    is_checkmate = facts.get("is_checkmate", False) or facts.get("is_forced_mate", False)
+    sf_best_move = stockfish_result.get("best_move", best_move_input)
     sf_best_line = stockfish_result.get("best_line", [])
     sf_line_description = stockfish_result.get("best_line_description", "")
-    sf_position_assessment = stockfish_result.get("position_assessment", "unknown")
-    sf_after_played_is_mate = stockfish_result.get("after_played_is_mate", False)
-    sf_opponent_threat = stockfish_result.get("opponent_threat", "")
+    sf_position_assessment = eval_classification["assessment"]
     
     # ==========================================================================
-    # STEP 2: BUILD FACTS from Stockfish (no interpretation, just facts)
+    # STEP 3: BUILD LLM PROMPT - GPT only narrates facts
+    # GPT receives ONLY the processed facts - no raw data, no decisions to make
     # ==========================================================================
-    facts = {
-        "position_before": sf_position_assessment,
-        "best_move": sf_best_move,
-        "best_line": " ".join(sf_best_line) if sf_best_line else "",
-        "best_line_achieves": sf_line_description,
-        "move_played": move_played,
-    }
     
-    # Determine if this is checkmate
-    is_checkmate = False
-    if sf_is_mate and sf_mate_in and sf_mate_in > 0:
-        is_checkmate = True
-        if sf_mate_in == 1:
-            facts["critical_fact"] = f"{sf_best_move} is CHECKMATE in 1 move."
-        else:
-            facts["critical_fact"] = f"{sf_best_move} leads to CHECKMATE in {sf_mate_in} moves."
-    elif sf_line_description and "CHECKMATE" in sf_line_description:
-        is_checkmate = True
-        facts["critical_fact"] = f"The line starting with {sf_best_move} leads to CHECKMATE."
-    
-    # What happens after the played move
-    if sf_after_played_is_mate:
-        facts["after_played"] = "After your move, opponent has a forced checkmate."
-    elif sf_opponent_threat:
-        facts["after_played"] = f"After your move, opponent threatens {sf_opponent_threat}."
-    
-    # ==========================================================================
-    # STEP 3: BUILD LLM PROMPT - GPT only narrates the facts, no chess decisions
-    # ==========================================================================
     if is_checkmate:
-        # For checkmate, be very direct - GPT just confirms the fact
-        llm_prompt = f"""FACTS FROM STOCKFISH (chess engine - 100% accurate):
-- The move {sf_best_move} delivers {facts.get('critical_fact', 'checkmate')}
-- You played {move_played} instead, missing the checkmate.
+        # Checkmate case - GPT just confirms the fact
+        mate_fact = facts.get("critical_fact", f"{sf_best_move} is checkmate")
+        llm_prompt = f"""FACTS (from chess engine analysis - these are 100% accurate):
+• {mate_fact}
+• You played {move_played} instead, missing the checkmate.
 
-Your task: Write a 1-2 sentence explanation stating that {sf_best_move} is checkmate. 
-DO NOT add any other chess analysis. Just confirm the checkmate fact in natural language."""
+Write 1-2 sentences confirming that {sf_best_move} is checkmate.
+DO NOT add any other chess analysis or strategy talk.
+Just state the checkmate fact clearly."""
     
-    elif sf_line_description:
-        # We have specific info about what the line achieves
-        llm_prompt = f"""FACTS FROM STOCKFISH (chess engine - 100% accurate):
-- Position assessment: {sf_position_assessment}
-- Best move was: {sf_best_move}
-- Best line: {facts['best_line']}
-- What this achieves: {sf_line_description}
-- You played: {move_played}
-{f"- After your move: {facts.get('after_played', '')}" if facts.get('after_played') else ""}
+    elif sf_line_description and any(keyword in sf_line_description.lower() for keyword in ["captures", "check", "mate"]):
+        # Tactical case - we have specific info about what the line achieves
+        llm_prompt = f"""FACTS (from chess engine analysis - these are 100% accurate):
+• Position: {sf_position_assessment}
+• Mistake type: {mistake_classification['label']} (lost {mistake_classification['pawns_lost']:.1f} pawns worth)
+• Best move: {sf_best_move}
+• What it achieves: {sf_line_description}
+• Best line: {' → '.join(sf_best_line) if sf_best_line else 'not available'}
+• You played: {move_played}
+{f"• Consequence: {facts.get('consequence', '')}" if facts.get('consequence') else ""}
 
-Your task: Write a 2-3 sentence explanation based ONLY on these facts.
-Explain what {sf_best_move} achieves (use the 'What this achieves' fact).
-DO NOT invent any chess analysis. Only describe the facts provided."""
+Write 2-3 sentences explaining why {sf_best_move} was better.
+Use ONLY the facts above. Focus on "What it achieves".
+DO NOT make up any chess analysis."""
+    
+    else:
+        # General case - explain based on available facts
+        llm_prompt = f"""FACTS (from chess engine analysis - these are 100% accurate):
+• Position: {sf_position_assessment}
+• Mistake type: {mistake_classification['label']}
+• Best move: {sf_best_move}
+• You played: {move_played}
+{f"• Best continuation: {' → '.join(sf_best_line)}" if sf_best_line else ""}
+{f"• Consequence of your move: {facts.get('consequence', '')}" if facts.get('consequence') else ""}
+
+Write 2-3 sentences explaining why {sf_best_move} was the better choice.
+Base your explanation ONLY on the facts above.
+If key information is missing, simply say "{sf_best_move} was the engine's recommended move."
+DO NOT invent any chess strategy or analysis."""
+    
+    return {
+        "stockfish_analysis": stockfish_result,  # Raw engine data (for debugging)
+        "deterministic_facts": facts,  # Processed facts from our layer
+        "eval_classification": eval_classification,
+        "mistake_classification": mistake_classification,
+        "move_played": move_played,
+        "best_move": sf_best_move,
+        "is_mate": is_checkmate,
+        "is_tactical": sf_line_description and any(k in sf_line_description.lower() for k in ["captures", "check", "mate"]),
+        "needs_llm_humanization": use_llm,
+        "llm_prompt": llm_prompt
+    }
     
     else:
         # General case - use position assessment and evaluation
