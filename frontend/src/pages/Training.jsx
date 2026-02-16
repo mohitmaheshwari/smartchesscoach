@@ -234,6 +234,51 @@ const Training = ({ user }) => {
     fetchExplanation();
   }, [currentStep, currentMilestoneIndex, gameMilestones]);
 
+  // Fetch reflection history when switching to history view
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (viewMode !== "history" || reflectionHistory) return;
+      
+      try {
+        setLoadingHistory(true);
+        const res = await fetch(`${API}/training/reflection-history`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setReflectionHistory(data);
+        }
+      } catch (err) {
+        console.error("Error fetching reflection history:", err);
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+
+    fetchHistory();
+  }, [viewMode, reflectionHistory]);
+
+  // Fetch AI insights when on history view and history is loaded
+  useEffect(() => {
+    const fetchInsights = async () => {
+      if (viewMode !== "history" || !reflectionHistory || aiInsights) return;
+      if (reflectionHistory.total_reflections < 3) return;
+      
+      try {
+        setLoadingInsights(true);
+        const res = await fetch(`${API}/training/ai-insights`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setAiInsights(data);
+        }
+      } catch (err) {
+        console.error("Error fetching AI insights:", err);
+      } finally {
+        setLoadingInsights(false);
+      }
+    };
+
+    fetchInsights();
+  }, [viewMode, reflectionHistory, aiInsights]);
+
   // Fetch drills when reaching step 5
   useEffect(() => {
     const fetchDrills = async () => {
