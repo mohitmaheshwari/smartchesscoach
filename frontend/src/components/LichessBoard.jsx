@@ -297,6 +297,9 @@ const LichessBoard = forwardRef(({
           enabled: shouldBeInteractive,
           showGhost: true,
         },
+        selectable: {
+          enabled: shouldBeInteractive,
+        },
       });
     }
   }, [interactive, viewOnly, showDests, fen, planMode]);
