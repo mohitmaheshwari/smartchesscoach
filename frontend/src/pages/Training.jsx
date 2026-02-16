@@ -151,6 +151,47 @@ const Training = ({ user }) => {
     fetchProfile();
   }, []);
 
+  // Fetch phase progress when profile is loaded
+  useEffect(() => {
+    const fetchPhaseProgress = async () => {
+      if (!profile) return;
+      
+      try {
+        setLoadingProgress(true);
+        const res = await fetch(`${API}/training/phase-progress`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setPhaseProgress(data);
+          
+          // Check for graduation
+          if (data.ready_to_graduate) {
+            const gradRes = await fetch(`${API}/training/check-graduation`, {
+              method: "POST",
+              credentials: "include",
+            });
+            if (gradRes.ok) {
+              const gradData = await gradRes.json();
+              if (gradData.graduated) {
+                setGraduationMessage(gradData.message);
+                // Refresh profile
+                const newProfileRes = await fetch(`${API}/training/profile`, { credentials: "include" });
+                if (newProfileRes.ok) {
+                  setProfile(await newProfileRes.json());
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching phase progress:", err);
+      } finally {
+        setLoadingProgress(false);
+      }
+    };
+
+    fetchPhaseProgress();
+  }, [profile?.active_phase]);
+
   // Fetch reflection options
   useEffect(() => {
     const fetchReflectionOptions = async () => {
