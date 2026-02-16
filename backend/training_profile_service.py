@@ -1072,3 +1072,360 @@ async def get_drill_positions(db, user_id: str, limit: int = 5) -> List[Dict]:
                 })
     
     return drills[:limit]
+
+
+
+# =============================================================================
+# ENHANCED REFLECTION SYSTEM - Per-Position, Contextual
+# =============================================================================
+
+# Rating-based thresholds for what counts as "relevant" mistake
+RATING_MISTAKE_THRESHOLDS = {
+    "beginner": {  # < 1000
+        "min_cp_loss": 200,  # Only blunders
+        "categories": ["blunder"],
+    },
+    "intermediate": {  # 1000-1400
+        "min_cp_loss": 150,  # Blunders and big mistakes
+        "categories": ["blunder", "mistake"],
+    },
+    "club": {  # 1400-1800
+        "min_cp_loss": 100,  # All mistakes
+        "categories": ["blunder", "mistake"],
+    },
+    "advanced": {  # 1800+
+        "min_cp_loss": 50,  # Including inaccuracies
+        "categories": ["blunder", "mistake", "inaccuracy"],
+    },
+}
+
+def get_rating_category(rating: int) -> str:
+    """Get rating category for filtering mistakes."""
+    if rating < 1000:
+        return "beginner"
+    elif rating < 1400:
+        return "intermediate"
+    elif rating < 1800:
+        return "club"
+    return "advanced"
+
+
+def generate_contextual_options(position_data: Dict, phase: str) -> List[Dict]:
+    """
+    Generate contextual reflection options based on the specific position.
+    Not generic "rushing" but position-specific options.
+    """
+    options = []
+    cp_loss = position_data.get("cp_loss", 0)
+    eval_before = position_data.get("eval_before", 0)
+    eval_after = position_data.get("eval_after", 0)
+    has_threat = position_data.get("threat") is not None
+    move_number = position_data.get("move_number", 0)
+    game_phase = "opening" if move_number <= 12 else "middlegame" if move_number <= 30 else "endgame"
+    
+    # Position-specific options based on what happened
+    if has_threat:
+        options.append({
+            "tag": "missed_threat",
+            "label": "I didn't see their threat",
+            "contextual": True,
+        })
+    
+    if cp_loss >= 300:  # Hanging piece level
+        options.append({
+            "tag": "piece_safety",
+            "label": "I forgot to check if my piece was safe",
+            "contextual": True,
+        })
+    
+    if eval_before >= 150 and eval_after < 50:  # Lost winning position
+        options.append({
+            "tag": "lost_advantage",
+            "label": "I was winning and got careless",
+            "contextual": True,
+        })
+    
+    if game_phase == "opening":
+        options.append({
+            "tag": "opening_unfamiliar",
+            "label": "I wasn't sure what to do in this opening",
+            "contextual": True,
+        })
+    
+    if game_phase == "endgame":
+        options.append({
+            "tag": "endgame_technique",
+            "label": "I didn't know the right endgame plan",
+            "contextual": True,
+        })
+    
+    # Always include these general options
+    options.append({
+        "tag": "time_pressure",
+        "label": "I was low on time",
+        "contextual": False,
+    })
+    options.append({
+        "tag": "saw_but_miscalculated",
+        "label": "I saw the move but miscalculated the line",
+        "contextual": False,
+    })
+    options.append({
+        "tag": "didnt_consider",
+        "label": "I didn't even consider the better move",
+        "contextual": False,
+    })
+    options.append({
+        "tag": "tunnel_vision",
+        "label": "I was focused on my own plan",
+        "contextual": False,
+    })
+    
+    return options
+
+
+async def get_game_milestones_for_reflection(
+    db, 
+    user_id: str, 
+    game_id: str, 
+    rating: int = 1200
+) -> Dict:
+    """
+    Get ALL relevant mistakes/milestones from a specific game for reflection.
+    Filtered by rating (higher rated = finer grained feedback).
+    
+    Returns rich context per position:
+    - FEN, move played, better move
+    - Why better (from Stockfish data, to be humanized by GPT)
+    - What was the threat
+    - Contextual reflection options
+    - PV lines for interactive board
+    """
+    # Get rating category
+    rating_cat = get_rating_category(rating)
+    thresholds = RATING_MISTAKE_THRESHOLDS[rating_cat]
+    min_cp = thresholds["min_cp_loss"]
+    categories = thresholds["categories"]
+    
+    # Fetch the analysis
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user_id},
+        {"stockfish_analysis": 1, "game_id": 1}
+    )
+    
+    if not analysis:
+        return {"milestones": [], "error": "Game analysis not found"}
+    
+    # Fetch game info
+    game = await db.games.find_one(
+        {"game_id": game_id},
+        {"user_color": 1, "result": 1}
+    )
+    user_color = game.get("user_color", "white") if game else "white"
+    
+    sf = analysis.get("stockfish_analysis", {})
+    move_evals = sf.get("move_evaluations", [])
+    
+    milestones = []
+    
+    for m in move_evals:
+        # Only user's moves
+        is_user_move = m.get("is_user_move", False)
+        if not is_user_move:
+            # Check by FEN if is_user_move not set
+            fen = m.get("fen_before", "")
+            parts = fen.split(" ")
+            if len(parts) > 1:
+                turn = parts[1]
+                is_user_move = (user_color == "white" and turn == "w") or (user_color == "black" and turn == "b")
+        
+        if not is_user_move:
+            continue
+        
+        cp_loss = abs(m.get("cp_loss", 0))
+        evaluation = m.get("evaluation", "")
+        if hasattr(evaluation, "value"):
+            evaluation = evaluation.value
+        
+        # Filter by rating threshold
+        if cp_loss < min_cp:
+            continue
+        
+        # Check category
+        if evaluation.lower() not in categories and cp_loss < 200:
+            continue
+        
+        # Build rich milestone data
+        milestone = {
+            "move_number": m.get("move_number"),
+            "fen": m.get("fen_before"),
+            "user_move": m.get("move"),
+            "best_move": m.get("best_move"),
+            "cp_loss": cp_loss,
+            "eval_before": m.get("eval_before", 0),
+            "eval_after": m.get("eval_after", 0),
+            "evaluation_type": evaluation,
+            
+            # For interactive board
+            "pv_after_best": m.get("pv_after_best", []),
+            "pv_after_played": m.get("pv_after_played", []),
+            
+            # Threat info
+            "threat": m.get("threat"),
+            "threat_line": m.get("details", {}).get("threat_line") if m.get("details") else None,
+            
+            # Contextual options (generated per position)
+            "reflection_options": generate_contextual_options(m, "stability"),
+            
+            # Context for GPT explanation
+            "context_for_explanation": {
+                "move_played": m.get("move"),
+                "best_move": m.get("best_move"),
+                "cp_loss": cp_loss,
+                "eval_before": m.get("eval_before", 0),
+                "eval_after": m.get("eval_after", 0),
+                "threat": m.get("threat"),
+                "pv_best": m.get("pv_after_best", [])[:5],  # First 5 moves of best line
+                "pv_played": m.get("pv_after_played", [])[:5],
+            }
+        }
+        
+        milestones.append(milestone)
+    
+    # Sort by cp_loss (worst mistakes first)
+    milestones.sort(key=lambda x: x["cp_loss"], reverse=True)
+    
+    return {
+        "game_id": game_id,
+        "user_color": user_color,
+        "rating_category": rating_cat,
+        "min_cp_threshold": min_cp,
+        "milestones": milestones,
+        "total_count": len(milestones),
+    }
+
+
+async def generate_position_explanation(
+    db,
+    milestone: Dict,
+    use_llm: bool = True
+) -> Dict:
+    """
+    Generate human-readable explanation for why the better move is better.
+    Uses Stockfish data (deterministic) + GPT for natural language.
+    """
+    context = milestone.get("context_for_explanation", {})
+    
+    # Build deterministic chess context from Stockfish
+    move_played = context.get("move_played", "?")
+    best_move = context.get("best_move", "?")
+    cp_loss = context.get("cp_loss", 0)
+    eval_before = context.get("eval_before", 0) / 100
+    eval_after = context.get("eval_after", 0) / 100
+    threat = context.get("threat")
+    pv_best = context.get("pv_best", [])
+    pv_played = context.get("pv_played", [])
+    
+    # Deterministic analysis
+    stockfish_explanation = {
+        "eval_swing": f"Position went from {eval_before:+.1f} to {eval_after:+.1f}",
+        "cp_lost": f"Lost {cp_loss/100:.1f} pawns worth of advantage",
+    }
+    
+    if threat:
+        stockfish_explanation["threat_missed"] = f"You missed the threat: {threat}"
+    
+    if pv_best:
+        stockfish_explanation["better_line"] = f"Better continuation: {' '.join(pv_best[:4])}"
+    
+    if pv_played:
+        stockfish_explanation["played_line_consequence"] = f"Your move leads to: {' '.join(pv_played[:4])}"
+    
+    # Position type
+    if eval_before >= 1.5:
+        stockfish_explanation["position_context"] = "You were winning"
+    elif eval_before <= -1.5:
+        stockfish_explanation["position_context"] = "You were losing"
+    else:
+        stockfish_explanation["position_context"] = "Position was roughly equal"
+    
+    return {
+        "stockfish_analysis": stockfish_explanation,
+        "move_played": move_played,
+        "best_move": best_move,
+        "needs_llm_humanization": use_llm,
+        "llm_prompt": f"""Based on this chess position analysis, write a clear 2-3 sentence explanation for a {milestone.get('rating_category', 'club')} level player:
+
+Position: {stockfish_explanation.get('position_context', 'unclear')}
+You played: {move_played}
+Better was: {best_move}
+{stockfish_explanation.get('threat_missed', '')}
+{stockfish_explanation.get('better_line', '')}
+What happens after your move: {stockfish_explanation.get('played_line_consequence', '')}
+
+Explain WHY {best_move} is better in simple terms. Focus on the concrete consequence, not abstract concepts."""
+    }
+
+
+async def save_position_reflection(
+    db,
+    user_id: str,
+    game_id: str,
+    move_number: int,
+    reflection_data: Dict
+) -> Dict:
+    """
+    Save reflection for a SPECIFIC position (not whole game).
+    
+    reflection_data:
+    - selected_tags: List of contextual tags selected
+    - user_plan: What the user was thinking/planning
+    - understood: Whether user understood the explanation
+    """
+    reflection = {
+        "user_id": user_id,
+        "game_id": game_id,
+        "move_number": move_number,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "selected_tags": reflection_data.get("selected_tags", []),
+        "user_plan": reflection_data.get("user_plan", ""),  # What was user thinking
+        "understood": reflection_data.get("understood", True),
+        "fen": reflection_data.get("fen", ""),
+    }
+    
+    await db.position_reflections.insert_one(reflection)
+    
+    # Update pattern weights based on tags
+    profile = await get_training_profile(db, user_id)
+    if profile:
+        pattern_weights = profile.get("pattern_weights", {})
+        
+        # Map contextual tags to patterns
+        tag_to_pattern = {
+            "missed_threat": "threat_blindness",
+            "piece_safety": "hanging_pieces",
+            "lost_advantage": "overconfidence",
+            "time_pressure": "time_pressure",
+            "saw_but_miscalculated": "shallow_calculation",
+            "didnt_consider": "rushing",
+            "tunnel_vision": "aimless_play",
+            "opening_unfamiliar": "opening_deviation",
+            "endgame_technique": "endgame_technique",
+        }
+        
+        for tag in reflection_data.get("selected_tags", []):
+            pattern = tag_to_pattern.get(tag)
+            if pattern and pattern in pattern_weights:
+                pattern_weights[pattern] = min(1.0, pattern_weights[pattern] + 0.03)
+        
+        # Normalize
+        total = sum(pattern_weights.values())
+        if total > 0:
+            pattern_weights = {k: round(v / total, 3) for k, v in pattern_weights.items()}
+        
+        await db.training_profiles.update_one(
+            {"user_id": user_id},
+            {"$set": {"pattern_weights": pattern_weights}}
+        )
+    
+    return {"status": "saved", "move_number": move_number}
