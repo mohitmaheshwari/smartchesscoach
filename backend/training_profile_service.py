@@ -2201,6 +2201,8 @@ async def _calculate_phase_specific_stats(analyses: List[Dict], phase: Dict, rat
     avg_value = total_metric / len(analyses) if analyses else 0
     stats["metric_value"] = round(avg_value, 2)
     stats["clean_games"] = clean_count
+    stats["clean_streak"] = max_clean_streak  # NEW: Best consecutive clean games
+    stats["current_streak"] = clean_streak  # NEW: Current streak (from most recent games)
     
     # Calculate trend (first half vs second half)
     if len(per_game_values) >= 4:
