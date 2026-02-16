@@ -720,8 +720,6 @@ def compute_precision_cost(analyses: List[Dict], games: List[Dict]) -> Dict:
     - Endgame errors
     - Late-game mistakes (time pressure proxy)
     """
-    total_games = len(analyses) if analyses else 1
-    
     tactical_misses = 0
     endgame_errors = 0
     time_pressure_errors = 0
