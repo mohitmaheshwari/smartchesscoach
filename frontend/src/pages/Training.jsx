@@ -540,8 +540,7 @@ const Training = ({ user }) => {
   const renderPhaseStep = () => {
     const activePhase = profile?.active_phase;
     const LayerIcon = LAYER_ICONS[activePhase] || Target;
-    const examplePositions = profile?.example_positions || [];
-    const currentExample = examplePositions[currentExampleIndex];
+    // examplePositions and currentExample are now derived at component level
     
     // New tier-based progress data
     const progress = phaseProgress || {};
