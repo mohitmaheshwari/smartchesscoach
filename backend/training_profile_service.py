@@ -938,7 +938,7 @@ async def get_or_generate_training_profile(db, user_id: str, rating: int = 1200,
         if existing and existing.get("status") != "insufficient_data":
             # Check if we need to recalculate
             games_at_calc = existing.get("games_analyzed", 0)
-            current_games = await db.analyses.count_documents({"user_id": user_id})
+            current_games = await db.game_analyses.count_documents({"user_id": user_id})
             
             if current_games - games_at_calc < RECALC_THRESHOLD:
                 return existing
