@@ -810,17 +810,29 @@ def compute_precision_cost(analyses: List[Dict], games: List[Dict]) -> Dict:
 # MAIN TRAINING PROFILE GENERATION
 # =============================================================================
 
-async def generate_training_profile(db, user_id: str, rating: int = 1200) -> Dict:
+async def generate_training_profile(db, user_id: str, rating: int = 1200, preserve_phase: bool = False) -> Dict:
     """
     Generate a complete training profile for a user.
     
     Returns:
-    - active_phase: highest cost layer
+    - active_phase: highest cost layer (or preserved from graduation)
     - micro_habit: dominant pattern within phase
     - rules: 2 actionable rules for the week
     - layer_breakdown: costs for all 4 layers
     - drill_positions: positions for practice
+    
+    If preserve_phase=True, keeps the existing active_phase from graduation.
     """
+    # Get existing profile to check for graduation status
+    existing_profile = await get_training_profile(db, user_id)
+    graduated_phase = None
+    phase_started_at = None
+    
+    if existing_profile and preserve_phase:
+        # Check if there's a graduation in progress
+        graduated_phase = existing_profile.get("active_phase")
+        phase_started_at = existing_profile.get("phase_started_at")
+    
     # Fetch analyzed games
     analyses = await db.game_analyses.find(
         {"user_id": user_id},
