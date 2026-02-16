@@ -5703,11 +5703,10 @@ async def get_ai_insights(user: User = Depends(get_current_user)):
     
     # Use GPT to generate insights
     try:
-        from emergentintegrations.llm.chat import chat, UserMessage
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
         
-        response = await chat(
-            api_key=OPENAI_API_KEY,
-            model="gpt-4o-mini",
+        llm = LlmChat(api_key=OPENAI_API_KEY, model="gpt-4o-mini")
+        response = await llm.chat(
             system_message="You are a chess coach analyzing a player's thinking patterns. Be specific, reference their actual words, and give actionable advice.",
             messages=[UserMessage(content=suggestion_data["prompt"])],
             temperature=0.7
