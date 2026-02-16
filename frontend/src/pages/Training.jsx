@@ -149,6 +149,79 @@ const Training = ({ user }) => {
     fetchReflectionOptions();
   }, []);
 
+  // Fetch game milestones when reaching reflection step (step 4)
+  useEffect(() => {
+    const fetchMilestones = async () => {
+      if (currentStep !== 3 || gameMilestones.length > 0) return;
+      
+      try {
+        setLoadingMilestones(true);
+        
+        // First get the last game ID
+        const lastGameRes = await fetch(`${API}/training/last-game-for-reflection`, { credentials: "include" });
+        if (!lastGameRes.ok) return;
+        const { game_id } = await lastGameRes.json();
+        if (!game_id) return;
+        
+        // Then fetch milestones for that game
+        const res = await fetch(`${API}/training/game/${game_id}/milestones`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setGameMilestones(data.milestones || []);
+          // Reset state for new milestones
+          setCurrentMilestoneIndex(0);
+          setMilestoneSelectedTags({});
+          setMilestoneUserPlans({});
+          setMilestoneExplanation(null);
+        }
+      } catch (err) {
+        console.error("Error fetching milestones:", err);
+      } finally {
+        setLoadingMilestones(false);
+      }
+    };
+
+    fetchMilestones();
+  }, [currentStep, gameMilestones.length]);
+
+  // Fetch explanation when milestone changes
+  useEffect(() => {
+    const fetchExplanation = async () => {
+      if (currentStep !== 3 || gameMilestones.length === 0) return;
+      
+      const milestone = gameMilestones[currentMilestoneIndex];
+      if (!milestone) return;
+      
+      try {
+        setLoadingExplanation(true);
+        setMilestoneExplanation(null);
+        
+        const res = await fetch(`${API}/training/milestone/explain`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            context_for_explanation: milestone.context_for_explanation,
+            fen: milestone.fen,
+            move_played: milestone.user_move,
+            best_move: milestone.best_move,
+          }),
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setMilestoneExplanation(data);
+        }
+      } catch (err) {
+        console.error("Error fetching explanation:", err);
+      } finally {
+        setLoadingExplanation(false);
+      }
+    };
+
+    fetchExplanation();
+  }, [currentStep, currentMilestoneIndex, gameMilestones]);
+
   // Fetch drills when reaching step 5
   useEffect(() => {
     const fetchDrills = async () => {
