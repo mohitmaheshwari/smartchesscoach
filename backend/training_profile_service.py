@@ -1711,6 +1711,7 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200, preser
         
         # Example positions - FILTERED BY CURRENT TRAINING PHASE
         "example_positions": phase_filtered_positions[:5],
+        "no_phase_examples": len(phase_filtered_positions) == 0 and current_phase_id in positional_phases_no_fallback,
         
         # Reflection question
         "reflection_question": PATTERN_INFO.get(micro_habit, {}).get("question", "What happened in this game?"),
