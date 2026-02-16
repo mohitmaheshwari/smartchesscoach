@@ -870,7 +870,7 @@ async def generate_training_profile(db, user_id: str, rating: int = 1200) -> Dic
     profile = {
         "user_id": user_id,
         "computed_at": datetime.now(timezone.utc).isoformat(),
-        "games_analyzed": len(analyses),
+        "games_analyzed": len(valid_analyses),
         "rating_at_computation": rating,
         "rating_tier": rating_tier,
         
