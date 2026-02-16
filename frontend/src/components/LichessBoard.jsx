@@ -242,29 +242,10 @@ const LichessBoard = forwardRef(({
     };
   }, []);
 
-  // Update position when fen changes
-  useEffect(() => {
-    if (groundRef.current && fen) {
-      chessRef.current = new Chess(fen);
-      const shouldBeInteractive = planMode || (interactive && !viewOnly);
-      groundRef.current.set({
-        fen: fen,
-        turnColor: getTurnColor(fen),
-        movable: {
-          dests: shouldBeInteractive && showDests 
-            ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current))
-            : new Map(),
-        },
-        lastMove: lastMove || undefined,
-      });
-    }
-  }, [fen, interactive, viewOnly, showDests, lastMove, planMode]);
-
-  // Update interactivity when interactive/viewOnly changes
+  // Update position when fen changes AND update interactivity
+  // Combined effect to avoid race conditions between fen updates and interactivity changes
   useEffect(() => {
     if (groundRef.current) {
-      // Check planMode first - if planMode is true, we want the board interactive
-      // regardless of the interactive prop
       const shouldBeInteractive = planMode || (interactive && !viewOnly);
       
       // Update chess instance with current FEN
@@ -282,13 +263,15 @@ const LichessBoard = forwardRef(({
         ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current))
         : new Map();
       
-      console.log("LichessBoard interactivity update:", { shouldBeInteractive, planMode, interactive, destsSize: dests.size, fenStart: fen?.substring(0, 30) });
+      console.log("LichessBoard update:", { shouldBeInteractive, planMode, interactive, viewOnly, destsSize: dests.size, fenStart: fen?.substring(0, 30) });
       
-      // Apply configuration - key fix: ensure viewOnly is false and draggable is enabled
+      // Apply all configuration together
       groundRef.current.set({
+        fen: fen,
+        turnColor: getTurnColor(fen),
         viewOnly: !shouldBeInteractive,
         movable: {
-          free: false,  // Don't use free mode - use dests instead for better control
+          free: false,
           color: shouldBeInteractive ? "both" : undefined,
           dests: dests,
           showDests: showDests && shouldBeInteractive,
@@ -300,9 +283,10 @@ const LichessBoard = forwardRef(({
         selectable: {
           enabled: shouldBeInteractive,
         },
+        lastMove: lastMove || undefined,
       });
     }
-  }, [interactive, viewOnly, showDests, fen, planMode]);
+  }, [fen, interactive, viewOnly, showDests, lastMove, planMode]);
 
   // Update orientation
   useEffect(() => {
