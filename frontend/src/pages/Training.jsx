@@ -83,6 +83,7 @@ const Training = ({ user }) => {
   // Board state
   const [currentFen, setCurrentFen] = useState(START_FEN);
   const [currentDrillIndex, setCurrentDrillIndex] = useState(0);
+  const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
 
   // Reflection state
   const [reflectionOptions, setReflectionOptions] = useState([]);
