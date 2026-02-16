@@ -194,9 +194,14 @@ const LichessBoard = forwardRef(({
   useEffect(() => {
     if (groundRef.current) {
       const isInteractive = interactive && !viewOnly;
-      // Ensure chess instance is current
+      // Ensure chess instance is synced with current FEN before getting dests
+      try {
+        chessRef.current = new Chess(groundRef.current.state.fen);
+      } catch (e) {
+        console.warn("Could not sync chess instance:", e);
+      }
       const dests = isInteractive && showDests ? getMovableDests(chessRef.current) : new Map();
-      console.log("LichessBoard interactivity update:", { isInteractive, viewOnly, interactive, destsSize: dests.size });
+      console.log("LichessBoard interactivity update:", { isInteractive, viewOnly, interactive, destsSize: dests.size, fen: chessRef.current.fen().substring(0, 40) });
       groundRef.current.set({
         viewOnly: !isInteractive,
         movable: {
@@ -211,7 +216,7 @@ const LichessBoard = forwardRef(({
         },
       });
     }
-  }, [interactive, viewOnly, showDests]);
+  }, [interactive, viewOnly, showDests, fen]);
 
   // Update orientation
   useEffect(() => {
