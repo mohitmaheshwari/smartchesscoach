@@ -162,25 +162,6 @@ const Training = ({ user }) => {
         if (res.ok) {
           const data = await res.json();
           setPhaseProgress(data);
-          
-          // Check for graduation
-          if (data.ready_to_graduate) {
-            const gradRes = await fetch(`${API}/training/check-graduation`, {
-              method: "POST",
-              credentials: "include",
-            });
-            if (gradRes.ok) {
-              const gradData = await gradRes.json();
-              if (gradData.graduated) {
-                setGraduationMessage(gradData.message);
-                // Refresh profile
-                const newProfileRes = await fetch(`${API}/training/profile`, { credentials: "include" });
-                if (newProfileRes.ok) {
-                  setProfile(await newProfileRes.json());
-                }
-              }
-            }
-          }
         }
       } catch (err) {
         console.error("Error fetching phase progress:", err);
@@ -191,6 +172,31 @@ const Training = ({ user }) => {
 
     fetchPhaseProgress();
   }, [profile?.active_phase]);
+
+  // Handle manual graduation when user is ready
+  const handleGraduation = async () => {
+    try {
+      const res = await fetch(`${API}/training/check-graduation`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.graduated) {
+          setGraduationMessage(data.message);
+          // Refresh profile
+          const newProfileRes = await fetch(`${API}/training/profile`, { credentials: "include" });
+          if (newProfileRes.ok) {
+            setProfile(await newProfileRes.json());
+            setPhaseProgress(null); // Reset to refetch
+          }
+          toast.success(data.message);
+        }
+      }
+    } catch (err) {
+      toast.error("Failed to graduate");
+    }
+  };
 
   // Fetch reflection options
   useEffect(() => {
