@@ -5610,7 +5610,7 @@ async def explain_milestone(
             from emergentintegrations.llm.chat import chat, UserMessage
             
             response = await chat(
-                api_key=EMERGENT_API_KEY,
+                api_key=OPENAI_API_KEY,
                 model="gpt-4o-mini",
                 system_message="You are a chess coach explaining moves to amateur players. Be concrete and simple. Focus on the 'what happens' not abstract strategy.",
                 messages=[UserMessage(content=explanation["llm_prompt"])],
