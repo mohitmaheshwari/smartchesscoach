@@ -1429,3 +1429,131 @@ async def save_position_reflection(
         )
     
     return {"status": "saved", "move_number": move_number}
+
+
+
+# =============================================================================
+# REFLECTION HISTORY & AI INSIGHTS
+# =============================================================================
+
+async def get_reflection_history(db, user_id: str, limit: int = 50) -> Dict:
+    """
+    Get user's reflection history with pattern evolution over time.
+    
+    Returns:
+    - reflections: List of past reflections with context
+    - pattern_evolution: How pattern weights changed over time
+    - summary_stats: Aggregated statistics
+    """
+    # Fetch reflections
+    cursor = db.position_reflections.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit)
+    
+    reflections = await cursor.to_list(length=limit)
+    
+    # Calculate pattern evolution (aggregate tags over time)
+    tag_counts = {}
+    plans = []
+    
+    for r in reflections:
+        for tag in r.get("selected_tags", []):
+            tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        
+        if r.get("user_plan"):
+            plans.append({
+                "plan": r["user_plan"],
+                "tags": r.get("selected_tags", []),
+                "created_at": r.get("created_at"),
+                "move_number": r.get("move_number"),
+            })
+    
+    # Calculate percentages
+    total_tags = sum(tag_counts.values())
+    tag_percentages = {}
+    if total_tags > 0:
+        tag_percentages = {k: round(v / total_tags * 100, 1) for k, v in tag_counts.items()}
+    
+    # Sort by frequency
+    sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
+    
+    return {
+        "reflections": reflections,
+        "total_reflections": len(reflections),
+        "tag_counts": dict(sorted_tags),
+        "tag_percentages": tag_percentages,
+        "top_patterns": sorted_tags[:5],
+        "user_plans": plans,
+    }
+
+
+async def analyze_user_thinking_patterns(db, user_id: str) -> Dict:
+    """
+    Use AI to analyze common phrases and patterns in user's written plans.
+    
+    Returns insights about:
+    - Common themes in their thinking
+    - Recurring mistakes in reasoning
+    - Specific suggestions based on their patterns
+    """
+    # Get reflection history
+    history = await get_reflection_history(db, user_id, limit=30)
+    plans = history.get("user_plans", [])
+    tag_counts = history.get("tag_counts", {})
+    
+    if len(plans) < 3:
+        return {
+            "has_enough_data": False,
+            "message": "Need at least 3 reflections to analyze patterns",
+            "reflections_count": len(plans),
+        }
+    
+    # Build context for AI
+    plans_text = "\n".join([
+        f"- Move {p['move_number']}: \"{p['plan']}\" (Tags: {', '.join(p['tags'])})"
+        for p in plans[:20]
+    ])
+    
+    top_tags = ", ".join([f"{tag} ({count}x)" for tag, count in list(tag_counts.items())[:5]])
+    
+    return {
+        "has_enough_data": True,
+        "plans_for_analysis": plans_text,
+        "top_tags": top_tags,
+        "total_reflections": len(plans),
+        "analysis_prompt": f"""Analyze this chess player's thinking patterns from their reflections:
+
+WHAT THEY WROTE DURING MISTAKES:
+{plans_text}
+
+MOST COMMON ISSUES THEY IDENTIFIED:
+{top_tags}
+
+Based on this data:
+1. THINKING PATTERNS: What recurring themes or habits do you see in their thought process? (2-3 key patterns)
+2. ROOT CAUSE: What seems to be the underlying issue causing their mistakes?
+3. SPECIFIC SUGGESTIONS: Give 2-3 concrete, actionable suggestions tailored to THEIR specific patterns. Reference their actual words.
+
+Keep response under 200 words. Be direct and specific, not generic."""
+    }
+
+
+async def generate_personalized_suggestions(db, user_id: str) -> Dict:
+    """
+    Generate AI-powered suggestions based on user's reflection history.
+    """
+    analysis_data = await analyze_user_thinking_patterns(db, user_id)
+    
+    if not analysis_data.get("has_enough_data"):
+        return analysis_data
+    
+    # This will be called by the API endpoint which uses GPT
+    return {
+        "ready_for_ai": True,
+        "prompt": analysis_data["analysis_prompt"],
+        "context": {
+            "total_reflections": analysis_data["total_reflections"],
+            "top_tags": analysis_data["top_tags"],
+        }
+    }
