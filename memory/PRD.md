@@ -65,6 +65,15 @@ Migrated from `react-chessboard` to Lichess `chessground` library for better UX:
   - Maintains same API for Training.jsx compatibility
   - Supports drill mode, arrows, flip board, and position props
 - **Libraries**: `chessground@9.2.1` for board, `chess.js@1.4.0` for move validation
+- **Two-Arrow System**: Red arrow shows user's move (mistake), Blue arrow shows better move
+- **Legend**: Clear legend below board explains arrow colors
+
+### Example Position Filtering (Feb 2026) ✅ FIXED
+Fixed data issue where tactical mistakes were shown in positional training phases:
+- **Stricter Pawn Structure Filtering**: Only shows positions where user made a bad pawn push
+- **Excludes Tactics**: Positions with >250 centipawn loss filtered out (usually tactical)
+- **Uses Mistake Classifier**: Forks, pins, etc. properly excluded from positional phases
+- **No Fallback to Unrelated Positions**: Shows helpful message instead of irrelevant examples
 
 ### Bug Fixes (Dec 2025)
 - ✅ Example positions now load correct FEN (was showing starting position)
