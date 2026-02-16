@@ -302,6 +302,118 @@ const Lab = ({ user }) => {
   const goForward = () => currentMoveIndex < moves.length - 1 && goToMove(currentMoveIndex + 1);
   const flipBoard = () => setBoardOrientation(o => o === "white" ? "black" : "white");
   
+  // Play a variation from a specific FEN position
+  // This animates the best line on the board so users can visualize it
+  const [variationMode, setVariationMode] = useState(false);
+  const [variationMoves, setVariationMoves] = useState([]);
+  const [variationIndex, setVariationIndex] = useState(0);
+  const [variationBaseFen, setVariationBaseFen] = useState(null);
+  
+  const playVariation = (fenBefore, bestMove, pvLine) => {
+    if (!fenBefore || !bestMove) {
+      toast.error("Position data not available");
+      return;
+    }
+    
+    // Build the full line: best move + continuation
+    const fullLine = [bestMove, ...(pvLine || [])];
+    
+    // Set up variation mode
+    setVariationBaseFen(fenBefore);
+    setVariationMoves(fullLine);
+    setVariationIndex(0);
+    setVariationMode(true);
+    setIsPlaying(false); // Stop any normal playback
+    
+    // Show the starting position
+    setPositionObject(fenToPositionObject(fenBefore));
+    setLastMoveSquares({});
+    
+    toast.success(`Playing ${fullLine.length} move variation...`);
+  };
+  
+  // Exit variation mode and return to game
+  const exitVariation = () => {
+    setVariationMode(false);
+    setVariationMoves([]);
+    setVariationIndex(0);
+    setVariationBaseFen(null);
+    // Return to current position in the actual game
+    const fen = allFens[currentMoveIndex + 1] || START_FEN;
+    setPositionObject(fenToPositionObject(fen));
+  };
+  
+  // Step through variation
+  const variationNext = () => {
+    if (variationIndex >= variationMoves.length) return;
+    
+    try {
+      // Build position up to current variation index
+      const chess = new Chess(variationBaseFen);
+      for (let i = 0; i <= variationIndex; i++) {
+        const move = variationMoves[i];
+        if (move) {
+          const result = chess.move(move);
+          if (!result) {
+            console.error(`Invalid move in variation: ${move}`);
+            return;
+          }
+        }
+      }
+      
+      // Update board
+      setPositionObject(fenToPositionObject(chess.fen()));
+      
+      // Highlight the last move
+      const lastMove = chess.history({ verbose: true }).slice(-1)[0];
+      if (lastMove) {
+        setLastMoveSquares({
+          [lastMove.from]: { backgroundColor: "rgba(100, 200, 100, 0.5)" },
+          [lastMove.to]: { backgroundColor: "rgba(100, 200, 100, 0.5)" }
+        });
+      }
+      
+      setVariationIndex(i => i + 1);
+    } catch (e) {
+      console.error("Error playing variation:", e);
+    }
+  };
+  
+  const variationBack = () => {
+    if (variationIndex <= 0) {
+      // Back to base position
+      setPositionObject(fenToPositionObject(variationBaseFen));
+      setLastMoveSquares({});
+      return;
+    }
+    
+    try {
+      // Build position up to one move before current
+      const chess = new Chess(variationBaseFen);
+      for (let i = 0; i < variationIndex - 1; i++) {
+        chess.move(variationMoves[i]);
+      }
+      
+      setPositionObject(fenToPositionObject(chess.fen()));
+      setVariationIndex(i => i - 1);
+      
+      // Highlight last move if any
+      if (variationIndex > 1) {
+        const lastMove = chess.history({ verbose: true }).slice(-1)[0];
+        if (lastMove) {
+          setLastMoveSquares({
+            [lastMove.from]: { backgroundColor: "rgba(100, 200, 100, 0.5)" },
+            [lastMove.to]: { backgroundColor: "rgba(100, 200, 100, 0.5)" }
+          });
+        }
+      } else {
+        setLastMoveSquares({});
+      }
+    } catch (e) {
+      console.error("Error going back in variation:", e);
+    }
+  };
+  
   // Toggle play
   const togglePlay = () => {
     if (currentMoveIndex >= moves.length - 1) {
