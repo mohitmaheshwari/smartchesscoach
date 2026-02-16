@@ -1423,29 +1423,59 @@ const Training = ({ user }) => {
             <div>
               <h2 className="text-sm font-medium text-muted-foreground">Training Engine</h2>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRegenerate}
-              disabled={regenerating}
-              className="gap-2"
-            >
-              {regenerating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
+            <div className="flex items-center gap-2">
+              {/* View Toggle */}
+              <Button
+                variant={viewMode === "history" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode(viewMode === "history" ? "training" : "history")}
+                className="gap-2"
+              >
+                {viewMode === "history" ? (
+                  <>
+                    <Target className="w-4 h-4" />
+                    Training
+                  </>
+                ) : (
+                  <>
+                    <History className="w-4 h-4" />
+                    History
+                  </>
+                )}
+              </Button>
+              {viewMode === "training" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  className="gap-2"
+                >
+                  {regenerating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Refresh
+                </Button>
               )}
-              Refresh
-            </Button>
+            </div>
           </div>
 
-          {/* Step Indicator */}
-          {renderStepIndicator()}
+          {/* Conditional Rendering: Training vs History */}
+          {viewMode === "history" ? (
+            renderHistoryView()
+          ) : (
+            <>
+              {/* Step Indicator */}
+              {renderStepIndicator()}
 
-          {/* Step Content */}
-          <AnimatePresence mode="wait">
-            {STEP_RENDERERS[currentStep]()}
-          </AnimatePresence>
+              {/* Step Content */}
+              <AnimatePresence mode="wait">
+                {STEP_RENDERERS[currentStep]()}
+              </AnimatePresence>
+            </>
+          )}
         </div>
       </div>
     </Layout>
