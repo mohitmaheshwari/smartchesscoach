@@ -140,7 +140,7 @@ const CoachBoard = forwardRef(({
     if (onUserMove) {
       onUserMove(moveData);
     }
-  }, [isDrillActive, expectedMoves, onDrillResult, onUserMove, position, initialFen]);
+  }, [isDrillActive, isPlanMode, planMoves, expectedMoves, onDrillResult, onUserMove, onPlanMove, position, initialFen]);
 
   // Expose methods to parent
   useImperativeHandle(ref, () => ({
@@ -148,8 +148,10 @@ const CoachBoard = forwardRef(({
     jumpToFen: (newFen, options = {}) => {
       setFen(newFen);
       chessRef.current = new Chess(newFen);
+      initialFenRef.current = newFen;
       setDrillFeedback(null);
       setLastMove(null);
+      setPlanMoves([]);
       
       if (options.arrows) {
         setArrows(options.arrows);
@@ -161,6 +163,40 @@ const CoachBoard = forwardRef(({
       if (lichessBoardRef.current && options.highlight) {
         lichessBoardRef.current.highlightSquares(options.highlight);
       }
+    },
+
+    // Plan mode methods
+    startPlanMode: () => {
+      setIsPlanMode(true);
+      setPlanMoves([]);
+    },
+
+    stopPlanMode: () => {
+      setIsPlanMode(false);
+      setPlanMoves([]);
+    },
+
+    getPlanMoves: () => planMoves,
+
+    undoPlanMove: () => {
+      if (planMoves.length > 0) {
+        chessRef.current.undo();
+        const newFen = chessRef.current.fen();
+        setFen(newFen);
+        const newMoves = planMoves.slice(0, -1);
+        setPlanMoves(newMoves);
+        setLastMove(null);
+        return newMoves;
+      }
+      return planMoves;
+    },
+
+    resetPlan: () => {
+      const startFen = initialFenRef.current;
+      chessRef.current = new Chess(startFen);
+      setFen(startFen);
+      setPlanMoves([]);
+      setLastMove(null);
     },
 
     // Highlight specific squares
