@@ -5689,18 +5689,6 @@ async def get_phase_progress_endpoint(user: User = Depends(get_current_user)):
     return result
 
 
-@api_router.post("/training/check-graduation")
-async def check_graduation(user: User = Depends(get_current_user)):
-    """
-    Check if user is ready to graduate from current phase.
-    If ready, automatically move them to next phase.
-    """
-    from training_profile_service import check_and_graduate_phase
-    
-    result = await check_and_graduate_phase(db, user.user_id)
-    return result
-
-
 @api_router.get("/training/reflection-history")
 async def get_reflection_history_endpoint(user: User = Depends(get_current_user)):
     """
