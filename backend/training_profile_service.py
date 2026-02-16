@@ -1046,6 +1046,142 @@ def compute_precision_cost(analyses: List[Dict], games: List[Dict]) -> Dict:
 
 
 # =============================================================================
+# PHASE-FILTERED EXAMPLE POSITIONS
+# =============================================================================
+
+def get_phase_filter_criteria(phase_id: str) -> Dict:
+    """
+    Get the move filtering criteria for a specific training phase.
+    Returns move_range and other criteria for filtering example positions.
+    """
+    # Phase-specific criteria based on what the phase is training
+    PHASE_FILTERS = {
+        # Fundamentals tier
+        "piece_safety": {"min_cp_loss": 200, "move_range": None},  # Any move
+        "check_awareness": {"min_cp_loss": 150, "move_range": None},
+        "capture_awareness": {"min_cp_loss": 150, "move_range": None},
+        
+        # Stability tier
+        "blunder_reduction": {"min_cp_loss": 200, "move_range": None},
+        "threat_detection": {"min_cp_loss": 100, "move_range": None, "requires_threat": True},
+        "piece_activity": {"min_cp_loss": 100, "move_range": (1, 20)},  # Early-mid game
+        
+        # Structure tier - OPENING focused phases should only show opening moves
+        "opening_principles": {"min_cp_loss": 80, "move_range": (1, 12)},  # Opening only!
+        "pawn_structure": {"min_cp_loss": 100, "move_range": (1, 25)},
+        "piece_coordination": {"min_cp_loss": 100, "move_range": (10, 30)},  # Early middlegame
+        
+        # Conversion tier
+        "advantage_maintenance": {"min_cp_loss": 100, "move_range": None, "was_winning": True},
+        "winning_technique": {"min_cp_loss": 100, "move_range": None, "was_winning": True},
+        "endgame_basics": {"min_cp_loss": 100, "move_range": (30, 999)},  # Endgame only
+        
+        # Precision tier
+        "calculation_depth": {"min_cp_loss": 80, "move_range": (15, 40)},  # Middlegame
+        "positional_understanding": {"min_cp_loss": 80, "move_range": (12, 35)},
+        "complex_tactics": {"min_cp_loss": 100, "move_range": (12, 45)},
+        
+        # Mastery tier
+        "deep_preparation": {"min_cp_loss": 50, "move_range": (1, 15)},
+        "time_management": {"min_cp_loss": 100, "move_range": (25, 999)},  # Late game
+        "psychological_resilience": {"min_cp_loss": 100, "move_range": None, "was_losing": True},
+    }
+    
+    return PHASE_FILTERS.get(phase_id, {"min_cp_loss": 100, "move_range": None})
+
+
+def filter_positions_for_phase(all_positions: List[Dict], phase_id: str) -> List[Dict]:
+    """
+    Filter example positions to only include those relevant to the training phase.
+    """
+    criteria = get_phase_filter_criteria(phase_id)
+    move_range = criteria.get("move_range")
+    min_cp = criteria.get("min_cp_loss", 100)
+    requires_threat = criteria.get("requires_threat", False)
+    was_winning = criteria.get("was_winning", False)
+    was_losing = criteria.get("was_losing", False)
+    
+    filtered = []
+    for pos in all_positions:
+        move_num = pos.get("move_number", 0)
+        cp_loss = abs(pos.get("cp_loss", 0))
+        
+        # Check move range
+        if move_range:
+            min_move, max_move = move_range
+            if not (min_move <= move_num <= max_move):
+                continue
+        
+        # Check minimum cp loss
+        if cp_loss < min_cp:
+            continue
+        
+        # Check if threat was missed (for threat-focused phases)
+        if requires_threat and not pos.get("threat"):
+            continue
+        
+        # Check if user was winning (for conversion phases)
+        eval_before = pos.get("eval_before", 0)
+        if was_winning and eval_before < 150:  # Need to be at least +1.5 to be "winning"
+            continue
+        
+        # Check if user was losing (for resilience phases)
+        if was_losing and eval_before > -150:
+            continue
+        
+        filtered.append(pos)
+    
+    return filtered
+
+
+def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict], phase_id: str) -> List[Dict]:
+    """
+    Collect ALL mistake positions that match the phase criteria from all analyses.
+    This gives us phase-relevant examples regardless of the "layer" they came from.
+    """
+    criteria = get_phase_filter_criteria(phase_id)
+    move_range = criteria.get("move_range")
+    min_cp = criteria.get("min_cp_loss", 100)
+    
+    all_positions = []
+    
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        sf = analysis.get("stockfish_analysis", {})
+        moves = sf.get("move_evaluations", [])
+        
+        for m in moves:
+            cp_loss = abs(m.get("cp_loss", 0))
+            move_number = m.get("move_number", 0)
+            
+            # Check minimum cp loss
+            if cp_loss < min_cp:
+                continue
+            
+            # Check move range for phase
+            if move_range:
+                min_move, max_move = move_range
+                if not (min_move <= move_number <= max_move):
+                    continue
+            
+            position = {
+                "game_id": game_id,
+                "move_number": move_number,
+                "cp_loss": cp_loss,
+                "fen": m.get("fen_before"),
+                "move": m.get("move"),
+                "best_move": m.get("best_move"),
+                "eval_before": m.get("eval_before", 0),
+                "eval_after": m.get("eval_after", 0),
+                "threat": m.get("threat"),
+            }
+            all_positions.append(position)
+    
+    # Sort by cp_loss (worst first) and return
+    return sorted(all_positions, key=lambda x: x["cp_loss"], reverse=True)
+
+
+# =============================================================================
 # MAIN TRAINING PROFILE GENERATION
 # =============================================================================
 
