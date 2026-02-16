@@ -453,7 +453,6 @@ const Training = ({ user }) => {
     if (boardRef.current && currentExample?.best_move && currentExample?.fen) {
       // Parse the best move using chess.js
       try {
-        const { Chess } = require("chess.js");
         const chess = new Chess(currentExample.fen);
         const move = chess.move(currentExample.best_move, { sloppy: true });
         if (move) {
