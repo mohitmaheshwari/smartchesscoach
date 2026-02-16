@@ -2127,19 +2127,44 @@ async def generate_position_explanation(
     
     if HAS_MISTAKE_CLASSIFIER and fen:
         try:
-            # Use the EXISTING deterministic classifier
-            classified_mistake = classify_mistake(
-                fen=fen,
-                move_played=move_played,
-                best_move=best_move_input,
-                eval_before=eval_before / 100 if abs(eval_before) > 10 else eval_before,  # Convert to pawns
-                eval_after=eval_after / 100 if abs(eval_after) > 10 else eval_after,
-                user_color="white" if " w " in fen else "black",
-            )
+            # Get fen_after by playing the move on the board
+            fen_after = None
+            move_number = milestone.get("move_number") or milestone.get("context_for_explanation", {}).get("move_number", 20)
             
-            # Get the verbalization template - this is what GPT narrates
-            if classified_mistake:
-                verbalization_template = get_verbalization_template(classified_mistake)
+            try:
+                board = chess.Board(fen)
+                # Try to parse and apply the move
+                move = None
+                try:
+                    move = board.parse_san(move_played)
+                except:
+                    try:
+                        move = board.parse_uci(move_played)
+                    except:
+                        pass
+                
+                if move and move in board.legal_moves:
+                    board.push(move)
+                    fen_after = board.fen()
+            except:
+                pass
+            
+            # Only call classifier if we have both FENs
+            if fen_after:
+                classified_mistake = classify_mistake(
+                    fen_before=fen,
+                    fen_after=fen_after,
+                    move_played=move_played,
+                    best_move=best_move_input,
+                    eval_before=eval_before if abs(eval_before) <= 100 else eval_before,  # Already in centipawns
+                    eval_after=eval_after if abs(eval_after) <= 100 else eval_after,
+                    user_color="white" if " w " in fen else "black",
+                    move_number=move_number,
+                )
+                
+                # Get the verbalization template - this is what GPT narrates
+                if classified_mistake:
+                    verbalization_template = get_verbalization_template(classified_mistake)
         except Exception as e:
             logger.warning(f"Mistake classifier failed: {e}")
     
