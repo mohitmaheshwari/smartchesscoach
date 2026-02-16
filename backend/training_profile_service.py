@@ -1532,12 +1532,8 @@ def collect_all_phase_relevant_positions(analyses: List[Dict], games: List[Dict]
             }
             all_positions.append(position)
     
-    # Sort: prioritize phase-relevant positions, then by cp_loss (but not TOO high)
-    all_positions.sort(key=lambda x: (
-        not x.get("is_phase_relevant", False),  # Phase relevant first
-        x.get("is_tactical", False),  # Non-tactical first for positional phases
-        -min(x["cp_loss"], 500)  # Higher loss, but cap at 500 to avoid tactics
-    ))
+    # Sort by cp_loss (moderate losses first, capped to avoid pure tactics)
+    all_positions.sort(key=lambda x: -min(x["cp_loss"], 400))
     
     return all_positions
 
