@@ -5548,6 +5548,125 @@ async def get_layer_info():
     }
 
 
+@api_router.get("/training/game/{game_id}/milestones")
+async def get_game_milestones(
+    game_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get ALL mistakes/milestones from a game for reflection.
+    
+    Rating-based filtering:
+    - <1000: Only blunders (≥200cp)
+    - 1000-1400: Blunders + big mistakes (≥150cp)
+    - 1400-1800: All mistakes (≥100cp)
+    - 1800+: Including inaccuracies (≥50cp)
+    
+    Each milestone includes:
+    - Position FEN, move played, better move
+    - PV lines for interactive board
+    - Threat info if applicable
+    - Contextual reflection options
+    """
+    from training_profile_service import get_game_milestones_for_reflection
+    
+    # Get user rating
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("rating", 1200) if user_doc else 1200
+    
+    result = await get_game_milestones_for_reflection(db, user.user_id, game_id, rating)
+    return result
+
+
+@api_router.post("/training/milestone/explain")
+async def explain_milestone(
+    milestone_data: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Generate human-readable explanation for why better move is better.
+    
+    Uses Stockfish data (deterministic) + GPT for natural language.
+    
+    Body:
+    - context_for_explanation: The milestone's context data
+    - fen: Position FEN
+    - move_played: What user played
+    - best_move: What was better
+    """
+    from training_profile_service import generate_position_explanation
+    
+    # Get user rating category
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("rating", 1200) if user_doc else 1200
+    
+    milestone_data["rating_category"] = "beginner" if rating < 1000 else "intermediate" if rating < 1400 else "club" if rating < 1800 else "advanced"
+    
+    explanation = await generate_position_explanation(db, milestone_data, use_llm=True)
+    
+    # If LLM humanization needed, call GPT
+    if explanation.get("needs_llm_humanization"):
+        try:
+            from emergentintegrations.llm.chat import chat, UserMessage
+            
+            response = await chat(
+                api_key=EMERGENT_API_KEY,
+                model="gpt-4o-mini",
+                system_message="You are a chess coach explaining moves to amateur players. Be concrete and simple. Focus on the 'what happens' not abstract strategy.",
+                messages=[UserMessage(content=explanation["llm_prompt"])],
+                temperature=0.7
+            )
+            
+            explanation["human_explanation"] = response.message
+        except Exception as e:
+            logger.error(f"Error generating explanation: {e}")
+            # Fallback to stockfish analysis
+            sf_analysis = explanation.get("stockfish_analysis", {})
+            explanation["human_explanation"] = f"{sf_analysis.get('position_context', 'In this position')}, you played {explanation['move_played']} but {explanation['best_move']} was better. {sf_analysis.get('threat_missed', '')} {sf_analysis.get('cp_lost', '')}."
+    
+    return explanation
+
+
+@api_router.post("/training/milestone/reflect")
+async def save_milestone_reflection(
+    game_id: str,
+    move_number: int,
+    reflection_data: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Save reflection for a SPECIFIC position/milestone.
+    
+    Body:
+    - selected_tags: List of contextual tags (e.g., "missed_threat", "time_pressure")
+    - user_plan: What the user was thinking/planning (free text)
+    - understood: Whether user understood the explanation
+    - fen: Position FEN
+    """
+    from training_profile_service import save_position_reflection
+    
+    result = await save_position_reflection(db, user.user_id, game_id, move_number, reflection_data)
+    return result
+
+
+@api_router.get("/training/last-game-for-reflection")
+async def get_last_game_for_reflection(user: User = Depends(get_current_user)):
+    """
+    Get the user's last analyzed game ID for reflection.
+    """
+    # Find last analyzed game
+    last_analysis = await db.game_analyses.find_one(
+        {"user_id": user.user_id},
+        {"game_id": 1},
+        sort=[("analyzed_at", -1)]
+    )
+    
+    if not last_analysis:
+        return {"game_id": None, "error": "No analyzed games found"}
+    
+    return {"game_id": last_analysis["game_id"]}
+
+
 # =============================================================================
 # COACHING LOOP ENDPOINTS (GOLD FEATURE)
 # =============================================================================
