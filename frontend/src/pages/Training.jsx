@@ -405,6 +405,48 @@ const Training = ({ user }) => {
   const nextStep = () => setCurrentStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   const prevStep = () => setCurrentStep((s) => Math.max(s - 1, 0));
 
+  // Fetch explanation for example position
+  const fetchExampleExplanation = async (example) => {
+    if (!example) return;
+    
+    setLoadingExampleExplanation(true);
+    setExampleExplanation(null);
+    
+    try {
+      const res = await fetch(`${API}/training/milestone/explain`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fen: example.fen,
+          move_played: example.move,
+          best_move: example.best_move,
+          cp_loss: example.cp_loss,
+          context_for_explanation: {
+            move_number: example.move_number,
+            eval_before: example.eval_before,
+            eval_after: example.eval_after,
+          }
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setExampleExplanation(data.human_explanation || data.explanation || "This move was a mistake. The better move leads to a more favorable position.");
+      }
+    } catch (err) {
+      console.error("Error fetching explanation:", err);
+      setExampleExplanation("Unable to generate explanation. Try again later.");
+    } finally {
+      setLoadingExampleExplanation(false);
+    }
+  };
+
+  // Clear explanation when example changes
+  useEffect(() => {
+    setExampleExplanation(null);
+  }, [currentExampleIndex]);
+
   // Toggle reflection tag
   const toggleTag = (tag) => {
     setSelectedTags((prev) =>
