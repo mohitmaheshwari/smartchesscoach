@@ -62,7 +62,8 @@ const CoachBoard = forwardRef(({
   onDrillResult,
   showControls = true,
   size = "full",
-  interactive  // Alias for drillMode
+  interactive,  // Alias for drillMode
+  customArrows = [],  // Arrows to draw: [[from, to, color], ...]
 }, ref) => {
   // Support both position and initialFen props
   const effectiveFen = position || initialFen;
