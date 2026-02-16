@@ -104,6 +104,8 @@ const Training = ({ user }) => {
   const [currentFen, setCurrentFen] = useState(START_FEN);
   const [currentDrillIndex, setCurrentDrillIndex] = useState(0);
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
+  const [exampleExplanation, setExampleExplanation] = useState(null);
+  const [loadingExampleExplanation, setLoadingExampleExplanation] = useState(false);
 
   // Reflection state - Enhanced
   const [reflectionOptions, setReflectionOptions] = useState([]);
