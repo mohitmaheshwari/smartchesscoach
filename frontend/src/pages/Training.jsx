@@ -25,6 +25,7 @@ import {
   Lightbulb,
   Play,
   RefreshCw,
+  RotateCcw,
   MessageSquare,
   Zap,
   Eye,
