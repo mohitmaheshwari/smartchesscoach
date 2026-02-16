@@ -90,24 +90,27 @@ Per-position reflection with rich context:
 - Recent reflections with user's written thoughts
 - Pattern weights updated based on reflections
 
-### Phase Progress & Graduation System (Dec 2025) ✅ NEW
-Track progress within training phase toward graduation:
-- **Progress metrics:**
-  - Games played in phase (X/10)
-  - Clean games (games without target errors)
-  - Improvement % (pattern trend)
-  - Visual progress bar
-- **Graduation criteria:**
-  - 10 games analyzed + (30% improvement OR 3 clean games)
-- **Automatic advancement:**
-  - Click "Ready to Graduate" button when criteria met
-  - System moves user to next highest-cost phase
-  - Graduation history logged
-- **Phase-specific "clean game" definitions:**
-  - Stability: No blunders (≥200cp loss)
-  - Conversion: Max 1 eval drop when winning
-  - Structure: Max 1 opening mistake
-  - Precision: Max 2 tactical misses
+### Phase Progress & Graduation System (Dec 2025) ✅ ENHANCED
+Rating-adaptive multi-tier training journey:
+
+**6 Training Tiers (200 → 2200+ rating):**
+1. **Fundamentals** (0-600): Piece Safety → Check Awareness → Capture Awareness
+2. **Stability** (600-1000): Blunder Reduction → Threat Detection → Piece Activity  
+3. **Structure** (1000-1400): Opening Principles → Pawn Structure → Piece Coordination
+4. **Conversion** (1400-1800): Advantage Maintenance → Winning Technique → Endgame Basics
+5. **Precision** (1800-2200): Calculation Depth → Positional Understanding → Complex Tactics
+6. **Mastery** (2200+): Deep Preparation → Time Management → Psychological Resilience
+
+**Progress Tracking:**
+- Phase-specific metrics (e.g., "1.8 opening mistakes per game (target: ≤1.0)")
+- Clean games count per phase definition
+- Improvement trend tracking
+- Visual phase roadmap showing journey
+
+**Auto-Graduation:**
+- System automatically advances user when criteria met
+- No manual confirmation needed
+- Graduation logged for history
 
 ---
 
