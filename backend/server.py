@@ -5669,14 +5669,15 @@ async def describe_plan_moves(
     
     # Analyze the moves to see if user is playing their own color or opponent's
     # In the starting position, whose turn is it?
-    first_move_is_user = turn_to_move == user_playing_color
+    first_move_is_users_color = turn_to_move == user_playing_color
+    first_move_context = "their own color's turn" if first_move_is_users_color else "their opponent's turn"
     
     # Build context-aware prompt
     prompt = f"""You are a chess coach helping a player articulate their thinking during a game review.
 
 CONTEXT:
 - The player was playing as {user_playing_color.upper()} in this game
-- In this position, it was {turn_to_move}'s turn to move
+- In this position, it was {turn_to_move}'s turn to move ({first_move_context} for them)
 - The player made a mistake: they played {user_move} but {best_move} was better
 
 The player is showing a sequence of moves to explain their thinking:
