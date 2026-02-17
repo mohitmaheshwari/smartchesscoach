@@ -1442,7 +1442,7 @@ const Training = ({ user }) => {
           <div className="flex items-center justify-between">
             <h3 className="font-medium flex items-center gap-2">
               <Brain className="w-4 h-4" />
-              What was your plan?
+              What were you thinking?
             </h3>
             {!isPlanMode && (
               <Button
@@ -1461,9 +1461,13 @@ const Training = ({ user }) => {
             <Card className="bg-purple-500/10 border-purple-500/30">
               <CardContent className="py-3 space-y-3">
                 <p className="text-sm text-purple-300">
-                  Play your intended moves on the board above (both colors). 
-                  Show what you planned to do and what you expected from your opponent.
+                  Show your thinking by playing moves on the board:
                 </p>
+                <ul className="text-xs text-purple-300/80 space-y-1 ml-4">
+                  <li>• Your own plans - what you intended to do</li>
+                  <li>• Opponent threats you were worried about</li>
+                  <li>• Threats you missed (what could opponent do?)</li>
+                </ul>
                 
                 {planMoves.length > 0 && (
                   <div className="bg-background/50 rounded p-2">
