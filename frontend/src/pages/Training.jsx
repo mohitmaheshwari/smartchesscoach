@@ -136,6 +136,7 @@ const Training = ({ user }) => {
   const [isPlanMode, setIsPlanMode] = useState(false);
   const [planMoves, setPlanMoves] = useState([]);
   const [generatingPlanText, setGeneratingPlanText] = useState(false);
+  const [userPlayingColor, setUserPlayingColor] = useState("white"); // The color the user was actually playing in the game
 
   // Drills state
   const [drills, setDrills] = useState([]);
