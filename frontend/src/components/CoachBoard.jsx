@@ -392,7 +392,7 @@ const CoachBoard = forwardRef(({
         <div className="flex items-center gap-2 px-3 py-2 bg-purple-500/10 border border-purple-500/30 rounded-lg">
           <Brain className="w-4 h-4 text-purple-500" />
           <span className="text-sm font-medium text-purple-400">
-            Show your plan - play moves for both sides
+            Show what you were thinking - play your ideas OR opponent threats
           </span>
         </div>
       )}
