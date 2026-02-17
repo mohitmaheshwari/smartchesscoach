@@ -316,6 +316,7 @@ def process_job(db, job):
         logger.info(f"Analysis validated: {total_moves} moves, {accuracy}% accuracy")
         
         # Create/update analysis record
+        # Use $set for the main data but ensure created_at is only set on insert
         analysis_doc = {
             "game_id": game_id,
             "user_id": user_id,
@@ -331,6 +332,7 @@ def process_job(db, job):
             },
             "analysis_depth": STOCKFISH_DEPTH,
             "analyzed_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(timezone.utc),  # Always update to latest analysis time
             "analysis_duration_seconds": elapsed,
             "worker_id": WORKER_ID
         }
