@@ -236,6 +236,10 @@ const Training = ({ user }) => {
         if (res.ok) {
           const data = await res.json();
           setGameMilestones(data.milestones || []);
+          // Store the user's playing color from the game
+          if (data.user_color) {
+            setUserPlayingColor(data.user_color);
+          }
           // Reset state for new milestones
           setCurrentMilestoneIndex(0);
           setMilestoneSelectedTags({});
