@@ -76,17 +76,22 @@ Fixed data issue where tactical mistakes were shown in positional training phase
 - **No Fallback to Unrelated Positions**: Shows helpful message instead of irrelevant examples
 
 ### "Show Plan on Board" Feature (Feb 2026) ✅ COMPLETE
-Users can now show their plan by playing moves on the board instead of typing:
+Users can now show their thinking by playing moves on the board instead of typing:
 - **Plan Mode**: Click "Show on board" button in reflection step
-- **Both Colors**: User can play moves for both sides to show expected sequence
+- **Both Colors**: User can play moves for both sides to show:
+  - Their own plans (what they intended)
+  - Opponent threats they were worried about
+  - Threats they missed (what opponent could do)
+- **Context-Aware LLM**: Backend analyzes which color was moved and generates appropriate description
+  - If user moves their color: "I was planning to..."
+  - If user moves opponent color: "I was worried about..." or "I missed that..."
 - **Move Tracking**: Shows moves as they're played: 1. e4 e5 2. Nf3 etc.
-- **LLM Conversion**: Backend endpoint converts move sequence to natural language
 - **Controls**: Undo, Cancel, Done buttons for managing the plan
-- **Technical Fix (Feb 2026)**: Board interactivity now works by destroying and recreating chessground instance when planMode changes. This is necessary because chessground doesn't bind event handlers when viewOnly:true initially.
+- **Technical Fix (Feb 2026)**: Board interactivity now works by destroying and recreating chessground instance when planMode changes.
 - **Files**: 
-  - `LichessBoard.jsx` - Chessground wrapper with planMode support, re-creates instance when shouldBeInteractive changes
-  - `CoachBoard.jsx` - Orchestrates plan mode state, exposes plan move tracking
-  - `server.py` - `/api/training/plan/describe` endpoint for LLM conversion
+  - `LichessBoard.jsx` - Chessground wrapper with planMode support
+  - `CoachBoard.jsx` - Orchestrates plan mode state
+  - `server.py` - `/api/training/plan/describe` endpoint with rich context (user_playing_color, turn_to_move, user_move, best_move)
 
 ### Bug Fixes (Dec 2025)
 - ✅ Example positions now load correct FEN (was showing starting position)
