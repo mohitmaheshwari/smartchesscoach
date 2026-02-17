@@ -5643,11 +5643,17 @@ async def describe_plan_moves(
     Body:
     - fen: Starting position FEN
     - moves: List of moves in SAN notation (e.g., ["Nf3", "e4", "d4"])
-    - user_color: "white" or "black" - which color the user was playing
+    - user_playing_color: "white" or "black" - which color the user was playing in the game
+    - turn_to_move: "white" or "black" - whose turn it is in this position
+    - user_move: What the user actually played (the mistake)
+    - best_move: What was the better move
     """
     fen = plan_data.get("fen")
     moves = plan_data.get("moves", [])
-    user_color = plan_data.get("user_color", "white")
+    user_playing_color = plan_data.get("user_playing_color", "white")
+    turn_to_move = plan_data.get("turn_to_move", "white")
+    user_move = plan_data.get("user_move", "")
+    best_move = plan_data.get("best_move", "")
     
     if not fen or not moves:
         return {"error": "Missing fen or moves", "plan_description": ""}
@@ -5658,22 +5664,33 @@ async def describe_plan_moves(
         for i in range(len(moves))
     ])
     
-    prompt = f"""You are a chess coach helping a player articulate their thinking.
+    # Determine what kind of plan the user is showing
+    opponent_color = "black" if user_playing_color == "white" else "white"
+    
+    # Analyze the moves to see if user is playing their own color or opponent's
+    # In the starting position, whose turn is it?
+    first_move_is_user = turn_to_move == user_playing_color
+    
+    # Build context-aware prompt
+    prompt = f"""You are a chess coach helping a player articulate their thinking during a game review.
 
-The player was {user_color} in this position:
-FEN: {fen}
+CONTEXT:
+- The player was playing as {user_playing_color.upper()} in this game
+- In this position, it was {turn_to_move}'s turn to move
+- The player made a mistake: they played {user_move} but {best_move} was better
 
-They showed their intended plan by playing these moves on the board:
+The player is showing a sequence of moves to explain their thinking:
 {moves_str}
 
-Convert this move sequence into a brief, natural description of what the player was planning to do.
-Focus on:
-- What was the main idea/goal?
-- What pieces were they trying to move and where?
-- What were they hoping to achieve?
+Based on the moves shown, determine what the player is trying to explain:
+1. If they're moving mostly {user_playing_color} pieces: They're showing what they PLANNED to do (their own idea)
+2. If they're moving mostly {opponent_color} pieces: They're showing what they were WORRIED about or what they MISSED from the opponent
 
-Keep it conversational and in first person, as if the player is explaining their thinking.
-Be concise (2-3 sentences max). Start with "I wanted to..." or "My plan was to..."
+Convert this move sequence into a brief, natural description.
+- Use first person ("I was planning...", "I was worried about...", "I missed that...")
+- Be specific about the chess ideas (checks, threats, piece coordination, etc.)
+- Keep it to 2-3 sentences max
+- If showing opponent threats: phrase it as "I was worried about..." or "I missed that my opponent could..."
 """
     
     try:
