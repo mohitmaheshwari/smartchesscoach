@@ -1079,7 +1079,11 @@ const Training = ({ user }) => {
       try {
         // Get the starting FEN from the current milestone
         const startFen = currentMilestone?.fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-        const userColor = currentMilestone?.fen?.includes(" b ") ? "black" : "white";
+        // Whose turn it is in this position (not necessarily who the user was playing)
+        const turnToMove = startFen.includes(" b ") ? "black" : "white";
+        
+        // Get plan move details from the board component
+        const planDetails = boardRef.current?.getPlanMoveDetails?.() || {};
         
         const res = await fetch(`${API}/training/plan/describe`, {
           method: "POST",
@@ -1088,7 +1092,10 @@ const Training = ({ user }) => {
           body: JSON.stringify({
             fen: startFen,
             moves: planMoves,
-            user_color: userColor,
+            user_playing_color: userPlayingColor,  // Who the user was actually playing as in the game
+            turn_to_move: turnToMove,              // Whose turn it is in this position
+            user_move: currentMilestone?.user_move, // What the user actually played
+            best_move: currentMilestone?.best_move, // What was better
           }),
         });
         
