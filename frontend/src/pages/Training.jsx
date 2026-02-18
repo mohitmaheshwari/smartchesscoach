@@ -100,6 +100,11 @@ const Training = ({ user }) => {
   const [phaseProgress, setPhaseProgress] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(false);
   const [graduationMessage, setGraduationMessage] = useState(null);
+  
+  // Data-driven training state (reflection-adjusted)
+  const [dataDrivenFocus, setDataDrivenFocus] = useState(null);
+  const [reflectionImpact, setReflectionImpact] = useState(null);
+  const [useDataDriven, setUseDataDriven] = useState(true); // Prefer data-driven by default
 
   // Board state
   const [currentFen, setCurrentFen] = useState(START_FEN);
