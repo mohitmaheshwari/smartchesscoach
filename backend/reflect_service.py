@@ -308,9 +308,26 @@ Respond in JSON format:
         }
     )
     
+    # CRITICAL: Process reflection impact on training
+    # This makes reflections actually affect what you train
+    try:
+        from reflection_training_service import process_reflection_impact
+        gap_type = gap_analysis.get("gap_type") if gap_analysis else None
+        training_impact = await process_reflection_impact(
+            db,
+            user_id,
+            user_thought,
+            tags=[],  # Tags could be extracted from user_thought
+            gap_type=gap_type
+        )
+        logger.info(f"Reflection impact: {training_impact}")
+    except Exception as e:
+        logger.error(f"Error processing training impact: {e}")
+        training_impact = None
+    
     # Return awareness gap if detected
     if gap_analysis and gap_analysis.get("has_gap"):
-        return {
+        result = {
             "awareness_gap": {
                 "engine_insight": gap_analysis.get("engine_insight", ""),
                 "gap_type": gap_analysis.get("gap_type", ""),
@@ -318,6 +335,10 @@ Respond in JSON format:
                 "acknowledgment": gap_analysis.get("acknowledgment", "")
             }
         }
+        # Add training impact info
+        if training_impact and training_impact.get("suggestion"):
+            result["training_suggestion"] = training_impact["suggestion"]
+        return result
     
     return {"awareness_gap": None}
 
