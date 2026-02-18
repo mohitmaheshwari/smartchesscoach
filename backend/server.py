@@ -2516,6 +2516,39 @@ async def complete_game_reflection(game_id: str, user: User = Depends(get_curren
     result = await mark_game_reflected(db, user.user_id, game_id)
     return result
 
+@api_router.get("/training/data-driven")
+async def get_data_driven_training(user: User = Depends(get_current_user)):
+    """
+    Get training focus based purely on YOUR data (mistakes + reflections).
+    This bypasses the rating-based curriculum.
+    """
+    from reflection_training_service import get_data_driven_training_focus
+    result = await get_data_driven_training_focus(db, user.user_id)
+    return result
+
+@api_router.get("/training/reflection-impact")
+async def get_reflection_impact(user: User = Depends(get_current_user)):
+    """Get how reflections have impacted training focus."""
+    impact = await db.reflection_impacts.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not impact:
+        return {
+            "total_reflections": 0,
+            "layer_boosts": {},
+            "pattern_counts": {},
+            "message": "No reflections yet - your reflections will shape your training!"
+        }
+    return impact
+
+@api_router.get("/training/should-override")
+async def check_training_override(user: User = Depends(get_current_user)):
+    """Check if reflection data suggests overriding the rating-based curriculum."""
+    from reflection_training_service import should_override_curriculum
+    result = await should_override_curriculum(db, user.user_id)
+    return result
+
 # ==================== COACH MODE ROUTES ====================
 
 @api_router.post("/coach/start-session")
