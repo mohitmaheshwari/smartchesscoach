@@ -150,8 +150,8 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
 async def get_pending_reflection_count(db, user_id: str) -> int:
     """Get count of games needing reflection."""
     games = await get_games_needing_reflection(db, user_id, limit=20)
-    # Only count games with un-reflected critical moments
-    count = sum(1 for g in games if g.get("blunders", 0) + g.get("mistakes", 0) > g.get("reflected_moments", 0))
+    # Count games that have un-reflected critical moments
+    count = len([g for g in games if g.get("blunders", 0) + g.get("mistakes", 0) > g.get("reflected_moments", 0)])
     return count
 
 
