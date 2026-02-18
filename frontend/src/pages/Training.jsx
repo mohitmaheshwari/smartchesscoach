@@ -600,9 +600,13 @@ const Training = ({ user }) => {
 
   // Step 1: Phase Context (Tier + Phase Progress) - Auto-graduating
   const renderPhaseStep = () => {
-    const activePhase = profile?.active_phase;
+    // Use data-driven focus if available, otherwise fall back to profile
+    const focusToUse = (useDataDriven && dataDrivenFocus) ? dataDrivenFocus : profile;
+    const activePhase = focusToUse?.active_layer || focusToUse?.active_phase || profile?.active_phase;
     const LayerIcon = LAYER_ICONS[activePhase] || Target;
-    // examplePositions and currentExample are now derived at component level
+    
+    // Check if we're using reflection-adjusted training
+    const isReflectionAdjusted = dataDrivenFocus?.reflection_adjusted && dataDrivenFocus?.reflection_count > 0;
     
     // New tier-based progress data
     const progress = phaseProgress || {};
@@ -622,6 +626,25 @@ const Training = ({ user }) => {
         exit={{ opacity: 0, x: -20 }}
         className="space-y-5"
       >
+        {/* Data-Driven Training Banner */}
+        {isReflectionAdjusted && (
+          <Card className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-amber-500/50">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-amber-500/20">
+                  <Brain className="w-6 h-6 text-amber-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-amber-400">Training adjusted based on your {dataDrivenFocus.reflection_count} reflections</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {dataDrivenFocus.training_reason || "Your reflections shaped this focus"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* Graduation Message */}
         {graduationMessage && (
           <Card className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-500/50">
@@ -638,16 +661,58 @@ const Training = ({ user }) => {
           </Card>
         )}
 
-        {/* Tier Header */}
-        <div className="text-center mb-2">
-          <Badge variant="outline" className="mb-2 text-amber-500 border-amber-500/50">
-            {tier} Tier ({tierRating[0]}-{tierRating[1]} Rating)
-          </Badge>
-          <h1 className="text-2xl font-bold mb-1">Your Training Journey</h1>
-          <p className="text-sm text-muted-foreground">
-            Rating: {rating} • Phase {phaseIndex + 1} of {totalPhases}
-          </p>
-        </div>
+        {/* Toggle between Data-Driven and Curriculum-Based */}
+        {dataDrivenFocus && (
+          <div className="flex items-center justify-center gap-2">
+            <Button 
+              variant={useDataDriven ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setUseDataDriven(true)}
+              className="gap-1"
+            >
+              <Brain className="w-4 h-4" />
+              Your Data
+            </Button>
+            <Button 
+              variant={!useDataDriven ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setUseDataDriven(false)}
+              className="gap-1"
+            >
+              <Target className="w-4 h-4" />
+              Curriculum
+            </Button>
+          </div>
+        )}
+
+        {/* Tier Header - Only show when using curriculum */}
+        {!useDataDriven && (
+          <div className="text-center mb-2">
+            <Badge variant="outline" className="mb-2 text-amber-500 border-amber-500/50">
+              {tier} Tier ({tierRating[0]}-{tierRating[1]} Rating)
+            </Badge>
+            <h1 className="text-2xl font-bold mb-1">Your Training Journey</h1>
+            <p className="text-sm text-muted-foreground">
+              Rating: {rating} • Phase {phaseIndex + 1} of {totalPhases}
+            </p>
+          </div>
+        )}
+        
+        {/* Data-Driven Header */}
+        {useDataDriven && dataDrivenFocus && (
+          <div className="text-center mb-2">
+            <Badge variant="outline" className="mb-2 text-emerald-500 border-emerald-500/50">
+              Personalized Training
+            </Badge>
+            <h1 className="text-2xl font-bold mb-1">Based on YOUR Games</h1>
+            <p className="text-sm text-muted-foreground">
+              {dataDrivenFocus.reflection_count > 0 
+                ? `Shaped by ${dataDrivenFocus.reflection_count} reflections`
+                : "Based on your last 20 analyzed games"
+              }
+            </p>
+          </div>
+        )}
 
         {/* Current Phase Card */}
         <Card className={`${LAYER_BG_COLORS[activePhase] || "bg-blue-500/10 border-blue-500/30"} border-2`}>
