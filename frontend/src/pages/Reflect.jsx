@@ -51,9 +51,89 @@ const Reflect = ({ user }) => {
   const [awarenessGap, setAwarenessGap] = useState(null);
   const [showingGap, setShowingGap] = useState(false);
   
+  // View mode for arrows: "position" | "your_move" | "better_move"
+  const [viewMode, setViewMode] = useState("your_move");
+  const [coachExplanation, setCoachExplanation] = useState(null);
+  const [loadingExplanation, setLoadingExplanation] = useState(false);
+  
   const currentGame = gamesNeedingReflection[currentGameIndex];
   const currentMoment = moments[currentMomentIndex];
   const totalMoments = moments.length;
+  
+  // Helper to convert SAN move to arrow coordinates
+  const sanToArrow = (san, fen, color = "red") => {
+    if (!san || !fen) return null;
+    try {
+      const { Chess } = require("chess.js");
+      const chess = new Chess(fen);
+      const move = chess.move(san);
+      if (move) {
+        return [move.from, move.to, color];
+      }
+    } catch (e) {
+      console.error("Error converting SAN to arrow:", e);
+    }
+    return null;
+  };
+  
+  // Calculate arrows based on view mode
+  const getArrows = () => {
+    if (!currentMoment) return [];
+    const arrows = [];
+    
+    if (viewMode === "your_move" || viewMode === "both") {
+      const userArrow = sanToArrow(currentMoment.user_move, currentMoment.fen, "red");
+      if (userArrow) arrows.push(userArrow);
+    }
+    
+    if (viewMode === "better_move" || viewMode === "both") {
+      const betterArrow = sanToArrow(currentMoment.best_move, currentMoment.fen, "green");
+      if (betterArrow) arrows.push(betterArrow);
+    }
+    
+    return arrows;
+  };
+  
+  // Fetch coach explanation for the moment
+  const fetchCoachExplanation = async (moment) => {
+    if (!moment) return;
+    setLoadingExplanation(true);
+    try {
+      const res = await fetch(`${API}/reflect/explain-moment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen: moment.fen,
+          user_move: moment.user_move,
+          best_move: moment.best_move,
+          eval_change: moment.eval_change,
+          type: moment.type
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCoachExplanation(data);
+      }
+    } catch (err) {
+      console.error("Error fetching explanation:", err);
+    } finally {
+      setLoadingExplanation(false);
+    }
+  };
+  
+  // Fetch explanation when moment changes
+  useEffect(() => {
+    if (currentMoment && !coachExplanation) {
+      fetchCoachExplanation(currentMoment);
+    }
+  }, [currentMoment]);
+  
+  // Reset explanation when moment changes
+  useEffect(() => {
+    setCoachExplanation(null);
+    setViewMode("your_move");
+  }, [currentMomentIndex, currentGameIndex]);
   
   // Fetch games needing reflection
   useEffect(() => {
