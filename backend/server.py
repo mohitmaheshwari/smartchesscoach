@@ -2549,6 +2549,72 @@ async def check_training_override(user: User = Depends(get_current_user)):
     result = await should_override_curriculum(db, user.user_id)
     return result
 
+class MomentExplanationRequest(BaseModel):
+    fen: str
+    user_move: str
+    best_move: str
+    eval_change: float = 0.0
+    type: str = "mistake"
+
+@api_router.post("/reflect/explain-moment")
+async def explain_moment(data: MomentExplanationRequest, user: User = Depends(get_current_user)):
+    """
+    Get a coach-style explanation of what happened at this moment.
+    Explains the impact of the user's move and the better plan.
+    """
+    from llm_service import call_llm
+    
+    eval_description = ""
+    if data.eval_change < -2:
+        eval_description = "This was a serious mistake that significantly hurt your position."
+    elif data.eval_change < -1:
+        eval_description = "This move gave your opponent a clear advantage."
+    elif data.eval_change < -0.5:
+        eval_description = "This move was slightly inaccurate."
+    else:
+        eval_description = "This move wasn't the best choice in this position."
+    
+    prompt = f"""You are a friendly chess coach explaining a critical moment to your student.
+
+Position (FEN): {data.fen}
+Student played: {data.user_move}
+Better move was: {data.best_move}
+Position changed by: {data.eval_change:.1f} pawns (negative = worse for student)
+Mistake type: {data.type}
+
+Give a warm, educational explanation in JSON format:
+{{
+    "impact": "What happened because of this move? Explain in 1-2 sentences what the student's move allowed or missed. Be specific about pieces and threats. Don't be harsh.",
+    "better_plan": "What was the idea behind the better move? Explain in 1-2 sentences what {data.best_move} would have achieved. Focus on the plan, not just the move."
+}}
+
+Be encouraging but honest. Use "you" to address the student. Keep it simple and actionable."""
+
+    try:
+        response = await call_llm(
+            system_message="You are a supportive chess coach. Explain positions clearly and kindly.",
+            user_message=prompt,
+            model="gpt-4o-mini"
+        )
+        
+        import json
+        response_clean = response.strip()
+        if response_clean.startswith("```json"):
+            response_clean = response_clean[7:]
+        if response_clean.startswith("```"):
+            response_clean = response_clean[3:]
+        if response_clean.endswith("```"):
+            response_clean = response_clean[:-3]
+        
+        result = json.loads(response_clean)
+        return result
+    except Exception as e:
+        logger.error(f"Error explaining moment: {e}")
+        return {
+            "impact": eval_description,
+            "better_plan": f"The move {data.best_move} was stronger in this position."
+        }
+
 # ==================== COACH MODE ROUTES ====================
 
 @api_router.post("/coach/start-session")
