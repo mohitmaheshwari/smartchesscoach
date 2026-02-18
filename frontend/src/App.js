@@ -159,6 +159,11 @@ function AppRouter() {
           {({ user }) => <Journey user={user} />}
         </ProtectedRoute>
       } />
+      <Route path="/reflect" element={
+        <ProtectedRoute>
+          {({ user }) => <Reflect user={user} />}
+        </ProtectedRoute>
+      } />
     </Routes>
   );
 }
