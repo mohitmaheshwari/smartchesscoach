@@ -185,7 +185,7 @@ const Layout = ({ children, user }) => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={`gap-2 text-sm font-medium transition-colors ${
+                      className={`gap-2 text-sm font-medium transition-colors relative ${
                         active 
                           ? 'bg-muted text-foreground' 
                           : 'text-muted-foreground hover:text-foreground hover:bg-transparent'
@@ -194,6 +194,11 @@ const Layout = ({ children, user }) => {
                     >
                       <IconComponent className="w-4 h-4" />
                       {item.name}
+                      {item.badge > 0 && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-[10px] font-bold text-white rounded-full flex items-center justify-center animate-pulse">
+                          {item.badge > 9 ? '9+' : item.badge}
+                        </span>
+                      )}
                     </Button>
                   </Link>
                 );
