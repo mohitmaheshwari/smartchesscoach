@@ -109,7 +109,7 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
         if isinstance(analysis_time, str):
             try:
                 analysis_time = datetime.fromisoformat(analysis_time.replace('Z', '+00:00'))
-            except:
+            except ValueError:
                 analysis_time = now - timedelta(hours=24)
         elif analysis_time is None:
             analysis_time = now - timedelta(hours=24)
