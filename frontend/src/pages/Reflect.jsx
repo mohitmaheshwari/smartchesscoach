@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { Chess } from "chess.js";
 import Layout from "@/components/Layout";
 import CoachBoard from "@/components/CoachBoard";
 import { Button } from "@/components/ui/button";
