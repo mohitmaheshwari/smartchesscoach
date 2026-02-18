@@ -383,11 +383,16 @@ const Layout = ({ children, user }) => {
                     >
                       <Button
                         variant={active ? "secondary" : "ghost"}
-                        className="w-full justify-start gap-2"
+                        className="w-full justify-start gap-2 relative"
                         data-testid={`mobile-nav-${item.name.toLowerCase()}`}
                       >
                         <IconComponent className="w-4 h-4" />
                         {item.name}
+                        {item.badge > 0 && (
+                          <span className="ml-auto bg-red-500 text-[10px] font-bold text-white px-2 py-0.5 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
                       </Button>
                     </Link>
                   );
