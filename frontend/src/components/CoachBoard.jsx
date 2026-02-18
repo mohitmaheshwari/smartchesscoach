@@ -24,6 +24,7 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const CoachBoard = forwardRef(({
   initialFen = START_FEN,
   position,  // Alias for initialFen
+  fen,  // Another alias for initialFen
   userColor = "white",
   onUserMove,
   drillMode = false,
@@ -36,8 +37,8 @@ const CoachBoard = forwardRef(({
   planMode = false,  // NEW: Allow playing both colors to show a plan
   onPlanMove,  // NEW: Callback when move is made in plan mode
 }, ref) => {
-  // Support both position and initialFen props
-  const effectiveFen = position || initialFen;
+  // Support position, fen, and initialFen props
+  const effectiveFen = position || fen || initialFen;
   const effectiveDrillMode = interactive !== undefined ? interactive : drillMode;
   
   const [fen, setFen] = useState(effectiveFen);
