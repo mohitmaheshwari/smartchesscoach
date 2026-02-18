@@ -24,7 +24,7 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const CoachBoard = forwardRef(({
   initialFen = START_FEN,
   position,  // Alias for initialFen
-  fen,  // Another alias for initialFen
+  fenProp,  // Another alias for initialFen (named to avoid state collision)
   userColor = "white",
   onUserMove,
   drillMode = false,
@@ -37,8 +37,8 @@ const CoachBoard = forwardRef(({
   planMode = false,  // NEW: Allow playing both colors to show a plan
   onPlanMove,  // NEW: Callback when move is made in plan mode
 }, ref) => {
-  // Support position, fen, and initialFen props
-  const effectiveFen = position || fen || initialFen;
+  // Support position, fenProp, and initialFen props
+  const effectiveFen = position || fenProp || initialFen;
   const effectiveDrillMode = interactive !== undefined ? interactive : drillMode;
   
   const [fen, setFen] = useState(effectiveFen);
@@ -54,16 +54,16 @@ const CoachBoard = forwardRef(({
   const lichessBoardRef = useRef(null);
   const initialFenRef = useRef(effectiveFen);  // Remember starting position for plan mode
 
-  // Update board when position/initialFen/fen changes
+  // Update board when position/initialFen/fenProp changes
   useEffect(() => {
-    const newFen = position || fen || initialFen;
+    const newFen = position || fenProp || initialFen;
     setFen(newFen);
     chessRef.current = new Chess(newFen);
     initialFenRef.current = newFen;
     setDrillFeedback(null);
     setLastMove(null);
     setPlanMoves([]);
-  }, [initialFen, position, fen]);
+  }, [initialFen, position, fenProp]);
 
   useEffect(() => {
     setBoardOrientation(userColor === "black" ? "black" : "white");
