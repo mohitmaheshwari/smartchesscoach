@@ -205,6 +205,34 @@ const Training = ({ user }) => {
     fetchPhaseProgress();
   }, [profile?.active_phase]);
 
+  // Fetch data-driven training focus (reflection-adjusted)
+  useEffect(() => {
+    const fetchDataDrivenFocus = async () => {
+      try {
+        const [focusRes, impactRes] = await Promise.all([
+          fetch(`${API}/training/data-driven`, { credentials: "include" }),
+          fetch(`${API}/training/reflection-impact`, { credentials: "include" })
+        ]);
+        
+        if (focusRes.ok) {
+          const focusData = await focusRes.json();
+          setDataDrivenFocus(focusData);
+        }
+        
+        if (impactRes.ok) {
+          const impactData = await impactRes.json();
+          setReflectionImpact(impactData);
+        }
+      } catch (err) {
+        console.error("Error fetching data-driven focus:", err);
+      }
+    };
+
+    if (profile) {
+      fetchDataDrivenFocus();
+    }
+  }, [profile]);
+
   // Fetch reflection options
   useEffect(() => {
     const fetchReflectionOptions = async () => {
