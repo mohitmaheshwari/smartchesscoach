@@ -89,7 +89,7 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
                 "analysis": {
                     "blunders": "$analysis.blunders",
                     "mistakes": "$analysis.mistakes",
-                    "accuracy": "$analysis.accuracy",
+                    "accuracy": {"$ifNull": ["$analysis.stockfish_analysis.accuracy", "$analysis.accuracy"]},
                     "created_at": "$analysis.created_at"
                 },
                 "reflected_moments": 1
