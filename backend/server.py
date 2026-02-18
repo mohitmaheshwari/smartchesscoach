@@ -2457,6 +2457,65 @@ async def get_sync_status(user: User = Depends(get_current_user)):
         "games_found_last_sync": _sync_status.get("games_found_last_sync", 0)
     }
 
+# ==================== REFLECTION ROUTES ====================
+
+from reflect_service import (
+    get_games_needing_reflection,
+    get_pending_reflection_count,
+    get_game_moments,
+    process_reflection,
+    mark_game_reflected
+)
+
+@api_router.get("/reflect/pending")
+async def get_pending_reflections(user: User = Depends(get_current_user)):
+    """Get games that need reflection - most recent first."""
+    games = await get_games_needing_reflection(db, user.user_id, limit=5)
+    return {"games": games}
+
+@api_router.get("/reflect/pending/count")
+async def get_reflection_count(user: User = Depends(get_current_user)):
+    """Get count of games needing reflection for badge display."""
+    count = await get_pending_reflection_count(db, user.user_id)
+    return {"count": count}
+
+@api_router.get("/reflect/game/{game_id}/moments")
+async def get_reflection_moments(game_id: str, user: User = Depends(get_current_user)):
+    """Get critical moments from a game for reflection."""
+    moments = await get_game_moments(db, user.user_id, game_id)
+    return {"moments": moments}
+
+class ReflectionSubmission(BaseModel):
+    game_id: str
+    moment_index: int
+    moment_fen: str
+    user_thought: str
+    user_move: str
+    best_move: str
+    eval_change: float = 0.0
+
+@api_router.post("/reflect/submit")
+async def submit_reflection(data: ReflectionSubmission, user: User = Depends(get_current_user)):
+    """Submit a reflection for a critical moment."""
+    result = await process_reflection(
+        db,
+        user.user_id,
+        data.game_id,
+        data.moment_index,
+        data.moment_fen,
+        data.user_thought,
+        data.user_move,
+        data.best_move,
+        data.eval_change
+    )
+    return result
+
+@api_router.post("/reflect/game/{game_id}/complete")
+async def complete_game_reflection(game_id: str, user: User = Depends(get_current_user)):
+    """Mark a game as fully reflected on."""
+    result = await mark_game_reflected(db, user.user_id, game_id)
+    return result
+
 # ==================== COACH MODE ROUTES ====================
 
 @api_router.post("/coach/start-session")
