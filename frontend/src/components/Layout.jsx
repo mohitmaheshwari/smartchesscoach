@@ -23,7 +23,8 @@ import {
   X,
   TrendingUp,
   Bell,
-  CheckCheck
+  CheckCheck,
+  Brain
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { API } from "@/App";
@@ -36,6 +37,7 @@ const Layout = ({ children, user }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [prevUnreadCount, setPrevUnreadCount] = useState(0);
+  const [pendingReflections, setPendingReflections] = useState(0);
 
   // Request browser notification permission
   useEffect(() => {
