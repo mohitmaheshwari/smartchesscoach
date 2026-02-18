@@ -65,7 +65,6 @@ const Reflect = ({ user }) => {
   const sanToArrow = (san, fen, color = "red") => {
     if (!san || !fen) return null;
     try {
-      const { Chess } = require("chess.js");
       const chess = new Chess(fen);
       const move = chess.move(san);
       if (move) {
