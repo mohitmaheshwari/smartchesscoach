@@ -714,50 +714,120 @@ const Training = ({ user }) => {
           </div>
         )}
 
-        {/* Current Phase Card */}
-        <Card className={`${LAYER_BG_COLORS[activePhase] || "bg-blue-500/10 border-blue-500/30"} border-2`}>
-          <CardContent className="pt-5 space-y-4">
-            <div className="flex items-start gap-3">
-              <div className={`p-2 rounded-xl ${LAYER_BG_COLORS[activePhase] || "bg-blue-500/20"}`}>
-                <LayerIcon className={`w-6 h-6 ${LAYER_COLORS[activePhase] || "text-blue-500"}`} />
-              </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-bold">{phase.label || "Training"}</h2>
-                <p className="text-sm text-muted-foreground">{phase.description}</p>
-                {phase.focus && (
-                  <p className="text-xs mt-1 text-primary">Focus: {phase.focus}</p>
-                )}
-              </div>
-            </div>
-            
-            {/* Progress Section */}
-            {!loadingProgress && progress.games_played >= 0 && (
-              <div className="pt-3 border-t border-border/50 space-y-3">
-                {/* Progress Bar */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Progress</span>
-                    <span className="font-medium">{progressPercent}%</span>
-                  </div>
-                  <Progress value={progressPercent} className="h-2" />
+        {/* Current Phase Card - Data Driven Version */}
+        {useDataDriven && dataDrivenFocus ? (
+          <Card className={`${LAYER_BG_COLORS[activePhase] || "bg-blue-500/10 border-blue-500/30"} border-2`}>
+            <CardContent className="pt-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-xl ${LAYER_BG_COLORS[activePhase] || "bg-blue-500/20"}`}>
+                  <LayerIcon className={`w-6 h-6 ${LAYER_COLORS[activePhase] || "text-blue-500"}`} />
                 </div>
-                
-                {/* Phase-Specific Stats */}
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-background/50 rounded-lg p-2">
-                    <p className="text-lg font-bold">{progress.games_played}/{progress.games_needed}</p>
-                    <p className="text-xs text-muted-foreground">Games Played</p>
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold">{dataDrivenFocus.active_layer_label}</h2>
+                  <p className="text-sm text-muted-foreground">{dataDrivenFocus.active_layer_description}</p>
+                </div>
+              </div>
+              
+              {/* Micro Habit Focus */}
+              <div className="bg-background/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground mb-1">Your main pattern:</p>
+                <p className="font-semibold text-primary">
+                  {dataDrivenFocus.micro_habit_label}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {dataDrivenFocus.micro_habit_description}
+                </p>
+              </div>
+              
+              {/* Layer Breakdown with Reflection Boosts */}
+              <div className="pt-3 border-t border-border/50">
+                <p className="text-xs text-muted-foreground mb-2">Where your mistakes happen:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(dataDrivenFocus.layer_breakdown || {}).map(([layerId, layer]) => {
+                    const LayerIconSmall = LAYER_ICONS[layerId] || Target;
+                    const isActive = layerId === activePhase;
+                    return (
+                      <div 
+                        key={layerId}
+                        className={`p-2 rounded-lg ${isActive ? LAYER_BG_COLORS[layerId] : 'bg-background/30'} ${isActive ? 'ring-2 ring-primary' : ''}`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <LayerIconSmall className={`w-4 h-4 ${LAYER_COLORS[layerId]}`} />
+                          <span className="text-xs font-medium">{layer.label}</span>
+                        </div>
+                        <p className="text-lg font-bold">{Math.round(layer.cost / 1000)}k</p>
+                        {layer.reflection_boost > 0 && (
+                          <p className="text-xs text-amber-500">
+                            +{Math.round(layer.reflection_boost / 1000)}k from reflections
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Rules */}
+              {dataDrivenFocus.rules && dataDrivenFocus.rules.length > 0 && (
+                <div className="pt-3 border-t border-border/50">
+                  <p className="text-xs text-muted-foreground mb-2">Your focus rules:</p>
+                  <ul className="space-y-2">
+                    {dataDrivenFocus.rules.map((rule, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                        <span>{rule}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          /* Current Phase Card - Curriculum Version */
+          <Card className={`${LAYER_BG_COLORS[activePhase] || "bg-blue-500/10 border-blue-500/30"} border-2`}>
+            <CardContent className="pt-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-xl ${LAYER_BG_COLORS[activePhase] || "bg-blue-500/20"}`}>
+                  <LayerIcon className={`w-6 h-6 ${LAYER_COLORS[activePhase] || "text-blue-500"}`} />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold">{phase.label || "Training"}</h2>
+                  <p className="text-sm text-muted-foreground">{phase.description}</p>
+                  {phase.focus && (
+                    <p className="text-xs mt-1 text-primary">Focus: {phase.focus}</p>
+                  )}
+                </div>
+              </div>
+              
+              {/* Progress Section */}
+              {!loadingProgress && progress.games_played >= 0 && (
+                <div className="pt-3 border-t border-border/50 space-y-3">
+                  {/* Progress Bar */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Progress</span>
+                      <span className="font-medium">{progressPercent}%</span>
+                    </div>
+                    <Progress value={progressPercent} className="h-2" />
                   </div>
-                  <div className="bg-background/50 rounded-lg p-2">
-                    <p className="text-lg font-bold">
-                      {stats.clean_streak || 0}
-                      {(stats.clean_streak || 0) >= CLEAN_GAMES_FOR_GRADUATION && (
-                        <span className="text-green-400 ml-1">✓</span>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Clean Streak (need {CLEAN_GAMES_FOR_GRADUATION})
-                    </p>
+                  
+                  {/* Phase-Specific Stats */}
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-background/50 rounded-lg p-2">
+                      <p className="text-lg font-bold">{progress.games_played}/{progress.games_needed}</p>
+                      <p className="text-xs text-muted-foreground">Games Played</p>
+                    </div>
+                    <div className="bg-background/50 rounded-lg p-2">
+                      <p className="text-lg font-bold">
+                        {stats.clean_streak || 0}
+                        {(stats.clean_streak || 0) >= CLEAN_GAMES_FOR_GRADUATION && (
+                          <span className="text-green-400 ml-1">✓</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Clean Streak (need {CLEAN_GAMES_FOR_GRADUATION})
+                      </p>
                   </div>
                   <div className={`bg-background/50 rounded-lg p-2 ${
                     stats.trend === "improving" ? "text-green-400" : 
