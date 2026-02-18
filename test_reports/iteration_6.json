@@ -81,6 +81,6 @@
     "games_endpoint_requires_auth": "Yes - returns 401 without auth",
     "journey_endpoint_requires_auth": "Yes - returns 401 without auth",
     "bearer_token_auth_works": "Yes - Authorization: Bearer <token> format accepted",
-    "api_accessible_via_react_app_backend_url": "Yes - https://plan-board-debug.preview.emergentagent.com"
+    "api_accessible_via_react_app_backend_url": "Yes - https://rated-training-hub.preview.emergentagent.com"
   }
 }
