@@ -54,16 +54,16 @@ const CoachBoard = forwardRef(({
   const lichessBoardRef = useRef(null);
   const initialFenRef = useRef(effectiveFen);  // Remember starting position for plan mode
 
-  // Update board when position/initialFen changes
+  // Update board when position/initialFen/fen changes
   useEffect(() => {
-    const newFen = position || initialFen;
+    const newFen = position || fen || initialFen;
     setFen(newFen);
     chessRef.current = new Chess(newFen);
     initialFenRef.current = newFen;
     setDrillFeedback(null);
     setLastMove(null);
     setPlanMoves([]);
-  }, [initialFen, position]);
+  }, [initialFen, position, fen]);
 
   useEffect(() => {
     setBoardOrientation(userColor === "black" ? "black" : "white");
