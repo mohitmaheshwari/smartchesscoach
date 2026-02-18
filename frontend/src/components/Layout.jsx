@@ -98,6 +98,26 @@ const Layout = ({ children, user }) => {
     return () => clearInterval(interval);
   }, [prevUnreadCount]);
 
+  // Fetch pending reflections count
+  useEffect(() => {
+    const fetchPendingReflections = async () => {
+      try {
+        const res = await fetch(`${API}/reflect/pending/count`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setPendingReflections(data.count || 0);
+        }
+      } catch (e) {
+        // Silently fail - non-critical
+      }
+    };
+    
+    fetchPendingReflections();
+    // Poll every 60 seconds for reflection count
+    const interval = setInterval(fetchPendingReflections, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const markAllRead = async () => {
     try {
       await fetch(`${API}/notifications/read`, { 
@@ -113,6 +133,7 @@ const Layout = ({ children, user }) => {
   };
 
   const navigation = [
+    { name: 'Reflect', href: '/reflect', icon: Brain, badge: pendingReflections },
     { name: 'Training', href: '/training', icon: Target },
     { name: 'Journey', href: '/progress', icon: TrendingUp },
     { name: 'Lab', href: '/dashboard', icon: LayoutDashboard },
