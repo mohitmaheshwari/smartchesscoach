@@ -451,7 +451,39 @@ const Reflect = ({ user }) => {
                     )}
                   </div>
                   
-                  {/* Chess Board */}
+                  {/* View Mode Toggle */}
+                  <div className="px-4 pb-2">
+                    <div className="flex items-center justify-center gap-1 bg-muted/50 rounded-lg p-1">
+                      <Button
+                        variant={viewMode === "your_move" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setViewMode("your_move")}
+                        className={`flex-1 gap-1 ${viewMode === "your_move" ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : ""}`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        Your Move
+                      </Button>
+                      <Button
+                        variant={viewMode === "better_move" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setViewMode("better_move")}
+                        className={`flex-1 gap-1 ${viewMode === "better_move" ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : ""}`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        Better Move
+                      </Button>
+                      <Button
+                        variant={viewMode === "both" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setViewMode("both")}
+                        className={`flex-1 ${viewMode === "both" ? "bg-primary/20" : ""}`}
+                      >
+                        Both
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Chess Board with Arrows */}
                   <div className="p-4">
                     <CoachBoard
                       ref={boardRef}
@@ -462,18 +494,54 @@ const Reflect = ({ user }) => {
                       onPlanMove={handlePlanMove}
                       showDests={isPlanMode}
                       viewOnly={!isPlanMode}
+                      customArrows={getArrows()}
                     />
                   </div>
+                  
+                  {/* Coach Explanation */}
+                  {(loadingExplanation || coachExplanation) && (
+                    <div className="px-4 pb-3">
+                      <Card className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30">
+                        <CardContent className="py-3 px-4">
+                          {loadingExplanation ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                              Getting coach insights...
+                            </div>
+                          ) : coachExplanation && (
+                            <div className="space-y-2">
+                              <div className="flex items-start gap-2">
+                                <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                                <div className="space-y-1">
+                                  <p className="text-sm font-medium text-amber-400">What happened</p>
+                                  <p className="text-sm text-foreground/90">{coachExplanation.impact}</p>
+                                </div>
+                              </div>
+                              {coachExplanation.better_plan && (
+                                <div className="flex items-start gap-2 pt-2 border-t border-amber-500/20">
+                                  <Target className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-medium text-green-400">Better plan</p>
+                                    <p className="text-sm text-foreground/90">{coachExplanation.better_plan}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
                   
                   {/* Move Info */}
                   <div className="px-4 pb-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="text-center">
+                      <div className={`text-center p-2 rounded-lg transition-colors ${viewMode === "your_move" || viewMode === "both" ? "bg-red-500/10 ring-1 ring-red-500/30" : ""}`}>
                         <div className="text-xs text-muted-foreground">You played</div>
                         <div className="font-mono font-bold text-red-500">{currentMoment.user_move}</div>
                       </div>
                       <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                      <div className="text-center">
+                      <div className={`text-center p-2 rounded-lg transition-colors ${viewMode === "better_move" || viewMode === "both" ? "bg-green-500/10 ring-1 ring-green-500/30" : ""}`}>
                         <div className="text-xs text-muted-foreground">Better was</div>
                         <div className="font-mono font-bold text-green-500">{currentMoment.best_move}</div>
                       </div>
