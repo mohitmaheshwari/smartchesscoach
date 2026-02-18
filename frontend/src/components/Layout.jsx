@@ -166,7 +166,7 @@ const Layout = ({ children, user }) => {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             {/* Logo */}
-            <Link to="/focus" className="flex items-center gap-2.5 group">
+            <Link to="/reflect" className="flex items-center gap-2.5 group">
               <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center transition-transform group-hover:scale-105">
                 <span className="text-background font-heading font-bold text-xs">E1</span>
               </div>
