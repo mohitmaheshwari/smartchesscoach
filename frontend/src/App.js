@@ -21,6 +21,7 @@ import AuthCallback from "@/pages/AuthCallback";
 import Journey from "@/pages/Journey";
 import JourneyV2 from "@/pages/JourneyV2";
 import ProgressV2 from "@/pages/ProgressV2";
+import Reflect from "@/pages/Reflect";
 
 // Components
 import { Toaster } from "@/components/ui/sonner";
