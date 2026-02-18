@@ -375,7 +375,7 @@ const Reflect = ({ user }) => {
                   <div className="p-4">
                     <CoachBoard
                       ref={boardRef}
-                      fen={currentMoment.fen}
+                      position={currentMoment.fen}
                       orientation={currentGame?.user_color || "white"}
                       interactive={isPlanMode}
                       planMode={isPlanMode}
