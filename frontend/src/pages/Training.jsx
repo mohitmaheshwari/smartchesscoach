@@ -882,9 +882,10 @@ const Training = ({ user }) => {
             )}
           </CardContent>
         </Card>
+        )}
 
-        {/* Phase Theory - Educational Content */}
-        {phase.theory && (
+        {/* Phase Theory - Educational Content (only for curriculum mode) */}
+        {!useDataDriven && phase.theory && (
           <Card className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border-violet-500/30">
             <CardContent className="pt-4 pb-4">
               <div className="flex items-start gap-3">
