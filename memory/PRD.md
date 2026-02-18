@@ -353,20 +353,94 @@ Collect user's thoughts at the moment of mistakes for future pattern analysis. T
 ---
 
 ## Test Reports
+- `/app/test_reports/iteration_52.json` - Reflect Tab Feature (100% pass - 13 backend, 8 frontend tests)
 - `/app/test_reports/iteration_46.json` - "What were you thinking?" Gold Data UI (100% pass, all 7 features verified)
 - `/app/test_reports/iteration_45.json` - Focus Plan V2 (Example cycling, Last Game Audit, User Thoughts API - 100% pass)
 - `/app/test_reports/iteration_44.json` - Deterministic Focus Plan (100% pass, 15 tests)
 - `/app/test_reports/iteration_43.json` - Focus Page 3-Section Redesign (100% pass)
 - `/app/backend/tests/test_focus_plan.py` - Focus plan backend tests
 - `/app/backend/tests/test_focus_plan_v2.py` - Focus plan v2 tests (example positions, audit, thoughts)
+- `/app/backend/tests/test_reflect_feature.py` - Reflect feature tests
+
+---
+
+## NEW FEATURE: Reflect Tab ✅ COMPLETE (Feb 2026)
+
+### Core Purpose
+Time-sensitive reflection tab that prompts users to reflect on critical moments from their most recent games **immediately after analysis** while memory is fresh.
+
+### Key Features
+1. **Urgent Reflection Prompts**: Shows games needing reflection with time indicators (e.g., "1d ago - Memory fading")
+2. **Critical Moments**: Displays positions where user made blunders/mistakes
+3. **Interactive Board**: Users can play moves on the board to show their thinking
+4. **Awareness Gap Detection**: LLM compares user's thought with actual position analysis
+5. **Navigation Badge**: Red badge in nav shows count of games needing reflection
+
+### User Flow
+1. Navigate to Reflect tab (badge shows pending count)
+2. See list of games needing reflection (most recent first)
+3. For each game, see critical moments one by one
+4. At each moment:
+   - See chess position on board
+   - See "You played X" vs "Better was Y"
+   - Share thoughts via text or "Show on board" (play moves)
+   - Submit reflection
+   - If awareness gap detected: see engine insight + training recommendation
+5. Move to next moment / next game
+
+### API Endpoints
+- `GET /api/reflect/pending` - Get games needing reflection
+- `GET /api/reflect/pending/count` - Get count for badge
+- `GET /api/reflect/game/{game_id}/moments` - Get critical moments
+- `POST /api/reflect/submit` - Submit reflection (triggers awareness gap analysis)
+- `POST /api/reflect/game/{game_id}/complete` - Mark game as fully reflected
+
+### Key Files
+- `backend/reflect_service.py` - Core reflection service (300+ lines)
+- `frontend/src/pages/Reflect.jsx` - Reflect page UI (620 lines)
+- `frontend/src/components/Layout.jsx` - Navigation with badge
+- `frontend/src/components/CoachBoard.jsx` - Chess board component
+
+### Technical Details
+- Uses Stockfish analysis data for position evaluation
+- LLM (GPT-4o-mini) analyzes user reflections for awareness gaps
+- Badge polls every 60 seconds for count updates
+- Moments sorted by severity (blunders first, then mistakes)
+
+---
 
 ## Key Files
 - `backend/focus_plan_service.py` - Core deterministic coaching service (1300+ lines) - includes audit_last_game()
+- `backend/reflect_service.py` - Reflect tab service (300+ lines) - time-sensitive reflection
 - `frontend/src/pages/FocusPage.jsx` - Focus Page UI with Last Game Audit and Example Position cycling
+- `frontend/src/pages/Reflect.jsx` - Reflect Tab UI - critical moment reflection with awareness gaps
 - `frontend/src/pages/Lab.jsx` - Game Analysis (Lab) page with "What were you thinking?" Gold Data collection
-- `backend/server.py` - API endpoints for /api/focus-plan/*, /api/games/{game_id}/thought*
+- `backend/server.py` - API endpoints for /api/focus-plan/*, /api/games/{game_id}/thought*, /api/reflect/*
 
 ## Credentials
 - Test user: session_token=test_session_356539ff12b1 (user with 30+ analyzed games)
 - Dev Login available on landing page
 
+---
+
+## Upcoming Tasks (Feb 2026)
+
+### P1: Build Training Page (New Design)
+- Rating Intelligence Model (400-800, 800-1400, 1400-2000 ELO bands)
+- Personal mistake clustering from last 20 games
+- Targeted drills linked to reflections and awareness gaps
+- Replaces/refactors current Training.jsx
+
+### P1: Code Cleanup
+- Delete obsolete files: FocusPage.jsx, Coach.jsx, focus_service.py, adaptive_coaching_service.py
+- Refactor/dismantle monolithic Training.jsx (~1500 lines)
+
+### P2: Advanced Player DNA Profile
+- After 30+ games: Generate profile of user's chess personality
+- Risk tolerance, calculation depth, time management style
+- Use for personalized training recommendations
+
+### P3: Track Improvement Metrics
+- Blunder frequency reduction over time
+- Reflection accuracy (did awareness gaps decrease?)
+- Pattern recognition speed
