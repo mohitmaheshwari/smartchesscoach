@@ -322,44 +322,77 @@ async def process_reflection(
     }
     
     # Get VERIFIED facts about what actually happened
-    verified = generate_verified_insight(moment_fen, user_move, best_move, eval_change)
-    user_analysis = verified.get("user_move_analysis", {})
-    best_analysis = verified.get("best_move_analysis", {})
+    # PRIORITY 1: Check for critical issues using unified verification layer
+    from chess_verification_layer import get_critical_facts, verify_move
     
-    # Build factual description of what each move does
-    user_move_facts = []
-    best_move_facts = []
+    critical_facts = get_critical_facts(moment_fen, user_move, best_move, abs(int(eval_change * 100)))
+    verification = verify_move(moment_fen, user_move, best_move, abs(int(eval_change * 100)))
     
-    # User move facts (skip if move couldn't be parsed)
-    if not user_analysis.get("error"):
-        if user_analysis.get("is_capture"):
-            user_move_facts.append(f"captures the {user_analysis.get('captured_piece')}")
-        if user_analysis.get("is_check"):
-            user_move_facts.append("gives check")
-        if user_analysis.get("attacks_after_move"):
-            attacks = [f"{a['piece']} on {a['square']}" for a in user_analysis["attacks_after_move"]]
-            user_move_facts.append(f"attacks: {', '.join(attacks)}")
-        if user_analysis.get("defends_after_move"):
-            defends = [f"{d['piece']} on {d['square']}" for d in user_analysis["defends_after_move"][:2]]
-            user_move_facts.append(f"defends: {', '.join(defends)}")
+    # If there's a critical tactical issue, that's THE explanation
+    critical_issue = critical_facts.get("primary_issue", "")
+    critical_detail = critical_facts.get("primary_detail", "")
     
-    # Best move facts (skip if move couldn't be parsed)
-    if not best_analysis.get("error"):
-        if best_analysis.get("is_capture"):
-            best_move_facts.append(f"captures the {best_analysis.get('captured_piece')}")
-        if best_analysis.get("is_check"):
-            best_move_facts.append("gives check")
-        if best_analysis.get("attacks_after_move"):
-            attacks = [f"{a['piece']} on {a['square']}" for a in best_analysis["attacks_after_move"]]
-            best_move_facts.append(f"attacks: {', '.join(attacks)}")
-        if best_analysis.get("defends_after_move"):
-            defends = [f"{d['piece']} on {d['square']}" for d in best_analysis["defends_after_move"][:2]]
-            best_move_facts.append(f"defends: {', '.join(defends)}")
+    if "mate" in critical_issue:
+        # Checkmate case - this is the ONLY explanation needed
+        user_move_desc = critical_detail
+        best_move_desc = f"avoids checkmate" if "allows" in critical_issue else critical_detail
     else:
-        best_move_facts.append("(analysis unavailable - engine suggested this move)")
-    
-    user_move_desc = "; ".join(user_move_facts) if user_move_facts else "repositions piece (no attacks or captures)"
-    best_move_desc = "; ".join(best_move_facts) if best_move_facts else "repositions piece (no attacks or captures)"
+        # Get detailed move analysis for non-critical cases
+        verified = generate_verified_insight(moment_fen, user_move, best_move, eval_change)
+        user_analysis = verified.get("user_move_analysis", {})
+        best_analysis = verified.get("best_move_analysis", {})
+        
+        # Build MEANINGFUL factual description of what each move does
+        user_move_facts = []
+        best_move_facts = []
+        
+        # User move facts (only SIGNIFICANT facts)
+        if not user_analysis.get("error"):
+            if user_analysis.get("is_checkmate"):
+                user_move_facts.append("delivers checkmate!")
+            elif user_analysis.get("is_capture"):
+                cap = user_analysis.get('captured_piece')
+                val = user_analysis.get('capture_value', 0)
+                user_move_facts.append(f"captures the {cap}" + (f" (worth {val} points)" if val >= 3 else ""))
+            if user_analysis.get("is_check"):
+                user_move_facts.append("gives check")
+            if user_analysis.get("creates_threat"):
+                user_move_facts.append(f"threatens to {user_analysis['creates_threat']}")
+            elif user_analysis.get("attacks_after_move"):
+                # Only mention the most important attack
+                best_attack = user_analysis["attacks_after_move"][0]
+                if best_attack.get("is_hanging"):
+                    user_move_facts.append(f"attacks undefended {best_attack['piece']} on {best_attack['square']}")
+                elif best_attack.get("value", 0) >= 5:
+                    user_move_facts.append(f"attacks the {best_attack['piece']}")
+            if user_analysis.get("defends_after_move"):
+                for defense in user_analysis["defends_after_move"]:
+                    if defense.get("was_hanging"):
+                        user_move_facts.append(f"saves the {defense['piece']} on {defense['square']}")
+        
+        # Best move facts
+        if not best_analysis.get("error"):
+            if best_analysis.get("is_checkmate"):
+                best_move_facts.append("is CHECKMATE!")
+            elif best_analysis.get("is_capture"):
+                cap = best_analysis.get('captured_piece')
+                val = best_analysis.get('capture_value', 0)
+                best_move_facts.append(f"captures the {cap}" + (f" (worth {val} points)" if val >= 3 else ""))
+            if best_analysis.get("is_check"):
+                best_move_facts.append("gives check")
+            if best_analysis.get("creates_threat"):
+                best_move_facts.append(f"threatens to {best_analysis['creates_threat']}")
+            elif best_analysis.get("attacks_after_move"):
+                best_attack = best_analysis["attacks_after_move"][0]
+                if best_attack.get("is_hanging"):
+                    best_move_facts.append(f"attacks undefended {best_attack['piece']} on {best_attack['square']}")
+                elif best_attack.get("value", 0) >= 5:
+                    best_move_facts.append(f"attacks the {best_attack['piece']}")
+        else:
+            best_move_facts.append("(engine recommends this as a stronger continuation)")
+        
+        user_move_desc = "; ".join(user_move_facts) if user_move_facts else "repositions the piece (no immediate tactical impact)"
+        best_move_desc = "; ".join(best_move_facts) if best_move_facts else "creates a stronger position"
     
     # Log the verified facts for debugging
     logger.info(f"Reflection analysis - User move {user_move}: {user_move_desc}")
