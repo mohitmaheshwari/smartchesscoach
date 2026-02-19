@@ -57,6 +57,11 @@ const Reflect = ({ user }) => {
   const [coachExplanation, setCoachExplanation] = useState(null);
   const [loadingExplanation, setLoadingExplanation] = useState(false);
   
+  // Contextual tags state
+  const [contextualTags, setContextualTags] = useState([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+  const [couldNotInferIntent, setCouldNotInferIntent] = useState(false);
+  
   const currentGame = gamesNeedingReflection[currentGameIndex];
   const currentMoment = moments[currentMomentIndex];
   const totalMoments = moments.length;
