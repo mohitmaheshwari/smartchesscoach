@@ -290,6 +290,10 @@ async def process_reflection(
     user_move_desc = "; ".join(user_move_facts) if user_move_facts else "repositions piece (no attacks or captures)"
     best_move_desc = "; ".join(best_move_facts) if best_move_facts else "repositions piece (no attacks or captures)"
     
+    # Log the verified facts for debugging
+    logger.info(f"Reflection analysis - User move {user_move}: {user_move_desc}")
+    logger.info(f"Reflection analysis - Best move {best_move}: {best_move_desc}")
+    
     # Generate awareness gap analysis using LLM with VERIFIED FACTS
     try:
         analysis_prompt = f"""Analyze this chess reflection. You must use ONLY the verified facts below.
