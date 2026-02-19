@@ -224,7 +224,13 @@ class TestExplainMistakeEndpoint:
         assert data["mistake_type"] in [
             "hanging_piece", "material_blunder", "walked_into_fork", "walked_into_pin",
             "missed_fork", "missed_pin", "ignored_threat", "positional_drift",
-            "opening_inaccuracy", "inaccuracy", "failed_conversion", "blunder_when_ahead"
+            "opening_inaccuracy", "inaccuracy", "failed_conversion", "blunder_when_ahead",
+            # Additional patterns
+            "missed_piece_trap", "missed_mobility_restriction", "missed_multi_threat",
+            "missed_attack_valuable", "missed_winning_tactic", "walked_into_skewer",
+            "walked_into_discovered_attack", "missed_skewer", "missed_discovered_attack",
+            "allowed_mate_in_1", "allowed_mate_in_2", "missed_mate_in_1", "missed_mate_in_2",
+            "king_safety_error"
         ]
         
         print(f"✓ Black pieces test passed")
