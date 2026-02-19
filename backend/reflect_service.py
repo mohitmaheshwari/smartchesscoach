@@ -321,7 +321,7 @@ Respond in JSON:
 }}"""
 
         response = await call_llm(
-            system_message="You are a chess coach analyzing a student's reflection. ONLY use the verified facts provided - never invent moves, attacks, or captures.",
+            system_message="You are a chess coach. CRITICAL: You can ONLY reference attacks, captures, or defends that are explicitly listed in the VERIFIED FACTS. If something is not listed, it does not exist. Never invent chess logic.",
             user_message=analysis_prompt,
             model="gpt-4o-mini"
         )
