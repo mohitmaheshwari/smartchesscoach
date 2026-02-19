@@ -2494,6 +2494,7 @@ class ReflectionSubmission(BaseModel):
     user_move: str
     best_move: str
     eval_change: float = 0.0
+    move_number: Optional[int] = None  # For tracking reflected moments
 
 @api_router.post("/reflect/submit")
 async def submit_reflection(data: ReflectionSubmission, user: User = Depends(get_current_user)):
@@ -2507,7 +2508,8 @@ async def submit_reflection(data: ReflectionSubmission, user: User = Depends(get
         data.user_thought,
         data.user_move,
         data.best_move,
-        data.eval_change
+        data.eval_change,
+        data.move_number
     )
     return result
 
