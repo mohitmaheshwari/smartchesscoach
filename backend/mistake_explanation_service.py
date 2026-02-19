@@ -780,7 +780,21 @@ def get_quick_explanation(mistake_type: str, details: Dict = None) -> str:
     
     # Add specific details if available
     if details:
-        if mistake_type == "walked_into_fork" and details.get("fork"):
+        # CHECKMATE PATTERNS - highest priority
+        if mistake_type == "allowed_mate_in_1" and details.get("mating_move"):
+            mating_move = details["mating_move"]
+            explanation = f"This move allowed {mating_move} which is checkmate! Always check: does my move allow any checks that could be mate?"
+        
+        elif mistake_type == "allowed_mate_in_2" and details.get("mating_sequence_starts"):
+            explanation = f"This move allowed a forced checkmate. The game is lost after {details['mating_sequence_starts']}."
+        
+        elif mistake_type == "missed_mate_in_1" and details.get("mating_move"):
+            explanation = f"You missed {details['mating_move']} which was checkmate! Always scan for mate before playing."
+        
+        elif mistake_type == "missed_mate_in_2":
+            explanation = "You had a forced checkmate available but missed it. Worth practicing mate patterns!"
+        
+        elif mistake_type == "walked_into_fork" and details.get("fork"):
             fork = details["fork"]
             targets = fork.get("targets", [])
             if targets:
