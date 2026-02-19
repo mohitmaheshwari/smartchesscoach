@@ -539,6 +539,12 @@ Created `chess_verification_layer.py` that:
 
 ## Completed Tasks (Feb 19, 2026)
 
+### ✅ P0: Fixed "Stability" Bug in Training Page
+- **Problem:** Training page showed "stability" for c4 vs Nfd4, and explanation said "Great job! Excellent move!" for actual mistakes
+- **Root cause:** `eval_after` defaulted to 0 when not provided, causing `eval_drop = 0` and `EXCELLENT_MOVE` classification
+- **Fix:** Added `eval_after = eval_before - cp_loss` calculation in `training_profile_service.py`
+- Also integrated `chess_verification_layer` for consistent mate detection
+
 ### ✅ P1: Pre-filter Games with Pending Reflections 
 - `get_games_needing_reflection()` now pre-filters games by calling `get_game_moments()` for each candidate
 - Only returns games that have qualifying moments (after strict filtering rules)
