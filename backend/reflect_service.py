@@ -19,8 +19,12 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
     """
     Get games that need reflection - recently analyzed but not yet reflected on.
     Prioritizes most recent games (memory freshness).
+    
+    IMPORTANT: Pre-filters games to only include those with QUALIFYING moments
+    (after applying opening phase, cp_loss threshold, and already-reflected filters).
+    This prevents users from seeing "Great Game!" screens for games without mistakes.
     """
-    # Find analyzed games that haven't been fully reflected on
+    # First, get candidate games with blunders/mistakes
     pipeline = [
         {
             "$match": {
@@ -73,7 +77,7 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
             "$sort": {"analysis.created_at": -1}
         },
         {
-            "$limit": limit
+            "$limit": limit * 3  # Get more than needed, will filter below
         },
         {
             "$project": {
@@ -98,7 +102,22 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
         }
     ]
     
-    games = await db.games.aggregate(pipeline).to_list(limit)
+    candidate_games = await db.games.aggregate(pipeline).to_list(limit * 3)
+    
+    # PRE-FILTER: Only include games that have qualifying moments after strict filtering
+    # This prevents "Great Game!" screens
+    filtered_games = []
+    for game in candidate_games:
+        game_id = game.get("game_id")
+        if game_id:
+            # Check if this game has any moments after strict filtering
+            moments = await get_game_moments(db, user_id, game_id)
+            if moments:  # Has qualifying moments
+                game["qualifying_moments"] = len(moments)
+                filtered_games.append(game)
+        
+        if len(filtered_games) >= limit:
+            break
     
     # Calculate hours ago and format response
     result = []
