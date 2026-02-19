@@ -375,18 +375,19 @@ Time-sensitive reflection tab that prompts users to reflect on critical moments 
 3. **Interactive Board**: Users can play moves on the board to show their thinking
 4. **Awareness Gap Detection**: LLM compares user's thought with actual position analysis
 5. **Navigation Badge**: Red badge in nav shows count of games needing reflection
+6. **Contextual Quick-Tags** ✅ NEW (Feb 2026): Position-aware tags generated from chess analysis
 
-### User Flow
-1. Navigate to Reflect tab (badge shows pending count)
-2. See list of games needing reflection (most recent first)
-3. For each game, see critical moments one by one
-4. At each moment:
-   - See chess position on board
-   - See "You played X" vs "Better was Y"
-   - Share thoughts via text or "Show on board" (play moves)
-   - Submit reflection
-   - If awareness gap detected: see engine insight + training recommendation
-5. Move to next moment / next game
+### Contextual Quick-Tags Feature ✅ NEW (Feb 2026)
+Instead of generic tags like "I was rushing" or "I miscalculated", the system now generates position-aware options:
+- **Quality over quantity**: Only generates tags that can genuinely be inferred from the position
+- **Chess-aware analysis**: Uses position_analysis_service.py to understand what moves do
+- **Examples of tags generated**:
+  - "I wanted to attack the knight on c6" (for Bb5 in Ruy Lopez)
+  - "I was attacking the weak f7/f2 square" (for Qh5 Scholar's mate attempts)
+  - "I wanted to capture the pawn" (for capture moves)
+  - "I was trying to give check" (for check-giving moves)
+  - "I was defending my bishop on d3" (for defensive moves)
+- **Honest fallback**: If intent cannot be inferred, tells user honestly and prompts them to describe in their own words
 
 ### API Endpoints
 - `GET /api/reflect/pending` - Get games needing reflection
@@ -394,10 +395,11 @@ Time-sensitive reflection tab that prompts users to reflect on critical moments 
 - `GET /api/reflect/game/{game_id}/moments` - Get critical moments
 - `POST /api/reflect/submit` - Submit reflection (triggers awareness gap analysis)
 - `POST /api/reflect/game/{game_id}/complete` - Mark game as fully reflected
+- `POST /api/reflect/moment/contextual-tags` ✅ NEW - Get position-aware quick-tags
 
 ### Key Files
-- `backend/reflect_service.py` - Core reflection service (300+ lines)
-- `frontend/src/pages/Reflect.jsx` - Reflect page UI (620 lines)
+- `backend/reflect_service.py` - Core reflection service (500+ lines) - includes generate_contextual_tags()
+- `frontend/src/pages/Reflect.jsx` - Reflect page UI (800+ lines) - fetches and displays contextual tags
 - `frontend/src/components/Layout.jsx` - Navigation with badge
 - `frontend/src/components/CoachBoard.jsx` - Chess board component
 
@@ -406,6 +408,7 @@ Time-sensitive reflection tab that prompts users to reflect on critical moments 
 - LLM (GPT-4o-mini) analyzes user reflections for awareness gaps
 - Badge polls every 60 seconds for count updates
 - Moments sorted by severity (blunders first, then mistakes)
+- Contextual tags use position_analysis_service.py for move analysis (no LLM guessing)
 
 ---
 
