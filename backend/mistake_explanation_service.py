@@ -614,13 +614,13 @@ def build_explanation_prompt(analysis: Dict, move_data: Dict) -> str:
     # =============== CHECKMATE PATTERNS (HIGHEST PRIORITY) ===============
     if mistake_type == "allowed_mate_in_1":
         mating_move = details.get("mating_move", "?")
-        context_parts.append(f"CRITICAL ERROR: This move allowed CHECKMATE in 1 move!")
+        context_parts.append("CRITICAL ERROR: This move allowed CHECKMATE in 1 move!")
         context_parts.append(f"Opponent's mating move: {mating_move}")
         context_parts.append("SEVERITY: This is the most decisive mistake - the game is immediately lost")
     
     elif mistake_type == "allowed_mate_in_2":
         mating_start = details.get("mating_sequence_starts", "?")
-        context_parts.append(f"CRITICAL ERROR: This move allowed FORCED CHECKMATE")
+        context_parts.append("CRITICAL ERROR: This move allowed FORCED CHECKMATE")
         context_parts.append(f"Mating sequence starts with: {mating_start}")
         context_parts.append("SEVERITY: The game is lost - opponent has a forced mate")
     
