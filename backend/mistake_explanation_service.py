@@ -611,8 +611,29 @@ def build_explanation_prompt(analysis: Dict, move_data: Dict) -> str:
     context_parts.append(f"Centipawn loss: {move_data.get('cp_loss', 0)}")
     context_parts.append(f"Game phase: {phase}")
     
+    # =============== CHECKMATE PATTERNS (HIGHEST PRIORITY) ===============
+    if mistake_type == "allowed_mate_in_1":
+        mating_move = details.get("mating_move", "?")
+        context_parts.append(f"CRITICAL ERROR: This move allowed CHECKMATE in 1 move!")
+        context_parts.append(f"Opponent's mating move: {mating_move}")
+        context_parts.append("SEVERITY: This is the most decisive mistake - the game is immediately lost")
+    
+    elif mistake_type == "allowed_mate_in_2":
+        mating_start = details.get("mating_sequence_starts", "?")
+        context_parts.append(f"CRITICAL ERROR: This move allowed FORCED CHECKMATE")
+        context_parts.append(f"Mating sequence starts with: {mating_start}")
+        context_parts.append("SEVERITY: The game is lost - opponent has a forced mate")
+    
+    elif mistake_type == "missed_mate_in_1":
+        mating_move = details.get("mating_move", "?")
+        context_parts.append(f"MISSED WINNING MOVE: {mating_move} was CHECKMATE!")
+        context_parts.append("You had mate in one but missed it")
+    
+    elif mistake_type == "missed_mate_in_2":
+        context_parts.append("MISSED WINNING SEQUENCE: You had forced checkmate available")
+    
     # Pattern-specific details
-    if mistake_type == "walked_into_fork" and details.get("fork"):
+    elif mistake_type == "walked_into_fork" and details.get("fork"):
         fork = details["fork"]
         targets = fork.get("targets", [])
         target_desc = " and ".join([f"{t['piece']} on {t['square']}" for t in targets[:2]])
