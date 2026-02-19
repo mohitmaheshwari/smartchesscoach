@@ -2517,6 +2517,32 @@ async def complete_game_reflection(game_id: str, user: User = Depends(get_curren
     result = await mark_game_reflected(db, user.user_id, game_id)
     return result
 
+
+class ContextualTagsRequest(BaseModel):
+    """Request for generating contextual quick-tags based on position."""
+    fen: str
+    user_move: str
+    best_move: str
+    eval_change: float = 0.0
+
+
+@api_router.post("/reflect/moment/contextual-tags")
+async def get_contextual_tags(data: ContextualTagsRequest, user: User = Depends(get_current_user)):
+    """
+    Generate contextual quick-tag options based on the actual chess position.
+    
+    Uses verified position analysis to infer what the user might have been thinking.
+    Only returns tags that can be genuinely inferred - no generic placeholders.
+    """
+    result = generate_contextual_tags(
+        data.fen,
+        data.user_move,
+        data.best_move,
+        data.eval_change
+    )
+    return result
+
+
 @api_router.get("/training/data-driven")
 async def get_data_driven_training(user: User = Depends(get_current_user)):
     """
