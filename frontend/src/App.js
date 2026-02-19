@@ -96,12 +96,12 @@ function AppRouter() {
       <Route path="/" element={<Landing />} />
       <Route path="/coach" element={
         <ProtectedRoute>
-          {({ user }) => <BoardFirstCoach user={user} />}
+          {({ user }) => <Training user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/focus" element={
         <ProtectedRoute>
-          {({ user }) => <FocusPage user={user} />}
+          {({ user }) => <Training user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/progress" element={
