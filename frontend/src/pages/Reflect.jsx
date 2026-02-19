@@ -356,10 +356,10 @@ const Reflect = ({ user }) => {
     } else {
       // All moments done for this game - refetch to confirm
       // (the backend now filters out already-reflected moments)
-      await fetchGameMoments(currentGame.game_id);
+      const remainingMoments = await fetchGameMoments(currentGame.game_id);
       
       // If no more moments after refetch, move to next game
-      if (moments.length === 0 || currentMomentIndex >= moments.length - 1) {
+      if (remainingMoments.length === 0) {
         toast.success("Game reflection complete!");
         
         if (currentGameIndex < gamesNeedingReflection.length - 1) {
@@ -372,6 +372,7 @@ const Reflect = ({ user }) => {
           fetchGamesNeedingReflection();
         }
       }
+      // If there are remaining moments, fetchGameMoments already set them
     }
   };
   
