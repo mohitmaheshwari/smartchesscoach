@@ -2310,7 +2310,56 @@ async def generate_position_explanation(
     # GPT receives ONLY the processed facts - no raw data, no decisions to make
     # ==========================================================================
     
-    if verbalization_template and not is_checkmate:
+    # PRIORITY 1: Allowed mate (most critical - game is lost)
+    if allows_mate:
+        critical_fact = facts.get("critical_fact", "This move allowed checkmate")
+        thinking_habit = facts.get("thinking_habit", "Check for opponent's checks before every move")
+        mating_move = facts.get("mating_move", "")
+        llm_prompt = f"""CRITICAL ERROR DETECTED (from chess engine - 100% accurate):
+
+{critical_fact}
+You played: {move_played}
+Better move: {sf_best_move}
+
+THINKING HABIT TO DEVELOP: {thinking_habit}
+
+Write 2 sentences:
+1. State that {move_played} allowed checkmate{f' ({mating_move})' if mating_move else ''}.
+2. Remind them to always check for opponent's mating threats before moving.
+DO NOT add any other chess analysis."""
+    
+    # PRIORITY 2: Missed mate (winning move available)
+    elif is_checkmate:
+        mate_fact = facts.get("critical_fact", f"{sf_best_move} is checkmate")
+        thinking_habit = facts.get("thinking_habit", "Scan for checks that could be checkmate")
+        llm_prompt = f"""DETERMINISTIC ANALYSIS (from chess engine - 100% accurate):
+
+CRITICAL: {mate_fact}
+You played: {move_played} instead, missing the checkmate.
+
+THINKING HABIT: {thinking_habit}
+
+Write 1-2 sentences confirming that {sf_best_move} is checkmate.
+DO NOT add any other chess analysis. Just state the checkmate fact clearly."""
+    
+    # PRIORITY 3: Other critical issues (hanging pieces, forks)
+    elif critical_issue and facts.get("critical_fact"):
+        critical_fact = facts.get("critical_fact", "")
+        thinking_habit = facts.get("thinking_habit", "")
+        llm_prompt = f"""DETERMINISTIC ANALYSIS (from chess engine - 100% accurate):
+
+{critical_fact}
+You played: {move_played}
+Better move: {sf_best_move}
+{f"Best line: {facts['best_line']}" if facts.get('best_line') else ""}
+{f"What it achieves: {sf_line_description}" if sf_line_description else ""}
+
+{f"THINKING HABIT: {thinking_habit}" if thinking_habit else ""}
+
+Write 2-3 sentences explaining this mistake based ONLY on the facts above.
+DO NOT invent any chess analysis."""
+
+    elif verbalization_template:
         # USE THE EXISTING VERBALIZATION from mistake_classifier
         # GPT just polishes the wording, cannot change the facts
         llm_prompt = f"""DETERMINISTIC ANALYSIS (from chess engine + rule-based classifier - 100% accurate):
@@ -2327,17 +2376,6 @@ PRE-WRITTEN EXPLANATION (verbalize this, do not change the facts):
 
 Your task: Rewrite the explanation in a friendly, encouraging tone. 
 Keep ALL the facts exactly as stated. Only improve the wording."""
-    
-    elif is_checkmate:
-        # Checkmate case - be very direct
-        mate_fact = facts.get("critical_fact", f"{sf_best_move} is checkmate")
-        llm_prompt = f"""DETERMINISTIC ANALYSIS (from chess engine - 100% accurate):
-
-CRITICAL: {mate_fact}
-You played: {move_played} instead, missing the checkmate.
-
-Write 1-2 sentences confirming that {sf_best_move} is checkmate.
-DO NOT add any other chess analysis. Just state the checkmate fact clearly."""
     
     elif sf_line_description and any(keyword in sf_line_description.lower() for keyword in ["captures", "check", "mate"]):
         # Tactical case
