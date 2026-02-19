@@ -123,7 +123,7 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
     result = []
     now = datetime.now(timezone.utc)
     
-    for game in games:
+    for game in filtered_games:  # Use filtered_games instead of games
         # Calculate time since analysis
         analysis_time = game.get("analysis", {}).get("created_at")
         if isinstance(analysis_time, str):
