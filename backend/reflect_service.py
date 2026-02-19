@@ -323,10 +323,9 @@ async def process_reflection(
     
     # Get VERIFIED facts about what actually happened
     # PRIORITY 1: Check for critical issues using unified verification layer
-    from chess_verification_layer import get_critical_facts, verify_move
+    from chess_verification_layer import get_critical_facts
     
     critical_facts = get_critical_facts(moment_fen, user_move, best_move, abs(int(eval_change * 100)))
-    verification = verify_move(moment_fen, user_move, best_move, abs(int(eval_change * 100)))
     
     # If there's a critical tactical issue, that's THE explanation
     critical_issue = critical_facts.get("primary_issue", "")
