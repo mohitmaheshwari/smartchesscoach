@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class ChessCoachAPITester:
-    def __init__(self, base_url="https://mistake-analyzer.preview.emergentagent.com"):
+    def __init__(self, base_url="https://chess-training-hub-1.preview.emergentagent.com"):
         self.base_url = base_url
         self.session_token = None
         self.user_id = None
