@@ -426,7 +426,6 @@ def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_chan
         
         # 5. If there's a hanging piece nearby user might have been worried about
         hanging = position.get("hanging_pieces", [])
-        side_to_move = position.get("side_to_move", "White")
         user_color = "white" if "w" in fen.split()[1] else "black"
         
         # Check opponent's hanging pieces (potential targets user saw)
