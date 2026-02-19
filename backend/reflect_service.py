@@ -263,29 +263,33 @@ async def process_reflection(
     user_move_facts = []
     best_move_facts = []
     
-    # User move facts
-    if user_analysis.get("is_capture"):
-        user_move_facts.append(f"captures the {user_analysis.get('captured_piece')}")
-    if user_analysis.get("is_check"):
-        user_move_facts.append("gives check")
-    if user_analysis.get("attacks_after_move"):
-        attacks = [f"{a['piece']} on {a['square']}" for a in user_analysis["attacks_after_move"]]
-        user_move_facts.append(f"attacks: {', '.join(attacks)}")
-    if user_analysis.get("defends_after_move"):
-        defends = [f"{d['piece']} on {d['square']}" for d in user_analysis["defends_after_move"][:2]]
-        user_move_facts.append(f"defends: {', '.join(defends)}")
+    # User move facts (skip if move couldn't be parsed)
+    if not user_analysis.get("error"):
+        if user_analysis.get("is_capture"):
+            user_move_facts.append(f"captures the {user_analysis.get('captured_piece')}")
+        if user_analysis.get("is_check"):
+            user_move_facts.append("gives check")
+        if user_analysis.get("attacks_after_move"):
+            attacks = [f"{a['piece']} on {a['square']}" for a in user_analysis["attacks_after_move"]]
+            user_move_facts.append(f"attacks: {', '.join(attacks)}")
+        if user_analysis.get("defends_after_move"):
+            defends = [f"{d['piece']} on {d['square']}" for d in user_analysis["defends_after_move"][:2]]
+            user_move_facts.append(f"defends: {', '.join(defends)}")
     
-    # Best move facts
-    if best_analysis.get("is_capture"):
-        best_move_facts.append(f"captures the {best_analysis.get('captured_piece')}")
-    if best_analysis.get("is_check"):
-        best_move_facts.append("gives check")
-    if best_analysis.get("attacks_after_move"):
-        attacks = [f"{a['piece']} on {a['square']}" for a in best_analysis["attacks_after_move"]]
-        best_move_facts.append(f"attacks: {', '.join(attacks)}")
-    if best_analysis.get("defends_after_move"):
-        defends = [f"{d['piece']} on {d['square']}" for d in best_analysis["defends_after_move"][:2]]
-        best_move_facts.append(f"defends: {', '.join(defends)}")
+    # Best move facts (skip if move couldn't be parsed)
+    if not best_analysis.get("error"):
+        if best_analysis.get("is_capture"):
+            best_move_facts.append(f"captures the {best_analysis.get('captured_piece')}")
+        if best_analysis.get("is_check"):
+            best_move_facts.append("gives check")
+        if best_analysis.get("attacks_after_move"):
+            attacks = [f"{a['piece']} on {a['square']}" for a in best_analysis["attacks_after_move"]]
+            best_move_facts.append(f"attacks: {', '.join(attacks)}")
+        if best_analysis.get("defends_after_move"):
+            defends = [f"{d['piece']} on {d['square']}" for d in best_analysis["defends_after_move"][:2]]
+            best_move_facts.append(f"defends: {', '.join(defends)}")
+    else:
+        best_move_facts.append(f"(analysis unavailable - engine suggested this move)")
     
     user_move_desc = "; ".join(user_move_facts) if user_move_facts else "repositions piece (no attacks or captures)"
     best_move_desc = "; ".join(best_move_facts) if best_move_facts else "repositions piece (no attacks or captures)"
