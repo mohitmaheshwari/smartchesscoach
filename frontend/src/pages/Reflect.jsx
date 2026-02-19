@@ -757,26 +757,38 @@ const Reflect = ({ user }) => {
                             )}
                           </div>
                           
-                          {/* Quick tags */}
-                          <div className="flex flex-wrap gap-2">
-                            {[
-                              "I didn't see the threat",
-                              "I was rushing",
-                              "I miscalculated",
-                              "I forgot about that piece",
-                              "I had a different plan",
-                            ].map((tag) => (
-                              <Button
-                                key={tag}
-                                variant="outline"
-                                size="sm"
-                                className="text-xs h-7"
-                                onClick={() => setUserThought(tag)}
-                                disabled={isPlanMode}
-                              >
-                                {tag}
-                              </Button>
-                            ))}
+                          {/* Contextual quick tags */}
+                          <div className="space-y-2">
+                            {loadingTags ? (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                Analyzing position...
+                              </div>
+                            ) : couldNotInferIntent ? (
+                              <div className="text-sm text-muted-foreground py-2">
+                                <span className="text-amber-500">Unable to infer intent from this position.</span>
+                                <span className="ml-1">Please describe what you were thinking in your own words, or show your plan on the board.</span>
+                              </div>
+                            ) : contextualTags.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {contextualTags.map((tag) => (
+                                  <Button
+                                    key={tag}
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs h-auto py-1.5 px-3 whitespace-normal text-left"
+                                    onClick={() => setUserThought(tag)}
+                                    disabled={isPlanMode}
+                                  >
+                                    {tag}
+                                  </Button>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-muted-foreground py-2">
+                                Describe what you were thinking in your own words.
+                              </div>
+                            )}
                           </div>
                           
                           <Button 
