@@ -353,3 +353,136 @@ async def mark_game_reflected(db, user_id: str, game_id: str) -> Dict:
         {"$set": {"fully_reflected": True, "reflected_at": datetime.now(timezone.utc).isoformat()}}
     )
     return {"status": "ok"}
+
+
+def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_change: float) -> Dict:
+    """
+    Generate contextual quick-tag options based on chess position analysis.
+    
+    PRINCIPLE: Only generate tags we can genuinely infer from the position.
+    If we can't understand user's intent, say so honestly.
+    
+    Returns:
+        {
+            "tags": ["I wanted to attack the knight on e4", ...],
+            "could_not_infer": bool,  # True if we couldn't understand intent
+            "inferred_intent": str or None  # Primary inferred intent
+        }
+    """
+    from position_analysis_service import parse_position, analyze_move
+    
+    tags = []
+    inferred_intent = None
+    could_not_infer = False
+    
+    try:
+        # Analyze the position
+        position = parse_position(fen)
+        if "error" in position:
+            return {"tags": [], "could_not_infer": True, "reason": "Invalid position"}
+        
+        # Analyze what the user's move actually does
+        user_analysis = analyze_move(fen, user_move)
+        if "error" in user_analysis:
+            return {"tags": [], "could_not_infer": True, "reason": "Could not analyze move"}
+        
+        # Analyze what the best move does (for comparison)
+        best_analysis = analyze_move(fen, best_move) if best_move else {}
+        
+        piece_moved = user_analysis.get("piece_moved", "piece")
+        to_square = user_analysis.get("to_square", "")
+        
+        # === Generate tags based on WHAT THE MOVE ACTUALLY DOES ===
+        
+        # 1. If it's a capture
+        if user_analysis.get("is_capture"):
+            captured = user_analysis.get("captured_piece", "piece")
+            tags.append(f"I wanted to capture the {captured}")
+            inferred_intent = f"capture the {captured}"
+        
+        # 2. If it gives check
+        if user_analysis.get("is_check"):
+            tags.append("I was trying to give check")
+            if not inferred_intent:
+                inferred_intent = "give check"
+        
+        # 3. What it attacks after the move
+        attacks = user_analysis.get("attacks_after_move", [])
+        for attack in attacks:
+            target_piece = attack.get("piece", "piece")
+            target_sq = attack.get("square", "")
+            if target_piece in ["knight", "bishop", "rook", "queen"]:
+                tag = f"I wanted to attack the {target_piece} on {target_sq}"
+                if tag not in tags:
+                    tags.append(tag)
+                    if not inferred_intent:
+                        inferred_intent = f"attack the {target_piece} on {target_sq}"
+        
+        # 4. What it defends
+        defends = user_analysis.get("defends_after_move", [])
+        if defends:
+            defended_piece = defends[0].get("piece", "piece")
+            defended_sq = defends[0].get("square", "")
+            tags.append(f"I was defending my {defended_piece} on {defended_sq}")
+        
+        # 5. If there's a hanging piece nearby user might have been worried about
+        hanging = position.get("hanging_pieces", [])
+        side_to_move = position.get("side_to_move", "White")
+        user_color = "white" if "w" in fen.split()[1] else "black"
+        
+        # Check opponent's hanging pieces (potential targets user saw)
+        opponent_hanging = [h for h in hanging if h.get("color") != user_color]
+        if opponent_hanging:
+            piece = opponent_hanging[0].get("piece", "piece")
+            sq = opponent_hanging[0].get("square", "")
+            tag = f"I saw the {piece} on {sq} was undefended"
+            if tag not in tags:
+                tags.append(tag)
+        
+        # 6. Check what threat the best move addresses that user missed
+        if best_analysis and not best_analysis.get("error"):
+            best_attacks = best_analysis.get("attacks_after_move", [])
+            user_attack_squares = {a.get("square") for a in attacks}
+            
+            for best_attack in best_attacks:
+                target_piece = best_attack.get("piece", "piece")
+                target_sq = best_attack.get("square", "")
+                if target_sq not in user_attack_squares and target_piece in ["knight", "bishop", "rook", "queen", "king"]:
+                    # User missed this target - they might have been unaware
+                    tag = f"I didn't notice the {target_piece} on {target_sq}"
+                    if tag not in tags:
+                        tags.append(tag)
+                    break  # Only add one "didn't notice" tag
+        
+        # 7. Development move (if no clear tactical intent)
+        if not tags:
+            if piece_moved in ["knight", "bishop"]:
+                tags.append(f"I was developing my {piece_moved}")
+                inferred_intent = f"develop the {piece_moved}"
+            elif piece_moved == "pawn":
+                tags.append("I was trying to control space")
+                inferred_intent = "control space"
+            else:
+                tags.append(f"I was repositioning my {piece_moved}")
+                inferred_intent = f"reposition the {piece_moved}"
+        
+        # === If we couldn't infer anything meaningful ===
+        if not tags:
+            could_not_infer = True
+        
+        # Limit to top 5 most relevant tags
+        tags = tags[:5]
+        
+        return {
+            "tags": tags,
+            "could_not_infer": could_not_infer,
+            "inferred_intent": inferred_intent
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating contextual tags: {e}")
+        return {
+            "tags": [],
+            "could_not_infer": True,
+            "reason": str(e)
+        }
