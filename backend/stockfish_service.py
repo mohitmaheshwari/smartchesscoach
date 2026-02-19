@@ -454,9 +454,9 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 prev_eval = current_eval
                 prev_mate = current_mate
         
-        # Calculate accuracies
-        accuracy_white = calculate_accuracy(white_cp_losses)
-        accuracy_black = calculate_accuracy(black_cp_losses)
+        # Calculate accuracies using CAPS2-style scoring
+        accuracy_white = calculate_accuracy(white_cp_losses, white_classifications)
+        accuracy_black = calculate_accuracy(black_cp_losses, black_classifications)
         
         # User-specific stats
         user_moves = [m for m in moves_analysis]
