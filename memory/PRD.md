@@ -294,19 +294,38 @@ Now the Focus page (`/focus`) uses the new Adaptive Performance Coach.
 - [x] Daily Mission with active timer
 - [x] Interactive chessboard that updates on position clicks
 
-### Previous Features - DEPRECATED
-- Adaptive Performance Coach v1 (adaptive_coach_service.py) - replaced
-- Board-First Coach (BoardFirstCoach.jsx) - replaced
-- Old Focus page (Focus.jsx, AdaptiveCoach.jsx) - replaced
+### Previous Features - DEPRECATED & CLEANED UP (Feb 2026)
+The following files were deleted during code cleanup:
+- `FocusPage.jsx` - DELETED
+- `Coach.jsx` - DELETED
+- `Focus.jsx` - DELETED
+- `BoardFirstCoach.jsx` - DELETED
+- `AdaptiveCoach.jsx` - DELETED
+- Routes `/coach` and `/focus` now redirect to `/training`
+
+Backend services kept for backwards compatibility (legacy API endpoints):
+- `adaptive_coach_service.py` - kept (legacy endpoints)
+- `focus_plan_service.py` - kept (legacy endpoints)
+
+---
+
+## Completed Tasks (Feb 2026)
+
+### Training UX Polish ✅ COMPLETE
+- [x] Removed curriculum toggle - now pure data-driven training
+- [x] Condensed 5-step wizard to 3 steps (Focus → Reflect → Practice)
+- [x] Combined Phase Context + Pattern + Rules into single Focus step
+- [x] Cleaner step indicator with labels and checkmarks
+- [x] Reduced Training.jsx from 2148 lines to ~1100 lines
+
+### Code Cleanup ✅ COMPLETE
+- [x] Deleted 5 obsolete frontend pages (190KB+ removed)
+- [x] Updated App.js routing to redirect legacy routes to Training
+- [x] Cleaned imports
 
 ---
 
 ## Upcoming Tasks
-
-### P1: Code Cleanup
-- [ ] Delete deprecated files: FocusPage.jsx, Coach.jsx, Focus.jsx
-- [ ] Delete deprecated backend: focus_service.py, adaptive_coaching_service.py
-- [ ] Clean up old routing references
 
 ### P2: Drill Generation Logic
 - [ ] Implement contextual drills based on user's active phase and micro-habit
