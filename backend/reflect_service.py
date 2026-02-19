@@ -162,6 +162,12 @@ async def get_game_moments(db, user_id: str, game_id: str) -> List[Dict]:
     """
     Get critical moments from a game for reflection.
     Returns positions with blunders/mistakes that need user reflection.
+    
+    FILTERING RULES:
+    1. Skip opening phase (moves 1-8) unless it's a major blunder (>200 cp)
+    2. Only include blunders and mistakes (not inaccuracies)
+    3. Require minimum centipawn loss to filter out theoretical preferences
+    4. Limit to most critical moments (max 6 per game)
     """
     # Get the game analysis
     analysis = await db.game_analyses.find_one(
@@ -188,35 +194,62 @@ async def get_game_moments(db, user_id: str, game_id: str) -> List[Dict]:
     # Create a lookup map for stockfish data
     sf_map = {m.get("move_number"): m for m in move_evals}
     
+    # Filtering thresholds
+    OPENING_PHASE_END = 8  # First 8 moves are "opening"
+    OPENING_BLUNDER_THRESHOLD = 200  # Only flag opening moves if >200cp loss
+    MIDDLEGAME_MIN_CP_LOSS = 50  # Minimum cp loss to consider for reflection
+    
     moment_idx = 0
     for comment in commentary:
         eval_type = comment.get("evaluation", "")
-        if eval_type in ["blunder", "mistake", "inaccuracy"]:
-            move_num = comment.get("move_number")
-            sf_data = sf_map.get(move_num, {})
+        
+        # Only include blunders and mistakes (skip inaccuracies - too minor)
+        if eval_type not in ["blunder", "mistake"]:
+            continue
             
-            # Get FEN position before the move
-            fen = sf_data.get("fen_before", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-            
-            moments.append({
-                "moment_index": moment_idx,
-                "move_number": move_num,
-                "type": eval_type,
-                "fen": fen,
-                "user_move": comment.get("move", ""),
-                "best_move": sf_data.get("best_move", ""),
-                "eval_before": sf_data.get("eval_before", 0),
-                "eval_after": sf_data.get("eval_after", 0),
-                "eval_change": (sf_data.get("eval_after", 0) - sf_data.get("eval_before", 0)) / 100,
-                "cp_loss": sf_data.get("cp_loss", 0),
-                "threat_line": sf_data.get("threat"),
-                "feedback": comment.get("feedback", ""),
-                "already_reflected": moment_idx in reflected_indices
-            })
-            moment_idx += 1
+        move_num = comment.get("move_number", 0)
+        sf_data = sf_map.get(move_num, {})
+        cp_loss = sf_data.get("cp_loss", 0)
+        
+        # Skip opening moves unless they're major blunders
+        if move_num <= OPENING_PHASE_END:
+            if cp_loss < OPENING_BLUNDER_THRESHOLD:
+                logger.debug(f"Skipping move {move_num} - opening phase with only {cp_loss}cp loss")
+                continue
+        
+        # Skip moves with very small cp loss (theoretical preferences, not mistakes)
+        if cp_loss < MIDDLEGAME_MIN_CP_LOSS:
+            logger.debug(f"Skipping move {move_num} - cp loss {cp_loss} below threshold")
+            continue
+        
+        # Get FEN position before the move
+        fen = sf_data.get("fen_before", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        
+        moments.append({
+            "moment_index": moment_idx,
+            "move_number": move_num,
+            "type": eval_type,
+            "fen": fen,
+            "user_move": comment.get("move", ""),
+            "best_move": sf_data.get("best_move", ""),
+            "eval_before": sf_data.get("eval_before", 0),
+            "eval_after": sf_data.get("eval_after", 0),
+            "eval_change": (sf_data.get("eval_after", 0) - sf_data.get("eval_before", 0)) / 100,
+            "cp_loss": cp_loss,
+            "threat_line": sf_data.get("threat"),
+            "feedback": comment.get("feedback", ""),
+            "already_reflected": moment_idx in reflected_indices
+        })
+        moment_idx += 1
     
-    # Filter out already reflected moments (optional - could show them greyed out instead)
-    # For now, return all moments so user can see progress
+    # Sort by severity (highest cp_loss first) and limit to top 6
+    moments.sort(key=lambda m: m["cp_loss"], reverse=True)
+    moments = moments[:6]
+    
+    # Re-index after filtering
+    for i, m in enumerate(moments):
+        m["moment_index"] = i
+    
     return moments
 
 
