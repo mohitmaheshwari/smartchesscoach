@@ -127,16 +127,52 @@ const Reflect = ({ user }) => {
     }
   };
   
-  // Fetch explanation when moment changes
+  // Fetch contextual tags for the moment
+  const fetchContextualTags = async (moment) => {
+    if (!moment) return;
+    setLoadingTags(true);
+    setContextualTags([]);
+    setCouldNotInferIntent(false);
+    
+    try {
+      const res = await fetch(`${API}/reflect/moment/contextual-tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen: moment.fen,
+          user_move: moment.user_move,
+          best_move: moment.best_move,
+          eval_change: moment.eval_change
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setContextualTags(data.tags || []);
+        setCouldNotInferIntent(data.could_not_infer || false);
+      }
+    } catch (err) {
+      console.error("Error fetching contextual tags:", err);
+    } finally {
+      setLoadingTags(false);
+    }
+  };
+  
+  // Fetch explanation and tags when moment changes
   useEffect(() => {
     if (currentMoment && !coachExplanation) {
       fetchCoachExplanation(currentMoment);
     }
+    if (currentMoment) {
+      fetchContextualTags(currentMoment);
+    }
   }, [currentMoment]);
   
-  // Reset explanation when moment changes
+  // Reset explanation and tags when moment changes
   useEffect(() => {
     setCoachExplanation(null);
+    setContextualTags([]);
+    setCouldNotInferIntent(false);
     setViewMode("your_move");
   }, [currentMomentIndex, currentGameIndex]);
   
