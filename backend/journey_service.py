@@ -859,6 +859,23 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                 "auto_synced": True  # Mark as auto-synced
             }
             
+            # Extract player names
+            if platform == "chess.com":
+                white_player = game_data.get("white", {}).get("username", "")
+                black_player = game_data.get("black", {}).get("username", "")
+            else:  # lichess
+                white_player = game_data.get("players", {}).get("white", {}).get("user", {}).get("name", "")
+                black_player = game_data.get("players", {}).get("black", {}).get("user", {}).get("name", "")
+            
+            game_doc["white_player"] = white_player
+            game_doc["black_player"] = black_player
+            
+            # Also store opponent_name for convenience
+            if user_color == "white":
+                game_doc["opponent_name"] = black_player or "Opponent"
+            else:
+                game_doc["opponent_name"] = white_player or "Opponent"
+            
             # Extract additional metadata
             if platform == "chess.com":
                 game_doc["time_control"] = game_data.get("time_class", "")
