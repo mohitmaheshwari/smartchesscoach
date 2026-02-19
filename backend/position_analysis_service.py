@@ -274,11 +274,19 @@ def generate_verified_insight(
     """
     Generate a verified insight about the position based on FACTS, not LLM hallucination.
     This creates a factual description that can be trusted.
+    
+    CRITICAL: Uses chess_verification_layer for consistent checkmate detection.
     """
+    # Import the unified verification layer
+    from chess_verification_layer import verify_move, get_critical_facts, safe_board, check_mate_in_1
+    
     position = parse_position(fen)
     user_analysis = analyze_move(fen, user_move)
     best_analysis = analyze_move(fen, best_move)
     comparison = compare_moves(fen, user_move, best_move)
+    
+    # CRITICAL: Use the unified verification layer for checkmate detection
+    critical_facts = get_critical_facts(fen, user_move, best_move, abs(int(eval_change * 100)))
     
     # Build factual insights
     insights = {
@@ -288,7 +296,16 @@ def generate_verified_insight(
         "comparison": comparison,
         "verified_impact": "",
         "verified_better_plan": "",
+        "critical_issue": critical_facts.get("primary_issue"),
+        "thinking_habit": critical_facts.get("thinking_habit"),
     }
+    
+    # PRIORITY 0: If there's a checkmate issue, that's THE explanation
+    primary_issue = critical_facts.get("primary_issue", "")
+    if "mate" in primary_issue:
+        insights["verified_impact"] = critical_facts.get("primary_detail", "")
+        insights["verified_better_plan"] = critical_facts.get("thinking_habit", "")
+        return insights
     
     # Generate verified impact statement
     impact_parts = []
