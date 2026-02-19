@@ -210,14 +210,18 @@ const Reflect = ({ user }) => {
       const res = await fetch(`${API}/reflect/game/${gameId}/moments`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        setMoments(data.moments || []);
+        const newMoments = data.moments || [];
+        setMoments(newMoments);
         setCurrentMomentIndex(0);
         setUserThought("");
         setAwarenessGap(null);
         setShowingGap(false);
+        return newMoments;  // Return for immediate use
       }
+      return [];
     } catch (err) {
       console.error("Failed to fetch moments:", err);
+      return [];
     } finally {
       setLoadingMoments(false);
     }
