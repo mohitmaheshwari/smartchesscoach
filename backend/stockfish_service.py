@@ -323,6 +323,8 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
         moves_analysis = []
         white_cp_losses = []
         black_cp_losses = []
+        white_classifications = []  # Track classifications for CAPS2-style accuracy
+        black_classifications = []
         
         blunders = 0
         mistakes = 0
