@@ -4,11 +4,6 @@ import "@/App.css";
 
 // Pages
 import Landing from "@/pages/Landing";
-import Coach from "@/pages/Coach";
-import Focus from "@/pages/Focus";
-import BoardFirstCoach from "@/pages/BoardFirstCoach";
-import AdaptiveCoach from "@/pages/AdaptiveCoach";
-import FocusPage from "@/pages/FocusPage";
 import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
 import ImportGames from "@/pages/ImportGames";
