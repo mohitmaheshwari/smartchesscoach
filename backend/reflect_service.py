@@ -271,7 +271,8 @@ async def process_reflection(
     user_thought: str,
     user_move: str,
     best_move: str,
-    eval_change: float
+    eval_change: float,
+    move_number: int = None
 ) -> Dict:
     """
     Process a user's reflection on a critical moment.
@@ -283,12 +284,13 @@ async def process_reflection(
     from llm_service import call_llm
     from position_analysis_service import generate_verified_insight, analyze_move
     
-    # Save the reflection
+    # Save the reflection with move_number for tracking
     reflection_doc = {
         "user_id": user_id,
         "game_id": game_id,
         "moment_index": moment_index,
         "moment_fen": moment_fen,
+        "move_number": move_number,  # Important for filtering already-reflected moments
         "user_thought": user_thought,
         "user_move": user_move,
         "best_move": best_move,
