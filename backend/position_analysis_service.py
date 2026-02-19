@@ -112,7 +112,13 @@ def parse_position(fen: str) -> Dict:
 def analyze_move(fen: str, move_san: str) -> Dict:
     """
     Analyze what a specific move does in the position.
-    Returns facts about captures, attacks, defenses, etc.
+    Returns MEANINGFUL facts - not just raw data.
+    
+    CRITICAL: Only include facts that are SIGNIFICANT:
+    - Attacks on UNDEFENDED pieces (hanging)
+    - Attacks that create WINNING tactics (forks, pins)
+    - Defenses of pieces that NEEDED defending
+    - Checkmate threats
     """
     try:
         board = chess.Board(fen)
@@ -136,6 +142,15 @@ def analyze_move(fen: str, move_san: str) -> Dict:
         chess.KING: "king"
     }
     
+    piece_values = {
+        chess.PAWN: 1,
+        chess.KNIGHT: 3,
+        chess.BISHOP: 3,
+        chess.ROOK: 5,
+        chess.QUEEN: 9,
+        chess.KING: 100
+    }
+    
     analysis = {
         "move": move_san,
         "from_square": from_square,
@@ -143,11 +158,12 @@ def analyze_move(fen: str, move_san: str) -> Dict:
         "piece_moved": piece_names.get(moving_piece.piece_type, "piece") if moving_piece else "unknown",
         "is_capture": captured_piece is not None,
         "captured_piece": piece_names.get(captured_piece.piece_type) if captured_piece else None,
+        "capture_value": piece_values.get(captured_piece.piece_type, 0) if captured_piece else 0,
         "is_check": False,
-        "is_castling": board.is_castling(move),
-        "is_promotion": move.promotion is not None,
-        "attacks_after_move": [],
-        "defends_after_move": [],
+        "is_checkmate": False,
+        "attacks_after_move": [],  # Only MEANINGFUL attacks (hanging pieces, high value)
+        "defends_after_move": [],  # Only pieces that NEEDED defending
+        "creates_threat": None,  # Main tactical threat created
         "new_threats": [],
     }
     
@@ -155,35 +171,98 @@ def analyze_move(fen: str, move_san: str) -> Dict:
     board.push(move)
     
     analysis["is_check"] = board.is_check()
+    analysis["is_checkmate"] = board.is_checkmate()
     
-    # What does the piece attack after moving?
+    # Get the color that just moved
+    moving_color = not board.turn  # After push, turn flipped
+    opponent_color = board.turn
+    
+    # What does the piece attack after moving? (ONLY meaningful attacks)
     piece_after = board.piece_at(move.to_square)
     if piece_after:
+        meaningful_attacks = []
+        
         for target_square in chess.SQUARES:
-            if board.is_attacked_by(piece_after.color, target_square):
-                target_piece = board.piece_at(target_square)
-                if target_piece and target_piece.color != piece_after.color:
+            target_piece = board.piece_at(target_square)
+            if target_piece and target_piece.color != piece_after.color:
+                # Check if this attack is from the moved piece
+                attackers = board.attackers(moving_color, target_square)
+                if move.to_square in attackers:
                     target_name = chess.square_name(target_square)
                     target_type = piece_names.get(target_piece.piece_type, "piece")
-                    # Check if this attack is from the moved piece
-                    attackers = board.attackers(piece_after.color, target_square)
-                    if move.to_square in attackers:
-                        analysis["attacks_after_move"].append({
+                    target_value = piece_values.get(target_piece.piece_type, 0)
+                    
+                    # Check if target is UNDEFENDED (hanging)
+                    defenders = board.attackers(opponent_color, target_square)
+                    is_hanging = len(defenders) == 0
+                    
+                    # Only include MEANINGFUL attacks:
+                    # 1. Attacks on hanging pieces (any value)
+                    # 2. Attacks on high-value pieces (queen, rook)
+                    # 3. Attacks that win material (attacker value < target value when piece is defended)
+                    attacker_value = piece_values.get(piece_after.piece_type, 0)
+                    
+                    if is_hanging and target_value >= 1:
+                        meaningful_attacks.append({
                             "square": target_name,
-                            "piece": target_type
+                            "piece": target_type,
+                            "is_hanging": True,
+                            "value": target_value
                         })
+                    elif target_value >= 5:  # Always mention attacks on queen/rook
+                        meaningful_attacks.append({
+                            "square": target_name,
+                            "piece": target_type,
+                            "is_hanging": is_hanging,
+                            "value": target_value
+                        })
+        
+        # Sort by value (most valuable first) and limit
+        meaningful_attacks.sort(key=lambda x: (-x["value"], -int(x["is_hanging"])))
+        analysis["attacks_after_move"] = meaningful_attacks[:3]  # Top 3 most important
     
-    # What does this piece now defend?
+    # What does this piece now defend? (ONLY pieces that NEEDED defending)
     if piece_after:
+        meaningful_defenses = []
+        
         for friendly_square in chess.SQUARES:
             friendly_piece = board.piece_at(friendly_square)
-            if friendly_piece and friendly_piece.color == piece_after.color and friendly_square != move.to_square:
-                attackers = board.attackers(piece_after.color, friendly_square)
-                if move.to_square in attackers:
-                    analysis["defends_after_move"].append({
-                        "square": chess.square_name(friendly_square),
-                        "piece": piece_names.get(friendly_piece.piece_type, "piece")
-                    })
+            if friendly_piece and friendly_piece.color == moving_color and friendly_square != move.to_square:
+                # Check if this piece is being attacked
+                attackers = board.attackers(opponent_color, friendly_square)
+                if attackers:
+                    # Check if we're now defending it
+                    defenders = board.attackers(moving_color, friendly_square)
+                    if move.to_square in defenders:
+                        friendly_name = chess.square_name(friendly_square)
+                        friendly_type = piece_names.get(friendly_piece.piece_type, "piece")
+                        
+                        # Was it previously undefended (we saved it)?
+                        # Remove our new piece from defenders to check
+                        other_defenders = [d for d in defenders if d != move.to_square]
+                        was_hanging = len(other_defenders) == 0
+                        
+                        meaningful_defenses.append({
+                            "square": friendly_name,
+                            "piece": friendly_type,
+                            "was_hanging": was_hanging,
+                            "value": piece_values.get(friendly_piece.piece_type, 0)
+                        })
+        
+        # Only include pieces that were ACTUALLY under attack
+        # Sort by value and limit
+        meaningful_defenses.sort(key=lambda x: (-x["value"], -int(x["was_hanging"])))
+        analysis["defends_after_move"] = meaningful_defenses[:2]  # Top 2
+    
+    # Check for main tactical threat created
+    if analysis["is_checkmate"]:
+        analysis["creates_threat"] = "checkmate"
+    elif analysis["is_check"]:
+        analysis["creates_threat"] = "check"
+    elif analysis["attacks_after_move"]:
+        best_attack = analysis["attacks_after_move"][0]
+        if best_attack["is_hanging"]:
+            analysis["creates_threat"] = f"wins {best_attack['piece']} on {best_attack['square']}"
     
     board.pop()  # Undo move
     
