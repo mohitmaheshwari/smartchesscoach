@@ -2415,6 +2415,8 @@ DO NOT invent any chess strategy or analysis."""
         "move_played": move_played,
         "best_move": sf_best_move,
         "is_mate": is_checkmate,
+        "allows_mate": allows_mate,  # NEW: Track if move allowed checkmate
+        "critical_issue": critical_issue,  # NEW: From verification layer
         "is_tactical": sf_line_description and any(k in sf_line_description.lower() for k in ["captures", "check", "mate"]),
         "needs_llm_humanization": use_llm,
         "llm_prompt": llm_prompt
