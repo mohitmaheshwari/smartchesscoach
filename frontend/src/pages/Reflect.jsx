@@ -316,6 +316,7 @@ const Reflect = ({ user }) => {
           user_move: currentMoment?.user_move,
           best_move: currentMoment?.best_move,
           eval_change: currentMoment?.eval_change,
+          move_number: currentMoment?.move_number,  // Track which move was reflected
         }),
       });
       
