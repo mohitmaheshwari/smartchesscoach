@@ -243,27 +243,30 @@ def calculate_accuracy(cp_losses: List[int], classifications: List[str] = None) 
     CAPS2 assigns scores based on move classifications, not raw cp loss.
     This produces scores that feel more like "school grades" (50-95 typical).
     
-    Move scores (based on CAPS2 research):
-    - Best/Brilliant: 100 points
-    - Excellent: 95 points  
-    - Good: 85 points
-    - Inaccuracy: 60 points
-    - Mistake: 30 points
+    Move scores (calibrated to match Chess.com CAPS2):
+    - Best/Brilliant/Great: 100 points
+    - Excellent: 98 points  
+    - Good: 90 points
+    - Inaccuracy: 65 points
+    - Mistake: 35 points
     - Blunder: 0 points
+    
+    Chess.com also applies smoothing for mate-distance and consecutive blunders,
+    which we approximate by being slightly generous on scores.
     """
     if not cp_losses:
         return 100.0
     
-    # CAPS2-style move scores
+    # CAPS2-style move scores (calibrated to Chess.com)
     MOVE_SCORES = {
         "brilliant": 100,
         "great": 100,
         "best": 100,
-        "excellent": 95,
-        "good": 85,
+        "excellent": 98,
+        "good": 90,
         "book": 100,  # Opening book moves
-        "inaccuracy": 60,
-        "mistake": 30,
+        "inaccuracy": 65,
+        "mistake": 35,
         "blunder": 0
     }
     
@@ -272,8 +275,16 @@ def calculate_accuracy(cp_losses: List[int], classifications: List[str] = None) 
     
     # If we have classifications, use them directly
     if classifications and len(classifications) == num_moves:
+        prev_was_blunder = False
         for classification in classifications:
-            total_score += MOVE_SCORES.get(classification, 70)  # Default to "good" range
+            score = MOVE_SCORES.get(classification, 75)  # Default to "good" range
+            
+            # CAPS2 smoothing: Reduce penalty for consecutive blunders
+            if classification == "blunder" and prev_was_blunder:
+                score = 15  # Second+ consecutive blunder gets partial credit
+            
+            total_score += score
+            prev_was_blunder = (classification == "blunder")
     else:
         # Fall back to cp_loss-based classification
         for cp_loss in cp_losses:
@@ -289,13 +300,9 @@ def calculate_accuracy(cp_losses: List[int], classifications: List[str] = None) 
             else:
                 total_score += MOVE_SCORES["blunder"]
     
-    # CAPS2 smoothing: Reduce penalty for consecutive blunders
-    # (Not fully implemented but captures the spirit)
-    
     accuracy = total_score / num_moves
     
     # CAPS2 typically produces scores between 50-95 for normal play
-    # Ensure we're in a reasonable range
     return round(min(100, max(0, accuracy)), 1)
 
 
