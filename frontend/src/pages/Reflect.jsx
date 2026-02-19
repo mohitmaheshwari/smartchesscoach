@@ -624,6 +624,9 @@ const Reflect = ({ user }) => {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button size="sm" variant="ghost" onClick={resetBoardToPosition} title="Reset to position">
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={handleUndoPlanMove} disabled={planMoves.length === 0}>
                           <Undo2 className="w-4 h-4" />
                         </Button>
@@ -632,6 +635,38 @@ const Reflect = ({ user }) => {
                         </Button>
                         <Button size="sm" onClick={finishPlanMode} disabled={planMoves.length === 0}>
                           Done
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Show recorded moves after plan mode (not in plan mode, but moves exist) */}
+              {!isPlanMode && planMoves.length > 0 && (
+                <Card className="mt-3 bg-blue-500/10 border-blue-500/30">
+                  <CardContent className="py-3 px-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs text-blue-400 mb-1">Your moves on the board:</div>
+                        <div className="text-sm font-mono">{planMoves.join(" ")}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={usePlanMovesAsThought}
+                          className="text-xs"
+                        >
+                          Use as description
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={clearPlanMoves}
+                          className="text-xs"
+                        >
+                          <X className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>
