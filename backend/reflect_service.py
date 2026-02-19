@@ -119,9 +119,11 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
         
         hours_ago = (now - analysis_time).total_seconds() / 3600
         
-        # Determine opponent
+        # Determine opponent - check opponent_name first, then white/black_player
         user_color = game.get("user_color", "white")
-        opponent = game.get("black_player") if user_color == "white" else game.get("white_player")
+        opponent = game.get("opponent_name")
+        if not opponent:
+            opponent = game.get("black_player") if user_color == "white" else game.get("white_player")
         
         # Determine user result
         raw_result = game.get("result", "")
