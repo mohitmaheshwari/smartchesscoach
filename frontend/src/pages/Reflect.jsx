@@ -210,6 +210,9 @@ const Reflect = ({ user }) => {
       return;
     }
     
+    // Show loading toast
+    const loadingToast = toast.loading("Converting your plan to words...");
+    
     // Convert plan moves to thought text via LLM
     try {
       const res = await fetch(`${API}/training/plan/describe`, {
@@ -227,12 +230,24 @@ const Reflect = ({ user }) => {
       });
       
       const data = await res.json();
+      toast.dismiss(loadingToast);
+      
       if (data.plan_description) {
         setUserThought(data.plan_description);
+        toast.success("Plan captured! Review and submit your reflection.");
+      } else {
+        // Fallback: just show moves if no description
+        const fallbackText = `I was thinking about playing: ${planMoves.join(" ")}`;
+        setUserThought(fallbackText);
+        toast.success("Plan captured!");
       }
     } catch (err) {
+      toast.dismiss(loadingToast);
+      console.error("Error describing plan:", err);
       // Fallback: just show moves
-      setUserThought(`I was thinking: ${planMoves.join(" ")}`);
+      const fallbackText = `I was thinking about playing: ${planMoves.join(" ")}`;
+      setUserThought(fallbackText);
+      toast.success("Plan captured!");
     }
     
     setIsPlanMode(false);
