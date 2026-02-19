@@ -340,6 +340,107 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
     mistake_type = "inaccuracy"  # Default
     details = {}
     
+    # ==================== PRIORITY 0: CHECKMATE DETECTION ====================
+    # This MUST come first - nothing else matters if there's checkmate involved
+    
+    # 0a. Did this move allow mate in 1?
+    # After user's move, opponent can mate immediately
+    if board_after.is_checkmate():
+        # User got mated by their own move? That shouldn't happen...
+        pass
+    else:
+        # Check if opponent has mate in 1 after our move
+        for opp_move in board_after.legal_moves:
+            test_board = board_after.copy()
+            test_board.push(opp_move)
+            if test_board.is_checkmate():
+                mating_move = board_after.san(opp_move)
+                mistake_type = "allowed_mate_in_1"
+                details["mating_move"] = mating_move
+                details["mating_square"] = chess.square_name(opp_move.to_square)
+                details["critical"] = True
+                severity = "decisive"
+                # If we found mate in 1, return immediately - this is the explanation
+                return {
+                    "mistake_type": mistake_type,
+                    "details": details,
+                    "phase": phase.value if hasattr(phase, 'value') else str(phase),
+                    "severity": severity,
+                    "short_label": "Allowed Mate in 1",
+                    "note": f"This move allowed {mating_move} which is checkmate"
+                }
+    
+    # 0b. Did user miss a mate in 1? (best_move would have been checkmate)
+    if best_move:
+        try:
+            board_test = board.copy()
+            board_test.push_san(best_move)
+            if board_test.is_checkmate():
+                mistake_type = "missed_mate_in_1"
+                details["mating_move"] = best_move
+                details["critical"] = True
+                severity = "decisive"
+                return {
+                    "mistake_type": mistake_type,
+                    "details": details,
+                    "phase": phase.value if hasattr(phase, 'value') else str(phase),
+                    "severity": severity,
+                    "short_label": "Missed Checkmate!",
+                    "note": f"You missed {best_move} which is checkmate"
+                }
+        except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
+            pass
+    
+    # 0c. Check for mate in 2 (allowed)
+    # This is expensive so only do it for high cp_loss moves
+    if cp_loss >= 500:  # Only check for big blunders
+        mate_in_2_found = False
+        for opp_move1 in board_after.legal_moves:
+            if mate_in_2_found:
+                break
+            test1 = board_after.copy()
+            test1.push(opp_move1)
+            if test1.is_checkmate():
+                # This is mate in 1, already handled above
+                continue
+            # Check if all our responses lead to mate
+            all_responses_lead_to_mate = True
+            num_responses = 0
+            for our_response in test1.legal_moves:
+                num_responses += 1
+                if num_responses > 5:  # Limit for performance
+                    all_responses_lead_to_mate = False
+                    break
+                test2 = test1.copy()
+                test2.push(our_response)
+                # Now check if opponent has mate
+                has_mate = False
+                for opp_move2 in test2.legal_moves:
+                    test3 = test2.copy()
+                    test3.push(opp_move2)
+                    if test3.is_checkmate():
+                        has_mate = True
+                        break
+                if not has_mate:
+                    all_responses_lead_to_mate = False
+                    break
+            if num_responses > 0 and all_responses_lead_to_mate:
+                mistake_type = "allowed_mate_in_2"
+                details["mating_sequence_starts"] = board_after.san(opp_move1)
+                details["critical"] = True
+                severity = "decisive"
+                mate_in_2_found = True
+                return {
+                    "mistake_type": mistake_type,
+                    "details": details,
+                    "phase": phase.value if hasattr(phase, 'value') else str(phase),
+                    "severity": severity,
+                    "short_label": "Allowed Forced Mate",
+                    "note": f"This allowed a forced checkmate starting with {board_after.san(opp_move1)}"
+                }
+    
+    # ==================== END CHECKMATE DETECTION ====================
+    
     # 1. FIRST check if the moved piece is now hanging (directly capturable)
     # This takes priority over "fork" because moving to an attacked square = blunder
     hanging = find_hanging_pieces(board_after, color)
