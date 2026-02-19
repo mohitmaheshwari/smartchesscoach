@@ -199,8 +199,6 @@ def analyze_move(fen: str, move_san: str) -> Dict:
                     # Only include MEANINGFUL attacks:
                     # 1. Attacks on hanging pieces (any value)
                     # 2. Attacks on high-value pieces (queen, rook)
-                    # 3. Attacks that win material (attacker value < target value when piece is defended)
-                    attacker_value = piece_values.get(piece_after.piece_type, 0)
                     
                     if is_hanging and target_value >= 1:
                         meaningful_attacks.append({
