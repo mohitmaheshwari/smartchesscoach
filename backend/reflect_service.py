@@ -287,37 +287,37 @@ async def process_reflection(
         defends = [f"{d['piece']} on {d['square']}" for d in best_analysis["defends_after_move"][:2]]
         best_move_facts.append(f"defends: {', '.join(defends)}")
     
-    user_move_desc = "; ".join(user_move_facts) if user_move_facts else "develops/repositions piece"
-    best_move_desc = "; ".join(best_move_facts) if best_move_facts else "develops/repositions piece"
+    user_move_desc = "; ".join(user_move_facts) if user_move_facts else "repositions piece (no attacks or captures)"
+    best_move_desc = "; ".join(best_move_facts) if best_move_facts else "repositions piece (no attacks or captures)"
     
     # Generate awareness gap analysis using LLM with VERIFIED FACTS
     try:
-        analysis_prompt = f"""Analyze this chess reflection and identify if there's an awareness gap.
+        analysis_prompt = f"""Analyze this chess reflection. You must use ONLY the verified facts below.
 
-VERIFIED FACTS (these are computed from the actual position - trust these completely):
+VERIFIED FACTS FROM POSITION ANALYSIS:
 - User played: {user_move}
-  What it does: {user_move_desc}
+  Effect: {user_move_desc}
 - Better move was: {best_move}  
-  What it does: {best_move_desc}
-- Evaluation change: {eval_change:.1f} pawns lost
+  Effect: {best_move_desc}
+- Evaluation lost: {abs(eval_change):.1f} pawns
 
-USER'S REFLECTION on what they were thinking:
+USER'S STATED THINKING:
 "{user_thought}"
 
-Your task:
-1. Compare user's stated thinking with what their move ACTUALLY does (from verified facts)
-2. If there's an awareness gap, explain it using ONLY the verified facts above
-3. Do NOT make up what pieces are attacked or captured - use ONLY the facts provided
+RULES (CRITICAL - VIOLATION CAUSES HARM):
+1. ONLY mention attacks/captures/defends that are listed in "Effect" above
+2. If "Effect" says "repositions piece" - do NOT claim it attacks or captures anything
+3. Never say a move "attacks" something unless that attack is explicitly listed
+4. Compare user's thinking to the verified effects, not to imagined chess logic
 
-CRITICAL: Your "engine_insight" must ONLY use the verified facts above. Do not invent attacks or captures.
-
-Respond in JSON format:
+Respond in JSON:
 {{
     "has_gap": true/false,
-    "engine_insight": "What actually happened (use ONLY verified facts, 2 sentences max)",
-    "gap_type": "tactical_blindness" | "positional_misunderstanding" | "calculation_error" | "pattern_missed" | "time_pressure" | "none",
-    "training_hint": "Specific training recommendation if gap exists (1 sentence, or null)",
-    "acknowledgment": "Brief validation of what they did recognize (1 sentence)"
+    "engine_insight": "Describe what happened using ONLY the effects listed above (2 sentences max)",
+    "gap_type": "tactical_blindness" | "positional_misunderstanding" | "calculation_error" | "none",
+    "training_hint": "Training suggestion if gap exists (1 sentence, or null)",
+    "acknowledgment": "What the user correctly identified (1 sentence)"
+}}
 }}"""
 
         response = await call_llm(
