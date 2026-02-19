@@ -83,6 +83,7 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
                 "result": 1,
                 "white_player": 1,
                 "black_player": 1,
+                "opponent_name": 1,
                 "time_control": 1,
                 "platform": 1,
                 "date_played": 1,
