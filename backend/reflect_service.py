@@ -335,7 +335,7 @@ async def process_reflection(
     if "mate" in critical_issue:
         # Checkmate case - this is the ONLY explanation needed
         user_move_desc = critical_detail
-        best_move_desc = f"avoids checkmate" if "allows" in critical_issue else critical_detail
+        best_move_desc = "avoids checkmate" if "allows" in critical_issue else critical_detail
     else:
         # Get detailed move analysis for non-critical cases
         verified = generate_verified_insight(moment_fen, user_move, best_move, eval_change)
