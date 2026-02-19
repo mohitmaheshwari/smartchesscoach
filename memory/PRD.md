@@ -422,6 +422,13 @@ Instead of generic tags like "I was rushing" or "I miscalculated", the system no
   - "I was defending my bishop on d3" (for defensive moves)
 - **Honest fallback**: If intent cannot be inferred, tells user honestly and prompts them to describe in their own words
 
+### Verified Awareness Gap Analysis ✅ FIXED (Feb 2026)
+The awareness gap detection now uses verified chess analysis to prevent LLM hallucinations:
+- Uses `generate_verified_insight()` to compute actual move effects
+- Provides explicit attacks/defends/captures to the LLM
+- LLM is strictly instructed to ONLY use provided facts
+- Graceful handling when move parsing fails
+
 ### API Endpoints
 - `GET /api/reflect/pending` - Get games needing reflection
 - `GET /api/reflect/pending/count` - Get count for badge
