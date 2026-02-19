@@ -235,8 +235,11 @@ async def process_reflection(
     Process a user's reflection on a critical moment.
     Compares user's thought process with the actual situation.
     Returns awareness gap if detected.
+    
+    CRITICAL: Uses verified position analysis to prevent LLM hallucinations.
     """
     from llm_service import call_llm
+    from position_analysis_service import generate_verified_insight, analyze_move
     
     # Save the reflection
     reflection_doc = {
@@ -251,34 +254,74 @@ async def process_reflection(
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
-    # Generate awareness gap analysis using LLM
+    # Get VERIFIED facts about what actually happened
+    verified = generate_verified_insight(moment_fen, user_move, best_move, eval_change)
+    user_analysis = verified.get("user_move_analysis", {})
+    best_analysis = verified.get("best_move_analysis", {})
+    
+    # Build factual description of what each move does
+    user_move_facts = []
+    best_move_facts = []
+    
+    # User move facts
+    if user_analysis.get("is_capture"):
+        user_move_facts.append(f"captures the {user_analysis.get('captured_piece')}")
+    if user_analysis.get("is_check"):
+        user_move_facts.append("gives check")
+    if user_analysis.get("attacks_after_move"):
+        attacks = [f"{a['piece']} on {a['square']}" for a in user_analysis["attacks_after_move"]]
+        user_move_facts.append(f"attacks: {', '.join(attacks)}")
+    if user_analysis.get("defends_after_move"):
+        defends = [f"{d['piece']} on {d['square']}" for d in user_analysis["defends_after_move"][:2]]
+        user_move_facts.append(f"defends: {', '.join(defends)}")
+    
+    # Best move facts
+    if best_analysis.get("is_capture"):
+        best_move_facts.append(f"captures the {best_analysis.get('captured_piece')}")
+    if best_analysis.get("is_check"):
+        best_move_facts.append("gives check")
+    if best_analysis.get("attacks_after_move"):
+        attacks = [f"{a['piece']} on {a['square']}" for a in best_analysis["attacks_after_move"]]
+        best_move_facts.append(f"attacks: {', '.join(attacks)}")
+    if best_analysis.get("defends_after_move"):
+        defends = [f"{d['piece']} on {d['square']}" for d in best_analysis["defends_after_move"][:2]]
+        best_move_facts.append(f"defends: {', '.join(defends)}")
+    
+    user_move_desc = "; ".join(user_move_facts) if user_move_facts else "develops/repositions piece"
+    best_move_desc = "; ".join(best_move_facts) if best_move_facts else "develops/repositions piece"
+    
+    # Generate awareness gap analysis using LLM with VERIFIED FACTS
     try:
         analysis_prompt = f"""Analyze this chess reflection and identify if there's an awareness gap.
 
-Position FEN: {moment_fen}
-User played: {user_move}
-Better move was: {best_move}
-Evaluation change: {eval_change:.1f} pawns
+VERIFIED FACTS (these are computed from the actual position - trust these completely):
+- User played: {user_move}
+  What it does: {user_move_desc}
+- Better move was: {best_move}  
+  What it does: {best_move_desc}
+- Evaluation change: {eval_change:.1f} pawns lost
 
 USER'S REFLECTION on what they were thinking:
 "{user_thought}"
 
 Your task:
-1. Determine if the user's reflection shows they understood what went wrong
-2. If there's an awareness gap (they missed something), explain it simply
-3. Suggest a training focus if appropriate
+1. Compare user's stated thinking with what their move ACTUALLY does (from verified facts)
+2. If there's an awareness gap, explain it using ONLY the verified facts above
+3. Do NOT make up what pieces are attacked or captured - use ONLY the facts provided
+
+CRITICAL: Your "engine_insight" must ONLY use the verified facts above. Do not invent attacks or captures.
 
 Respond in JSON format:
 {{
     "has_gap": true/false,
-    "engine_insight": "What actually happened in the position (2 sentences max)",
+    "engine_insight": "What actually happened (use ONLY verified facts, 2 sentences max)",
     "gap_type": "tactical_blindness" | "positional_misunderstanding" | "calculation_error" | "pattern_missed" | "time_pressure" | "none",
     "training_hint": "Specific training recommendation if gap exists (1 sentence, or null)",
     "acknowledgment": "Brief validation of what they did recognize (1 sentence)"
 }}"""
 
         response = await call_llm(
-            system_message="You are a chess coach analyzing a student's reflection. Be supportive but honest.",
+            system_message="You are a chess coach analyzing a student's reflection. ONLY use the verified facts provided - never invent moves, attacks, or captures.",
             user_message=analysis_prompt,
             model="gpt-4o-mini"
         )
