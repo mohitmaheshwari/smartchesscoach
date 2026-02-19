@@ -178,12 +178,15 @@ async def get_game_moments(db, user_id: str, game_id: str) -> List[Dict]:
     if not analysis:
         return []
     
-    # Get existing reflections for this game
+    # Get existing reflections for this game - use move_number as stable identifier
     existing_reflections = await db.reflections.find(
         {"game_id": game_id, "user_id": user_id},
-        {"_id": 0, "moment_index": 1}
+        {"_id": 0, "move_number": 1, "moment_fen": 1}
     ).to_list(100)
-    reflected_indices = {r.get("moment_index") for r in existing_reflections}
+    
+    # Create set of already reflected move numbers and FENs for lookup
+    reflected_move_numbers = {r.get("move_number") for r in existing_reflections if r.get("move_number")}
+    reflected_fens = {r.get("moment_fen") for r in existing_reflections if r.get("moment_fen")}
     
     # Extract critical moments from analysis
     moments = []
