@@ -493,6 +493,11 @@ The awareness gap detection now uses verified chess analysis to prevent LLM hall
 
 ## Upcoming Tasks (Feb 2026)
 
+### P1: Pre-filter Games with Pending Reflections
+- Improve `GET /api/reflect/pending` to only return games with actual blunders/mistakes
+- Prevents user clicking through multiple "Great Game!" screens
+- Backend filter should check for moments passing strict filtering criteria
+
 ### P1: Build Training Page (New Design)
 - Rating Intelligence Model (400-800, 800-1400, 1400-2000 ELO bands)
 - Personal mistake clustering from last 20 games
