@@ -289,7 +289,7 @@ async def process_reflection(
             defends = [f"{d['piece']} on {d['square']}" for d in best_analysis["defends_after_move"][:2]]
             best_move_facts.append(f"defends: {', '.join(defends)}")
     else:
-        best_move_facts.append(f"(analysis unavailable - engine suggested this move)")
+        best_move_facts.append("(analysis unavailable - engine suggested this move)")
     
     user_move_desc = "; ".join(user_move_facts) if user_move_facts else "repositions piece (no attacks or captures)"
     best_move_desc = "; ".join(best_move_facts) if best_move_facts else "repositions piece (no attacks or captures)"
