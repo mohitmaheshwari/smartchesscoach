@@ -181,7 +181,11 @@ const Reflect = ({ user }) => {
   };
   
   const handlePlanMove = (moveData) => {
-    setPlanMoves(prev => [...prev, moveData.san]);
+    // CoachBoard passes move data with 'move' key containing SAN notation
+    const san = moveData.move || moveData.san;
+    if (san) {
+      setPlanMoves(prev => [...prev, san]);
+    }
   };
   
   const handleUndoPlanMove = () => {
