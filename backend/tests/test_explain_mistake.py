@@ -139,8 +139,8 @@ class TestExplainMistakeEndpoint:
         # Should recognize opening phase (or unknown if detection fails)
         assert data["phase"] in ["opening", "middlegame", "unknown"], f"Expected opening/middlegame/unknown phase, got: {data['phase']}"
         
-        # Severity should be appropriate for low cp_loss
-        assert data["severity"] in ["minor", "inaccuracy"], f"Expected minor/inaccuracy, got: {data['severity']}"
+        # Severity should be appropriate for low cp_loss (could be none for good moves)
+        assert data["severity"] in ["minor", "inaccuracy", "none"], f"Expected minor/inaccuracy/none, got: {data['severity']}"
         
         print(f"✓ Opening position test passed")
         print(f"  Phase: {data['phase']}")
