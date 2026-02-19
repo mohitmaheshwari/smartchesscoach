@@ -232,28 +232,42 @@ const Reflect = ({ user }) => {
       const data = await res.json();
       toast.dismiss(loadingToast);
       
-      if (data.plan_description) {
-        setUserThought(data.plan_description);
-        toast.success("Plan captured! Review and submit your reflection.");
-      } else {
-        // Fallback: just show moves if no description
-        const fallbackText = `I was thinking about playing: ${planMoves.join(" ")}`;
-        setUserThought(fallbackText);
-        toast.success("Plan captured!");
+      console.log("Plan describe response:", data);
+      
+      // IMPORTANT: Set thought BEFORE exiting plan mode
+      const thoughtText = data.plan_description || `I was thinking about playing: ${planMoves.join(" ")}`;
+      console.log("Setting userThought to:", thoughtText);
+      
+      // Exit plan mode first
+      setIsPlanMode(false);
+      setPlanMoves([]);
+      if (boardRef.current?.stopPlanMode) {
+        boardRef.current.stopPlanMode();
       }
+      
+      // Then set the thought (after a small delay to ensure state updates properly)
+      setTimeout(() => {
+        setUserThought(thoughtText);
+        toast.success("Plan captured! Review and submit your reflection.");
+      }, 100);
+      
     } catch (err) {
       toast.dismiss(loadingToast);
       console.error("Error describing plan:", err);
+      
       // Fallback: just show moves
       const fallbackText = `I was thinking about playing: ${planMoves.join(" ")}`;
-      setUserThought(fallbackText);
-      toast.success("Plan captured!");
-    }
-    
-    setIsPlanMode(false);
-    setPlanMoves([]);
-    if (boardRef.current?.stopPlanMode) {
-      boardRef.current.stopPlanMode();
+      
+      setIsPlanMode(false);
+      setPlanMoves([]);
+      if (boardRef.current?.stopPlanMode) {
+        boardRef.current.stopPlanMode();
+      }
+      
+      setTimeout(() => {
+        setUserThought(fallbackText);
+        toast.success("Plan captured!");
+      }, 100);
     }
   };
   
