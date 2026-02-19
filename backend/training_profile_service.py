@@ -2254,7 +2254,6 @@ async def generate_position_explanation(
     try:
         from chess_verification_layer import get_critical_facts, verify_move
         
-        user_color = "white" if " w " in fen else "black"
         verification = verify_move(fen, move_played, best_move_input, cp_loss)
         
         if verification.get("valid") and verification.get("most_critical"):
