@@ -237,6 +237,17 @@ const Reflect = ({ user }) => {
     }
   };
   
+  const resetBoardToPosition = () => {
+    // Reset board back to original moment position
+    setPlanMoves([]);
+    if (boardRef.current?.reset) {
+      boardRef.current.reset();
+    }
+    if (boardRef.current?.setPosition && currentMoment?.fen) {
+      boardRef.current.setPosition(currentMoment.fen);
+    }
+  };
+  
   const startPlanMode = () => {
     setIsPlanMode(true);
     setPlanMoves([]);
@@ -250,71 +261,38 @@ const Reflect = ({ user }) => {
     }
   };
   
-  const finishPlanMode = async () => {
+  const finishPlanMode = () => {
+    // NO LLM TRANSLATION - just capture the moves and let user describe
     if (planMoves.length === 0) {
       toast.error("Play at least one move");
       return;
     }
     
-    // Show loading toast
-    const loadingToast = toast.loading("Converting your plan to words...");
+    // Store the moves played for reference, but don't auto-fill text
+    const movesPlayed = planMoves.join(" ");
     
-    // Convert plan moves to thought text via LLM
-    try {
-      const res = await fetch(`${API}/training/plan/describe`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          fen: currentMoment?.fen,
-          moves: planMoves,
-          user_playing_color: currentGame?.user_color,
-          turn_to_move: currentMoment?.fen?.includes(" b ") ? "black" : "white",
-          user_move: currentMoment?.user_move,
-          best_move: currentMoment?.best_move,
-        }),
-      });
-      
-      const data = await res.json();
-      toast.dismiss(loadingToast);
-      
-      console.log("Plan describe response:", data);
-      
-      // IMPORTANT: Set thought BEFORE exiting plan mode
-      const thoughtText = data.plan_description || `I was thinking about playing: ${planMoves.join(" ")}`;
-      console.log("Setting userThought to:", thoughtText);
-      
-      // Exit plan mode first
-      setIsPlanMode(false);
-      setPlanMoves([]);
-      if (boardRef.current?.stopPlanMode) {
-        boardRef.current.stopPlanMode();
-      }
-      
-      // Then set the thought (after a small delay to ensure state updates properly)
-      setTimeout(() => {
-        setUserThought(thoughtText);
-        toast.success("Plan captured! Review and submit your reflection.");
-      }, 100);
-      
-    } catch (err) {
-      toast.dismiss(loadingToast);
-      console.error("Error describing plan:", err);
-      
-      // Fallback: just show moves
-      const fallbackText = `I was thinking about playing: ${planMoves.join(" ")}`;
-      
-      setIsPlanMode(false);
-      setPlanMoves([]);
-      if (boardRef.current?.stopPlanMode) {
-        boardRef.current.stopPlanMode();
-      }
-      
-      setTimeout(() => {
-        setUserThought(fallbackText);
-        toast.success("Plan captured!");
-      }, 100);
+    // Exit plan mode
+    setIsPlanMode(false);
+    
+    // Reset board to original position
+    if (boardRef.current?.reset) {
+      boardRef.current.reset();
     }
+    
+    // Keep moves for display, but let user write their own description
+    // Don't clear planMoves - we'll show them as a reference
+    toast.success(`Moves recorded: ${movesPlayed}. Now describe what you were thinking.`);
+  };
+  
+  const usePlanMovesAsThought = () => {
+    // Option to directly use moves as the thought text
+    if (planMoves.length > 0) {
+      setUserThought(`My plan was: ${planMoves.join(" ")}`);
+    }
+  };
+  
+  const clearPlanMoves = () => {
+    setPlanMoves([]);
   };
   
   const submitReflection = async () => {
