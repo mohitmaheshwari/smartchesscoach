@@ -41,6 +41,33 @@ logger = logging.getLogger(__name__)
 # ============================================
 
 MISTAKE_TEMPLATES = {
+    # ==================== CRITICAL: CHECKMATE THREATS ====================
+    # These take HIGHEST priority - nothing else matters if you get mated
+    "allowed_mate_in_1": {
+        "short": "Allowed mate in 1!",
+        "pattern": "This move allowed checkmate on the very next move. The most critical mistake.",
+        "thinking_habit": "ALWAYS check: Does my move allow any checks? Can those checks lead to mate?",
+        "severity": "decisive"
+    },
+    "allowed_mate_in_2": {
+        "short": "Allowed forced mate",
+        "pattern": "This move allowed a forced checkmate sequence. A decisive oversight.",
+        "thinking_habit": "Before your move, look at ALL their checks. Follow each one to the end.",
+        "severity": "decisive"
+    },
+    "missed_mate_in_1": {
+        "short": "Missed checkmate!",
+        "pattern": "You had checkmate in one move! These are the most important to spot.",
+        "thinking_habit": "Every move, quickly scan: Do I have any checks? Can any check be mate?",
+        "severity": "decisive"
+    },
+    "missed_mate_in_2": {
+        "short": "Missed forced mate",
+        "pattern": "A forced checkmate was available. Worth training your eye for these.",
+        "thinking_habit": "When you have active pieces near their king, ALWAYS check for mate patterns.",
+        "severity": "decisive"
+    },
+    
     # Tactical pattern mistakes - Coach-style feedback
     "hanging_piece": {
         "short": "Piece left unprotected",
