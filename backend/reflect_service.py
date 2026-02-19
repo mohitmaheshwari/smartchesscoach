@@ -467,7 +467,7 @@ def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_chan
             
             # Check for attacks on weak squares (f7/f2 - common mating patterns)
             elif target_sq in ["f7", "f2"]:
-                tag = f"I was attacking the weak f7/f2 square"
+                tag = "I was attacking the weak f7/f2 square"
                 if tag not in tags:
                     tags.append(tag)
                     valuable_attacks.append(target_sq)
