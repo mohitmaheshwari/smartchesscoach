@@ -407,19 +407,39 @@ def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_chan
         
         # 3. What it attacks after the move
         attacks = user_analysis.get("attacks_after_move", [])
+        valuable_attacks = []
+        
         for attack in attacks:
             target_piece = attack.get("piece", "piece")
             target_sq = attack.get("square", "")
+            
+            # Check for attacks on valuable pieces
             if target_piece in ["knight", "bishop", "rook", "queen"]:
                 tag = f"I wanted to attack the {target_piece} on {target_sq}"
                 if tag not in tags:
                     tags.append(tag)
+                    valuable_attacks.append(target_sq)
                     if not inferred_intent:
                         inferred_intent = f"attack the {target_piece} on {target_sq}"
+            
+            # Check for attacks on weak squares (f7/f2 - common mating patterns)
+            elif target_sq in ["f7", "f2"]:
+                tag = f"I was attacking the weak f7/f2 square"
+                if tag not in tags:
+                    tags.append(tag)
+                    valuable_attacks.append(target_sq)
+                    if not inferred_intent:
+                        inferred_intent = "attack the weak pawn on f7"
+            
+            # Check for attacks on e5/e4 (center pawns)  
+            elif target_piece == "pawn" and target_sq in ["e4", "e5", "d4", "d5"]:
+                tag = f"I was putting pressure on the center pawn on {target_sq}"
+                if tag not in tags and len(tags) < 3:
+                    tags.append(tag)
         
-        # 4. What it defends
+        # 4. What it defends (only add if not dominated by attacks)
         defends = user_analysis.get("defends_after_move", [])
-        if defends:
+        if defends and len(valuable_attacks) == 0:
             defended_piece = defends[0].get("piece", "piece")
             defended_sq = defends[0].get("square", "")
             tags.append(f"I was defending my {defended_piece} on {defended_sq}")
