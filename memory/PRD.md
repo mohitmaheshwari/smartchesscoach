@@ -537,12 +537,17 @@ Created `chess_verification_layer.py` that:
 
 ---
 
-## Upcoming Tasks (Feb 2026)
+## Completed Tasks (Feb 19, 2026)
 
-### P1: Pre-filter Games with Pending Reflections
-- Improve `GET /api/reflect/pending` to only return games with actual blunders/mistakes
-- Prevents user clicking through multiple "Great Game!" screens
-- Backend filter should check for moments passing strict filtering criteria
+### ✅ P1: Pre-filter Games with Pending Reflections 
+- `get_games_needing_reflection()` now pre-filters games by calling `get_game_moments()` for each candidate
+- Only returns games that have qualifying moments (after strict filtering rules)
+- Prevents "Great Game!" screens - users only see games with actual mistakes to reflect on
+- Count endpoint also updated to reflect accurate numbers
+
+---
+
+## Upcoming Tasks (Feb 2026)
 
 ### P1: Build Training Page (New Design)
 - Rating Intelligence Model (400-800, 800-1400, 1400-2000 ELO bands)
