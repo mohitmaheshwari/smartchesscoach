@@ -111,7 +111,14 @@ class TestExplainMistakeEndpoint:
         valid_mistake_types = [
             "hanging_piece", "material_blunder", "walked_into_fork", "walked_into_pin",
             "missed_fork", "missed_pin", "ignored_threat", "positional_drift",
-            "opening_inaccuracy", "inaccuracy", "failed_conversion"
+            "opening_inaccuracy", "inaccuracy", "failed_conversion",
+            # Additional patterns from deep tactical analysis
+            "missed_piece_trap", "missed_mobility_restriction", "missed_multi_threat",
+            "missed_attack_valuable", "missed_winning_tactic", "walked_into_skewer",
+            "walked_into_discovered_attack", "missed_skewer", "missed_discovered_attack",
+            # Checkmate patterns
+            "allowed_mate_in_1", "allowed_mate_in_2", "missed_mate_in_1", "missed_mate_in_2",
+            "king_safety_error", "blunder_when_ahead"
         ]
         
         assert data["mistake_type"] in valid_mistake_types, f"Unknown mistake_type: {data['mistake_type']}"
