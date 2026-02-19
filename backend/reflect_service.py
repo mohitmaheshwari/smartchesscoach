@@ -248,6 +248,9 @@ async def get_game_moments(db, user_id: str, game_id: str) -> List[Dict]:
         })
         moment_idx += 1
     
+    # Filter out already reflected moments
+    moments = [m for m in moments if not m["already_reflected"]]
+    
     # Sort by severity (highest cp_loss first) and limit to top 6
     moments.sort(key=lambda m: m["cp_loss"], reverse=True)
     moments = moments[:6]
