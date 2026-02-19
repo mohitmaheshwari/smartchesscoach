@@ -28,12 +28,24 @@ Each layer computes a Cost Score from last 20 games:
 **Active Phase** = Highest cost layer (pure data, no rating hardcoding)
 **Micro Habit** = Dominant pattern within the active phase
 
-### Training Page Flow (Step-by-Step)
-1. **Phase Context** - Which layer needs work (4-layer cost breakdown)
-2. **Your Pattern** - Dominant micro habit within the phase (with percentage weights)
-3. **Your 2 Rules** - Actionable rules tailored to rating tier (low/mid/high)
-4. **Quick Reflection** - Tag what happened in last game (updates pattern weights)
-5. **Training Drill** - Practice positions from user + similar users' mistakes
+### Training Page Flow (Streamlined 3-Step Wizard) ✅ POLISHED Feb 2026
+The wizard was condensed from 5 steps to 3 focused steps:
+
+1. **Focus** - Your weakness + pattern + rules (combined view)
+   - Shows active layer (Stability/Conversion/Structure/Precision)
+   - Your main pattern (e.g., "Threat Blindness" at 46%)
+   - Your 2 actionable rules
+   - Example positions from your games
+   - 4-layer cost breakdown visualization
+
+2. **Reflect** - Review critical moments from last game
+   - Per-position reflection with explanations
+   - "Show on board" plan mode
+   - Contextual quick-tags
+
+3. **Practice** - Training drills
+   - Interactive positions to find best moves
+   - Sourced from your mistakes + similar users
 
 ### Key Technical Concepts
 - **Pattern Weights**: User reflections nudge pattern weights (engine still wins)
