@@ -826,8 +826,23 @@ const Reflect = ({ user }) => {
             </div>
           </div>
         ) : (
-          <div className="text-center py-20 text-muted-foreground">
-            No critical moments found in this game
+          <div className="text-center py-12">
+            <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-8 h-8 text-green-500" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Great Game!</h3>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              No significant mistakes found in this game. Your play was solid!
+            </p>
+            {gamesNeedingReflection.length > 1 && currentGameIndex < gamesNeedingReflection.length - 1 && (
+              <Button 
+                variant="outline" 
+                className="mt-4 gap-2"
+                onClick={() => setCurrentGameIndex(currentGameIndex + 1)}
+              >
+                Check Next Game <ChevronRight className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         )}
         
