@@ -380,6 +380,13 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 # Classify the move
                 classification = engine.classify_move(cp_loss, missed_mate)
                 
+                # Track classifications for CAPS2-style accuracy
+                classification_str = classification.value if hasattr(classification, 'value') else str(classification)
+                if is_white_move:
+                    white_classifications.append(classification_str)
+                else:
+                    black_classifications.append(classification_str)
+                
                 # Count classifications
                 if classification == MoveClassification.BLUNDER:
                     blunders += 1
