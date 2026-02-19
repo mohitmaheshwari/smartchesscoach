@@ -5825,9 +5825,9 @@ async def describe_plan_moves(
     user: User = Depends(get_current_user)
 ):
     """
-    Convert a sequence of chess moves into a natural language description of the plan.
+    Convert a sequence of chess moves into a VERIFIED description of the plan.
     
-    This lets users "show their plan on the board" instead of typing it out.
+    This uses actual chess analysis to understand what moves DO, not LLM guessing.
     
     Body:
     - fen: Starting position FEN
@@ -5847,66 +5847,35 @@ async def describe_plan_moves(
     if not fen or not moves:
         return {"error": "Missing fen or moves", "plan_description": ""}
     
-    # Build a prompt for the LLM to describe the plan
-    moves_str = " ".join([
-        f"{i//2 + 1}. {moves[i]}" if i % 2 == 0 else moves[i]
-        for i in range(len(moves))
-    ])
-    
-    # Determine what kind of plan the user is showing
-    opponent_color = "black" if user_playing_color == "white" else "white"
-    
-    # Analyze the moves to see if user is playing their own color or opponent's
-    # In the starting position, whose turn is it?
-    first_move_is_users_color = turn_to_move == user_playing_color
-    first_move_context = "their own color's turn" if first_move_is_users_color else "their opponent's turn"
-    
-    # Build context-aware prompt
-    prompt = f"""You are a chess coach helping a player articulate their thinking during a game review.
-
-CONTEXT:
-- The player was playing as {user_playing_color.upper()} in this game
-- In this position, it was {turn_to_move}'s turn to move ({first_move_context} for them)
-- The player made a mistake: they played {user_move} but {best_move} was better
-
-The player is showing a sequence of moves to explain their thinking:
-{moves_str}
-
-Based on the moves shown, determine what the player is trying to explain:
-1. If they're moving mostly {user_playing_color} pieces: They're showing what they PLANNED to do (their own idea)
-2. If they're moving mostly {opponent_color} pieces: They're showing what they were WORRIED about or what they MISSED from the opponent
-
-Convert this move sequence into a brief, natural description.
-- Use first person ("I was planning...", "I was worried about...", "I missed that...")
-- Be specific about the chess ideas (checks, threats, piece coordination, etc.)
-- Keep it to 2-3 sentences max
-- If showing opponent threats: phrase it as "I was worried about..." or "I missed that my opponent could..."
-"""
-    
+    # Use VERIFIED chess analysis instead of LLM guessing
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        import os
+        from plan_interpretation_service import generate_reflection_from_plan
         
-        api_key = os.environ.get("EMERGENT_LLM_KEY", OPENAI_API_KEY)
-        
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=f"plan_{os.urandom(8).hex()}",
-            system_message="You are a helpful chess coach who helps players articulate their thinking. Be concise and natural."
-        ).with_model("openai", "gpt-4o-mini")
-        
-        response = await chat.send_message(UserMessage(text=prompt))
+        result = generate_reflection_from_plan(
+            fen=fen,
+            plan_moves=moves,
+            user_move=user_move,
+            best_move=best_move,
+            eval_change=plan_data.get("eval_change", 0.0)
+        )
         
         return {
-            "plan_description": response,
+            "plan_description": result.get("thought", f"I was thinking about: {' '.join(moves)}"),
             "moves": moves,
             "fen": fen,
+            "behavioral_tags": result.get("behavioral_tags", []),
+            "verified": result.get("verified", False),
+            "interpretation": result.get("plan_interpretation", {}),
         }
     except Exception as e:
-        logger.error(f"Error generating plan description: {e}")
+        logger.error(f"Error interpreting plan: {e}")
         # Fallback: just list the moves
+        moves_str = " ".join([
+            f"{i//2 + 1}. {moves[i]}" if i % 2 == 0 else moves[i]
+            for i in range(len(moves))
+        ])
         return {
-            "plan_description": f"My plan was: {moves_str}",
+            "plan_description": f"I was thinking about playing: {moves_str}",
             "moves": moves,
             "fen": fen,
             "error": str(e)
