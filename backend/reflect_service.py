@@ -228,6 +228,9 @@ async def get_game_moments(db, user_id: str, game_id: str) -> List[Dict]:
         # Get FEN position before the move
         fen = sf_data.get("fen_before", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
         
+        # Check if this moment was already reflected (by move_number OR FEN)
+        is_already_reflected = move_num in reflected_move_numbers or fen in reflected_fens
+        
         moments.append({
             "moment_index": moment_idx,
             "move_number": move_num,
@@ -241,7 +244,7 @@ async def get_game_moments(db, user_id: str, game_id: str) -> List[Dict]:
             "cp_loss": cp_loss,
             "threat_line": sf_data.get("threat"),
             "feedback": comment.get("feedback", ""),
-            "already_reflected": moment_idx in reflected_indices
+            "already_reflected": is_already_reflected
         })
         moment_idx += 1
     
