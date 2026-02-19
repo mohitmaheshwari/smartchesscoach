@@ -341,21 +341,31 @@ const Reflect = ({ user }) => {
     moveToNextMoment();
   };
   
-  const moveToNextMoment = () => {
+  const moveToNextMoment = async () => {
     setUserThought("");
+    setPlanMoves([]);
     
     if (currentMomentIndex < totalMoments - 1) {
+      // More moments in this game
       setCurrentMomentIndex(prev => prev + 1);
     } else {
-      // All moments done for this game
-      toast.success("Reflection complete!");
+      // All moments done for this game - refetch to confirm
+      // (the backend now filters out already-reflected moments)
+      await fetchMoments(currentGame.game_id);
       
-      if (currentGameIndex < gamesNeedingReflection.length - 1) {
-        // Move to next game
-        setCurrentGameIndex(prev => prev + 1);
-      } else {
-        // All games done!
-        setGamesNeedingReflection([]);
+      // If no more moments after refetch, move to next game
+      if (moments.length === 0 || currentMomentIndex >= moments.length - 1) {
+        toast.success("Game reflection complete!");
+        
+        if (currentGameIndex < gamesNeedingReflection.length - 1) {
+          setCurrentGameIndex(prev => prev + 1);
+          setCurrentMomentIndex(0);
+        } else {
+          // All games done!
+          toast.success("All reflections done!");
+          // Refetch games list to update badge
+          fetchGamesNeedingReflection();
+        }
       }
     }
   };
