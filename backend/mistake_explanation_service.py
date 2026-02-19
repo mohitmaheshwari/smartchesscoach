@@ -528,7 +528,7 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
                 if actually_winning:
                     mistake_type = "missed_fork"
                     details["missed_fork"] = missed_fork
-            except:
+            except Exception:
                 # If we can't verify, still report the fork
                 mistake_type = "missed_fork"
                 details["missed_fork"] = missed_fork
