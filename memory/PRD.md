@@ -495,6 +495,41 @@ The awareness gap detection now uses verified chess analysis to prevent LLM hall
 - `frontend/src/pages/Reflect.jsx` - Reflect Tab UI - critical moment reflection with awareness gaps
 - `frontend/src/pages/Lab.jsx` - Game Analysis (Lab) page with "What were you thinking?" Gold Data collection
 - `backend/server.py` - API endpoints for /api/focus-plan/*, /api/games/{game_id}/thought*, /api/reflect/*
+- **`backend/chess_verification_layer.py`** - UNIFIED verification layer for ALL position analysis (NEW)
+
+## Chess Verification Layer Architecture (Feb 19, 2026)
+
+### Problem Solved
+Multiple services were creating their own `chess.Board` instances with inconsistent analysis:
+- `position_analysis_service.py` - didn't check for checkmate
+- `position_analyzer.py` - had its own tactical detection
+- `mistake_explanation_service.py` - had its own pattern detection
+- Result: Move 21 Qf3 (mate in 1) was explained as "queen vulnerable, knight forks" - WRONG!
+
+### Solution: Single Source of Truth
+Created `chess_verification_layer.py` that:
+1. **Safe FEN parsing** - Consistent error handling
+2. **Priority-ordered analysis** - Checkmate > Tactics > Positional (checkmate ALWAYS first)
+3. **Unified API** - All services use the same functions:
+   - `verify_position(fen)` - Get all facts about a position
+   - `verify_move(fen, move, best_move, cp_loss)` - Analyze what a move does
+   - `get_critical_facts(fen, move, best_move, cp_loss)` - LLM-ready context
+
+### Services Now Using This Layer
+- `mistake_explanation_service.py` - Uses unified checkmate detection
+- `position_analysis_service.py` - Uses `get_critical_facts()` for verified insights
+- `reflect_service.py` - Uses `generate_verified_insight()` which now uses the layer
+
+### Critical Pattern Priority Order
+1. `allows_mate_in_1` - Move allowed checkmate
+2. `allows_mate_in_2` - Move allowed forced mate
+3. `misses_mate_in_1` - Missed checkmate
+4. `misses_mate_in_2` - Missed forced mate
+5. `hangs_queen` - Queen left undefended
+6. `hangs_rook` - Rook left undefended
+7. `hangs_piece` - Minor piece undefended
+8. `walks_into_fork` - Move walked into fork
+9. `positional_error` - Default for non-tactical issues
 
 ## Credentials
 - Test user: session_token=test_session_356539ff12b1 (user with 30+ analyzed games)
