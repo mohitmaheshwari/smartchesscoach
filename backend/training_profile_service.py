@@ -2245,16 +2245,65 @@ async def generate_position_explanation(
         facts["verbalization"] = verbalization_template
     
     # Checkmate detection (from both Stockfish and line analysis)
+    # CRITICAL: Use unified chess_verification_layer for consistent checkmate detection
     is_checkmate = False
-    if sf_is_mate and sf_mate_in and sf_mate_in > 0:
-        is_checkmate = True
-        facts["is_checkmate"] = True
-        facts["mate_in"] = sf_mate_in
-        facts["critical_fact"] = f"{sf_best_move} is CHECKMATE" if sf_mate_in == 1 else f"{sf_best_move} forces mate in {sf_mate_in}"
-    elif "CHECKMATE" in sf_line_description.upper():
-        is_checkmate = True
-        facts["is_checkmate"] = True
-        facts["critical_fact"] = f"{sf_best_move} leads to checkmate"
+    allows_mate = False
+    critical_issue = None
+    
+    # Try to use unified verification layer first
+    try:
+        from chess_verification_layer import get_critical_facts, verify_move
+        
+        user_color = "white" if " w " in fen else "black"
+        verification = verify_move(fen, move_played, best_move_input, cp_loss)
+        
+        if verification.get("valid") and verification.get("most_critical"):
+            critical_issue = verification["most_critical"]
+            issue_type = critical_issue.get("type", "")
+            
+            if issue_type == "allows_mate_in_1":
+                allows_mate = True
+                mating_move = critical_issue.get("mating_move", "")
+                facts["allows_checkmate"] = True
+                facts["mating_move"] = mating_move
+                facts["critical_fact"] = f"This move allowed {mating_move} which is CHECKMATE!"
+                facts["thinking_habit"] = "Before EVERY move, check: Does this allow any checks? Can those checks be mate?"
+                
+            elif issue_type == "allows_mate_in_2":
+                allows_mate = True
+                facts["allows_checkmate"] = True
+                facts["critical_fact"] = f"This move allowed a forced checkmate"
+                facts["thinking_habit"] = "When your king is exposed, check ALL opponent checks before moving."
+                
+            elif issue_type == "misses_mate_in_1":
+                is_checkmate = True
+                mating_move = critical_issue.get("mating_move", best_move_input)
+                facts["is_checkmate"] = True
+                facts["mate_in"] = 1
+                facts["critical_fact"] = f"{mating_move} is CHECKMATE!"
+                facts["thinking_habit"] = "Every move, scan: Do I have any checks? Is any check also checkmate?"
+                
+            elif issue_type.startswith("hangs_"):
+                facts["critical_fact"] = critical_issue.get("detail", "A piece is left undefended")
+                facts["thinking_habit"] = "After choosing a move, verify each piece is safe."
+                
+            elif issue_type == "walks_into_fork":
+                facts["critical_fact"] = critical_issue.get("detail", "Walked into a fork")
+                facts["thinking_habit"] = "Check where opponent's knights can jump to - can they hit 2 pieces?"
+    except Exception as e:
+        logger.warning(f"Chess verification layer failed: {e}")
+    
+    # Fallback: Use Stockfish mate detection
+    if not is_checkmate and not allows_mate:
+        if sf_is_mate and sf_mate_in and sf_mate_in > 0:
+            is_checkmate = True
+            facts["is_checkmate"] = True
+            facts["mate_in"] = sf_mate_in
+            facts["critical_fact"] = f"{sf_best_move} is CHECKMATE" if sf_mate_in == 1 else f"{sf_best_move} forces mate in {sf_mate_in}"
+        elif "CHECKMATE" in sf_line_description.upper():
+            is_checkmate = True
+            facts["is_checkmate"] = True
+            facts["critical_fact"] = f"{sf_best_move} leads to checkmate"
     
     # ==========================================================================
     # STEP 3: BUILD LLM PROMPT - GPT only narrates the facts
