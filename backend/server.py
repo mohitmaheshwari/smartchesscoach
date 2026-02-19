@@ -2464,7 +2464,8 @@ from reflect_service import (
     get_pending_reflection_count,
     get_game_moments,
     process_reflection,
-    mark_game_reflected
+    mark_game_reflected,
+    generate_contextual_tags
 )
 
 @api_router.get("/reflect/pending")
