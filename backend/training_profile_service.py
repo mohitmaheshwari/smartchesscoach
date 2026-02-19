@@ -2272,7 +2272,7 @@ async def generate_position_explanation(
             elif issue_type == "allows_mate_in_2":
                 allows_mate = True
                 facts["allows_checkmate"] = True
-                facts["critical_fact"] = f"This move allowed a forced checkmate"
+                facts["critical_fact"] = "This move allowed a forced checkmate"
                 facts["thinking_habit"] = "When your king is exposed, check ALL opponent checks before moving."
                 
             elif issue_type == "misses_mate_in_1":
