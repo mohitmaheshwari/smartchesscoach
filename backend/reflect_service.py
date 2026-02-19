@@ -390,7 +390,6 @@ def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_chan
         best_analysis = analyze_move(fen, best_move) if best_move else {}
         
         piece_moved = user_analysis.get("piece_moved", "piece")
-        to_square = user_analysis.get("to_square", "")
         
         # === Generate tags based on WHAT THE MOVE ACTUALLY DOES ===
         
