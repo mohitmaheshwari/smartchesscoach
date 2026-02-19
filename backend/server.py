@@ -2560,59 +2560,90 @@ class MomentExplanationRequest(BaseModel):
 async def explain_moment(data: MomentExplanationRequest, user: User = Depends(get_current_user)):
     """
     Get a coach-style explanation of what happened at this moment.
-    Explains the impact of the user's move and the better plan.
+    Uses VERIFIED position analysis - no LLM hallucinations.
     """
+    from position_analysis_service import (
+        generate_verified_insight,
+        build_llm_prompt_with_facts,
+        validate_llm_output
+    )
     from llm_service import call_llm
     
-    eval_description = ""
-    if data.eval_change < -2:
-        eval_description = "This was a serious mistake that significantly hurt your position."
-    elif data.eval_change < -1:
-        eval_description = "This move gave your opponent a clear advantage."
-    elif data.eval_change < -0.5:
-        eval_description = "This move was slightly inaccurate."
-    else:
-        eval_description = "This move wasn't the best choice in this position."
-    
-    prompt = f"""You are a friendly chess coach explaining a critical moment to your student.
-
-Position (FEN): {data.fen}
-Student played: {data.user_move}
-Better move was: {data.best_move}
-Position changed by: {data.eval_change:.1f} pawns (negative = worse for student)
-Mistake type: {data.type}
-
-Give a warm, educational explanation in JSON format:
-{{
-    "impact": "What happened because of this move? Explain in 1-2 sentences what the student's move allowed or missed. Be specific about pieces and threats. Don't be harsh.",
-    "better_plan": "What was the idea behind the better move? Explain in 1-2 sentences what {data.best_move} would have achieved. Focus on the plan, not just the move."
-}}
-
-Be encouraging but honest. Use "you" to address the student. Keep it simple and actionable."""
-
     try:
-        response = await call_llm(
-            system_message="You are a supportive chess coach. Explain positions clearly and kindly.",
-            user_message=prompt,
-            model="gpt-4o-mini"
+        # Step 1: Generate verified insights from actual position analysis
+        verified = generate_verified_insight(
+            data.fen,
+            data.user_move,
+            data.best_move,
+            data.eval_change
         )
         
-        import json
-        response_clean = response.strip()
-        if response_clean.startswith("```json"):
-            response_clean = response_clean[7:]
-        if response_clean.startswith("```"):
-            response_clean = response_clean[3:]
-        if response_clean.endswith("```"):
-            response_clean = response_clean[:-3]
+        # Step 2: Get LLM to elaborate on verified facts (optional enhancement)
+        # Build prompt with ONLY verified facts
+        prompt = build_llm_prompt_with_facts(
+            data.fen,
+            data.user_move,
+            data.best_move,
+            data.eval_change
+        )
         
-        result = json.loads(response_clean)
-        return result
+        try:
+            response = await call_llm(
+                system_message="You are a supportive chess coach. ONLY use the verified facts provided. Never make up piece locations.",
+                user_message=prompt,
+                model="gpt-4o-mini"
+            )
+            
+            import json
+            response_clean = response.strip()
+            if response_clean.startswith("```json"):
+                response_clean = response_clean[7:]
+            if response_clean.startswith("```"):
+                response_clean = response_clean[3:]
+            if response_clean.endswith("```"):
+                response_clean = response_clean[:-3]
+            
+            llm_result = json.loads(response_clean)
+            
+            # Step 3: Validate LLM output against position facts
+            is_valid, errors = validate_llm_output(
+                json.dumps(llm_result), 
+                verified["position_facts"]
+            )
+            
+            if is_valid:
+                # LLM output is valid, use it
+                return {
+                    "impact": llm_result.get("impact", verified["verified_impact"]),
+                    "better_plan": llm_result.get("better_plan", verified["verified_better_plan"]),
+                    "verified": True
+                }
+            else:
+                # LLM hallucinated, fall back to verified facts
+                logger.warning(f"LLM validation failed: {errors}")
+                return {
+                    "impact": verified["verified_impact"],
+                    "better_plan": verified["verified_better_plan"],
+                    "verified": True,
+                    "fallback": True
+                }
+                
+        except Exception as llm_error:
+            logger.error(f"LLM error: {llm_error}")
+            # Fall back to verified analysis
+            return {
+                "impact": verified["verified_impact"],
+                "better_plan": verified["verified_better_plan"],
+                "verified": True,
+                "fallback": True
+            }
+            
     except Exception as e:
-        logger.error(f"Error explaining moment: {e}")
+        logger.error(f"Error analyzing moment: {e}")
         return {
-            "impact": eval_description,
-            "better_plan": f"The move {data.best_move} was stronger in this position."
+            "impact": f"Your move {data.user_move} wasn't the best in this position.",
+            "better_plan": f"The move {data.best_move} was stronger here.",
+            "error": True
         }
 
 # ==================== COACH MODE ROUTES ====================
