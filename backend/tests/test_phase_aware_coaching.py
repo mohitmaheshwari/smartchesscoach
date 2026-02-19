@@ -17,7 +17,7 @@ import sys
 # Add backend to path for direct service testing
 sys.path.insert(0, '/app/backend')
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://rated-training-hub.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mistake-analyzer.preview.emergentagent.com')
 ANALYZED_GAME_ID = "game_188d768edd26"
 TEST_EMAIL = "testuser@demo.com"
 

@@ -65,7 +65,7 @@
   },
 
   "test_credentials_used": {
-    "dev_login": "https://rated-training-hub.preview.emergentagent.com/api/auth/dev-login",
+    "dev_login": "https://mistake-analyzer.preview.emergentagent.com/api/auth/dev-login",
     "test_game_id": "game_c1658a380825"
   },
 
