@@ -315,10 +315,13 @@ def generate_verified_insight(
     # Generate verified better plan
     better_parts = []
     
-    if best_analysis.get("is_capture"):
+    if best_analysis.get("error"):
+        # Move couldn't be parsed - provide limited insight
+        better_parts.append(f"The engine suggests {best_move} as a better alternative.")
+    elif best_analysis.get("is_capture"):
         better_parts.append(f"{best_move} would have captured the {best_analysis['captured_piece']}.")
     else:
-        better_parts.append(f"{best_move} moves the {best_analysis['piece_moved']} to {best_analysis['to_square']}.")
+        better_parts.append(f"{best_move} moves the {best_analysis.get('piece_moved', 'piece')} to {best_analysis.get('to_square', 'a new square')}.")
     
     if best_analysis.get("attacks_after_move"):
         attacks = [f"{a['piece']} on {a['square']}" for a in best_analysis["attacks_after_move"]]
