@@ -351,7 +351,7 @@ const Reflect = ({ user }) => {
     } else {
       // All moments done for this game - refetch to confirm
       // (the backend now filters out already-reflected moments)
-      await fetchMoments(currentGame.game_id);
+      await fetchGameMoments(currentGame.game_id);
       
       // If no more moments after refetch, move to next game
       if (moments.length === 0 || currentMomentIndex >= moments.length - 1) {

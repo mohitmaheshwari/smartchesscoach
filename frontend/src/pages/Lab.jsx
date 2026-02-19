@@ -572,10 +572,10 @@ const Lab = ({ user }) => {
       }
     });
     
-    // Limit brilliant/great to top 5 each, sort learning by severity
+    // Limit brilliant/great to top 5 each, sort learning chronologically (first to last mistake)
     groups.brilliant_moves = groups.brilliant_moves.slice(0, 5);
     groups.great_moves = groups.great_moves.slice(0, 5);
-    groups.learning_moments.sort((a, b) => b.cp_loss - a.cp_loss);
+    groups.learning_moments.sort((a, b) => a.move_number - b.move_number);
     
     // Build final array with proper ordering: brilliant first, then great, then learning
     const result = [];
