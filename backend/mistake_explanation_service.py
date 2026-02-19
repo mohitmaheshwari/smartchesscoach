@@ -2,16 +2,19 @@
 Mistake Explanation Service - Educational Commentary for Chess Mistakes
 
 Architecture:
-- Our Chess Logic (Tags/Rules) → determines WHY the move is bad
-- GPT → only writes the human-readable commentary based on those tags
+- chess_verification_layer.py → SINGLE SOURCE OF TRUTH for position analysis
+- GPT → only writes the human-readable commentary based on verified facts
+
+CRITICAL: This service MUST use chess_verification_layer for ALL position analysis.
+DO NOT create chess.Board instances directly - use the verification layer.
 
 This is a HYBRID approach:
-1. Deterministic Analysis: We use mistake_classifier.py to identify WHAT happened
+1. Verification Layer: Provides CONSISTENT, VERIFIED facts about positions
 2. LLM Commentary: GPT takes these facts and writes an educational explanation
 
 GPT DOES NOT:
 - Decide if a move is a blunder/mistake/inaccuracy (Stockfish does)
-- Identify tactical patterns (mistake_classifier does)
+- Identify tactical patterns (verification layer does)
 - Invent chess variations (we provide the engine lines)
 
 GPT ONLY:
@@ -31,6 +34,13 @@ from mistake_classifier import (
     detect_walked_into_fork, detect_walked_into_pin,
     detect_missed_fork, detect_missed_pin,
     determine_phase, get_material_count
+)
+
+# CRITICAL: Use the unified verification layer
+from chess_verification_layer import (
+    verify_position, verify_move, get_critical_facts,
+    safe_board, safe_move, check_mate_in_1,
+    CriticalPattern, PIECE_NAMES, PIECE_VALUES
 )
 
 logger = logging.getLogger(__name__)
