@@ -1,0 +1,422 @@
+"""
+Chess Position Analysis Service
+
+This module provides ACCURATE position analysis by:
+1. Parsing FEN to understand piece placement
+2. Using chess.js logic to determine what moves actually do
+3. Using Stockfish for tactical insights
+4. Providing verified facts to LLM prompts
+5. Validating LLM output against position reality
+
+CRITICAL: Never trust LLM to interpret chess positions directly.
+Always provide it with pre-computed facts.
+"""
+
+import chess
+import chess.engine
+from typing import Dict, List, Optional, Tuple
+import os
+import logging
+import asyncio
+
+logger = logging.getLogger(__name__)
+
+# Stockfish path
+STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
+
+
+def parse_position(fen: str) -> Dict:
+    """
+    Parse a FEN string and extract all relevant position facts.
+    Returns a dictionary of verifiable facts about the position.
+    """
+    try:
+        board = chess.Board(fen)
+    except Exception as e:
+        logger.error(f"Invalid FEN: {fen}, error: {e}")
+        return {"error": "Invalid FEN"}
+    
+    facts = {
+        "fen": fen,
+        "side_to_move": "White" if board.turn == chess.WHITE else "Black",
+        "is_check": board.is_check(),
+        "is_checkmate": board.is_checkmate(),
+        "is_stalemate": board.is_stalemate(),
+        "pieces": {},
+        "white_pieces": [],
+        "black_pieces": [],
+        "attacked_squares": {},
+        "hanging_pieces": [],
+        "threats": [],
+    }
+    
+    # Map pieces to squares
+    piece_names = {
+        chess.PAWN: "pawn",
+        chess.KNIGHT: "knight", 
+        chess.BISHOP: "bishop",
+        chess.ROOK: "rook",
+        chess.QUEEN: "queen",
+        chess.KING: "king"
+    }
+    
+    for square in chess.SQUARES:
+        piece = board.piece_at(square)
+        if piece:
+            square_name = chess.square_name(square)
+            color = "white" if piece.color == chess.WHITE else "black"
+            piece_type = piece_names[piece.piece_type]
+            
+            facts["pieces"][square_name] = {
+                "type": piece_type,
+                "color": color,
+                "symbol": piece.symbol()
+            }
+            
+            if piece.color == chess.WHITE:
+                facts["white_pieces"].append(f"{piece_type} on {square_name}")
+            else:
+                facts["black_pieces"].append(f"{piece_type} on {square_name}")
+    
+    # Find attacked squares for each side
+    for color in [chess.WHITE, chess.BLACK]:
+        color_name = "white" if color == chess.WHITE else "black"
+        attacked = []
+        for square in chess.SQUARES:
+            if board.is_attacked_by(color, square):
+                attacked.append(chess.square_name(square))
+        facts["attacked_squares"][color_name] = attacked
+    
+    # Find hanging pieces (pieces that are attacked but not defended)
+    for square in chess.SQUARES:
+        piece = board.piece_at(square)
+        if piece:
+            square_name = chess.square_name(square)
+            own_color = piece.color
+            enemy_color = not own_color
+            
+            is_attacked = board.is_attacked_by(enemy_color, square)
+            is_defended = board.is_attacked_by(own_color, square)
+            
+            if is_attacked and not is_defended:
+                color = "white" if own_color == chess.WHITE else "black"
+                facts["hanging_pieces"].append({
+                    "piece": piece_names[piece.piece_type],
+                    "square": square_name,
+                    "color": color
+                })
+    
+    return facts
+
+
+def analyze_move(fen: str, move_san: str) -> Dict:
+    """
+    Analyze what a specific move does in the position.
+    Returns facts about captures, attacks, defenses, etc.
+    """
+    try:
+        board = chess.Board(fen)
+        move = board.parse_san(move_san)
+    except Exception as e:
+        logger.error(f"Error parsing move {move_san} in {fen}: {e}")
+        return {"error": f"Could not parse move: {move_san}"}
+    
+    from_square = chess.square_name(move.from_square)
+    to_square = chess.square_name(move.to_square)
+    
+    moving_piece = board.piece_at(move.from_square)
+    captured_piece = board.piece_at(move.to_square)
+    
+    piece_names = {
+        chess.PAWN: "pawn",
+        chess.KNIGHT: "knight",
+        chess.BISHOP: "bishop", 
+        chess.ROOK: "rook",
+        chess.QUEEN: "queen",
+        chess.KING: "king"
+    }
+    
+    analysis = {
+        "move": move_san,
+        "from_square": from_square,
+        "to_square": to_square,
+        "piece_moved": piece_names.get(moving_piece.piece_type, "piece") if moving_piece else "unknown",
+        "is_capture": captured_piece is not None,
+        "captured_piece": piece_names.get(captured_piece.piece_type) if captured_piece else None,
+        "is_check": False,
+        "is_castling": board.is_castling(move),
+        "is_promotion": move.promotion is not None,
+        "attacks_after_move": [],
+        "defends_after_move": [],
+        "new_threats": [],
+    }
+    
+    # Make the move and analyze the resulting position
+    board.push(move)
+    
+    analysis["is_check"] = board.is_check()
+    
+    # What does the piece attack after moving?
+    piece_after = board.piece_at(move.to_square)
+    if piece_after:
+        for target_square in chess.SQUARES:
+            if board.is_attacked_by(piece_after.color, target_square):
+                target_piece = board.piece_at(target_square)
+                if target_piece and target_piece.color != piece_after.color:
+                    target_name = chess.square_name(target_square)
+                    target_type = piece_names.get(target_piece.piece_type, "piece")
+                    # Check if this attack is from the moved piece
+                    attackers = board.attackers(piece_after.color, target_square)
+                    if move.to_square in attackers:
+                        analysis["attacks_after_move"].append({
+                            "square": target_name,
+                            "piece": target_type
+                        })
+    
+    # What does this piece now defend?
+    if piece_after:
+        for friendly_square in chess.SQUARES:
+            friendly_piece = board.piece_at(friendly_square)
+            if friendly_piece and friendly_piece.color == piece_after.color and friendly_square != move.to_square:
+                attackers = board.attackers(piece_after.color, friendly_square)
+                if move.to_square in attackers:
+                    analysis["defends_after_move"].append({
+                        "square": chess.square_name(friendly_square),
+                        "piece": piece_names.get(friendly_piece.piece_type, "piece")
+                    })
+    
+    board.pop()  # Undo move
+    
+    return analysis
+
+
+def compare_moves(fen: str, user_move: str, best_move: str) -> Dict:
+    """
+    Compare the user's move with the best move.
+    Returns factual differences between the two moves.
+    """
+    user_analysis = analyze_move(fen, user_move)
+    best_analysis = analyze_move(fen, best_move)
+    
+    comparison = {
+        "user_move": user_analysis,
+        "best_move": best_analysis,
+        "differences": []
+    }
+    
+    # Compare captures
+    if best_analysis.get("is_capture") and not user_analysis.get("is_capture"):
+        comparison["differences"].append(
+            f"The better move {best_move} captures the {best_analysis['captured_piece']}, while {user_move} doesn't capture anything"
+        )
+    
+    # Compare attacks
+    user_attacks = set(a["piece"] for a in user_analysis.get("attacks_after_move", []))
+    best_attacks = set(a["piece"] for a in best_analysis.get("attacks_after_move", []))
+    
+    missed_attacks = best_attacks - user_attacks
+    if missed_attacks:
+        comparison["differences"].append(
+            f"{best_move} attacks {', '.join(missed_attacks)} that {user_move} doesn't"
+        )
+    
+    # Compare checks
+    if best_analysis.get("is_check") and not user_analysis.get("is_check"):
+        comparison["differences"].append(f"{best_move} gives check, while {user_move} doesn't")
+    
+    return comparison
+
+
+async def get_stockfish_analysis(fen: str, depth: int = 15) -> Dict:
+    """
+    Get Stockfish analysis for the position.
+    Returns evaluation and best moves with explanations.
+    """
+    try:
+        transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+        board = chess.Board(fen)
+        
+        # Get evaluation
+        info = await engine.analyse(board, chess.engine.Limit(depth=depth))
+        
+        score = info.get("score")
+        if score:
+            if score.is_mate():
+                eval_str = f"Mate in {score.relative.mate()}"
+            else:
+                cp = score.relative.score()
+                eval_str = f"{cp/100:+.2f}" if cp else "0.00"
+        else:
+            eval_str = "0.00"
+        
+        # Get best move
+        best_move = info.get("pv", [None])[0]
+        best_move_san = board.san(best_move) if best_move else None
+        
+        await engine.quit()
+        
+        return {
+            "evaluation": eval_str,
+            "best_move": best_move_san,
+            "depth": depth
+        }
+    except Exception as e:
+        logger.error(f"Stockfish error: {e}")
+        return {"error": str(e)}
+
+
+def generate_verified_insight(
+    fen: str,
+    user_move: str,
+    best_move: str,
+    eval_change: float
+) -> Dict:
+    """
+    Generate a verified insight about the position based on FACTS, not LLM hallucination.
+    This creates a factual description that can be trusted.
+    """
+    position = parse_position(fen)
+    user_analysis = analyze_move(fen, user_move)
+    best_analysis = analyze_move(fen, best_move)
+    comparison = compare_moves(fen, user_move, best_move)
+    
+    # Build factual insights
+    insights = {
+        "position_facts": position,
+        "user_move_analysis": user_analysis,
+        "best_move_analysis": best_analysis,
+        "comparison": comparison,
+        "verified_impact": "",
+        "verified_better_plan": "",
+    }
+    
+    # Generate verified impact statement
+    impact_parts = []
+    
+    # What did the user move do?
+    if user_analysis.get("is_capture"):
+        impact_parts.append(f"Your move {user_move} captured the {user_analysis['captured_piece']}.")
+    else:
+        impact_parts.append(f"Your move {user_move} moved your {user_analysis['piece_moved']} to {user_analysis['to_square']}.")
+    
+    # What does the user move attack?
+    if user_analysis.get("attacks_after_move"):
+        attacks = [f"{a['piece']} on {a['square']}" for a in user_analysis["attacks_after_move"]]
+        impact_parts.append(f"This attacks the {', '.join(attacks)}.")
+    
+    # What's the problem with this move?
+    if eval_change < -1:
+        impact_parts.append(f"However, this loses about {abs(eval_change):.1f} pawns worth of advantage.")
+    elif eval_change < -0.5:
+        impact_parts.append(f"This is slightly inaccurate, costing about {abs(eval_change):.1f} pawns.")
+    
+    insights["verified_impact"] = " ".join(impact_parts)
+    
+    # Generate verified better plan
+    better_parts = []
+    
+    if best_analysis.get("is_capture"):
+        better_parts.append(f"{best_move} would have captured the {best_analysis['captured_piece']}.")
+    else:
+        better_parts.append(f"{best_move} moves the {best_analysis['piece_moved']} to {best_analysis['to_square']}.")
+    
+    if best_analysis.get("attacks_after_move"):
+        attacks = [f"{a['piece']} on {a['square']}" for a in best_analysis["attacks_after_move"]]
+        better_parts.append(f"This would attack the {', '.join(attacks)}.")
+    
+    if best_analysis.get("is_check"):
+        better_parts.append("This also gives check!")
+    
+    # Add comparison differences
+    for diff in comparison.get("differences", []):
+        better_parts.append(diff + ".")
+    
+    insights["verified_better_plan"] = " ".join(better_parts)
+    
+    return insights
+
+
+def build_llm_prompt_with_facts(
+    fen: str,
+    user_move: str, 
+    best_move: str,
+    eval_change: float
+) -> str:
+    """
+    Build an LLM prompt that includes verified position facts.
+    The LLM should ONLY elaborate on these facts, not make up new ones.
+    """
+    insights = generate_verified_insight(fen, user_move, best_move, eval_change)
+    
+    user_analysis = insights["user_move_analysis"]
+    best_analysis = insights["best_move_analysis"]
+    position = insights["position_facts"]
+    
+    # Build piece list for context
+    white_pieces = ", ".join(position.get("white_pieces", [])[:10])
+    black_pieces = ", ".join(position.get("black_pieces", [])[:10])
+    
+    prompt = f"""You are a chess coach explaining a position to a student. 
+
+CRITICAL: Only use the VERIFIED FACTS below. Do NOT make up piece locations or moves.
+
+=== VERIFIED POSITION FACTS ===
+Side to move: {position.get('side_to_move')}
+White pieces: {white_pieces}
+Black pieces: {black_pieces}
+
+=== WHAT THE STUDENT'S MOVE ({user_move}) ACTUALLY DOES ===
+- Moves: {user_analysis.get('piece_moved')} from {user_analysis.get('from_square')} to {user_analysis.get('to_square')}
+- Captures: {user_analysis.get('captured_piece') or 'nothing'}
+- After this move, it attacks: {[f"{a['piece']} on {a['square']}" for a in user_analysis.get('attacks_after_move', [])] or 'nothing significant'}
+- Gives check: {user_analysis.get('is_check')}
+
+=== WHAT THE BETTER MOVE ({best_move}) DOES ===
+- Moves: {best_analysis.get('piece_moved')} from {best_analysis.get('from_square')} to {best_analysis.get('to_square')}
+- Captures: {best_analysis.get('captured_piece') or 'nothing'}
+- After this move, it attacks: {[f"{a['piece']} on {a['square']}" for a in best_analysis.get('attacks_after_move', [])] or 'nothing significant'}
+- Gives check: {best_analysis.get('is_check')}
+
+=== EVALUATION CHANGE ===
+The student's move cost approximately {abs(eval_change):.1f} pawns of advantage.
+
+Based ONLY on these verified facts, write a friendly 2-sentence explanation for:
+1. "impact": What happened because of the student's move (use the actual facts above)
+2. "better_plan": What the better move achieves (use the actual facts above)
+
+Respond in JSON format:
+{{"impact": "...", "better_plan": "..."}}
+
+Remember: ONLY mention pieces and squares that are in the verified facts above. Do not hallucinate."""
+
+    return prompt
+
+
+def validate_llm_output(llm_output: str, position_facts: Dict) -> Tuple[bool, List[str]]:
+    """
+    Validate LLM output against position facts.
+    Returns (is_valid, list_of_errors).
+    """
+    errors = []
+    
+    # Extract piece mentions from LLM output
+    piece_patterns = ["knight", "bishop", "rook", "queen", "king", "pawn"]
+    square_pattern = r'[a-h][1-8]'
+    
+    import re
+    
+    # Find all square references in the output
+    mentioned_squares = re.findall(square_pattern, llm_output.lower())
+    
+    # Check if mentioned squares have pieces (if claimed)
+    pieces = position_facts.get("pieces", {})
+    
+    for square in mentioned_squares:
+        # This is a basic check - we could make it more sophisticated
+        if square not in pieces:
+            # Check if the output claims there's a piece there
+            for piece_type in piece_patterns:
+                if f"{piece_type} on {square}" in llm_output.lower():
+                    errors.append(f"LLM incorrectly mentioned {piece_type} on {square} - no piece there")
+    
+    return len(errors) == 0, errors
