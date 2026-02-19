@@ -2154,7 +2154,15 @@ async def generate_position_explanation(
     best_move_input = milestone.get("best_move") or milestone.get("context_for_explanation", {}).get("best_move", "?")
     cp_loss = milestone.get("cp_loss") or milestone.get("context_for_explanation", {}).get("cp_loss", 0)
     eval_before = milestone.get("eval_before") or milestone.get("context_for_explanation", {}).get("eval_before", 0)
-    eval_after = milestone.get("eval_after") or milestone.get("context_for_explanation", {}).get("eval_after", 0)
+    eval_after = milestone.get("eval_after") or milestone.get("context_for_explanation", {}).get("eval_after", None)
+    
+    # CRITICAL: If eval_after is not provided, calculate from cp_loss
+    # cp_loss is always positive (how much advantage was lost)
+    if eval_after is None and cp_loss:
+        # User lost cp_loss centipawns
+        eval_after = eval_before - cp_loss
+    elif eval_after is None:
+        eval_after = eval_before  # No change
     
     # ==========================================================================
     # STEP 1: RUN STOCKFISH - Raw engine data
