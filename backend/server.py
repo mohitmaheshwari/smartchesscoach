@@ -6252,39 +6252,39 @@ async def get_training_progress(user: User = Depends(get_current_user)):
 
 
 # =============================================================================
-# HYBRID ANALYSIS ENDPOINTS (Lichess Cloud + Stockfish Fallback)
+# POSITION ANALYSIS ENDPOINTS (Stockfish + Cache)
 # =============================================================================
 
 @api_router.get("/eval/position")
-async def analyze_position_hybrid(
+async def analyze_position_endpoint(
     fen: str,
-    depth: int = 20
+    depth: int = 18
 ):
     """
-    Analyze a chess position using hybrid approach:
-    1. Try Lichess Cloud Eval (instant if cached)
-    2. Fallback to local Stockfish
+    Analyze a chess position using Stockfish with caching.
+    
+    - First request: ~2 seconds (Stockfish runs)
+    - Subsequent requests: Instant (from cache)
     
     Returns evaluation, best move, and principal variation.
     """
-    from hybrid_analysis_service import HybridAnalysisService
+    from position_analysis_cache_service import PositionAnalysisService
     
-    service = HybridAnalysisService(db)
+    service = PositionAnalysisService(db)
     result = await service.get_position_eval(fen, depth=depth)
     
     return result
 
 
 @api_router.get("/eval/best-move")
-async def get_best_move_hybrid(fen: str):
+async def get_best_move_endpoint(fen: str, depth: int = 18):
     """
     Quick endpoint to get just the best move for a position.
-    Uses hybrid Lichess Cloud + Stockfish approach.
     """
-    from hybrid_analysis_service import HybridAnalysisService
+    from position_analysis_cache_service import PositionAnalysisService
     
-    service = HybridAnalysisService(db)
-    best_move = await service.get_best_move(fen)
+    service = PositionAnalysisService(db)
+    best_move = await service.get_best_move(fen, depth=depth)
     
     return {
         "fen": fen,
@@ -6293,39 +6293,35 @@ async def get_best_move_hybrid(fen: str):
 
 
 @api_router.post("/eval/move")
-async def analyze_move_hybrid(
+async def analyze_move_endpoint(
     fen: str,
     move: str,
     depth: int = 18
 ):
     """
-    Analyze a specific move - get evaluation before/after and classification.
+    Analyze a specific move - get evaluation and classification.
     
     Args:
         fen: Position before the move
         move: The move played (SAN or UCI format)
-        depth: Analysis depth
     
     Returns:
         Move analysis with cp_loss and classification (blunder/mistake/etc)
     """
-    from hybrid_analysis_service import HybridAnalysisService
+    from position_analysis_cache_service import PositionAnalysisService
     
-    service = HybridAnalysisService(db)
+    service = PositionAnalysisService(db)
     result = await service.analyze_move(fen, move, depth=depth)
     
     return result
 
 
 @api_router.get("/eval/cache-stats")
-async def get_analysis_cache_stats():
-    """
-    Get statistics about the position evaluation cache.
-    Shows how many positions are cached from Lichess vs Stockfish.
-    """
-    from hybrid_analysis_service import HybridAnalysisService
+async def get_eval_cache_stats():
+    """Get cache statistics."""
+    from position_analysis_cache_service import PositionAnalysisService
     
-    service = HybridAnalysisService(db)
+    service = PositionAnalysisService(db)
     stats = await service.get_cache_stats()
     
     return stats
