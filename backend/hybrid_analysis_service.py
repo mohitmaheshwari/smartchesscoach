@@ -20,7 +20,7 @@ import logging
 import httpx
 import asyncio
 from typing import Dict, List, Optional, Tuple
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import chess
 
 logger = logging.getLogger(__name__)
