@@ -182,14 +182,14 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
                 principle = get_principle_for_issue(issue_type)
                 
                 puzzle = {
-                    "id": f"{game.get('game_id')}_{move_number}",
+                    "id": f"{game_id}_{move_number}",
                     "fen": fen,
                     "user_move": user_move,
                     "correct_move": best_move,
                     "move_number": move_number,
                     "cp_loss": cp_loss,
-                    "game_id": game.get("game_id"),
-                    "opponent": game.get("opponent_name", "Unknown"),
+                    "game_id": game_id,
+                    "opponent": game.get("opponent_name") or game.get("black_player") or "Unknown",
                     "user_color": user_color,
                     "issue_type": issue_type,
                     "principle": principle,
