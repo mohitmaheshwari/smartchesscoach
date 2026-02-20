@@ -546,6 +546,87 @@ const OpeningTrainer = () => {
             </Card>
           )}
           
+          {/* Community Comparison - Show for user's openings */}
+          {selectedOpening?.community && selectedOpening.community.comparison_status !== "neutral" && (
+            <Card className={`border ${
+              selectedOpening.community.comparison_status === "above" 
+                ? "bg-green-500/10 border-green-500/30" 
+                : selectedOpening.community.comparison_status === "below"
+                  ? "bg-orange-500/10 border-orange-500/30"
+                  : "bg-blue-500/10 border-blue-500/30"
+            }`} data-testid="community-comparison-card">
+              <CardContent className="py-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className={`w-4 h-4 ${
+                    selectedOpening.community.comparison_status === "above" ? "text-green-500" :
+                    selectedOpening.community.comparison_status === "below" ? "text-orange-500" :
+                    "text-blue-400"
+                  }`} />
+                  <span className="text-sm font-medium">Compare to Community</span>
+                  <Badge variant="outline" className="ml-auto text-xs">
+                    {selectedOpening.community.rating_band_label} players
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Your Accuracy */}
+                  <div className="p-2 rounded bg-background/50 text-center">
+                    <p className="text-2xl font-bold">{selectedOpening.avg_accuracy}%</p>
+                    <p className="text-xs text-muted-foreground">Your Accuracy</p>
+                  </div>
+                  
+                  {/* Community Average */}
+                  <div className="p-2 rounded bg-background/50 text-center">
+                    <p className="text-2xl font-bold text-muted-foreground">
+                      {selectedOpening.community.avg_accuracy}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Community Avg</p>
+                  </div>
+                </div>
+                
+                {/* Comparison Status */}
+                <div className={`mt-3 p-2 rounded text-center ${
+                  selectedOpening.community.comparison_status === "above" 
+                    ? "bg-green-500/20" 
+                    : selectedOpening.community.comparison_status === "below"
+                      ? "bg-orange-500/20"
+                      : "bg-blue-500/20"
+                }`}>
+                  <div className="flex items-center justify-center gap-2">
+                    {selectedOpening.community.comparison_status === "above" && (
+                      <TrendingUp className="w-4 h-4 text-green-500" />
+                    )}
+                    {selectedOpening.community.comparison_status === "below" && (
+                      <TrendingDown className="w-4 h-4 text-orange-500" />
+                    )}
+                    {selectedOpening.community.comparison_status === "average" && (
+                      <Minus className="w-4 h-4 text-blue-400" />
+                    )}
+                    <span className={`text-sm font-medium ${
+                      selectedOpening.community.comparison_status === "above" ? "text-green-500" :
+                      selectedOpening.community.comparison_status === "below" ? "text-orange-500" :
+                      "text-blue-400"
+                    }`}>
+                      {selectedOpening.community.comparison_text}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {selectedOpening.community.comparison_status === "above" 
+                      ? `Better than ${selectedOpening.community.percentile}% of players` 
+                      : selectedOpening.community.comparison_status === "below"
+                        ? `Work on this opening to improve`
+                        : `Performing at the expected level`}
+                  </p>
+                </div>
+                
+                {/* Stats footer */}
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Based on {selectedOpening.community.total_games} games from {selectedOpening.community.player_count} players
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          
           {/* Description */}
           {opening?.description && (
             <Card className="bg-muted/30">
