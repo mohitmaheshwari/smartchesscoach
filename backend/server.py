@@ -4573,23 +4573,24 @@ async def get_fast_thinking_analysis(user: User = Depends(get_current_user)):
     
     return calc_analysis
 
+
 @api_router.get("/training/puzzles")
-async def get_training_puzzles(user: User = Depends(get_current_user), count: int = 5):
+async def get_training_puzzles(
+    limit: int = 10,
+    user: User = Depends(get_current_user)
+):
     """
-    Get personalized puzzles based on weaknesses.
-    Puzzles are selected to target the player's specific weak areas.
+    Get personalized puzzles from user's own mistakes.
     """
-    # Get weaknesses
-    profile = await db.player_profiles.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0, "top_weaknesses": 1}
-    )
-    weaknesses = profile.get("top_weaknesses", []) if profile else []
+    from interactive_training_service import get_user_puzzles
     
-    # Generate training session
-    session = generate_training_session(weaknesses, count)
+    puzzles = await get_user_puzzles(db, user.user_id, limit)
     
-    return session
+    return {
+        "puzzles": puzzles,
+        "total": len(puzzles),
+        "source": "your_games"
+    }
 
 @api_router.post("/training/puzzles/{puzzle_index}/solve")
 async def submit_puzzle_solution(
