@@ -2841,7 +2841,8 @@ def get_game_strategic_analysis(analysis: Dict, game: Dict = None) -> Dict:
     # Get game metadata
     game_id = analysis.get("game_id", "")
     user_color = game.get("user_color", "white") if game else "white"
-    opening_name = game.get("opening", "") if game else ""
+    # Try multiple fields for opening name
+    opening_name = (game.get("opening_name") or game.get("opening") or "") if game else ""
     pgn = game.get("pgn", "") if game else ""
     
     result = {
