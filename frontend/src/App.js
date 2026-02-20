@@ -9,7 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import WeaknessTracker from "@/pages/WeaknessTracker";
-import Training from "@/pages/Training";
+import Training from "@/pages/TrainingNew";  // NEW interactive training
 import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
