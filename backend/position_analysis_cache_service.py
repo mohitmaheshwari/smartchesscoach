@@ -240,10 +240,17 @@ class PositionAnalysisService:
     async def _run_stockfish(self, fen: str, depth: int) -> Optional[Dict]:
         """Run Stockfish analysis."""
         try:
-            from stockfish_service import analyze_position
+            from stockfish_service import get_position_evaluation
             
-            result = await analyze_position(fen, depth=depth)
-            if not result:
+            # Run in thread pool since stockfish_service is synchronous
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, 
+                lambda: get_position_evaluation(fen, depth=depth)
+            )
+            
+            if not result or result.get("error"):
+                logger.error(f"Stockfish returned error: {result}")
                 return None
             
             # Convert to standard format
@@ -260,6 +267,8 @@ class PositionAnalysisService:
             
             # Convert PV to SAN
             pv_uci = result.get("pv", [])
+            if isinstance(pv_uci, str):
+                pv_uci = pv_uci.split()
             pv_san = []
             temp_board = chess.Board(fen)
             for uci in pv_uci[:10]:
@@ -270,19 +279,29 @@ class PositionAnalysisService:
                 except:
                     break
             
+            # Get centipawn score
+            eval_cp = result.get("score_cp") or result.get("evaluation") or result.get("cp") or 0
+            if isinstance(eval_cp, str):
+                try:
+                    eval_cp = int(float(eval_cp) * 100) if '.' in eval_cp else int(eval_cp)
+                except:
+                    eval_cp = 0
+            
             return {
                 "fen": fen,
                 "depth": depth,
-                "eval_cp": result.get("score_cp", 0),
-                "eval_mate": result.get("mate_in"),
+                "eval_cp": eval_cp,
+                "eval_mate": result.get("mate_in") or result.get("mate"),
                 "best_move": best_uci,
                 "best_move_san": best_san,
-                "pv": pv_uci[:10],
+                "pv": pv_uci[:10] if isinstance(pv_uci, list) else [],
                 "pv_san": pv_san
             }
             
         except Exception as e:
             logger.error(f"Stockfish error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return None
     
     async def get_cache_stats(self) -> Dict:
