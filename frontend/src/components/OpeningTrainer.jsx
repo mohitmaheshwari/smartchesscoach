@@ -90,10 +90,11 @@ const OpeningTrainer = () => {
       try {
         setLoading(true);
         
-        // Fetch both user's openings and the database
-        const [userRes, dbRes] = await Promise.all([
+        // Fetch user's openings, database, and tricks
+        const [userRes, dbRes, tricksRes] = await Promise.all([
           fetch(`${API}/training/openings/stats`, { credentials: "include" }),
-          fetch(`${API}/training/openings-database`, { credentials: "include" })
+          fetch(`${API}/training/openings-database`, { credentials: "include" }),
+          fetch(`${API}/training/tricks`, { credentials: "include" })
         ]);
         
         if (userRes.ok) {
@@ -104,6 +105,12 @@ const OpeningTrainer = () => {
         if (dbRes.ok) {
           const data = await dbRes.json();
           setAllOpenings(data.openings || []);
+        }
+        
+        if (tricksRes.ok) {
+          const data = await tricksRes.json();
+          setTricks(data.traps || []);
+          setTrickCategories(data.categories || {});
         }
       } catch (err) {
         console.error("Error fetching openings:", err);
