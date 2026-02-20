@@ -4639,14 +4639,35 @@ class PositionAnalysisRequest(BaseModel):
 @api_router.post("/analyze-position")
 async def analyze_position(req: PositionAnalysisRequest, user: User = Depends(get_current_user)):
     """
-    Analyze a single position using Stockfish.
+    Analyze a single position using Stockfish with caching.
     Returns evaluation and best moves.
     """
     try:
-        result = get_position_evaluation(req.fen, depth=req.depth)
-        if not result.get("success"):
+        from position_analysis_cache_service import PositionAnalysisService
+        
+        service = PositionAnalysisService(db)
+        result = await service.get_position_eval(req.fen, depth=req.depth)
+        
+        if result.get("source") == "error":
             raise HTTPException(status_code=400, detail=result.get("error", "Analysis failed"))
-        return result
+        
+        # Convert to expected format for backwards compatibility
+        return {
+            "success": True,
+            "evaluation": {
+                "centipawns": result.get("eval_cp", 0),
+                "mate_in": result.get("eval_mate")
+            },
+            "best_move": {
+                "uci": result.get("best_move"),
+                "san": result.get("best_move_san")
+            },
+            "pv": result.get("pv_san", []),
+            "depth": result.get("depth"),
+            "source": result.get("source")  # Shows if from cache or fresh
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Position analysis error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
