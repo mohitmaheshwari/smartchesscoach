@@ -872,6 +872,9 @@ async def enrich_with_community_comparison(db, user_id: str, opening_stats: List
         }
     
     return opening_stats
+
+
+async def get_opening_training_content(db, user_id: str, opening_key: str) -> Dict:
     """
     Get training content for a specific opening.
     
