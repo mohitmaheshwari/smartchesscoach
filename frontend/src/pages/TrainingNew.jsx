@@ -349,7 +349,7 @@ const Training = ({ user }) => {
                 {/* Chess Board */}
                 <div className="aspect-square max-w-lg mx-auto">
                   <CoachBoard
-                    fen={boardFen}
+                    position={boardFen}
                     orientation={boardOrientation}
                     onMove={puzzleState === "thinking" ? handleMove : null}
                     interactive={puzzleState === "thinking"}
