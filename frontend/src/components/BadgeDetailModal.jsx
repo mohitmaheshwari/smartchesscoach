@@ -38,6 +38,7 @@ import {
   Sparkles,
   ArrowRight
 } from "lucide-react";
+import { formatCpLoss } from "@/utils/evalFormatter";
 
 // Badge icon mapping
 const BADGE_ICONS = {
