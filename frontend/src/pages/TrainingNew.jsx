@@ -534,8 +534,10 @@ const Training = ({ user }) => {
                       <p className="text-red-400 font-mono">{currentPuzzle.user_move}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Lost</p>
-                      <p className="text-amber-500">{currentPuzzle.cp_loss} centipawns</p>
+                      <p className="text-xs text-gray-500 mb-1">Severity</p>
+                      <p className={formatEvaluation(currentPuzzle.cp_loss).color}>
+                        {formatEvaluation(currentPuzzle.cp_loss).text}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
