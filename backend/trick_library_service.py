@@ -681,7 +681,7 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict]:
     Get trap data formatted for a specific practice mode.
     
     Modes:
-    - execution: Player plays the trap from the beginning, engine plays victim moves
+    - execution: Player plays through the entire trap to learn it (engine plays victim moves)
     - avoidance: Player tries to avoid falling into the trap
     - recognition: Player identifies if there's a trap
     """
@@ -689,19 +689,23 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict]:
     if not trap:
         return None
     
-    # For execution mode, we need the full interactive setup
+    # For execution mode - TEACHING mode, play through the entire trap
     if mode == "execution":
         setup_moves = trap.get("setup_moves", [])
+        winning_move = trap.get("winning_move", "")
         trap_for = trap["trap_for"]  # "white" or "black"
         
-        # Determine which moves the user plays vs engine plays
-        user_moves = []  # Moves at even indices (0, 2, 4...) for white, odd for black
-        engine_moves = []  # The "victim" responses
+        # Full sequence includes setup + winning move
+        full_sequence = setup_moves + [winning_move] if winning_move else setup_moves
         
-        for i, move in enumerate(setup_moves):
+        # Determine which moves the user plays vs engine plays
+        user_moves = []  # Moves for the trap-setter
+        engine_moves = []  # The "victim" responses (auto-played)
+        
+        for i, move in enumerate(full_sequence):
             is_white_move = (i % 2 == 0)
             if (trap_for == "white" and is_white_move) or (trap_for == "black" and not is_white_move):
-                user_moves.append({"index": i, "move": move})
+                user_moves.append({"index": i, "move": move, "is_winning": move == winning_move})
             else:
                 engine_moves.append({"index": i, "move": move})
         
@@ -709,19 +713,21 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict]:
             "key": trap_key,
             "name": trap["name"],
             "mode": mode,
-            "start_fen": START_FEN,  # Always start from beginning
+            "start_fen": START_FEN,
             "trap_position_fen": trap.get("trap_position_fen"),
             "trap_for": trap_for,
             "victim_color": trap["victim_color"],
-            "user_color": trap_for,  # User plays as trap-setter
-            "setup_moves": setup_moves,  # Full list in order
-            "user_moves": user_moves,  # Moves user should play
-            "engine_moves": engine_moves,  # Moves engine will auto-play
-            "winning_move": trap["winning_move"],
-            "winning_line": trap["winning_line"],
-            "total_moves": len(setup_moves),
+            "user_color": trap_for,
+            "full_sequence": full_sequence,  # All moves including winning move
+            "setup_moves": setup_moves,
+            "user_moves": user_moves,
+            "engine_moves": engine_moves,
+            "winning_move": winning_move,
+            "winning_line": trap.get("winning_line", []),
+            "total_moves": len(full_sequence),
             "explanation": trap["explanation"],
-            "hints": f"Play as {trap_for.title()}. Set up the trap move by move. The engine will play the victim's moves automatically. When you reach the critical moment, find the winning blow!"
+            "why_it_works": trap.get("why_it_works", ""),
+            "hints": f"Play as {trap_for.title()} and learn the trap! The engine plays the victim's moves. Play each move to see how the trap unfolds."
         }
     
     # For avoidance mode
@@ -730,7 +736,6 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict]:
         if not practice_fen:
             practice_fen = trap.get("trap_position_fen")
         
-        # The user plays as the victim, trying to find a safe move
         return {
             "key": trap_key,
             "name": trap["name"],
@@ -738,8 +743,8 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict]:
             "fen": practice_fen,
             "trap_for": trap["trap_for"],
             "victim_color": trap["victim_color"],
-            "user_color": trap["victim_color"],  # User plays as victim
-            "winning_move": None,  # Don't reveal
+            "user_color": trap["victim_color"],
+            "winning_move": None,
             "how_to_avoid": trap["how_to_avoid"],
             "explanation": trap["explanation"],
             "hints": f"You're {trap['victim_color'].title()}. Your opponent is setting a trap! Find a safe move to avoid disaster."
