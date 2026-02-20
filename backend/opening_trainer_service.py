@@ -348,6 +348,7 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
 async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
     """
     Get detailed statistics on user's most-played openings.
+    Maps ECO codes to proper opening names using eco_openings.json.
     """
     # Get all analyzed games
     games = await db.games.find({"user_id": user_id}).to_list(200)
@@ -355,14 +356,21 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
     opening_stats = {}
     
     for game in games:
-        opening_name = game.get("opening_name") or game.get("opening") or "Unknown"
+        raw_opening = game.get("opening_name") or game.get("opening") or game.get("eco") or "Unknown"
         
-        # Normalize opening name
-        opening_key = opening_name.lower().replace(" ", "_").replace("-", "_")
+        # Convert ECO code to proper opening name
+        display_name = get_opening_name_from_eco(raw_opening)
+        
+        # Create a normalized key for grouping
+        opening_key = display_name.lower().replace(" ", "_").replace("-", "_").replace("'", "").replace(":", "")
+        
+        # Store the ECO code if it looks like one
+        eco_code = raw_opening.upper() if (len(raw_opening) <= 3 and raw_opening[0].isalpha() and raw_opening[1:].isdigit()) else None
         
         if opening_key not in opening_stats:
             opening_stats[opening_key] = {
-                "name": opening_name,
+                "name": display_name,
+                "eco": eco_code,
                 "games": 0,
                 "wins": 0,
                 "losses": 0,
@@ -374,6 +382,8 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
         
         stats = opening_stats[opening_key]
         stats["games"] += 1
+        if eco_code and not stats["eco"]:
+            stats["eco"] = eco_code
         
         result = game.get("result", "").lower()
         user_color = game.get("user_color", "white")
@@ -410,6 +420,7 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
             
             results.append({
                 "key": key,
+                "eco": stats.get("eco"),
                 "name": stats["name"],
                 "games_played": stats["games"],
                 "win_rate": win_rate,
