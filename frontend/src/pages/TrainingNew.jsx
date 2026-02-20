@@ -29,6 +29,17 @@ import {
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+// Convert centipawns to human-readable evaluation
+const formatEvaluation = (cpLoss) => {
+  if (!cpLoss || cpLoss < 50) return { text: "Small inaccuracy", color: "text-yellow-400" };
+  if (cpLoss < 100) return { text: "Inaccuracy", color: "text-yellow-500" };
+  if (cpLoss < 200) return { text: "Mistake (~1 pawn)", color: "text-orange-400" };
+  if (cpLoss < 300) return { text: "Serious mistake (~2 pawns)", color: "text-orange-500" };
+  if (cpLoss < 500) return { text: "Blunder (~3+ pawns)", color: "text-red-400" };
+  if (cpLoss < 900) return { text: "Major blunder (piece lost)", color: "text-red-500" };
+  return { text: "Game-losing blunder", color: "text-red-600" };
+};
+
 /**
  * Interactive Training Page
  * 
