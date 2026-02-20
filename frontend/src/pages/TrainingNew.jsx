@@ -5,10 +5,12 @@ import { Chess } from "chess.js";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import CoachBoard from "@/components/CoachBoard";
+import OpeningTrainer from "@/components/OpeningTrainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -25,6 +27,7 @@ import {
   ChevronRight,
   HelpCircle,
   Zap,
+  GraduationCap,
 } from "lucide-react";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
