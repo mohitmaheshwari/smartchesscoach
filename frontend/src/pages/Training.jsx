@@ -33,6 +33,45 @@ import {
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+/**
+ * Convert centipawn loss to user-friendly evaluation text
+ * @param {number} cpLoss - Centipawn loss value
+ * @param {string} evalType - Optional evaluation type from backend
+ * @returns {string} User-friendly description
+ */
+const getEvaluationText = (cpLoss, evalType) => {
+  // If we have a backend classification, use it directly
+  if (evalType) {
+    const typeMap = {
+      "blunder": "Blunder",
+      "mistake": "Mistake", 
+      "inaccuracy": "Inaccuracy",
+      "good": "Good Move",
+      "excellent": "Excellent",
+      "best": "Best Move",
+    };
+    return typeMap[evalType.toLowerCase()] || evalType;
+  }
+  
+  // Fallback to centipawn-based classification
+  const loss = Math.abs(cpLoss || 0);
+  if (loss >= 300) return "Blunder";
+  if (loss >= 100) return "Mistake";
+  if (loss >= 50) return "Inaccuracy";
+  if (loss >= 20) return "Minor Slip";
+  return "Slight Imprecision";
+};
+
+/**
+ * Get badge variant based on evaluation severity
+ */
+const getEvalBadgeVariant = (cpLoss, evalType) => {
+  const type = evalType?.toLowerCase() || "";
+  if (type === "blunder" || cpLoss >= 300) return "destructive";
+  if (type === "mistake" || cpLoss >= 100) return "warning";
+  return "secondary";
+};
+
 // Layer icons and colors
 const LAYER_ICONS = {
   stability: Shield,
