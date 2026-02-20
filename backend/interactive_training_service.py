@@ -347,7 +347,6 @@ async def get_user_weakness_patterns(db, user_id: str) -> Dict:
     analyses = await db.game_analyses.aggregate(pipeline).to_list(20)
     
     # Count mistake types
-    tactical_mistakes = {}
     phase_mistakes = {"opening": 0, "middlegame": 0, "endgame": 0}
     total_mistakes = 0
     
