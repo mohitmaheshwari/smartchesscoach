@@ -320,70 +320,65 @@ const OpeningTrainer = () => {
   };
 
   // Handle user's move in trick practice
-  const handleTrickPracticeMove = (move) => {
+  const handleTrickPracticeMove = (moveData) => {
     if (!trickPracticeData || trickPracticeState !== "playing") return;
     
-    const moveSan = move.san || move;
+    const moveSan = moveData.san || moveData;
     
     if (trickPracticeMode === "execution" && trickChess) {
-      const setupMoves = trickPracticeData.setup_moves || [];
+      const fullSequence = trickPracticeData.full_sequence || trickPracticeData.setup_moves || [];
       const currentMoveCount = trickChess.history().length;
       
-      // Check if we're still in setup phase or at the winning move
-      if (currentMoveCount < setupMoves.length) {
-        // We're in setup - verify user played the correct setup move
-        const expectedMove = setupMoves[currentMoveCount];
-        const normalizedPlayed = moveSan.replace(/[+#=]/g, "");
-        const normalizedExpected = expectedMove.replace(/[+#=]/g, "");
-        
-        if (normalizedPlayed === normalizedExpected || moveSan === expectedMove) {
-          // Correct setup move
-          try {
-            trickChess.move(moveSan, { sloppy: true });
-            setBoardFen(trickChess.fen());
-            setTrickMoveIndex(currentMoveCount + 1);
-            
-            // Check if engine needs to respond
-            const nextMoveIndex = currentMoveCount + 1;
-            if (nextMoveIndex < setupMoves.length) {
-              const nextEngineMove = trickPracticeData.engine_moves?.find(m => m.index === nextMoveIndex);
-              if (nextEngineMove) {
-                setTimeout(() => {
-                  playEngineMove(trickChess, nextEngineMove.move, trickPracticeData);
-                }, 500);
-              }
-            } else {
-              // Reached trap position
-              toast.info("Now find the winning move!", { duration: 2000 });
-            }
-          } catch (e) {
-            toast.error("Invalid move");
+      // Check if we've completed the trap
+      if (currentMoveCount >= fullSequence.length) {
+        setTrickPracticeState("success");
+        toast.success("Trap complete! Well done!");
+        return;
+      }
+      
+      // Get the expected move at this position
+      const expectedMove = fullSequence[currentMoveCount];
+      const normalizedPlayed = moveSan.replace(/[+#=]/g, "");
+      const normalizedExpected = expectedMove.replace(/[+#=]/g, "");
+      
+      if (normalizedPlayed === normalizedExpected || moveSan === expectedMove) {
+        // Correct move - play it
+        try {
+          trickChess.move(moveSan, { sloppy: true });
+          setBoardFen(trickChess.fen());
+          setTrickMoveIndex(currentMoveCount + 1);
+          
+          // Check if this was the winning move (trap complete!)
+          const isWinningMove = trickPracticeData.user_moves?.find(
+            m => m.index === currentMoveCount && m.is_winning
+          );
+          
+          if (isWinningMove || currentMoveCount + 1 >= fullSequence.length) {
+            // Trap completed!
+            setTrickPracticeState("success");
+            toast.success("Brilliant! You've learned the trap!");
+            return;
           }
-        } else {
-          toast.error(`That's not the setup move. Try: ${expectedMove}`);
+          
+          // Check if engine needs to respond
+          const nextMoveIndex = currentMoveCount + 1;
+          if (nextMoveIndex < fullSequence.length) {
+            const nextEngineMove = trickPracticeData.engine_moves?.find(m => m.index === nextMoveIndex);
+            if (nextEngineMove) {
+              setTimeout(() => {
+                playEngineMove(trickChess, nextEngineMove.move, trickPracticeData);
+              }, 500);
+            }
+          }
+        } catch (e) {
+          console.error("Move error:", e);
+          toast.error("Invalid move - try again");
         }
       } else {
-        // We're at the trap position - check for winning move
-        const winningMove = trickPracticeData.winning_move;
-        const normalizedPlayed = moveSan.replace(/[+#]/g, "");
-        const normalizedWinning = winningMove.replace(/[+#]/g, "");
-        
-        if (normalizedPlayed === normalizedWinning || moveSan === winningMove) {
-          try {
-            trickChess.move(moveSan, { sloppy: true });
-            setBoardFen(trickChess.fen());
-            setTrickPracticeState("success");
-            toast.success("Brilliant! You executed the trap perfectly!");
-          } catch (e) {
-            toast.error("Invalid move");
-          }
-        } else {
-          setTrickPracticeState("failed");
-          toast.error(`Not quite! The winning move was ${winningMove}`);
-        }
+        // Wrong move - show hint
+        toast.error(`Play ${expectedMove} to continue the trap`);
       }
     } else if (trickPracticeMode === "avoidance") {
-      // For avoidance, accept any legal move that's not the blunder
       setTrickPracticeState("success");
       toast.success("Good! You avoided the trap!");
     }
