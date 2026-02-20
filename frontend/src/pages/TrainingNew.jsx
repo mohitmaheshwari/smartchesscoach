@@ -269,32 +269,60 @@ const Training = ({ user }) => {
               Training
             </h1>
             <p className="text-gray-400 text-sm mt-1">
-              Learn from your mistakes • Puzzle {currentPuzzleIndex + 1} of {puzzles.length}
+              Improve your chess with personalized training
             </p>
           </div>
           
-          {/* Session Stats */}
-          <div className="flex items-center gap-4">
-            {sessionStats.streak >= 3 && (
-              <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
-                <Flame className="w-3 h-3 mr-1" />
-                {sessionStats.streak} streak!
-              </Badge>
-            )}
-            <div className="text-right">
-              <div className="text-white font-medium">
-                {sessionStats.correct}/{sessionStats.attempted}
+          {/* Session Stats - only show for puzzles */}
+          {activeTab === "puzzles" && (
+            <div className="flex items-center gap-4">
+              {sessionStats.streak >= 3 && (
+                <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                  <Flame className="w-3 h-3 mr-1" />
+                  {sessionStats.streak} streak!
+                </Badge>
+              )}
+              <div className="text-right">
+                <div className="text-white font-medium">
+                  {sessionStats.correct}/{sessionStats.attempted}
+                </div>
+                <div className="text-xs text-gray-500">correct</div>
               </div>
-              <div className="text-xs text-gray-500">correct</div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Progress Bar */}
-        <Progress 
-          value={(currentPuzzleIndex / puzzles.length) * 100} 
-          className="h-2 mb-6 bg-gray-800"
-        />
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="bg-gray-900/50 border border-gray-800">
+            <TabsTrigger 
+              value="puzzles" 
+              className="data-[state=active]:bg-primary/20 gap-2"
+              data-testid="tab-puzzles"
+            >
+              <Brain className="w-4 h-4" />
+              Puzzles
+            </TabsTrigger>
+            <TabsTrigger 
+              value="openings" 
+              className="data-[state=active]:bg-primary/20 gap-2"
+              data-testid="tab-openings"
+            >
+              <GraduationCap className="w-4 h-4" />
+              Opening Trainer
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Puzzles Tab */}
+          <TabsContent value="puzzles" className="mt-0">
+            {/* Progress Bar */}
+            <Progress 
+              value={(currentPuzzleIndex / puzzles.length) * 100} 
+              className="h-2 mb-6 bg-gray-800"
+            />
+            <p className="text-xs text-muted-foreground mb-4">
+              Puzzle {currentPuzzleIndex + 1} of {puzzles.length}
+            </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Puzzle Area */}
