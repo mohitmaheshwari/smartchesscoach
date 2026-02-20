@@ -363,26 +363,40 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 move_san = board.san(move)
                 board.push(move)
                 
+                # Check if the game is over (checkmate, stalemate, etc.)
+                game_over = board.is_game_over()
+                is_checkmate = board.is_checkmate()
+                
                 # Evaluate position after the move
                 current_eval, current_mate = engine.evaluate_position(board, depth)
                 
-                # Calculate centipawn loss
-                # For white: loss = prev_eval - current_eval (if white moved)
-                # For black: loss = current_eval - prev_eval (if black moved)
-                if is_white_move:
-                    cp_loss = max(0, prev_eval - current_eval)
-                    if cp_loss > 0:
-                        white_cp_losses.append(cp_loss)
+                # CRITICAL FIX: If the played move IS the best move, cp_loss = 0
+                # This handles checkmate moves and other cases where move == best_move
+                if move == best_move:
+                    cp_loss = 0
+                # If the move delivers checkmate, it's always the best - no loss
+                elif is_checkmate:
+                    cp_loss = 0
                 else:
-                    cp_loss = max(0, current_eval - prev_eval)
-                    if cp_loss > 0:
-                        black_cp_losses.append(cp_loss)
+                    # Calculate centipawn loss normally
+                    # For white: loss = prev_eval - current_eval (if white moved)
+                    # For black: loss = current_eval - prev_eval (if black moved)
+                    if is_white_move:
+                        cp_loss = max(0, prev_eval - current_eval)
+                        if cp_loss > 0:
+                            white_cp_losses.append(cp_loss)
+                    else:
+                        cp_loss = max(0, current_eval - prev_eval)
+                        if cp_loss > 0:
+                            black_cp_losses.append(cp_loss)
                 
-                # Check for missed mate
-                missed_mate = prev_mate is not None and (
-                    (is_white_move and prev_mate > 0 and (current_mate is None or current_mate <= 0)) or
-                    (not is_white_move and prev_mate < 0 and (current_mate is None or current_mate >= 0))
-                )
+                # Check for missed mate - but NOT if the player just delivered mate
+                missed_mate = False
+                if not is_checkmate:
+                    missed_mate = prev_mate is not None and (
+                        (is_white_move and prev_mate > 0 and (current_mate is None or current_mate <= 0)) or
+                        (not is_white_move and prev_mate < 0 and (current_mate is None or current_mate >= 0))
+                    )
                 
                 # Classify the move
                 classification = engine.classify_move(cp_loss, missed_mate)
