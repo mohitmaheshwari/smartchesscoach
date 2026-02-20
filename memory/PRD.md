@@ -15,7 +15,44 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 20, 2026)
 
-### Position Analysis Caching System ✅ NEW
+### Trick Library (Phase 4) ✅ NEW
+Built a comprehensive trap/trick library integrated into Opening Trainer:
+
+**Features:**
+- **18 curated traps** including Scholar's Mate, Fried Liver, Budapest Gambit, Traxler, Lasker Trap, etc.
+- Organized by difficulty: Beginner (5), Intermediate (11), Advanced (2)
+- Each trap includes: Description, winning line, why it works, how to avoid, key squares
+
+**3 Practice Modes:**
+1. **🎯 Execution Mode** - Find the winning move (play the trap)
+2. **🛡️ Avoidance Mode** - Find a safe move (don't fall for it)
+3. **👁️ Recognition Mode** - Spot the danger (pattern recognition)
+
+**Files:**
+- `backend/trick_library_service.py` - Trap database and practice logic
+- `frontend/src/components/OpeningTrainer.jsx` - UI with practice modes
+
+**API Endpoints:**
+- `GET /api/training/tricks` - All traps with metadata
+- `GET /api/training/tricks/{key}` - Trap details
+- `GET /api/training/tricks/{key}/practice?mode=...` - Practice mode data
+- `GET /api/training/tricks/opening/{name}` - Traps for specific opening
+- `GET /api/training/tricks/difficulty/{level}` - Filter by difficulty
+
+---
+
+### Bug Fixes (Feb 20, 2026)
+- ✅ **Opening Trainer Accuracy Fix**: Fixed 0% accuracy bug - now fetches from `game_analyses.stockfish_analysis.accuracy`
+- ✅ **Checkmate Classification Fix**: Checkmate moves no longer flagged as blunders (fixed cp_loss calculation)
+- ✅ **Unknown Opening Fix**: Strategy section now correctly reads `opening_name` field
+- ✅ **Case-insensitive ECO parsing**: Fixed parsing of lowercase PGN headers like `[Eco "A00"]`
+
+### Community Comparison ✅ NEW (Feb 20, 2026)
+Compare your opening accuracy to other players at your rating level - see inline indicators and detailed comparison card.
+
+---
+
+### Position Analysis Caching System ✅
 Implemented a streamlined Stockfish + caching system for position analysis:
 
 **Architecture:**
