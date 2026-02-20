@@ -473,6 +473,80 @@ const OpeningTrainer = () => {
             )}
           </AnimatePresence>
         </div>
+        
+        {/* Trick Library Section */}
+        <div>
+          <button
+            onClick={() => toggleNode("trick_library")}
+            className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-muted/50 transition-colors"
+            data-testid="trick-library-toggle"
+          >
+            {expandedNodes["trick_library"] ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+            <Flame className="w-4 h-4 text-orange-500" />
+            <span className="font-medium">Trick Library</span>
+            <Badge variant="outline" className="ml-auto text-xs text-orange-500 border-orange-500/30">
+              {tricks.length} traps
+            </Badge>
+          </button>
+          
+          <AnimatePresence>
+            {expandedNodes["trick_library"] && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="ml-6 mt-1 space-y-1 overflow-hidden"
+              >
+                {/* Group by difficulty */}
+                {["beginner", "intermediate", "advanced"].map((difficulty) => {
+                  const diffTricks = tricks.filter(t => t.difficulty === difficulty);
+                  if (diffTricks.length === 0) return null;
+                  
+                  return (
+                    <div key={difficulty} className="mb-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-2 py-1">
+                        {difficulty} ({diffTricks.length})
+                      </p>
+                      {diffTricks.map((trick, idx) => (
+                        <button
+                          key={trick.key}
+                          onClick={() => handleSelectTrick(trick)}
+                          className={`flex items-center gap-2 w-full p-2 rounded-lg transition-colors text-left ${
+                            selectedTrick?.key === trick.key 
+                              ? "bg-orange-500/20 border border-orange-500/50" 
+                              : "hover:bg-muted/50"
+                          }`}
+                          data-testid={`trick-${trick.key}`}
+                        >
+                          <Swords className={`w-4 h-4 ${
+                            trick.trap_for === "white" ? "text-amber-400" : "text-slate-400"
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{trick.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {trick.opening}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className={`text-xs ${
+                            trick.trap_for === "white" 
+                              ? "text-amber-400 border-amber-400/30" 
+                              : "text-slate-400 border-slate-400/30"
+                          }`}>
+                            {trick.trap_for}
+                          </Badge>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     );
   };
