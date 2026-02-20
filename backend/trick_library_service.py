@@ -681,7 +681,7 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict]:
     Get trap data formatted for a specific practice mode.
     
     Modes:
-    - execution: Player tries to execute the trap
+    - execution: Player plays the trap from the beginning, engine plays victim moves
     - avoidance: Player tries to avoid falling into the trap
     - recognition: Player identifies if there's a trap
     """
@@ -689,27 +689,85 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict]:
     if not trap:
         return None
     
-    practice_fen = trap.get("practice_fen", {}).get(mode)
-    if not practice_fen:
-        practice_fen = trap.get("trap_position_fen")
+    # For execution mode, we need the full interactive setup
+    if mode == "execution":
+        setup_moves = trap.get("setup_moves", [])
+        trap_for = trap["trap_for"]  # "white" or "black"
+        
+        # Determine which moves the user plays vs engine plays
+        user_moves = []  # Moves at even indices (0, 2, 4...) for white, odd for black
+        engine_moves = []  # The "victim" responses
+        
+        for i, move in enumerate(setup_moves):
+            is_white_move = (i % 2 == 0)
+            if (trap_for == "white" and is_white_move) or (trap_for == "black" and not is_white_move):
+                user_moves.append({"index": i, "move": move})
+            else:
+                engine_moves.append({"index": i, "move": move})
+        
+        return {
+            "key": trap_key,
+            "name": trap["name"],
+            "mode": mode,
+            "start_fen": START_FEN,  # Always start from beginning
+            "trap_position_fen": trap.get("trap_position_fen"),
+            "trap_for": trap_for,
+            "victim_color": trap["victim_color"],
+            "user_color": trap_for,  # User plays as trap-setter
+            "setup_moves": setup_moves,  # Full list in order
+            "user_moves": user_moves,  # Moves user should play
+            "engine_moves": engine_moves,  # Moves engine will auto-play
+            "winning_move": trap["winning_move"],
+            "winning_line": trap["winning_line"],
+            "total_moves": len(setup_moves),
+            "explanation": trap["explanation"],
+            "hints": f"Play as {trap_for.title()}. Set up the trap move by move. The engine will play the victim's moves automatically. When you reach the critical moment, find the winning blow!"
+        }
     
-    return {
-        "key": trap_key,
-        "name": trap["name"],
-        "mode": mode,
-        "fen": practice_fen,
-        "trap_for": trap["trap_for"],
-        "victim_color": trap["victim_color"],
-        "winning_move": trap["winning_move"] if mode == "execution" else None,
-        "winning_line": trap["winning_line"] if mode == "execution" else None,
-        "how_to_avoid": trap["how_to_avoid"] if mode == "avoidance" else None,
-        "explanation": trap["explanation"],
-        "hints": {
-            "execution": f"Find the winning move for {trap['trap_for']}!",
-            "avoidance": f"You're {trap['victim_color']}. Find a safe move to avoid the trap!",
-            "recognition": "Is there a tactical trap in this position? Identify it!"
-        }.get(mode, "")
-    }
+    # For avoidance mode
+    elif mode == "avoidance":
+        practice_fen = trap.get("practice_fen", {}).get(mode)
+        if not practice_fen:
+            practice_fen = trap.get("trap_position_fen")
+        
+        # The user plays as the victim, trying to find a safe move
+        return {
+            "key": trap_key,
+            "name": trap["name"],
+            "mode": mode,
+            "fen": practice_fen,
+            "trap_for": trap["trap_for"],
+            "victim_color": trap["victim_color"],
+            "user_color": trap["victim_color"],  # User plays as victim
+            "winning_move": None,  # Don't reveal
+            "how_to_avoid": trap["how_to_avoid"],
+            "explanation": trap["explanation"],
+            "hints": f"You're {trap['victim_color'].title()}. Your opponent is setting a trap! Find a safe move to avoid disaster."
+        }
+    
+    # For recognition mode
+    else:
+        practice_fen = trap.get("practice_fen", {}).get(mode)
+        if not practice_fen:
+            practice_fen = trap.get("trap_position_fen")
+        
+        return {
+            "key": trap_key,
+            "name": trap["name"],
+            "mode": mode,
+            "fen": practice_fen,
+            "trap_for": trap["trap_for"],
+            "victim_color": trap["victim_color"],
+            "winning_move": trap["winning_move"],
+            "key_squares": trap.get("key_squares", []),
+            "tactical_theme": trap.get("tactical_theme", ""),
+            "explanation": trap["explanation"],
+            "hints": "Study this position. Can you identify the tactical danger? What should the winning side play?"
+        }
+
+
+# Starting position for execution mode
+START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
 # ============================================================================
