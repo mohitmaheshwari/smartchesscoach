@@ -137,12 +137,15 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
     2. There's a clear better move
     3. We can explain WHY it's better
     """
-    from chess_verification_layer import get_critical_facts, verify_move
+    from chess_verification_layer import get_critical_facts
     
-    # Get user's analyzed games
+    logger.info(f"Getting puzzles for user: {user_id}")
+    
     # Query games that have been analyzed (have stockfish data)
     # First, get games from the game_analyses collection directly
     analyses = await db.game_analyses.find({"user_id": user_id}).sort("created_at", -1).limit(20).to_list(20)
+    
+    logger.info(f"Found {len(analyses)} analyses for user")
     
     puzzles = []
     
@@ -152,11 +155,14 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
         # Get game info
         game = await db.games.find_one({"game_id": game_id})
         if not game:
+            logger.warning(f"Game not found: {game_id}")
             continue
             
         sf_analysis = analysis.get("stockfish_analysis", {})
         moves = sf_analysis.get("move_evaluations", [])
         user_color = game.get("user_color", "white")
+        
+        logger.info(f"Game {game_id}: {len(moves)} moves")
         
         for move_data in moves:
             cp_loss = move_data.get("cp_loss", 0)
