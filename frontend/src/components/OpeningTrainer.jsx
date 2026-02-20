@@ -1219,8 +1219,8 @@ const OpeningTrainer = () => {
                   <div className="flex items-center gap-3">
                     <Target className="w-5 h-5 text-green-500" />
                     <div className="flex-1">
-                      <p className="font-medium text-green-400">Execution Mode</p>
-                      <p className="text-xs text-muted-foreground">Play the trap - find the winning move!</p>
+                      <p className="font-medium text-green-400">Learn the Trap</p>
+                      <p className="text-xs text-muted-foreground">Play through the trap step by step</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </div>
