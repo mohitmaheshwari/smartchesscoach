@@ -466,6 +466,8 @@ const OpeningTrainer = () => {
     const traps = openingContent?.traps || [];
     const keyIdeas = openingContent?.key_ideas || opening?.key_ideas || [];
     const typicalMistakes = openingContent?.typical_mistakes || opening?.typical_mistakes || [];
+    const lichessStats = openingContent?.lichess_stats;
+    const fromLichess = openingContent?.from_lichess;
     
     return (
       <ScrollArea className="h-full">
@@ -479,9 +481,45 @@ const OpeningTrainer = () => {
               <h3 className="text-xl font-bold">{opening?.name || selectedOpening.name}</h3>
               <p className="text-sm text-muted-foreground">
                 {opening?.eco} • Play as {opening?.color || selectedOpening.color}
+                {fromLichess && <Badge variant="outline" className="ml-2 text-xs">Lichess Data</Badge>}
               </p>
             </div>
           </div>
+          
+          {/* Lichess Statistics */}
+          {lichessStats && (lichessStats.lichess?.total_games > 0 || lichessStats.total_games > 0) && (
+            <Card className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border-green-500/30">
+              <CardContent className="py-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Trophy className="w-4 h-4 text-green-500" />
+                  <span className="text-sm font-medium">Lichess Statistics</span>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {((lichessStats.lichess?.total_games || lichessStats.total_games || 0) / 1000000).toFixed(1)}M games
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2 rounded bg-background/50">
+                    <p className="text-lg font-bold text-green-500">
+                      {lichessStats.lichess?.white_wins || lichessStats.white_wins || 0}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">White wins</p>
+                  </div>
+                  <div className="p-2 rounded bg-background/50">
+                    <p className="text-lg font-bold text-gray-400">
+                      {lichessStats.lichess?.draws || lichessStats.draws || 0}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Draws</p>
+                  </div>
+                  <div className="p-2 rounded bg-background/50">
+                    <p className="text-lg font-bold text-red-500">
+                      {lichessStats.lichess?.black_wins || lichessStats.black_wins || 0}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Black wins</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           
           {/* Description */}
           {opening?.description && (
@@ -493,7 +531,7 @@ const OpeningTrainer = () => {
           )}
           
           {/* Main Line */}
-          {opening?.main_line && (
+          {opening?.main_line && opening.main_line.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Main Line</h4>
               <div className="flex flex-wrap gap-1">
