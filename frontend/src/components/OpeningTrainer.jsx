@@ -1461,11 +1461,20 @@ const OpeningTrainer = () => {
                   ref={boardRef}
                   position={boardFen}
                   userColor={boardOrientation}
-                  interactive={false}
-                  showControls={true}
+                  interactive={trickPracticeMode === "execution" && trickPracticeState === "playing"}
+                  showControls={!trickPracticeMode}
+                  onMove={trickPracticeMode === "execution" ? handleTrickPracticeMove : undefined}
                 />
               </div>
             </div>
+            {/* Execution mode indicator */}
+            {trickPracticeMode === "execution" && trickPracticeState === "playing" && (
+              <div className="text-center mt-3">
+                <Badge className="bg-green-500/20 text-green-400">
+                  Your turn - make a move on the board
+                </Badge>
+              </div>
+            )}
             {selectedOpening && !practiceMode && (
               <div className="text-center mt-4">
                 <p className="text-sm text-muted-foreground">
