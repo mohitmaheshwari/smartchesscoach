@@ -905,8 +905,8 @@ const Training = ({ user }) => {
           <div className="space-y-3">
             <div className="flex items-center justify-between px-2">
               <span className="text-sm text-muted-foreground">Move {currentMilestone.move_number}</span>
-              <Badge variant={currentMilestone.evaluation_type === "blunder" ? "destructive" : "secondary"}>
-                {currentMilestone.evaluation_type} (-{(currentMilestone.cp_loss / 100).toFixed(1)})
+              <Badge variant={getEvalBadgeVariant(currentMilestone.cp_loss, currentMilestone.evaluation_type)}>
+                {getEvaluationText(currentMilestone.cp_loss, currentMilestone.evaluation_type)}
               </Badge>
             </div>
             
