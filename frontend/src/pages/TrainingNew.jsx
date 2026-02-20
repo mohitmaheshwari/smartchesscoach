@@ -636,6 +636,13 @@ const Training = ({ user }) => {
             </Card>
           </div>
         </div>
+          </TabsContent>
+
+          {/* Openings Tab */}
+          <TabsContent value="openings" className="mt-0">
+            <OpeningTrainer />
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
