@@ -6116,10 +6116,14 @@ async def get_user_openings(user: User = Depends(get_current_user)):
 async def get_opening_stats(user: User = Depends(get_current_user)):
     """
     Get detailed statistics on user's most-played openings with training content availability.
+    Includes community comparison showing how user's accuracy compares to others at their rating level.
     """
-    from opening_trainer_service import get_user_opening_stats
+    from opening_trainer_service import get_user_opening_stats, enrich_with_community_comparison
     
     stats = await get_user_opening_stats(db, user.user_id)
+    
+    # Enrich with community comparison data
+    stats = await enrich_with_community_comparison(db, user.user_id, stats)
     
     return {
         "openings": stats,
