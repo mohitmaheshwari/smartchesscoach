@@ -484,7 +484,7 @@ const MistakeMastery = ({ token, onComplete }) => {
                   {currentCard.evaluation === "blunder" && " Discipline broke here"}
                   {currentCard.evaluation === "mistake" && " Discipline slipped"}
                   {currentCard.evaluation === "inaccuracy" && " Could be sharper"}
-                  {currentCard.cp_loss ? ` (-${(currentCard.cp_loss / 100).toFixed(1)})` : ""}
+                  {currentCard.cp_loss ? ` (${formatCpLoss(currentCard.cp_loss).text})` : ""}
                 </span>
               </div>
               {phase === "feedback" && playbackPositions.length > 0 && (
