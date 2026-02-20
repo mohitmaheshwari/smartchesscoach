@@ -249,53 +249,28 @@ class PositionAnalysisService:
                 lambda: get_position_evaluation(fen, depth=depth)
             )
             
-            if not result or result.get("error"):
+            if not result or not result.get("success"):
                 logger.error(f"Stockfish returned error: {result}")
                 return None
             
-            # Convert to standard format
-            board = chess.Board(fen)
-            best_uci = result.get("best_move", "")
-            best_san = None
+            # Extract data from nested structure
+            evaluation = result.get("evaluation", {})
+            best_move_data = result.get("best_move", {})
             
-            if best_uci:
-                try:
-                    move = board.parse_uci(best_uci)
-                    best_san = board.san(move)
-                except:
-                    pass
-            
-            # Convert PV to SAN
-            pv_uci = result.get("pv", [])
-            if isinstance(pv_uci, str):
-                pv_uci = pv_uci.split()
-            pv_san = []
-            temp_board = chess.Board(fen)
-            for uci in pv_uci[:10]:
-                try:
-                    move = temp_board.parse_uci(uci)
-                    pv_san.append(temp_board.san(move))
-                    temp_board.push(move)
-                except:
-                    break
-            
-            # Get centipawn score
-            eval_cp = result.get("score_cp") or result.get("evaluation") or result.get("cp") or 0
-            if isinstance(eval_cp, str):
-                try:
-                    eval_cp = int(float(eval_cp) * 100) if '.' in eval_cp else int(eval_cp)
-                except:
-                    eval_cp = 0
+            eval_cp = evaluation.get("centipawns", 0)
+            eval_mate = evaluation.get("mate_in")
+            best_move_uci = best_move_data.get("uci", "")
+            best_move_san = best_move_data.get("san", "")
             
             return {
                 "fen": fen,
                 "depth": depth,
                 "eval_cp": eval_cp,
-                "eval_mate": result.get("mate_in") or result.get("mate"),
-                "best_move": best_uci,
-                "best_move_san": best_san,
-                "pv": pv_uci[:10] if isinstance(pv_uci, list) else [],
-                "pv_san": pv_san
+                "eval_mate": eval_mate,
+                "best_move": best_move_uci,
+                "best_move_san": best_move_san,
+                "pv": [best_move_uci] if best_move_uci else [],
+                "pv_san": [best_move_san] if best_move_san else []
             }
             
         except Exception as e:
