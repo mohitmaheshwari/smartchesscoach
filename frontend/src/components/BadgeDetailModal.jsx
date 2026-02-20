@@ -788,8 +788,8 @@ const GameCard = ({ game, badgeKey, onViewGame }) => {
                                 </span>
                               </div>
                               {move.cp_loss > 0 && (
-                                <span className="text-xs text-red-500">
-                                  -{move.cp_loss} cp
+                                <span className={`text-xs ${formatCpLoss(move.cp_loss).className}`}>
+                                  {formatCpLoss(move.cp_loss).text}
                                 </span>
                               )}
                             </div>
