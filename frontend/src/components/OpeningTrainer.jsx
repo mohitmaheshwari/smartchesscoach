@@ -1277,7 +1277,7 @@ const OpeningTrainer = () => {
                   "bg-purple-500/20 text-purple-400"
                 }`}
               >
-                {trickPracticeMode === "execution" ? "🎯 Execution Mode" :
+              {trickPracticeMode === "execution" ? "🎯 Learn Mode" :
                  trickPracticeMode === "avoidance" ? "🛡️ Avoidance Mode" :
                  "👁️ Recognition Mode"}
               </Badge>
