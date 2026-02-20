@@ -6255,7 +6255,7 @@ async def get_training_progress(user: User = Depends(get_current_user)):
 # HYBRID ANALYSIS ENDPOINTS (Lichess Cloud + Stockfish Fallback)
 # =============================================================================
 
-@api_router.get("/analysis/position")
+@api_router.get("/eval/position")
 async def analyze_position_hybrid(
     fen: str,
     depth: int = 20
@@ -6275,7 +6275,7 @@ async def analyze_position_hybrid(
     return result
 
 
-@api_router.get("/analysis/best-move")
+@api_router.get("/eval/best-move")
 async def get_best_move_hybrid(fen: str):
     """
     Quick endpoint to get just the best move for a position.
@@ -6292,7 +6292,7 @@ async def get_best_move_hybrid(fen: str):
     }
 
 
-@api_router.post("/analysis/move")
+@api_router.post("/eval/move")
 async def analyze_move_hybrid(
     fen: str,
     move: str,
@@ -6317,7 +6317,7 @@ async def analyze_move_hybrid(
     return result
 
 
-@api_router.get("/analysis/cache-stats")
+@api_router.get("/eval/cache-stats")
 async def get_analysis_cache_stats():
     """
     Get statistics about the position evaluation cache.
