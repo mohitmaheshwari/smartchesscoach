@@ -585,8 +585,33 @@ const Training = ({ user }) => {
               </Card>
             )}
 
-            {/* Weakness Pattern */}
-            {weaknesses && weaknesses.weakest_phase && (
+            {/* Puzzle-Specific Issue */}
+            {currentPuzzle?.principle && (
+              <Card className="bg-orange-500/10 border-orange-500/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-orange-400 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    What Went Wrong
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 mb-3">
+                    {currentPuzzle.principle.name || currentPuzzle.issue_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </Badge>
+                  {currentPuzzle.critical_detail && (
+                    <p className="text-sm text-orange-300 mb-2">
+                      {currentPuzzle.critical_detail}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-400">
+                    {currentPuzzle.principle.quick_tip || currentPuzzle.principle.principle}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Weakness Pattern - only show if no puzzle-specific info */}
+            {!currentPuzzle?.principle && weaknesses && weaknesses.weakest_phase && (
               <Card className="bg-gray-900/50 border-gray-800">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
