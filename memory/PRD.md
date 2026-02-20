@@ -146,6 +146,11 @@ Users can now show their thinking by playing moves on the board instead of typin
 - ✅ Phase Context framed as "This Week's Focus" / "Weekly Focus"
 
 ### Bug Fixes (Feb 2026)
+- ✅ **Opening Trainer Accuracy Fix** (Feb 20, 2026): Fixed 0% accuracy bug in "Your Repertoire" section
+  - **Root Cause**: `opening_trainer_service.py` was trying to get accuracy from `games` collection which doesn't have it
+  - **Fix**: Now fetches accuracy from `game_analyses.stockfish_analysis.accuracy` (the correct source)
+  - **Impact**: All openings now show correct accuracy values (e.g., 69.8%, 71.9% instead of 0%)
+  - Backend: `get_user_opening_stats()` in `opening_trainer_service.py`
 - ✅ **Phase-Filtered Example Positions**: Example positions now match the current training phase
   - Opening Principles phase shows only moves 1-12
   - Pawn Structure phase shows moves 1-25
