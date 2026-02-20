@@ -557,8 +557,28 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
     Get detailed statistics on user's most-played openings.
     Maps ECO codes to proper opening names using eco_openings.json.
     """
-    # Get all analyzed games
+    # Get all games for this user
     games = await db.games.find({"user_id": user_id}).to_list(200)
+    
+    # Build a map of game_id to accuracy from game_analyses collection
+    game_ids = [g.get("game_id") for g in games if g.get("game_id")]
+    accuracy_map = {}
+    
+    if game_ids:
+        # Fetch all analyses for these games
+        analyses = await db.game_analyses.find(
+            {"game_id": {"$in": game_ids}},
+            {"_id": 0, "game_id": 1, "accuracy": 1, "stockfish_analysis": 1}
+        ).to_list(len(game_ids))
+        
+        for analysis in analyses:
+            game_id = analysis.get("game_id")
+            # Get accuracy from stockfish_analysis first, then fallback to top-level
+            sf = analysis.get("stockfish_analysis", {})
+            accuracy = sf.get("accuracy", 0) if sf else 0
+            if not accuracy:
+                accuracy = analysis.get("accuracy", 0)
+            accuracy_map[game_id] = accuracy or 0
     
     opening_stats = {}
     
@@ -584,7 +604,8 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
                 "draws": 0,
                 "as_white": 0,
                 "as_black": 0,
-                "total_accuracy": 0
+                "total_accuracy": 0,
+                "accuracy_count": 0  # Track how many games have accuracy data
             }
         
         stats = opening_stats[opening_key]
@@ -612,8 +633,12 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
             else:
                 stats["draws"] += 1
         
-        accuracy = game.get("accuracy") or 0
-        stats["total_accuracy"] += accuracy
+        # Get accuracy from the accuracy_map (from game_analyses collection)
+        game_id = game.get("game_id")
+        accuracy = accuracy_map.get(game_id, 0)
+        if accuracy > 0:
+            stats["total_accuracy"] += accuracy
+            stats["accuracy_count"] += 1
     
     # Calculate averages and format results
     results = []
