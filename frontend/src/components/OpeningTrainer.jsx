@@ -394,6 +394,8 @@ const OpeningTrainer = () => {
     setTrickPracticeMode(null);
     setTrickPracticeState("ready");
     setTrickPracticeData(null);
+    setTrickMoveIndex(0);
+    setTrickChess(null);
     if (selectedTrick) {
       setBoardFen(selectedTrick.trap_position_fen || START_FEN);
     }
