@@ -4759,49 +4759,37 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
         eval_before = None
         
         if board_before and req.played_move:
-            # Get Stockfish analysis for position BEFORE the move
-            before_eval = get_position_evaluation(req.fen_before, depth=18)
-            if before_eval.get("success"):
-                eval_before = before_eval.get("evaluation", 0)
-                if isinstance(eval_before, dict):
-                    eval_before = eval_before.get("centipawns", 0)
-                
-                best_move_data = before_eval.get("best_move", {})
-                if isinstance(best_move_data, dict):
-                    best_move_for_user = best_move_data.get("san", "")
-                else:
-                    best_move_for_user = str(best_move_data) if best_move_data else ""
-                
-                best_line_for_user = before_eval.get("pv", [])[:5]
+            # Get cached Stockfish analysis for position BEFORE the move
+            from position_analysis_cache_service import PositionAnalysisService
+            cache_service = PositionAnalysisService(db)
+            
+            before_result = await cache_service.get_position_eval(req.fen_before, depth=18)
+            if before_result.get("source") != "error":
+                eval_before = before_result.get("eval_cp", 0)
+                best_move_for_user = before_result.get("best_move_san", "")
+                best_line_for_user = before_result.get("pv_san", [])[:5]
         
-        # Get Stockfish analysis for the CURRENT position (after the move)
-        position_eval = get_position_evaluation(req.fen, depth=18)
-        if not position_eval.get("success"):
+        # Get cached Stockfish analysis for the CURRENT position (after the move)
+        from position_analysis_cache_service import PositionAnalysisService
+        cache_service = PositionAnalysisService(db)
+        
+        current_result = await cache_service.get_position_eval(req.fen, depth=18)
+        if current_result.get("source") == "error":
             raise HTTPException(status_code=500, detail="Failed to analyze position")
         
-        # Extract evaluation - handle both object and number formats
-        eval_data = position_eval.get("evaluation", {})
-        if isinstance(eval_data, dict):
-            eval_score = eval_data.get("centipawns", 0)
-            is_mate = eval_data.get("is_mate", False)
-            mate_in = eval_data.get("mate_in")
-        else:
-            eval_score = eval_data
-            is_mate = False
-            mate_in = None
+        # Extract evaluation
+        eval_score = current_result.get("eval_cp", 0)
+        is_mate = current_result.get("eval_mate") is not None
+        mate_in = current_result.get("eval_mate")
         
         # Extract best move for CURRENT position (opponent's best response)
-        best_move_data = position_eval.get("best_move", {})
-        if isinstance(best_move_data, dict):
-            opponent_best_move = best_move_data.get("san", "")
-        else:
-            opponent_best_move = str(best_move_data) if best_move_data else ""
+        opponent_best_move = current_result.get("best_move_san", "")
         
         stockfish_data = {
             "evaluation": eval_score,
             "eval_type": "mate" if is_mate else "cp",
             "best_move": opponent_best_move,  # This is opponent's best move (current turn)
-            "best_line": position_eval.get("pv", [])[:5],
+            "best_line": current_result.get("pv_san", [])[:5],
             "is_check": board.is_check(),
             "is_checkmate": board.is_checkmate(),
             "turn": current_turn,
