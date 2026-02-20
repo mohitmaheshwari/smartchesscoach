@@ -1302,6 +1302,43 @@ const OpeningTrainer = () => {
               </CardContent>
             </Card>
             
+            {/* Move Progress for Execution Mode */}
+            {trickPracticeMode === "execution" && trickPracticeData.setup_moves && trickPracticeState === "playing" && (
+              <Card className="bg-muted/30">
+                <CardContent className="py-3">
+                  <p className="text-xs text-muted-foreground mb-2">Setup Progress:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {trickPracticeData.setup_moves.map((move, idx) => {
+                      const isUserMove = trickPracticeData.user_moves?.some(m => m.index === idx);
+                      const isPlayed = idx < trickMoveIndex;
+                      const isCurrent = idx === trickMoveIndex;
+                      
+                      return (
+                        <span
+                          key={idx}
+                          className={`text-xs font-mono px-2 py-1 rounded ${
+                            isPlayed 
+                              ? "bg-green-500/20 text-green-400" 
+                              : isCurrent 
+                                ? isUserMove 
+                                  ? "bg-primary/30 text-primary ring-1 ring-primary animate-pulse" 
+                                  : "bg-muted text-muted-foreground"
+                                : "bg-muted/50 text-muted-foreground/50"
+                          }`}
+                        >
+                          {idx % 2 === 0 ? `${Math.floor(idx/2) + 1}.` : ""}{move}
+                          {isUserMove && !isPlayed && isCurrent && " ←"}
+                        </span>
+                      );
+                    })}
+                    <span className="text-xs font-mono px-2 py-1 rounded bg-orange-500/20 text-orange-400">
+                      {trickPracticeData.winning_move} 🎯
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             {/* Result */}
             {trickPracticeState === "success" && (
               <Card className="bg-green-500/20 border-green-500/50">
