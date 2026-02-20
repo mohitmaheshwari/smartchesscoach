@@ -62,6 +62,14 @@ const OpeningTrainer = () => {
   const [openingContent, setOpeningContent] = useState(null);
   const [loadingContent, setLoadingContent] = useState(false);
   
+  // Trick Library State
+  const [tricks, setTricks] = useState([]);
+  const [trickCategories, setTrickCategories] = useState([]);
+  const [selectedTrick, setSelectedTrick] = useState(null);
+  const [trickPracticeMode, setTrickPracticeMode] = useState(null); // execution | avoidance | recognition
+  const [trickPracticeState, setTrickPracticeState] = useState("ready"); // ready | playing | success | failed
+  const [trickPracticeData, setTrickPracticeData] = useState(null);
+  
   // Tree expansion state
   const [expandedNodes, setExpandedNodes] = useState({});
   
