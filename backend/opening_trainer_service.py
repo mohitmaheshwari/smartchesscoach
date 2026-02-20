@@ -296,6 +296,213 @@ OPENINGS_DATABASE = {
             "Not knowing how to handle ...Bd6",
             "Being too passive - still need to create threats"
         ]
+    },
+    
+    # ==================== SCANDINAVIAN DEFENSE (1.e4 d5) ====================
+    "scandinavian_defense": {
+        "name": "Scandinavian Defense",
+        "eco": "B01",
+        "color": "black",
+        "main_line": ["e4", "d5"],
+        "description": "An aggressive defense where Black immediately challenges White's e4 pawn. Simple and direct.",
+        "key_ideas": [
+            "After exd5 Qxd5, develop quickly despite the early queen move",
+            "Place the queen on a5 or d6 to stay active",
+            "Develop with ...Nf6, ...Bf5, ...e6, ...c6",
+            "Aim for solid, easy-to-play positions"
+        ],
+        "common_variations": [
+            {
+                "name": "Main Line (Qxd5)",
+                "moves": ["e4", "d5", "exd5", "Qxd5", "Nc3", "Qa5"],
+                "idea": "The queen retreats to a5, staying active and eyeing e5."
+            },
+            {
+                "name": "Modern Scandinavian (Nf6)",
+                "moves": ["e4", "d5", "exd5", "Nf6"],
+                "idea": "Black lets White keep the pawn temporarily, focusing on rapid development."
+            },
+            {
+                "name": "Icelandic Gambit",
+                "moves": ["e4", "d5", "exd5", "Nf6", "c4", "e6"],
+                "idea": "Black sacrifices a pawn for quick development and open lines."
+            }
+        ],
+        "traps": [
+            {
+                "name": "Scholar's Mate Threat Defense",
+                "for_color": "black",
+                "position": "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+                "winning_line": ["exd5", "Qxd5", "Nc3", "Qa5"],
+                "explanation": "The queen is safe on a5 and helps control key squares."
+            }
+        ],
+        "typical_mistakes": [
+            "Not developing the queen to a safe square quickly",
+            "Playing ...Qd8 which wastes tempo",
+            "Forgetting to develop the light-squared bishop early"
+        ]
+    },
+    
+    # ==================== QUEEN'S PAWN GAME (1.d4) ====================
+    "queens_pawn_game": {
+        "name": "Queen's Pawn Game",
+        "eco": "D00",
+        "color": "white",
+        "main_line": ["d4", "d5"],
+        "description": "A classical opening leading to strategic, positional play. The center is more closed than 1.e4 openings.",
+        "key_ideas": [
+            "Control the center with pawns on d4 and potentially c4",
+            "Develop knights to f3 and c3",
+            "Consider the London System (Bf4) or Queen's Gambit (c4)",
+            "Play for a gradual space advantage"
+        ],
+        "common_variations": [
+            {
+                "name": "Queen's Gambit",
+                "moves": ["d4", "d5", "c4"],
+                "idea": "Offer a pawn to control the center. Black usually declines."
+            },
+            {
+                "name": "London System",
+                "moves": ["d4", "d5", "Bf4"],
+                "idea": "Develop the bishop before e3. Solid and reliable."
+            },
+            {
+                "name": "Colle System",
+                "moves": ["d4", "d5", "Nf3", "Nf6", "e3"],
+                "idea": "Set up a solid pawn structure and prepare a kingside attack."
+            }
+        ],
+        "traps": [
+            {
+                "name": "Elephant Trap",
+                "for_color": "black",
+                "position": "rnbqkb1r/ppp2ppp/4pn2/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 0 4",
+                "winning_line": ["cxd5", "exd5", "Nxd5", "Nxd5", "Qxd5", "Bb4+"],
+                "explanation": "If White captures on d5 carelessly, Black wins material with a discovered attack."
+            }
+        ],
+        "typical_mistakes": [
+            "Not developing pieces actively",
+            "Getting into passive positions",
+            "Ignoring Black's counterplay on the queenside"
+        ]
+    },
+    
+    # ==================== QUEEN'S GAMBIT DECLINED ====================
+    "queens_gambit_declined": {
+        "name": "Queen's Gambit Declined",
+        "eco": "D30-D69",
+        "color": "black",
+        "main_line": ["d4", "d5", "c4", "e6"],
+        "description": "A solid, classical defense. Black maintains the d5 pawn and develops harmoniously.",
+        "key_ideas": [
+            "Maintain the pawn on d5 as long as beneficial",
+            "Develop with ...Nf6, ...Be7, ...O-O, ...c6",
+            "The light-squared bishop is often 'bad' - find ways to activate it",
+            "Look for ...c5 or ...e5 breaks to free your position"
+        ],
+        "common_variations": [
+            {
+                "name": "Orthodox Defense",
+                "moves": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Be7"],
+                "idea": "Classical development. Black aims for ...O-O and ...Nbd7."
+            },
+            {
+                "name": "Tartakower Defense",
+                "moves": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Be7", "e3", "O-O", "Nf3", "b6"],
+                "idea": "Fianchetto the queen's bishop to solve the 'bad bishop' problem."
+            }
+        ],
+        "traps": [],
+        "typical_mistakes": [
+            "Releasing the tension in the center too early",
+            "Not finding an active plan for the light-squared bishop",
+            "Playing too passively"
+        ]
+    },
+    
+    # ==================== RUY LOPEZ ====================
+    "ruy_lopez": {
+        "name": "Ruy Lopez",
+        "eco": "C60-C99",
+        "color": "white",
+        "main_line": ["e4", "e5", "Nf3", "Nc6", "Bb5"],
+        "description": "One of the oldest and most respected openings. The bishop pins the knight, creating long-term pressure.",
+        "key_ideas": [
+            "The bishop on b5 puts pressure on Black's center",
+            "Play d3, O-O, and prepare for d4",
+            "The Marshall Attack (with ...d5) is a famous Black counter",
+            "Long strategic battles are typical"
+        ],
+        "common_variations": [
+            {
+                "name": "Morphy Defense",
+                "moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6"],
+                "idea": "Black kicks the bishop and develops naturally."
+            },
+            {
+                "name": "Berlin Defense",
+                "moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6"],
+                "idea": "Black avoids the main lines. The Berlin Wall endgame is drawish."
+            },
+            {
+                "name": "Marshall Attack",
+                "moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O", "Be7", "Re1", "b5", "Bb3", "O-O", "c3", "d5"],
+                "idea": "Black sacrifices a pawn for a strong attack on the kingside."
+            }
+        ],
+        "traps": [
+            {
+                "name": "Noah's Ark Trap",
+                "for_color": "black",
+                "position": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+                "winning_line": ["a6", "Ba4", "b5", "Bb3", "c5", "c3", "c4"],
+                "explanation": "Black traps White's bishop on b3 with pawns, winning material."
+            }
+        ],
+        "typical_mistakes": [
+            "Taking on c6 too early without reason",
+            "Not understanding when to exchange the bishop",
+            "Missing tactical tricks with ...d5"
+        ]
+    },
+    
+    # ==================== ITALIAN: TRAXLER ATTACK ====================
+    "italian_traxler_attack": {
+        "name": "Italian: Traxler Attack",
+        "eco": "C57",
+        "color": "black",
+        "main_line": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5", "Bc5"],
+        "description": "A sharp counter-attack where Black ignores the threat to f7 and offers a counter-sacrifice!",
+        "key_ideas": [
+            "Black allows Nxf7 but gets strong counterplay",
+            "After Nxf7 Bxf2+! leads to complex tactics",
+            "Black's lead in development compensates for material",
+            "Very tactical - study the main lines carefully!"
+        ],
+        "common_variations": [
+            {
+                "name": "Main Line",
+                "moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5", "Bc5", "Nxf7", "Bxf2+"],
+                "idea": "Black sacrifices back, opening lines to White's king."
+            }
+        ],
+        "traps": [
+            {
+                "name": "Traxler Counter-Sacrifice",
+                "for_color": "black",
+                "position": "r1bqk2r/pppp1ppp/2n2n2/2b1p1N1/2B1P3/8/PPPP1PPP/RNBQK2R w KQkq - 5 5",
+                "winning_line": ["Nxf7", "Bxf2+", "Kxf2", "Nxe4+"],
+                "explanation": "Black gives back material to expose White's king and win the initiative."
+            }
+        ],
+        "typical_mistakes": [
+            "Not knowing the theory - this line requires preparation",
+            "Playing Bc5 without understanding the follow-up",
+            "Missing the Bxf2+ resource"
+        ]
     }
 }
 
