@@ -632,6 +632,11 @@ const OpeningTrainer = () => {
 
   // Render opening content detail view
   const renderOpeningContent = () => {
+    // If a trick is selected, render trick content instead
+    if (selectedTrick) {
+      return renderTrickContent();
+    }
+    
     if (!selectedOpening) {
       return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
