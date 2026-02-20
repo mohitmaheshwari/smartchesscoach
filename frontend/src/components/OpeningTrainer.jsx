@@ -343,6 +343,8 @@ const OpeningTrainer = () => {
                   userOpenings.map((opening, idx) => {
                     const mastery = MASTERY_STYLES[opening.mastery_level] || MASTERY_STYLES.learning;
                     const openingKey = opening.key || opening.name?.toLowerCase().replace(/\s+/g, "_");
+                    const community = opening.community || {};
+                    const hasComparison = community.comparison_status && community.comparison_status !== "neutral";
                     
                     return (
                       <button
@@ -358,9 +360,28 @@ const OpeningTrainer = () => {
                         <BookOpen className={`w-4 h-4 ${mastery.text}`} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{opening.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {opening.games_played} games • {opening.avg_accuracy}% accuracy
-                          </p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{opening.games_played} games</span>
+                            <span>•</span>
+                            <span>{opening.avg_accuracy}% accuracy</span>
+                            {hasComparison && (
+                              <>
+                                <span>•</span>
+                                <span className={`font-medium ${
+                                  community.comparison_status === "above" ? "text-green-500" :
+                                  community.comparison_status === "below" ? "text-orange-500" :
+                                  "text-blue-400"
+                                }`}>
+                                  {community.comparison_status === "above" && "↑"}
+                                  {community.comparison_status === "below" && "↓"}
+                                  {community.comparison_status === "average" && "≈"}
+                                  {community.comparison_status === "above" ? ` Top ${100 - community.percentile}%` :
+                                   community.comparison_status === "below" ? ` Bottom ${community.percentile}%` :
+                                   " Average"}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
                         <Badge variant="outline" className={`text-xs ${mastery.text}`}>
                           {mastery.label}
