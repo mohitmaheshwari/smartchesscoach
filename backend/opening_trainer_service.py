@@ -12,11 +12,49 @@ The goal: Help users master the openings they actually play.
 """
 
 import logging
+import json
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
 import chess
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# ECO TO OPENING NAME MAPPING
+# ============================================================================
+
+ECO_OPENINGS = {}
+try:
+    with open("data/eco_openings.json", "r") as f:
+        ECO_OPENINGS = json.load(f)
+    # Remove metadata keys
+    ECO_OPENINGS = {k: v for k, v in ECO_OPENINGS.items() if not k.startswith("_")}
+    logger.info(f"Loaded {len(ECO_OPENINGS)} ECO opening mappings")
+except Exception as e:
+    logger.warning(f"Could not load ECO openings: {e}")
+
+
+def get_opening_name_from_eco(eco_or_name: str) -> str:
+    """
+    Convert ECO code to proper opening name.
+    If already a name or not found, return as-is.
+    """
+    if not eco_or_name:
+        return "Unknown Opening"
+    
+    eco_code = eco_or_name.strip().upper()
+    
+    # Direct lookup in ECO dictionary
+    if eco_code in ECO_OPENINGS:
+        return ECO_OPENINGS[eco_code]
+    
+    # Check if it looks like an ECO code but wasn't found
+    if len(eco_code) >= 2 and eco_code[0].isalpha() and eco_code[1:].isdigit():
+        return eco_or_name  # Return original if ECO code not in dictionary
+    
+    # It's probably already a name
+    return eco_or_name
 
 
 # ============================================================================
