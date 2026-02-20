@@ -645,7 +645,11 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
     for key, stats in opening_stats.items():
         if stats["games"] > 0:
             win_rate = round(stats["wins"] / stats["games"] * 100, 1)
-            avg_accuracy = round(stats["total_accuracy"] / stats["games"], 1)
+            # Calculate average accuracy only from games that have accuracy data
+            if stats.get("accuracy_count", 0) > 0:
+                avg_accuracy = round(stats["total_accuracy"] / stats["accuracy_count"], 1)
+            else:
+                avg_accuracy = 0
             
             # Get opening info from database
             db_info = OPENINGS_DATABASE.get(key, {})
