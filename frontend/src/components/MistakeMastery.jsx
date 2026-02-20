@@ -27,6 +27,7 @@ import {
   SkipBack,
   SkipForward
 } from "lucide-react";
+import { formatCpLoss } from "@/utils/evalFormatter";
 
 const MistakeMastery = ({ token, onComplete }) => {
   const [session, setSession] = useState(null);
