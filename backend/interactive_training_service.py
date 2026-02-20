@@ -396,9 +396,46 @@ def get_phase_recommendation(phase: str, counts: Dict) -> str:
 # OPENING TRAINER
 # ============================================================================
 
+# Load ECO to opening name mapping
+ECO_OPENINGS = {}
+try:
+    import json
+    with open("data/eco_openings.json", "r") as f:
+        ECO_OPENINGS = json.load(f)
+    # Remove metadata keys
+    ECO_OPENINGS = {k: v for k, v in ECO_OPENINGS.items() if not k.startswith("_")}
+except Exception as e:
+    logger.warning(f"Could not load ECO openings: {e}")
+
+
+def get_opening_name_from_eco(eco_or_name: str) -> str:
+    """
+    Convert ECO code to proper opening name.
+    If already a name or not found, return as-is.
+    """
+    if not eco_or_name:
+        return "Unknown Opening"
+    
+    # Check if it's an ECO code (e.g., "B01", "C50")
+    eco_code = eco_or_name.strip().upper()
+    
+    # Direct lookup
+    if eco_code in ECO_OPENINGS:
+        return ECO_OPENINGS[eco_code]
+    
+    # Try without trailing digits for broader match (e.g., "C50" -> "C5" -> check C50-C59)
+    if len(eco_code) >= 2 and eco_code[0].isalpha() and eco_code[1:].isdigit():
+        # It looks like an ECO code, return the name from dictionary or formatted code
+        return ECO_OPENINGS.get(eco_code, eco_or_name)
+    
+    # If it doesn't look like an ECO code, it might already be a name
+    return eco_or_name
+
+
 async def get_user_openings(db, user_id: str) -> List[Dict]:
     """
     Analyze user's games to find their most played openings.
+    Maps ECO codes to proper opening names.
     """
     pipeline = [
         {"$match": {"user_id": user_id, "is_analyzed": True}},
@@ -417,9 +454,15 @@ async def get_user_openings(db, user_id: str) -> List[Dict]:
     
     result = []
     for opening in openings:
-        name = opening.get("_id") or "Unknown Opening"
+        raw_name = opening.get("_id") or ""
+        # Map ECO code to proper name
+        display_name = get_opening_name_from_eco(raw_name)
+        eco_code = raw_name if raw_name and len(raw_name) <= 3 and raw_name[0].isalpha() else None
+        
         result.append({
-            "name": name,
+            "name": display_name,
+            "eco": eco_code,
+            "key": display_name.lower().replace(" ", "_").replace("'", "").replace("-", "_"),
             "games_played": opening.get("count", 0),
             "avg_accuracy": round(opening.get("avg_accuracy", 0) or 0, 1),
             "as_white": opening.get("as_white", 0),
