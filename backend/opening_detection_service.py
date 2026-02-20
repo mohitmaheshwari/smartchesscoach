@@ -65,13 +65,13 @@ def extract_eco_from_pgn(pgn_text: str) -> Tuple[Optional[str], Optional[str]]:
     eco_code = None
     opening_name = None
     
-    # Try to extract ECO code
-    eco_match = re.search(r'\[ECO\s+"([A-E]\d{2})"\]', pgn_text)
+    # Try to extract ECO code (case-insensitive for headers like [Eco "A00"])
+    eco_match = re.search(r'\[ECO\s+"([A-E]\d{2})"\]', pgn_text, re.IGNORECASE)
     if eco_match:
         eco_code = eco_match.group(1).upper()
     
-    # Try to extract opening name from ECOUrl (Chess.com specific)
-    url_match = re.search(r'\[ECOUrl\s+"[^"]*openings/([^"]+)"\]', pgn_text)
+    # Try to extract opening name from ECOUrl (Chess.com specific, case-insensitive)
+    url_match = re.search(r'\[ECOUrl\s+"[^"]*openings/([^"]+)"\]', pgn_text, re.IGNORECASE)
     if url_match:
         # Convert URL slug to name: "Scandinavian-Defense-Mieses-Kotrc" -> "Scandinavian Defense"
         url_slug = url_match.group(1)
@@ -85,9 +85,9 @@ def extract_eco_from_pgn(pgn_text: str) -> Tuple[Optional[str], Optional[str]]:
                 break
         opening_name = " ".join(main_parts)
     
-    # Try to get opening name from Opening header (Lichess)
+    # Try to get opening name from Opening header (Lichess, case-insensitive)
     if not opening_name:
-        opening_match = re.search(r'\[Opening\s+"([^"]+)"\]', pgn_text)
+        opening_match = re.search(r'\[Opening\s+"([^"]+)"\]', pgn_text, re.IGNORECASE)
         if opening_match:
             opening_name = opening_match.group(1)
     
