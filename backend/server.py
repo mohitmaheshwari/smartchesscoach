@@ -4808,16 +4808,16 @@ async def ask_about_move(game_id: str, req: AskAboutMoveRequest, user: User = De
                 alt_board = board_before.copy()
                 alt_board.push(alt_move)
                 
-                # Analyze position after alternative move
-                alt_eval = get_position_evaluation(alt_board.fen(), depth=18)
-                if alt_eval.get("success"):
+                # Analyze position after alternative move using cache
+                alt_result = await cache_service.get_position_eval(alt_board.fen(), depth=18)
+                if alt_result.get("source") != "error":
                     alternative_analysis = {
                         "move": req.alternative_move,
                         "resulting_fen": alt_board.fen(),
-                        "evaluation": alt_eval.get("evaluation"),
-                        "eval_type": alt_eval.get("eval_type"),
-                        "opponent_best_response": alt_eval.get("best_move"),
-                        "continuation": alt_eval.get("pv", [])[:5]
+                        "evaluation": alt_result.get("eval_cp"),
+                        "eval_type": "mate" if alt_result.get("eval_mate") else "cp",
+                        "opponent_best_response": alt_result.get("best_move_san"),
+                        "continuation": alt_result.get("pv_san", [])[:5]
                     }
             except Exception as e:
                 alternative_analysis = {"error": f"Invalid move: {req.alternative_move}"}
