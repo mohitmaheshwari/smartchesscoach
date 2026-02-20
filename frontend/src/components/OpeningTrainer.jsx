@@ -108,17 +108,84 @@ const OpeningTrainer = () => {
   const fetchOpeningContent = async (openingKey) => {
     try {
       setLoadingContent(true);
+      
+      // First try to get from our curated database
       const res = await fetch(`${API}/training/openings/${openingKey}`, { credentials: "include" });
       
       if (res.ok) {
         const data = await res.json();
-        setOpeningContent(data);
         
-        // Set board to main line starting position
-        if (data.opening?.main_line) {
-          playMainLine(data.opening.main_line);
+        // If we have curated content, use it
+        if (!data.error && data.opening) {
+          // Also fetch Lichess stats to enrich the data
+          const mainLine = data.opening?.main_line || [];
+          if (mainLine.length > 0) {
+            try {
+              const lichessRes = await fetch(
+                `${API}/training/lichess/opening?moves=${mainLine.join(",")}&source=lichess`,
+                { credentials: "include" }
+              );
+              if (lichessRes.ok) {
+                const lichessData = await lichessRes.json();
+                data.lichess_stats = lichessData;
+              }
+            } catch (e) {
+              console.log("Could not fetch Lichess stats:", e);
+            }
+          }
+          
+          setOpeningContent(data);
+          
+          if (mainLine.length > 0) {
+            playMainLine(mainLine);
+          }
+          return;
         }
       }
+      
+      // If no curated content, try to fetch from Lichess by name
+      const lichessRes = await fetch(
+        `${API}/training/lichess/search?name=${encodeURIComponent(openingKey.replace(/_/g, " "))}`,
+        { credentials: "include" }
+      );
+      
+      if (lichessRes.ok) {
+        const lichessData = await lichessRes.json();
+        
+        if (!lichessData.error) {
+          // Transform Lichess data to our format
+          const transformedData = {
+            opening: lichessData.opening,
+            variations: lichessData.top_moves?.map((move, idx) => ({
+              name: `${move.san} (${move.games.toLocaleString()} games)`,
+              moves: [...(lichessData.opening?.main_line || []), move.san],
+              idea: `White wins: ${move.white_percent}% | Draws: ${move.draw_percent}% | Black wins: ${move.black_percent}%`,
+              games: move.games
+            })) || [],
+            traps: [],
+            key_ideas: [],
+            lichess_stats: lichessData.statistics,
+            from_lichess: true
+          };
+          
+          setOpeningContent(transformedData);
+          
+          if (lichessData.opening?.main_line?.length > 0) {
+            playMainLine(lichessData.opening.main_line);
+          }
+          return;
+        }
+      }
+      
+      // No data found
+      setOpeningContent({
+        opening: { name: openingKey.replace(/_/g, " "), main_line: [] },
+        variations: [],
+        traps: [],
+        key_ideas: [],
+        error: "No training content available for this opening yet."
+      });
+      
     } catch (err) {
       console.error("Error fetching opening content:", err);
       toast.error("Failed to load opening details");
