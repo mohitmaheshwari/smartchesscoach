@@ -605,19 +605,41 @@ Created `chess_verification_layer.py` that:
 - **Utility:** `frontend/src/utils/evalFormatter.js` - Central formatting utilities
 - **Result:** All mistake severity displays now show intuitive text like "Blunder" or "Major blunder (piece lost)" instead of technical centipawn values
 
+### ✅ P1: Opening Trainer (Phase 2) - COMPLETE (Feb 20, 2026)
+- **Feature:** Interactive Opening Trainer with tree view display
+- **Backend APIs:**
+  - `GET /api/training/openings-database` - Returns 6 curated openings (Italian Game, Sicilian, Caro-Kann, French, Queen's Gambit, London)
+  - `GET /api/training/openings/stats` - User's most-played openings with mastery levels
+  - `GET /api/training/openings/{key}` - Training content for specific opening
+  - `GET /api/training/openings/{key}/quiz` - Quiz questions for knowledge testing
+- **Frontend:**
+  - New "Opening Trainer" tab in Training page (alongside Puzzles)
+  - Tree view with "Your Repertoire" (from user's games) and "Opening Library" (curated openings)
+  - Mastery level badges: Learning, Needs Work, Comfortable, Mastered
+  - Opening content panel showing: name, ECO code, description, main line, key ideas, variations, traps
+  - Practice mode for traps with step-through controls
+  - Chess board displaying opening positions
+- **Files Created:**
+  - `frontend/src/components/OpeningTrainer.jsx` - Main Opening Trainer component
+  - `backend/tests/test_opening_trainer.py` - Backend tests (12 tests passed)
+- **Files Updated:**
+  - `frontend/src/pages/TrainingNew.jsx` - Added tabs for Puzzles and Opening Trainer
+  - `backend/server.py` - Added 4 new API endpoints
+- **Testing:** 100% pass rate (12 backend, 9 frontend features verified)
+
 ---
 
 ## Upcoming Tasks (Feb 2026)
 
-### P1: Build Opening Trainer (Phase 2)
-- Backend service to detect user's most-played openings from game history
-- Create training content for variations, traps, and key ideas
-- Design new "Opening Mastery" UI section with tree view display
-- Key concepts: ECO codes, opening variations, common traps
+### P2: Community Learning (Phase 3)
+- Create shared puzzle pool from all users' mistakes
+- Categorize by theme (tactics, positional, endgame) and rating band
+- Allow users to learn from the community's collective mistakes
 
-### P1: Code Cleanup
-- Delete obsolete files: FocusPage.jsx, Coach.jsx, focus_service.py, adaptive_coaching_service.py
-- Refactor/dismantle monolithic Training.jsx (~1500 lines)
+### P3: Trick Library (Phase 4)
+- Curated standalone library of common tactical tricks
+- Examples: Noah's Ark Trap, Legal's Mate, Fried Liver Attack
+- Practice positions with explanations
 
 ### P2: Advanced Player DNA Profile
 - After 30+ games: Generate profile of user's chess personality
