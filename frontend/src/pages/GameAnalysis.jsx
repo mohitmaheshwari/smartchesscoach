@@ -1008,7 +1008,7 @@ const GameAnalysis = ({ user }) => {
                   )}
                   {coreLesson.total_cp_loss > 0 && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      This pattern cost ~{coreLesson.total_cp_loss} centipawns across {coreLesson.occurrences} occurrence(s)
+                      This pattern cost you {formatTotalCpLoss(coreLesson.total_cp_loss)} across {coreLesson.occurrences} occurrence(s)
                     </p>
                   )}
                 </div>
