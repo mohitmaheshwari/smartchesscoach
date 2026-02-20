@@ -6103,6 +6103,79 @@ async def get_user_openings(user: User = Depends(get_current_user)):
     }
 
 
+@api_router.get("/training/openings/stats")
+async def get_opening_stats(user: User = Depends(get_current_user)):
+    """
+    Get detailed statistics on user's most-played openings with training content availability.
+    """
+    from opening_trainer_service import get_user_opening_stats
+    
+    stats = await get_user_opening_stats(db, user.user_id)
+    
+    return {
+        "openings": stats,
+        "total": len(stats)
+    }
+
+
+@api_router.get("/training/openings/{opening_key}")
+async def get_opening_training_content(opening_key: str, user: User = Depends(get_current_user)):
+    """
+    Get training content for a specific opening including:
+    - Key variations and move orders
+    - Common traps (to set and avoid)
+    - Typical plans and ideas
+    - User's mistakes in this opening
+    """
+    from opening_trainer_service import get_opening_training_content
+    
+    content = await get_opening_training_content(db, user.user_id, opening_key)
+    
+    return content
+
+
+@api_router.get("/training/openings/{opening_key}/quiz")
+async def get_opening_quiz(opening_key: str, user: User = Depends(get_current_user)):
+    """
+    Generate quiz questions for an opening to test user's knowledge.
+    """
+    from opening_trainer_service import get_opening_quiz
+    
+    questions = await get_opening_quiz(db, user.user_id, opening_key)
+    
+    return {
+        "opening": opening_key,
+        "questions": questions
+    }
+
+
+@api_router.get("/training/openings-database")
+async def get_openings_database():
+    """
+    Get the full openings database for reference/browsing.
+    """
+    from opening_trainer_service import OPENINGS_DATABASE
+    
+    # Format for frontend consumption
+    openings = []
+    for key, data in OPENINGS_DATABASE.items():
+        openings.append({
+            "key": key,
+            "name": data["name"],
+            "eco": data.get("eco", ""),
+            "color": data["color"],
+            "description": data["description"],
+            "main_line": data["main_line"],
+            "variations_count": len(data.get("common_variations", [])),
+            "traps_count": len(data.get("traps", []))
+        })
+    
+    return {
+        "openings": openings,
+        "total": len(openings)
+    }
+
+
 @api_router.get("/training/progress")
 async def get_training_progress(user: User = Depends(get_current_user)):
     """
