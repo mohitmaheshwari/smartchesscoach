@@ -16,7 +16,7 @@ from datetime import datetime
 # Get BASE_URL from environment - MUST be the public URL
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://chess-training-hub-1.preview.emergentagent.com"
+    BASE_URL = "https://adaptive-trainer-3.preview.emergentagent.com"
 
 
 class TestReflectAPI:
