@@ -690,7 +690,188 @@ def classify_mastery(games: int, win_rate: float, accuracy: float) -> str:
         return "needs_work"
 
 
-async def get_opening_training_content(db, user_id: str, opening_key: str) -> Dict:
+# ============================================================================
+# COMMUNITY COMPARISON
+# ============================================================================
+
+def get_rating_band(rating: int) -> str:
+    """Get rating band for community grouping."""
+    if rating < 800:
+        return "beginner"
+    elif rating < 1200:
+        return "intermediate"
+    elif rating < 1600:
+        return "advanced"
+    elif rating < 2000:
+        return "expert"
+    else:
+        return "master"
+
+
+def get_rating_band_range(band: str) -> tuple:
+    """Get min/max rating for a band."""
+    bands = {
+        "beginner": (0, 799),
+        "intermediate": (800, 1199),
+        "advanced": (1200, 1599),
+        "expert": (1600, 1999),
+        "master": (2000, 3000)
+    }
+    return bands.get(band, (0, 3000))
+
+
+async def get_community_opening_stats(db, opening_name: str, rating_band: str) -> Dict:
+    """
+    Get community statistics for an opening within a rating band.
+    Aggregates accuracy data across all users in that rating band.
+    """
+    band_min, band_max = get_rating_band_range(rating_band)
+    
+    # Find all users in this rating band
+    users_in_band = await db.users.find(
+        {"rating": {"$gte": band_min, "$lte": band_max}},
+        {"_id": 0, "user_id": 1}
+    ).to_list(500)
+    
+    user_ids = [u["user_id"] for u in users_in_band]
+    
+    if not user_ids:
+        return {"avg_accuracy": 0, "total_games": 0, "user_count": 0, "all_accuracies": []}
+    
+    # Normalize the opening name for matching
+    opening_normalized = opening_name.lower().strip()
+    
+    # Find all games with this opening for users in the band
+    games = await db.games.find({
+        "user_id": {"$in": user_ids},
+        "$or": [
+            {"opening_name": {"$regex": opening_normalized, "$options": "i"}},
+            {"opening": {"$regex": opening_normalized, "$options": "i"}}
+        ]
+    }, {"_id": 0, "game_id": 1, "user_id": 1}).to_list(1000)
+    
+    if not games:
+        return {"avg_accuracy": 0, "total_games": 0, "user_count": 0, "all_accuracies": []}
+    
+    game_ids = [g["game_id"] for g in games]
+    unique_users = set(g["user_id"] for g in games)
+    
+    # Get accuracy for these games
+    analyses = await db.game_analyses.find(
+        {"game_id": {"$in": game_ids}},
+        {"_id": 0, "game_id": 1, "accuracy": 1, "stockfish_analysis": 1}
+    ).to_list(len(game_ids))
+    
+    accuracies = []
+    for analysis in analyses:
+        sf = analysis.get("stockfish_analysis", {})
+        acc = sf.get("accuracy", 0) if sf else 0
+        if not acc:
+            acc = analysis.get("accuracy", 0)
+        if acc and acc > 0:
+            accuracies.append(acc)
+    
+    if not accuracies:
+        return {"avg_accuracy": 0, "total_games": len(games), "user_count": len(unique_users), "all_accuracies": []}
+    
+    return {
+        "avg_accuracy": round(sum(accuracies) / len(accuracies), 1),
+        "total_games": len(games),
+        "user_count": len(unique_users),
+        "all_accuracies": sorted(accuracies)  # Sorted for percentile calculation
+    }
+
+
+def calculate_percentile(user_accuracy: float, all_accuracies: List[float]) -> int:
+    """
+    Calculate what percentile the user's accuracy falls into.
+    Returns 0-100 (e.g., 75 means better than 75% of players).
+    """
+    if not all_accuracies or user_accuracy <= 0:
+        return 0
+    
+    count_below = sum(1 for acc in all_accuracies if acc < user_accuracy)
+    percentile = int((count_below / len(all_accuracies)) * 100)
+    return min(percentile, 99)  # Cap at 99 to avoid "100%"
+
+
+async def get_user_rating(db, user_id: str) -> int:
+    """Get user's current rating from profile or default."""
+    # Try player_profiles first
+    profile = await db.player_profiles.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "current_rating": 1}
+    )
+    if profile and profile.get("current_rating"):
+        return profile["current_rating"]
+    
+    # Try users collection
+    user = await db.users.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "rating": 1}
+    )
+    if user and user.get("rating"):
+        return user["rating"]
+    
+    return 1200  # Default rating
+
+
+async def enrich_with_community_comparison(db, user_id: str, opening_stats: List[Dict]) -> List[Dict]:
+    """
+    Enrich opening stats with community comparison data.
+    Adds: community_avg, percentile, comparison_text
+    """
+    user_rating = await get_user_rating(db, user_id)
+    rating_band = get_rating_band(user_rating)
+    
+    # Cache community stats to avoid repeated queries
+    community_cache = {}
+    
+    for opening in opening_stats:
+        opening_name = opening.get("name", "")
+        user_accuracy = opening.get("avg_accuracy", 0)
+        
+        # Get or fetch community stats
+        cache_key = f"{opening_name}_{rating_band}"
+        if cache_key not in community_cache:
+            community_cache[cache_key] = await get_community_opening_stats(db, opening_name, rating_band)
+        
+        community = community_cache[cache_key]
+        community_avg = community.get("avg_accuracy", 0)
+        all_accuracies = community.get("all_accuracies", [])
+        
+        # Calculate percentile
+        percentile = calculate_percentile(user_accuracy, all_accuracies) if user_accuracy > 0 else 0
+        
+        # Generate comparison text
+        if user_accuracy <= 0 or community_avg <= 0:
+            comparison_text = "Not enough data"
+            comparison_status = "neutral"
+        elif user_accuracy >= community_avg + 5:
+            diff = round(user_accuracy - community_avg, 1)
+            comparison_text = f"+{diff}% above average"
+            comparison_status = "above"
+        elif user_accuracy <= community_avg - 5:
+            diff = round(community_avg - user_accuracy, 1)
+            comparison_text = f"-{diff}% below average"
+            comparison_status = "below"
+        else:
+            comparison_text = "At average"
+            comparison_status = "average"
+        
+        # Add community data to opening
+        opening["community"] = {
+            "avg_accuracy": community_avg,
+            "percentile": percentile,
+            "comparison_text": comparison_text,
+            "comparison_status": comparison_status,  # "above", "below", "average", "neutral"
+            "total_games": community.get("total_games", 0),
+            "player_count": community.get("user_count", 0),
+            "rating_band": rating_band,
+            "rating_band_label": rating_band.replace("_", " ").title()
+        }
+    
+    return opening_stats
     """
     Get training content for a specific opening.
     
