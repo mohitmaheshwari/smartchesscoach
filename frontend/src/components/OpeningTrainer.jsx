@@ -1463,7 +1463,7 @@ const OpeningTrainer = () => {
                   userColor={boardOrientation}
                   interactive={trickPracticeMode === "execution" && trickPracticeState === "playing"}
                   showControls={!trickPracticeMode}
-                  onMove={trickPracticeMode === "execution" ? handleTrickPracticeMove : undefined}
+                  onUserMove={trickPracticeMode === "execution" ? handleTrickPracticeMove : undefined}
                 />
               </div>
             </div>
