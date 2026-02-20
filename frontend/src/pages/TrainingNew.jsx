@@ -54,6 +54,9 @@ const formatEvaluation = (cpLoss) => {
 const Training = ({ user }) => {
   const navigate = useNavigate();
   
+  // Tab state
+  const [activeTab, setActiveTab] = useState("puzzles");
+  
   // Core state
   const [loading, setLoading] = useState(true);
   const [puzzles, setPuzzles] = useState([]);
