@@ -7,12 +7,47 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - **Frontend:** React (port 3000)
 - **Backend:** FastAPI (port 8001)
 - **Database:** MongoDB
-- **Analysis Engine:** Stockfish
+- **Analysis Engine:** Stockfish with intelligent caching
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
+- **Opening Data:** Lichess Opening Explorer API (statistics only)
 
 ---
 
-## GOLD FEATURE: Training Engine - Adaptive Behavioral Correction System ✅ NEW
+## Latest Updates (Feb 20, 2026)
+
+### Position Analysis Caching System ✅ NEW
+Implemented a streamlined Stockfish + caching system for position analysis:
+
+**Architecture:**
+```
+Request → Memory Cache → DB Cache → Stockfish → Cache Result
+```
+
+**Performance:**
+- Memory cache hit: < 1ms (instant)
+- DB cache hit: ~5ms
+- Fresh Stockfish: ~2 seconds
+- No rate limits (removed Lichess dependency for analysis)
+
+**Files:**
+- `backend/position_analysis_cache_service.py` - Main caching service
+- Integrated into `/api/eval/*` endpoints and game analysis flows
+
+**API Endpoints:**
+- `GET /api/eval/position?fen=...` - Full position analysis
+- `GET /api/eval/best-move?fen=...` - Quick best move
+- `POST /api/eval/move?fen=...&move=...` - Analyze specific move
+- `GET /api/eval/cache-stats` - Cache statistics
+
+**Why Stockfish over Lichess Cloud:**
+- Same engine (Lichess uses Stockfish internally)
+- No rate limits (Lichess: 1 req/sec)
+- Depth 18 is sufficient for teaching (vs depth 50+ overkill)
+- Full control, no external dependency
+
+---
+
+## GOLD FEATURE: Training Engine - Adaptive Behavioral Correction System ✅
 
 ### Core Philosophy: "Data-Driven, One Leak at a Time"
 The Training Engine replaces the Focus + Coach pages with a unified, step-by-step training experience. It uses PURE DATA (not rating-band hardcoding) to identify the user's biggest weakness.
