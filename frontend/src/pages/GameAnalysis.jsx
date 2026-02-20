@@ -33,7 +33,7 @@ import {
   Zap
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { formatTotalCpLoss } from "@/utils/evalFormatter";
+import { formatTotalCpLoss, formatCpLoss } from "@/utils/evalFormatter";
 
 const GameAnalysis = ({ user }) => {
   const { gameId } = useParams();
