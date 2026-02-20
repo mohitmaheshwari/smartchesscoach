@@ -1078,6 +1078,239 @@ const OpeningTrainer = () => {
     );
   };
 
+  // Render trick content panel
+  const renderTrickContent = () => {
+    const trick = selectedTrick;
+    
+    return (
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          <Swords className="w-6 h-6 text-orange-500 mt-1" />
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold">{trick.name}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="outline" className="text-xs">
+                {trick.eco} • {trick.opening}
+              </Badge>
+              <Badge 
+                variant="outline" 
+                className={`text-xs ${
+                  trick.difficulty === "beginner" ? "text-green-400 border-green-500/30" :
+                  trick.difficulty === "intermediate" ? "text-blue-400 border-blue-500/30" :
+                  "text-purple-400 border-purple-500/30"
+                }`}
+              >
+                {trick.difficulty}
+              </Badge>
+              <Badge 
+                variant="outline" 
+                className={`text-xs ${
+                  trick.trap_for === "white" ? "text-amber-400 border-amber-400/30" : "text-slate-400 border-slate-400/30"
+                }`}
+              >
+                {trick.trap_for === "white" ? "White sets trap" : "Black sets trap"}
+              </Badge>
+            </div>
+          </div>
+        </div>
+        
+        {/* Description */}
+        <Card className="bg-orange-500/10 border-orange-500/30">
+          <CardContent className="py-3">
+            <p className="text-sm">{trick.description}</p>
+          </CardContent>
+        </Card>
+        
+        {/* Practice Modes */}
+        {!trickPracticeMode && (
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              Practice Modes
+            </h4>
+            <div className="grid grid-cols-1 gap-2">
+              {/* Execution Mode */}
+              <Card 
+                className="bg-green-500/10 border-green-500/30 hover:bg-green-500/20 transition-colors cursor-pointer"
+                onClick={() => startTrickPractice("execution")}
+                data-testid="practice-execution"
+              >
+                <CardContent className="py-3">
+                  <div className="flex items-center gap-3">
+                    <Target className="w-5 h-5 text-green-500" />
+                    <div className="flex-1">
+                      <p className="font-medium text-green-400">Execution Mode</p>
+                      <p className="text-xs text-muted-foreground">Play the trap - find the winning move!</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Avoidance Mode */}
+              <Card 
+                className="bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20 transition-colors cursor-pointer"
+                onClick={() => startTrickPractice("avoidance")}
+                data-testid="practice-avoidance"
+              >
+                <CardContent className="py-3">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-blue-500" />
+                    <div className="flex-1">
+                      <p className="font-medium text-blue-400">Avoidance Mode</p>
+                      <p className="text-xs text-muted-foreground">Don't fall for it - find a safe move!</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Recognition Mode */}
+              <Card 
+                className="bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 transition-colors cursor-pointer"
+                onClick={() => startTrickPractice("recognition")}
+                data-testid="practice-recognition"
+              >
+                <CardContent className="py-3">
+                  <div className="flex items-center gap-3">
+                    <Eye className="w-5 h-5 text-purple-500" />
+                    <div className="flex-1">
+                      <p className="font-medium text-purple-400">Recognition Mode</p>
+                      <p className="text-xs text-muted-foreground">Spot the trap - what's the danger?</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+        
+        {/* Practice Mode Active */}
+        {trickPracticeMode && trickPracticeData && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Badge 
+                className={`${
+                  trickPracticeMode === "execution" ? "bg-green-500/20 text-green-400" :
+                  trickPracticeMode === "avoidance" ? "bg-blue-500/20 text-blue-400" :
+                  "bg-purple-500/20 text-purple-400"
+                }`}
+              >
+                {trickPracticeMode === "execution" ? "🎯 Execution Mode" :
+                 trickPracticeMode === "avoidance" ? "🛡️ Avoidance Mode" :
+                 "👁️ Recognition Mode"}
+              </Badge>
+              <Button variant="ghost" size="sm" onClick={resetTrickPractice}>
+                <RotateCcw className="w-4 h-4 mr-1" />
+                Reset
+              </Button>
+            </div>
+            
+            {/* Hint */}
+            <Card className="bg-muted/30">
+              <CardContent className="py-3">
+                <div className="flex items-start gap-2">
+                  <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5" />
+                  <p className="text-sm">{trickPracticeData.hints}</p>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Result */}
+            {trickPracticeState === "success" && (
+              <Card className="bg-green-500/20 border-green-500/50">
+                <CardContent className="py-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    <span className="font-medium text-green-400">Correct!</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">{trick.explanation}</p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {trickPracticeState === "failed" && (
+              <Card className="bg-red-500/20 border-red-500/50">
+                <CardContent className="py-3">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="w-5 h-5 text-red-500" />
+                    <span className="font-medium text-red-400">Not quite!</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    The winning move was <span className="font-mono text-orange-400">{trick.winning_move}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">{trick.explanation}</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+        
+        {/* Winning Line (when not in practice) */}
+        {!trickPracticeMode && trick.winning_line && (
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-orange-500" />
+              Winning Continuation
+            </h4>
+            <div className="flex flex-wrap gap-1">
+              {trick.winning_line.map((move, idx) => (
+                <span key={idx} className="text-sm font-mono bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
+                  {move}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Why It Works */}
+        {!trickPracticeMode && trick.why_it_works && (
+          <Card className="bg-muted/30">
+            <CardContent className="py-3">
+              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-amber-500" />
+                Why It Works
+              </h4>
+              <p className="text-sm text-muted-foreground">{trick.why_it_works}</p>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* How to Avoid */}
+        {!trickPracticeMode && trick.how_to_avoid && (
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-blue-500" />
+              How to Avoid
+            </h4>
+            <ul className="space-y-1">
+              {trick.how_to_avoid.map((tip, idx) => (
+                <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-blue-400 shrink-0">•</span>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
+        {/* Key Squares */}
+        {!trickPracticeMode && trick.key_squares && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-muted-foreground">Key squares:</span>
+            {trick.key_squares.map((sq, idx) => (
+              <Badge key={idx} variant="outline" className="text-xs font-mono">
+                {sq}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
       {/* Left panel - Opening tree */}
