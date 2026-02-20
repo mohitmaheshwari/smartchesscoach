@@ -140,27 +140,20 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
     from chess_verification_layer import get_critical_facts, verify_move
     
     # Get user's analyzed games
-    pipeline = [
-        {"$match": {"user_id": user_id, "is_analyzed": True}},
-        {"$sort": {"date_played": -1}},
-        {"$limit": 20},  # Recent games
-        {
-            "$lookup": {
-                "from": "game_analyses",
-                "localField": "game_id",
-                "foreignField": "game_id",
-                "as": "analysis"
-            }
-        },
-        {"$unwind": {"path": "$analysis", "preserveNullAndEmptyArrays": True}}
-    ]
-    
-    games = await db.games.aggregate(pipeline).to_list(20)
+    # Query games that have been analyzed (have stockfish data)
+    # First, get games from the game_analyses collection directly
+    analyses = await db.game_analyses.find({"user_id": user_id}).sort("created_at", -1).limit(20).to_list(20)
     
     puzzles = []
     
-    for game in games:
-        analysis = game.get("analysis", {})
+    for analysis in analyses:
+        game_id = analysis.get("game_id")
+        
+        # Get game info
+        game = await db.games.find_one({"game_id": game_id})
+        if not game:
+            continue
+            
         sf_analysis = analysis.get("stockfish_analysis", {})
         moves = sf_analysis.get("move_evaluations", [])
         user_color = game.get("user_color", "white")
