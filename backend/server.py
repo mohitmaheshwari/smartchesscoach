@@ -6190,6 +6190,123 @@ async def get_openings_database():
 
 
 # ============================================================================
+# TRICK LIBRARY ENDPOINTS
+# ============================================================================
+
+@api_router.get("/training/tricks")
+async def get_all_tricks():
+    """
+    Get all traps in the trick library with metadata.
+    """
+    from trick_library_service import get_all_traps, get_trap_statistics, TRAP_CATEGORIES
+    
+    traps = get_all_traps()
+    stats = get_trap_statistics()
+    
+    return {
+        "traps": traps,
+        "categories": TRAP_CATEGORIES,
+        "statistics": stats
+    }
+
+
+@api_router.get("/training/tricks/categories")
+async def get_trick_categories():
+    """
+    Get all trap categories.
+    """
+    from trick_library_service import TRAP_CATEGORIES, get_traps_by_category
+    
+    categories = []
+    for key, cat_data in TRAP_CATEGORIES.items():
+        traps = get_traps_by_category(key)
+        categories.append({
+            "key": key,
+            "name": cat_data["name"],
+            "description": cat_data["description"],
+            "trap_count": len(traps),
+            "trap_keys": cat_data["traps"]
+        })
+    
+    return {"categories": categories}
+
+
+@api_router.get("/training/tricks/{trap_key}")
+async def get_trick_details(trap_key: str):
+    """
+    Get detailed information about a specific trap.
+    """
+    from trick_library_service import get_trap_by_key
+    
+    trap = get_trap_by_key(trap_key)
+    if not trap:
+        raise HTTPException(status_code=404, detail="Trap not found")
+    
+    return trap
+
+
+@api_router.get("/training/tricks/{trap_key}/practice")
+async def get_trick_for_practice(trap_key: str, mode: str = "execution"):
+    """
+    Get a trap formatted for practice mode.
+    
+    Modes:
+    - execution: Player tries to execute the trap (find the winning move)
+    - avoidance: Player tries to avoid falling into the trap
+    - recognition: Player identifies if there's a trap in the position
+    """
+    from trick_library_service import get_trap_for_practice
+    
+    if mode not in ["execution", "avoidance", "recognition"]:
+        raise HTTPException(status_code=400, detail="Invalid mode. Use: execution, avoidance, recognition")
+    
+    practice_data = get_trap_for_practice(trap_key, mode)
+    if not practice_data:
+        raise HTTPException(status_code=404, detail="Trap not found")
+    
+    return practice_data
+
+
+@api_router.get("/training/tricks/opening/{opening_name}")
+async def get_tricks_for_opening(opening_name: str):
+    """
+    Get traps relevant to a specific opening.
+    """
+    from trick_library_service import get_traps_by_opening, get_recommended_traps_for_opening
+    
+    # Get direct matches
+    direct_traps = get_traps_by_opening(opening_name)
+    
+    # Get recommendations
+    recommendations = get_recommended_traps_for_opening(opening_name)
+    
+    return {
+        "opening": opening_name,
+        "traps": direct_traps,
+        "recommendations": recommendations
+    }
+
+
+@api_router.get("/training/tricks/difficulty/{difficulty}")
+async def get_tricks_by_difficulty(difficulty: str):
+    """
+    Get traps by difficulty level (beginner, intermediate, advanced).
+    """
+    from trick_library_service import get_traps_by_difficulty
+    
+    if difficulty not in ["beginner", "intermediate", "advanced"]:
+        raise HTTPException(status_code=400, detail="Invalid difficulty. Use: beginner, intermediate, advanced")
+    
+    traps = get_traps_by_difficulty(difficulty)
+    
+    return {
+        "difficulty": difficulty,
+        "traps": traps,
+        "count": len(traps)
+    }
+
+
+# ============================================================================
 # LICHESS OPENING EXPLORER INTEGRATION
 # ============================================================================
 
