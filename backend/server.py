@@ -6034,6 +6034,108 @@ async def get_ai_insights(user: User = Depends(get_current_user)):
 
 
 # =============================================================================
+# INTERACTIVE TRAINING ENDPOINTS (Phase 1)
+# =============================================================================
+
+@api_router.get("/training/puzzles")
+async def get_training_puzzles(
+    limit: int = 10,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get personalized puzzles from user's own mistakes.
+    
+    Returns positions where user made mistakes, formatted as interactive puzzles.
+    Each puzzle includes the principle to learn.
+    """
+    from interactive_training_service import get_user_puzzles
+    
+    puzzles = await get_user_puzzles(db, user.user_id, limit)
+    
+    return {
+        "puzzles": puzzles,
+        "total": len(puzzles),
+        "source": "your_games"
+    }
+
+
+@api_router.post("/training/puzzle/validate")
+async def validate_puzzle_answer(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Validate user's answer to a puzzle.
+    
+    Request body:
+    - puzzle_id: str
+    - user_answer: str (move in SAN notation)
+    - correct_move: str
+    - fen: str
+    
+    Returns feedback with explanation and teaching point.
+    """
+    from interactive_training_service import validate_puzzle_answer as validate_answer
+    
+    result = await validate_answer(
+        db,
+        user.user_id,
+        data.get("puzzle_id"),
+        data.get("user_answer"),
+        data.get("correct_move"),
+        data.get("fen")
+    )
+    
+    return result
+
+
+@api_router.get("/training/weakness-patterns")
+async def get_weakness_patterns(user: User = Depends(get_current_user)):
+    """
+    Get analysis of user's weakness patterns.
+    
+    Identifies:
+    - Weakest game phase (opening/middlegame/endgame)
+    - Common mistake types
+    - Training recommendations
+    """
+    from interactive_training_service import get_user_weakness_patterns
+    
+    patterns = await get_user_weakness_patterns(db, user.user_id)
+    
+    return patterns
+
+
+@api_router.get("/training/openings")
+async def get_user_openings(user: User = Depends(get_current_user)):
+    """
+    Get user's most played openings with mastery levels.
+    
+    For future opening trainer feature.
+    """
+    from interactive_training_service import get_user_openings
+    
+    openings = await get_user_openings(db, user.user_id)
+    
+    return {
+        "openings": openings,
+        "total": len(openings)
+    }
+
+
+@api_router.get("/training/progress")
+async def get_training_progress(user: User = Depends(get_current_user)):
+    """
+    Get user's training progress and stats.
+    """
+    from interactive_training_service import get_training_progress
+    
+    progress = await get_training_progress(db, user.user_id)
+    
+    return progress
+
+
+# =============================================================================
 # COACHING LOOP ENDPOINTS (GOLD FEATURE)
 # =============================================================================
 
