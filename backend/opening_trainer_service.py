@@ -727,26 +727,44 @@ async def get_community_opening_stats(db, opening_name: str, rating_band: str) -
     """
     band_min, band_max = get_rating_band_range(rating_band)
     
-    # Find all users in this rating band
-    users_in_band = await db.users.find(
-        {"rating": {"$gte": band_min, "$lte": band_max}},
-        {"_id": 0, "user_id": 1}
-    ).to_list(500)
+    # Find all users - include those without rating (default to intermediate/advanced)
+    # For users without explicit rating, we include them in intermediate-advanced bands
+    if rating_band in ["intermediate", "advanced"]:
+        users_in_band = await db.users.find(
+            {"$or": [
+                {"rating": {"$gte": band_min, "$lte": band_max}},
+                {"rating": {"$exists": False}},
+                {"rating": None}
+            ]},
+            {"_id": 0, "user_id": 1}
+        ).to_list(500)
+    else:
+        users_in_band = await db.users.find(
+            {"rating": {"$gte": band_min, "$lte": band_max}},
+            {"_id": 0, "user_id": 1}
+        ).to_list(500)
     
     user_ids = [u["user_id"] for u in users_in_band]
     
     if not user_ids:
         return {"avg_accuracy": 0, "total_games": 0, "user_count": 0, "all_accuracies": []}
     
-    # Normalize the opening name for matching
+    # Normalize the opening name for matching - handle variations
     opening_normalized = opening_name.lower().strip()
+    # Create pattern that matches the core opening name
+    # e.g., "Scandinavian Defense" should match "scandinavian"
+    core_words = [w for w in opening_normalized.split() if len(w) > 3]
+    if core_words:
+        pattern = core_words[0]  # Use first significant word
+    else:
+        pattern = opening_normalized
     
     # Find all games with this opening for users in the band
     games = await db.games.find({
         "user_id": {"$in": user_ids},
         "$or": [
-            {"opening_name": {"$regex": opening_normalized, "$options": "i"}},
-            {"opening": {"$regex": opening_normalized, "$options": "i"}}
+            {"opening_name": {"$regex": pattern, "$options": "i"}},
+            {"opening": {"$regex": pattern, "$options": "i"}}
         ]
     }, {"_id": 0, "game_id": 1, "user_id": 1}).to_list(1000)
     
