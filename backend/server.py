@@ -6176,6 +6176,69 @@ async def get_openings_database():
     }
 
 
+# ============================================================================
+# LICHESS OPENING EXPLORER INTEGRATION
+# ============================================================================
+
+@api_router.get("/training/lichess/opening")
+async def get_lichess_opening_data(
+    moves: str = None,  # Comma-separated SAN moves, e.g., "e4,e5,Nf3"
+    source: str = "lichess"  # "lichess" or "masters"
+):
+    """
+    Fetch opening data from Lichess Opening Explorer.
+    
+    Returns real statistics from millions of games including:
+    - Opening name and ECO code
+    - Win/draw/loss percentages
+    - Most popular continuations with statistics
+    """
+    from lichess_opening_service import get_opening_info
+    
+    move_list = moves.split(",") if moves else []
+    data = await get_opening_info(move_list, source=source)
+    
+    return data
+
+
+@api_router.get("/training/lichess/variations")
+async def get_lichess_variations(
+    moves: str = None,  # Comma-separated SAN moves
+    depth: int = 3
+):
+    """
+    Get popular variations from a position using Lichess data.
+    
+    Explores the most common continuations up to the specified depth.
+    """
+    from lichess_opening_service import get_opening_variations
+    
+    move_list = moves.split(",") if moves else []
+    variations = await get_opening_variations(move_list, depth=min(depth, 5))
+    
+    return {
+        "starting_moves": move_list,
+        "variations": variations
+    }
+
+
+@api_router.get("/training/lichess/search")
+async def search_lichess_opening(name: str):
+    """
+    Search for an opening by name and get Lichess statistics.
+    
+    Examples: "Italian Game", "Sicilian Najdorf", "Queen's Gambit"
+    """
+    from lichess_opening_service import search_opening_by_name
+    
+    data = await search_opening_by_name(name)
+    
+    if not data:
+        return {"error": f"Opening '{name}' not found"}
+    
+    return data
+
+
 @api_router.get("/training/progress")
 async def get_training_progress(user: User = Depends(get_current_user)):
     """
