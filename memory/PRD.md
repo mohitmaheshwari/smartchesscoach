@@ -592,15 +592,28 @@ Created `chess_verification_layer.py` that:
 ### ✅ P1: Pre-filter Games with Pending Reflections 
 - Only returns games with qualifying moments
 
+### ✅ P0: Replace Technical Centipawn Display with User-Friendly Text (Feb 20, 2026)
+- **Problem:** Technical "centipawn" terminology was confusing for casual users (e.g., "Lost 138 centipawns", "-4.22 cp")
+- **Solution:** Created consistent user-friendly evaluation text across all pages:
+  - "Minor inaccuracy", "Inaccuracy", "Mistake", "Serious mistake", "Blunder", "Major blunder (piece lost)"
+- **Files Updated:**
+  - `frontend/src/pages/Training.jsx` - Added `getEvaluationText()` helper
+  - `frontend/src/pages/TrainingNew.jsx` - Already had `formatEvaluation()` (confirmed working)
+  - `frontend/src/pages/GameAnalysis.jsx` - Uses `formatCpLoss()` and `formatTotalCpLoss()` from evalFormatter utility
+  - `frontend/src/components/MistakeMastery.jsx` - Uses `formatCpLoss()` instead of raw division
+  - `frontend/src/components/BadgeDetailModal.jsx` - Uses `formatCpLoss()` instead of "-{cp} cp"
+- **Utility:** `frontend/src/utils/evalFormatter.js` - Central formatting utilities
+- **Result:** All mistake severity displays now show intuitive text like "Blunder" or "Major blunder (piece lost)" instead of technical centipawn values
+
 ---
 
 ## Upcoming Tasks (Feb 2026)
 
-### P1: Build Training Page (New Design)
-- Rating Intelligence Model (400-800, 800-1400, 1400-2000 ELO bands)
-- Personal mistake clustering from last 20 games
-- Targeted drills linked to reflections and awareness gaps
-- Replaces/refactors current Training.jsx
+### P1: Build Opening Trainer (Phase 2)
+- Backend service to detect user's most-played openings from game history
+- Create training content for variations, traps, and key ideas
+- Design new "Opening Mastery" UI section with tree view display
+- Key concepts: ECO codes, opening variations, common traps
 
 ### P1: Code Cleanup
 - Delete obsolete files: FocusPage.jsx, Coach.jsx, focus_service.py, adaptive_coaching_service.py
