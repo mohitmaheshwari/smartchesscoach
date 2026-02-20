@@ -6038,27 +6038,6 @@ async def get_ai_insights(user: User = Depends(get_current_user)):
 # INTERACTIVE TRAINING ENDPOINTS (Phase 1)
 # =============================================================================
 
-@api_router.get("/training/puzzles")
-async def get_training_puzzles(
-    limit: int = 10,
-    user: User = Depends(get_current_user)
-):
-    """
-    Get personalized puzzles from user's own mistakes.
-    
-    Returns positions where user made mistakes, formatted as interactive puzzles.
-    Each puzzle includes the principle to learn.
-    """
-    from interactive_training_service import get_user_puzzles
-    
-    puzzles = await get_user_puzzles(db, user.user_id, limit)
-    
-    return {
-        "puzzles": puzzles,
-        "total": len(puzzles),
-        "source": "your_games"
-    }
-
 
 @api_router.post("/training/puzzle/validate")
 async def validate_puzzle_answer(
