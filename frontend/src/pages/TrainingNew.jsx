@@ -340,8 +340,15 @@ const Training = ({ user }) => {
                         vs {currentPuzzle.opponent} • Move {currentPuzzle.move_number}
                       </span>
                     </div>
-                    <Badge variant="outline" className="text-gray-400 border-gray-700">
-                      {currentPuzzle.user_color === "white" ? "White" : "Black"} to move
+                    <Badge 
+                      variant="outline" 
+                      className={`${
+                        currentPuzzle.user_color === "white" 
+                          ? "text-amber-400 border-amber-400/50" 
+                          : "text-slate-300 border-slate-400/50"
+                      }`}
+                    >
+                      Playing as {currentPuzzle.user_color === "white" ? "White" : "Black"}
                     </Badge>
                   </div>
                 )}
