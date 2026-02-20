@@ -1338,11 +1338,21 @@ const OpeningTrainer = () => {
             {trickPracticeState === "success" && (
               <Card className="bg-green-500/20 border-green-500/50">
                 <CardContent className="py-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 mb-2">
                     <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    <span className="font-medium text-green-400">Correct!</span>
+                    <span className="font-medium text-green-400">Trap Complete!</span>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2">{trick.explanation}</p>
+                  <p className="text-sm font-medium mb-2">Why it works:</p>
+                  <p className="text-sm text-muted-foreground">{trick.why_it_works || trick.explanation}</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-3"
+                    onClick={resetTrickPractice}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-1" />
+                    Practice Again
+                  </Button>
                 </CardContent>
               </Card>
             )}
