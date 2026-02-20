@@ -151,6 +151,34 @@ Users can now show their thinking by playing moves on the board instead of typin
   - **Fix**: Now fetches accuracy from `game_analyses.stockfish_analysis.accuracy` (the correct source)
   - **Impact**: All openings now show correct accuracy values (e.g., 69.8%, 71.9% instead of 0%)
   - Backend: `get_user_opening_stats()` in `opening_trainer_service.py`
+
+### New Feature: Community Comparison ✅ NEW (Feb 20, 2026)
+Compare your opening accuracy to other players at your rating level:
+
+**Features:**
+- Shows user's accuracy vs community average for each opening
+- Percentile ranking (e.g., "Better than 65% of players")
+- Visual comparison status: Above average (green), Below average (orange), At average (blue)
+- Rating band grouping: Beginner (<800), Intermediate (800-1199), Advanced (1200-1599), Expert (1600-1999), Master (2000+)
+- Inline indicators in opening list showing comparison status
+
+**UI Components:**
+- Inline comparison badges in "Your Repertoire" list (≈ Average, ↑ Top X%, ↓ Bottom X%)
+- Detailed "Compare to Community" card when opening is selected
+- Shows: Your accuracy, Community avg, Percentile, Player count, Games analyzed
+
+**Backend:**
+- `get_community_opening_stats()` - Aggregates accuracy across users in rating band
+- `enrich_with_community_comparison()` - Adds comparison data to user's opening stats
+- `calculate_percentile()` - Computes user's ranking within community
+
+**API:**
+- `GET /api/training/openings/stats` - Now includes `community` field with comparison data
+
+**Files:**
+- `backend/opening_trainer_service.py` - Added community comparison functions
+- `frontend/src/components/OpeningTrainer.jsx` - Added community comparison UI
+
 - ✅ **Phase-Filtered Example Positions**: Example positions now match the current training phase
   - Opening Principles phase shows only moves 1-12
   - Pawn Structure phase shows moves 1-25
