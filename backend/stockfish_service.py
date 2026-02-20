@@ -364,7 +364,6 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 board.push(move)
                 
                 # Check if the game is over (checkmate, stalemate, etc.)
-                game_over = board.is_game_over()
                 is_checkmate = board.is_checkmate()
                 
                 # Evaluate position after the move
