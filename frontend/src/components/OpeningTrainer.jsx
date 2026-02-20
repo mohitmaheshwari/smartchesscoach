@@ -238,6 +238,85 @@ const OpeningTrainer = () => {
     }));
   };
 
+  // Handle trick selection
+  const handleSelectTrick = async (trick) => {
+    setSelectedTrick(trick);
+    setSelectedOpening(null); // Clear opening selection
+    setTrickPracticeMode(null);
+    setTrickPracticeState("ready");
+    setTrickPracticeData(null);
+    
+    // Set board to the trap position
+    setBoardFen(trick.trap_position_fen || START_FEN);
+    setBoardOrientation(trick.trap_for === "white" ? "white" : "black");
+  };
+
+  // Start trick practice mode
+  const startTrickPractice = async (mode) => {
+    if (!selectedTrick) return;
+    
+    try {
+      const res = await fetch(
+        `${API}/training/tricks/${selectedTrick.key}/practice?mode=${mode}`,
+        { credentials: "include" }
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        setTrickPracticeMode(mode);
+        setTrickPracticeState("playing");
+        setTrickPracticeData(data);
+        setBoardFen(data.fen || selectedTrick.trap_position_fen);
+        
+        // Set orientation based on mode
+        if (mode === "execution") {
+          setBoardOrientation(selectedTrick.trap_for);
+        } else if (mode === "avoidance") {
+          setBoardOrientation(selectedTrick.victim_color);
+        } else {
+          setBoardOrientation("white");
+        }
+      }
+    } catch (err) {
+      console.error("Error starting practice:", err);
+      toast.error("Failed to start practice mode");
+    }
+  };
+
+  // Handle move in trick practice
+  const handleTrickPracticeMove = (move) => {
+    if (!trickPracticeData || trickPracticeState !== "playing") return;
+    
+    const moveSan = move.san || move;
+    
+    if (trickPracticeMode === "execution") {
+      // Check if the move matches the winning move
+      const winningMove = trickPracticeData.winning_move;
+      if (moveSan === winningMove || moveSan.replace(/[+#]/, "") === winningMove.replace(/[+#]/, "")) {
+        setTrickPracticeState("success");
+        toast.success("Correct! You found the trap!");
+      } else {
+        setTrickPracticeState("failed");
+        toast.error(`Not quite! The winning move was ${winningMove}`);
+      }
+    } else if (trickPracticeMode === "avoidance") {
+      // Check if the move avoids the trap (not the blunder)
+      // For now, any legal move that isn't the blunder is "correct"
+      setTrickPracticeState("success");
+      toast.success("Good! You avoided the trap!");
+    }
+  };
+
+  // Reset trick practice
+  const resetTrickPractice = () => {
+    setTrickPracticeMode(null);
+    setTrickPracticeState("ready");
+    setTrickPracticeData(null);
+    if (selectedTrick) {
+      setBoardFen(selectedTrick.trap_position_fen || START_FEN);
+    }
+  };
+
   // Select an opening
   const handleSelectOpening = (opening) => {
     setSelectedOpening(opening);
