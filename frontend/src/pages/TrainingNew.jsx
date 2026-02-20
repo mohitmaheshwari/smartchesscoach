@@ -350,7 +350,7 @@ const Training = ({ user }) => {
                 <div className="aspect-square max-w-lg mx-auto">
                   <CoachBoard
                     position={boardFen}
-                    orientation={boardOrientation}
+                    userColor={boardOrientation}
                     onMove={puzzleState === "thinking" ? handleMove : null}
                     interactive={puzzleState === "thinking"}
                     highlightSquares={
