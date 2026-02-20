@@ -537,6 +537,37 @@ Created `chess_verification_layer.py` that:
 
 ---
 
+## Phase 1 Complete: Interactive Training (Feb 20, 2026)
+
+### What Was Built
+- **New `interactive_training_service.py`** - Core service for personalized puzzles
+- **New `TrainingNew.jsx`** - Interactive puzzle-solving frontend
+- **API Endpoints:**
+  - `GET /training/puzzles` - Returns positions from user's mistakes
+  - `POST /training/puzzle/validate` - Validates user's answer, provides feedback
+  - `GET /training/weakness-patterns` - Identifies weakest game phase
+  - `GET /training/openings` - Lists user's most-played openings
+  - `GET /training/progress` - Training statistics
+
+### Features
+1. **Puzzles from your own games** - Not random positions, YOUR mistakes
+2. **Interactive solving** - Make a move on the board, get immediate feedback
+3. **Principle teaching** - Each puzzle teaches a chess principle (Knight Forks, Hanging Pieces, etc.)
+4. **Weakness detection** - Shows your weakest phase (opening/middlegame/endgame)
+5. **Progress tracking** - Stats on puzzles solved and accuracy
+
+### Chess Principles Database
+- Knight Fork, Back Rank Mate, Hanging Pieces, Pins, Discovered Attacks, Skewers, Trapped Pieces, Checkmate Awareness
+- Piece Activity, Pawn Structure, King Safety, Center Control
+- Development, Queen Safety, Castle Early
+
+### Next Phases
+- **Phase 2:** Opening Trainer (variations for your most-played openings)
+- **Phase 3:** Community Learning (learn from other users' mistakes)
+- **Phase 4:** Trick Library (curated tactical patterns)
+
+---
+
 ## Completed Tasks (Feb 19, 2026)
 
 ### ✅ P0: Fixed Insightful Analysis in Reflections
