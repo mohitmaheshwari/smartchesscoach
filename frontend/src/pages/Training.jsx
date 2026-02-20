@@ -1285,7 +1285,7 @@ const Training = ({ user }) => {
                   <div key={idx} className="p-3 bg-muted/30 rounded-lg">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-muted-foreground">Move {ref.move_number}</span>
-                      <Badge variant="outline" className="text-xs">{ref.evaluation_type}</Badge>
+                      <Badge variant="outline" className="text-xs">{getEvaluationText(ref.cp_loss, ref.evaluation_type)}</Badge>
                     </div>
                     {ref.user_plan && (
                       <p className="text-sm italic">"{ref.user_plan}"</p>
