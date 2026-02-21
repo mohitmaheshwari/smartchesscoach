@@ -6557,7 +6557,7 @@ async def record_trap_attempt_endpoint(request: Request, data: dict, user: User 
 
 
 @api_router.get("/training/tricks/stats")
-async def get_user_trap_stats_endpoint(request: Request):
+async def get_user_trap_stats_endpoint(request: Request, user: User = Depends(get_current_user)):
     """
     Get comprehensive trap statistics for the current user.
     
@@ -6570,16 +6570,12 @@ async def get_user_trap_stats_endpoint(request: Request):
     """
     from trap_stats_service import get_user_trap_stats
     
-    user_id = request.state.user_id
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    stats = await get_user_trap_stats(request.app.db, user_id)
+    stats = await get_user_trap_stats(request.app.db, user.id)
     return stats
 
 
 @api_router.get("/training/tricks/recommendations")
-async def get_trap_recommendations_endpoint(request: Request, limit: int = 5):
+async def get_trap_recommendations_endpoint(request: Request, user: User = Depends(get_current_user), limit: int = 5):
     """
     Get personalized trap recommendations for the current user.
     
@@ -6590,11 +6586,7 @@ async def get_trap_recommendations_endpoint(request: Request, limit: int = 5):
     """
     from trap_stats_service import get_recommended_traps
     
-    user_id = request.state.user_id
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    recommendations = await get_recommended_traps(request.app.db, user_id, limit)
+    recommendations = await get_recommended_traps(request.app.db, user.id, limit)
     return {"recommendations": recommendations}
 
 
