@@ -6546,7 +6546,7 @@ async def record_trap_attempt_endpoint(request: Request, data: dict, user: User 
     
     result = await record_trap_attempt(
         db,
-        user.id,
+        user.user_id,
         trap_key,
         mode,
         success,
@@ -6570,7 +6570,7 @@ async def get_user_trap_stats_endpoint(request: Request, user: User = Depends(ge
     """
     from trap_stats_service import get_user_trap_stats
     
-    stats = await get_user_trap_stats(db, user.id)
+    stats = await get_user_trap_stats(db, user.user_id)
     return stats
 
 
@@ -6586,7 +6586,7 @@ async def get_trap_recommendations_endpoint(request: Request, user: User = Depen
     """
     from trap_stats_service import get_recommended_traps
     
-    recommendations = await get_recommended_traps(db, user.id, limit)
+    recommendations = await get_recommended_traps(db, user.user_id, limit)
     return {"recommendations": recommendations}
 
 
