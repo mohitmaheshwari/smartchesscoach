@@ -6267,6 +6267,175 @@ async def get_trick_for_practice(trap_key: str, mode: str = "execution"):
     return practice_data
 
 
+@api_router.post("/training/tricks/validate-avoidance")
+async def validate_avoidance_move(data: dict):
+    """
+    Validate a move in avoidance mode.
+    
+    Checks if the user's move avoids the trap or falls into it.
+    Uses Stockfish to evaluate if the move is safe.
+    """
+    import chess
+    from stockfish_service import StockfishEngine
+    
+    fen = data.get("fen")
+    user_move = data.get("user_move")
+    trap_key = data.get("trap_key")
+    winning_move = data.get("winning_move")  # The trap move opponent would play if allowed
+    
+    if not fen or not user_move:
+        raise HTTPException(status_code=400, detail="Missing fen or user_move")
+    
+    try:
+        board = chess.Board(fen)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid FEN")
+    
+    # Parse user's move
+    try:
+        move_obj = board.parse_san(user_move)
+        move_san = board.san(move_obj)
+    except Exception:
+        return {"valid": False, "fell_into_trap": False, "message": f"Invalid move: {user_move}"}
+    
+    # Make the user's move
+    board.push(move_obj)
+    new_fen = board.fen()
+    
+    # Check if opponent can still play the winning/trap move after user's move
+    try:
+        trap_still_possible = False
+        if winning_move:
+            try:
+                trap_move_obj = board.parse_san(winning_move)
+                # If the trap move is still legal, check if it's still winning
+                if trap_move_obj in board.legal_moves:
+                    trap_still_possible = True
+            except Exception:
+                pass
+        
+        # Use Stockfish to evaluate the position after user's move
+        engine = StockfishEngine()
+        engine.start()
+        
+        try:
+            eval_score, mate_in = engine.evaluate_position(board, depth=12)
+            best_move_uci = engine.get_best_move(board, depth=12)
+            
+            # Determine if user fell into trap or avoided it
+            # User is the victim, so positive eval = bad for user (opponent winning)
+            # Negative eval = good for user (avoided trap)
+            is_victim_white = data.get("user_color", "black") == "white"
+            
+            # Adjust eval based on user's color
+            if is_victim_white:
+                user_eval = eval_score
+            else:
+                user_eval = -eval_score
+            
+            # Check for mate threats
+            if mate_in is not None:
+                if (is_victim_white and mate_in < 0) or (not is_victim_white and mate_in > 0):
+                    # User is getting mated - fell into trap!
+                    return {
+                        "valid": True,
+                        "fell_into_trap": True,
+                        "is_safe": False,
+                        "evaluation": eval_score,
+                        "mate_in": mate_in,
+                        "message": f"Oops! After {move_san}, you're getting mated in {abs(mate_in)}!",
+                        "new_fen": new_fen
+                    }
+            
+            # If eval is very bad for user (>300 centipawns worse), they fell into trap
+            if user_eval < -300:
+                return {
+                    "valid": True,
+                    "fell_into_trap": True,
+                    "is_safe": False,
+                    "evaluation": eval_score,
+                    "message": f"That move falls into the trap! After {move_san}, your position is much worse.",
+                    "new_fen": new_fen
+                }
+            
+            # Move is safe!
+            return {
+                "valid": True,
+                "fell_into_trap": False,
+                "is_safe": True,
+                "evaluation": eval_score,
+                "message": f"Good! {move_san} avoids the trap. Your position is safe.",
+                "new_fen": new_fen
+            }
+            
+        finally:
+            engine.stop()
+            
+    except Exception as e:
+        logger.error(f"Error validating avoidance move: {e}")
+        return {"valid": True, "fell_into_trap": False, "is_safe": True, "message": "Move accepted", "new_fen": new_fen}
+
+
+@api_router.post("/training/tricks/validate-recognition")
+async def validate_recognition_answer(data: dict):
+    """
+    Validate user's answer in recognition mode.
+    
+    User must identify:
+    1. Whether there's a trap (yes/no)
+    2. What the winning move is (if yes)
+    """
+    trap_key = data.get("trap_key")
+    user_answer_has_trap = data.get("has_trap")  # Boolean: does user think there's a trap?
+    user_winning_move = data.get("winning_move")  # What move does user think wins?
+    
+    from trick_library_service import get_trap_by_key
+    
+    trap = get_trap_by_key(trap_key)
+    if not trap:
+        raise HTTPException(status_code=404, detail="Trap not found")
+    
+    correct_has_trap = True  # All positions in our DB have traps
+    correct_winning_move = trap.get("winning_move", "")
+    
+    # Check if user correctly identified trap presence
+    recognized_trap = user_answer_has_trap == correct_has_trap
+    
+    # Check if user found the correct winning move (normalize notation)
+    found_move = False
+    if user_winning_move and correct_winning_move:
+        # Normalize move notation for comparison
+        user_move_clean = user_winning_move.replace("+", "").replace("#", "").replace("=", "")
+        correct_move_clean = correct_winning_move.replace("+", "").replace("#", "").replace("=", "")
+        found_move = user_move_clean.lower() == correct_move_clean.lower()
+    
+    # Calculate score
+    if recognized_trap and found_move:
+        score = "perfect"
+        message = f"Excellent! You correctly identified the trap and found {correct_winning_move}!"
+    elif recognized_trap and not user_winning_move:
+        score = "good"
+        message = f"Good! You spotted the danger. The winning move is {correct_winning_move}."
+    elif recognized_trap and not found_move:
+        score = "partial"
+        message = f"You spotted the trap but missed the key move. The winning move is {correct_winning_move}."
+    else:
+        score = "missed"
+        message = f"There IS a trap here! The winning move is {correct_winning_move}."
+    
+    return {
+        "correct_has_trap": correct_has_trap,
+        "correct_winning_move": correct_winning_move,
+        "recognized_trap": recognized_trap,
+        "found_winning_move": found_move,
+        "score": score,
+        "message": message,
+        "explanation": trap.get("explanation", ""),
+        "why_it_works": trap.get("why_it_works", ""),
+        "key_squares": trap.get("key_squares", [])
+    }
+
+
 @api_router.get("/training/tricks/opening/{opening_name}")
 async def get_tricks_for_opening(opening_name: str):
     """
