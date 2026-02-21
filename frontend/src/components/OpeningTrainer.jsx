@@ -1371,6 +1371,188 @@ const OpeningTrainer = () => {
     );
   };
 
+  // Render trap statistics panel
+  const renderTrapStatsPanel = () => {
+    if (!trapStats) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <BarChart3 className="w-6 h-6 text-primary" />
+            <div>
+              <h3 className="text-lg font-semibold">Trap Statistics</h3>
+              <p className="text-sm text-muted-foreground">Your performance on chess traps</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setShowTrapStats(false)}>
+            <XCircle className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Overall Stats */}
+        <div className="grid grid-cols-3 gap-3">
+          <Card className="bg-muted/30">
+            <CardContent className="py-3 text-center">
+              <p className="text-2xl font-bold text-primary">{trapStats.total_attempts}</p>
+              <p className="text-xs text-muted-foreground">Total Attempts</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-muted/30">
+            <CardContent className="py-3 text-center">
+              <p className="text-2xl font-bold text-green-500">{trapStats.total_successes}</p>
+              <p className="text-xs text-muted-foreground">Successes</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-muted/30">
+            <CardContent className="py-3 text-center">
+              <p className={`text-2xl font-bold ${
+                trapStats.success_rate >= 70 ? "text-green-500" :
+                trapStats.success_rate >= 40 ? "text-amber-500" :
+                "text-red-500"
+              }`}>{trapStats.success_rate}%</p>
+              <p className="text-xs text-muted-foreground">Success Rate</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Weakest Traps (Areas to Improve) */}
+        {trapStats.weakest_traps?.length > 0 && (
+          <Card className="bg-red-500/10 border-red-500/30">
+            <CardContent className="py-3">
+              <h4 className="text-sm font-medium text-red-400 mb-3 flex items-center gap-2">
+                <TrendingDown className="w-4 h-4" />
+                Areas to Improve
+              </h4>
+              <div className="space-y-2">
+                {trapStats.weakest_traps.map((stat, idx) => {
+                  const trick = tricks.find(t => t.key === stat.trap_key);
+                  return (
+                    <div 
+                      key={idx}
+                      className="flex items-center justify-between p-2 rounded bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
+                      onClick={() => {
+                        if (trick) {
+                          setShowTrapStats(false);
+                          handleSelectTrick(trick);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Swords className="w-4 h-4 text-red-400" />
+                        <span className="text-sm">{trick?.name || stat.trap_key}</span>
+                        <Badge variant="outline" className="text-xs">{stat.mode}</Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{stat.attempts} attempts</span>
+                        <Badge className="bg-red-500/20 text-red-400">{stat.success_rate}%</Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Strongest Traps */}
+        {trapStats.strongest_traps?.length > 0 && (
+          <Card className="bg-green-500/10 border-green-500/30">
+            <CardContent className="py-3">
+              <h4 className="text-sm font-medium text-green-400 mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Your Strengths
+              </h4>
+              <div className="space-y-2">
+                {trapStats.strongest_traps.map((stat, idx) => {
+                  const trick = tricks.find(t => t.key === stat.trap_key);
+                  return (
+                    <div 
+                      key={idx}
+                      className="flex items-center justify-between p-2 rounded bg-muted/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Trophy className="w-4 h-4 text-green-400" />
+                        <span className="text-sm">{trick?.name || stat.trap_key}</span>
+                        <Badge variant="outline" className="text-xs">{stat.mode}</Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{stat.attempts} attempts</span>
+                        <Badge className="bg-green-500/20 text-green-400">{stat.success_rate}%</Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recent Activity */}
+        {trapStats.recent_activity?.length > 0 && (
+          <Card className="bg-muted/30">
+            <CardContent className="py-3">
+              <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Recent Activity
+              </h4>
+              <div className="space-y-2">
+                {trapStats.recent_activity.slice(0, 5).map((activity, idx) => {
+                  const trick = tricks.find(t => t.key === activity.trap_key);
+                  return (
+                    <div 
+                      key={idx}
+                      className="flex items-center justify-between p-2 rounded bg-muted/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        {activity.success ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-500" />
+                        )}
+                        <span className="text-sm">{trick?.name || activity.trap_key}</span>
+                        <Badge variant="outline" className="text-xs">{activity.mode}</Badge>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {activity.timestamp ? new Date(activity.timestamp).toLocaleDateString() : ""}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty State */}
+        {trapStats.total_attempts === 0 && (
+          <Card className="bg-muted/30">
+            <CardContent className="py-8 text-center">
+              <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h4 className="font-medium mb-2">No Trap Practice Yet</h4>
+              <p className="text-sm text-muted-foreground mb-4">
+                Start practicing traps to build your statistics!
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowTrapStats(false)}
+              >
+                Browse Traps
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
   // Render trick content panel
   const renderTrickContent = () => {
     const trick = selectedTrick;
