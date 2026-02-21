@@ -57,8 +57,8 @@ async def update_user_trap_stats(
         "$inc": {
             f"traps.{stat_key}.attempts": 1,
             f"traps.{stat_key}.successes": 1 if success else 0,
-            f"total_attempts": 1,
-            f"total_successes": 1 if success else 0
+            "total_attempts": 1,
+            "total_successes": 1 if success else 0
         },
         "$set": {
             f"traps.{stat_key}.last_attempt": datetime.now(timezone.utc),
