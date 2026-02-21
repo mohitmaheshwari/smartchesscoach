@@ -1420,6 +1420,157 @@ const OpeningTrainer = () => {
               </Card>
             )}
             
+            {/* Avoidance Mode UI */}
+            {trickPracticeMode === "avoidance" && trickPracticeState === "playing" && (
+              <Card className="bg-blue-500/10 border-blue-500/30">
+                <CardContent className="py-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Shield className="w-5 h-5 text-blue-500" />
+                    <span className="font-medium text-blue-400">Find a Safe Move!</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Your opponent is trying to trap you. Make a move on the board that avoids the danger.
+                  </p>
+                  {trickPracticeData.how_to_avoid && (
+                    <div className="mt-3 pt-3 border-t border-blue-500/20">
+                      <p className="text-xs text-muted-foreground mb-1">💡 Hints:</p>
+                      <ul className="text-xs text-muted-foreground space-y-0.5">
+                        {trickPracticeData.how_to_avoid.slice(0, 2).map((tip, idx) => (
+                          <li key={idx}>• {tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {avoidanceValidating && (
+                    <div className="flex items-center gap-2 mt-3 text-blue-400">
+                      <Loader className="w-4 h-4 animate-spin" />
+                      <span className="text-sm">Analyzing your move...</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Recognition Mode UI */}
+            {trickPracticeMode === "recognition" && trickPracticeState === "playing" && !recognitionResult && (
+              <Card className="bg-purple-500/10 border-purple-500/30">
+                <CardContent className="py-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Eye className="w-5 h-5 text-purple-500" />
+                    <span className="font-medium text-purple-400">Spot the Danger!</span>
+                  </div>
+                  
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Study the position above. Is there a tactical danger here?
+                  </p>
+                  
+                  {/* Yes/No Question */}
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">Is there a trap in this position?</p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant={recognitionAnswer.hasTrap === true ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setRecognitionAnswer(prev => ({ ...prev, hasTrap: true }))}
+                          className={recognitionAnswer.hasTrap === true ? "bg-purple-600 hover:bg-purple-700" : ""}
+                          data-testid="recognition-yes"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-1" />
+                          Yes, there's danger!
+                        </Button>
+                        <Button
+                          variant={recognitionAnswer.hasTrap === false ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setRecognitionAnswer(prev => ({ ...prev, hasTrap: false }))}
+                          className={recognitionAnswer.hasTrap === false ? "bg-gray-600 hover:bg-gray-700" : ""}
+                          data-testid="recognition-no"
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          No trap here
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Winning Move Input (only if they said yes) */}
+                    {recognitionAnswer.hasTrap === true && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">What's the winning move? (optional)</p>
+                        <input
+                          type="text"
+                          placeholder="e.g., Nxf7"
+                          value={recognitionAnswer.winningMove}
+                          onChange={(e) => setRecognitionAnswer(prev => ({ ...prev, winningMove: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm bg-muted/50 border border-purple-500/30 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          data-testid="recognition-move-input"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Submit Button */}
+                    <Button
+                      onClick={handleRecognitionSubmit}
+                      disabled={recognitionAnswer.hasTrap === null}
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      data-testid="recognition-submit"
+                    >
+                      Check My Answer
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Recognition Result */}
+            {trickPracticeMode === "recognition" && recognitionResult && (
+              <Card className={`${
+                recognitionResult.score === "perfect" ? "bg-green-500/20 border-green-500/50" :
+                recognitionResult.score === "good" || recognitionResult.score === "partial" ? "bg-amber-500/20 border-amber-500/50" :
+                "bg-red-500/20 border-red-500/50"
+              }`}>
+                <CardContent className="py-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    {recognitionResult.score === "perfect" ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    ) : recognitionResult.score === "missed" ? (
+                      <XCircle className="w-5 h-5 text-red-500" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-amber-500" />
+                    )}
+                    <span className={`font-medium ${
+                      recognitionResult.score === "perfect" ? "text-green-400" :
+                      recognitionResult.score === "missed" ? "text-red-400" :
+                      "text-amber-400"
+                    }`}>
+                      {recognitionResult.score === "perfect" ? "Perfect!" :
+                       recognitionResult.score === "good" ? "Good Spot!" :
+                       recognitionResult.score === "partial" ? "Partially Correct" :
+                       "Missed the Trap"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{recognitionResult.message}</p>
+                  
+                  {recognitionResult.explanation && (
+                    <div className="mt-3 pt-3 border-t border-muted">
+                      <p className="text-xs text-muted-foreground mb-1">Explanation:</p>
+                      <p className="text-sm text-muted-foreground">{recognitionResult.explanation}</p>
+                    </div>
+                  )}
+                  
+                  {recognitionResult.key_squares && recognitionResult.key_squares.length > 0 && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Key squares:</span>
+                      {recognitionResult.key_squares.map((sq, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs font-mono">
+                          {sq}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            
             {/* Result */}
             {trickPracticeState === "success" && (
               <Card className="bg-green-500/20 border-green-500/50">
