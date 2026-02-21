@@ -6075,7 +6075,68 @@ async def validate_puzzle_answer(
         data.get("fen")
     )
     
+    # Update puzzle progression rating
+    if result.get("correct") is not None:
+        from puzzle_progression_service import record_puzzle_attempt
+        
+        difficulty = data.get("difficulty", "intermediate")
+        progression = await record_puzzle_attempt(
+            db,
+            user.user_id,
+            data.get("puzzle_id", "unknown"),
+            difficulty,
+            result.get("correct", False)
+        )
+        
+        # Include progression info in result
+        result["progression"] = {
+            "old_rating": progression["old_rating"],
+            "new_rating": progression["new_rating"],
+            "rating_change": progression["rating_change"],
+            "leveled_up": progression["leveled_up"],
+            "new_level": progression["new_level"] if progression["leveled_up"] else None,
+            "current_streak": progression["current_streak"],
+            "new_achievements": progression["new_achievements"]
+        }
+    
     return result
+
+
+# ============================================================================
+# PUZZLE PROGRESSION SYSTEM
+# ============================================================================
+
+@api_router.get("/training/puzzle-progress")
+async def get_puzzle_progress(user: User = Depends(get_current_user)):
+    """
+    Get user's puzzle progression data including rating, level, and stats.
+    """
+    from puzzle_progression_service import get_user_puzzle_progress
+    
+    progress = await get_user_puzzle_progress(db, user.user_id)
+    return progress
+
+
+@api_router.get("/training/puzzle-difficulty-recommendation")
+async def get_puzzle_difficulty(user: User = Depends(get_current_user)):
+    """
+    Get recommended puzzle difficulty range for the user.
+    """
+    from puzzle_progression_service import get_recommended_puzzle_difficulty
+    
+    recommendation = await get_recommended_puzzle_difficulty(db, user.user_id)
+    return recommendation
+
+
+@api_router.get("/training/puzzle-leaderboard")
+async def get_puzzle_leaderboard_endpoint(limit: int = 20):
+    """
+    Get global puzzle rating leaderboard.
+    """
+    from puzzle_progression_service import get_puzzle_leaderboard
+    
+    leaderboard = await get_puzzle_leaderboard(db, limit)
+    return {"leaderboard": leaderboard}
 
 
 @api_router.get("/training/weakness-patterns")
