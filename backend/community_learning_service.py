@@ -21,11 +21,24 @@ async def share_puzzle(
     """
     Share a puzzle from the user's game to the community pool.
     """
+    import chess
+    
     # Validate required fields
     required = ["fen", "best_move_san", "issue_type"]
     for field in required:
         if field not in puzzle_data:
             return {"error": f"Missing required field: {field}"}
+    
+    # Validate FEN format
+    try:
+        board = chess.Board(puzzle_data["fen"])
+        # Also validate the best move is legal in this position
+        try:
+            board.parse_san(puzzle_data["best_move_san"])
+        except chess.InvalidMoveError:
+            return {"error": f"Invalid move '{puzzle_data['best_move_san']}' for this position"}
+    except ValueError as e:
+        return {"error": f"Invalid FEN: {str(e)}"}
     
     # Check if puzzle already exists (same FEN and best move)
     existing = await db.community_puzzles.find_one({
