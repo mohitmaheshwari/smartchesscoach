@@ -111,12 +111,23 @@ const CoachBoard = forwardRef(({
     if (!isDrillActive) return;
 
     const { san, from, to } = moveData;
-    const isCorrect = expectedMoves.length === 0 || expectedMoves.includes(san);
     
     // Update chess ref with the move
     chessRef.current = new Chess(moveData.fen);
     setFen(moveData.fen);
     setLastMove([from, to]);
+    
+    // If no expectedMoves provided, this is external validation mode
+    // Just pass the move to onUserMove without internal feedback
+    if (expectedMoves.length === 0) {
+      if (onUserMove) {
+        onUserMove(moveData);
+      }
+      return;
+    }
+    
+    // Internal validation mode with expectedMoves
+    const isCorrect = expectedMoves.includes(san);
     
     // Show feedback
     if (isCorrect) {
@@ -124,7 +135,7 @@ const CoachBoard = forwardRef(({
     } else {
       setDrillFeedback({ 
         type: 'error', 
-        message: `Try again. ${expectedMoves.length > 0 ? `Hint: Consider ${expectedMoves[0]}` : ''}` 
+        message: `Try again. Hint: Consider ${expectedMoves[0]}` 
       });
       // Undo the wrong move - reset to previous position
       const prevFen = position || initialFen;
