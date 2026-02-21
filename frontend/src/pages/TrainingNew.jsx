@@ -258,7 +258,8 @@ const Training = ({ user }) => {
             puzzle_id: displayPuzzle.id || displayPuzzle.puzzle_id,
             user_answer: move,
             correct_move: displayPuzzle.correct_move || displayPuzzle.best_move_san,
-            fen: displayPuzzle.fen
+            fen: displayPuzzle.fen,
+            difficulty: displayPuzzle.difficulty || "intermediate"
           })
         });
       }
@@ -266,6 +267,42 @@ const Training = ({ user }) => {
       if (res.ok) {
         const result = await res.json();
         setFeedback(result);
+        
+        // Handle progression updates
+        if (result.progression) {
+          const prog = result.progression;
+          
+          // Update local puzzle progress state
+          setPuzzleProgress(prev => prev ? {
+            ...prev,
+            puzzle_rating: prog.new_rating,
+            current_streak: prog.current_streak,
+            total_puzzles: (prev.total_puzzles || 0) + 1,
+            puzzles_solved: (prev.puzzles_solved || 0) + (result.correct ? 1 : 0)
+          } : prev);
+          
+          // Show level up celebration
+          if (prog.leveled_up) {
+            setLevelUpData(prog);
+            setShowLevelUp(true);
+            toast.success(`Level Up! You've reached ${prog.new_level.charAt(0).toUpperCase() + prog.new_level.slice(1)}!`, {
+              duration: 5000,
+              icon: "🎉"
+            });
+          }
+          
+          // Show new achievements
+          if (prog.new_achievements && prog.new_achievements.length > 0) {
+            setNewAchievements(prog.new_achievements);
+            prog.new_achievements.forEach(achievement => {
+              toast.success(`Achievement: ${achievement.name}`, {
+                description: achievement.desc,
+                duration: 4000,
+                icon: "🏆"
+              });
+            });
+          }
+        }
         
         if (result.correct) {
           setPuzzleState("correct");
