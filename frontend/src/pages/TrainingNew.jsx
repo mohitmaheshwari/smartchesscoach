@@ -617,10 +617,19 @@ const Training = ({ user }) => {
                       >
                         <div className="flex items-start gap-3">
                           <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <h3 className="text-green-400 font-semibold mb-1">
-                              {feedback.message}
-                            </h3>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="text-green-400 font-semibold">
+                                {feedback.message}
+                              </h3>
+                              {/* Rating Change Badge */}
+                              {feedback.progression && (
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30" data-testid="rating-change-badge">
+                                  <TrendingUp className="w-3 h-3 mr-1" />
+                                  +{feedback.progression.rating_change}
+                                </Badge>
+                              )}
+                            </div>
                             {feedback.explanation && (
                               <p className="text-gray-300 text-sm mb-3">
                                 {feedback.explanation}
@@ -633,6 +642,13 @@ const Training = ({ user }) => {
                                   PRINCIPLE
                                 </p>
                                 <p className="text-sm text-gray-300">{feedback.principle}</p>
+                              </div>
+                            )}
+                            {/* Streak indicator */}
+                            {feedback.progression && feedback.progression.current_streak >= 3 && (
+                              <div className="flex items-center gap-2 mt-3 text-orange-400 text-sm">
+                                <Flame className="w-4 h-4" />
+                                <span>{feedback.progression.current_streak} puzzle streak!</span>
                               </div>
                             )}
                           </div>
@@ -670,9 +686,18 @@ const Training = ({ user }) => {
                         <div className="flex items-start gap-3">
                           <XCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
                           <div className="flex-1">
-                            <h3 className="text-red-400 font-semibold mb-1">
-                              {feedback.message}
-                            </h3>
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="text-red-400 font-semibold">
+                                {feedback.message}
+                              </h3>
+                              {/* Rating Change Badge */}
+                              {feedback.progression && feedback.progression.rating_change < 0 && (
+                                <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                                  <TrendingDown className="w-3 h-3 mr-1" />
+                                  {feedback.progression.rating_change}
+                                </Badge>
+                              )}
+                            </div>
                             <div className="text-sm space-y-2 mb-3">
                               <p className="text-gray-400">
                                 You played: <span className="text-red-400 font-mono">{feedback.user_move || userAnswer}</span>
