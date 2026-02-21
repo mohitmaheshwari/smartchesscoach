@@ -385,6 +385,7 @@ const OpeningTrainer = () => {
       if (currentMoveCount >= fullSequence.length) {
         setTrickPracticeState("success");
         toast.success("Trap complete! Well done!");
+        recordTrapAttempt(selectedTrick.key, "execution", true);
         return;
       }
       
@@ -409,6 +410,7 @@ const OpeningTrainer = () => {
             // Trap completed!
             setTrickPracticeState("success");
             toast.success("Brilliant! You've learned the trap!");
+            recordTrapAttempt(selectedTrick.key, "execution", true);
             return;
           }
           
