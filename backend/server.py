@@ -6545,7 +6545,7 @@ async def record_trap_attempt_endpoint(request: Request, data: dict, user: User 
         raise HTTPException(status_code=400, detail="Invalid mode")
     
     result = await record_trap_attempt(
-        request.app.db,
+        db,
         user.id,
         trap_key,
         mode,
