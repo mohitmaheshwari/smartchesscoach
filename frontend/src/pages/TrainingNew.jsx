@@ -181,18 +181,23 @@ const Training = ({ user }) => {
   
   // Update board when puzzle changes
   useEffect(() => {
-    if (currentPuzzle) {
-      setBoardFen(currentPuzzle.fen);
-      setBoardOrientation(currentPuzzle.user_color || "white");
+    if (displayPuzzle) {
+      setBoardFen(displayPuzzle.fen);
+      setBoardOrientation(displayPuzzle.user_color || "white");
       setPuzzleState("thinking");
       setUserAnswer(null);
       setFeedback(null);
     }
-  }, [currentPuzzle]);
+  }, [displayPuzzle]);
+  
+  // Reset puzzle index when filter changes
+  useEffect(() => {
+    setCurrentPuzzleIndex(0);
+  }, [puzzleSource]);
   
   // Handle user making a move on the board
   const handleMove = useCallback(async (move) => {
-    if (puzzleState !== "thinking" || !currentPuzzle) return;
+    if (puzzleState !== "thinking" || !displayPuzzle) return;
     
     setUserAnswer(move);
     setValidating(true);
