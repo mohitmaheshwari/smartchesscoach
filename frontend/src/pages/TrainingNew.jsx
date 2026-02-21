@@ -163,6 +163,11 @@ const Training = ({ user }) => {
           const data = await weaknessRes.json();
           setWeaknesses(data);
         }
+        
+        if (puzzleProgressRes.ok) {
+          const data = await puzzleProgressRes.json();
+          setPuzzleProgress(data);
+        }
       } catch (err) {
         console.error("Error fetching training data:", err);
         toast.error("Failed to load training data");
@@ -173,6 +178,19 @@ const Training = ({ user }) => {
     
     fetchData();
   }, []);
+  
+  // Refresh puzzle progress
+  const refreshPuzzleProgress = async () => {
+    try {
+      const res = await fetch(`${API}/training/puzzle-progress`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setPuzzleProgress(data);
+      }
+    } catch (err) {
+      console.error("Error refreshing puzzle progress:", err);
+    }
+  };
   
   // Filter puzzles based on source selection
   const filteredPuzzles = puzzles.filter(p => {
