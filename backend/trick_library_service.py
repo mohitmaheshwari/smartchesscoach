@@ -730,11 +730,14 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict]:
             "hints": f"Play as {trap_for.title()} and learn the trap! The engine plays the victim's moves. Play each move to see how the trap unfolds."
         }
     
-    # For avoidance mode
+    # For avoidance mode - user tries to avoid falling into the trap
     elif mode == "avoidance":
         practice_fen = trap.get("practice_fen", {}).get(mode)
         if not practice_fen:
             practice_fen = trap.get("trap_position_fen")
+        
+        # Get safe moves (moves that DON'T fall into the trap)
+        dangerous_responses = trap.get("winning_line", [])[:1]  # The trap-springing move
         
         return {
             "key": trap_key,
@@ -744,13 +747,15 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict]:
             "trap_for": trap["trap_for"],
             "victim_color": trap["victim_color"],
             "user_color": trap["victim_color"],
-            "winning_move": None,
+            "winning_move": trap["winning_move"],  # The move to AVOID letting opponent play
+            "dangerous_moves": dangerous_responses,  # Moves that fall into trap
             "how_to_avoid": trap["how_to_avoid"],
             "explanation": trap["explanation"],
+            "setup_moves": trap.get("setup_moves", []),
             "hints": f"You're {trap['victim_color'].title()}. Your opponent is setting a trap! Find a safe move to avoid disaster."
         }
     
-    # For recognition mode
+    # For recognition mode - identify if trap is present
     else:
         practice_fen = trap.get("practice_fen", {}).get(mode)
         if not practice_fen:
@@ -767,7 +772,9 @@ def get_trap_for_practice(trap_key: str, mode: str) -> Optional[Dict]:
             "key_squares": trap.get("key_squares", []),
             "tactical_theme": trap.get("tactical_theme", ""),
             "explanation": trap["explanation"],
-            "hints": "Study this position. Can you identify the tactical danger? What should the winning side play?"
+            "why_it_works": trap.get("why_it_works", ""),
+            "has_trap": True,  # All positions in our DB have traps
+            "hints": "Study this position. Is there a tactical danger? If yes, what's the winning move?"
         }
 
 
