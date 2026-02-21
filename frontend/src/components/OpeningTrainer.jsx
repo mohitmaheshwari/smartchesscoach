@@ -80,6 +80,11 @@ const OpeningTrainer = () => {
   const [recognitionAnswer, setRecognitionAnswer] = useState({ hasTrap: null, winningMove: "" });
   const [recognitionResult, setRecognitionResult] = useState(null);
   
+  // Trap Statistics State
+  const [trapStats, setTrapStats] = useState(null);
+  const [trapRecommendations, setTrapRecommendations] = useState([]);
+  const [showTrapStats, setShowTrapStats] = useState(false);
+  
   // Tree expansion state
   const [expandedNodes, setExpandedNodes] = useState({});
   
