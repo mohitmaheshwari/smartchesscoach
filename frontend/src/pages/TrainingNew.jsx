@@ -203,17 +203,30 @@ const Training = ({ user }) => {
     setValidating(true);
     
     try {
-      const res = await fetch(`${API}/training/puzzle/validate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          puzzle_id: currentPuzzle.id,
-          user_answer: move,
-          correct_move: currentPuzzle.correct_move,
-          fen: currentPuzzle.fen
-        })
-      });
+      let res;
+      
+      // Use different endpoint for community puzzles
+      if (displayPuzzle.source === "community" && displayPuzzle.community_puzzle_id) {
+        res = await fetch(`${API}/community/puzzles/${displayPuzzle.community_puzzle_id}/attempt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ user_move: move })
+        });
+      } else {
+        // User's own puzzle - use the smart validation
+        res = await fetch(`${API}/training/puzzle/validate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            puzzle_id: displayPuzzle.id || displayPuzzle.puzzle_id,
+            user_answer: move,
+            correct_move: displayPuzzle.correct_move || displayPuzzle.best_move_san,
+            fen: displayPuzzle.fen
+          })
+        });
+      }
       
       if (res.ok) {
         const result = await res.json();
@@ -242,7 +255,7 @@ const Training = ({ user }) => {
     } finally {
       setValidating(false);
     }
-  }, [puzzleState, currentPuzzle]);
+  }, [puzzleState, displayPuzzle]);
   
   // Show the solution
   const revealSolution = () => {
@@ -256,7 +269,7 @@ const Training = ({ user }) => {
   
   // Move to next puzzle
   const nextPuzzle = () => {
-    if (hasMorePuzzles) {
+    if (hasMoreFilteredPuzzles) {
       setCurrentPuzzleIndex(prev => prev + 1);
     } else {
       toast.success("Training session complete!");
