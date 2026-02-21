@@ -15,7 +15,31 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 21, 2026)
 
-### Smart Puzzle Validation System ✅ NEW (Feb 21, 2026)
+### Trick Library - Avoidance & Recognition Modes ✅ NEW (Feb 21, 2026)
+Implemented two new interactive practice modes for the Trick Library:
+
+**Avoidance Mode:**
+- User plays as the victim, must find safe defensive moves
+- Uses Stockfish to validate moves by comparing before/after evaluations
+- Shows hints like "Don't play Nf6 when the queen is on h5"
+- Success when eval doesn't deteriorate significantly (>200cp)
+
+**Recognition Mode:**
+- User studies a position and must identify if a trap is present
+- Yes/No question with optional winning move input
+- Scoring: perfect (trap + move), good (trap only), partial (trap + wrong move), missed
+- Shows explanation, key squares, and why the trap works
+
+**Files Added/Updated:**
+- `frontend/src/components/OpeningTrainer.jsx` - New state vars, handlers, and UI
+- `backend/server.py` - Two new endpoints: validate-avoidance, validate-recognition
+- `backend/tests/test_avoidance_recognition.py` - 19 test cases
+
+**Test Coverage:**
+- Backend: 100% (19/19 tests passed)
+- Frontend: All 3 practice modes working
+
+### Smart Puzzle Validation System ✅ (Feb 21, 2026)
 Implemented deterministic Stockfish-powered move validation for puzzles:
 
 **Features:**
