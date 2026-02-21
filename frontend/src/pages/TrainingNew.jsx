@@ -111,7 +111,8 @@ const Training = ({ user }) => {
           fetch(`${API}/training/puzzles?limit=10`, { credentials: "include" }),
           fetch(`${API}/community/puzzles?limit=10`, { credentials: "include" }),
           fetch(`${API}/training/progress`, { credentials: "include" }),
-          fetch(`${API}/training/weakness-patterns`, { credentials: "include" })
+          fetch(`${API}/training/weakness-patterns`, { credentials: "include" }),
+          fetch(`${API}/training/puzzle-progress`, { credentials: "include" })
         ]);
         
         let allPuzzles = [];
