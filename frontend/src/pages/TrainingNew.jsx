@@ -359,7 +359,7 @@ const Training = ({ user }) => {
                   <CoachBoard
                     position={boardFen}
                     userColor={boardOrientation}
-                    onMove={puzzleState === "thinking" ? handleMove : null}
+                    onUserMove={puzzleState === "thinking" ? (moveData) => handleMove(moveData.san) : null}
                     interactive={puzzleState === "thinking"}
                     highlightSquares={
                       puzzleState !== "thinking" && currentPuzzle
