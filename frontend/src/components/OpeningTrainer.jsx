@@ -325,7 +325,7 @@ const OpeningTrainer = () => {
   };
 
   // Handle user's move in trick practice
-  const handleTrickPracticeMove = (moveData) => {
+  const handleTrickPracticeMove = async (moveData) => {
     if (!trickPracticeData || trickPracticeState !== "playing") return;
     
     const moveSan = moveData.san || moveData;
