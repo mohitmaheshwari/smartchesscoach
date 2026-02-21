@@ -442,6 +442,46 @@ const OpeningTrainer = () => {
     }
   };
 
+  // Handle recognition mode submission
+  const handleRecognitionSubmit = async () => {
+    if (!selectedTrick || recognitionAnswer.hasTrap === null) {
+      toast.error("Please select whether there's a trap");
+      return;
+    }
+    
+    try {
+      const res = await fetch(`${API}/training/tricks/validate-recognition`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          trap_key: selectedTrick.key,
+          has_trap: recognitionAnswer.hasTrap,
+          winning_move: recognitionAnswer.winningMove
+        })
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        setRecognitionResult(result);
+        
+        if (result.score === "perfect") {
+          setTrickPracticeState("success");
+          toast.success(result.message);
+        } else if (result.score === "good" || result.score === "partial") {
+          setTrickPracticeState("success");
+          toast.info(result.message);
+        } else {
+          setTrickPracticeState("failed");
+          toast.error(result.message);
+        }
+      }
+    } catch (err) {
+      console.error("Recognition validation error:", err);
+      toast.error("Error validating answer");
+    }
+  };
+
   // Select an opening
   const handleSelectOpening = (opening) => {
     setSelectedOpening(opening);
