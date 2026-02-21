@@ -70,6 +70,9 @@ const Training = ({ user }) => {
   const [progress, setProgress] = useState(null);
   const [weaknesses, setWeaknesses] = useState(null);
   
+  // Puzzle source filter: "my_games" | "community" | "all"
+  const [puzzleSource, setPuzzleSource] = useState("all");
+  
   // Puzzle solving state
   const [puzzleState, setPuzzleState] = useState("thinking"); // thinking | correct | incorrect | revealed
   const [userAnswer, setUserAnswer] = useState(null);
@@ -97,16 +100,52 @@ const Training = ({ user }) => {
       try {
         setLoading(true);
         
-        const [puzzlesRes, progressRes, weaknessRes] = await Promise.all([
+        // Fetch user's puzzles, community puzzles, progress, and weaknesses
+        const [puzzlesRes, communityRes, progressRes, weaknessRes] = await Promise.all([
           fetch(`${API}/training/puzzles?limit=10`, { credentials: "include" }),
+          fetch(`${API}/community/puzzles?limit=10`, { credentials: "include" }),
           fetch(`${API}/training/progress`, { credentials: "include" }),
           fetch(`${API}/training/weakness-patterns`, { credentials: "include" })
         ]);
         
+        let allPuzzles = [];
+        
+        // User's own puzzles (from their games)
         if (puzzlesRes.ok) {
           const data = await puzzlesRes.json();
-          setPuzzles(data.puzzles || []);
+          const userPuzzles = (data.puzzles || []).map(p => ({
+            ...p,
+            source: "my_game",
+            source_label: `vs ${p.opponent_name || "Unknown"}`,
+            source_detail: p.game_date ? new Date(p.game_date).toLocaleDateString() : null
+          }));
+          allPuzzles = [...allPuzzles, ...userPuzzles];
         }
+        
+        // Community puzzles
+        if (communityRes.ok) {
+          const data = await communityRes.json();
+          const communityPuzzles = (data.puzzles || []).map(p => ({
+            puzzle_id: p.puzzle_id,
+            fen: p.fen,
+            correct_move: p.best_move_san,
+            best_move_san: p.best_move_san,
+            user_color: p.user_color || "white",
+            issue_type: p.issue_type,
+            difficulty: p.difficulty,
+            move_number: p.move_number,
+            source: "community",
+            source_label: p.opening_name || "Community Puzzle",
+            source_detail: `${p.attempts} attempts • ${p.solve_rate}% solved`,
+            community_puzzle_id: p.puzzle_id
+          }));
+          allPuzzles = [...allPuzzles, ...communityPuzzles];
+        }
+        
+        // Shuffle to mix user and community puzzles
+        allPuzzles = allPuzzles.sort(() => Math.random() - 0.5);
+        
+        setPuzzles(allPuzzles);
         
         if (progressRes.ok) {
           const data = await progressRes.json();
@@ -127,6 +166,18 @@ const Training = ({ user }) => {
     
     fetchData();
   }, []);
+  
+  // Filter puzzles based on source selection
+  const filteredPuzzles = puzzles.filter(p => {
+    if (puzzleSource === "all") return true;
+    if (puzzleSource === "my_games") return p.source === "my_game";
+    if (puzzleSource === "community") return p.source === "community";
+    return true;
+  });
+  
+  // Get current puzzle from filtered list
+  const displayPuzzle = filteredPuzzles[currentPuzzleIndex] || null;
+  const hasMoreFilteredPuzzles = currentPuzzleIndex < filteredPuzzles.length - 1;
   
   // Update board when puzzle changes
   useEffect(() => {
