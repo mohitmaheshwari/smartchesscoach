@@ -1063,6 +1063,100 @@ const Training = ({ user }) => {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Level Up Celebration Modal */}
+      <AnimatePresence>
+        {showLevelUp && levelUpData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+            onClick={() => setShowLevelUp(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              transition={{ type: "spring", damping: 15 }}
+              className="bg-gradient-to-br from-amber-900/90 to-gray-900 border border-amber-500/50 rounded-2xl p-8 max-w-md mx-4 text-center"
+              onClick={(e) => e.stopPropagation()}
+              data-testid="level-up-modal"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring" }}
+              >
+                <Sparkles className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+              </motion.div>
+              
+              <motion.h2
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="text-3xl font-bold text-amber-400 mb-2"
+              >
+                Level Up!
+              </motion.h2>
+              
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="text-gray-300 mb-4"
+              >
+                You've reached a new level!
+              </motion.p>
+              
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="bg-gray-800/50 rounded-xl p-4 mb-6"
+              >
+                <div className="flex items-center justify-center gap-4">
+                  <div className="text-center">
+                    <p className="text-gray-500 text-sm">From</p>
+                    <p className="text-xl font-bold text-gray-400">
+                      {levelUpData.old_level?.charAt(0).toUpperCase() + levelUpData.old_level?.slice(1)}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-6 h-6 text-amber-500" />
+                  <div className="text-center">
+                    <p className="text-amber-500 text-sm">To</p>
+                    <p className="text-xl font-bold text-amber-400">
+                      {levelUpData.new_level?.charAt(0).toUpperCase() + levelUpData.new_level?.slice(1)}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <p className="text-gray-400">New Rating</p>
+                  <p className="text-3xl font-bold text-white">{levelUpData.new_rating}</p>
+                  <p className="text-green-400 text-sm flex items-center justify-center gap-1">
+                    <ChevronUp className="w-4 h-4" />
+                    +{levelUpData.rating_change} from this puzzle
+                  </p>
+                </div>
+              </motion.div>
+              
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.6 }}
+              >
+                <Button 
+                  onClick={() => setShowLevelUp(false)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white px-8"
+                >
+                  Continue
+                </Button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Layout>
   );
 };
