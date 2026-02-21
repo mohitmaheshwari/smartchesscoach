@@ -920,6 +920,11 @@ const OpeningTrainer = () => {
 
   // Render opening content detail view
   const renderOpeningContent = () => {
+    // If trap stats view is active
+    if (showTrapStats) {
+      return renderTrapStatsPanel();
+    }
+    
     // If a trick is selected, render trick content instead
     if (selectedTrick) {
       return renderTrickContent();
