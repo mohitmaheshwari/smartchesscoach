@@ -831,73 +831,13 @@ const Training = ({ user }) => {
           <TabsContent value="openings" className="mt-0">
             <OpeningTrainer />
           </TabsContent>
-
-          {/* Community Tab */}
-          <TabsContent value="community" className="mt-0">
-            <CommunityPuzzles />
-          </TabsContent>
         </Tabs>
       </div>
     </Layout>
   );
 };
 
-// Community Puzzles Component
-const CommunityPuzzles = () => {
-  const [puzzles, setPuzzles] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedPuzzle, setSelectedPuzzle] = useState(null);
-  const [puzzleState, setPuzzleState] = useState("idle"); // idle | thinking | correct | incorrect
-  const [sortBy, setSortBy] = useState("newest");
-  const [difficulty, setDifficulty] = useState(null);
-
-  useEffect(() => {
-    fetchCommunityData();
-  }, [sortBy, difficulty]);
-
-  const fetchCommunityData = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("sort_by", sortBy);
-      if (difficulty) params.set("difficulty", difficulty);
-
-      const [puzzlesRes, statsRes] = await Promise.all([
-        fetch(`${API}/community/puzzles?${params}`, { credentials: "include" }),
-        fetch(`${API}/community/stats`, { credentials: "include" })
-      ]);
-
-      if (puzzlesRes.ok) {
-        const data = await puzzlesRes.json();
-        setPuzzles(data.puzzles || []);
-      }
-
-      if (statsRes.ok) {
-        const data = await statsRes.json();
-        setStats(data);
-      }
-    } catch (err) {
-      console.error("Error fetching community data:", err);
-      toast.error("Failed to load community puzzles");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSelectPuzzle = (puzzle) => {
-    setSelectedPuzzle(puzzle);
-    setPuzzleState("thinking");
-  };
-
-  const handleMove = async (moveData) => {
-    if (!selectedPuzzle || puzzleState !== "thinking") return;
-
-    const moveSan = moveData.san || moveData;
-
-    try {
-      const res = await fetch(`${API}/community/puzzles/${selectedPuzzle.puzzle_id}/attempt`, {
-        method: "POST",
+export default Training;
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ user_move: moveSan })
