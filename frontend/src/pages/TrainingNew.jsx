@@ -181,12 +181,16 @@ const Training = ({ user }) => {
   
   // Update board when puzzle changes
   useEffect(() => {
-    if (displayPuzzle) {
+    if (displayPuzzle && displayPuzzle.fen) {
       setBoardFen(displayPuzzle.fen);
       setBoardOrientation(displayPuzzle.user_color || "white");
       setPuzzleState("thinking");
       setUserAnswer(null);
       setFeedback(null);
+    } else {
+      // Reset to starting position if no puzzle
+      setBoardFen(START_FEN);
+      setBoardOrientation("white");
     }
   }, [displayPuzzle]);
   
