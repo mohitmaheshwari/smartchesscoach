@@ -545,9 +545,9 @@ const Training = ({ user }) => {
                           <Button
                             onClick={nextPuzzle}
                             className="bg-green-600 hover:bg-green-700"
-                            disabled={!hasMorePuzzles}
+                            disabled={!hasMoreFilteredPuzzles}
                           >
-                            {hasMorePuzzles ? (
+                            {hasMoreFilteredPuzzles ? (
                               <>
                                 Next Puzzle
                                 <ChevronRight className="w-4 h-4 ml-1" />
@@ -579,10 +579,10 @@ const Training = ({ user }) => {
                             </h3>
                             <div className="text-sm space-y-2 mb-3">
                               <p className="text-gray-400">
-                                You played: <span className="text-red-400 font-mono">{feedback.user_move}</span>
+                                You played: <span className="text-red-400 font-mono">{feedback.user_move || userAnswer}</span>
                               </p>
                               <p className="text-gray-400">
-                                Best move: <span className="text-green-400 font-mono">{feedback.correct_move}</span>
+                                Best move: <span className="text-green-400 font-mono">{feedback.correct_move || feedback.expected_move || displayPuzzle?.correct_move}</span>
                               </p>
                               {feedback.why_correct && (
                                 <p className="text-gray-300">{feedback.why_correct}</p>
@@ -610,16 +610,16 @@ const Training = ({ user }) => {
                           </Button>
                           <Button
                             onClick={nextPuzzle}
-                            disabled={!hasMorePuzzles}
+                            disabled={!hasMoreFilteredPuzzles}
                           >
-                            {hasMorePuzzles ? "Next Puzzle" : "Complete"}
+                            {hasMoreFilteredPuzzles ? "Next Puzzle" : "Complete"}
                             <ChevronRight className="w-4 h-4 ml-1" />
                           </Button>
                         </div>
                       </motion.div>
                     )}
 
-                    {puzzleState === "revealed" && currentPuzzle && (
+                    {puzzleState === "revealed" && displayPuzzle && (
                       <motion.div
                         key="revealed"
                         initial={{ opacity: 0 }}
@@ -628,28 +628,28 @@ const Training = ({ user }) => {
                       >
                         <div className="text-center mb-3">
                           <p className="text-gray-400 mb-2">The best move was:</p>
-                          <p className="text-2xl font-mono text-amber-500">{currentPuzzle.correct_move}</p>
+                          <p className="text-2xl font-mono text-amber-500">{displayPuzzle.correct_move || displayPuzzle.best_move_san}</p>
                         </div>
-                        {currentPuzzle.critical_detail && (
+                        {displayPuzzle.critical_detail && (
                           <p className="text-gray-300 text-sm text-center mb-3">
-                            {currentPuzzle.critical_detail}
+                            {displayPuzzle.critical_detail}
                           </p>
                         )}
-                        {currentPuzzle.principle && (
+                        {displayPuzzle.principle && (
                           <div className="bg-gray-900/50 rounded p-3 mb-4">
                             <p className="text-xs text-amber-500 font-medium mb-1">
                               <Lightbulb className="w-3 h-3 inline mr-1" />
-                              PRINCIPLE: {currentPuzzle.principle.name}
+                              PRINCIPLE: {displayPuzzle.principle.name}
                             </p>
-                            <p className="text-sm text-gray-300">{currentPuzzle.principle.quick_tip}</p>
+                            <p className="text-sm text-gray-300">{displayPuzzle.principle.quick_tip}</p>
                           </div>
                         )}
                         <div className="flex justify-center">
                           <Button
                             onClick={nextPuzzle}
-                            disabled={!hasMorePuzzles}
+                            disabled={!hasMoreFilteredPuzzles}
                           >
-                            {hasMorePuzzles ? "Next Puzzle" : "Complete"}
+                            {hasMoreFilteredPuzzles ? "Next Puzzle" : "Complete"}
                             <ChevronRight className="w-4 h-4 ml-1" />
                           </Button>
                         </div>
