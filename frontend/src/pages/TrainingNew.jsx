@@ -883,6 +883,140 @@ const Training = ({ user }) => {
               </Card>
             )}
 
+            {/* Puzzle Rating Card - NEW */}
+            {puzzleProgress && (
+              <Card className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 border-gray-700" data-testid="puzzle-rating-card">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-300 flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Crown className="w-4 h-4 text-amber-500" />
+                      Puzzle Rating
+                    </span>
+                    <Badge 
+                      className={`text-xs ${
+                        puzzleProgress.level_color === 'green' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                        puzzleProgress.level_color === 'emerald' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                        puzzleProgress.level_color === 'amber' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                        puzzleProgress.level_color === 'orange' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+                        puzzleProgress.level_color === 'red' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                        'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                      }`}
+                    >
+                      {puzzleProgress.level_label}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Main Rating Display */}
+                  <div className="text-center">
+                    <p className="text-4xl font-bold text-white" data-testid="puzzle-rating-value">
+                      {puzzleProgress.puzzle_rating}
+                    </p>
+                    {puzzleProgress.highest_rating > puzzleProgress.puzzle_rating && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Peak: {puzzleProgress.highest_rating}
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Progress to Next Level */}
+                  {puzzleProgress.next_level && (
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-400 mb-1">
+                        <span>{puzzleProgress.level_label}</span>
+                        <span>{puzzleProgress.next_level_label}</span>
+                      </div>
+                      <Progress 
+                        value={puzzleProgress.progress_in_level} 
+                        className="h-2 bg-gray-700"
+                      />
+                      <p className="text-xs text-gray-500 mt-1 text-center">
+                        {puzzleProgress.points_to_next_level} points to {puzzleProgress.next_level_label}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gray-800/50 rounded-lg p-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Flame className={`w-4 h-4 ${puzzleProgress.current_streak > 0 ? 'text-orange-400' : 'text-gray-500'}`} />
+                        <span className="text-lg font-bold text-white" data-testid="puzzle-streak">
+                          {puzzleProgress.current_streak}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">Streak</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Target className="w-4 h-4 text-green-400" />
+                        <span className="text-lg font-bold text-white">
+                          {puzzleProgress.solve_rate}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">Solve Rate</p>
+                    </div>
+                  </div>
+                  
+                  {/* Best Streak */}
+                  {puzzleProgress.best_streak > 0 && (
+                    <div className="flex items-center justify-between text-sm bg-gray-800/30 rounded-lg px-3 py-2">
+                      <span className="text-gray-400 flex items-center gap-1">
+                        <Trophy className="w-3 h-3 text-amber-500" />
+                        Best Streak
+                      </span>
+                      <span className="text-white font-medium">{puzzleProgress.best_streak}</span>
+                    </div>
+                  )}
+                  
+                  {/* Recent Accuracy */}
+                  {puzzleProgress.recent_accuracy !== undefined && puzzleProgress.total_puzzles > 0 && (
+                    <div className="flex items-center justify-between text-sm bg-gray-800/30 rounded-lg px-3 py-2">
+                      <span className="text-gray-400 flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3 text-emerald-500" />
+                        Recent (last 20)
+                      </span>
+                      <span className="text-white font-medium">{puzzleProgress.recent_accuracy}%</span>
+                    </div>
+                  )}
+                  
+                  {/* Total Puzzles */}
+                  <div className="text-center text-xs text-gray-500">
+                    {puzzleProgress.total_puzzles} puzzles attempted • {puzzleProgress.puzzles_solved} solved
+                  </div>
+                  
+                  {/* Achievements Preview */}
+                  {puzzleProgress.achievements && puzzleProgress.achievements.length > 0 && (
+                    <div className="pt-2 border-t border-gray-700">
+                      <p className="text-xs text-gray-400 mb-2 flex items-center gap-1">
+                        <Award className="w-3 h-3" />
+                        Achievements ({puzzleProgress.achievements.length})
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {puzzleProgress.achievements.slice(0, 4).map(achievement => (
+                          <Badge 
+                            key={achievement} 
+                            variant="outline" 
+                            className="text-[10px] py-0 px-1.5 border-amber-500/30 text-amber-400"
+                          >
+                            {achievement.replace(/_/g, ' ')}
+                          </Badge>
+                        ))}
+                        {puzzleProgress.achievements.length > 4 && (
+                          <Badge 
+                            variant="outline" 
+                            className="text-[10px] py-0 px-1.5 border-gray-600 text-gray-400"
+                          >
+                            +{puzzleProgress.achievements.length - 4} more
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Progress */}
             {progress && (
               <Card className="bg-gray-900/50 border-gray-800">
