@@ -188,6 +188,7 @@ const LichessBoard = forwardRef(({
         },
         events: {
           move: (orig, dest) => {
+            console.log("LichessBoard move event:", orig, dest);
             if (onMove) {
               const chess = chessRef.current;
               let move = null;
