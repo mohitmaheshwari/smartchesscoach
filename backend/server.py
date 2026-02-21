@@ -6521,7 +6521,7 @@ async def get_tricks_by_difficulty(difficulty: str):
 # ============================================================================
 
 @api_router.post("/training/tricks/record-attempt")
-async def record_trap_attempt_endpoint(request: Request, data: dict):
+async def record_trap_attempt_endpoint(request: Request, data: dict, user: User = Depends(get_current_user)):
     """
     Record a user's attempt on a trap practice mode.
     
@@ -6532,10 +6532,6 @@ async def record_trap_attempt_endpoint(request: Request, data: dict):
     - details: dict (optional) - Additional details about the attempt
     """
     from trap_stats_service import record_trap_attempt
-    
-    user_id = request.state.user_id
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Not authenticated")
     
     trap_key = data.get("trap_key")
     mode = data.get("mode")
@@ -6550,7 +6546,7 @@ async def record_trap_attempt_endpoint(request: Request, data: dict):
     
     result = await record_trap_attempt(
         request.app.db,
-        user_id,
+        user.id,
         trap_key,
         mode,
         success,
