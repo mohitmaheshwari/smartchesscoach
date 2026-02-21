@@ -6570,7 +6570,7 @@ async def get_user_trap_stats_endpoint(request: Request, user: User = Depends(ge
     """
     from trap_stats_service import get_user_trap_stats
     
-    stats = await get_user_trap_stats(request.app.db, user.id)
+    stats = await get_user_trap_stats(db, user.id)
     return stats
 
 
@@ -6586,7 +6586,7 @@ async def get_trap_recommendations_endpoint(request: Request, user: User = Depen
     """
     from trap_stats_service import get_recommended_traps
     
-    recommendations = await get_recommended_traps(request.app.db, user.id, limit)
+    recommendations = await get_recommended_traps(db, user.id, limit)
     return {"recommendations": recommendations}
 
 
@@ -6602,7 +6602,7 @@ async def get_global_trap_stats_endpoint(request: Request):
     """
     from trap_stats_service import get_global_trap_stats
     
-    stats = await get_global_trap_stats(request.app.db)
+    stats = await get_global_trap_stats(db)
     return stats
 
 
@@ -6618,7 +6618,7 @@ async def get_trap_leaderboard_endpoint(request: Request, trap_key: str, mode: s
     if mode not in ["execution", "avoidance", "recognition"]:
         raise HTTPException(status_code=400, detail="Invalid mode")
     
-    leaderboard = await get_trap_leaderboard(request.app.db, trap_key, mode)
+    leaderboard = await get_trap_leaderboard(db, trap_key, mode)
     return {"trap_key": trap_key, "mode": mode, "leaderboard": leaderboard}
 
 
