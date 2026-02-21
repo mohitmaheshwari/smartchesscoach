@@ -73,6 +73,12 @@ const Training = ({ user }) => {
   // Puzzle source filter: "my_games" | "community" | "all"
   const [puzzleSource, setPuzzleSource] = useState("all");
   
+  // Puzzle progression state
+  const [puzzleProgress, setPuzzleProgress] = useState(null);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpData, setLevelUpData] = useState(null);
+  const [newAchievements, setNewAchievements] = useState([]);
+  
   // Puzzle solving state
   const [puzzleState, setPuzzleState] = useState("thinking"); // thinking | correct | incorrect | revealed
   const [userAnswer, setUserAnswer] = useState(null);
