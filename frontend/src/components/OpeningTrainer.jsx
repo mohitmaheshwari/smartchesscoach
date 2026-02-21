@@ -74,6 +74,9 @@ const OpeningTrainer = () => {
   const [trickPracticeData, setTrickPracticeData] = useState(null);
   const [trickMoveIndex, setTrickMoveIndex] = useState(0); // Current move in execution mode
   const [trickChess, setTrickChess] = useState(null); // Chess.js instance for execution mode
+  const [avoidanceValidating, setAvoidanceValidating] = useState(false);
+  const [recognitionAnswer, setRecognitionAnswer] = useState({ hasTrap: null, winningMove: "" });
+  const [recognitionResult, setRecognitionResult] = useState(null);
   
   // Tree expansion state
   const [expandedNodes, setExpandedNodes] = useState({});
