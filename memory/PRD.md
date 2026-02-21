@@ -15,7 +15,65 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 21, 2026)
 
-### Trick Library - Avoidance & Recognition Modes ✅ NEW (Feb 21, 2026)
+### Community Learning (P2) ✅ NEW (Feb 21, 2026)
+Implemented a community puzzle pool for shared learning:
+
+**Features:**
+- Share puzzles from your games to the community
+- Browse community puzzles with filters (difficulty, theme, sort)
+- Solve puzzles and see solve rates
+- Rate puzzles (1-5 stars)
+- Track who has solved which puzzles
+
+**API Endpoints:**
+- `POST /api/community/puzzles/share` - Share a puzzle
+- `GET /api/community/puzzles` - Browse puzzles
+- `POST /api/community/puzzles/{id}/attempt` - Submit answer
+- `POST /api/community/puzzles/{id}/rate` - Rate puzzle
+- `GET /api/community/stats` - Get community stats
+
+**Files Added:**
+- `backend/community_learning_service.py` - All community logic
+- `frontend/src/pages/TrainingNew.jsx` - CommunityPuzzles component (new Community tab)
+
+**Test Coverage:** 100% (19/19 tests passed)
+
+### Trap Statistics & Adaptive Recommendations (Enhancement + P3) ✅ NEW (Feb 21, 2026)
+Implemented comprehensive trap tracking with personalized recommendations:
+
+**Features:**
+- Track attempts on all trap practice modes (execution, avoidance, recognition)
+- Per-trap success rate tracking
+- Weakest/strongest trap identification
+- Personalized recommendations based on:
+  - Low success rate traps
+  - Untried traps
+  - Traps related to user's most-played openings
+- Recent activity history
+- Leaderboard per trap
+
+**API Endpoints:**
+- `POST /api/training/tricks/record-attempt` - Record attempt
+- `GET /api/training/tricks/stats` - Get user's trap stats
+- `GET /api/training/tricks/recommendations` - Get personalized recommendations
+- `GET /api/training/tricks/global-stats` - Get global stats
+- `GET /api/training/tricks/{trap_key}/leaderboard` - Get leaderboard
+
+**Files Added:**
+- `backend/trap_stats_service.py` - All statistics logic
+- `frontend/src/components/OpeningTrainer.jsx` - Stats panel, recommendations UI
+
+**UI Features:**
+- "My Statistics" button in Trick Library
+- Stats panel with Total Attempts, Successes, Success Rate
+- "Areas to Improve" section (weakest traps)
+- "Your Strengths" section (strongest traps)
+- "Recommended for You" section
+- Per-trap success rate badges in trap list
+
+**Test Coverage:** 100% (19/19 tests passed)
+
+### Trick Library - Avoidance & Recognition Modes ✅ (Feb 21, 2026)
 Implemented two new interactive practice modes for the Trick Library:
 
 **Avoidance Mode:**
