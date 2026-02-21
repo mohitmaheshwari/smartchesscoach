@@ -838,4 +838,3 @@ const Training = ({ user }) => {
 };
 
 export default Training;
-        headers: { "Content-Type": "application/json" },
