@@ -6319,50 +6319,95 @@ async def validate_avoidance_move(data: dict):
         engine.start()
         
         try:
-            eval_score, mate_in = engine.evaluate_position(board, depth=12)
-            best_move_uci = engine.get_best_move(board, depth=12)
+            # First, evaluate the position BEFORE the user's move
+            board_before = chess.Board(fen)
+            eval_before, mate_before = engine.evaluate_position(board_before, depth=12)
             
-            # Determine if user fell into trap or avoided it
-            # User is the victim, so positive eval = bad for user (opponent winning)
-            # Negative eval = good for user (avoided trap)
+            # Now evaluate AFTER the user's move
+            eval_after, mate_after = engine.evaluate_position(board, depth=12)
+            
+            # Determine who is the victim
             is_victim_white = data.get("user_color", "black") == "white"
             
-            # Adjust eval based on user's color
+            # Adjust evals to be from the victim's perspective
+            # Positive = good for victim, Negative = bad for victim
             if is_victim_white:
-                user_eval = eval_score
+                victim_eval_before = eval_before
+                victim_eval_after = eval_after
             else:
-                user_eval = -eval_score
+                victim_eval_before = -eval_before
+                victim_eval_after = -eval_after
             
-            # Check for mate threats
-            if mate_in is not None:
-                if (is_victim_white and mate_in < 0) or (not is_victim_white and mate_in > 0):
+            # Calculate how much the position changed
+            eval_change = victim_eval_after - victim_eval_before
+            
+            # Check for mate threats after the move
+            if mate_after is not None:
+                if (is_victim_white and mate_after < 0) or (not is_victim_white and mate_after > 0):
                     # User is getting mated - fell into trap!
                     return {
                         "valid": True,
                         "fell_into_trap": True,
                         "is_safe": False,
-                        "evaluation": eval_score,
-                        "mate_in": mate_in,
-                        "message": f"Oops! After {move_san}, you're getting mated in {abs(mate_in)}!",
+                        "evaluation": eval_after,
+                        "mate_in": mate_after,
+                        "message": f"Oops! After {move_san}, you're getting mated in {abs(mate_after)}!",
                         "new_fen": new_fen
                     }
             
-            # If eval is very bad for user (>300 centipawns worse), they fell into trap
-            if user_eval < -300:
+            # If there was a mate threat BEFORE and now there isn't, the move avoided the trap!
+            if mate_before is not None and mate_after is None:
+                return {
+                    "valid": True,
+                    "fell_into_trap": False,
+                    "is_safe": True,
+                    "evaluation": eval_after,
+                    "message": f"Excellent! {move_san} avoids the checkmate threat!",
+                    "new_fen": new_fen
+                }
+            
+            # If the position got significantly WORSE (>200cp loss), they fell into trap
+            if eval_change < -200:
                 return {
                     "valid": True,
                     "fell_into_trap": True,
                     "is_safe": False,
-                    "evaluation": eval_score,
-                    "message": f"That move falls into the trap! After {move_san}, your position is much worse.",
+                    "evaluation": eval_after,
+                    "eval_change": eval_change,
+                    "message": f"That move makes things worse! After {move_san}, your position deteriorated.",
                     "new_fen": new_fen
                 }
             
-            # Move is safe!
-            return {
-                "valid": True,
-                "fell_into_trap": False,
-                "is_safe": True,
+            # If they're still in a very bad position (>500cp worse) AND didn't improve
+            if victim_eval_after < -500 and eval_change < 100:
+                return {
+                    "valid": True,
+                    "fell_into_trap": True,
+                    "is_safe": False,
+                    "evaluation": eval_after,
+                    "message": f"Your position is still critical. {move_san} doesn't fully avoid the danger.",
+                    "new_fen": new_fen
+                }
+            
+            # Move is safe - position either improved or stayed stable
+            if eval_change > 50:
+                return {
+                    "valid": True,
+                    "fell_into_trap": False,
+                    "is_safe": True,
+                    "evaluation": eval_after,
+                    "message": f"Great! {move_san} improves your position and avoids the trap!",
+                    "new_fen": new_fen
+                }
+            else:
+                return {
+                    "valid": True,
+                    "fell_into_trap": False,
+                    "is_safe": True,
+                    "evaluation": eval_after,
+                    "message": f"Good! {move_san} is a solid defensive move.",
+                    "new_fen": new_fen
+                }
                 "evaluation": eval_score,
                 "message": f"Good! {move_san} avoids the trap. Your position is safe.",
                 "new_fen": new_fen
