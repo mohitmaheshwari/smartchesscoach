@@ -105,11 +105,13 @@ const OpeningTrainer = () => {
       try {
         setLoading(true);
         
-        // Fetch user's openings, database, and tricks
-        const [userRes, dbRes, tricksRes] = await Promise.all([
+        // Fetch user's openings, database, tricks, and trap stats
+        const [userRes, dbRes, tricksRes, statsRes, recsRes] = await Promise.all([
           fetch(`${API}/training/openings/stats`, { credentials: "include" }),
           fetch(`${API}/training/openings-database`, { credentials: "include" }),
-          fetch(`${API}/training/tricks`, { credentials: "include" })
+          fetch(`${API}/training/tricks`, { credentials: "include" }),
+          fetch(`${API}/training/tricks/stats`, { credentials: "include" }),
+          fetch(`${API}/training/tricks/recommendations`, { credentials: "include" })
         ]);
         
         if (userRes.ok) {
@@ -127,6 +129,16 @@ const OpeningTrainer = () => {
           setTricks(data.traps || []);
           setTrickCategories(data.categories || {});
         }
+        
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          setTrapStats(data);
+        }
+        
+        if (recsRes.ok) {
+          const data = await recsRes.json();
+          setTrapRecommendations(data.recommendations || []);
+        }
       } catch (err) {
         console.error("Error fetching openings:", err);
         toast.error("Failed to load openings");
@@ -137,6 +149,36 @@ const OpeningTrainer = () => {
     
     fetchData();
   }, []);
+
+  // Record a trap attempt
+  const recordTrapAttempt = async (trapKey, mode, success, details = {}) => {
+    try {
+      await fetch(`${API}/training/tricks/record-attempt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ trap_key: trapKey, mode, success, details })
+      });
+      
+      // Refresh stats after recording
+      const [statsRes, recsRes] = await Promise.all([
+        fetch(`${API}/training/tricks/stats`, { credentials: "include" }),
+        fetch(`${API}/training/tricks/recommendations`, { credentials: "include" })
+      ]);
+      
+      if (statsRes.ok) {
+        const data = await statsRes.json();
+        setTrapStats(data);
+      }
+      
+      if (recsRes.ok) {
+        const data = await recsRes.json();
+        setTrapRecommendations(data.recommendations || []);
+      }
+    } catch (err) {
+      console.error("Error recording trap attempt:", err);
+    }
+  };
 
   // Fetch opening content when selected
   const fetchOpeningContent = async (openingKey) => {
