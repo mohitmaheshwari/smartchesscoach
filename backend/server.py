@@ -6408,10 +6408,6 @@ async def validate_avoidance_move(data: dict):
                     "message": f"Good! {move_san} is a solid defensive move.",
                     "new_fen": new_fen
                 }
-                "evaluation": eval_score,
-                "message": f"Good! {move_san} avoids the trap. Your position is safe.",
-                "new_fen": new_fen
-            }
             
         finally:
             engine.stop()
