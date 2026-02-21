@@ -521,12 +521,15 @@ const OpeningTrainer = () => {
         if (result.score === "perfect") {
           setTrickPracticeState("success");
           toast.success(result.message);
+          recordTrapAttempt(selectedTrick.key, "recognition", true, { score: result.score });
         } else if (result.score === "good" || result.score === "partial") {
           setTrickPracticeState("success");
           toast.info(result.message);
+          recordTrapAttempt(selectedTrick.key, "recognition", true, { score: result.score });
         } else {
           setTrickPracticeState("failed");
           toast.error(result.message);
+          recordTrapAttempt(selectedTrick.key, "recognition", false, { score: result.score });
         }
       }
     } catch (err) {
