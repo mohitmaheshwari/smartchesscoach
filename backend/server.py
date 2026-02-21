@@ -6231,6 +6231,60 @@ async def get_trick_categories():
     return {"categories": categories}
 
 
+# ============================================================================
+# TRAP STATISTICS & TRACKING (Static routes - must come before {trap_key})
+# ============================================================================
+
+@api_router.post("/training/tricks/record-attempt")
+async def record_trap_attempt_endpoint(request: Request, data: dict, user: User = Depends(get_current_user)):
+    """
+    Record a user's attempt on a trap practice mode.
+    """
+    from trap_stats_service import record_trap_attempt
+    
+    trap_key = data.get("trap_key")
+    mode = data.get("mode")
+    success = data.get("success")
+    details = data.get("details", {})
+    
+    if not trap_key or not mode or success is None:
+        raise HTTPException(status_code=400, detail="Missing required fields: trap_key, mode, success")
+    
+    if mode not in ["execution", "avoidance", "recognition"]:
+        raise HTTPException(status_code=400, detail="Invalid mode")
+    
+    result = await record_trap_attempt(db, user.user_id, trap_key, mode, success, details)
+    return result
+
+
+@api_router.get("/training/tricks/stats")
+async def get_user_trap_stats_endpoint(request: Request, user: User = Depends(get_current_user)):
+    """Get comprehensive trap statistics for the current user."""
+    from trap_stats_service import get_user_trap_stats
+    stats = await get_user_trap_stats(db, user.user_id)
+    return stats
+
+
+@api_router.get("/training/tricks/recommendations")
+async def get_trap_recommendations_endpoint(request: Request, user: User = Depends(get_current_user), limit: int = 5):
+    """Get personalized trap recommendations for the current user."""
+    from trap_stats_service import get_recommended_traps
+    recommendations = await get_recommended_traps(db, user.user_id, limit)
+    return {"recommendations": recommendations}
+
+
+@api_router.get("/training/tricks/global-stats")
+async def get_global_trap_stats_endpoint(request: Request):
+    """Get global trap statistics across all users."""
+    from trap_stats_service import get_global_trap_stats
+    stats = await get_global_trap_stats(db)
+    return stats
+
+
+# ============================================================================
+# TRAP DETAILS (Dynamic routes with {trap_key})
+# ============================================================================
+
 @api_router.get("/training/tricks/{trap_key}")
 async def get_trick_details(trap_key: str):
     """
