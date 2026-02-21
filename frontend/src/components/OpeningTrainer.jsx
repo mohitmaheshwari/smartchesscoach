@@ -456,10 +456,12 @@ const OpeningTrainer = () => {
             // User fell into the trap
             setTrickPracticeState("failed");
             toast.error(result.message || "You fell into the trap!");
+            recordTrapAttempt(selectedTrick.key, "avoidance", false, { move: moveSan });
           } else if (result.is_safe) {
             // User avoided the trap!
             setTrickPracticeState("success");
             toast.success(result.message || "Great! You avoided the trap!");
+            recordTrapAttempt(selectedTrick.key, "avoidance", true, { move: moveSan });
             if (result.new_fen) {
               setBoardFen(result.new_fen);
             }
