@@ -44,6 +44,37 @@ import {
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+// Validate FEN string
+const isValidFen = (fen) => {
+  if (!fen || typeof fen !== 'string') return false;
+  const parts = fen.split(' ');
+  if (parts.length < 1) return false;
+  
+  // Check the piece placement part
+  const ranks = parts[0].split('/');
+  if (ranks.length !== 8) return false;
+  
+  // Valid piece chars and numbers
+  const validChars = /^[rnbqkpRNBQKP1-8]+$/;
+  
+  for (const rank of ranks) {
+    if (!validChars.test(rank)) return false;
+    
+    // Count squares in rank (pieces = 1, numbers = their value)
+    let count = 0;
+    for (const char of rank) {
+      if (char >= '1' && char <= '8') {
+        count += parseInt(char);
+      } else {
+        count += 1;
+      }
+    }
+    if (count !== 8) return false;
+  }
+  
+  return true;
+};
+
 // Convert centipawns to human-readable evaluation
 const formatEvaluation = (cpLoss) => {
   if (!cpLoss || cpLoss < 50) return { text: "Small inaccuracy", color: "text-yellow-400" };
