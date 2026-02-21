@@ -390,14 +390,31 @@ const Training = ({ user }) => {
 
           {/* Puzzles Tab */}
           <TabsContent value="puzzles" className="mt-0">
+            {/* Source Filter */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Show:</span>
+                <select 
+                  value={puzzleSource} 
+                  onChange={(e) => setPuzzleSource(e.target.value)}
+                  className="text-sm bg-muted/50 border border-muted rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                  data-testid="puzzle-source-filter"
+                >
+                  <option value="all">All Puzzles</option>
+                  <option value="my_games">My Games Only</option>
+                  <option value="community">Community Puzzles</option>
+                </select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Puzzle {currentPuzzleIndex + 1} of {filteredPuzzles.length}
+              </p>
+            </div>
+            
             {/* Progress Bar */}
             <Progress 
-              value={(currentPuzzleIndex / puzzles.length) * 100} 
+              value={filteredPuzzles.length > 0 ? ((currentPuzzleIndex + 1) / filteredPuzzles.length) * 100 : 0} 
               className="h-2 mb-6 bg-gray-800"
             />
-            <p className="text-xs text-muted-foreground mb-4">
-              Puzzle {currentPuzzleIndex + 1} of {puzzles.length}
-            </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Puzzle Area */}
