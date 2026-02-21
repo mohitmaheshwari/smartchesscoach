@@ -382,8 +382,48 @@ const OpeningTrainer = () => {
         toast.error(`Play ${expectedMove} to continue the trap`);
       }
     } else if (trickPracticeMode === "avoidance") {
-      setTrickPracticeState("success");
-      toast.success("Good! You avoided the trap!");
+      // Validate the avoidance move against the API
+      setAvoidanceValidating(true);
+      try {
+        const res = await fetch(`${API}/training/tricks/validate-avoidance`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            fen: boardFen,
+            user_move: moveSan,
+            trap_key: selectedTrick.key,
+            winning_move: trickPracticeData?.winning_move,
+            user_color: trickPracticeData?.user_color || selectedTrick.victim_color
+          })
+        });
+        
+        if (res.ok) {
+          const result = await res.json();
+          
+          if (result.fell_into_trap) {
+            // User fell into the trap
+            setTrickPracticeState("failed");
+            toast.error(result.message || "You fell into the trap!");
+          } else if (result.is_safe) {
+            // User avoided the trap!
+            setTrickPracticeState("success");
+            toast.success(result.message || "Great! You avoided the trap!");
+            if (result.new_fen) {
+              setBoardFen(result.new_fen);
+            }
+          } else {
+            toast.error("That move doesn't avoid the trap - try again!");
+          }
+        } else {
+          toast.error("Failed to validate move");
+        }
+      } catch (err) {
+        console.error("Avoidance validation error:", err);
+        toast.error("Error validating move");
+      } finally {
+        setAvoidanceValidating(false);
+      }
     }
   };
 
