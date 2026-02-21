@@ -317,6 +317,14 @@ const Training = ({ user }) => {
               <GraduationCap className="w-4 h-4" />
               Opening Trainer
             </TabsTrigger>
+            <TabsTrigger 
+              value="community" 
+              className="data-[state=active]:bg-primary/20 gap-2"
+              data-testid="tab-community"
+            >
+              <Users className="w-4 h-4" />
+              Community
+            </TabsTrigger>
           </TabsList>
 
           {/* Puzzles Tab */}
