@@ -228,7 +228,7 @@ async def get_user_top_openings(
     Get user's most-played openings from their game history.
     """
     pipeline = [
-        {"$match": {"user_id": user_id, "opening_name": {"$ne": None, "$ne": "Unknown"}}},
+        {"$match": {"user_id": user_id, "opening_name": {"$nin": [None, "Unknown"]}}},
         {"$group": {
             "_id": "$opening_name",
             "count": {"$sum": 1}
