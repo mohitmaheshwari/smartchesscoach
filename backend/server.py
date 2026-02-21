@@ -6583,6 +6583,105 @@ async def get_trap_leaderboard_endpoint(request: Request, trap_key: str, mode: s
 
 
 # ============================================================================
+# COMMUNITY LEARNING (P2)
+# ============================================================================
+
+@api_router.post("/community/puzzles/share")
+async def share_community_puzzle(request: Request, data: dict, user: User = Depends(get_current_user)):
+    """Share a puzzle from user's games to the community."""
+    from community_learning_service import share_puzzle
+    result = await share_puzzle(db, user.user_id, data)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@api_router.get("/community/puzzles")
+async def get_community_puzzles_endpoint(
+    request: Request,
+    difficulty: str = None,
+    theme: str = None,
+    opening: str = None,
+    sort_by: str = "newest",
+    skip: int = 0,
+    limit: int = 20
+):
+    """Browse community puzzles with filtering."""
+    from community_learning_service import get_community_puzzles
+    
+    # Get current user if authenticated
+    user_id = None
+    try:
+        user = await get_current_user(request)
+        user_id = user.user_id
+    except Exception:
+        pass
+    
+    result = await get_community_puzzles(
+        db, user_id, difficulty, theme, opening, sort_by, skip, limit
+    )
+    return result
+
+
+@api_router.post("/community/puzzles/{puzzle_id}/attempt")
+async def attempt_community_puzzle_endpoint(
+    request: Request,
+    puzzle_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Attempt to solve a community puzzle."""
+    from community_learning_service import attempt_community_puzzle
+    
+    user_move = data.get("user_move")
+    time_taken = data.get("time_taken")
+    
+    if not user_move:
+        raise HTTPException(status_code=400, detail="Missing user_move")
+    
+    result = await attempt_community_puzzle(db, user.user_id, puzzle_id, user_move, time_taken)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@api_router.post("/community/puzzles/{puzzle_id}/rate")
+async def rate_community_puzzle_endpoint(
+    request: Request,
+    puzzle_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Rate a community puzzle (1-5 stars)."""
+    from community_learning_service import rate_puzzle
+    
+    rating = data.get("rating")
+    if not rating or not isinstance(rating, int):
+        raise HTTPException(status_code=400, detail="Missing or invalid rating (must be 1-5)")
+    
+    result = await rate_puzzle(db, user.user_id, puzzle_id, rating)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@api_router.get("/community/stats")
+async def get_community_stats_endpoint(request: Request):
+    """Get overall community puzzle statistics."""
+    from community_learning_service import get_community_stats
+    stats = await get_community_stats(db)
+    return stats
+
+
+@api_router.get("/community/my-contributions")
+async def get_my_contributions_endpoint(request: Request, user: User = Depends(get_current_user)):
+    """Get current user's puzzle contributions."""
+    from community_learning_service import get_user_contributions
+    contributions = await get_user_contributions(db, user.user_id)
+    return contributions
+
+
+# ============================================================================
 # LICHESS OPENING EXPLORER INTEGRATION
 # ============================================================================
 
