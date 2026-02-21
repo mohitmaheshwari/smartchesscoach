@@ -422,26 +422,48 @@ const Training = ({ user }) => {
             <Card className="bg-gray-900/50 border-gray-800">
               <CardContent className="p-4">
                 {/* Puzzle Context */}
-                {currentPuzzle && (
+                {displayPuzzle && (
                   <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Badge className={getDifficultyColor(currentPuzzle.difficulty)}>
-                        {currentPuzzle.difficulty}
+                      <Badge className={getDifficultyColor(displayPuzzle.difficulty)}>
+                        {displayPuzzle.difficulty}
                       </Badge>
-                      <span className="text-sm text-gray-400">
-                        vs {currentPuzzle.opponent} • Move {currentPuzzle.move_number}
-                      </span>
+                      {/* Source indicator */}
+                      <div className="flex items-center gap-2">
+                        {displayPuzzle.source === "my_game" ? (
+                          <Badge variant="outline" className="text-green-400 border-green-400/30">
+                            <Target className="w-3 h-3 mr-1" />
+                            Your Game
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-blue-400 border-blue-400/30">
+                            <Users className="w-3 h-3 mr-1" />
+                            Community
+                          </Badge>
+                        )}
+                        <span className="text-sm text-gray-400">
+                          {displayPuzzle.source_label}
+                          {displayPuzzle.move_number ? ` • Move ${displayPuzzle.move_number}` : ""}
+                        </span>
+                      </div>
                     </div>
-                    <Badge 
-                      variant="outline" 
-                      className={`${
-                        currentPuzzle.user_color === "white" 
-                          ? "text-amber-400 border-amber-400/50" 
-                          : "text-slate-300 border-slate-400/50"
-                      }`}
-                    >
-                      Playing as {currentPuzzle.user_color === "white" ? "White" : "Black"}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {displayPuzzle.source_detail && (
+                        <span className="text-xs text-gray-500">
+                          {displayPuzzle.source_detail}
+                        </span>
+                      )}
+                      <Badge 
+                        variant="outline" 
+                        className={`${
+                          displayPuzzle.user_color === "white" 
+                            ? "text-amber-400 border-amber-400/50" 
+                            : "text-slate-300 border-slate-400/50"
+                        }`}
+                      >
+                        Playing as {displayPuzzle.user_color === "white" ? "White" : "Black"}
+                      </Badge>
+                    </div>
                   </div>
                 )}
 
@@ -453,8 +475,8 @@ const Training = ({ user }) => {
                     onUserMove={puzzleState === "thinking" ? (moveData) => handleMove(moveData.san) : null}
                     interactive={puzzleState === "thinking"}
                     highlightSquares={
-                      puzzleState !== "thinking" && currentPuzzle
-                        ? [currentPuzzle.correct_move.slice(-2)]
+                      puzzleState !== "thinking" && displayPuzzle
+                        ? [(displayPuzzle.correct_move || displayPuzzle.best_move_san || "").slice(-2)]
                         : []
                     }
                   />
