@@ -304,25 +304,27 @@ async def validate_puzzle_answer(
     
     # Use Stockfish to evaluate BOTH moves
     engine = StockfishEngine()
+    engine.start()
     
-    # Evaluate position BEFORE move
-    eval_before, mate_before = engine.evaluate_position(board, depth=16)
-    
-    # Get best move from engine
-    best_move_uci = engine.get_best_move(board, depth=16)
-    
-    # Evaluate position AFTER user's move
-    board_after_user = board.copy()
-    board_after_user.push(user_move_obj)
-    eval_after_user, mate_after_user = engine.evaluate_position(board_after_user, depth=16)
-    
-    # Evaluate position AFTER correct move
-    board_after_correct = board.copy()
-    if correct_move_obj:
-        board_after_correct.push(correct_move_obj)
-    eval_after_correct, mate_after_correct = engine.evaluate_position(board_after_correct, depth=16)
-    
-    engine.close()
+    try:
+        # Evaluate position BEFORE move
+        eval_before, mate_before = engine.evaluate_position(board, depth=16)
+        
+        # Get best move from engine
+        best_move_uci = engine.get_best_move(board, depth=16)
+        
+        # Evaluate position AFTER user's move
+        board_after_user = board.copy()
+        board_after_user.push(user_move_obj)
+        eval_after_user, mate_after_user = engine.evaluate_position(board_after_user, depth=16)
+        
+        # Evaluate position AFTER correct move
+        board_after_correct = board.copy()
+        if correct_move_obj:
+            board_after_correct.push(correct_move_obj)
+        eval_after_correct, mate_after_correct = engine.evaluate_position(board_after_correct, depth=16)
+    finally:
+        engine.stop()
     
     # Calculate evaluation differences
     # Positive = good for current player, negative = bad
