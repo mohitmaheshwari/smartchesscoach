@@ -13,9 +13,45 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ---
 
-## Latest Updates (Feb 20, 2026)
+## Latest Updates (Feb 21, 2026)
 
-### Trick Library (Phase 4) ✅ NEW
+### Smart Puzzle Validation System ✅ NEW (Feb 21, 2026)
+Implemented deterministic Stockfish-powered move validation for puzzles:
+
+**Features:**
+- **Real-time Stockfish evaluation** of user's move vs correct move
+- **Smart move classification**: perfect, excellent, good, acceptable, inaccuracy, mistake, blunder
+- **Evaluation difference** (eval_diff) in centipawns between moves
+- **Rich explanatory feedback** explaining WHY the move is good/bad
+- **Accepts alternative good moves**: Not just the exact answer, but any move within threshold
+
+**Move Quality Thresholds:**
+- Perfect: ≤10cp difference
+- Excellent: ≤30cp
+- Good: ≤80cp  
+- Acceptable: ≤150cp
+- Inaccuracy: ≤300cp
+- Mistake: ≤500cp
+- Blunder: >500cp
+
+**Bug Fixes:**
+- ✅ Fixed puzzle validation accepting wrong moves (prop name mismatch: onMove → onUserMove)
+- ✅ Fixed CoachBoard internal validation interfering (skip when expectedMoves empty)
+- ✅ Fixed Stockfish engine not starting (added engine.start() before use)
+
+**Files Updated:**
+- `frontend/src/pages/TrainingNew.jsx` - Fixed onUserMove prop
+- `frontend/src/components/CoachBoard.jsx` - Added external validation mode
+- `backend/interactive_training_service.py` - Fixed Stockfish lifecycle
+
+**Test Coverage:**
+- `/app/backend/tests/test_puzzle_validation.py` - 9 test cases covering all validation scenarios
+
+---
+
+## Previous Updates (Feb 20, 2026)
+
+### Trick Library (Phase 4) ✅
 Built a comprehensive trap/trick library integrated into Opening Trainer:
 
 **Features:**
