@@ -15,6 +15,38 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 21, 2026)
 
+### Puzzle Difficulty Progression ✅ COMPLETE (Feb 21, 2026)
+Implemented a full Elo-based puzzle rating system with gamification:
+
+**Features:**
+- **Puzzle Rating**: Users start at 1200 and rating changes based on puzzle performance
+- **Level System**: 6 levels (Beginner, Easy, Intermediate, Advanced, Expert, Master) with visual badges
+- **Progress to Next Level**: Progress bar showing points needed to reach next level
+- **Streak Tracking**: Current streak and best streak indicators
+- **Achievements**: Unlockable achievements (On Fire!, Unstoppable!, Puzzle Master, etc.)
+- **Rating Change Badges**: Shows +X or -X in feedback panel after solving
+- **Level-Up Modal**: Celebration modal when user levels up
+- **Achievement Toasts**: Toast notifications for new achievements
+
+**UI Components (data-testid):**
+- `puzzle-rating-card` - Main rating card on sidebar
+- `puzzle-rating-value` - Current rating number
+- `puzzle-streak` - Current streak value
+- `rating-change-badge` - Shows rating change in feedback
+- `level-up-modal` - Level-up celebration modal
+
+**Backend:**
+- `puzzle_progression_service.py` - Elo calculation with K_FACTOR=32
+- `GET /api/training/puzzle-progress` - Get user's puzzle progression
+- `POST /api/training/puzzle/validate` - Returns progression data with rating changes
+
+**Files Updated:**
+- `frontend/src/pages/TrainingNew.jsx` - Added Puzzle Rating card, level-up modal, achievement toasts
+- `backend/puzzle_progression_service.py` - Elo-based rating system
+- `backend/server.py` - Puzzle progression endpoints
+
+**Test Coverage:** 92.3% backend (12/13 tests), 100% frontend verified
+
 ### Community Learning (P2) - Integrated into Puzzles Tab ✅ (Feb 21, 2026)
 Community puzzles are now integrated directly into the main Puzzles tab:
 
