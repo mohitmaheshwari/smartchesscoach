@@ -425,6 +425,30 @@ const Training = ({ user }) => {
           <div className="lg:col-span-2">
             <Card className="bg-gray-900/50 border-gray-800">
               <CardContent className="p-4">
+                {/* No puzzles state */}
+                {!loading && filteredPuzzles.length === 0 && (
+                  <div className="text-center py-12">
+                    <Brain className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-400 mb-2">No Puzzles Available</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      {puzzleSource === "my_games" 
+                        ? "Import some games to generate puzzles from your mistakes"
+                        : puzzleSource === "community"
+                        ? "No community puzzles available yet"
+                        : "No puzzles available. Import games or check back later!"}
+                    </p>
+                    {puzzleSource !== "all" && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setPuzzleSource("all")}
+                        className="border-gray-700"
+                      >
+                        Show All Puzzles
+                      </Button>
+                    )}
+                  </div>
+                )}
+
                 {/* Puzzle Context */}
                 {displayPuzzle && (
                   <div className="mb-4 flex items-center justify-between">
