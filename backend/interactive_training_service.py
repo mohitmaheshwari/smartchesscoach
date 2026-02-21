@@ -263,60 +263,188 @@ async def validate_puzzle_answer(
     fen: str
 ) -> Dict:
     """
-    Validate user's answer to a puzzle.
+    Validate user's answer to a puzzle using DETERMINISTIC Stockfish analysis.
     
-    Returns feedback with:
-    - correct: bool
-    - explanation: Why correct/incorrect
-    - principle: The teaching point
+    Returns smart feedback with:
+    - Whether the move was correct, good, acceptable, or bad
+    - Stockfish evaluation of both moves
+    - Clear explanation of WHY the best move is better
     """
-    from chess_verification_layer import verify_move, get_critical_facts
+    from stockfish_service import StockfishEngine
     
-    # Normalize moves for comparison
     try:
         board = chess.Board(fen)
-        user_move_obj = board.parse_san(user_answer)
-        correct_move_obj = board.parse_san(correct_move)
-        
-        is_correct = user_move_obj == correct_move_obj
-    except Exception:
-        is_correct = user_answer.lower().strip() == correct_move.lower().strip()
+    except Exception as e:
+        logger.error(f"Invalid FEN: {fen}, error: {e}")
+        return {"correct": False, "message": "Invalid position", "next_action": "skip"}
     
-    if is_correct:
-        # User got it right!
-        critical_facts = get_critical_facts(fen, user_answer, correct_move, 0)
-        
-        result = {
-            "correct": True,
-            "message": "Excellent! You found the best move.",
-            "explanation": critical_facts.get("primary_detail", f"{correct_move} is the strongest continuation."),
-            "principle": critical_facts.get("thinking_habit", ""),
-            "next_action": "continue"
-        }
-    else:
-        # User got it wrong - this is a TEACHING moment
-        # Analyze what they played vs what's correct
-        wrong_facts = get_critical_facts(fen, user_answer, correct_move, 100)
-        correct_facts = get_critical_facts(fen, correct_move, correct_move, 0)
-        
-        result = {
+    # Normalize and parse moves
+    try:
+        user_move_obj = board.parse_san(user_answer)
+        user_move_uci = user_move_obj.uci()
+        user_move_san = board.san(user_move_obj)
+    except Exception:
+        return {
             "correct": False,
-            "message": f"Not quite. The best move was {correct_move}.",
-            "user_move": user_answer,
-            "correct_move": correct_move,
-            "why_wrong": wrong_facts.get("primary_detail", ""),
-            "why_correct": f"{correct_move} is better because it {correct_facts.get('primary_detail', 'improves your position')}",
-            "principle": wrong_facts.get("thinking_habit", ""),
-            "next_action": "learn"
+            "message": f"Invalid move: {user_answer}",
+            "next_action": "retry"
         }
+    
+    try:
+        correct_move_obj = board.parse_san(correct_move)
+        correct_move_uci = correct_move_obj.uci()
+        correct_move_san = board.san(correct_move_obj)
+    except Exception:
+        logger.error(f"Invalid correct move: {correct_move}")
+        correct_move_san = correct_move
+        correct_move_obj = None
+    
+    # Check if exact match
+    is_exact_match = correct_move_obj and user_move_obj == correct_move_obj
+    
+    # Use Stockfish to evaluate BOTH moves
+    engine = StockfishEngine()
+    
+    # Evaluate position BEFORE move
+    eval_before, mate_before = engine.evaluate_position(board, depth=16)
+    
+    # Get best move from engine
+    best_move_uci = engine.get_best_move(board, depth=16)
+    
+    # Evaluate position AFTER user's move
+    board_after_user = board.copy()
+    board_after_user.push(user_move_obj)
+    eval_after_user, mate_after_user = engine.evaluate_position(board_after_user, depth=16)
+    
+    # Evaluate position AFTER correct move
+    board_after_correct = board.copy()
+    if correct_move_obj:
+        board_after_correct.push(correct_move_obj)
+    eval_after_correct, mate_after_correct = engine.evaluate_position(board_after_correct, depth=16)
+    
+    engine.close()
+    
+    # Calculate evaluation differences
+    # Positive = good for current player, negative = bad
+    is_white_to_move = board.turn == chess.WHITE
+    
+    # Adjust evaluations based on whose turn
+    if not is_white_to_move:
+        eval_before = -eval_before
+        eval_after_user = -eval_after_user
+        eval_after_correct = -eval_after_correct
+    
+    # User move quality (how much eval changed)
+    user_move_delta = eval_after_user - eval_before
+    correct_move_delta = eval_after_correct - eval_before
+    
+    # How does user's move compare to the best move?
+    move_diff = eval_after_correct - eval_after_user  # Positive = correct was better
+    
+    # Classify user's move
+    if is_exact_match or move_diff <= 10:
+        move_quality = "perfect"
+        quality_text = "Perfect!"
+    elif move_diff <= 30:
+        move_quality = "excellent" 
+        quality_text = "Excellent move!"
+    elif move_diff <= 80:
+        move_quality = "good"
+        quality_text = "Good move, but there's a better one."
+    elif move_diff <= 150:
+        move_quality = "acceptable"
+        quality_text = "Acceptable, but you missed the best."
+    elif move_diff <= 300:
+        move_quality = "inaccuracy"
+        quality_text = "Inaccuracy - this loses some advantage."
+    elif move_diff <= 500:
+        move_quality = "mistake"
+        quality_text = "Mistake - this significantly worsens your position."
+    else:
+        move_quality = "blunder"
+        quality_text = "Blunder - this throws away the game!"
+    
+    # Check for mate sequences
+    if mate_after_correct and mate_after_correct > 0:
+        correct_has_mate = True
+        correct_mate_in = mate_after_correct
+    else:
+        correct_has_mate = False
+        correct_mate_in = None
+    
+    if mate_after_user and mate_after_user > 0:
+        user_has_mate = True
+        user_mate_in = mate_after_user
+    elif mate_after_user and mate_after_user < 0:
+        # User's move allows opponent to have mate!
+        user_has_mate = False
+        user_allows_mate = -mate_after_user
+    else:
+        user_has_mate = False
+        user_allows_mate = None
+    
+    # Generate explanation
+    def format_eval(cp):
+        if cp >= 100:
+            return f"+{cp/100:.1f}"
+        elif cp <= -100:
+            return f"{cp/100:.1f}"
+        elif cp > 0:
+            return f"+{cp/100:.2f}"
+        else:
+            return f"{cp/100:.2f}"
+    
+    # Build smart explanation
+    if is_exact_match or move_quality in ["perfect", "excellent"]:
+        explanation = f"Your move {user_move_san} is correct! "
+        if correct_has_mate:
+            explanation += f"It leads to checkmate in {correct_mate_in}."
+        else:
+            explanation += f"Evaluation: {format_eval(eval_after_user)}"
+        is_correct = True
+    else:
+        explanation = f"The best move is {correct_move_san}. "
+        
+        # Explain WHY it's better
+        if correct_has_mate:
+            explanation += f"It forces checkmate in {correct_mate_in}! "
+        
+        if 'user_allows_mate' in dir() and user_allows_mate:
+            explanation += f"Your move {user_move_san} allows mate in {user_allows_mate}! "
+        elif move_diff > 0:
+            explanation += f"Your move {user_move_san} is {format_eval(move_diff)} pawns worse. "
+        
+        # Add tactical explanation
+        if move_diff > 300:
+            explanation += "You may have missed a tactic or left a piece hanging."
+        elif move_diff > 100:
+            explanation += "Look for forcing moves: checks, captures, and threats."
+        
+        is_correct = move_quality in ["perfect", "excellent", "good"]
+    
+    result = {
+        "correct": is_correct,
+        "move_quality": move_quality,
+        "quality_text": quality_text,
+        "message": quality_text,
+        "user_move": user_move_san,
+        "correct_move": correct_move_san,
+        "explanation": explanation,
+        "eval_user_move": format_eval(eval_after_user),
+        "eval_correct_move": format_eval(eval_after_correct),
+        "eval_diff": round(move_diff),
+        "next_action": "continue" if is_correct else "learn"
+    }
     
     # Record this attempt
     await db.training_attempts.insert_one({
         "user_id": user_id,
         "puzzle_id": puzzle_id,
-        "user_answer": user_answer,
-        "correct_answer": correct_move,
+        "user_answer": user_move_san,
+        "correct_answer": correct_move_san,
         "was_correct": is_correct,
+        "move_quality": move_quality,
+        "eval_diff": round(move_diff),
         "timestamp": datetime.now(timezone.utc).isoformat()
     })
     
