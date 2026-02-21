@@ -86,6 +86,8 @@ const CoachBoard = forwardRef(({
 
   // Handle move from LichessBoard
   const handleLichessMove = useCallback((moveData) => {
+    console.log("handleLichessMove called:", moveData);
+    
     // Plan mode: allow all moves, track them
     if (isPlanMode) {
       const { san, from, to } = moveData;
