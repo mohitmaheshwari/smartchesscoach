@@ -278,8 +278,8 @@ const Training = ({ user }) => {
   
   // Reset current puzzle
   const resetPuzzle = () => {
-    if (currentPuzzle) {
-      setBoardFen(currentPuzzle.fen);
+    if (displayPuzzle) {
+      setBoardFen(displayPuzzle.fen);
       setPuzzleState("thinking");
       setUserAnswer(null);
       setFeedback(null);
