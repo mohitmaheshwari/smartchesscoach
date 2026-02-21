@@ -671,7 +671,7 @@ const Training = ({ user }) => {
           {/* Side Panel */}
           <div className="space-y-4">
             {/* Current Puzzle Info */}
-            {currentPuzzle && (
+            {displayPuzzle && (
               <Card className="bg-gray-900/50 border-gray-800">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-400">
@@ -680,27 +680,53 @@ const Training = ({ user }) => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
+                    {/* Source info */}
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">From your game against</p>
-                      <p className="text-white font-medium">{currentPuzzle.opponent}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">You played</p>
-                      <p className="text-red-400 font-mono">{currentPuzzle.user_move}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Severity</p>
-                      <p className={formatEvaluation(currentPuzzle.cp_loss).color}>
-                        {formatEvaluation(currentPuzzle.cp_loss).text}
+                      <p className="text-xs text-gray-500 mb-1">
+                        {displayPuzzle.source === "my_game" ? "From your game" : "From"}
                       </p>
+                      <p className="text-white font-medium">{displayPuzzle.source_label}</p>
+                      {displayPuzzle.source_detail && (
+                        <p className="text-xs text-gray-500">{displayPuzzle.source_detail}</p>
+                      )}
                     </div>
+                    {/* User's original move (only for user's games) */}
+                    {displayPuzzle.source === "my_game" && displayPuzzle.user_move && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">You played</p>
+                        <p className="text-red-400 font-mono">{displayPuzzle.user_move}</p>
+                      </div>
+                    )}
+                    {/* Severity */}
+                    {displayPuzzle.cp_loss && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Severity</p>
+                        <p className={formatEvaluation(displayPuzzle.cp_loss).color}>
+                          {formatEvaluation(displayPuzzle.cp_loss).text}
+                        </p>
+                      </div>
+                    )}
+                    {/* Community stats */}
+                    {displayPuzzle.source === "community" && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Community Stats</p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {displayPuzzle.difficulty}
+                          </Badge>
+                          <span className="text-xs text-gray-400">
+                            {displayPuzzle.solve_rate}% solve rate
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             )}
 
             {/* Puzzle-Specific Issue */}
-            {currentPuzzle?.principle && (
+            {displayPuzzle?.principle && (
               <Card className="bg-orange-500/10 border-orange-500/30">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-orange-400 flex items-center gap-2">
@@ -710,22 +736,39 @@ const Training = ({ user }) => {
                 </CardHeader>
                 <CardContent>
                   <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 mb-3">
-                    {currentPuzzle.principle.name || currentPuzzle.issue_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    {displayPuzzle.principle.name || displayPuzzle.issue_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                   </Badge>
-                  {currentPuzzle.critical_detail && (
+                  {displayPuzzle.critical_detail && (
                     <p className="text-sm text-orange-300 mb-2">
-                      {currentPuzzle.critical_detail}
+                      {displayPuzzle.critical_detail}
                     </p>
                   )}
                   <p className="text-sm text-gray-400">
-                    {currentPuzzle.principle.quick_tip || currentPuzzle.principle.principle}
+                    {displayPuzzle.principle.quick_tip || displayPuzzle.principle.principle}
                   </p>
                 </CardContent>
               </Card>
             )}
 
+            {/* Issue type for community puzzles */}
+            {displayPuzzle?.source === "community" && displayPuzzle?.issue_type && !displayPuzzle?.principle && (
+              <Card className="bg-blue-500/10 border-blue-500/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-blue-400 flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4" />
+                    Puzzle Theme
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                    {displayPuzzle.issue_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </Badge>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Weakness Pattern - only show if no puzzle-specific info */}
-            {!currentPuzzle?.principle && weaknesses && weaknesses.weakest_phase && (
+            {!displayPuzzle?.principle && weaknesses && weaknesses.weakest_phase && (
               <Card className="bg-gray-900/50 border-gray-800">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
