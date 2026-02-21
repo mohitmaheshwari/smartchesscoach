@@ -15,28 +15,28 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 21, 2026)
 
-### Community Learning (P2) ✅ NEW (Feb 21, 2026)
-Implemented a community puzzle pool for shared learning:
+### Community Learning (P2) - Integrated into Puzzles Tab ✅ (Feb 21, 2026)
+Community puzzles are now integrated directly into the main Puzzles tab:
 
 **Features:**
-- Share puzzles from your games to the community
-- Browse community puzzles with filters (difficulty, theme, sort)
-- Solve puzzles and see solve rates
-- Rate puzzles (1-5 stars)
-- Track who has solved which puzzles
+- **Unified Puzzle Experience**: User's game puzzles and community puzzles shown together
+- **Source Filter**: Dropdown to show "All Puzzles", "My Games Only", or "Community Puzzles"
+- **Clear Source Attribution**: Each puzzle shows where it came from:
+  - Green "Your Game" badge for puzzles from user's games
+  - Blue "Community" badge for community puzzles
+- **Contextual Info**: Shows opponent name, move number, solve rate, etc.
 
-**API Endpoints:**
-- `POST /api/community/puzzles/share` - Share a puzzle
-- `GET /api/community/puzzles` - Browse puzzles
-- `POST /api/community/puzzles/{id}/attempt` - Submit answer
-- `POST /api/community/puzzles/{id}/rate` - Rate puzzle
-- `GET /api/community/stats` - Get community stats
+**Implementation:**
+- Removed separate Community tab
+- Modified puzzles fetch to combine user + community puzzles
+- Added source filter with dropdown
+- Different API calls based on puzzle source for validation
 
-**Files Added:**
-- `backend/community_learning_service.py` - All community logic
-- `frontend/src/pages/TrainingNew.jsx` - CommunityPuzzles component (new Community tab)
+**Files Updated:**
+- `frontend/src/pages/TrainingNew.jsx` - Integrated community puzzles
+- `backend/community_learning_service.py` - Still used for community puzzles
 
-**Test Coverage:** 100% (19/19 tests passed)
+**Test Coverage:** Full integration verified
 
 ### Trap Statistics & Adaptive Recommendations (Enhancement + P3) ✅ NEW (Feb 21, 2026)
 Implemented comprehensive trap tracking with personalized recommendations:
