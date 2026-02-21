@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import {
   Loader2,
+  Loader,
   BookOpen,
   ChevronRight,
   ChevronDown,
@@ -18,6 +19,7 @@ import {
   Target,
   Trophy,
   AlertTriangle,
+  AlertCircle,
   Lightbulb,
   Swords,
   Crown,
