@@ -37,6 +37,9 @@ import {
   Shield,
   Eye,
   Flame,
+  BarChart3,
+  Star,
+  Clock,
 } from "lucide-react";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
