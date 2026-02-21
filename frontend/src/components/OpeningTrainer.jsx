@@ -804,6 +804,55 @@ const OpeningTrainer = () => {
                 exit={{ height: 0, opacity: 0 }}
                 className="ml-6 mt-1 space-y-1 overflow-hidden"
               >
+                {/* Stats Toggle Button */}
+                <button
+                  onClick={() => setShowTrapStats(!showTrapStats)}
+                  className={`flex items-center gap-2 w-full p-2 rounded-lg transition-colors ${
+                    showTrapStats ? "bg-primary/20 border border-primary/50" : "hover:bg-muted/50"
+                  }`}
+                  data-testid="trap-stats-toggle"
+                >
+                  <BarChart3 className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">My Statistics</span>
+                  {trapStats && trapStats.total_attempts > 0 && (
+                    <Badge variant="outline" className="ml-auto text-xs">
+                      {trapStats.success_rate}% success
+                    </Badge>
+                  )}
+                </button>
+                
+                {/* Recommendations Section */}
+                {trapRecommendations.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-amber-500 uppercase tracking-wider px-2 py-1 flex items-center gap-1">
+                      <Star className="w-3 h-3" />
+                      Recommended for You
+                    </p>
+                    {trapRecommendations.slice(0, 3).map((rec) => (
+                      <button
+                        key={rec.trap_key}
+                        onClick={() => {
+                          const trick = tricks.find(t => t.key === rec.trap_key);
+                          if (trick) handleSelectTrick(trick);
+                        }}
+                        className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-amber-500/10 transition-colors text-left"
+                        data-testid={`rec-${rec.trap_key}`}
+                      >
+                        <Target className="w-4 h-4 text-amber-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{rec.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{rec.reason}</p>
+                        </div>
+                        <Badge variant="outline" className={`text-xs ${
+                          rec.priority === "high" ? "text-red-400 border-red-400/30" : "text-amber-400 border-amber-400/30"
+                        }`}>
+                          {rec.priority}
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
                 {/* Group by difficulty */}
                 {["beginner", "intermediate", "advanced"].map((difficulty) => {
                   const diffTricks = tricks.filter(t => t.difficulty === difficulty);
@@ -814,35 +863,50 @@ const OpeningTrainer = () => {
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-2 py-1">
                         {difficulty} ({diffTricks.length})
                       </p>
-                      {diffTricks.map((trick, idx) => (
-                        <button
-                          key={trick.key}
-                          onClick={() => handleSelectTrick(trick)}
-                          className={`flex items-center gap-2 w-full p-2 rounded-lg transition-colors text-left ${
-                            selectedTrick?.key === trick.key 
-                              ? "bg-orange-500/20 border border-orange-500/50" 
-                              : "hover:bg-muted/50"
-                          }`}
-                          data-testid={`trick-${trick.key}`}
-                        >
-                          <Swords className={`w-4 h-4 ${
-                            trick.trap_for === "white" ? "text-amber-400" : "text-slate-400"
-                          }`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{trick.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {trick.opening}
-                            </p>
-                          </div>
-                          <Badge variant="outline" className={`text-xs ${
-                            trick.trap_for === "white" 
-                              ? "text-amber-400 border-amber-400/30" 
-                              : "text-slate-400 border-slate-400/30"
-                          }`}>
-                            {trick.trap_for}
-                          </Badge>
-                        </button>
-                      ))}
+                      {diffTricks.map((trick, idx) => {
+                        // Get user's stats for this trap
+                        const trickStat = trapStats?.traps?.[trick.key];
+                        
+                        return (
+                          <button
+                            key={trick.key}
+                            onClick={() => handleSelectTrick(trick)}
+                            className={`flex items-center gap-2 w-full p-2 rounded-lg transition-colors text-left ${
+                              selectedTrick?.key === trick.key 
+                                ? "bg-orange-500/20 border border-orange-500/50" 
+                                : "hover:bg-muted/50"
+                            }`}
+                            data-testid={`trick-${trick.key}`}
+                          >
+                            <Swords className={`w-4 h-4 ${
+                              trick.trap_for === "white" ? "text-amber-400" : "text-slate-400"
+                            }`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{trick.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {trick.opening}
+                              </p>
+                            </div>
+                            {/* Show user's stat for this trap */}
+                            {trickStat && (
+                              <Badge variant="outline" className={`text-xs ${
+                                trickStat.success_rate >= 70 ? "text-green-400 border-green-400/30" :
+                                trickStat.success_rate >= 40 ? "text-amber-400 border-amber-400/30" :
+                                "text-red-400 border-red-400/30"
+                              }`}>
+                                {trickStat.success_rate}%
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className={`text-xs ${
+                              trick.trap_for === "white" 
+                                ? "text-amber-400 border-amber-400/30" 
+                                : "text-slate-400 border-slate-400/30"
+                            }`}>
+                              {trick.trap_for}
+                            </Badge>
+                          </button>
+                        );
+                      })}
                     </div>
                   );
                 })}
