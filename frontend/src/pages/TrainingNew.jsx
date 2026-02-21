@@ -186,6 +186,9 @@ const Training = ({ user }) => {
           allPuzzles = [...allPuzzles, ...communityPuzzles];
         }
         
+        // Filter out puzzles with invalid FENs
+        allPuzzles = allPuzzles.filter(p => isValidFen(p.fen));
+        
         // Shuffle to mix user and community puzzles
         allPuzzles = allPuzzles.sort(() => Math.random() - 0.5);
         
