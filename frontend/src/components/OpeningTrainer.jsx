@@ -434,6 +434,9 @@ const OpeningTrainer = () => {
     setTrickPracticeData(null);
     setTrickMoveIndex(0);
     setTrickChess(null);
+    setAvoidanceValidating(false);
+    setRecognitionAnswer({ hasTrap: null, winningMove: "" });
+    setRecognitionResult(null);
     if (selectedTrick) {
       setBoardFen(selectedTrick.trap_position_fen || START_FEN);
     }
