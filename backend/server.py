@@ -2421,14 +2421,17 @@ async def get_linked_accounts(user: User = Depends(get_current_user)):
     """Get user's linked chess accounts"""
     user_doc = await db.users.find_one(
         {"user_id": user.user_id},
-        {"_id": 0, "chesscom_username": 1, "lichess_username": 1}
+        {"_id": 0, "chess_com_username": 1, "chesscom_username": 1, "lichess_username": 1}
     )
     
     if not user_doc:
         return {"chess_com": None, "lichess": None}
     
+    # Support both field names for backward compatibility
+    chess_com = user_doc.get("chess_com_username") or user_doc.get("chesscom_username")
+    
     return {
-        "chess_com": user_doc.get("chesscom_username"),
+        "chess_com": chess_com,
         "lichess": user_doc.get("lichess_username")
     }
 
