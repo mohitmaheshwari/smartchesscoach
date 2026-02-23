@@ -37,13 +37,20 @@ PATTERN_LABELS = {
     "random_critical_move": "Random moves in critical positions"
 }
 
-# Action directives based on main driver
+# Action directives based on main driver (plain, direct)
 DRIVER_DIRECTIVES = {
     "structural_misjudgment": "Next 5 games: before pawn moves, ask 'what becomes weak after this?'",
     "critical_moment_drift": "Next 5 games: when position changes, pause 10 seconds and scan threats.",
     "missed_forcing_move": "Next 5 games: every move do Checks → Captures → Threats.",
     "advantage_mismanagement": "Next 5 games: when ahead, play safe improving moves—no rushing.",
     "random_critical_move": "Next 5 games: in sharp positions, calculate 2 moves deeper before deciding."
+}
+
+# Weekly focus directives for macro level
+MACRO_DIRECTIVES = {
+    "improving": "Keep doing what you're doing. Your discipline is showing results.",
+    "declining": "This week: slow down. Take 5 extra seconds before each move.",
+    "same": "Time to push. Pick one weakness and drill it this week."
 }
 
 
