@@ -199,8 +199,42 @@ const Training = ({ user }) => {
         // Filter out puzzles with invalid FENs
         allPuzzles = allPuzzles.filter(p => isValidFen(p.fen));
         
-        // Shuffle to mix user and community puzzles
-        allPuzzles = allPuzzles.sort(() => Math.random() - 0.5);
+        // Get training priority to reorder puzzles
+        let priority = null;
+        if (priorityRes.ok) {
+          priority = await priorityRes.json();
+          setTrainingPriority(priority);
+        }
+        
+        // Get cognitive patterns
+        if (patternsRes.ok) {
+          const patternsData = await patternsRes.json();
+          setCognitivePatterns(patternsData);
+        }
+        
+        // Sort puzzles: Prioritized by weakness, then random
+        // This reorders but does NOT remove content
+        if (priority && priority.puzzle_priority_order && priority.puzzle_priority_order.length > 0) {
+          const priorityOrder = priority.puzzle_priority_order;
+          allPuzzles = allPuzzles.sort((a, b) => {
+            const aType = a.issue_type || a.mistake_type || "";
+            const bType = b.issue_type || b.mistake_type || "";
+            
+            const aIndex = priorityOrder.findIndex(p => aType.includes(p));
+            const bIndex = priorityOrder.findIndex(p => bType.includes(p));
+            
+            // Prioritized puzzles come first
+            if (aIndex !== -1 && bIndex === -1) return -1;
+            if (aIndex === -1 && bIndex !== -1) return 1;
+            if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+            
+            // Then random for non-prioritized
+            return Math.random() - 0.5;
+          });
+        } else {
+          // No priority, just shuffle
+          allPuzzles = allPuzzles.sort(() => Math.random() - 0.5);
+        }
         
         setPuzzles(allPuzzles);
         
@@ -242,7 +276,7 @@ const Training = ({ user }) => {
     }
   };
   
-  // Filter puzzles based on source selection
+  // Filter puzzles based on source selection and training mode
   const filteredPuzzles = puzzles.filter(p => {
     if (puzzleSource === "all") return true;
     if (puzzleSource === "my_games") return p.source === "my_game";
