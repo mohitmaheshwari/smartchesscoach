@@ -6,28 +6,58 @@ A) MICRO: Now vs Then (Recent 5 vs Previous 5)
 B) MACRO: Becoming vs Started (Recent 15 vs First 15)
 C) EVIDENCE: 2 clickable game links
 
-Core Rules:
-- No "no change" spam
-- Always show exactly 3 rows (micro), 4 rows (macro)
-- Impact scoring to pick headline
-- Banding instead of raw numbers
+Tone: Plain Indian-English, simple, direct.
 """
 
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
 
 
+# Plain Indian-English labels for stability
+STABILITY_LABELS = {
+    "STABLE": "Mostly steady",
+    "MIXED": "Sometimes steady, sometimes careless",
+    "VOLATILE": "Too many ups and downs",
+    "CHAOTIC": "Very inconsistent"
+}
+
+# Plain Indian-English labels for risk
+RISK_LABELS = {
+    "LOW": "Usually converts advantage",
+    "MEDIUM": "Sometimes relaxes when ahead",
+    "HIGH": "Often throws advantage"
+}
+
+# Pattern names in plain language
+PATTERN_LABELS = {
+    "structural_misjudgment": "Structural mistakes",
+    "critical_moment_drift": "Missing key moments", 
+    "missed_forcing_move": "Missing winning moves",
+    "advantage_mismanagement": "Losing focus when ahead",
+    "random_critical_move": "Random moves in critical positions"
+}
+
+# Action directives based on main driver
+DRIVER_DIRECTIVES = {
+    "structural_misjudgment": "Next 5 games: before pawn moves, ask 'what becomes weak after this?'",
+    "critical_moment_drift": "Next 5 games: when position changes, pause 10 seconds and scan threats.",
+    "missed_forcing_move": "Next 5 games: every move do Checks → Captures → Threats.",
+    "advantage_mismanagement": "Next 5 games: when ahead, play safe improving moves—no rushing.",
+    "random_critical_move": "Next 5 games: in sharp positions, calculate 2 moves deeper before deciding."
+}
+
+
 class StabilityBand(Enum):
-    STABLE = "Stable"
-    MIXED = "Mixed"
-    VOLATILE = "Volatile"
-    CHAOTIC = "Chaotic"
+    STABLE = "STABLE"
+    MIXED = "MIXED"
+    VOLATILE = "VOLATILE"
+    CHAOTIC = "CHAOTIC"
 
 
 class RiskBand(Enum):
-    LOW = "Low"
-    MEDIUM = "Medium"
-    HIGH = "High"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
 
 
 class SeverityBand(Enum):
@@ -66,6 +96,10 @@ def get_stability_band(tsi_avg: float) -> StabilityBand:
     return StabilityBand.CHAOTIC
 
 
+def get_stability_label(band: StabilityBand) -> str:
+    return STABILITY_LABELS.get(band.value, "Unknown")
+
+
 def get_risk_band(blunder_rate: float) -> RiskBand:
     """Map blunders-when-ahead rate to risk band."""
     if blunder_rate <= 30:
@@ -73,6 +107,14 @@ def get_risk_band(blunder_rate: float) -> RiskBand:
     elif blunder_rate <= 55:
         return RiskBand.MEDIUM
     return RiskBand.HIGH
+
+
+def get_risk_label(band: RiskBand) -> str:
+    return RISK_LABELS.get(band.value, "Unknown")
+
+
+def get_pattern_label(key: str) -> str:
+    return PATTERN_LABELS.get(key, key.replace("_", " ").title())
 
 
 def get_severity_band(score: float) -> SeverityBand:
