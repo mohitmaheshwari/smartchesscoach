@@ -78,6 +78,8 @@ const Journey = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [cognitiveData, setCognitiveData] = useState(null);
   const [trendData, setTrendData] = useState([]);
+  const [blunderContext, setBlunderContext] = useState(null);
+  const [phaseInsight, setPhaseInsight] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -86,9 +88,12 @@ const Journey = ({ user }) => {
 
   const fetchCognitiveData = async () => {
     try {
-      const [patternsRes, trendRes] = await Promise.all([
+      // Fetch all data in parallel
+      const [patternsRes, trendRes, blunderRes, phaseRes] = await Promise.all([
         fetch(`${API}/cognitive/patterns`, { credentials: "include" }),
-        fetch(`${API}/cognitive/trend`, { credentials: "include" }).catch(() => null)
+        fetch(`${API}/cognitive/trend`, { credentials: "include" }).catch(() => null),
+        fetch(`${API}/cognitive/blunder-context`, { credentials: "include" }).catch(() => null),
+        fetch(`${API}/cognitive/phase-insight`, { credentials: "include" }).catch(() => null)
       ]);
       
       if (patternsRes.ok) {
@@ -99,6 +104,16 @@ const Journey = ({ user }) => {
       if (trendRes && trendRes.ok) {
         const trend = await trendRes.json();
         setTrendData(trend.data || []);
+      }
+      
+      if (blunderRes && blunderRes.ok) {
+        const blunder = await blunderRes.json();
+        setBlunderContext(blunder);
+      }
+      
+      if (phaseRes && phaseRes.ok) {
+        const phase = await phaseRes.json();
+        setPhaseInsight(phase);
       }
     } catch (e) {
       console.error("Failed to fetch cognitive data:", e);
