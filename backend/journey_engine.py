@@ -521,11 +521,11 @@ def compute_macro(recent_15: List[Dict], first_15: List[Dict],
     stability_delta = recent_tsi_avg - first_tsi_avg
     
     if stability_delta >= 8:
-        stability_clause = "Overall you're improving, but still work to do."
+        stability_clause = "Getting better over time. Keep it up."
     elif stability_delta <= -8:
-        stability_clause = "Your stability has dropped compared to earlier."
+        stability_clause = "Slipped compared to when you started."
     else:
-        stability_clause = "No big change over time yet."
+        stability_clause = "About the same as before."
     
     # Row 2: Weakness Evolution
     first_driver, first_share = get_primary_driver(first_patterns)
@@ -533,7 +533,7 @@ def compute_macro(recent_15: List[Dict], first_15: List[Dict],
         first_driver_band = get_severity_band(first_patterns.get(first_driver, 0))
         recent_driver_band = get_severity_band(recent_patterns.get(first_driver, 0))
         driver_evolution = {
-            "driver": first_driver.replace("_", " ").title(),
+            "driver": get_pattern_label(first_driver),
             "first_band": first_driver_band.value,
             "recent_band": recent_driver_band.value,
             "changed": first_driver_band != recent_driver_band
@@ -541,27 +541,27 @@ def compute_macro(recent_15: List[Dict], first_15: List[Dict],
     else:
         driver_evolution = {
             "driver": None,
-            "text": "Primary weakness unchanged"
+            "text": "No clear pattern"
         }
     
     # Row 3: Phase Evolution
     phase_changed = first_phase != recent_phase
     
-    # Row 4: Peer Context
+    # Row 4: Peer Context - simple
     cohort = get_rating_cohort(user_rating)
     peer_delta = recent_tsi_avg - cohort["avg_tsi"]
     
     if len(recent_15) < 10:
-        peer_text = "Peer comparison unavailable (insufficient games)"
+        peer_text = "Need more games to compare"
         peer_status = "unavailable"
     elif peer_delta >= 8:
-        peer_text = "Compared to similar-rated players: Above average"
+        peer_text = "Better than most at your rating"
         peer_status = "above"
     elif peer_delta <= -8:
-        peer_text = "Compared to similar-rated players: Below average"
+        peer_text = "Below average for your rating"
         peer_status = "below"
     else:
-        peer_text = "Compared to similar-rated players: In line"
+        peer_text = "About average for your rating"
         peer_status = "inline"
     
     # Determine macro directive
