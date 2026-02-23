@@ -46,9 +46,12 @@ const Onboarding = () => {
   const [verifyingChessCom, setVerifyingChessCom] = useState(false);
   const [verifyingLichess, setVerifyingLichess] = useState(false);
   
-  // Step 2: Skill + Focus
+  // Auto-detected from linked account
+  const [detectedRating, setDetectedRating] = useState(null);
+  const [detectedPlatform, setDetectedPlatform] = useState("");
+  
+  // Step 2: Skill + Focus (simplified - no self-rating)
   const [fideRating, setFideRating] = useState("");
-  const [selfRating, setSelfRating] = useState("intermediate");
   const [focusIntent, setFocusIntent] = useState("");
   
   // Analysis state
