@@ -1,151 +1,142 @@
 <analysis>**original_problem_statement:**
-The user's high-level goal is to build a sophisticated, adaptive chess coaching application. The project involves fixing data integrity issues, enhancing existing features, and building a new Trick Library from the ground up.
+The user's high-level goal is to build a sophisticated, adaptive chess coaching application that acts as a thinking coach rather than just an engine analysis wrapper. The project has evolved from building features to refining the application's logic to diagnose and correct cognitive patterns and thinking errors.
 
 Key user requests and product direction:
-1.  **Fix Data Hallucinations:** The user has zero tolerance for incorrect analysis, such as checkmate moves being labeled as blunders or incorrect opening names.
-2.  **Enhance User Feedback:** Move away from generic feedback (Tactical Awareness) to specific, actionable insights for each puzzle (e.g., Hanging Piece, Knight Fork).
-3.  **Build a Trick Library (Phase 4):** Create a comprehensive library of common chess traps.
-    *   **Content:** A curated list of ~20 famous traps (e.g., Scholar's Mate, Fried Liver Attack) and tactics pulled from the Lichess puzzle database, filtered by opening.
-    *   **Location:** A new sub-section within the Opening Trainer page.
-    *   **Premium Interaction Modes:**
-        1.  **Execution/Learning Mode:** An interactive playthrough where the user plays the trap-setting moves, and the engine plays the victim's moves automatically. This is for teaching the pattern.
-        2.  **Avoidance Mode:** The engine attempts to trap the user, who must find the correct defensive moves.
-        3.  **Recognition Mode:** The user is shown a position and must identify if a trap is present.
-4.  **Implement Smart Puzzle Validation:** When a user attempts a puzzle, the system must not only validate if the move is correct but also provide intelligent, deterministic feedback for any move played. It should use the Stockfish engine to analyze the user's move, explain why it's a mistake (e.g., This move is a blunder because it loses the queen), and explain why the correct move is better.
+1.  **Eliminate Data Hallucinations:** The user has zero tolerance for incorrect or hallucinated analysis from the LLM, such as misidentifying tactical patterns or providing nonsensical explanations.
+2.  **Focus on Human-Improvable Errors:** The application must distinguish between minor engine preferences and genuine, human-improvable mistakes (e.g., missed tactics, violated principles). The Lab should not be a list of all engine disagreements.
+3.  **Implement a Cognitive Diagnosis-Prescription-Audit Loop:**
+    *   **Diagnosis:** Analyze games to identify recurring cognitive weaknesses (e.g., Missed Forcing Moves, Phantom Threat Reaction) instead of just move-level errors.
+    *   **Prescription:** Prioritize and recommend specific training drills (puzzles, traps) based on the user's primary diagnosed weakness.
+    *   **Audit:** Track user progress against the focus weakness over a sliding window of games.
+4.  **Shape User Behavior:** Frame feedback and coaching in actionable, behavioral terms (e.g., You are not scanning checks and captures consistently) rather than dry, analytical labels. Provide simple, 3-step protocols to correct habits.
+5.  **Reduce UI Noise:** The UI should be sharp and focused, presenting only the primary weakness to avoid cognitive overload for the user.
+6.  **Create a Thinking Stability Index (TSI):** Implement a derived metric that represents the stability of a user's decision-making process, complete with interpretive bands (e.g., Stable, High Volatility).
 
 **User's preferred language**: English
 
 **what currently exists?**
-- A full-stack application (React/FastAPI/MongoDB) with a chess analysis and training platform.
-- The 0% accuracy bug in the Opening Trainer has been **fixed**. Openings now display correct accuracy data.
-- A **Compare to Community** feature has been implemented in the Opening Trainer, showing a user's opening accuracy against the community average for their rating bracket.
-- The core analysis engine in  has been fixed to correctly handle checkmate moves, preventing them from being misclassified as blunders.
-- Several data integrity issues related to Unknown Openings have been resolved through both a data backfill script and a permanent fix to the game import service to handle case-insensitive PGN headers.
-- The Puzzles section on the Training page has been significantly improved:
-    - Board position and orientation now correctly match the puzzle's context (move number and user's color).
-    - Generic feedback has been replaced with specific What Went Wrong cards detailing the tactical theme of each puzzle (e.g., Hanging Piece, Knight Fork).
-- The **Trick Library (Phase 4)** has been implemented with a hardcoded database of traps and a UI integrated into the  component. The interactive **Execution/Learning Mode** is complete.
+- A full-stack chess application (React/FastAPI/MongoDB) with a Lab for game analysis, Training for puzzles/traps, and a Journey for weakness trends.
+- **Puzzle Difficulty Progression:** A complete Elo-based rating system for puzzles is implemented on both the backend and frontend.
+- **Coach vs. Engine Mode:** The Lab features a toggle allowing users to switch between Coach Mode (showing only significant, actionable mistakes) and Engine Mode (showing all engine disagreements).
+- **Cognitive Diagnosis Backend:** A new service () has been created. It aggregates mistakes from games into cognitive patterns, calculates a Thinking Stability Index (TSI), and determines a primary focus area for the user. It also contains the logic for behavioral framing and TSI interpretation bands.
+- **Training Prioritization:** The Training page now features a Your Focus Area card that displays the primary weakness, the TSI score, and a trend indicator. It also includes a Recommended vs. Browse All toggle for training content.
 
 **Last working item**:
--   **Last item agent was working:** The user reported two critical issues with the puzzle system: 1) A bug where wrong moves were being accepted as correct, and 2) a feature request to build a Smart Puzzle Validation system that uses Stockfish to provide deterministic feedback on any move the user plays. The agent confirmed the backend validation API was working but was in the process of rewriting the  function to implement the smart feedback feature.
+-   **Last item agent was working:** Implementing the Behavior Shaping and Noise Reduction UI refinements requested by the user. The agent had just finished updating the backend service () to include behavioral messaging, micro-protocols, and TSI interpretation bands.
 -   **Status:** IN PROGRESS
 -   **Agent Testing Done:** N
 -   **Which testing method agent to use?** both
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Puzzle validation accepts wrong moves (P0)**
-    -   **Attempted fixes:** The agent tested the backend API endpoint () and found it correctly returned  for wrong moves. This suggests the bug is on the frontend, where the application is likely not handling the API response correctly.
-    -   **Next debug checklist:**
-        1.  Examine the  function in .
-        2.  Inspect the  call to the validation endpoint and the subsequent logic that processes the response.
-        3.  Verify that the UI correctly displays the Incorrect state when the API returns .
-    -   **Why fix this issue and what will be achieved with the fix?** This is a critical bug that undermines the core purpose of the puzzle trainer. Fixing it will ensure users receive correct feedback on their attempts.
-    -   **Status:** NOT STARTED
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Frontend
+-   **Issue 1: LLM Hallucination Risk (P0)**
+    -   **Description:** The application has a recurring issue where the LLM, used for generating explanations, produces factually incorrect or hallucinated content (e.g., trapping a knight on b1 in the opening, describing a capture as an undefended piece). While a specific bug in piece trap detection was fixed, the underlying risk of the LLM ignoring prompt instructions remains.
+    -   **Attempted fixes:** The agent made the LLM prompt stricter, provided more context (like whether a move is a capture), and fixed a deterministic analysis bug that was feeding the LLM bad data.
+    -   **Next debug checklist:** Review all calls to the . Consider adding a final validation layer that cross-references the LLM output against the board state before showing it to the user. Explore replacing the LLM with deterministic, template-based explanations for more categories of mistakes.
+    -   **Why fix this issue and what will be achieved with the fix?** This is the user's #1 frustration. Fixing it is critical for product credibility and user trust.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** Y
+    -   **Should Test frontend/backend/both after fix?** Backend
 
 **In progress Task List**:
--   **Task 1: Implement Smart Puzzle Validation System (P0)**
-    -   **Where to resume:** The agent was about to modify the  function in .
-    -   **What will be achieved with this?** This will create a premium user experience. Instead of simple correct/incorrect feedback, the system will use the Stockfish engine to analyze the user's attempted move in real-time. It will return a detailed explanation of why the move is a blunder, mistake, or inaccuracy, and compare it to the best move, explaining the tactical or positional consequences.
+-   **Task 1: Implement Behavior Shaping & UI Noise Reduction (P0)**
+    -   **Where to resume:** The backend logic is complete in . The next steps are all on the frontend.
+        1.  Modify  to **remove the secondary weaknesses** from the Training Focus card, showing only the single primary focus area.
+        2.  In , add a Focus Mode banner at the top of the page when a focus is active (e.g., Active Focus: Forcing Move Awareness. Did you scan forcing moves before each decision?).
+        3.  Implement a Micro-Protocol Card that appears when a focus is activated, showing a simple 3-step behavioral checklist.
+        4.  Update the UI component that displays the TSI to include the new interpretation bands (e.g., Stable decision process).
+    -   **What will be achieved with this?** This will complete the user's vision of turning the app from an analytical tool into a behavioral shaping coach, making the feedback sharper and more actionable.
     -   **Status:** IN PROGRESS
     -   **Should Test frontend/backend/both after fix?** Both
-    -   **Blocked on something:** The frontend validation bug (Issue 1) should be fixed concurrently to properly display the rich feedback from this new system.
+    -   **Blocked on something:** No
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **P1: Implement Avoidance Mode for Trick Library:** Build the interactive mode where the engine tries to trap the user, and the user must find the correct defensive moves.
-    -   **P1: Implement Recognition Mode for Trick Library:** Build the mode where the user is shown a position and must answer Yes/No to whether a known trap is present.
+    -   **P1: Validate Coaching Loop in Real Usage:** After the current UI refinements are complete, the next step is to test the entire Diagnosis-Prescription-Audit loop with real games to see if it successfully changes user behavior and if the training prioritization feels natural. This involves tweaking thresholds based on real-world results.
+    -   **P1: Re-analyze existing games:** Implement a background job to re-calculate analysis for old games using the new cognitive classification logic. This ensures data consistency.
 -   **Future Tasks:**
-    -   **P2: Build Community Learning (Phase 3):** Create a shared pool of puzzles from all users.
-    -   **P3: Add Adaptive Trap Recommendations:** Suggest traps for a user to study based on the openings they play or the traps they have fallen for.
-    -   **P3: Re-analyze existing games:** Implement a background job to re-calculate accuracy for old games.
+    -   **P2: Personal Leak Timeline:** Once the coaching loop is stable and validated, build a visual graph showing the trend of each cognitive category over the last 30 games.
 
 **Completed work in this session**
--   **Fixed 0% Opening Accuracy Bug:** Corrected the MongoDB aggregation in  to properly calculate and display opening accuracies.
--   **Built Compare to Community Feature:** Implemented backend logic and frontend UI to show a user's opening accuracy vs. the community average.
--   **Fixed Checkmate-as-Blunder Bug:** Corrected the  calculation in  to prevent checkmate moves from being flagged as blunders. Re-analyzed the affected game.
--   **Fixed Multiple Unknown Opening Bugs:**
-    -   Fixed a logic error where the code looked for the wrong field name ( vs. ).
-    -   Created and ran a data backfill script to add opening names to all games by parsing PGNs.
-    -   Made the game import service case-insensitive to prevent future data gaps.
--   **Built Trick Library (Execution Mode):** Created the backend service, API endpoints, and frontend UI for the new Trick Library, including the fully interactive Learn the Trap (Execution) mode.
--   **Resolved Multiple Puzzle UI Bugs:**
-    -   Fixed board to show the correct position instead of the start position.
-    -   Fixed board orientation to respect the user's color (black or white).
-    -   Replaced generic feedback with specific puzzle theme cards (e.g., Hanging Piece).
+-   **Puzzle Difficulty Progression UI (DONE):** Completed the frontend for the Elo-based puzzle rating system, including a rating card, progress display, and level-up notifications.
+-   **Hallucination Bug Fixed (DONE):** Identified and fixed a critical bug in  that incorrectly detected piece traps in the opening, which led to LLM hallucinations.
+-   **Coach vs. Engine Mode (DONE):** Implemented the Coach Mode toggle in the Lab, which filters out low-impact engine preferences to focus on actionable mistakes.
+-   **Capture Explanation Logic (DONE):** Improved the mistake explanation service to correctly identify capture moves and provide more relevant LLM context, preventing undefended piece errors on exchanges.
+-   **Cognitive Architecture (Backend DONE):** Built the backend for the Diagnosis-Prescription-Audit loop, including cognitive pattern classification and the Thinking Stability Index (TSI).
+-   **Training Focus UI (DONE):** Added the Your Focus Area card to the Training page, displaying the primary weakness and TSI.
+-   **App Documentation () (DONE):** Created and then significantly enhanced a comprehensive  file detailing the application's features, APIs, and the new cognitive architecture.
+
+**Earlier issues found/mentioned but not fixed**
+-   The core risk of the LLM generating hallucinated or low-quality explanations, while mitigated, is not fully eliminated. The system is still dependent on an LLM for some natural language generation, which carries inherent risk.
+
+**Known issue recurrence from previous fork**
+- None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Dynamic Puzzle Evaluation:** The new requirement is to use the Stockfish engine on the backend to evaluate a user's puzzle attempt in real-time and generate a rich, deterministic explanation of why their move was good or bad.
--   **Interactive PGN Replay:** The Execution Mode in the Trick Library uses a sequence of moves from a PGN to create an interactive tutorial, where the user plays one side's moves and the engine automatically responds with the other side's moves.
--   **MongoDB Aggregation Pipelines:** Used extensively to fix the opening accuracy bug and implement the community comparison feature by joining collections and calculating group statistics.
--   **Data Backfilling:** A script was created and run to fix data integrity issues (missing opening names) across the entire  collection, demonstrating a crucial pattern for maintaining production data.
+-   **Cognitive Diagnosis & Prioritization:** Aggregating low-level engine mistakes into high-level, human-understandable cognitive patterns (e.g., Missed Forcing Move). Using these patterns to prioritize training content.
+-   **Behavioral Framing:** Shifting from analytical feedback (e.g., Inaccuracy) to actionable, behavioral coaching (e.g., You are not scanning for checks and captures).
+-   **Dynamic UI Modes (Coach/Engine):** Using a stateful toggle on the frontend to conditionally filter and display data, providing two distinct user experiences (focused coaching vs. deep analysis).
+-   **Deterministic Analysis as a Guardrail for LLMs:** Fixing a bug in a deterministic analysis function () was the key to stopping a specific LLM hallucination, highlighting the importance of feeding LLMs clean, accurate data.
 
 **key DB schema**
--   **game_analyses:** 
--   **games:** 
--   **position_evals:** 
--   **puzzles:** 
-
-**changes in tech stack**
--   None.
+-   No major schema changes were made. The new cognitive patterns and TSI are derived dynamically from existing  data on-the-fly to avoid schema explosion. The only new persisted data would be related to the user's active focus module and timestamp.
 
 **All files of reference**
--    (Location of the pending Smart Validation feature).
--    (Location of the likely frontend validation bug and puzzle UI).
--    (Contains the new Trick Library data).
--    (Contains the Trick Library UI).
--    (Contains the fix for the checkmate bug).
+-   : The core of the new coaching logic.
+-   : The location for the next UI changes (noise reduction).
+-   : The location for adding the Focus Mode Banner.
+-   : Contains the fix for the piece trap hallucination bug.
+-   : Contains the improved LLM prompting logic.
+-   : The comprehensive documentation file.
 
 **key api endpoints**
--   : The endpoint for puzzle validation. Needs to be enhanced for the Smart Validation feature.
--   : Fetches the list of all hardcoded traps.
--   : Fetches the detailed data for a specific trap for the interactive practice modes.
+-   : **NEW** - Fetches the user's cognitive weakness profile and Thinking Stability Index.
+-   : **NEW** - Fetches the prioritized training plan for the user.
+-   : The endpoint that was failing due to a  and is now fixed.
+-   : Fetches the user's puzzle rating and history.
 
 **Critical Info for New Agent**
--   There are two P0 tasks that must be addressed together:
-    1.  **Fix the puzzle validation bug:** It seems to be on the frontend in , as the backend API is behaving correctly.
-    2.  **Build the Smart Validation feature:** This is a backend task in . The goal is to use Stockfish to analyze the user's move and provide rich, deterministic feedback, not just correct or incorrect.
--   After resolving the puzzle issues, the next priority is to build the remaining two practice modes for the Trick Library: Avoidance Mode and Recognition Mode.
+-   The project's philosophy has fundamentally shifted from *feature building* to *behavior shaping*. The user wants a thinking coach, not just an analytics dashboard. All future work should align with this principle.
+-   Your immediate priority is to complete the frontend UI refinements for the Behavior Shaping task. This involves reducing noise and making the coaching feedback more prominent and actionable, as detailed in the In progress Task List.
+-   The user has a very low tolerance for LLM hallucinations. Be extremely critical of any LLM-generated content. Fixing the root cause of these issues is a higher priority than building new features.
 
 **documents and test reports created in this job**
--    (Updated with completed work).
+-   
+-    (covered puzzle progression)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** i found a bug in puzzles, it showed me a puzzle and asked for the move, i played the wrong move , it showed correct... also, can we find out if that is a better move than what was played... with determinisic... - **PENDING**. This is the current P0 task: fix the validation bug and build the smart feedback feature.
-2.  **User:** in the puzzles, the board shows move 12, but the psoition is 0 move , fix the issue - **RESOLVED**. Agent fixed a prop mismatch ( vs ) in .
-3.  **User:** for the puzzle, also show user color and the board should be setup like that... - **RESOLVED**. Agent fixed a prop mismatch ( vs ) and improved the UI badge.
-4.  **User:** it says tactical awareness , but i dont think that is a tactical awareness puzzle... it was a simple hanging rook" - **RESOLVED**. Agent updated the puzzle UI to show the specific theme (e.g., "Hanging Piece") instead of a generic category.
-5.  **User:** "we dont need the find the winning move, it should show the compelte trap with engine... - **RESOLVED**. Agent changed the Trick Library's execution mode from a test to a guided learning experience.
-6.  **User:** it should be a way where we play the trap and computer supports the trap, from start... - **RESOLVED**. Agent implemented the fully interactive execution mode for the Trick Library.
-7.  **User:** Provided detailed product requirements for the Trick Library, including new traps and three specific practice modes (Execution, Avoidance, Recognition). - **ADDRESSED**. Agent adopted this plan.
-8.  **User:** why there is no opening name in strategy here... can we fix this for all please? - **RESOLVED**. Agent created a backfill script and fixed the import service to be case-insensitive.
-9.  **User:** my question is why was it showing as blunder but? - **RESOLVED**. Agent explained the logic bug in  calculation for checkmate moves.
-10. **User:** it shows blunder on move 8... how come this recognised as a blunder?? - **RESOLVED**. Agent fixed the core analysis logic for checkmate moves and re-analyzed the game.
+1.  **User (pending):** Provided detailed instructions for the next phase: Behavior Shaping. Key points are to kill UI noise, use behavioral framing, add a focus banner in the Lab, create micro-protocol cards, and add interpretation to the TSI. This is the current active task.
+2.  **User:** Confirmed the refined plan for the cognitive architecture, emphasizing aggregation over new engines and keeping it simple.
+3.  **User:** Initiated the Cognitive Priority Reframing architecture clarification.
+4.  **User:** Confirmed the  file now has the end-to-end user flow.
+5.  **User:** Asked if  includes the end-to-end user flow.
+6.  **User:** Stated they couldn't find  in their Git repo.
+7.  **User:** Requested the creation of a comprehensive  file.
+8.  **User:** Reported a bug: Could not generate explanation.
+9.  **User:** Pointed out that the Coach vs. Engine mode data didn't seem to be changing and reported another bad explanation for a capture move.
+10. **User:** Provided a detailed architectural vision for making the Lab smarter, introducing the concepts of puzzle thresholds, classifying prophylaxis, and integrating user reflections. This was a major pivot for the project.
 
 **Project Health Check:**
--   **Broken:** The puzzle validation logic on the frontend is not correctly processing the backend's response, leading to wrong moves being marked as correct.
+-   **Broken:** The What can I learn here explanation generation was broken due to a  but has been fixed.
 -   **Mocked:** None.
 
 **3rd Party Integrations**
--   **Stockfish:** Used via  for all local game analysis and will be used for the new smart puzzle validation feature.
+-   **Stockfish:** Used via  for all local game analysis and puzzle validation.
 -   **:** Frontend chessboard UI library.
--   ** (GPT-4o-mini):** Used for generating natural language explanations. Uses the Emergent LLM Key.
+-   ** (GPT-4o-mini):** Used for generating natural language explanations. Uses the Emergent LLM Key. This is a source of recurring quality issues (hallucinations).
 -   **Lichess Opening Explorer API:** Used to fetch supplemental statistics for openings.
--   **Lichess Puzzle API:** Planned for use in the Trick Library to pull Opening Tactic puzzles.
 
 **Testing status**
--   **Testing agent used after significant changes:** NO
+-   **Testing agent used after significant changes:** YES, for the puzzle difficulty progression feature.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** No new test files were created in this session.
--   **Known regressions:** The puzzle validation appears to have regressed and is now a P0 bug.
+-   **Test files created:** 
+-   **Known regressions:** None.
 
 **Credentials to test flow:**
 -   Use the Dev Login button on the application's landing page for seamless access.
 
 **What agent forgot to execute**
--   The agent has not yet implemented the Avoidance Mode and Recognition Mode for the Trick Library, which were part of the user's detailed plan. These are the next upcoming features after the current puzzle issues are resolved.</analysis>
+-   The agent has not yet implemented the frontend changes for the Behavior Shaping task (Task 1 in the In Progress list). The backend logic is done, but the UI work (reducing noise in Training, adding the banner in Lab) is pending.</analysis>
