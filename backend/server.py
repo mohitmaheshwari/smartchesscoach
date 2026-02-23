@@ -4136,7 +4136,8 @@ async def get_onboarding_status(user: User = Depends(get_current_user)):
 
 class ProfileSettingsRequest(BaseModel):
     fide_rating: Optional[int] = None
-    self_rating: Optional[str] = None  # beginner, intermediate, advanced
+    detected_rating: Optional[int] = None  # Auto-detected from linked account
+    detected_platform: Optional[str] = None  # chess.com or lichess
     focus_intent: Optional[str] = None  # tactics, openings, endgames, stability
 
 
@@ -4144,16 +4145,24 @@ class ProfileSettingsRequest(BaseModel):
 async def update_profile_settings(req: ProfileSettingsRequest, user: User = Depends(get_current_user)):
     """
     Update user profile settings from onboarding.
-    - fide_rating: Used for puzzle difficulty calibration
-    - self_rating: User's self-assessment (beginner/intermediate/advanced)
+    - fide_rating: Official FIDE rating (optional)
+    - detected_rating: Auto-detected from Chess.com/Lichess
     - focus_intent: What user wants to improve (doesn't override diagnosis)
     """
     update_data = {}
     
     if req.fide_rating is not None:
         update_data["fide_rating"] = req.fide_rating
-    if req.self_rating is not None:
-        update_data["self_rating"] = req.self_rating
+    if req.detected_rating is not None:
+        update_data["detected_rating"] = req.detected_rating
+        update_data["detected_platform"] = req.detected_platform
+        # Auto-classify skill level based on rating
+        if req.detected_rating >= 1800:
+            update_data["skill_level"] = "advanced"
+        elif req.detected_rating >= 1200:
+            update_data["skill_level"] = "intermediate"
+        else:
+            update_data["skill_level"] = "developing"
     if req.focus_intent is not None:
         update_data["focus_intent"] = req.focus_intent
     
