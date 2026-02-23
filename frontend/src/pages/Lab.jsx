@@ -710,10 +710,25 @@ const Lab = ({ user }) => {
   // Filter milestones based on mode
   const displayedMilestones = useMemo(() => {
     if (!coachMode) {
-      // Engine Mode - show everything
-      return groupedMilestones;
+      // Engine Mode - merge learning_moments and engine_preferences into one combined view
+      const engineResult = groupedMilestones.map(group => {
+        if (group.type === 'learning_moments') {
+          // Find engine preferences and merge them
+          const enginePrefs = groupedMilestones.find(g => g.type === 'engine_preferences');
+          if (enginePrefs && enginePrefs.items.length > 0) {
+            return {
+              ...group,
+              label: "All Engine Findings",
+              items: [...group.items, ...enginePrefs.items].sort((a, b) => a.move_number - b.move_number),
+              count: group.items.length + enginePrefs.items.length
+            };
+          }
+        }
+        return group;
+      }).filter(g => g.type !== 'engine_preferences'); // Remove the separate engine_preferences group
+      return engineResult;
     }
-    // Coach Mode - hide engine preferences
+    // Coach Mode - hide engine preferences (only show human-improvable errors)
     return groupedMilestones.filter(g => !g.hidden);
   }, [groupedMilestones, coachMode]);
 
