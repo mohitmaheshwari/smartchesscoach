@@ -531,6 +531,18 @@ def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_chan
         if "error" in position:
             return {"tags": [], "could_not_infer": True, "reason": "Invalid position"}
         
+        # Check if user is in check - they DEFINITELY noticed the checking piece
+        import chess
+        board = chess.Board(fen)
+        is_in_check = board.is_check()
+        checking_squares = set()
+        if is_in_check:
+            # Find all pieces giving check
+            king_square = board.king(board.turn)
+            if king_square is not None:
+                for attacker_sq in board.attackers(not board.turn, king_square):
+                    checking_squares.add(chess.square_name(attacker_sq))
+        
         # Analyze what the user's move actually does
         user_analysis = analyze_move(fen, user_move)
         if "error" in user_analysis:
