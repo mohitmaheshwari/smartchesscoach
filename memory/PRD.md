@@ -15,6 +15,45 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 23, 2026)
 
+### Journey Page Patch: Reuse Existing Pattern Logic ✅ COMPLETE (Feb 23, 2026)
+
+**Problem:** Journey page had its own pattern analysis logic. This duplicated existing `/progress` page logic.
+
+**Solution:** Refactored Journey to **reuse existing pattern detection** from `baseline_service.py`:
+- `detect_weakness_patterns()` - For Top Issues detection
+- `calculate_blunder_context_stats()` - For Advantage Discipline analysis
+
+**Changes Made:**
+
+| Tab | What Changed |
+|-----|--------------|
+| A (Now) | Shows **Top 1 Issue** via `top_issue` field (reuses `detect_weakness_patterns`) |
+| B (Journey) | Primary Driver Evolution shows `then_driver → now_driver` with `then_impact → now_impact` |
+| C (Trend) | Shows **Top 3 Issues** via `top_issues` array + **Advantage Shift** (5 vs 5) with evidence |
+
+**Tab C - Trend Additions:**
+- **Top Issues Right Now**: Up to 3 issues (only if `occurrence_pct >= 25%`)
+- **When Ahead (5 vs 5)**: Advantage Discipline change with `previous → recent` and direction arrow
+- **Evidence**: 2 clickable links with `game_id` and `move_number` → Opens Lab at `/game/{id}?move={n}&src=journey`
+
+**Backend Imports:**
+```python
+from baseline_service import (
+    calculate_blunder_context_stats,  # For advantage discipline
+    detect_weakness_patterns           # For top issues
+)
+```
+
+**Explicit Exclusions (NOT in Journey):**
+- ❌ Opening progress tables
+- ❌ Fundamentals scorecards (Endgame %, Positional %, etc.)
+- ❌ Practice games lists
+- ❌ Generic advice paragraphs
+
+**Test Report:** `/app/test_reports/iteration_68.json` - 100% pass (20/20 backend, all UI verified)
+
+---
+
 ### Journey Page 3-Tab Redesign ✅ COMPLETE (Feb 23, 2026)
 
 **Problem:** Journey page felt like a stats dashboard rather than a cognitive journey. Indian users wanted a clear before/after progress view.
