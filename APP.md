@@ -425,24 +425,120 @@ This is how all features work together:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    THE COACHING LOOP                        │
+│          COGNITIVE DIAGNOSIS → PRESCRIPTION → AUDIT         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │   1. PLAY GAMES (external)                                  │
 │        ↓                                                    │
 │   2. SYNC → Games imported automatically                    │
 │        ↓                                                    │
-│   3. ANALYZE → Stockfish + AI analysis                      │
+│   3. ANALYZE → Stockfish + Cognitive Classification         │
 │        ↓                                                    │
-│   4. LAB → Review mistakes, understand WHY                  │
+│   4. DIAGNOSE → Aggregate into cognitive patterns           │
+│      • Missed Forcing Moves                                 │
+│      • Ignored Opponent Threats                             │
+│      • Phantom Threat Reactions                             │
+│      • Advantage Mismanagement                              │
+│      • Structural Misjudgments                              │
+│      • Random Moves in Critical Positions                   │
 │        ↓                                                    │
-│   5. REFLECT → Record your thinking, identify patterns      │
+│   5. PRESCRIBE → Training prioritized by weakness           │
+│      • Primary focus shown in Training header               │
+│      • Puzzles reordered by relevance                       │
+│      • Traps filtered by category                           │
 │        ↓                                                    │
 │   6. TRAIN → Practice your specific weaknesses              │
 │        ↓                                                    │
-│   7. JOURNEY → Track improvement over time                  │
+│   7. AUDIT → Next 5 games evaluated vs baseline             │
+│      • Compare frequency before/after                       │
+│      • Show improvement trend                               │
 │        ↓                                                    │
-│   8. PLAY AGAIN → With new awareness                        │
+│   8. UPDATE → TSI recalculated, loop continues              │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Cognitive Pattern System (NEW)
+
+The app now operates as a **Cognitive Diagnosis → Prescription → Audit** loop.
+
+#### Diagnosis Layer
+
+**What it does:** Aggregates move-level mistakes into recurring cognitive patterns.
+
+**Cognitive Categories:**
+| Category | Triggers | Example |
+|----------|----------|---------|
+| Missed Forcing Move | cp_loss >= 150 AND best_move was check/capture | Missed Qxf7+ fork |
+| Ignored Opponent Forcing | Opponent's best reply was forcing, ignored | Allowed Ng5 threat |
+| Phantom Threat Reaction | Defensive move vs non-existent threat | h6 when Ng5 wasn't coming |
+| Advantage Mismanagement | Winning → equal, equal → losing | Relaxed after gaining material |
+| Structural Misjudgment | Pawn structure damage, piece coordination | Created weak d4 square |
+| Random Move Critical | Blunder in critical position, no plan | Moved randomly when calculation needed |
+
+**Metrics per category:**
+- `frequency` - How often this pattern appears (last 20 games)
+- `avg_severity` - Average centipawn loss (0-1 scale)
+- `weighted_score` - frequency × severity
+- `trend` - Comparing last 5 vs previous 5 games (improving/worsening/stable)
+
+**Thinking Stability Index (TSI):**
+```
+TSI = 100 - normalized_sum(category_scores)
+```
+Range: 0-100 (higher = better)
+Displayed with trend direction.
+
+#### Prescription Layer
+
+**What it does:** Prioritizes training content based on diagnosed weaknesses.
+
+**Behavior:**
+1. IF cognitive pattern frequency > threshold → prioritize related drills
+2. Puzzles **reordered** (not filtered) by relevance
+3. Sort order: Leak-related → Secondary weakness → General
+4. Toggle: **Recommended** (default) / **Browse All**
+
+**Training Focus Card (UI):**
+- Shows primary focus area with message
+- Shows TSI score
+- Shows secondary weaknesses
+- Recommended/Browse All toggle
+
+#### Audit Layer
+
+**What it does:** Evaluates improvement after focus module activation.
+
+**Behavior:**
+1. User activates focus on a category
+2. System records `module_activation_timestamp`
+3. Baseline = last 10 games BEFORE activation
+4. Audit window = 5 most recent games AFTER activation
+5. Compare frequency/severity → show improvement %
+
+**No complex scoring model. Simple before/after comparison.**
+
+#### API Endpoints
+
+```
+GET  /api/cognitive/patterns         # Full pattern aggregation
+GET  /api/cognitive/weaknesses       # Prioritized weakness list
+GET  /api/cognitive/training-priority # What to show in Training
+GET  /api/cognitive/tsi              # Just the TSI score
+POST /api/cognitive/focus/activate   # Start focus module
+GET  /api/cognitive/focus/status     # Current focus status
+GET  /api/cognitive/focus/progress   # Evaluate improvement
+```
+
+#### Storage (Minimal)
+
+Only two fields persisted per user:
+- `focus_module.active_category`
+- `focus_module.activated_at`
+
+Everything else computed dynamically from existing `game_analyses` documents.
 │        ↓                                                    │
 │   (Repeat)                                                  │
 │                                                             │
