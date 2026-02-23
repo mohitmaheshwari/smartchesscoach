@@ -136,22 +136,36 @@ const Onboarding = () => {
     setError("");
     
     try {
+      // First verify account exists
       const response = await fetch(
         `https://lichess.org/api/user/${lichessUsername}`
       );
       
       if (response.ok) {
-        const data = await response.json();
         setLichessVerified(true);
         
-        // Auto-fetch rating for skill calibration
-        const rapidRating = data.perfs?.rapid?.rating;
-        const blitzRating = data.perfs?.blitz?.rating;
-        const classicalRating = data.perfs?.classical?.rating;
-        const detectedRatingValue = rapidRating || classicalRating || blitzRating || null;
-        if (detectedRatingValue && !detectedRating) {
-          setDetectedRating(detectedRatingValue);
-          setDetectedPlatform("lichess");
+        // Link account and get assessed rating from backend
+        try {
+          const linkResponse = await fetch(`${API}/settings/link-account`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              platform: "lichess",
+              username: lichessUsername.toLowerCase()
+            })
+          });
+          
+          if (linkResponse.ok) {
+            const linkData = await linkResponse.json();
+            if (linkData.assessed_rating && !detectedRating) {
+              setDetectedRating(linkData.assessed_rating);
+              setDetectedPlatform("lichess");
+              setGamesAnalyzed(linkData.games_analyzed || 0);
+            }
+          }
+        } catch (e) {
+          console.log("Could not get assessed rating");
         }
       } else {
         setError("Lichess username not found. Please check and try again.");
