@@ -15,36 +15,66 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 23, 2026)
 
-### Journey Page Language Rewrite ✅ COMPLETE (Feb 23, 2026)
+### Journey Page 3-Tab Redesign ✅ COMPLETE (Feb 23, 2026)
 
-**Problem:** Journey page language was too corporate ("peer context", "sustained improvement") and lacked actionable directives.
+**Problem:** Journey page felt like a stats dashboard rather than a cognitive journey. Indian users wanted a clear before/after progress view.
 
-**Solution:** Complete rewrite to plain, direct Indian-English with "Do This Next" actionable directives.
+**Solution:** Complete redesign with 3 distinct tabs answering:
+- Where do I stand now? (Tab A)
+- How am I improving overall? (Tab B)
+- How am I trending right now? (Tab C)
 
-**Language Changes:**
-- **Stability Labels**: "Mostly steady" → "Playing steady", "Very inconsistent" → "All over the place"
-- **Risk Labels**: "Usually converts advantage" → "Finishing games well", "Often throws advantage" → "Throwing away winning positions"
-- **Pattern Labels**: "Structural mistakes" → "Weak pawns or squares", "Critical moment drift" → "Losing focus at key moments"
-- **Row Labels**: "Decision Stability" → "How steady?", "Advantage Discipline" → "When winning?", "Main reason" → "Main issue"
+**3-Tab Structure:**
 
-**New Features Added:**
-1. **"Do This Next" Card** (amber-tinted) - Displays actionable micro directive after the "Now vs Then" section
-   - Example: "Next 5 games: before pawn moves, ask 'what becomes weak after this?'"
-   - `data-testid="micro-directive"`
+| Tab | Label | Inside Header | Purpose |
+|-----|-------|---------------|---------|
+| A | **Now** | Snapshot (Current) | Current identity - 5 items + directive |
+| B | **Journey** | Overall Journey (Then vs Now) | First 15 vs Recent 15 - 4 rows + directive |
+| C | **Trend** | Recent Momentum (5 vs 5) | Rolling trend + evidence + directive |
 
-2. **"This Week's Focus" Card** (blue-tinted) - Displays macro directive after the "Becoming vs Started" section
-   - Example: "Keep doing what you're doing. Your discipline is showing results."
-   - `data-testid="macro-directive"`
+**Tab A - Now (Snapshot):**
+1. Decision Stability (band + meaning)
+2. Main reason you slip (primary driver + impact band)
+3. When ahead (advantage discipline + meaning)
+4. Weakest phase
+5. "Do this next" directive (amber)
+
+**Tab B - Journey (Then vs Now):**
+4 before/after rows with trend indicators:
+- Decision Stability: Chaotic → Volatile (Improving)
+- Primary Driver: Moderate → Low
+- Advantage Discipline: Medium risk → Medium risk
+- Weakest Phase: Middlegame → Middlegame
++ "Do this next" directive (blue)
+
+**Tab C - Trend (5 vs 5):**
+- Dynamic headline (e.g., "This week stability dropped mainly due to structural mistakes.")
+- Top 2 meaningful shifts with direction icons
+- Evidence links (opens Lab at specific game/move via `/game/{id}?move={n}&src=journey`)
+- Guardrail: If no confident evidence → "Evidence will appear after 10 more analyzed games."
++ "Do this next" directive (green)
+
+**Stats Drawer:**
+- Collapsible "View Match Stats" button
+- Shows: Accuracy, Win Rate, Blunders/Game, Mistakes/Game
+- Record: W/L/D based on last 20 games
+
+**Rules Implemented:**
+- No raw severity numbers (use bands: Low/Moderate/High)
+- No empty section spam
+- One directive per tab (deterministic from driver)
+- Plain Indian-English tone
 
 **Files Updated:**
-- `backend/journey_engine.py` - Updated STABILITY_LABELS, RISK_LABELS, PATTERN_LABELS, DRIVER_DIRECTIVES, added MACRO_DIRECTIVES
-- `frontend/src/pages/JourneyCognitive.jsx` - Added directive cards
+- `backend/journey_engine.py` - Complete rewrite with `compute_snapshot_now()`, `compute_overall_journey()`, `compute_momentum_5v5()`, `compute_stats_drawer()`
+- `frontend/src/pages/JourneyCognitive.jsx` - 3-tab UI with collapsible stats drawer
+- `frontend/src/pages/Lab.jsx` - Added `src=journey` handling for auto-scroll
 
-**Test Report:** `/app/test_reports/iteration_66.json` - 100% pass (14/14 backend, all UI verified)
+**Test Report:** `/app/test_reports/iteration_67.json` - 100% pass (21/21 backend, all UI verified)
 
 ---
 
-### Journey Page Redesign ✅ COMPLETE (Feb 23, 2026)
+### Journey Page Language Rewrite ✅ SUPERSEDED
 
 **Problem:** Journey page was an analytics dump, not aligned with the cognitive coaching philosophy.
 
