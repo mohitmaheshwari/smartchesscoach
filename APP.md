@@ -8,6 +8,536 @@ Chess Coach is a sophisticated chess coaching application that provides personal
 
 ---
 
+## Complete User Experience Guide
+
+This section explains EVERYTHING a user can do in the app, from their perspective.
+
+### The Coaching Philosophy (How the App "Thinks")
+
+Traditional chess apps show you every place the engine disagrees with you. This is noise. Chess Coach is different:
+
+**We only surface moves where you can actually improve your thinking:**
+1. **Missed forcing tactics** - You had a check/capture/threat you didn't see
+2. **Allowed forcing tactics** - You let opponent have a strong reply
+3. **Violated decision rules** - Left a piece hanging, ignored king safety
+4. **Repeated personal patterns** - You keep making the same type of error
+5. **No plan when needed** - Critical position but you played randomly
+
+**What we DON'T show (in Coach Mode):**
+- "Engine prefers Bc4 over Be2" when both are fine
+- Minor positional preferences (50-99 cp)
+- Prophylactic moves that address real threats (h6 to stop Ng5)
+
+---
+
+### Complete User Journey
+
+#### Phase 1: Onboarding (First Visit)
+
+1. **Landing Page**
+   - User sees marketing page explaining the app
+   - "Sign in with Google" button (or Dev Login for testing)
+   
+2. **First Login**
+   - Account created automatically
+   - Redirected to Dashboard
+   - Prompted to connect Chess.com or Lichess account
+   
+3. **Account Linking**
+   - Enter Chess.com/Lichess username
+   - App verifies account exists
+   - Background sync starts importing recent games (last 30 days)
+   - User sees "Syncing X games..." progress
+
+4. **Initial State**
+   - Dashboard shows first imported games
+   - Games queue for Stockfish analysis
+   - Within minutes, first analyses are ready
+
+---
+
+#### Phase 2: Daily Usage Loop
+
+**The typical user session:**
+
+```
+1. Open app → See Dashboard
+2. Check if new games were synced
+3. Go to Lab → Review recent game
+4. See mistakes → Read explanations
+5. Go to Training → Solve puzzles from mistakes
+6. (Optional) Go to Reflect → Record thoughts on critical moments
+7. Check Journey → See progress over time
+```
+
+---
+
+### Feature-by-Feature User Guide
+
+#### 1. DASHBOARD (`/dashboard`)
+
+**What the user sees:**
+- **Recent Games** - Last 5-10 games with results (Win/Loss/Draw)
+- **Accuracy Trend** - Graph showing accuracy over recent games
+- **Quick Stats** - Games played, average accuracy, blunders this week
+- **Top Weakness** - "You're struggling with: Piece Activity"
+- **Training Recommendation** - "Focus on: Tactical puzzles"
+- **Notifications** - New analysis ready, achievements unlocked
+
+**User actions:**
+- Click a game → Goes to Lab for that game
+- Click "Start Training" → Goes to Training page
+- Click notification → Goes to relevant page
+
+---
+
+#### 2. LAB (`/game/{game_id}`)
+
+**What it is:** Deep analysis of a single chess game.
+
+**What the user sees:**
+
+**Header:**
+- Opponent name, rating, result (Win/Loss/Draw)
+- Accuracy percentage
+- Mistake counts: "8 Blunders, 4 Tactical" (Coach Mode)
+- **Coach/Engine Toggle** - Switch between modes
+- Core insight: "You lose focus after gaining advantage"
+- "Practice Critical Moments" button
+
+**Left Panel (Board Area):**
+- Interactive chessboard showing position
+- Move-by-move navigation (arrows, click moves)
+- Move list: 1. e4 e5 2. Nf3 Nc6...
+- "Critical Only" toggle - Show only mistake moves
+- Play/Pause for auto-replay
+
+**Right Panel (Tabs):**
+
+**Summary Tab:**
+- Game overview
+- Opening name (e.g., "Italian Game: Classical Variation")
+- Key moments timeline
+- AI-generated game summary
+
+**Strategy Tab:**
+- Position evaluation graph over time
+- Critical moments marked
+- Phase breakdown (opening/middlegame/endgame accuracy)
+
+**Milestones Tab:**
+- **Brilliant Moves** (green) - Your best moves with "Brilliant!" badge
+  - "Move 7: Be3 - Solid choice"
+  - "Move 37: Ra1 - Found a winning shot!"
+- **Great Decisions** (yellow) - Good moves
+  - "Move 3: Nc3 - Kept the pressure"
+- **Learning Moments** (red/orange) - Mistakes to learn from
+  - "Move 16: Bxa7 - Tactical Mistake"
+  - Click to expand → Shows explanation
+
+**When user clicks a Learning Moment:**
+- Board updates to that position
+- Shows: "You played: Bxa7" vs "Better was: a3"
+- Shows centipawn loss
+- "What can I learn here?" button → Generates AI explanation:
+  - "Playing Bxa7 diverted your bishop from the center..."
+  - Includes principle: "Always check if your pieces stay coordinated"
+
+**Coach Mode vs Engine Mode:**
+- **Coach Mode (default):** Only shows human-improvable errors
+  - Hides 50-99cp "engine preferences"
+  - Shows tactical mistakes, blunders, strategic slips
+- **Engine Mode:** Shows EVERYTHING the engine disagrees with
+  - Includes all minor inaccuracies
+  - For advanced users who want full detail
+
+---
+
+#### 3. TRAINING (`/training`)
+
+**What it is:** Practice positions from your own mistakes + community puzzles.
+
+**Main Training Page:**
+
+**Header:**
+- "Training - Improve your chess with personalized training"
+- Session stats: "0/0 correct" in current session
+
+**Tabs:**
+- **Puzzles** - Tactical training
+- **Opening Trainer** - Openings & traps
+
+**PUZZLES TAB:**
+
+**Left Panel:**
+- **Filter dropdown:** "All Puzzles" / "My Games" / "Community"
+- **Puzzle list:** "Puzzle 1 of 11"
+- Current puzzle card showing:
+  - Difficulty badge (easy/medium/hard)
+  - Source: "Your Game" or "Community: from player_name"
+  - Opponent name, move number
+  - "Playing as White/Black"
+
+**Center (Board):**
+- Interactive puzzle position
+- "Your turn - Find the best move"
+- User makes a move by dragging/clicking
+
+**After making a move:**
+
+*If CORRECT:*
+- Green success message
+- "+29" rating change badge (green)
+- Explanation: "Excellent! You found the forcing continuation..."
+- Principle: "Always look for checks and captures first"
+- Streak indicator: "3 puzzle streak!"
+- "Next Puzzle" button
+
+*If INCORRECT:*
+- Red error message
+- "-5" rating change badge (red)
+- Shows: "You played: Nf3" vs "Best was: Nd5"
+- Explanation: "This move misses the tactical opportunity..."
+- "Try Again" or "Next Puzzle" buttons
+
+**Right Sidebar:**
+
+**Puzzle Context:**
+- "This Position" - From your game vs [opponent]
+- "You played: [move]" - Your original mistake
+- "Severity: Mistake (~1 pawn)"
+
+**What Went Wrong:**
+- Category badge: "Piece Activity"
+- Explanation of the original mistake
+
+**Puzzle Rating Card:** ⭐
+- Current rating: **1290** (big number)
+- Level badge: "Intermediate"
+- Progress bar: "310 points to Advanced"
+- Stats grid:
+  - Streak: 0 (with flame icon)
+  - Solve Rate: 53.8%
+- Best Streak: 5 (with trophy)
+- Recent (last 20): 53.8%
+- Total: "X puzzles attempted • Y solved"
+- Achievements: "On Fire!" "5-Streak" badges
+
+**Level-Up Celebration:**
+When user reaches new level:
+- Full-screen modal with animation
+- "Level Up! You've reached Advanced!"
+- Shows old level → new level
+- New rating displayed
+- "Continue" button
+
+---
+
+**OPENING TRAINER TAB:**
+
+**What it is:** Learn chess openings and traps.
+
+**Sub-tabs:**
+- Openings - Browse opening lines
+- Trick Library - Learn common traps
+
+**TRICK LIBRARY:**
+
+**Trap Categories:**
+- Italian Game Traps (5)
+- Sicilian Traps (4)
+- French Defense Traps (3)
+- Caro-Kann Traps (2)
+- Queen's Gambit Traps (3)
+- Scandinavian Traps (2)
+- Other Traps (10+)
+
+**Each Trap Card Shows:**
+- Trap name: "Blackburne Shilling Gambit"
+- Opening: "Italian Game"
+- Difficulty: Beginner/Intermediate/Advanced
+- Your stats: "Practiced 3 times, 67% success"
+- "Practice" button
+
+**Practice Modes (user chooses):**
+
+1. **Execution Mode** - "Learn to SET UP this trap"
+   - You play the trapping side
+   - Board shows position
+   - You must play the correct trap moves
+   - Hints if you get stuck
+   - "You successfully executed the trap!"
+
+2. **Avoidance Mode** - "Learn to AVOID this trap"
+   - You play the side that could fall for it
+   - Must find the move that avoids the trap
+   - "Correct! You avoided the trap by playing..."
+
+3. **Recognition Mode** - "Can you SPOT the trap?"
+   - Given a position
+   - Asked: "Is there a trap here? What is it?"
+   - Multiple choice or move input
+   - "Yes! This is the Legal's Mate trap"
+
+**Trap Statistics Dashboard:**
+- Overall success rate
+- Traps mastered vs in progress
+- Recommended traps to study (based on your openings)
+- Leaderboard for trap mastery
+
+---
+
+#### 4. JOURNEY (`/journey`)
+
+**What it is:** Track your chess improvement over time.
+
+**What the user sees:**
+
+**Header:**
+- "Your Chess Journey"
+- Current rating (if available from Chess.com/Lichess)
+- Linked accounts indicator
+
+**Stats Overview:**
+- Games played (total, this week, this month)
+- Average accuracy (overall, trending)
+- Win/Loss/Draw percentages
+- Blunder rate over time
+
+**Rating Trajectory Graph:**
+- Line chart showing rating over time
+- Marks for significant games
+- Trend line
+
+**Game History:**
+- List of all analyzed games
+- Each shows: Date, Opponent, Result, Accuracy, Opening
+- Click to go to Lab
+
+**Weakness Trends:**
+- "Your top weaknesses this month:"
+  1. Piece Activity (appears in 40% of mistakes)
+  2. King Safety (appears in 25% of mistakes)
+  3. Pawn Structure (appears in 20% of mistakes)
+- Progress indicator: "Improving" or "Needs work"
+
+**Weekly Assessment (AI-generated):**
+- "This week you played 12 games..."
+- Highlights and lowlights
+- Specific recommendations
+- Pattern observations
+
+**Linked Accounts:**
+- Chess.com: username (linked)
+- Lichess: username (linked)
+- "Sync Now" button
+- Last sync time
+
+---
+
+#### 5. REFLECT (`/reflect`)
+
+**What it is:** Build self-awareness through post-game reflection.
+
+**Why it exists:** Research shows that reflecting on your thought process during games significantly accelerates improvement.
+
+**Pending Reflections:**
+- List of games you haven't reflected on yet
+- Badge: "3 games pending"
+- Games sorted by importance (bigger mistakes first)
+
+**Reflection Interface (for a specific game):**
+
+**Critical Moments:**
+- AI identifies 3-5 key decision points
+- Each shows:
+  - Position
+  - What you played
+  - "What were you thinking?"
+  - Text input for your reflection
+
+**Reflection Prompts:**
+- "What was your plan here?"
+- "Did you consider your opponent's threats?"
+- "What would you do differently?"
+
+**Tagging System:**
+- After writing, user tags their thinking error:
+  - "Didn't check for threats"
+  - "Calculated wrong"
+  - "Time pressure"
+  - "Didn't have a plan"
+  - "Overconfident"
+
+**Intent vs Reality (coming soon):**
+- User writes: "I played h6 to prevent Ng5"
+- System validates: "Was Ng5 actually a threat?"
+- Shows: ✅ Correct read / ⚠️ Phantom threat / ❌ Missed real threat
+
+**Reflection History:**
+- Past reflections searchable
+- Pattern analysis: "You often miss threats on the kingside"
+
+---
+
+#### 6. IMPORT (`/import`)
+
+**What it is:** Manually import games.
+
+**Options:**
+1. **Paste PGN** - Copy/paste a PGN string
+2. **Upload PGN file** - Upload .pgn file
+3. **Link accounts** - Connect Chess.com/Lichess for auto-sync
+
+**After import:**
+- Game appears in list
+- Queued for Stockfish analysis
+- Ready for Lab view within minutes
+
+---
+
+#### 7. SETTINGS (`/settings`)
+
+**What the user can configure:**
+
+**Profile:**
+- Display name
+- Profile picture (from Google)
+
+**Notifications:**
+- Email notifications (weekly summary, new analysis)
+- Push notifications (enable/disable)
+
+**Preferences:**
+- Default board theme
+- Coach Mode default on/off
+- Preferred analysis depth
+
+**Connected Accounts:**
+- Chess.com: Connected/Disconnect
+- Lichess: Connected/Disconnect
+
+---
+
+### The Complete Coaching Loop
+
+This is how all features work together:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    THE COACHING LOOP                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   1. PLAY GAMES (external)                                  │
+│        ↓                                                    │
+│   2. SYNC → Games imported automatically                    │
+│        ↓                                                    │
+│   3. ANALYZE → Stockfish + AI analysis                      │
+│        ↓                                                    │
+│   4. LAB → Review mistakes, understand WHY                  │
+│        ↓                                                    │
+│   5. REFLECT → Record your thinking, identify patterns      │
+│        ↓                                                    │
+│   6. TRAIN → Practice your specific weaknesses              │
+│        ↓                                                    │
+│   7. JOURNEY → Track improvement over time                  │
+│        ↓                                                    │
+│   8. PLAY AGAIN → With new awareness                        │
+│        ↓                                                    │
+│   (Repeat)                                                  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Gamification Elements
+
+**XP System:**
+- Earn XP for: Analyzing games, solving puzzles, reflecting, daily login
+- Level up with enough XP
+- Levels unlock features/badges
+
+**Achievements:**
+- "First Analysis" - Analyze your first game
+- "Puzzle Streak" - 5, 10, 25 puzzles in a row
+- "Deep Thinker" - Reflect on 10 games
+- "Trap Master" - Master 5 traps
+- "Accuracy King" - 90%+ accuracy game
+
+**Badges:**
+- Skill-based badges (Tactics, Endgame, Opening knowledge)
+- Progress indicators
+- Evidence from your games
+
+**Daily Rewards:**
+- Login streak bonuses
+- Daily puzzle challenge
+
+**Leaderboard:**
+- Puzzle rating rankings
+- Trap mastery rankings
+- Weekly most improved
+
+---
+
+### Notification System
+
+**In-App Notifications (Bell icon):**
+- "Game analysis complete: vs opponent123"
+- "New achievement: Puzzle Streak!"
+- "Weekly summary ready"
+- "Your game was synced"
+
+**Push Notifications (mobile):**
+- Same as above, delivered to device
+
+**Email Notifications:**
+- Weekly summary email
+- Monthly progress report
+- Re-engagement ("You haven't played in a week")
+
+---
+
+### Error Handling (What Users See)
+
+**When something goes wrong:**
+- Toast notifications with error message
+- "Could not generate explanation. Try re-analyzing the game."
+- "Sync failed. Check your username."
+- Retry buttons where appropriate
+
+**Loading States:**
+- Skeleton loaders for content
+- "Analyzing position..." spinners
+- Progress bars for long operations
+
+---
+
+### Mobile Responsiveness
+
+The app is fully responsive:
+- **Desktop:** Full three-column layout
+- **Tablet:** Two-column, collapsible panels
+- **Mobile:** Single column, bottom navigation
+
+---
+
+## Summary: What Can a User Do?
+
+| Feature | User Action | Outcome |
+|---------|-------------|---------|
+| **Dashboard** | View overview | See recent games, stats, recommendations |
+| **Lab** | Analyze a game | See mistakes, explanations, practice positions |
+| **Training** | Solve puzzles | Practice your weaknesses, improve rating |
+| **Trick Library** | Learn traps | Execute, avoid, recognize common traps |
+| **Journey** | Track progress | See improvement over time, weakness trends |
+| **Reflect** | Record thoughts | Build self-awareness, identify patterns |
+| **Import** | Add games | Manually import PGN or connect accounts |
+| **Settings** | Configure app | Notifications, preferences, accounts |
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
