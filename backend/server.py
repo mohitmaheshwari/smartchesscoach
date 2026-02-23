@@ -456,11 +456,27 @@ async def get_current_user(request: Request) -> User:
                     {"user_id": session_doc["user_id"]},
                     {"_id": 0}
                 )
+                if user_doc:
+                    return User(**user_doc)
     
-    if not user_doc:
-        raise HTTPException(status_code=401, detail="User not found")
+    # DEV MODE fallback: Only use dev user if no valid session exists
+    if DEV_MODE:
+        logger.warning("⚠️ DEV_MODE: No valid session, using dev user fallback")
+        dev_user = await db.users.find_one({"user_id": DEV_USER_ID}, {"_id": 0})
+        if not dev_user:
+            dev_user = {
+                "user_id": DEV_USER_ID,
+                "email": "dev@localhost",
+                "name": "Dev User",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "rating": 1300
+            }
+            await db.users.insert_one(dev_user)
+            logger.info(f"Created dev user: {DEV_USER_ID}")
+        return User(**dev_user)
     
-    return User(**user_doc)
+    # No valid authentication
+    raise HTTPException(status_code=401, detail="Not authenticated")
 
 # ==================== AUTH ROUTES ====================
 
