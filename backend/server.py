@@ -8263,15 +8263,14 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
     
     all_games = await db.game_analyses.find(
         query,
-        {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1, "game_id": 1}
+        {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1, "game_id": 1, "user_result": 1}
     ).sort("created_at", -1).to_list(100)
     
     # Compute journey
     result = compute_journey(
         all_games=all_games,
         classify_func=classify_move_to_cognitive,
-        severity_func=get_severity_weight,
-        user_rating=user_rating
+        severity_func=get_severity_weight
     )
     
     return result
