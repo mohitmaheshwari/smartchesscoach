@@ -575,13 +575,13 @@ def compute_macro(recent_15: List[Dict], first_15: List[Dict],
     return {
         "rows": [
             {
-                "label": "Long-term Stability",
+                "label": "Overall",
                 "first": first_band.value,
                 "recent": recent_band.value,
                 "clause": stability_clause
             },
             {
-                "label": "Weakness Evolution",
+                "label": "Main weakness",
                 "driver": driver_evolution.get("driver"),
                 "first_band": driver_evolution.get("first_band"),
                 "recent_band": driver_evolution.get("recent_band"),
@@ -589,13 +589,13 @@ def compute_macro(recent_15: List[Dict], first_15: List[Dict],
                 "text": driver_evolution.get("text")
             },
             {
-                "label": "Phase Evolution",
+                "label": "Weakest phase",
                 "first": first_phase,
                 "recent": recent_phase,
                 "changed": phase_changed
             },
             {
-                "label": "Peer Context",
+                "label": "vs Others",
                 "text": peer_text,
                 "status": peer_status
             }
