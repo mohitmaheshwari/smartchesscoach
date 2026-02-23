@@ -86,32 +86,36 @@ const Onboarding = () => {
     setError("");
     
     try {
+      // First verify account exists
       const response = await fetch(
         `https://api.chess.com/pub/player/${chessComUsername.toLowerCase()}`
       );
       
       if (response.ok) {
-        const data = await response.json();
         setChessComVerified(true);
         
-        // Auto-fetch rating for skill calibration
+        // Link account and get assessed rating from backend
         try {
-          const statsResponse = await fetch(
-            `https://api.chess.com/pub/player/${chessComUsername.toLowerCase()}/stats`
-          );
-          if (statsResponse.ok) {
-            const stats = await statsResponse.json();
-            // Get rapid or blitz rating
-            const rapidRating = stats.chess_rapid?.last?.rating;
-            const blitzRating = stats.chess_blitz?.last?.rating;
-            const detectedRating = rapidRating || blitzRating || null;
-            if (detectedRating) {
-              setDetectedRating(detectedRating);
+          const linkResponse = await fetch(`${API}/settings/link-account`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              platform: "chess.com",
+              username: chessComUsername.toLowerCase()
+            })
+          });
+          
+          if (linkResponse.ok) {
+            const linkData = await linkResponse.json();
+            if (linkData.assessed_rating) {
+              setDetectedRating(linkData.assessed_rating);
               setDetectedPlatform("chess.com");
+              setGamesAnalyzed(linkData.games_analyzed || 0);
             }
           }
         } catch (e) {
-          console.log("Could not fetch rating stats");
+          console.log("Could not get assessed rating");
         }
       } else {
         setError("Chess.com username not found. Please check and try again.");
