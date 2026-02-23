@@ -825,6 +825,16 @@ const Training = ({ user }) => {
       setBoardMode("my_move");
       setTimeout(() => {
         boardRef.current?.playSingleMove(currentMilestone.user_move);
+        // Draw arrow for "you played" move (orange/red color)
+        if (currentMilestone.user_move) {
+          const move = currentMilestone.user_move;
+          // Extract from/to squares from SAN notation
+          // Note: The board's playSingleMove already highlights, 
+          // but we also draw an arrow for better visibility
+          boardRef.current?.drawArrows([
+            { from: null, to: null, color: "rgba(255, 100, 100, 0.8)", move: move }
+          ]);
+        }
       }, 100);
     };
     
