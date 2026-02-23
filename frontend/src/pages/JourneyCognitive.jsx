@@ -123,18 +123,33 @@ const Journey = ({ user }) => {
     }
   };
 
-  // Calculate derived metrics
+  // #1: TSI Interpretation - Use exact band language
   const getTSIInterpretation = (tsi) => {
-    if (tsi >= 80) return { label: "Stable", color: "text-green-400" };
-    if (tsi >= 65) return { label: "Moderate", color: "text-yellow-400" };
-    if (tsi >= 50) return { label: "Unstable", color: "text-orange-400" };
-    return { label: "Volatile", color: "text-red-400" };
+    if (tsi >= 85) return { label: "Strong Decision Discipline", color: "text-green-400" };
+    if (tsi >= 70) return { label: "Moderate Instability", color: "text-yellow-400" };
+    if (tsi >= 55) return { label: "Frequent Cognitive Lapses", color: "text-orange-400" };
+    return { label: "High Volatility", color: "text-red-400" };
   };
 
+  // TSI trend icon - only for improving/worsening
   const getTrendIcon = (trend) => {
     if (trend === "improving") return <TrendingUp className="w-5 h-5 text-green-400" />;
     if (trend === "worsening") return <TrendingDown className="w-5 h-5 text-red-400" />;
-    return <Minus className="w-5 h-5 text-muted-foreground" />;
+    return null; // No icon for stable
+  };
+
+  // #5: Pattern label mapping - cognitive framing
+  const getPatternDisplayName = (key) => {
+    const labelMap = {
+      "random_move_critical": "Critical Moment Drift",
+      "missed_forcing_move": "Missed Forcing Move",
+      "ignored_opponent_forcing": "Ignored Opponent Forcing",
+      "phantom_threat_reaction": "Phantom Threat Reaction",
+      "advantage_mismanagement": "Advantage Mismanagement",
+      "structural_misjudgment": "Structural Misjudgment",
+      "time_pressure_collapse": "Time Pressure Collapse"
+    };
+    return labelMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const getTopPatterns = (patterns) => {
@@ -142,7 +157,7 @@ const Journey = ({ user }) => {
     return Object.entries(patterns)
       .map(([key, data]) => ({
         key,
-        name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        name: getPatternDisplayName(key),
         severity: data.weighted_score || data.frequency * (data.avg_severity || 0.5),
         trend: data.trend || "stable",
         frequency: data.frequency
@@ -165,12 +180,19 @@ const Journey = ({ user }) => {
     return { winning: 33, equal: 34, losing: 33 };
   };
 
-  // Get blunder context interpretation - single line, no advice
+  // #3: Blunder context interpretation - fixed conditional logic
   const getBlunderInterpretation = (dist) => {
-    if (dist.winning >= 45) return "Instability spikes when ahead.";
-    if (dist.losing >= 45) return "Instability appears under pressure.";
-    if (dist.equal >= 45) return "Instability peaks in balanced positions.";
-    return "Decision quality is position-independent.";
+    const { winning, equal, losing } = dist;
+    // Winning dominates: >= equal+15 AND >= losing+15
+    if (winning >= equal + 15 && winning >= losing + 15) {
+      return "Instability increases when ahead.";
+    }
+    // Losing dominates: >= winning+15
+    if (losing >= winning + 15) {
+      return "Instability increases under pressure.";
+    }
+    // No clear pattern
+    return "Blunders distributed across position types.";
   };
 
   // Get phase insight from fetched data
