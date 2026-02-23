@@ -268,7 +268,7 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 2: Instability Pattern Context */}
+        {/* SECTION 2: Blunder Context Distribution */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
@@ -278,24 +278,20 @@ const Journey = ({ user }) => {
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center p-4 rounded-lg bg-slate-800/50">
                 <p className="text-2xl font-bold text-green-400">{positionDist.winning}%</p>
-                <p className="text-xs text-muted-foreground mt-1">Winning Positions</p>
+                <p className="text-xs text-muted-foreground mt-1">Winning</p>
               </div>
               <div className="text-center p-4 rounded-lg bg-slate-800/50">
                 <p className="text-2xl font-bold text-slate-300">{positionDist.equal}%</p>
-                <p className="text-xs text-muted-foreground mt-1">Equal Positions</p>
+                <p className="text-xs text-muted-foreground mt-1">Equal</p>
               </div>
               <div className="text-center p-4 rounded-lg bg-slate-800/50">
                 <p className="text-2xl font-bold text-red-400">{positionDist.losing}%</p>
-                <p className="text-xs text-muted-foreground mt-1">Losing Positions</p>
+                <p className="text-xs text-muted-foreground mt-1">Losing</p>
               </div>
             </div>
 
             <p className="text-sm text-muted-foreground mt-4">
-              {positionDist.winning > 40 
-                ? "Instability spikes when ahead."
-                : positionDist.losing > 40
-                ? "Instability appears under pressure."
-                : "Decision quality is position-independent."}
+              {getBlunderInterpretation(positionDist)}
             </p>
           </CardContent>
         </Card>
