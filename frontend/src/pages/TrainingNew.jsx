@@ -556,12 +556,11 @@ const Training = ({ user }) => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      {/* TSI Display */}
+                      {/* TSI Display with Interpretation */}
                       {cognitivePatterns && (
                         <div className="text-right">
-                          <p className="text-xs text-gray-500">Thinking Stability</p>
-                          <div className="flex items-center gap-1">
-                            <span className="text-xl font-bold text-white">{cognitivePatterns.thinking_stability_index}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold text-white" data-testid="tsi-score">{cognitivePatterns.thinking_stability_index}</span>
                             {cognitivePatterns.tsi_trend === "improving" && (
                               <TrendingUp className="w-4 h-4 text-green-400" />
                             )}
@@ -569,6 +568,19 @@ const Training = ({ user }) => {
                               <TrendingDown className="w-4 h-4 text-red-400" />
                             )}
                           </div>
+                          <p className={`text-xs ${
+                            cognitivePatterns.thinking_stability_index >= 80 ? 'text-green-400' :
+                            cognitivePatterns.thinking_stability_index >= 65 ? 'text-yellow-400' :
+                            cognitivePatterns.thinking_stability_index >= 50 ? 'text-orange-400' :
+                            'text-red-400'
+                          }`} data-testid="tsi-interpretation">
+                            {cognitivePatterns.thinking_stability_index >= 80 ? 'Stable decision process' :
+                             cognitivePatterns.thinking_stability_index >= 65 ? 'Moderate instability' :
+                             cognitivePatterns.thinking_stability_index >= 50 ? 'Frequent cognitive lapses' :
+                             'High volatility'}
+                            {cognitivePatterns.tsi_trend === "improving" && " (Improving)"}
+                            {cognitivePatterns.tsi_trend === "worsening" && " (Declining)"}
+                          </p>
                         </div>
                       )}
                       {/* Mode Toggle */}
@@ -598,7 +610,7 @@ const Training = ({ user }) => {
                       </div>
                     </div>
                   </div>
-                  {/* Trend indicator */}
+                  {/* Trend indicator - no secondary focus (noise reduction) */}
                   {trainingPriority.primary_focus.trend && (
                     <div className="mt-2 flex items-center gap-2">
                       <span className={`text-xs px-2 py-0.5 rounded ${
@@ -611,11 +623,6 @@ const Training = ({ user }) => {
                         {trainingPriority.primary_focus.trend === "improving" ? "Improving" :
                          trainingPriority.primary_focus.trend === "worsening" ? "Needs Work" : "Stable"}
                       </span>
-                      {trainingPriority.secondary_focus && trainingPriority.secondary_focus.length > 0 && (
-                        <span className="text-xs text-gray-500">
-                          Also work on: {trainingPriority.secondary_focus.map(s => s.display_name).join(", ")}
-                        </span>
-                      )}
                     </div>
                   )}
                 </CardContent>
