@@ -293,9 +293,14 @@ const Lab = ({ user }) => {
         // Convert move number to index (move 1 = index 0 or 1 depending on color)
         const targetIndex = (moveNum - 1) * 2 + (game?.user_color === "black" ? 1 : 0);
         goToMove(Math.min(targetIndex, moves.length - 1));
+        
+        // If coming from Journey, switch to milestones tab to show the moment
+        if (sourceContext === 'journey') {
+          setActiveTab('milestones');
+        }
       }
     }
-  }, [initialMove, moves.length, game?.user_color]);
+  }, [initialMove, moves.length, game?.user_color, sourceContext]);
 
   // Navigate to a specific move
   const goToMove = (targetIndex) => {
