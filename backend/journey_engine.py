@@ -564,6 +564,14 @@ def compute_macro(recent_15: List[Dict], first_15: List[Dict],
         peer_text = "Compared to similar-rated players: In line"
         peer_status = "inline"
     
+    # Determine macro directive
+    if stability_delta >= 8:
+        macro_directive = MACRO_DIRECTIVES["improving"]
+    elif stability_delta <= -8:
+        macro_directive = MACRO_DIRECTIVES["declining"]
+    else:
+        macro_directive = MACRO_DIRECTIVES["same"]
+    
     return {
         "rows": [
             {
@@ -592,6 +600,7 @@ def compute_macro(recent_15: List[Dict], first_15: List[Dict],
                 "status": peer_status
             }
         ],
+        "directive": macro_directive,
         "metrics": {
             "tsi_first": round(first_tsi_avg),
             "tsi_recent": round(recent_tsi_avg),
