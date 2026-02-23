@@ -687,6 +687,13 @@ def build_explanation_prompt(analysis: Dict, move_data: Dict) -> str:
         if key_insight:
             context_parts.append(f"KEY INSIGHT: {key_insight}")
     
+    # CRITICAL: For positional errors with no tactical pattern, explicitly state NO TACTICS
+    is_purely_positional = mistake_type in ["inaccuracy", "positional_error", "unknown"] and not details.get("fork") and not details.get("pin") and not details.get("hanging") and not details.get("skewer") and not details.get("deep_tactics")
+    
+    if is_purely_positional:
+        context_parts.append("NO TACTICAL PATTERN DETECTED - this was a subtle positional inaccuracy")
+        context_parts.append("IMPORTANT: Do NOT mention any tactics like forks, pins, traps, skewers, or attacks on specific pieces - the engine found no such patterns")
+    
     # Template info
     context_parts.append(f"MISTAKE CATEGORY: {template['short']}")
     context_parts.append(f"PATTERN: {template['pattern']}")
@@ -695,7 +702,31 @@ def build_explanation_prompt(analysis: Dict, move_data: Dict) -> str:
     
     context_str = "\n".join(context_parts)
     
-    prompt = f"""You are a chess coach writing an educational explanation for a student's mistake.
+    # Different prompt for positional vs tactical mistakes
+    if is_purely_positional:
+        prompt = f"""You are a chess coach writing an explanation for a student's POSITIONAL mistake.
+
+FACTS (VERIFIED by chess engine - do not contradict):
+{context_str}
+
+CRITICAL: This was a POSITIONAL mistake, NOT a tactical one.
+- NO forks, pins, traps, or specific piece attacks were found
+- The move was simply less optimal - the better move improved piece coordination or control
+
+YOUR TASK: Write 2-3 sentences explaining this positional concept. Focus on:
+- General chess principles (piece activity, central control, coordination)
+- Compare what the played move does vs what the better move does
+- Suggest what to think about next time
+
+FORBIDDEN - DO NOT WRITE:
+- Any specific tactical patterns (fork, pin, trap, skewer, attack on X piece)
+- "Knight on X was trapped" or similar
+- "Opponent's piece could attack Y" unless explicitly in FACTS
+- Invented chess analysis
+
+Keep it under 40 words. Be supportive. Focus on the CONCEPT, not imagined tactics:"""
+    else:
+        prompt = f"""You are a chess coach writing an educational explanation for a student's mistake.
 
 FACTS ABOUT THIS MISTAKE (these are VERIFIED by chess engine - NEVER contradict or change them):
 {context_str}
@@ -706,7 +737,7 @@ Write 2-3 sentences explaining WHY this move was a mistake and what the student 
 CRITICAL RULES:
 1. ONLY mention tactical patterns (fork, pin, skewer, etc.) if explicitly stated in FACTS above
 2. If no TACTICAL PATTERN is listed above, DO NOT invent one - just explain the general issue
-3. NEVER say "fork" "pin" "skewer" "discovered attack" unless the FACTS section explicitly mentions it
+3. NEVER say "fork" "pin" "skewer" "discovered attack" "trap" unless the FACTS section explicitly mentions it
 4. Use simple, clear English (8th grade reading level)
 5. Focus on the THINKING ERROR, not just the move
 6. Be supportive, not harsh ("it happens!" "next time try...")
