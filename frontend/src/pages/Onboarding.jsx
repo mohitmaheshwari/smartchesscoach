@@ -88,7 +88,28 @@ const Onboarding = () => {
       );
       
       if (response.ok) {
+        const data = await response.json();
         setChessComVerified(true);
+        
+        // Auto-fetch rating for skill calibration
+        try {
+          const statsResponse = await fetch(
+            `https://api.chess.com/pub/player/${chessComUsername.toLowerCase()}/stats`
+          );
+          if (statsResponse.ok) {
+            const stats = await statsResponse.json();
+            // Get rapid or blitz rating
+            const rapidRating = stats.chess_rapid?.last?.rating;
+            const blitzRating = stats.chess_blitz?.last?.rating;
+            const detectedRating = rapidRating || blitzRating || null;
+            if (detectedRating) {
+              setDetectedRating(detectedRating);
+              setDetectedPlatform("chess.com");
+            }
+          }
+        } catch (e) {
+          console.log("Could not fetch rating stats");
+        }
       } else {
         setError("Chess.com username not found. Please check and try again.");
         setChessComVerified(false);
