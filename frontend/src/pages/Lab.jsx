@@ -1944,6 +1944,8 @@ const LearningMomentItem = ({ mistake, onClick, userColor, gameId, onPlayVariati
       className={`w-full text-left rounded-lg border-l-4 transition-all ${
         mistake.isBlunder ? 'border-l-red-500 bg-red-500/5' :
         mistake.isMistake ? 'border-l-orange-500 bg-orange-500/5' :
+        mistake.isPhantomThreat ? 'border-l-purple-500 bg-purple-500/5' :
+        mistake.isEnginePreference ? 'border-l-gray-500 bg-gray-500/5' :
         'border-l-yellow-500 bg-yellow-500/5'
       }`}
       data-testid={`mistake-${mistake.move_number}`}
