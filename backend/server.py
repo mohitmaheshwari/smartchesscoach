@@ -4303,7 +4303,7 @@ async def settings_link_account(req: LinkAccountRequest, user: User = Depends(ge
                                     "result": result,
                                     "time_control": tc
                                 })
-                        except:
+                        except (json.JSONDecodeError, KeyError, TypeError):
                             continue
         
         # Calculate performance rating

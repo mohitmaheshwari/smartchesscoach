@@ -53,7 +53,7 @@ def classify_time_control(time_control: str) -> str:
             return "blitz"
         else:
             return "bullet"
-    except:
+    except (ValueError, IndexError, AttributeError):
         return "blitz"
 
 
