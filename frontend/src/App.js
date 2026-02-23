@@ -35,17 +35,35 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
   const location = useLocation();
 
   useEffect(() => {
-    // If user data passed from AuthCallback, use it directly
-    if (location.state?.user) {
-      setUser(location.state.user);
-      setIsAuthenticated(true);
-      // Still check onboarding status
-      checkOnboarding();
-      return;
-    }
+    const checkOnboarding = async () => {
+      try {
+        const response = await fetch(`${API}/onboarding/status`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.needs_onboarding) {
+            setNeedsOnboarding(true);
+            navigate('/onboarding');
+          }
+        }
+      } catch (e) {
+        console.log("Onboarding check failed:", e);
+      }
+    };
 
     const checkAuth = async () => {
       try {
+        // If user data passed from AuthCallback, use it directly
+        if (location.state?.user) {
+          setUser(location.state.user);
+          setIsAuthenticated(true);
+          if (!skipOnboardingCheck) {
+            checkOnboarding();
+          }
+          return;
+        }
+
         const response = await fetch(`${API}/auth/me`, {
           credentials: 'include'
         });
@@ -61,23 +79,6 @@ const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
       } catch (error) {
         setIsAuthenticated(false);
         navigate('/');
-      }
-    };
-    
-    const checkOnboarding = async () => {
-      try {
-        const response = await fetch(`${API}/onboarding/status`, {
-          credentials: 'include'
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.needs_onboarding) {
-            setNeedsOnboarding(true);
-            navigate('/onboarding');
-          }
-        }
-      } catch (e) {
-        console.log("Onboarding check failed:", e);
       }
     };
     
