@@ -13,7 +13,58 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ---
 
-## Latest Updates (Feb 21, 2026)
+## Latest Updates (Feb 23, 2026)
+
+### Coaching Philosophy Architecture ✅ (Feb 23, 2026)
+
+**Core Principle:** Lab now surfaces HUMAN-IMPROVABLE ERRORS, not engine disagreements.
+
+Human-improvable errors:
+1. Missed forcing tactic
+2. Allowed forcing tactic
+3. Violated simple decision rule (threat-check, loose piece, king safety)
+4. Repeated known personal pattern
+5. No coherent plan when position demanded one
+
+**New Files Created:**
+- `coaching_classifier_service.py` - Central coaching classification logic
+
+**Features Implemented:**
+
+1. **Coach Mode / Engine Mode Toggle**
+   - Default: Coach Mode (only human-improvable errors)
+   - Engine Mode: Shows all engine disagreements
+   - Stats update dynamically (e.g., "8 Blunders, 4 Tactical" vs "8 Blunders, 4 Tactical, 7 Prefs")
+   - `data-testid="coach-mode-btn"` and `data-testid="engine-mode-btn"`
+
+2. **New Move Categories:**
+   - Blunder (300+ cp loss)
+   - Tactical Mistake (150+ cp OR has tactical pattern)
+   - Strategic Slip (100-149 cp)
+   - Engine Preference (50-99 cp with no tactical content) - HIDDEN in Coach Mode
+   - Good Move (<50 cp)
+
+3. **Prophylactic Move Classification:**
+   - GOOD: Real threat addressed, small cost → Not a mistake
+   - PHANTOM: No real threat → Coaching moment (thinking error)
+   - WRONG: Creates tactical problem → Puzzle eligible
+
+4. **Puzzle Generation Threshold:**
+   - Raised from 100cp to 150cp OR forcing tactic
+   - 50-99cp moves no longer become puzzles
+   - Prophylactic moves only become puzzles if truly wrong
+
+5. **Capture Move Detection:**
+   - Moves with 'x' are detected as captures
+   - Prevents "piece was undefended" hallucinations for exchange moves
+
+**Files Updated:**
+- `frontend/src/pages/Lab.jsx` - Coach/Engine toggle, move categorization
+- `backend/interactive_training_service.py` - Updated puzzle generation
+- `backend/mistake_explanation_service.py` - Capture detection, stricter prompts
+- `backend/position_analyzer.py` - Fixed starting square trap false positives
+
+---
 
 ### Puzzle Difficulty Progression ✅ COMPLETE (Feb 21, 2026)
 Implemented a full Elo-based puzzle rating system with gamification:
