@@ -555,8 +555,21 @@ def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_chan
         
         # === Generate tags based on WHAT THE MOVE ACTUALLY DOES ===
         
-        # 1. If it's a capture
-        if user_analysis.get("is_capture"):
+        # 0. If user was in check, acknowledge they had to respond
+        if is_in_check:
+            if user_analysis.get("is_capture") and checking_squares:
+                # User captured the checking piece
+                tags.append("I captured the piece giving check")
+                inferred_intent = "escape check by capturing"
+            elif piece_moved == "king":
+                tags.append("I moved my king to escape check")
+                inferred_intent = "escape check"
+            else:
+                tags.append("I blocked the check")
+                inferred_intent = "block the check"
+        
+        # 1. If it's a capture (and not already covered by check response)
+        if user_analysis.get("is_capture") and not is_in_check:
             captured = user_analysis.get("captured_piece", "piece")
             tags.append(f"I wanted to capture the {captured}")
             inferred_intent = f"capture the {captured}"
