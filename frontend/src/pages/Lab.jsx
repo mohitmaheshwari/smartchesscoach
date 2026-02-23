@@ -89,6 +89,7 @@ const Lab = ({ user }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialMove = searchParams.get('move');
+  const sourceContext = searchParams.get('src'); // 'journey' if coming from Journey page
   
   // Data states
   const [game, setGame] = useState(null);
