@@ -1133,7 +1133,60 @@ Created `chess_verification_layer.py` that:
 
 ---
 
-## Upcoming Tasks (Feb 2026)
+## Current Priority: Validation Phase (Mandated)
+
+**Status:** Journey page complete. All new feature development is PAUSED.
+
+**Next Action:** Observe 3-5 real users to confirm if the system (TSI, focus area, micro-protocols) actually changes their in-game thinking.
+
+**Validation Metrics to Observe:**
+- Emotional fairness (do users feel the feedback is fair?)
+- Behavioral awareness (do users recognize their patterns?)
+- Improvement speed (is the focus area reducing in frequency?)
+
+**DO NOT BUILD until validation is complete:**
+- Weekly reports
+- Leak timeline expansion
+- Reflection reinforcement
+- Any new analytics or features
+
+---
+
+## Pending Issues
+
+### P1: LLM Hallucination Risk (Deprioritized)
+- **Description:** LLM can still produce factually incorrect content
+- **Current State:** Light guardrail added in `mistake_explanation_service.py`
+- **Next Steps:** After validation phase, review for improved guardrails or template fallbacks
+- **Status:** IN PROGRESS but deprioritized
+
+### P1: Stuck Analysis Screen Root Cause
+- **Description:** "Analyzing games" screen can get stuck for 30+ minutes
+- **Current Workaround:** 45-second timeout + Skip button implemented
+- **Root Cause:** Not fully diagnosed (potentially long-running background task for new users with zero games)
+- **Status:** Workaround in place, root cause investigation pending
+
+---
+
+## Upcoming Tasks (Post-Validation)
+
+### P0: Real User Testing & Validation Phase
+- Observe 3-5 users using the complete system
+- Log data on emotional fairness, behavioral awareness, improvement speed
+- Calibrate thresholds based on real behavior, not synthetic tests
+
+### P1: Re-analyze Existing Games
+- Background job to re-calculate analysis for old games using new cognitive classification logic
+
+---
+
+## Future/Backlog Tasks
+
+### P2: Personal Leak Timeline
+- Visual graph showing trend of each cognitive category over time
+
+### P2: Weekly Focus Report
+- Automated weekly report reinforcing progress on focus area
 
 ### P2: Community Learning (Phase 3)
 - Create shared puzzle pool from all users' mistakes
@@ -1154,3 +1207,7 @@ Created `chess_verification_layer.py` that:
 - Blunder frequency reduction over time
 - Reflection accuracy (did awareness gaps decrease?)
 - Pattern recognition speed
+
+---
+
+## Architecture Notes
