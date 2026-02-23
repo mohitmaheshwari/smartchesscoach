@@ -853,6 +853,22 @@ const Lab = ({ user }) => {
   return (
     <Layout user={user}>
       <div className="h-[calc(100vh-80px)] flex flex-col" data-testid="lab-page">
+        {/* FROM JOURNEY BREADCRUMB */}
+        {sourceContext === 'journey' && (
+          <div className="bg-blue-900/20 border-b border-blue-800/30 px-4 py-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-blue-400">From Journey</span>
+              <span className="text-slate-500">•</span>
+              <button 
+                onClick={() => navigate('/journey')}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                Back to Journey
+              </button>
+            </div>
+          </div>
+        )}
+        
         {/* STICKY HEADER */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border/50 px-4 py-3">
           <div className="flex items-center justify-between gap-4">
