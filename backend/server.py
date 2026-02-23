@@ -2435,6 +2435,39 @@ async def get_linked_accounts(user: User = Depends(get_current_user)):
         "lichess": user_doc.get("lichess_username")
     }
 
+
+class UnlinkAccountRequest(BaseModel):
+    platform: str  # "chess.com" or "lichess"
+
+@api_router.post("/journey/unlink-account")
+async def unlink_chess_account(req: UnlinkAccountRequest, user: User = Depends(get_current_user)):
+    """
+    Unlink a Chess.com or Lichess account.
+    This does NOT delete imported games, but stops future syncing.
+    """
+    platform = req.platform.lower()
+    
+    if platform not in ["chess.com", "lichess"]:
+        raise HTTPException(status_code=400, detail="Invalid platform. Use 'chess.com' or 'lichess'")
+    
+    if platform == "chess.com":
+        # Remove both field variants for safety
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$unset": {"chess_com_username": "", "chesscom_username": ""}}
+        )
+    else:
+        await db.users.update_one(
+            {"user_id": user.user_id},
+            {"$unset": {"lichess_username": ""}}
+        )
+    
+    return {
+        "message": f"{platform} account unlinked successfully",
+        "platform": platform
+    }
+
+
 @api_router.post("/journey/sync-now")
 async def trigger_game_sync(background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
     """
