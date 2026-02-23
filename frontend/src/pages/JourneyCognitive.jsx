@@ -399,7 +399,7 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 5: Phase Stability Insight */}
+        {/* SECTION 5: Phase Stability Insight - #7: Direct labels, no narrative */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
@@ -408,24 +408,20 @@ const Journey = ({ user }) => {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-                <p className="text-xs text-red-400 mb-1">Most Unstable Phase</p>
+                <p className="text-xs text-muted-foreground mb-1">Primary Instability Phase</p>
                 <p className="text-lg font-medium text-white">{phaseData.mostUnstable}</p>
               </div>
               <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                <p className="text-xs text-green-400 mb-1">Most Stable Phase</p>
+                <p className="text-xs text-muted-foreground mb-1">Most Stable Phase</p>
                 <p className="text-lg font-medium text-white">{phaseData.mostStable}</p>
               </div>
             </div>
-
-            <p className="text-sm text-muted-foreground mt-4">
-              Decision quality drops during {phaseData.mostUnstable.toLowerCase()} transitions.
-            </p>
           </CardContent>
         </Card>
 
-        {/* Games Analyzed Footer */}
-        <p className="text-xs text-center text-muted-foreground">
-          Based on {cognitiveData?.games_analyzed || 0} analyzed games
+        {/* #8: Footer - small muted text */}
+        <p className="text-xs text-center text-slate-600">
+          Based on last {cognitiveData?.games_analyzed || 20} analyzed games
         </p>
       </div>
     </Layout>
