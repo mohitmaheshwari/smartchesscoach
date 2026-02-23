@@ -439,52 +439,85 @@ def _calculate_tsi(
     previous_patterns: Dict
 ) -> Tuple[int, str]:
     """
-    Calculate Thinking Stability Index.
+    Calculate Thinking Stability Index using Weighted Rolling Window.
     
-    For each cognitive category:
-        category_score = frequency_weight * severity_weight
+    Weight distribution:
+        Games 1-5 (recent): weight 3
+        Games 6-10 (middle): weight 2
+        Games 11-20 (older): weight 1
     
-    TSI = 100 - normalized_sum(category_scores)
+    This dampens single-game spikes while responding to sustained patterns.
+    
+    TSI = 100 - normalized_weighted_sum
     Clamp between 0-100.
     """
     if not all_patterns:
         return 100, "stable"
     
-    # Calculate total weighted score
-    total_score = 0
-    max_possible = 0
+    # Calculate weighted score using the tiered approach
+    # recent_patterns = games 1-5, previous_patterns = games 6-10
+    # all_patterns contains games 1-20 (but not split by tier)
+    
+    # We'll compute weighted severity for recent vs older patterns
+    recent_weighted = 0.0
+    previous_weighted = 0.0
+    older_weighted = 0.0
     
     for cat_key, data in all_patterns.items():
-        # Weight by frequency and severity
-        freq = data.get("frequency", 0)
-        avg_sev = data.get("avg_severity", 0)
+        # Recent (games 1-5)
+        recent_freq = recent_patterns.get(cat_key, {}).get("frequency", 0)
+        recent_sev = recent_patterns.get(cat_key, {}).get("avg_severity", 0)
+        recent_weighted += recent_freq * recent_sev * GAME_WEIGHTS["recent"]
         
-        category_score = freq * avg_sev
-        total_score += category_score
+        # Middle (games 6-10)
+        prev_freq = previous_patterns.get(cat_key, {}).get("frequency", 0)
+        prev_sev = previous_patterns.get(cat_key, {}).get("avg_severity", 0)
+        previous_weighted += prev_freq * prev_sev * GAME_WEIGHTS["middle"]
         
-        # Max possible assumes all mistakes are maximum severity
-        max_possible += freq * 1.0
+        # Older (games 11-20) - approximate from total minus recent/previous
+        total_freq = data.get("frequency", 0)
+        total_sev = data.get("avg_severity", 0)
+        older_freq = max(0, total_freq - recent_freq - prev_freq)
+        older_weighted += older_freq * total_sev * GAME_WEIGHTS["older"]
     
-    # Normalize to 0-100 scale
-    if max_possible > 0:
-        normalized = (total_score / max_possible) * 100
+    # Total weighted score
+    total_weighted = recent_weighted + previous_weighted + older_weighted
+    
+    # Calculate total weight denominator (for normalization)
+    # Max mistakes per game ~= 5, max severity = 1.0
+    # 5 games * 5 mistakes * 1.0 * weight_3 = 75 for recent tier
+    # This gives us a reasonable ceiling
+    total_weight_sum = (5 * GAME_WEIGHTS["recent"] + 
+                        5 * GAME_WEIGHTS["middle"] + 
+                        10 * GAME_WEIGHTS["older"])  # 15 + 10 + 10 = 35
+    
+    # Normalize: assume max ~3 significant mistakes per game at severity 0.5
+    max_expected = total_weight_sum * 3 * 0.5  # ~52.5
+    
+    if max_expected > 0:
+        normalized = min(100, (total_weighted / max_expected) * 100)
     else:
         normalized = 0
     
     # TSI = 100 - normalized (higher is better)
     tsi = max(0, min(100, int(100 - normalized)))
     
-    # Calculate TSI trend
+    # Calculate TSI trend using weighted recent vs previous
+    # Use the weighted scores, not raw frequencies
     recent_score = sum(
-        p.get("frequency", 0) * get_severity_weight(100)  # Approx
+        p.get("frequency", 0) * p.get("avg_severity", 0.5) * GAME_WEIGHTS["recent"]
         for p in recent_patterns.values()
     )
     previous_score = sum(
-        p.get("frequency", 0) * get_severity_weight(100)
+        p.get("frequency", 0) * p.get("avg_severity", 0.5) * GAME_WEIGHTS["middle"]
         for p in previous_patterns.values()
     )
     
-    tsi_trend = _calculate_trend(int(recent_score), int(previous_score))
+    # Normalize both to same weight for fair comparison
+    if GAME_WEIGHTS["recent"] != GAME_WEIGHTS["middle"]:
+        previous_score = previous_score * (GAME_WEIGHTS["recent"] / GAME_WEIGHTS["middle"])
+    
+    tsi_trend = _calculate_trend(int(recent_score * 10), int(previous_score * 10))
     # Invert because lower score = better
     if tsi_trend == "worsening":
         tsi_trend = "improving"
