@@ -1066,6 +1066,7 @@ const Lab = ({ user }) => {
                   position={positionObject}
                   boardOrientation={boardOrientation}
                   customSquareStyles={lastMoveSquares}
+                  customArrows={customArrows}
                   arePiecesDraggable={false}
                   animationDuration={0}
                   customBoardStyle={{
