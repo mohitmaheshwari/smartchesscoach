@@ -284,9 +284,14 @@ const Journey = ({ user }) => {
               </div>
             </div>
 
-            {/* #2: Gap Driver - clinical, no narrative */}
+            {/* #1: Micro explanation for stability gap */}
+            <p className="text-xs text-slate-500 mt-3">
+              Stability gap reflects difference between your consistent level and peak capability.
+            </p>
+
+            {/* Gap Driver - clinical, no narrative */}
             {primaryDriver && (
-              <div className="mt-6 pt-4 border-t border-slate-700">
+              <div className="mt-4 pt-4 border-t border-slate-700">
                 <p className="text-sm text-white">
                   <span className="text-muted-foreground">Primary Instability Driver: </span>
                   <span className="font-medium">{primaryDriver.name}</span>
