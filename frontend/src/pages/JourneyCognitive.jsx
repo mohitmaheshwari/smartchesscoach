@@ -210,7 +210,7 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 3: Instability Context Shift */}
+        {/* SECTION 3: Blunder Context Shift - FIX #3: Clear directional layout */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
@@ -224,21 +224,27 @@ const Journey = ({ user }) => {
             ) : (
               <div className="p-3 rounded-lg bg-slate-800/30">
                 <p className="text-sm text-white mb-3">Blunders in Winning Positions</p>
-                <div className="flex items-center justify-between">
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Previous 5</p>
-                    <p className="text-2xl font-bold text-slate-400">{context_shift.previous}%</p>
+                <div className="flex items-baseline gap-6 mb-2">
+                  <div>
+                    <span className="text-sm text-muted-foreground mr-2">Previous 5:</span>
+                    <span className="text-xl font-bold text-slate-400">{context_shift.previous}%</span>
                   </div>
-                  <div className="text-center px-6">
-                    <span className={`text-sm ${getStatusColor(context_shift.status)}`}>
-                      {context_shift.status}
+                  <div>
+                    <span className="text-sm text-muted-foreground mr-2">Recent 5:</span>
+                    <span className="text-xl font-bold text-white">{context_shift.recent}%</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground mr-2">Change:</span>
+                    <span className={`text-xl font-bold ${context_shift.change > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                      {context_shift.change > 0 ? "+" : ""}{context_shift.change}%
                     </span>
                   </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Recent 5</p>
-                    <p className="text-2xl font-bold text-white">{context_shift.recent}%</p>
-                  </div>
                 </div>
+                <p className="text-xs text-slate-500">
+                  {context_shift.direction === "Increased" 
+                    ? "Instability when ahead has increased."
+                    : "Instability when ahead has decreased."}
+                </p>
               </div>
             )}
           </CardContent>
