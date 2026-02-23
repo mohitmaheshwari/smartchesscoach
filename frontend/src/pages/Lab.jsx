@@ -313,12 +313,20 @@ const Lab = ({ user }) => {
     setCurrentMoveIndex(clampedIndex);
     
     if (clampedIndex >= 0 && moves[clampedIndex]) {
+      const move = moves[clampedIndex];
       setLastMoveSquares({
-        [moves[clampedIndex].from]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
-        [moves[clampedIndex].to]: { backgroundColor: "rgba(255, 255, 0, 0.4)" }
+        [move.from]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
+        [move.to]: { backgroundColor: "rgba(255, 255, 0, 0.4)" }
       });
+      // Show arrow for "you played" move (orange/red for user moves)
+      if (move.from && move.to) {
+        setCustomArrows([[move.from, move.to, "rgba(255, 170, 0, 0.8)"]]);
+      } else {
+        setCustomArrows([]);
+      }
     } else {
       setLastMoveSquares({});
+      setCustomArrows([]);
     }
   };
 
