@@ -134,7 +134,18 @@ const Onboarding = () => {
       );
       
       if (response.ok) {
+        const data = await response.json();
         setLichessVerified(true);
+        
+        // Auto-fetch rating for skill calibration
+        const rapidRating = data.perfs?.rapid?.rating;
+        const blitzRating = data.perfs?.blitz?.rating;
+        const classicalRating = data.perfs?.classical?.rating;
+        const detectedRatingValue = rapidRating || classicalRating || blitzRating || null;
+        if (detectedRatingValue && !detectedRating) {
+          setDetectedRating(detectedRatingValue);
+          setDetectedPlatform("lichess");
+        }
       } else {
         setError("Lichess username not found. Please check and try again.");
         setLichessVerified(false);
