@@ -15,6 +15,64 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 23, 2026)
 
+### Behavior Shaping UI Implementation ✅ COMPLETE (Feb 23, 2026)
+
+**Core Philosophy:** Transform the app from an analytics dashboard into a behavioral shaping coach. Users should instantly understand "what I'm fixing and how to think differently."
+
+**Features Implemented:**
+
+1. **TSI Interpretation Bands** ✅
+   - Thinking Stability Index now displays with clinical interpretation text
+   - Bands: 80-100 "Stable decision process", 65-79 "Moderate instability", 50-64 "Frequent cognitive lapses", <50 "High volatility"
+   - Color-coded: green/yellow/orange/red based on score
+   - Shows trend indicator (Improving/Declining)
+   - `data-testid="tsi-score"` and `data-testid="tsi-interpretation"`
+
+2. **UI Noise Reduction** ✅
+   - Training Focus card now shows ONLY primary focus (not secondary weaknesses)
+   - Removed "Also work on: ..." text completely
+   - Comment at line ~613: "/* no secondary focus (noise reduction) */"
+   - Keeps user focused on ONE weakness at a time
+
+3. **Focus Mode Banner in Lab** ✅
+   - Professional banner below game header when focus is active
+   - Shows: "Active Focus: [Focus Name]" + behavioral message
+   - "View Training Module" button links to Training page
+   - Muted amber/slate color scheme (not gamified)
+   - `data-testid="focus-mode-banner"` and `data-testid="view-training-module-btn"`
+
+4. **Micro-Protocol Card** ✅
+   - "Decision Protocol" card in Milestones tab (above mistake list)
+   - 3-step behavioral checklist based on focus category:
+     - missed_forcing: "Check all forcing moves", "Check opponent forcing replies", "Confirm no hanging pieces"
+     - ignored_opponent_forcing: "Decide your candidate move", "Ask: what's their best reply?", "If dangerous, reconsider"
+     - phantom_threat: "Identify the 'threat'", "Ask: what happens if I ignore it?", "Only defend if truly forcing"
+     - advantage_mismanagement: "Recognize you're winning", "Look for forcing continuations", "Don't trade into drawn endgame"
+   - Clickable checkboxes (session-only, no persistent storage)
+   - `data-testid="micro-protocol-card"` and `data-testid="protocol-check-0/1/2"`
+
+5. **Focus Context Indicator** ✅
+   - In mistake explanations, shows "This relates to your current focus area." when categories match
+   - Creates neural linking between current mistake and active training focus
+   - `data-testid="focus-context-indicator"`
+
+6. **LLM Hallucination Guardrail** ✅
+   - `validate_llm_explanation()` function in `mistake_explanation_service.py`
+   - Checks for known hallucination signals (e.g., "trapping a knight on b1")
+   - Validates FEN before accepting explanation
+   - Detects tactical claims in opening positions (usually wrong)
+   - Falls back to template-based explanation on detection
+
+**Files Updated:**
+- `frontend/src/pages/TrainingNew.jsx` - TSI interpretation, noise reduction
+- `frontend/src/pages/Lab.jsx` - Focus banner, Micro-Protocol card, focus context
+- `backend/mistake_explanation_service.py` - Hallucination guardrail
+- `backend/tests/test_behavior_shaping_features.py` - 10 tests (100% pass)
+
+**Test Report:** `/app/test_reports/iteration_64.json`
+
+---
+
 ### Coaching Philosophy Architecture ✅ (Feb 23, 2026)
 
 **Core Principle:** Lab now surfaces HUMAN-IMPROVABLE ERRORS, not engine disagreements.
