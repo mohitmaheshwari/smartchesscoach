@@ -686,20 +686,43 @@ const Lab = ({ user }) => {
         label: "Learning Moments",
         icon: "lightbulb",
         count: groups.learning_moments.length,
-        items: groups.learning_moments,
+        items: groups.learning_moments.sort((a, b) => a.coachingPriority - b.coachingPriority), // Sort by coaching priority
         positive: false
+      });
+    }
+    
+    // In Engine Mode, also show engine preferences
+    if (groups.engine_preferences.length > 0) {
+      result.push({
+        type: 'engine_preferences',
+        label: "Engine Preferences",
+        icon: "cpu",
+        count: groups.engine_preferences.length,
+        items: groups.engine_preferences,
+        positive: false,
+        hidden: true // Hidden by default in Coach Mode
       });
     }
     
     return result;
   }, [moveEvaluations, userColor]);
+  
+  // Filter milestones based on mode
+  const displayedMilestones = useMemo(() => {
+    if (!coachMode) {
+      // Engine Mode - show everything
+      return groupedMilestones;
+    }
+    // Coach Mode - hide engine preferences
+    return groupedMilestones.filter(g => !g.hidden);
+  }, [groupedMilestones, coachMode]);
 
   // Critical moves (eval swing > 1.5 or big cp loss)
   const criticalMoves = useMemo(() => {
     return moveEvaluations.filter(m => {
       if (!isUserMoveFromFen(m)) return false;
       const cpLoss = Math.abs(m.cp_loss || 0);
-      return cpLoss >= 150; // 1.5 pawns
+      return cpLoss >= 150; // 1.5 pawns - matches new threshold
     });
   }, [moveEvaluations, userColor]);
 
