@@ -244,38 +244,48 @@ const Onboarding = () => {
       });
       
       if (!syncResponse.ok) {
-        throw new Error("Failed to sync games");
+        // If sync fails, still proceed - games might already be synced
+        console.log("Game sync returned error, proceeding anyway");
       }
       
       setAnalysisProgress(50);
       
-      // Poll for analysis completion
+      // Poll for analysis completion (max 45 seconds)
       let attempts = 0;
-      const maxAttempts = 30; // 30 seconds max
+      const maxAttempts = 45;
+      let foundPatterns = null;
       
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
-        setAnalysisProgress(50 + (attempts / maxAttempts) * 40);
+        setAnalysisProgress(50 + (attempts / maxAttempts) * 45);
         
         // Check if we have analyzed games
-        const patternsResponse = await fetch(`${API}/cognitive/patterns`, {
-          credentials: "include"
-        });
-        
-        if (patternsResponse.ok) {
-          const patterns = await patternsResponse.json();
-          if (patterns.games_analyzed > 0) {
-            setAnalysisProgress(100);
-            setAnalysisResult(patterns);
-            break;
+        try {
+          const patternsResponse = await fetch(`${API}/cognitive/patterns`, {
+            credentials: "include"
+          });
+          
+          if (patternsResponse.ok) {
+            const patterns = await patternsResponse.json();
+            if (patterns.games_analyzed > 0) {
+              foundPatterns = patterns;
+              setAnalysisProgress(100);
+              setAnalysisResult(patterns);
+              break;
+            }
           }
+        } catch (e) {
+          console.log("Patterns check failed:", e);
         }
       }
       
-      if (!analysisResult && attempts >= maxAttempts) {
-        // Even if analysis isn't complete, proceed
+      // If we didn't find patterns after max attempts, redirect to training anyway
+      if (!foundPatterns) {
         setAnalysisProgress(100);
+        // Short delay then redirect
+        await new Promise(resolve => setTimeout(resolve, 500));
+        navigate("/training");
       }
       
     } catch (e) {
