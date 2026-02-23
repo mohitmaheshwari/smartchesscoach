@@ -396,30 +396,51 @@ const Journey = ({ user }) => {
                   </CardContent>
                 </Card>
 
-                {/* Top 2 Shifts (if any) */}
-                {momentum.shifts && momentum.shifts.length > 0 && (
-                  <Card className="border-slate-700 bg-slate-900/50" data-testid="momentum-shifts">
+                {/* Top 3 Issues (if meaningful) */}
+                {momentum.top_issues && momentum.top_issues.length > 0 && (
+                  <Card className="border-slate-700 bg-slate-900/50" data-testid="momentum-top-issues">
                     <CardContent className="p-5 space-y-3">
                       <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                        What Changed
+                        Top Issues Right Now
                       </p>
-                      {momentum.shifts.map((shift, idx) => (
+                      {momentum.top_issues.map((issue, idx) => (
                         <div 
                           key={idx}
                           className="flex items-center justify-between py-2"
-                          data-testid={`shift-${idx}`}
+                          data-testid={`top-issue-${idx}`}
                         >
-                          <div className="flex items-center gap-2">
-                            {getTrendIcon(shift.direction)}
-                            <span className="text-sm text-slate-300">{shift.label}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-slate-400">{shift.previous}</span>
-                            <ArrowRight className="w-3 h-3 text-slate-600" />
-                            <span className="text-white">{shift.recent}</span>
-                          </div>
+                          <span className="text-sm text-slate-300">{idx + 1}. {issue.name}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            issue.impact === "High" ? "bg-red-900/30 text-red-400" :
+                            issue.impact === "Moderate" ? "bg-amber-900/30 text-amber-400" :
+                            "bg-slate-800 text-slate-400"
+                          }`}>
+                            {issue.impact}
+                          </span>
                         </div>
                       ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Advantage Discipline Shift (if significant) */}
+                {momentum.advantage_shift && (
+                  <Card className="border-slate-700 bg-slate-900/50" data-testid="advantage-shift">
+                    <CardContent className="p-5">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                        When Ahead (5 vs 5)
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {getTrendIcon(momentum.advantage_shift.direction)}
+                          <span className="text-sm text-slate-300">Advantage Discipline</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-slate-400">{momentum.advantage_shift.previous}</span>
+                          <ArrowRight className="w-3 h-3 text-slate-600" />
+                          <span className="text-white">{momentum.advantage_shift.recent}</span>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 )}
