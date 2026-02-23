@@ -1,15 +1,16 @@
 /**
- * JOURNEY PAGE - Stat-Light Cognitive Evolution
+ * JOURNEY PAGE - Cognitive Evolution System
  * 
- * Purpose: Behavioral truth, not arithmetic.
+ * Architecture:
+ * 1. SHORT-TERM MOMENTUM (5 vs 5)
+ * 2. LONG-TERM GROWTH ARC (Early vs Recent)
  * 
- * Default mode = meaning.
- * Advanced toggle = numbers.
+ * Core Principle: Never "invent insight" - all commentary derived from measured deltas.
  * 
- * Users think in identity:
- * "I relax when ahead."
- * "I rush critical moments."
- * "I lose structure in middlegames."
+ * Page Structure (LOCKED):
+ * - Cognitive Momentum (5 vs 5): Stability, Pattern, Advantage, Phase
+ * - Divider
+ * - Growth Arc (Early vs Recent): Stability Growth, Driver Evolution, Peer Comparison, Phase Evolution
  */
 
 import { useState, useEffect } from "react";
@@ -20,42 +21,41 @@ import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
 
 // Pattern name mapping
 const PATTERN_NAMES = {
-  "random_move_critical": "Critical Moment Drift",
-  "missed_forcing_move": "Missed Forcing Move",
-  "ignored_opponent_forcing": "Ignored Opponent Forcing",
-  "phantom_threat_reaction": "Phantom Threat Reaction",
-  "advantage_mismanagement": "Advantage Mismanagement",
   "structural_misjudgment": "Structural Misjudgment",
+  "critical_moment_drift": "Critical Moment Drift",
+  "missed_forcing_move": "Missed Forcing Move",
+  "random_critical_move": "Critical Moment Drift",
+  "advantage_mismanagement": "Advantage Mismanagement",
   "time_pressure_collapse": "Time Pressure Collapse"
 };
 
 const getPatternName = (key) => PATTERN_NAMES[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-// Behavioral explanations - no numbers, pure meaning
+// Behavioral explanations derived from measured deltas
 const getPatternBehavior = (category, status) => {
   const behaviors = {
-    "random_move_critical": {
-      "Improving": "Reduced instability in high-pressure positions.",
-      "Worsening": "Increased drift in critical decision moments."
+    "structural_misjudgment": {
+      "improving": "Positional evaluation has improved.",
+      "worsening": "Positional misjudgments have increased."
+    },
+    "critical_moment_drift": {
+      "improving": "Reduced instability in high-pressure positions.",
+      "worsening": "Increased drift in critical decision moments."
+    },
+    "random_critical_move": {
+      "improving": "Reduced instability in high-pressure positions.",
+      "worsening": "Increased drift in critical decision moments."
     },
     "missed_forcing_move": {
-      "Improving": "Better recognition of decisive opportunities.",
-      "Worsening": "More forcing moves being overlooked."
-    },
-    "structural_misjudgment": {
-      "Improving": "Clearer evaluation of positional factors.",
-      "Worsening": "More frequent positional miscalculations."
+      "improving": "Better recognition of forcing opportunities.",
+      "worsening": "More forcing moves being overlooked."
     },
     "advantage_mismanagement": {
-      "Improving": "Stronger technique when converting advantages.",
-      "Worsening": "More carelessness after gaining an edge."
-    },
-    "time_pressure_collapse": {
-      "Improving": "Better composure under time pressure.",
-      "Worsening": "Decision quality drops more under clock pressure."
+      "improving": "Better technique when converting advantages.",
+      "worsening": "More carelessness after gaining an edge."
     }
   };
-  return behaviors[category]?.[status] || (status === "Improving" 
+  return behaviors[category]?.[status] || (status === "improving" 
     ? "This pattern is becoming less frequent."
     : "This pattern is becoming more frequent.");
 };
@@ -107,7 +107,7 @@ const Journey = ({ user }) => {
     );
   }
 
-  // Not activated yet
+  // Not activated - Safety Guard
   if (!data.activated) {
     return (
       <Layout user={user}>
@@ -121,15 +121,14 @@ const Journey = ({ user }) => {
 
           <Card className="border-slate-700 bg-slate-900/50">
             <CardContent className="p-8 text-center">
-              <p className="text-lg text-white mb-2">
-                Journey will activate after {data.games_required} analyzed games.
+              <p className="text-sm text-slate-400">
+                {data.message}
               </p>
-              <p className="text-sm text-muted-foreground">
-                We need at least 10 games to detect meaningful cognitive shifts.
-              </p>
-              <p className="text-sm text-slate-500 mt-4">
-                Games analyzed: {data.games_analyzed} / {data.games_required}
-              </p>
+              {data.games_required && (
+                <p className="text-xs text-slate-600 mt-4">
+                  Games analyzed: {data.games_analyzed} / {data.games_required}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -137,32 +136,7 @@ const Journey = ({ user }) => {
     );
   }
 
-  const { stability_momentum, pattern_shifts, context_shift, phase_shift } = data;
-
-  // Generate behavioral stability text
-  const getStabilityBehavior = () => {
-    if (!stability_momentum.valid) {
-      return "Not enough data to assess stability trends yet.";
-    }
-    if (stability_momentum.delta >= 5) {
-      return "Your recent games show more consistent decision-making compared to earlier games.";
-    }
-    if (stability_momentum.delta <= -5) {
-      return "Your recent games show less consistent decision-making compared to earlier games.";
-    }
-    return "Your decision-making consistency has remained steady.";
-  };
-
-  // Generate advantage discipline behavior
-  const getAdvantageBehavior = () => {
-    if (data.context_unchanged) {
-      return "Your discipline when ahead has remained consistent.";
-    }
-    if (context_shift.direction === "Increased") {
-      return "You are losing focus after gaining an advantage more often than before.";
-    }
-    return "You are maintaining focus better after gaining an advantage.";
-  };
+  const { momentum, growth_arc } = data;
 
   return (
     <Layout user={user}>
@@ -187,7 +161,7 @@ const Journey = ({ user }) => {
           </button>
         </div>
 
-        {/* SECTION 1: Cognitive Momentum - The headline story */}
+        {/* Cognitive Summary */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
@@ -199,39 +173,42 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 2: Stability Trend */}
+        {/* ============================================ */}
+        {/* SHORT-TERM MOMENTUM (5 vs 5) */}
+        {/* ============================================ */}
+
+        {/* Stability Delta */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
               Stability Trend
             </p>
             <p className="text-sm text-slate-300">
-              {getStabilityBehavior()}
+              {momentum.stability.text}
             </p>
             
-            {/* Optional metrics */}
-            {showMetrics && stability_momentum.valid && (
+            {showMetrics && (
               <div className="mt-3 pt-3 border-t border-slate-700/50 text-xs text-slate-500">
-                Previous 5: {stability_momentum.previous_tsi} | Recent 5: {stability_momentum.recent_tsi} | Change: {stability_momentum.delta >= 0 ? "+" : ""}{stability_momentum.delta}
+                Previous 5: {momentum.stability.previous_avg} | Recent 5: {momentum.stability.recent_avg} | Delta: {momentum.stability.delta >= 0 ? "+" : ""}{momentum.stability.delta}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* SECTION 3: Pattern Evolution */}
+        {/* Pattern Shifts */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
               Pattern Evolution
             </p>
             
-            {data.no_pattern_shifts ? (
+            {momentum.no_pattern_shifts ? (
               <p className="text-sm text-slate-400">
-                Your cognitive patterns have remained stable.
+                No significant pattern shifts detected.
               </p>
             ) : (
               <div className="space-y-4">
-                {pattern_shifts.map((shift, idx) => (
+                {momentum.pattern_shifts.map((shift, idx) => (
                   <div key={shift.category} data-testid={`pattern-shift-${idx}`}>
                     <p className="text-sm font-medium text-white mb-1">
                       {getPatternName(shift.category)}
@@ -240,10 +217,9 @@ const Journey = ({ user }) => {
                       {getPatternBehavior(shift.category, shift.status)}
                     </p>
                     
-                    {/* Optional metrics */}
                     {showMetrics && (
                       <p className="text-xs text-slate-600 mt-1">
-                        {shift.previous_band} → {shift.recent_band} ({shift.status})
+                        {shift.previous_band} → {shift.recent_band}
                       </p>
                     )}
                   </div>
@@ -253,43 +229,134 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 4: Advantage Discipline */}
+        {/* Advantage Discipline */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
               Advantage Discipline
             </p>
-            <p className="text-sm text-slate-300">
-              {getAdvantageBehavior()}
-            </p>
             
-            {/* Optional metrics */}
-            {showMetrics && !data.context_unchanged && (
-              <div className="mt-3 pt-3 border-t border-slate-700/50 text-xs text-slate-500">
-                Blunders when ahead: {context_shift.previous}% → {context_shift.recent}% ({context_shift.change > 0 ? "+" : ""}{context_shift.change}%)
-              </div>
+            {momentum.context_unchanged ? (
+              <p className="text-sm text-slate-400">
+                No meaningful context shift.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-slate-300">
+                  {momentum.context_shift.status === "worsening"
+                    ? "You are losing focus after gaining an advantage more often."
+                    : "You are maintaining focus better after gaining an advantage."}
+                </p>
+                
+                {showMetrics && (
+                  <div className="mt-3 pt-3 border-t border-slate-700/50 text-xs text-slate-500">
+                    Blunders when ahead: {momentum.context_shift.previous_rate}% → {momentum.context_shift.recent_rate}% ({momentum.context_shift.delta > 0 ? "+" : ""}{momentum.context_shift.delta}%)
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
 
-        {/* SECTION 5: Phase Stability */}
+        {/* Phase Stability */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
               Phase Stability
             </p>
             
-            {phase_shift.changed ? (
+            {momentum.phase.changed ? (
               <p className="text-sm text-slate-300">
-                Your instability has shifted from <span className="text-white">{phase_shift.previous}</span> to <span className="text-white">{phase_shift.recent}</span>.
+                Primary instability shifted from <span className="text-white">{momentum.phase.previous}</span> to <span className="text-white">{momentum.phase.recent}</span>.
               </p>
             ) : (
               <p className="text-sm text-slate-300">
-                <span className="text-white">{phase_shift.recent}</span> remains your most unstable phase.
+                <span className="text-white">{momentum.phase.recent}</span> remains your most unstable phase.
               </p>
             )}
           </CardContent>
         </Card>
+
+        {/* ============================================ */}
+        {/* DIVIDER */}
+        {/* ============================================ */}
+        
+        {growth_arc && (
+          <>
+            <div className="border-t border-slate-700 my-8" />
+
+            {/* ============================================ */}
+            {/* LONG-TERM GROWTH ARC */}
+            {/* ============================================ */}
+
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              Growth Arc
+            </p>
+
+            {/* Stability Growth */}
+            <Card className="border-slate-700 bg-slate-900/50">
+              <CardContent className="p-6">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+                  Long-Term Stability
+                </p>
+                <p className="text-sm text-slate-300">
+                  {growth_arc.stability_growth.text}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Driver Evolution */}
+            {growth_arc.driver_evolution && (
+              <Card className="border-slate-700 bg-slate-900/50">
+                <CardContent className="p-6">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+                    Primary Weakness Evolution
+                  </p>
+                  <p className="text-sm text-slate-300">
+                    {growth_arc.driver_evolution.text}
+                  </p>
+                  
+                  {showMetrics && (
+                    <div className="mt-3 pt-3 border-t border-slate-700/50 text-xs text-slate-500">
+                      {getPatternName(growth_arc.driver_evolution.driver)}: {growth_arc.driver_evolution.early_band} → {growth_arc.driver_evolution.recent_band}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Peer Comparison */}
+            <Card className="border-slate-700 bg-slate-900/50">
+              <CardContent className="p-6">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+                  Peer Comparison
+                </p>
+                <p className="text-sm text-slate-300">
+                  {growth_arc.peer_comparison.text}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Phase Evolution */}
+            <Card className="border-slate-700 bg-slate-900/50">
+              <CardContent className="p-6">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+                  Phase Evolution
+                </p>
+                
+                {growth_arc.phase_evolution.changed ? (
+                  <p className="text-sm text-slate-300">
+                    Primary instability has shifted from <span className="text-white">{growth_arc.phase_evolution.early}</span> to <span className="text-white">{growth_arc.phase_evolution.recent}</span> over time.
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-300">
+                    <span className="text-white">{growth_arc.phase_evolution.recent}</span> has remained your primary instability phase.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </Layout>
   );
