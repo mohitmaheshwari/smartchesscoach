@@ -8,8 +8,8 @@
  * 
  * Sections:
  * 1. Cognitive Stability Overview (TSI + Gap Analysis)
- * 2. Instability Pattern Context (Position distribution)
- * 3. Cognitive Pattern Ranking (Top 3 drivers)
+ * 2. Blunder Context Distribution
+ * 3. Top Instability Drivers (Last 20 Games)
  * 4. Cognitive Trend Timeline (30-game graph)
  * 5. Phase Stability Insight
  */
@@ -22,41 +22,52 @@ import {
   Loader2, 
   TrendingUp,
   TrendingDown,
-  Minus,
-  ArrowRight
+  Minus
 } from "lucide-react";
 
-// Simple line chart component for TSI trend
-const TrendChart = ({ data, height = 120 }) => {
+// Professional line chart - single dark blue line, subtle grid, no animations
+const TrendChart = ({ data, height = 160 }) => {
   if (!data || data.length === 0) return null;
   
-  const maxVal = Math.max(...data.map(d => d.value), 100);
-  const minVal = Math.min(...data.map(d => d.value), 0);
-  const range = maxVal - minVal || 1;
+  // Fixed 0-100 Y-axis scale for TSI
+  const maxVal = 100;
+  const minVal = 0;
+  const range = 100;
+  
+  // SVG dimensions with padding for labels
+  const padding = { top: 10, right: 10, bottom: 20, left: 30 };
+  const chartWidth = 100;
+  const chartHeight = 100;
   
   const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = 100 - ((d.value - minVal) / range) * 100;
+    const x = padding.left + (i / (data.length - 1)) * (chartWidth - padding.left - padding.right);
+    const y = padding.top + (1 - (d.value - minVal) / range) * (chartHeight - padding.top - padding.bottom);
     return `${x},${y}`;
   }).join(' ');
   
   return (
     <div className="w-full" style={{ height }}>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-        {/* Grid lines */}
-        <line x1="0" y1="25" x2="100" y2="25" stroke="currentColor" strokeOpacity="0.1" />
-        <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" strokeOpacity="0.1" />
-        <line x1="0" y1="75" x2="100" y2="75" stroke="currentColor" strokeOpacity="0.1" />
+        {/* Y-axis labels */}
+        <text x="2" y="15" className="fill-slate-500 text-[3px]">100</text>
+        <text x="2" y="38" className="fill-slate-500 text-[3px]">75</text>
+        <text x="2" y="60" className="fill-slate-500 text-[3px]">50</text>
+        <text x="2" y="83" className="fill-slate-500 text-[3px]">25</text>
         
-        {/* Trend line */}
+        {/* Horizontal grid lines - subtle gray */}
+        <line x1={padding.left} y1="15" x2="90" y2="15" stroke="#334155" strokeWidth="0.3" />
+        <line x1={padding.left} y1="37.5" x2="90" y2="37.5" stroke="#334155" strokeWidth="0.3" />
+        <line x1={padding.left} y1="60" x2="90" y2="60" stroke="#334155" strokeWidth="0.3" />
+        <line x1={padding.left} y1="82.5" x2="90" y2="82.5" stroke="#334155" strokeWidth="0.3" />
+        
+        {/* Single dark blue trend line - #1e3a8a */}
         <polyline
           fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
+          stroke="#1e3a8a"
+          strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           points={points}
-          className="text-primary"
         />
       </svg>
     </div>
