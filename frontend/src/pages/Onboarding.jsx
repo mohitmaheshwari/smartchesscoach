@@ -202,14 +202,15 @@ const Onboarding = () => {
         });
       }
       
-      // Save skill calibration
+      // Save skill calibration (auto-detected rating, not self-rating)
       await fetch(`${API}/settings/profile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           fide_rating: fideRating ? parseInt(fideRating) : null,
-          self_rating: selfRating,
+          detected_rating: detectedRating,
+          detected_platform: detectedPlatform,
           focus_intent: focusIntent || null
         })
       });
