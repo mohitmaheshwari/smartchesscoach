@@ -536,7 +536,7 @@ def _calculate_tsi(
 async def get_prioritized_weaknesses(
     db,
     user_id: str,
-    threshold_frequency: int = 3,
+    threshold_frequency: int = 4,  # Raised from 3 to 4 (20% of 20 games)
     threshold_severity: float = 0.4
 ) -> List[Dict]:
     """
@@ -544,6 +544,10 @@ async def get_prioritized_weaknesses(
     
     Returns weaknesses sorted by priority (weighted_score descending).
     Only includes patterns that cross threshold.
+    
+    Thresholds:
+    - frequency >= 4 (20% of games) OR severity >= 0.4
+    - This filters noise while catching real patterns
     """
     aggregation = await aggregate_cognitive_patterns(db, user_id)
     patterns = aggregation.get("patterns", {})
