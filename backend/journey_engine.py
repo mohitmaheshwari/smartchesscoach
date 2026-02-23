@@ -367,13 +367,13 @@ def compute_growth_arc(all_games: List[Dict], classify_func, severity_func,
         
         if recent_band.value < early_band.value:
             status = "growth"
-            text = f"Your primary weakness has reduced over time."
+            text = "Your primary weakness has reduced over time."
         elif recent_band.value > early_band.value:
             status = "regression"
-            text = f"Your primary weakness has intensified."
+            text = "Your primary weakness has intensified."
         else:
             status = "persistent"
-            text = f"Your primary weakness remains consistent."
+            text = "Your primary weakness remains consistent."
         
         driver_evolution = {
             "driver": dominant_driver,
