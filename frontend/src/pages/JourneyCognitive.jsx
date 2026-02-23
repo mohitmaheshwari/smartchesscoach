@@ -296,11 +296,11 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 3: Cognitive Pattern Ranking */}
+        {/* SECTION 3: Top Instability Drivers */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Top Cognitive Instability Drivers (Last 20 Games)
+              Top Instability Drivers (Last 20 Games)
             </p>
             
             {topPatterns.length > 0 ? (
