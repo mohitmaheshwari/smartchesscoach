@@ -2356,7 +2356,7 @@ class LinkAccountRequest(BaseModel):
 async def link_chess_account(req: LinkAccountRequest, user: User = Depends(get_current_user)):
     """
     Link Chess.com or Lichess account for automatic game tracking.
-    This enables silent background analysis.
+    Only ONE account per platform can be linked at a time.
     """
     platform = req.platform.lower()
     username = req.username.strip()
@@ -2367,12 +2367,31 @@ async def link_chess_account(req: LinkAccountRequest, user: User = Depends(get_c
     if not username:
         raise HTTPException(status_code=400, detail="Username is required")
     
+    # Check if user already has a linked account for this platform
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if user_doc:
+        existing_chesscom = user_doc.get("chess_com_username") or user_doc.get("chesscom_username")
+        existing_lichess = user_doc.get("lichess_username")
+        
+        if platform == "chess.com" and existing_chesscom:
+            if existing_chesscom.lower() != username.lower():
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"You already have a linked Chess.com account ({existing_chesscom}). Please unlink it first before linking a new account."
+                )
+        elif platform == "lichess" and existing_lichess:
+            if existing_lichess.lower() != username.lower():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"You already have a linked Lichess account ({existing_lichess}). Please unlink it first before linking a new account."
+                )
+    
     # Validate account exists
     if platform == "chess.com":
         games = await fetch_recent_chesscom_games(username)
         if not games and games != []:
             raise HTTPException(status_code=404, detail=f"Chess.com user '{username}' not found")
-        update_field = "chesscom_username"
+        update_field = "chess_com_username"  # Standardized field name
     else:
         games = await fetch_recent_lichess_games(username)
         update_field = "lichess_username"
