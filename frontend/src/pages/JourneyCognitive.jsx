@@ -173,7 +173,7 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 2: Cognitive Pattern Shifts */}
+        {/* SECTION 2: Cognitive Pattern Shifts - Only shows band changes */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
@@ -185,14 +185,14 @@ const Journey = ({ user }) => {
                 Your cognitive patterns remain stable across recent games.
               </p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {pattern_shifts.map((shift, idx) => (
                   <div 
                     key={shift.category}
                     className="p-3 rounded-lg bg-slate-800/30"
                     data-testid={`pattern-shift-${idx}`}
                   >
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-white">
                         {getPatternName(shift.category)}
                       </span>
@@ -200,11 +200,9 @@ const Journey = ({ user }) => {
                         {shift.status}
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>Previous: {shift.previous_band}</span>
-                      <span className="text-slate-600">→</span>
-                      <span>Recent: {shift.recent_band}</span>
-                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {shift.previous_band} → {shift.recent_band}
+                    </p>
                   </div>
                 ))}
               </div>
