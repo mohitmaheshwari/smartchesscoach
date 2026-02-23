@@ -553,25 +553,30 @@ const Lab = ({ user }) => {
     return { category: 'good_move', showInCoachMode: false, priority: 99 };
   };
   
-  // Count mistakes
+  // Count mistakes - updated to reflect coaching philosophy
   const mistakeCounts = useMemo(() => {
-    let blunders = 0, mistakes = 0, inaccuracies = 0;
+    let blunders = 0, mistakes = 0, inaccuracies = 0, enginePrefs = 0;
     moveEvaluations.forEach(m => {
       if (!isUserMoveFromFen(m)) return;
       const cpLoss = Math.abs(m.cp_loss || 0);
+      const coaching = categorizeMoveForCoaching(m);
+      
       if (cpLoss >= 300) blunders++;
-      else if (cpLoss >= 100) mistakes++;
-      else if (cpLoss >= 50) inaccuracies++;
+      else if (cpLoss >= 150 || coaching.category === 'tactical_mistake') mistakes++;
+      else if (cpLoss >= 100 || coaching.category === 'strategic_slip') inaccuracies++;
+      else if (cpLoss >= 50) enginePrefs++;
     });
-    return { blunders, mistakes, inaccuracies };
+    return { blunders, mistakes, inaccuracies, enginePrefs };
   }, [moveEvaluations, userColor]);
 
   // Group milestones - brilliant moves, good moves, and learning moments
+  // Now respects Coach Mode vs Engine Mode
   const groupedMilestones = useMemo(() => {
     const groups = {
       brilliant_moves: [],  // Outstanding moves - very low cp_loss in complex positions
       great_moves: [],      // Good tactical/positional decisions
       learning_moments: [], // Mistakes reframed as growth opportunities
+      engine_preferences: [], // Hidden by default in Coach Mode
     };
     
     moveEvaluations.forEach(m => {
@@ -579,6 +584,7 @@ const Lab = ({ user }) => {
       const cpLoss = Math.abs(m.cp_loss || 0);
       const evalBefore = m.eval_before || 0;
       const evalAfter = m.eval_after || 0;
+      const coaching = categorizeMoveForCoaching(m);
       
       // Brilliant/Great moves: low cp_loss OR gained significant advantage
       if (cpLoss <= 5) {
@@ -607,7 +613,7 @@ const Lab = ({ user }) => {
         }
       }
       
-      // Learning moments: mistakes/blunders, but framed positively
+      // Learning moments: based on coaching classification
       if (cpLoss >= 50) {
         const mistakeType = m.mistake_type || '';
         const entry = {
@@ -621,15 +627,26 @@ const Lab = ({ user }) => {
           phase: m.phase || (m.move_number <= 10 ? 'opening' : m.move_number <= 30 ? 'middlegame' : 'endgame'),
           context: getContextLabel(m),
           isBlunder: cpLoss >= 300,
-          isMistake: cpLoss >= 100 && cpLoss < 300,
-          isInaccuracy: cpLoss >= 50 && cpLoss < 100,
+          isMistake: coaching.category === 'tactical_mistake' || (cpLoss >= 150 && cpLoss < 300),
+          isInaccuracy: coaching.category === 'strategic_slip' || (cpLoss >= 100 && cpLoss < 150),
+          isEnginePreference: coaching.category === 'engine_preference',
+          isPhantomThreat: coaching.category === 'phantom_threat',
           mistakeType: mistakeType,
+          coachingCategory: coaching.category,
+          coachingPriority: coaching.priority,
+          showInCoachMode: coaching.showInCoachMode,
           type: 'learning',
           // PV lines for visualization
           pv_after_played: m.pv_after_played || [],
           pv_after_best: m.pv_after_best || []
         };
-        groups.learning_moments.push(entry);
+        
+        // In Coach Mode, separate engine preferences
+        if (coaching.showInCoachMode) {
+          groups.learning_moments.push(entry);
+        } else {
+          groups.engine_preferences.push(entry);
+        }
       }
     });
     
