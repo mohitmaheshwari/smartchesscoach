@@ -1,16 +1,14 @@
 /**
- * JOURNEY PAGE - 3-Tab Cognitive Progress Tracker
+ * JOURNEY PAGE - Master Spec Implementation
  * 
- * Tab A (Now): Snapshot - Current identity (5 items)
- * Tab B (Journey): Overall Journey - Then vs Now (4 rows)
- * Tab C (Trend): Recent Momentum - 5 vs 5 rolling tracker
- * 
- * + Collapsible Stats Drawer
+ * Tab A (Now): Snapshot - 5 items + directive
+ * Tab B (Journey): 4 stat rows + 4 cognitive rows + directive
+ * Tab C (Trend): Headline + shifts + evidence + directive
  * 
  * Rules:
- * - No raw severity numbers (bands only)
- * - No empty section spam
- * - One directive per tab
+ * - No raw numbers on surface (bands only)
+ * - Hide deltas when stable_hidden
+ * - One instruction per tab
  * - Plain Indian-English tone
  */
 
@@ -23,7 +21,7 @@ import Layout from "@/components/Layout";
 import { 
   Loader2, ChevronDown, ChevronUp, ArrowRight, 
   ExternalLink, TrendingUp, TrendingDown, Minus,
-  Target, Zap, Clock
+  Target, Zap, Award
 } from "lucide-react";
 
 const Journey = ({ user }) => {
@@ -56,17 +54,24 @@ const Journey = ({ user }) => {
   };
 
   const handleEvidenceClick = (gameId, moveNumber) => {
+    // Route format: /lab/game/{id}?move={n}&src=journey
     navigate(`/game/${gameId}?move=${moveNumber}&src=journey`);
   };
 
   const getTrendIcon = (direction) => {
-    if (direction === "improving" || direction === "Improving") {
+    if (direction === "improving") {
       return <TrendingUp className="w-4 h-4 text-green-400" />;
     }
-    if (direction === "declining" || direction === "Declining") {
+    if (direction === "declining") {
       return <TrendingDown className="w-4 h-4 text-amber-400" />;
     }
     return <Minus className="w-4 h-4 text-slate-400" />;
+  };
+
+  const getToneColor = (tone) => {
+    if (tone === "positive") return "text-green-400";
+    if (tone === "concern") return "text-amber-400";
+    return "text-slate-300";
   };
 
   if (loading) {
@@ -89,24 +94,21 @@ const Journey = ({ user }) => {
     );
   }
 
-  // Not activated
+  // Not activated (Section 2: Lock until 10 games)
   if (!data.activated) {
     return (
       <Layout user={user}>
         <div className="max-w-4xl mx-auto px-4 py-8 space-y-8" data-testid="journey-page">
           <div>
             <h1 className="text-2xl font-semibold text-white">Journey</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Track your chess improvement over time
-            </p>
           </div>
 
           <Card className="border-slate-700 bg-slate-900/50">
             <CardContent className="p-8 text-center">
-              <p className="text-sm text-slate-300 mb-2">
+              <p className="text-lg text-white mb-2">
                 Journey unlocks after 10 analyzed games.
               </p>
-              <p className="text-lg text-white">
+              <p className="text-sm text-slate-400">
                 You have {data.games_analyzed}/{data.games_required}.
               </p>
             </CardContent>
@@ -140,30 +142,30 @@ const Journey = ({ user }) => {
           </button>
         </div>
 
-        {/* Stats Drawer (Collapsible) */}
+        {/* Stats Drawer (Section 10) */}
         {showStats && stats?.ready && (
           <Card className="border-slate-700 bg-slate-800/30" data-testid="stats-drawer">
             <CardContent className="p-4">
               <div className="grid grid-cols-4 gap-4 text-center">
                 <div>
-                  <p className="text-2xl font-semibold text-white">{stats.accuracy}%</p>
+                  <p className="text-2xl font-semibold text-white">{stats.now?.accuracy}%</p>
                   <p className="text-xs text-slate-400">Accuracy</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-semibold text-white">{stats.win_rate}%</p>
-                  <p className="text-xs text-slate-400">Win Rate</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-semibold text-white">{stats.blunders_per_game}</p>
+                  <p className="text-2xl font-semibold text-white">{stats.now?.blunders_per_game}</p>
                   <p className="text-xs text-slate-400">Blunders/Game</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-semibold text-white">{stats.mistakes_per_game}</p>
+                  <p className="text-2xl font-semibold text-white">{stats.now?.mistakes_per_game}</p>
                   <p className="text-xs text-slate-400">Mistakes/Game</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-semibold text-white">{stats.now?.winrate}%</p>
+                  <p className="text-xs text-slate-400">Win Rate</p>
                 </div>
               </div>
               <p className="text-xs text-slate-500 text-center mt-3">
-                Based on last {stats.games_count} games • W{stats.record?.wins} L{stats.record?.losses} D{stats.record?.draws}
+                Based on last {stats.games_count} games
               </p>
             </CardContent>
           </Card>
@@ -199,7 +201,7 @@ const Journey = ({ user }) => {
           </TabsList>
 
           {/* ============================================ */}
-          {/* TAB A: SNAPSHOT (NOW) */}
+          {/* TAB A: SNAPSHOT (NOW) - Section 8 */}
           {/* ============================================ */}
           <TabsContent value="now" className="space-y-4 mt-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -220,11 +222,11 @@ const Journey = ({ user }) => {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Decision Stability</span>
                       <span className="text-base font-medium text-white">
-                        {snapshot.decision_stability.band}
+                        {snapshot.decision_stability?.band}
                       </span>
                     </div>
                     <p className="text-sm text-slate-400 mt-2">
-                      {snapshot.decision_stability.meaning}
+                      {snapshot.decision_stability?.meaning}
                     </p>
                   </CardContent>
                 </Card>
@@ -233,16 +235,11 @@ const Journey = ({ user }) => {
                 <Card className="border-slate-700 bg-slate-900/50" data-testid="snapshot-driver">
                   <CardContent className="p-5">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Main reason you slip</span>
+                      <span className="text-sm text-muted-foreground">Main issue</span>
                       <span className="text-base font-medium text-white">
                         {snapshot.top_issue?.name || "No clear pattern"}
                       </span>
                     </div>
-                    {snapshot.top_issue?.impact && (
-                      <p className="text-xs text-slate-500 mt-1">
-                        Impact: {snapshot.top_issue.impact}
-                      </p>
-                    )}
                   </CardContent>
                 </Card>
 
@@ -252,16 +249,16 @@ const Journey = ({ user }) => {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">When ahead</span>
                       <span className="text-base font-medium text-white">
-                        {snapshot.advantage_discipline.band}
+                        {snapshot.advantage_discipline?.band}
                       </span>
                     </div>
                     <p className="text-sm text-slate-400 mt-2">
-                      {snapshot.advantage_discipline.meaning}
+                      {snapshot.advantage_discipline?.meaning}
                     </p>
                   </CardContent>
                 </Card>
 
-                {/* Item 4: Most Unstable Phase */}
+                {/* Item 4: Weakest Phase */}
                 <Card className="border-slate-700 bg-slate-900/50" data-testid="snapshot-phase">
                   <CardContent className="p-5">
                     <div className="flex items-center justify-between">
@@ -289,7 +286,7 @@ const Journey = ({ user }) => {
           </TabsContent>
 
           {/* ============================================ */}
-          {/* TAB B: OVERALL JOURNEY (THEN VS NOW) */}
+          {/* TAB B: JOURNEY (THEN VS NOW) - Section 8 */}
           {/* ============================================ */}
           <TabsContent value="journey" className="space-y-4 mt-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -304,57 +301,103 @@ const Journey = ({ user }) => {
               </Card>
             ) : (
               <>
-                <Card className="border-slate-700 bg-slate-900/50" data-testid="journey-rows">
-                  <CardContent className="p-5 space-y-4">
-                    {journey.rows.map((row, idx) => (
-                      <div 
-                        key={idx}
-                        className={`flex items-center justify-between py-3 ${
-                          idx < journey.rows.length - 1 ? "border-b border-slate-700/50" : ""
-                        }`}
-                        data-testid={`journey-row-${idx}`}
-                      >
-                        <span className="text-sm text-muted-foreground">{row.label}</span>
-                        
-                        {row.label === "Primary Driver" ? (
-                          <div className="text-sm text-right">
-                            <div className="flex items-center gap-2 justify-end">
-                              <span className="text-slate-400">{row.then_driver}</span>
-                              <ArrowRight className="w-3 h-3 text-slate-600" />
-                              <span className={row.changed ? "text-white font-medium" : "text-slate-300"}>
-                                {row.now_driver}
+                {/* Voice Headline + Badge */}
+                {journey.voice && (
+                  <Card className="border-slate-700 bg-slate-900/50" data-testid="journey-voice">
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className={`text-base font-medium ${getToneColor(journey.voice.tone_level)}`}>
+                            {journey.voice.headline}
+                          </p>
+                          <p className="text-sm text-slate-400 mt-1">
+                            {journey.voice.explanation}
+                          </p>
+                        </div>
+                        {journey.badge && (
+                          <span className="flex items-center gap-1 text-xs bg-green-900/30 text-green-400 px-2 py-1 rounded">
+                            <Award className="w-3 h-3" />
+                            {journey.badge}
+                          </span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Stat Comparison Rows (show deltas only if visible) */}
+                {journey.stat_rows && journey.overall_change !== "stable_hidden" && (
+                  <Card className="border-slate-700 bg-slate-900/50" data-testid="journey-stat-rows">
+                    <CardContent className="p-5 space-y-3">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                        Before → Now
+                      </p>
+                      {journey.stat_rows.map((row, idx) => (
+                        <div 
+                          key={idx}
+                          className={`flex items-center justify-between py-2 ${
+                            idx < journey.stat_rows.length - 1 ? "border-b border-slate-700/50" : ""
+                          }`}
+                          data-testid={`stat-row-${idx}`}
+                        >
+                          <span className="text-sm text-slate-400">{row.label}</span>
+                          <div className="flex items-center gap-3 text-sm">
+                            <span className="text-slate-500">{row.then}</span>
+                            <ArrowRight className="w-3 h-3 text-slate-600" />
+                            <span className="text-white">{row.now}</span>
+                            {row.show_delta && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                (row.lower_is_better ? parseFloat(row.delta) < 0 : parseFloat(row.delta) > 0)
+                                  ? "bg-green-900/30 text-green-400"
+                                  : "bg-amber-900/30 text-amber-400"
+                              }`}>
+                                {row.delta}
                               </span>
-                            </div>
-                            {row.then_impact && row.now_impact && (
-                              <div className="flex items-center gap-2 mt-1 justify-end text-xs">
-                                <span className="text-slate-500">{row.then_impact}</span>
-                                <ArrowRight className="w-2 h-2 text-slate-600" />
-                                <span className="text-slate-400">{row.now_impact}</span>
-                              </div>
                             )}
                           </div>
-                        ) : (
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Stable Hidden Message */}
+                {journey.overall_change === "stable_hidden" && (
+                  <Card className="border-slate-700 bg-slate-900/50">
+                    <CardContent className="p-5 text-center">
+                      <p className="text-sm text-slate-400">Overall stable. No significant changes.</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Cognitive Growth Rows */}
+                {journey.cognitive_rows && (
+                  <Card className="border-slate-700 bg-slate-900/50" data-testid="journey-cognitive-rows">
+                    <CardContent className="p-5 space-y-3">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                        Cognitive Growth
+                      </p>
+                      {journey.cognitive_rows.map((row, idx) => (
+                        <div 
+                          key={idx}
+                          className={`flex items-center justify-between py-2 ${
+                            idx < journey.cognitive_rows.length - 1 ? "border-b border-slate-700/50" : ""
+                          }`}
+                          data-testid={`cognitive-row-${idx}`}
+                        >
+                          <span className="text-sm text-slate-400">{row.label}</span>
                           <div className="flex items-center gap-2 text-sm">
-                            <span className="text-slate-400">{row.then}</span>
+                            <span className="text-slate-500">{row.then}</span>
                             <ArrowRight className="w-3 h-3 text-slate-600" />
                             <span className={row.changed ? "text-white font-medium" : "text-slate-300"}>
                               {row.now}
                             </span>
-                            {row.trend && (
-                              <span className={`text-xs ml-2 ${
-                                row.trend === "Improving" ? "text-green-400" : 
-                                row.trend === "Declining" ? "text-amber-400" : 
-                                "text-slate-500"
-                              }`}>
-                                ({row.trend})
-                              </span>
-                            )}
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Directive */}
                 <Card className="border-blue-800/50 bg-blue-900/10" data-testid="journey-directive">
@@ -372,7 +415,7 @@ const Journey = ({ user }) => {
           </TabsContent>
 
           {/* ============================================ */}
-          {/* TAB C: RECENT MOMENTUM (5 VS 5) */}
+          {/* TAB C: TREND (5 VS 5) - Section 8 */}
           {/* ============================================ */}
           <TabsContent value="trend" className="space-y-4 mt-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -387,14 +430,60 @@ const Journey = ({ user }) => {
               </Card>
             ) : (
               <>
-                {/* Headline */}
+                {/* Headline + Badge */}
                 <Card className="border-slate-700 bg-slate-900/50" data-testid="momentum-headline">
                   <CardContent className="p-5">
-                    <p className="text-base text-white leading-relaxed">
-                      {momentum.headline}
-                    </p>
+                    <div className="flex items-start justify-between">
+                      <p className={`text-base font-medium ${
+                        momentum.voice ? getToneColor(momentum.voice.tone_level) : "text-white"
+                      }`}>
+                        {momentum.headline}
+                      </p>
+                      {momentum.badge && (
+                        <span className="flex items-center gap-1 text-xs bg-green-900/30 text-green-400 px-2 py-1 rounded">
+                          <Award className="w-3 h-3" />
+                          {momentum.badge}
+                        </span>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
+
+                {/* Meaningful Shifts (max 2) OR "No meaningful change" */}
+                {momentum.has_meaningful_change && momentum.meaningful_shifts?.length > 0 ? (
+                  <Card className="border-slate-700 bg-slate-900/50" data-testid="momentum-shifts">
+                    <CardContent className="p-5 space-y-3">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                        What Changed
+                      </p>
+                      {momentum.meaningful_shifts.map((shift, idx) => (
+                        <div 
+                          key={idx}
+                          className="flex items-center justify-between py-2"
+                          data-testid={`shift-${idx}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {getTrendIcon(shift.direction)}
+                            <span className="text-sm text-slate-300">{shift.label}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-slate-500">{shift.previous}</span>
+                            <ArrowRight className="w-3 h-3 text-slate-600" />
+                            <span className="text-white">{shift.recent}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  !momentum.has_meaningful_change && (
+                    <Card className="border-slate-700 bg-slate-900/50">
+                      <CardContent className="p-5 text-center">
+                        <p className="text-sm text-slate-400">No meaningful change in last 10 games.</p>
+                      </CardContent>
+                    </Card>
+                  )
+                )}
 
                 {/* Top 3 Issues (if meaningful) */}
                 {momentum.top_issues && momentum.top_issues.length > 0 && (
@@ -423,30 +512,8 @@ const Journey = ({ user }) => {
                   </Card>
                 )}
 
-                {/* Advantage Discipline Shift (if significant) */}
-                {momentum.advantage_shift && (
-                  <Card className="border-slate-700 bg-slate-900/50" data-testid="advantage-shift">
-                    <CardContent className="p-5">
-                      <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                        When Ahead (5 vs 5)
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {getTrendIcon(momentum.advantage_shift.direction)}
-                          <span className="text-sm text-slate-300">Advantage Discipline</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="text-slate-400">{momentum.advantage_shift.previous}</span>
-                          <ArrowRight className="w-3 h-3 text-slate-600" />
-                          <span className="text-white">{momentum.advantage_shift.recent}</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
                 {/* Evidence */}
-                {momentum.evidence_ready && momentum.evidence.length > 0 ? (
+                {momentum.evidence_ready && momentum.evidence?.length > 0 ? (
                   <Card className="border-slate-700 bg-slate-900/50" data-testid="momentum-evidence">
                     <CardContent className="p-5 space-y-3">
                       <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
