@@ -15,6 +15,35 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 23, 2026)
 
+### Journey Page Language Rewrite ✅ COMPLETE (Feb 23, 2026)
+
+**Problem:** Journey page language was too corporate ("peer context", "sustained improvement") and lacked actionable directives.
+
+**Solution:** Complete rewrite to plain, direct Indian-English with "Do This Next" actionable directives.
+
+**Language Changes:**
+- **Stability Labels**: "Mostly steady" → "Playing steady", "Very inconsistent" → "All over the place"
+- **Risk Labels**: "Usually converts advantage" → "Finishing games well", "Often throws advantage" → "Throwing away winning positions"
+- **Pattern Labels**: "Structural mistakes" → "Weak pawns or squares", "Critical moment drift" → "Losing focus at key moments"
+- **Row Labels**: "Decision Stability" → "How steady?", "Advantage Discipline" → "When winning?", "Main reason" → "Main issue"
+
+**New Features Added:**
+1. **"Do This Next" Card** (amber-tinted) - Displays actionable micro directive after the "Now vs Then" section
+   - Example: "Next 5 games: before pawn moves, ask 'what becomes weak after this?'"
+   - `data-testid="micro-directive"`
+
+2. **"This Week's Focus" Card** (blue-tinted) - Displays macro directive after the "Becoming vs Started" section
+   - Example: "Keep doing what you're doing. Your discipline is showing results."
+   - `data-testid="macro-directive"`
+
+**Files Updated:**
+- `backend/journey_engine.py` - Updated STABILITY_LABELS, RISK_LABELS, PATTERN_LABELS, DRIVER_DIRECTIVES, added MACRO_DIRECTIVES
+- `frontend/src/pages/JourneyCognitive.jsx` - Added directive cards
+
+**Test Report:** `/app/test_reports/iteration_66.json` - 100% pass (14/14 backend, all UI verified)
+
+---
+
 ### Journey Page Redesign ✅ COMPLETE (Feb 23, 2026)
 
 **Problem:** Journey page was an analytics dump, not aligned with the cognitive coaching philosophy.
