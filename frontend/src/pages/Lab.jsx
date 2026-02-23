@@ -1849,7 +1849,7 @@ const Lab = ({ user }) => {
   );
 };
 
-const MilestoneGroup = ({ group, userColor, gameId, onMoveClick, onPlayVariation }) => (
+const MilestoneGroup = ({ group, userColor, gameId, focusModule, onMoveClick, onPlayVariation }) => (
   <div className="space-y-2">
     <div className="flex items-center justify-between">
       <h3 className="font-medium flex items-center gap-2">
@@ -1877,6 +1877,7 @@ const MilestoneGroup = ({ group, userColor, gameId, onMoveClick, onPlayVariation
             mistake={item} 
             userColor={userColor}
             gameId={gameId}
+            focusModule={focusModule}
             onClick={() => onMoveClick(item.move_number)}
             onPlayVariation={onPlayVariation}
           />
