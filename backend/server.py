@@ -8227,6 +8227,248 @@ async def get_all_user_thoughts(user: User = Depends(get_current_user)):
 # COGNITIVE PATTERNS API (Diagnosis + Prescription + Audit)
 # ============================================================
 
+@api_router.get("/cognitive/journey")
+async def get_cognitive_journey(user: User = Depends(get_current_user)):
+    """
+    Rolling 5 vs 5 Evolution Data for Journey Page.
+    
+    Compares recent 5 games against previous 5 games.
+    Requires minimum 10 analyzed games to activate.
+    """
+    from cognitive_patterns_service import (
+        classify_move_to_cognitive,
+        get_severity_weight,
+        CognitiveCategory
+    )
+    
+    # Get user's onboarding date
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "onboarding_completed_at": 1})
+    onboarding_date = user_doc.get("onboarding_completed_at") if user_doc else None
+    
+    # Get analyzed games (after onboarding if applicable)
+    query = {"user_id": user.user_id}
+    if onboarding_date:
+        query["created_at"] = {"$gte": onboarding_date}
+    
+    analyses = await db.game_analyses.find(
+        query,
+        {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    total_games = len(analyses)
+    
+    # Activation check
+    if total_games < 10:
+        return {
+            "activated": False,
+            "games_analyzed": total_games,
+            "games_required": 10,
+            "message": "Journey will activate after 10 analyzed games. We need at least 10 games to detect meaningful cognitive shifts."
+        }
+    
+    # Split into windows
+    recent_window = analyses[:5]  # Last 5 games
+    previous_window = analyses[5:10]  # Previous 5 games
+    
+    # Helper: Calculate TSI for a window
+    def calculate_window_tsi(window):
+        total_mistakes = 0
+        total_severity = 0
+        for analysis in window:
+            sf = analysis.get("stockfish_analysis", {})
+            for move in sf.get("move_evaluations", []):
+                cp_loss = abs(move.get("cp_loss", 0))
+                if cp_loss >= 50:
+                    total_mistakes += 1
+                    total_severity += min(1.0, cp_loss / 300)
+        
+        if total_mistakes > 0:
+            avg_severity = total_severity / total_mistakes
+            # Normalize: max 5 mistakes per game at 0.5 severity
+            normalized = min(1.0, (total_mistakes * avg_severity) / (len(window) * 2.5))
+            return max(0, min(100, int(100 - normalized * 100)))
+        return 100
+    
+    # Helper: Calculate pattern severities for a window
+    def calculate_window_patterns(window):
+        patterns = {}
+        for analysis in window:
+            sf = analysis.get("stockfish_analysis", {})
+            for move in sf.get("move_evaluations", []):
+                cp_loss = abs(move.get("cp_loss", 0))
+                if cp_loss < 50:
+                    continue
+                
+                mistake_type = move.get("mistake_type", "")
+                best_move = move.get("best_move", "")
+                best_move_forcing = "+" in best_move or "x" in best_move or "#" in best_move
+                
+                category = classify_move_to_cognitive(
+                    mistake_type=mistake_type,
+                    cp_loss=cp_loss,
+                    best_move_was_forcing=best_move_forcing
+                )
+                
+                if not category:
+                    if cp_loss >= 150:
+                        category = CognitiveCategory.RANDOM_CRITICAL
+                    else:
+                        category = CognitiveCategory.STRUCTURAL_MISJUDGMENT
+                
+                cat_key = category.value
+                if cat_key not in patterns:
+                    patterns[cat_key] = {"count": 0, "severity": 0}
+                patterns[cat_key]["count"] += 1
+                patterns[cat_key]["severity"] += get_severity_weight(cp_loss)
+        
+        # Calculate average severity per pattern
+        for cat_key in patterns:
+            count = patterns[cat_key]["count"]
+            patterns[cat_key]["avg_severity"] = patterns[cat_key]["severity"] / count if count > 0 else 0
+            patterns[cat_key]["weighted_score"] = count * patterns[cat_key]["avg_severity"]
+        
+        return patterns
+    
+    # Helper: Calculate blunder context for a window
+    def calculate_blunder_context(window):
+        context = {"winning": 0, "equal": 0, "losing": 0, "total": 0}
+        for analysis in window:
+            sf = analysis.get("stockfish_analysis", {})
+            user_color = analysis.get("user_color", "white")
+            
+            for move in sf.get("move_evaluations", []):
+                cp_loss = abs(move.get("cp_loss", 0))
+                if cp_loss < 100:
+                    continue
+                
+                context["total"] += 1
+                eval_before = move.get("eval_before", 0)
+                if user_color == "black":
+                    eval_before = -eval_before
+                
+                if eval_before >= 150:
+                    context["winning"] += 1
+                elif eval_before <= -150:
+                    context["losing"] += 1
+                else:
+                    context["equal"] += 1
+        
+        # Convert to percentages
+        total = context["total"] or 1
+        return {
+            "winning": round((context["winning"] / total) * 100),
+            "equal": round((context["equal"] / total) * 100),
+            "losing": round((context["losing"] / total) * 100),
+            "total": context["total"]
+        }
+    
+    # Helper: Calculate primary instability phase for a window
+    def calculate_phase_instability(window):
+        phase_mistakes = {"opening": 0, "middlegame": 0, "endgame": 0}
+        for analysis in window:
+            sf = analysis.get("stockfish_analysis", {})
+            for move in sf.get("move_evaluations", []):
+                cp_loss = abs(move.get("cp_loss", 0))
+                if cp_loss >= 50:
+                    phase = move.get("phase", "middlegame")
+                    if phase in phase_mistakes:
+                        phase_mistakes[phase] += 1
+        
+        # Find highest
+        if sum(phase_mistakes.values()) == 0:
+            return "Middlegame"
+        return max(phase_mistakes, key=phase_mistakes.get).capitalize()
+    
+    # Calculate for both windows
+    recent_tsi = calculate_window_tsi(recent_window)
+    previous_tsi = calculate_window_tsi(previous_window)
+    tsi_delta = recent_tsi - previous_tsi
+    
+    recent_patterns = calculate_window_patterns(recent_window)
+    previous_patterns = calculate_window_patterns(previous_window)
+    
+    recent_context = calculate_blunder_context(recent_window)
+    previous_context = calculate_blunder_context(previous_window)
+    
+    recent_phase = calculate_phase_instability(recent_window)
+    previous_phase = calculate_phase_instability(previous_window)
+    
+    # Stability momentum interpretation
+    if abs(tsi_delta) < 5:
+        stability_interpretation = "No significant change in decision stability."
+    elif tsi_delta >= 5:
+        stability_interpretation = "Your decision stability is improving."
+    else:
+        stability_interpretation = "Your decision stability has declined in recent games."
+    
+    # Pattern shifts (only show meaningful changes)
+    pattern_shifts = []
+    all_patterns = set(recent_patterns.keys()) | set(previous_patterns.keys())
+    
+    def get_impact_band(severity):
+        if severity >= 3:
+            return "High Impact"
+        elif severity >= 1.5:
+            return "Moderate Impact"
+        return "Low Impact"
+    
+    for cat_key in all_patterns:
+        recent_score = recent_patterns.get(cat_key, {}).get("weighted_score", 0)
+        previous_score = previous_patterns.get(cat_key, {}).get("weighted_score", 0)
+        
+        # Check for meaningful change (10% relative or band shift)
+        if previous_score > 0:
+            change_pct = abs(recent_score - previous_score) / previous_score * 100
+        else:
+            change_pct = 100 if recent_score > 0 else 0
+        
+        recent_band = get_impact_band(recent_score)
+        previous_band = get_impact_band(previous_score)
+        
+        if change_pct >= 10 or recent_band != previous_band:
+            status = "Improving" if recent_score < previous_score else "Worsening" if recent_score > previous_score else "Stable"
+            pattern_shifts.append({
+                "category": cat_key,
+                "name": cat_key.replace("_", " ").title(),
+                "previous_band": previous_band,
+                "recent_band": recent_band,
+                "status": status
+            })
+    
+    # Context shift
+    winning_diff = recent_context["winning"] - previous_context["winning"]
+    context_shift = None
+    if abs(winning_diff) >= 15:
+        context_shift = {
+            "previous": previous_context["winning"],
+            "recent": recent_context["winning"],
+            "status": "Improving" if winning_diff < 0 else "Worsening"
+        }
+    
+    # Phase shift
+    phase_changed = recent_phase != previous_phase
+    
+    return {
+        "activated": True,
+        "games_analyzed": total_games,
+        "stability_momentum": {
+            "recent_tsi": recent_tsi,
+            "previous_tsi": previous_tsi,
+            "delta": tsi_delta,
+            "interpretation": stability_interpretation
+        },
+        "pattern_shifts": pattern_shifts,
+        "no_pattern_shifts": len(pattern_shifts) == 0,
+        "context_shift": context_shift,
+        "context_unchanged": context_shift is None,
+        "phase_shift": {
+            "changed": phase_changed,
+            "previous": previous_phase,
+            "recent": recent_phase
+        }
+    }
+
+
 @api_router.get("/cognitive/patterns")
 async def get_cognitive_patterns(user: User = Depends(get_current_user)):
     """
