@@ -336,7 +336,8 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
     # Play the user's move to see the resulting position
     board_after = board.copy()
     try:
-        board_after.push_san(move_played)
+        move_obj = board.parse_san(move_played)
+        board_after.push(move_obj)
     except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
         return {
             "mistake_type": "inaccuracy",
@@ -346,9 +347,17 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
             "error": "Could not parse move"
         }
     
+    # CRITICAL: Detect if this move is a capture
+    is_capture = board.is_capture(move_obj)
+    captured_piece = None
+    if is_capture:
+        captured_piece = board.piece_at(move_obj.to_square)
+        details["is_capture"] = True
+        if captured_piece:
+            details["captured_piece"] = chess.piece_name(captured_piece.piece_type)
+    
     # Check for tactical patterns
     mistake_type = "inaccuracy"  # Default
-    details = {}
     
     # ==================== PRIORITY 0: CHECKMATE DETECTION ====================
     # This MUST come first - nothing else matters if there's checkmate involved
