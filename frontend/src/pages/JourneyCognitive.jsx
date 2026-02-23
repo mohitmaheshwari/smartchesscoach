@@ -457,11 +457,6 @@ const Journey = ({ user }) => {
             </div>
           </CardContent>
         </Card>
-
-        {/* #8: Footer - small muted text */}
-        <p className="text-xs text-center text-slate-600">
-          Based on last {cognitiveData?.games_analyzed || 20} analyzed games
-        </p>
       </div>
     </Layout>
   );
