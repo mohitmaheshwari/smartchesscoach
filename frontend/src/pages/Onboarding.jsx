@@ -387,7 +387,19 @@ const Onboarding = () => {
                 style={{ width: `${analysisProgress}%` }}
               />
             </div>
-            <p className="text-sm text-muted-foreground">{analysisProgress}%</p>
+            <p className="text-sm text-muted-foreground mb-6">{analysisProgress}%</p>
+            
+            {/* Skip option after 10 seconds */}
+            {analysisProgress > 60 && (
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/training")}
+                className="text-muted-foreground text-sm"
+                data-testid="skip-analysis-btn"
+              >
+                Skip and go to Training
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
