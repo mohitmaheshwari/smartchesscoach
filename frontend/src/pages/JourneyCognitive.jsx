@@ -318,14 +318,18 @@ const Journey = ({ user }) => {
                         
                         {row.label === "Primary Driver" ? (
                           <div className="text-sm text-right">
-                            <span className="text-white">{row.driver}</span>
-                            {row.then_band && row.now_band && (
-                              <div className="flex items-center gap-2 mt-1 justify-end">
-                                <span className="text-slate-400 text-xs">{row.then_band}</span>
-                                <ArrowRight className="w-3 h-3 text-slate-600" />
-                                <span className={`text-xs ${row.changed ? "text-white font-medium" : "text-slate-300"}`}>
-                                  {row.now_band}
-                                </span>
+                            <div className="flex items-center gap-2 justify-end">
+                              <span className="text-slate-400">{row.then_driver}</span>
+                              <ArrowRight className="w-3 h-3 text-slate-600" />
+                              <span className={row.changed ? "text-white font-medium" : "text-slate-300"}>
+                                {row.now_driver}
+                              </span>
+                            </div>
+                            {row.then_impact && row.now_impact && (
+                              <div className="flex items-center gap-2 mt-1 justify-end text-xs">
+                                <span className="text-slate-500">{row.then_impact}</span>
+                                <ArrowRight className="w-2 h-2 text-slate-600" />
+                                <span className="text-slate-400">{row.now_impact}</span>
                               </div>
                             )}
                           </div>
