@@ -994,6 +994,36 @@ const Lab = ({ user }) => {
           </div>
         </div>
 
+        {/* FOCUS MODE BANNER - Shows active behavioral focus */}
+        {focusModule && coachMode && (
+          <div className="px-4 py-2 bg-gradient-to-r from-amber-950/40 to-slate-900 border-b border-amber-500/20" data-testid="focus-mode-banner">
+            <div className="flex items-center justify-between max-w-6xl mx-auto">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-amber-500/20 rounded">
+                  <Target className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-amber-400">
+                    Active Focus: {focusModule.display_name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {focusModule.message || "Review your thinking process for this pattern."}
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                onClick={() => navigate("/training")}
+                data-testid="view-training-module-btn"
+              >
+                View Training Module
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* MAIN CONTENT - Two Panel */}
         <div className="flex-1 flex overflow-hidden">
           {/* LEFT: BOARD */}
