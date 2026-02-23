@@ -8478,6 +8478,7 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
         "activated": True,
         "games_analyzed": total_games,
         "stability_momentum": {
+            "valid": tsi_valid,
             "recent_tsi": recent_tsi,
             "previous_tsi": previous_tsi,
             "delta": tsi_delta,
