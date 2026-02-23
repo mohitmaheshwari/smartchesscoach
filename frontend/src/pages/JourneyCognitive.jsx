@@ -301,29 +301,32 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 2: Blunder Context Distribution */}
+        {/* SECTION 2: Blunder Context Distribution - #2: Horizontal layout */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
               Blunder Context Distribution
             </p>
             
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-4 rounded-lg bg-slate-800/50">
-                <p className="text-2xl font-bold text-green-400">{positionDist.winning}%</p>
-                <p className="text-xs text-muted-foreground mt-1">Winning</p>
+            {/* Horizontal layout: Winning 54% | Equal 33% | Losing 13% */}
+            <div className="flex items-center justify-center gap-6 py-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Winning</span>
+                <span className="text-xl font-bold text-green-400">{positionDist.winning}%</span>
               </div>
-              <div className="text-center p-4 rounded-lg bg-slate-800/50">
-                <p className="text-2xl font-bold text-slate-300">{positionDist.equal}%</p>
-                <p className="text-xs text-muted-foreground mt-1">Equal</p>
+              <span className="text-slate-600">|</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Equal</span>
+                <span className="text-xl font-bold text-slate-300">{positionDist.equal}%</span>
               </div>
-              <div className="text-center p-4 rounded-lg bg-slate-800/50">
-                <p className="text-2xl font-bold text-red-400">{positionDist.losing}%</p>
-                <p className="text-xs text-muted-foreground mt-1">Losing</p>
+              <span className="text-slate-600">|</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Losing</span>
+                <span className="text-xl font-bold text-red-400">{positionDist.losing}%</span>
               </div>
             </div>
 
-            <p className="text-sm text-muted-foreground mt-4">
+            <p className="text-sm text-muted-foreground mt-3 text-center">
               {getBlunderInterpretation(positionDist)}
             </p>
           </CardContent>
