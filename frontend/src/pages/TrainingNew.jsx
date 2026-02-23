@@ -107,6 +107,14 @@ const Training = ({ user }) => {
   const [progress, setProgress] = useState(null);
   const [weaknesses, setWeaknesses] = useState(null);
   
+  // Training mode: "recommended" | "browse"
+  const [trainingMode, setTrainingMode] = useState("recommended");
+  
+  // Cognitive patterns state
+  const [trainingPriority, setTrainingPriority] = useState(null);
+  const [cognitivePatterns, setCognitivePatterns] = useState(null);
+  const [focusStatus, setFocusStatus] = useState(null);
+  
   // Puzzle source filter: "my_games" | "community" | "all"
   const [puzzleSource, setPuzzleSource] = useState("all");
   
