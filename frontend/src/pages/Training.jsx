@@ -839,6 +839,19 @@ const Training = ({ user }) => {
       boardRef.current?.clearArrows();
       setBoardMode("better_line");
       setBetterLineIndex(0);
+      // Show green arrow for the better move
+      setTimeout(() => {
+        const pvBest = currentMilestone?.pv_after_best || [];
+        if (pvBest.length > 0) {
+          const result = boardRef.current?.playSingleMove(pvBest[0]);
+          if (result?.success && result.move) {
+            boardRef.current?.drawArrows([
+              [result.move.from, result.move.to, "rgba(100, 200, 100, 0.8)"]
+            ]);
+          }
+          setBetterLineIndex(1);
+        }
+      }, 100);
     };
     
     const nextBetterMove = () => {
