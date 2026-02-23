@@ -288,6 +288,20 @@ const Journey = ({ user }) => {
                 )}
               </CardContent>
             </Card>
+
+            {/* This Week's Focus - Macro Directive */}
+            {macro.directive && (
+              <Card className="border-blue-800/50 bg-blue-900/10" data-testid="macro-directive">
+                <CardContent className="p-6">
+                  <p className="text-xs uppercase tracking-wider text-blue-400/80 mb-2">
+                    This Week's Focus
+                  </p>
+                  <p className="text-sm text-white leading-relaxed">
+                    {macro.directive}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
