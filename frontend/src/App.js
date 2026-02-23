@@ -13,7 +13,7 @@ import Training from "@/pages/TrainingNew";  // NEW interactive training
 import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
-import Journey from "@/pages/Journey";
+import Journey from "@/pages/JourneyCognitive";
 import JourneyV2 from "@/pages/JourneyV2";
 import ProgressV2 from "@/pages/ProgressV2";
 import Reflect from "@/pages/Reflect";
