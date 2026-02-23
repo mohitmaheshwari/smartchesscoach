@@ -29,8 +29,6 @@ import {
   BookOpen
 } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL;
-
 const Onboarding = () => {
   const navigate = useNavigate();
   
