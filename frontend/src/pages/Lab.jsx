@@ -2125,6 +2125,18 @@ const LearningMomentItem = ({ mistake, onClick, userColor, gameId, focusModule, 
             </div>
           ) : explanation ? (
             <>
+              {/* Focus context indicator - neural linking */}
+              {focusModule && focusModule.category && (
+                mistake.coachingCategory === focusModule.category ||
+                (focusModule.category === "missed_forcing_move" && mistake.mistakeType?.includes("missed")) ||
+                (focusModule.category === "ignored_opponent_forcing" && mistake.mistakeType?.includes("allowed"))
+              ) && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-400 mb-2" data-testid="focus-context-indicator">
+                  <Target className="w-3 h-3" />
+                  <span>This relates to your current focus area.</span>
+                </div>
+              )}
+              
               {/* Mistake type badge */}
               {explanation.short_label && (
                 <div className="flex items-center gap-2">
