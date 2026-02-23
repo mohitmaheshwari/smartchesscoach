@@ -540,6 +540,105 @@ const Training = ({ user }) => {
 
           {/* Puzzles Tab */}
           <TabsContent value="puzzles" className="mt-0">
+            {/* Training Focus Banner - Shows cognitive priority */}
+            {trainingPriority && trainingPriority.primary_focus && (
+              <Card className="bg-gradient-to-r from-amber-900/30 to-gray-900/50 border-amber-500/20 mb-4" data-testid="training-focus-card">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-amber-500/20 rounded-lg">
+                        <Target className="w-5 h-5 text-amber-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-amber-400/80 font-medium uppercase tracking-wide">Your Focus Area</p>
+                        <p className="text-white font-semibold">{trainingPriority.primary_focus.display_name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{trainingPriority.primary_focus.message}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {/* TSI Display */}
+                      {cognitivePatterns && (
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">Thinking Stability</p>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xl font-bold text-white">{cognitivePatterns.thinking_stability_index}</span>
+                            {cognitivePatterns.tsi_trend === "improving" && (
+                              <TrendingUp className="w-4 h-4 text-green-400" />
+                            )}
+                            {cognitivePatterns.tsi_trend === "worsening" && (
+                              <TrendingDown className="w-4 h-4 text-red-400" />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {/* Mode Toggle */}
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-800/50 border border-gray-700">
+                        <button
+                          onClick={() => setTrainingMode("recommended")}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            trainingMode === "recommended" 
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                              : 'text-gray-400 hover:text-gray-300'
+                          }`}
+                          data-testid="recommended-mode-btn"
+                        >
+                          Recommended
+                        </button>
+                        <button
+                          onClick={() => setTrainingMode("browse")}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            trainingMode === "browse" 
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                              : 'text-gray-400 hover:text-gray-300'
+                          }`}
+                          data-testid="browse-mode-btn"
+                        >
+                          Browse All
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Trend indicator */}
+                  {trainingPriority.primary_focus.trend && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        trainingPriority.primary_focus.trend === "improving" 
+                          ? "bg-green-500/20 text-green-400"
+                          : trainingPriority.primary_focus.trend === "worsening"
+                          ? "bg-red-500/20 text-red-400"
+                          : "bg-gray-500/20 text-gray-400"
+                      }`}>
+                        {trainingPriority.primary_focus.trend === "improving" ? "Improving" :
+                         trainingPriority.primary_focus.trend === "worsening" ? "Needs Work" : "Stable"}
+                      </span>
+                      {trainingPriority.secondary_focus && trainingPriority.secondary_focus.length > 0 && (
+                        <span className="text-xs text-gray-500">
+                          Also work on: {trainingPriority.secondary_focus.map(s => s.display_name).join(", ")}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* General Drills Banner (when no specific weakness) */}
+            {trainingPriority && trainingPriority.general_drills && (
+              <Card className="bg-gray-900/50 border-gray-800 mb-4">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-500/20 rounded-lg">
+                      <CheckCircle2 className="w-5 h-5 text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">General Improvement Drills</p>
+                      <p className="text-xs text-gray-400">No major weaknesses detected. Keep practicing to maintain your skills!</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Source Filter */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
