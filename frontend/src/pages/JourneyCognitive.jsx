@@ -159,6 +159,21 @@ const Journey = ({ user }) => {
     return labelMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  // #3: Calculate severity change indicator (↑/↓ if > 10% change)
+  const getSeverityChange = (data) => {
+    const recentFreq = data.recent_frequency || 0;
+    const prevFreq = data.previous_frequency || 0;
+    
+    // Only show indicator if there's meaningful baseline
+    if (prevFreq < 2) return null;
+    
+    const changePercent = ((recentFreq - prevFreq) / prevFreq) * 100;
+    
+    if (changePercent > 10) return "↑";  // Worsening (more mistakes recently)
+    if (changePercent < -10) return "↓"; // Improving (fewer mistakes recently)
+    return null;
+  };
+
   const getTopPatterns = (patterns) => {
     if (!patterns) return [];
     return Object.entries(patterns)
@@ -167,7 +182,8 @@ const Journey = ({ user }) => {
         name: getPatternDisplayName(key),
         severity: data.weighted_score || data.frequency * (data.avg_severity || 0.5),
         trend: data.trend || "stable",
-        frequency: data.frequency
+        frequency: data.frequency,
+        severityChange: getSeverityChange(data)
       }))
       .sort((a, b) => b.severity - a.severity)
       .slice(0, 3);
