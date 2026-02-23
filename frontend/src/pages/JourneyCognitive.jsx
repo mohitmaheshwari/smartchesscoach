@@ -367,41 +367,43 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 3: Top Instability Drivers - #3: Severity change indicator */}
+        {/* SECTION 3: Top Instability Drivers - Impact bands instead of numbers */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Top Instability Drivers (Last 20 Games)
+              Top Instability Drivers
             </p>
             
             {topPatterns.length > 0 ? (
               <div className="space-y-3">
-                {topPatterns.map((pattern, idx) => (
-                  <div 
-                    key={pattern.key}
-                    className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30"
-                    data-testid={`pattern-${idx}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-muted-foreground w-4">
-                        {idx + 1}.
-                      </span>
-                      <span className="text-sm text-white">{pattern.name}</span>
+                {topPatterns.map((pattern, idx) => {
+                  const impact = getImpactBand(pattern.severity);
+                  return (
+                    <div 
+                      key={pattern.key}
+                      className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30"
+                      data-testid={`pattern-${idx}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-muted-foreground w-4">
+                          {idx + 1}.
+                        </span>
+                        <span className="text-sm text-white">{pattern.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm ${impact.color}`}>
+                          {impact.label}
+                          {pattern.severityChange === "↑" && (
+                            <span className="text-red-400 ml-1">↑</span>
+                          )}
+                          {pattern.severityChange === "↓" && (
+                            <span className="text-green-400 ml-1">↓</span>
+                          )}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {/* Severity with tiny ↑/↓ indicator if change > 10% */}
-                      <span className="text-sm text-muted-foreground">
-                        Severity {Math.round(pattern.severity)}
-                        {pattern.severityChange === "↑" && (
-                          <span className="text-red-400 ml-1">↑</span>
-                        )}
-                        {pattern.severityChange === "↓" && (
-                          <span className="text-green-400 ml-1">↓</span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
