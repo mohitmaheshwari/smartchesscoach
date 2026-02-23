@@ -8230,19 +8230,30 @@ async def get_all_user_thoughts(user: User = Depends(get_current_user)):
 @api_router.get("/cognitive/journey")
 async def get_cognitive_journey(user: User = Depends(get_current_user)):
     """
-    Rolling 5 vs 5 Evolution Data for Journey Page.
+    Journey Engine - Cognitive Evolution System.
     
-    Compares recent 5 games against previous 5 games.
-    Requires minimum 10 analyzed games to activate.
+    Architecture:
+    1. SHORT-TERM MOMENTUM (5 vs 5)
+    2. LONG-TERM GROWTH ARC (Early vs Recent)
+    
+    Core Principle: Never "invent insight" - all commentary derived from measured deltas.
     """
     from cognitive_patterns_service import (
         classify_move_to_cognitive,
-        get_severity_weight,
-        CognitiveCategory
+        get_severity_weight
+    )
+    from journey_engine import (
+        compute_momentum,
+        compute_growth_arc,
+        generate_cognitive_summary
     )
     
-    # Get user's onboarding date
-    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "onboarding_completed_at": 1})
+    # Get user rating for cohort comparison
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id}, 
+        {"_id": 0, "assessed_rating": 1, "onboarding_completed_at": 1}
+    )
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
     onboarding_date = user_doc.get("onboarding_completed_at") if user_doc else None
     
     # Get analyzed games (after onboarding if applicable)
@@ -8250,286 +8261,74 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
     if onboarding_date:
         query["created_at"] = {"$gte": onboarding_date}
     
-    analyses = await db.game_analyses.find(
+    # Get all games for Growth Arc, but at least 10 for activation
+    all_analyses = await db.game_analyses.find(
         query,
         {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1}
-    ).sort("created_at", -1).limit(10).to_list(10)
+    ).sort("created_at", -1).to_list(100)  # Cap at 100 for performance
     
-    total_games = len(analyses)
+    total_games = len(all_analyses)
     
-    # Activation check
+    # Safety Guard: Minimum 10 games required
     if total_games < 10:
         return {
             "activated": False,
             "games_analyzed": total_games,
             "games_required": 10,
-            "message": "Journey will activate after 10 analyzed games. We need at least 10 games to detect meaningful cognitive shifts."
+            "message": "Insufficient data to detect meaningful cognitive shifts."
         }
     
-    # Split into windows
-    recent_window = analyses[:5]  # Last 5 games
-    previous_window = analyses[5:10]  # Previous 5 games
-    
-    # Helper: Calculate TSI for a window (returns None if insufficient data)
-    def calculate_window_tsi(window):
-        if not window:
-            return None
-            
-        total_mistakes = 0
-        total_severity = 0
-        total_moves = 0
-        
-        for analysis in window:
-            sf = analysis.get("stockfish_analysis", {})
-            moves = sf.get("move_evaluations", [])
-            total_moves += len(moves)
-            
-            for move in moves:
-                cp_loss = abs(move.get("cp_loss", 0))
-                if cp_loss >= 50:
-                    total_mistakes += 1
-                    total_severity += min(1.0, cp_loss / 300)
-        
-        # Need at least some moves analyzed
-        if total_moves < 20:
-            return None
-        
-        if total_mistakes > 0:
-            avg_severity = total_severity / total_mistakes
-            # Mistakes per game normalized
-            mistakes_per_game = total_mistakes / len(window)
-            # Expected range: 2-8 mistakes per game is normal
-            # TSI formula: 100 - (mistakes * severity) scaled
-            instability = (mistakes_per_game * avg_severity) / 4  # 4 mistakes at 1.0 severity = max instability
-            instability = min(1.0, instability)
-            return max(20, min(95, int(100 - instability * 80)))  # Range 20-95, never 0 or 100
-        
-        # Very few mistakes = high stability (but not perfect)
-        return 90
-    
-    # Helper: Calculate pattern severities for a window
-    def calculate_window_patterns(window):
-        patterns = {}
-        for analysis in window:
-            sf = analysis.get("stockfish_analysis", {})
+    # Safety Guard: Check minimum blunders across windows
+    def count_blunders(analyses):
+        count = 0
+        for a in analyses:
+            sf = a.get("stockfish_analysis", {})
             for move in sf.get("move_evaluations", []):
-                cp_loss = abs(move.get("cp_loss", 0))
-                if cp_loss < 50:
-                    continue
-                
-                mistake_type = move.get("mistake_type", "")
-                best_move = move.get("best_move", "")
-                best_move_forcing = "+" in best_move or "x" in best_move or "#" in best_move
-                
-                category = classify_move_to_cognitive(
-                    mistake_type=mistake_type,
-                    cp_loss=cp_loss,
-                    best_move_was_forcing=best_move_forcing
-                )
-                
-                if not category:
-                    if cp_loss >= 150:
-                        category = CognitiveCategory.RANDOM_CRITICAL
-                    else:
-                        category = CognitiveCategory.STRUCTURAL_MISJUDGMENT
-                
-                cat_key = category.value
-                if cat_key not in patterns:
-                    patterns[cat_key] = {"count": 0, "severity": 0}
-                patterns[cat_key]["count"] += 1
-                patterns[cat_key]["severity"] += get_severity_weight(cp_loss)
-        
-        # Calculate average severity per pattern
-        for cat_key in patterns:
-            count = patterns[cat_key]["count"]
-            patterns[cat_key]["avg_severity"] = patterns[cat_key]["severity"] / count if count > 0 else 0
-            patterns[cat_key]["weighted_score"] = count * patterns[cat_key]["avg_severity"]
-        
-        return patterns
+                if abs(move.get("cp_loss", 0)) >= 100:
+                    count += 1
+        return count
     
-    # Helper: Calculate blunder context for a window
-    def calculate_blunder_context(window):
-        context = {"winning": 0, "equal": 0, "losing": 0, "total": 0}
-        for analysis in window:
-            sf = analysis.get("stockfish_analysis", {})
-            user_color = analysis.get("user_color", "white")
-            
-            for move in sf.get("move_evaluations", []):
-                cp_loss = abs(move.get("cp_loss", 0))
-                if cp_loss < 100:
-                    continue
-                
-                context["total"] += 1
-                eval_before = move.get("eval_before", 0)
-                if user_color == "black":
-                    eval_before = -eval_before
-                
-                if eval_before >= 150:
-                    context["winning"] += 1
-                elif eval_before <= -150:
-                    context["losing"] += 1
-                else:
-                    context["equal"] += 1
-        
-        # Convert to percentages
-        total = context["total"] or 1
+    recent_blunders = count_blunders(all_analyses[:10])
+    if recent_blunders < 5:
         return {
-            "winning": round((context["winning"] / total) * 100),
-            "equal": round((context["equal"] / total) * 100),
-            "losing": round((context["losing"] / total) * 100),
-            "total": context["total"]
+            "activated": False,
+            "games_analyzed": total_games,
+            "games_required": 10,
+            "message": "Insufficient data to detect meaningful cognitive shifts."
         }
     
-    # Helper: Calculate primary instability phase for a window
-    def calculate_phase_instability(window):
-        phase_mistakes = {"opening": 0, "middlegame": 0, "endgame": 0}
-        for analysis in window:
-            sf = analysis.get("stockfish_analysis", {})
-            for move in sf.get("move_evaluations", []):
-                cp_loss = abs(move.get("cp_loss", 0))
-                if cp_loss >= 50:
-                    phase = move.get("phase", "middlegame")
-                    if phase in phase_mistakes:
-                        phase_mistakes[phase] += 1
-        
-        # Find highest
-        if sum(phase_mistakes.values()) == 0:
-            return "Middlegame"
-        return max(phase_mistakes, key=phase_mistakes.get).capitalize()
+    # Split for Momentum (5 vs 5)
+    recent_window = all_analyses[:5]
+    previous_window = all_analyses[5:10]
     
-    # Calculate for both windows
-    recent_tsi = calculate_window_tsi(recent_window)
-    previous_tsi = calculate_window_tsi(previous_window)
+    # Compute Short-Term Momentum
+    momentum = compute_momentum(
+        recent_games=recent_window,
+        previous_games=previous_window,
+        classify_func=classify_move_to_cognitive,
+        severity_func=get_severity_weight,
+        user_rating=user_rating
+    )
     
-    # TSI validation - both windows must have valid TSI
-    tsi_valid = recent_tsi is not None and previous_tsi is not None
-    tsi_delta = (recent_tsi - previous_tsi) if tsi_valid else 0
+    # Compute Long-Term Growth Arc (if enough games)
+    growth_arc = None
+    if total_games >= 20:
+        growth_arc = compute_growth_arc(
+            all_games=all_analyses,
+            classify_func=classify_move_to_cognitive,
+            severity_func=get_severity_weight,
+            user_rating=user_rating
+        )
     
-    recent_patterns = calculate_window_patterns(recent_window)
-    previous_patterns = calculate_window_patterns(previous_window)
-    
-    recent_context = calculate_blunder_context(recent_window)
-    previous_context = calculate_blunder_context(previous_window)
-    
-    recent_phase = calculate_phase_instability(recent_window)
-    previous_phase = calculate_phase_instability(previous_window)
-    
-    # Stability momentum interpretation
-    if not tsi_valid:
-        stability_interpretation = "Insufficient baseline data for comparison."
-    elif abs(tsi_delta) < 5:
-        stability_interpretation = "No significant change in decision stability."
-    elif tsi_delta >= 5:
-        stability_interpretation = "Your decision consistency has improved over recent games."
-    else:
-        stability_interpretation = "Your decision consistency has declined in recent games."
-    
-    # Pattern shifts - FIX #2: Only show Improving/Worsening if band CHANGES
-    pattern_shifts = []
-    all_patterns = set(recent_patterns.keys()) | set(previous_patterns.keys())
-    
-    def get_impact_band(severity):
-        if severity >= 3:
-            return "High"
-        elif severity >= 1.5:
-            return "Moderate"
-        return "Low"
-    
-    for cat_key in all_patterns:
-        recent_score = recent_patterns.get(cat_key, {}).get("weighted_score", 0)
-        previous_score = previous_patterns.get(cat_key, {}).get("weighted_score", 0)
-        
-        recent_band = get_impact_band(recent_score)
-        previous_band = get_impact_band(previous_score)
-        
-        # FIX #2: Status determined by BAND change only, not raw delta
-        if recent_band != previous_band:
-            # Band changed - determine direction
-            band_order = {"Low": 0, "Moderate": 1, "High": 2}
-            if band_order[recent_band] < band_order[previous_band]:
-                status = "Improving"
-            else:
-                status = "Worsening"
-            
-            pattern_shifts.append({
-                "category": cat_key,
-                "name": cat_key.replace("_", " ").title(),
-                "previous_band": previous_band,
-                "recent_band": recent_band,
-                "status": status
-            })
-        # If bands are same, don't show - it's stable (not meaningful)
-    
-    # FIX #3: Context shift with clear directional change
-    winning_diff = recent_context["winning"] - previous_context["winning"]
-    context_shift = None
-    if abs(winning_diff) >= 15:
-        context_shift = {
-            "previous": previous_context["winning"],
-            "recent": recent_context["winning"],
-            "change": winning_diff,
-            "direction": "Increased" if winning_diff > 0 else "Decreased"
-        }
-    
-    # Phase shift
-    phase_changed = recent_phase != previous_phase
-    
-    # FIX #1 & #2: Generate integrative summary that reconciles all signals
-    def generate_cognitive_summary():
-        if not tsi_valid:
-            return "Insufficient data to assess cognitive momentum."
-        
-        # Collect signals
-        stability_improving = tsi_delta >= 5
-        stability_declining = tsi_delta <= -5
-        stability_stable = abs(tsi_delta) < 5
-        
-        context_worsening = context_shift and context_shift["change"] > 0
-        context_improving = context_shift and context_shift["change"] < 0
-        
-        patterns_improving = any(p["status"] == "Improving" for p in pattern_shifts)
-        patterns_worsening = any(p["status"] == "Worsening" for p in pattern_shifts)
-        
-        # Build integrative narrative
-        if stability_improving and context_worsening:
-            return "Overall decision stability is improving, but advantage discipline has weakened."
-        elif stability_improving and patterns_improving:
-            return "Cognitive consistency is strengthening across recent games."
-        elif stability_improving:
-            return "Decision stability is trending upward."
-        elif stability_declining and context_improving:
-            return "Overall stability has declined, though pressure handling shows improvement."
-        elif stability_declining:
-            return "Decision consistency has weakened in recent games."
-        elif stability_stable and context_worsening:
-            return "Stability is holding steady, but errors increase when ahead."
-        elif stability_stable and patterns_worsening:
-            return "No major stability shift, but some patterns are emerging."
-        else:
-            return "Recent performance shows no significant cognitive shift."
-    
-    cognitive_summary = generate_cognitive_summary()
+    # Generate integrative summary
+    cognitive_summary = generate_cognitive_summary(momentum, growth_arc)
     
     return {
         "activated": True,
         "games_analyzed": total_games,
         "cognitive_summary": cognitive_summary,
-        "stability_momentum": {
-            "valid": tsi_valid,
-            "recent_tsi": recent_tsi,
-            "previous_tsi": previous_tsi,
-            "delta": tsi_delta,
-            "interpretation": stability_interpretation
-        },
-        "pattern_shifts": pattern_shifts,
-        "no_pattern_shifts": len(pattern_shifts) == 0,
-        "context_shift": context_shift,
-        "context_unchanged": context_shift is None,
-        "phase_shift": {
-            "changed": phase_changed,
-            "previous": previous_phase,
-            "recent": recent_phase
-        }
+        "momentum": momentum,
+        "growth_arc": growth_arc
     }
 
 
