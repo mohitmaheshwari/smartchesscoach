@@ -4183,7 +4183,7 @@ async def get_onboarding_status(user: User = Depends(get_current_user)):
     """
     user_doc = await db.users.find_one(
         {"user_id": user.user_id},
-        {"_id": 0, "chesscom_username": 1, "lichess_username": 1, "onboarding_completed": 1}
+        {"_id": 0, "chess_com_username": 1, "chesscom_username": 1, "lichess_username": 1, "onboarding_completed": 1}
     )
     
     if not user_doc:
@@ -4193,8 +4193,8 @@ async def get_onboarding_status(user: User = Depends(get_current_user)):
     if user_doc.get("onboarding_completed"):
         return {"needs_onboarding": False}
     
-    # Check if user has linked accounts
-    has_linked = user_doc.get("chesscom_username") or user_doc.get("lichess_username")
+    # Check if user has linked accounts (support both field names)
+    has_linked = user_doc.get("chess_com_username") or user_doc.get("chesscom_username") or user_doc.get("lichess_username")
     
     if not has_linked:
         return {"needs_onboarding": True, "reason": "no_linked_accounts"}
