@@ -284,13 +284,12 @@ const Journey = ({ user }) => {
               </div>
             </div>
 
-            {/* Gap Driver */}
+            {/* #2: Gap Driver - clinical, no narrative */}
             {primaryDriver && (
               <div className="mt-6 pt-4 border-t border-slate-700">
-                <p className="text-xs text-muted-foreground mb-1">Gap Driver</p>
                 <p className="text-sm text-white">
+                  <span className="text-muted-foreground">Primary Instability Driver: </span>
                   <span className="font-medium">{primaryDriver.name}</span>
-                  <span className="text-muted-foreground"> — instability appears in this pattern.</span>
                 </p>
               </div>
             )}
