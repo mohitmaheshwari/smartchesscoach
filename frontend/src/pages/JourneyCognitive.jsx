@@ -244,11 +244,11 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 3: Blunder Context Shift - FIX #3: Clear directional layout */}
+        {/* SECTION 3: Blunder Context Shift - FIX #4: Cleaner layout */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Blunder Context Shift
+              Advantage Discipline
             </p>
             
             {data.context_unchanged ? (
@@ -257,22 +257,14 @@ const Journey = ({ user }) => {
               </p>
             ) : (
               <div className="p-3 rounded-lg bg-slate-800/30">
-                <p className="text-sm text-white mb-3">Blunders in Winning Positions</p>
-                <div className="flex items-baseline gap-6 mb-2">
-                  <div>
-                    <span className="text-sm text-muted-foreground mr-2">Previous 5:</span>
-                    <span className="text-xl font-bold text-slate-400">{context_shift.previous}%</span>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground mr-2">Recent 5:</span>
-                    <span className="text-xl font-bold text-white">{context_shift.recent}%</span>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground mr-2">Change:</span>
-                    <span className={`text-xl font-bold ${context_shift.change > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                      {context_shift.change > 0 ? "+" : ""}{context_shift.change}%
-                    </span>
-                  </div>
+                <p className="text-sm text-white mb-2">Blunders in Winning Positions</p>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-xl font-bold text-slate-400">{context_shift.previous}%</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-xl font-bold text-white">{context_shift.recent}%</span>
+                  <span className={`text-sm ${context_shift.change > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    ({context_shift.change > 0 ? "+" : ""}{context_shift.change}%)
+                  </span>
                 </div>
                 <p className="text-xs text-slate-500">
                   {context_shift.direction === "Increased" 
@@ -284,25 +276,20 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 4: Phase Stability Shift */}
+        {/* SECTION 4: Phase Stability Shift - FIX #5: Stronger wording */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Phase Stability Shift
+              Phase Stability
             </p>
             
             {phase_shift.changed ? (
-              <div className="p-3 rounded-lg bg-slate-800/30">
-                <p className="text-sm text-white mb-3">Primary Instability Phase</p>
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="text-muted-foreground">Previous: <span className="text-slate-300">{phase_shift.previous}</span></span>
-                  <span className="text-slate-600">→</span>
-                  <span className="text-muted-foreground">Recent: <span className="text-white">{phase_shift.recent}</span></span>
-                </div>
-              </div>
+              <p className="text-sm text-slate-400">
+                Primary instability shifted from <span className="text-white">{phase_shift.previous}</span> to <span className="text-white">{phase_shift.recent}</span>.
+              </p>
             ) : (
               <p className="text-sm text-slate-400">
-                Primary instability phase remains: {phase_shift.recent}.
+                <span className="text-white">{phase_shift.recent}</span> remains your most unstable phase.
               </p>
             )}
           </CardContent>
