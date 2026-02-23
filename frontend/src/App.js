@@ -17,6 +17,7 @@ import Journey from "@/pages/Journey";
 import JourneyV2 from "@/pages/JourneyV2";
 import ProgressV2 from "@/pages/ProgressV2";
 import Reflect from "@/pages/Reflect";
+import Onboarding from "@/pages/Onboarding";
 
 // Components
 import { Toaster } from "@/components/ui/sonner";
@@ -25,10 +26,11 @@ import { ThemeProvider } from "@/context/ThemeContext";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 export const API = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 
-// Protected Route wrapper
-const ProtectedRoute = ({ children }) => {
+// Protected Route wrapper with onboarding check
+const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [user, setUser] = useState(null);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -37,6 +39,8 @@ const ProtectedRoute = ({ children }) => {
     if (location.state?.user) {
       setUser(location.state.user);
       setIsAuthenticated(true);
+      // Still check onboarding status
+      checkOnboarding();
       return;
     }
 
@@ -49,13 +53,36 @@ const ProtectedRoute = ({ children }) => {
         const userData = await response.json();
         setUser(userData);
         setIsAuthenticated(true);
+        
+        // Check if user needs onboarding (unless skipping)
+        if (!skipOnboardingCheck) {
+          checkOnboarding();
+        }
       } catch (error) {
         setIsAuthenticated(false);
         navigate('/');
       }
     };
+    
+    const checkOnboarding = async () => {
+      try {
+        const response = await fetch(`${API}/onboarding/status`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.needs_onboarding) {
+            setNeedsOnboarding(true);
+            navigate('/onboarding');
+          }
+        }
+      } catch (e) {
+        console.log("Onboarding check failed:", e);
+      }
+    };
+    
     checkAuth();
-  }, [navigate, location.state]);
+  }, [navigate, location.state, skipOnboardingCheck]);
 
   if (isAuthenticated === null) {
     return (
@@ -67,6 +94,10 @@ const ProtectedRoute = ({ children }) => {
 
   if (!isAuthenticated) {
     return null;
+  }
+  
+  if (needsOnboarding && !skipOnboardingCheck) {
+    return null; // Will redirect to onboarding
   }
 
   return children({ user });
