@@ -136,35 +136,40 @@ const Journey = ({ user }) => {
           <h1 className="text-2xl font-semibold text-white">Journey</h1>
         </div>
 
-        {/* SECTION 1: Stability Momentum */}
+        {/* SECTION 1: Decision Stability Momentum - FIX #4: Horizontal layout */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
               Decision Stability Momentum
             </p>
             
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-1">Recent 5 Games</p>
-                <p className="text-3xl font-bold text-white">{stability_momentum.recent_tsi}</p>
-              </div>
-              
-              <div className="text-center px-6">
-                <p className="text-xs text-muted-foreground mb-1">Change</p>
-                <p className={`text-2xl font-bold ${getDeltaColor(stability_momentum.delta)}`}>
-                  {stability_momentum.delta >= 0 ? "+" : ""}{stability_momentum.delta}
+            {!stability_momentum.valid ? (
+              <p className="text-sm text-slate-400">
+                {stability_momentum.interpretation}
+              </p>
+            ) : (
+              <>
+                <div className="flex items-baseline gap-6 mb-3">
+                  <div>
+                    <span className="text-sm text-muted-foreground mr-2">Previous 5:</span>
+                    <span className="text-2xl font-bold text-slate-400">{stability_momentum.previous_tsi}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground mr-2">Recent 5:</span>
+                    <span className="text-2xl font-bold text-white">{stability_momentum.recent_tsi}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground mr-2">Change:</span>
+                    <span className={`text-2xl font-bold ${getDeltaColor(stability_momentum.delta)}`}>
+                      {stability_momentum.delta >= 0 ? "+" : ""}{stability_momentum.delta}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-400">
+                  {stability_momentum.interpretation}
                 </p>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-1">Previous 5 Games</p>
-                <p className="text-3xl font-bold text-slate-400">{stability_momentum.previous_tsi}</p>
-              </div>
-            </div>
-
-            <p className="text-sm text-slate-400 text-center">
-              {stability_momentum.interpretation}
-            </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
