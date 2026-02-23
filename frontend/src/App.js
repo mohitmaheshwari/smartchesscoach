@@ -125,6 +125,11 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/onboarding" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <Onboarding user={user} />}
+        </ProtectedRoute>
+      } />
       <Route path="/coach" element={
         <ProtectedRoute>
           {({ user }) => <Training user={user} />}
