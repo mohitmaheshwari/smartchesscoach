@@ -623,12 +623,20 @@ def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_chan
             best_attacks = best_analysis.get("attacks_after_move", [])
             user_attack_squares = {a.get("square") for a in attacks}
             
+            # Also check if any opponent hanging pieces were missed
+            opponent_hanging_squares = {h.get("square") for h in opponent_hanging}
+            
             for best_attack in best_attacks:
                 target_piece = best_attack.get("piece", "piece")
                 target_sq = best_attack.get("square", "")
+                is_hanging = best_attack.get("is_hanging", False) or target_sq in opponent_hanging_squares
+                
                 if target_sq not in user_attack_squares and target_piece in ["knight", "bishop", "rook", "queen", "king"]:
-                    # User missed this target - they might have been unaware
-                    tag = f"I didn't notice the {target_piece} on {target_sq}"
+                    # User missed this target - they were unaware
+                    if is_hanging:
+                        tag = f"I didn't notice the {target_piece} on {target_sq} was undefended"
+                    else:
+                        tag = f"I didn't notice the {target_piece} on {target_sq}"
                     if tag not in tags:
                         tags.append(tag)
                     break  # Only add one "didn't notice" tag
