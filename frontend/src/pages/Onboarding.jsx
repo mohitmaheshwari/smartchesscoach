@@ -522,21 +522,27 @@ const Onboarding = () => {
           
           {step === 2 && (
             <>
-              {/* Detected Rating Display */}
+              {/* Assessed Rating Display */}
               {detectedRating && (
                 <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground">Detected from {detectedPlatform}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Assessed from {gamesAnalyzed} {detectedPlatform} games
+                      </p>
                       <p className="text-2xl font-bold text-white">{detectedRating}</p>
                     </div>
                     <div className={`px-3 py-1 rounded text-sm font-medium ${
+                      detectedRating >= 2000 ? 'bg-amber-500/20 text-amber-400' :
                       detectedRating >= 1800 ? 'bg-purple-500/20 text-purple-400' :
-                      detectedRating >= 1200 ? 'bg-blue-500/20 text-blue-400' :
-                      'bg-green-500/20 text-green-400'
+                      detectedRating >= 1400 ? 'bg-blue-500/20 text-blue-400' :
+                      detectedRating >= 1000 ? 'bg-green-500/20 text-green-400' :
+                      'bg-slate-500/20 text-slate-400'
                     }`}>
-                      {detectedRating >= 1800 ? 'Advanced' :
-                       detectedRating >= 1200 ? 'Intermediate' : 'Developing'}
+                      {detectedRating >= 2000 ? 'Expert' :
+                       detectedRating >= 1800 ? 'Advanced' :
+                       detectedRating >= 1400 ? 'Intermediate' :
+                       detectedRating >= 1000 ? 'Developing' : 'Beginner'}
                     </div>
                   </div>
                 </div>
