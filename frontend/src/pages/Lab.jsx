@@ -854,10 +854,46 @@ const Lab = ({ user }) => {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-orange-500 font-bold">{mistakeCounts.mistakes}</span>
-                  <span className="text-muted-foreground">Mistakes</span>
+                  <span className="text-muted-foreground">Tactical</span>
                 </div>
+                {!coachMode && mistakeCounts.enginePrefs > 0 && (
+                  <div className="flex items-center gap-2 text-sm opacity-60">
+                    <span className="text-gray-400 font-bold">{mistakeCounts.enginePrefs}</span>
+                    <span className="text-muted-foreground">Prefs</span>
+                  </div>
+                )}
               </div>
             )}
+            
+            {/* Coach/Engine Mode Toggle */}
+            <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-800/50 border border-gray-700">
+              <button
+                onClick={() => setCoachMode(true)}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  coachMode 
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                    : 'text-gray-400 hover:text-gray-300'
+                }`}
+                data-testid="coach-mode-btn"
+                title="Shows only human-improvable errors"
+              >
+                <Brain className="w-3 h-3 inline mr-1" />
+                Coach
+              </button>
+              <button
+                onClick={() => setCoachMode(false)}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  !coachMode 
+                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                    : 'text-gray-400 hover:text-gray-300'
+                }`}
+                data-testid="engine-mode-btn"
+                title="Shows all engine disagreements"
+              >
+                <Zap className="w-3 h-3 inline mr-1" />
+                Engine
+              </button>
+            </div>
             
             {/* Core Lesson - One sentence */}
             {coreLesson && coreLesson.pattern === "needs_detailed_analysis" ? (
