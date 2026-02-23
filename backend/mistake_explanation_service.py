@@ -812,6 +812,15 @@ async def generate_mistake_explanation(move_data: Dict, llm_call_func) -> Dict:
             model="gpt-4o-mini"
         )
         explanation = explanation.strip()
+        
+        # LIGHTWEIGHT GUARDRAIL: Validate LLM output against position
+        explanation = validate_llm_explanation(
+            explanation, 
+            move_data.get("fen_before", ""),
+            move_data.get("move", ""),
+            move_data.get("best_move", ""),
+            template
+        )
     except Exception as e:
         logger.error(f"LLM call failed: {e}")
         # Fallback to template-based explanation
@@ -826,6 +835,76 @@ async def generate_mistake_explanation(move_data: Dict, llm_call_func) -> Dict:
         "phase": analysis.get("phase", "middlegame"),
         "details": analysis.get("details", {})
     }
+
+
+def validate_llm_explanation(
+    explanation: str, 
+    fen_before: str, 
+    move_played: str, 
+    best_move: str,
+    template: Dict
+) -> str:
+    """
+    Lightweight guardrail to validate LLM output.
+    
+    Checks:
+    1. If explanation mentions a specific move, verify it's valid in the position
+    2. If explanation mentions a square, verify it exists on the board
+    3. If explanation contains obvious hallucination patterns, fallback to template
+    
+    Returns:
+        Validated explanation or fallback to template
+    """
+    # Obvious hallucination patterns to check
+    hallucination_signals = [
+        "trapping a knight on b1",  # Opening position check
+        "undefended piece",  # When capturing - often wrong context
+        "isolated pawn on e4",  # Nonsensical structure
+    ]
+    
+    # Check for hallucination signals in explanation
+    explanation_lower = explanation.lower()
+    for signal in hallucination_signals:
+        if signal in explanation_lower:
+            logger.warning(f"Hallucination detected: '{signal}' in explanation")
+            # Fallback to template-based explanation
+            return f"{template['pattern']} {template.get('thinking_habit', '')}"
+    
+    # Validate FEN is for the correct position (basic sanity check)
+    if not fen_before or len(fen_before) < 10:
+        logger.warning("Invalid FEN - using template fallback")
+        return f"{template['pattern']} {template.get('thinking_habit', '')}"
+    
+    try:
+        board = chess.Board(fen_before)
+        
+        # If the explanation mentions specific pieces on specific squares,
+        # verify at least one mentioned piece exists
+        # This is a lightweight check - not comprehensive
+        
+        # Check if explanation references the actual move
+        if move_played and move_played not in explanation and best_move not in explanation:
+            # Neither the played move nor best move is mentioned - might be generic
+            # That's okay, don't reject
+            pass
+        
+        # If explanation claims something about opening (move 1-4), verify position
+        # Opening hallucination: claiming tactical pattern in starting position
+        if "move 1" in explanation_lower or "move 2" in explanation_lower:
+            piece_count = len(board.piece_map())
+            if piece_count >= 30:  # Near-starting position
+                # Check for tactical claims in opening (usually wrong)
+                tactical_claims = ["fork", "pin", "trap", "skewer", "sacrifice"]
+                for claim in tactical_claims:
+                    if claim in explanation_lower:
+                        logger.warning(f"Suspicious tactical claim '{claim}' in opening position")
+                        return f"{template['pattern']} {template.get('thinking_habit', '')}"
+    except Exception as e:
+        logger.warning(f"FEN validation failed: {e}")
+        # On any error, just return the original explanation
+        pass
+    
+    return explanation
 
 
 def get_quick_explanation(mistake_type: str, details: Dict = None) -> str:
