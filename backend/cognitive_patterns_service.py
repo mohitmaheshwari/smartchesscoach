@@ -508,7 +508,8 @@ def _calculate_tsi(
     tsi = max(0, min(100, int(100 - normalized)))
     
     # Calculate TSI trend using weighted recent vs previous
-    # Use the weighted scores, not raw frequencies
+    # Higher score = more mistakes = WORSE
+    # So we DON'T invert the trend - if recent is worse (higher), trend is "worsening"
     recent_score = sum(
         p.get("frequency", 0) * p.get("avg_severity", 0.5) * GAME_WEIGHTS["recent"]
         for p in recent_patterns.values()
@@ -522,12 +523,10 @@ def _calculate_tsi(
     if GAME_WEIGHTS["recent"] != GAME_WEIGHTS["middle"]:
         previous_score = previous_score * (GAME_WEIGHTS["recent"] / GAME_WEIGHTS["middle"])
     
+    # Compare: higher recent = worsening, lower recent = improving
+    # Scale up to make _calculate_trend thresholds meaningful
     tsi_trend = _calculate_trend(int(recent_score * 10), int(previous_score * 10))
-    # Invert because lower score = better
-    if tsi_trend == "worsening":
-        tsi_trend = "improving"
-    elif tsi_trend == "improving":
-        tsi_trend = "worsening"
+    # NO inversion needed - trend correctly reflects mistake direction
     
     return tsi, tsi_trend
 
