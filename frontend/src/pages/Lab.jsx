@@ -118,6 +118,10 @@ const Lab = ({ user }) => {
   const [practicePositions, setPracticePositions] = useState([]);
   const [practiceIndex, setPracticeIndex] = useState(0);
   
+  // Focus Module state (behavioral coaching)
+  const [focusModule, setFocusModule] = useState(null);
+  const [protocolChecks, setProtocolChecks] = useState([false, false, false]);
+  
   // Re-analyze game handler
   const handleReanalyze = async () => {
     setReanalyzing(true);
