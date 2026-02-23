@@ -1,0 +1,812 @@
+# Chess Coach - Complete Application Documentation
+
+## Overview
+
+Chess Coach is a sophisticated chess coaching application that provides personalized analysis, training, and improvement recommendations. Unlike traditional chess apps that simply show engine evaluations, Chess Coach focuses on **human-improvable errors** and **thinking patterns** to help players genuinely improve.
+
+**Core Philosophy:** Surface human-improvable errors, not engine disagreements.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18 + Vite, TailwindCSS, Shadcn/UI |
+| Backend | FastAPI (Python 3.11) |
+| Database | MongoDB (Motor async driver) |
+| Chess Engine | Stockfish 16 (python-chess) |
+| AI/LLM | OpenAI GPT-4o-mini via Emergent LLM Key |
+| Chess Data | Lichess Opening Explorer API, Chess.com API |
+| Auth | Google OAuth + Session-based |
+| Deployment | Kubernetes (Emergent Platform) |
+
+---
+
+## Architecture
+
+```
+/app
+├── backend/
+│   ├── server.py                 # Main FastAPI app, 200+ API endpoints
+│   ├── services/                 # (services are at root level)
+│   │   ├── stockfish_service.py  # Stockfish engine wrapper
+│   │   ├── coaching_classifier_service.py  # Move classification for coaching
+│   │   ├── mistake_explanation_service.py  # LLM-powered explanations
+│   │   ├── interactive_training_service.py # Puzzle generation & validation
+│   │   ├── trick_library_service.py        # Chess traps database
+│   │   ├── journey_service.py              # Game sync & progress tracking
+│   │   └── ... (40+ service files)
+│   └── requirements.txt
+├── frontend/
+│   └── src/
+│       ├── pages/                # Main app pages
+│       ├── components/           # Reusable components
+│       └── components/ui/        # Shadcn components
+└── memory/
+    └── PRD.md                    # Product requirements
+```
+
+---
+
+## Core Features
+
+### 1. Game Analysis (Lab)
+
+**Purpose:** Deep analysis of chess games with focus on learning, not just evaluation.
+
+**Key Components:**
+- `Lab.jsx` - Main game analysis page
+- `GameAnalysis.jsx` - Alternative analysis view
+- `CoachBoard.jsx` - Interactive chessboard with move exploration
+
+**Features:**
+- **Coach Mode vs Engine Mode Toggle**
+  - Coach Mode: Shows only human-improvable errors (tactics, repeated patterns, threat-check failures)
+  - Engine Mode: Shows all engine disagreements
+- **Move Categories:**
+  - Blunder (300+ cp loss)
+  - Tactical Mistake (150+ cp OR missed tactic)
+  - Strategic Slip (100-149 cp)
+  - Engine Preference (50-99 cp, hidden in Coach Mode)
+- **Brilliant Moves Detection** - Highlights your best moves
+- **Learning Moments** - Mistakes reframed as growth opportunities
+- **Position Visualization** - Board state at any move
+- **PV Lines** - Shows what could have happened
+- **AI Explanations** - Natural language explanations for mistakes
+
+**API Endpoints:**
+```
+GET  /api/lab/{game_id}           # Get game data for Lab
+POST /api/explain-mistake         # Generate AI explanation for a move
+GET  /api/game/{game_id}/analysis # Get Stockfish analysis
+POST /api/games/{game_id}/reanalyze # Re-run analysis
+```
+
+---
+
+### 2. Training System
+
+**Purpose:** Personalized training based on your actual mistakes.
+
+**Components:**
+- `TrainingNew.jsx` - Main training interface
+- `OpeningTrainer.jsx` - Opening preparation & trick library
+
+#### 2a. Puzzle Training
+
+**Features:**
+- **Puzzles from Your Games** - Practice positions where you made mistakes
+- **Community Puzzles** - Solve puzzles from other users' games
+- **Smart Puzzle Validation** - Stockfish-verified correct/incorrect with explanations
+- **Puzzle Difficulty Progression** (Elo-based):
+  - Rating starts at 1200
+  - Updates based on puzzle performance (K-factor=32)
+  - 6 levels: Beginner, Easy, Intermediate, Advanced, Expert, Master
+  - Streak tracking and achievements
+- **Puzzle Filtering** - "All Puzzles", "My Games", "Community"
+
+**Puzzle Generation Criteria:**
+- cp_loss >= 150 OR forced tactic
+- NOT just "engine preference" (50-99 cp without tactical content)
+- Must have clear teaching point
+
+**API Endpoints:**
+```
+GET  /api/training/puzzles                    # Get personalized puzzles
+POST /api/training/puzzle/validate            # Validate puzzle attempt
+GET  /api/training/puzzle-progress            # Get puzzle rating/stats
+GET  /api/training/puzzle-difficulty-recommendation
+GET  /api/training/puzzle-leaderboard
+```
+
+#### 2b. Trick Library (Opening Traps)
+
+**Features:**
+- **30+ Common Chess Traps** organized by opening
+- **Three Interactive Modes:**
+  1. **Execution Mode** - Learn to set up the trap
+  2. **Avoidance Mode** - Learn to avoid falling for it
+  3. **Recognition Mode** - Identify the trap from the position
+- **Trap Statistics** - Track your success rate per trap
+- **Personalized Recommendations** - Suggests traps to study based on your weaknesses
+- **Difficulty Levels** - Beginner to Master
+
+**Trap Categories:**
+- Italian Game Traps (Blackburne Shilling, Fried Liver, etc.)
+- Sicilian Traps
+- French Defense Traps
+- Caro-Kann Traps
+- Queen's Gambit Traps
+- Scandinavian Traps
+- And more...
+
+**API Endpoints:**
+```
+GET  /api/training/tricks                     # List all traps
+GET  /api/training/tricks/{trap_key}          # Get specific trap
+GET  /api/training/tricks/{trap_key}/practice # Start practice
+POST /api/training/tricks/record-attempt      # Record attempt result
+GET  /api/training/tricks/stats               # User's trap statistics
+GET  /api/training/tricks/recommendations     # Personalized recommendations
+POST /api/training/tricks/validate-avoidance  # Validate avoidance attempt
+POST /api/training/tricks/validate-recognition # Validate recognition
+```
+
+#### 2c. Opening Preparation
+
+**Features:**
+- **Opening Explorer** - Browse openings with Lichess statistics
+- **Variation Training** - Practice specific lines
+- **Move-by-Move Statistics** - Win rates at each position
+- **ECO Classification** - Standard opening nomenclature
+
+**API Endpoints:**
+```
+GET  /api/training/openings                   # List user's openings
+GET  /api/training/openings/stats             # Opening statistics
+GET  /api/training/openings/{opening_key}     # Specific opening details
+GET  /api/training/lichess/opening            # Lichess Explorer data
+GET  /api/training/lichess/variations         # Get variations for position
+```
+
+---
+
+### 3. Journey (Progress Tracking)
+
+**Purpose:** Track your chess improvement over time.
+
+**Components:**
+- `Journey.jsx` / `JourneyV2.jsx` - Progress dashboard
+- `ChessJourney.jsx` - Detailed journey view
+
+**Features:**
+- **Game History** - All analyzed games with results
+- **Rating Trajectory** - Rating changes over time
+- **Weakness Trends** - Track recurring issues
+- **Weekly Assessment** - AI-generated weekly review
+- **Platform Integration** - Sync from Chess.com & Lichess
+- **Background Sync** - Automatic game import (6-hour interval)
+
+**API Endpoints:**
+```
+GET  /api/journey                   # Basic journey data
+GET  /api/journey/comprehensive     # Full journey with stats
+GET  /api/journey/weekly-assessment # Weekly AI assessment
+GET  /api/journey/weakness-trends   # Weakness patterns over time
+POST /api/journey/link-account      # Connect Chess.com/Lichess
+GET  /api/journey/linked-accounts   # View connected accounts
+POST /api/journey/sync-now          # Manual sync trigger
+```
+
+---
+
+### 4. Reflect (Post-Game Reflection)
+
+**Purpose:** Build self-awareness through structured reflection.
+
+**Components:**
+- `Reflect.jsx` - Reflection interface
+
+**Features:**
+- **Pending Reflections** - Games awaiting your reflection
+- **Critical Moments** - AI-identified key positions
+- **Contextual Tags** - Categorize your thinking errors
+- **Thought Journal** - Record your reasoning at each move
+- **Reflection Impact Analysis** - How reflection improves your play
+
+**API Endpoints:**
+```
+GET  /api/reflect/pending                     # Games needing reflection
+GET  /api/reflect/pending/count               # Count of pending
+GET  /api/reflect/game/{game_id}/moments      # Key moments in a game
+POST /api/reflect/submit                      # Submit reflection
+POST /api/reflect/game/{game_id}/complete     # Mark reflection complete
+POST /api/reflect/moment/contextual-tags      # Get contextual tags
+POST /api/reflect/explain-moment              # AI explanation for moment
+```
+
+---
+
+### 5. Dashboard
+
+**Purpose:** Overview of your chess activity and progress.
+
+**Components:**
+- `Dashboard.jsx` - Main dashboard
+
+**Features:**
+- **Recent Games** - Quick access to latest games
+- **Accuracy Trends** - Your accuracy over time
+- **Weakness Summary** - Top areas to improve
+- **Training Recommendations** - What to focus on
+- **Badge Progress** - Gamification achievements
+
+**API Endpoints:**
+```
+GET  /api/dashboard-stats           # Dashboard statistics
+GET  /api/training-recommendations  # What to train
+GET  /api/weakness-ranking          # Ranked weaknesses
+```
+
+---
+
+### 6. Gamification
+
+**Purpose:** Keep players engaged and motivated.
+
+**Features:**
+- **XP System** - Earn XP for activities
+- **Levels** - Progress through levels
+- **Achievements** - Unlock badges for milestones
+- **Daily Rewards** - Streak bonuses
+- **Leaderboard** - Compare with others
+
+**Achievement Categories:**
+- Puzzle achievements (solve streaks, accuracy)
+- Game achievements (wins, accuracy milestones)
+- Reflection achievements (consistent reflection)
+- Training achievements (trap mastery)
+
+**API Endpoints:**
+```
+GET  /api/gamification/progress               # XP and level
+GET  /api/gamification/achievements           # Unlocked achievements
+POST /api/gamification/daily-reward           # Claim daily reward
+GET  /api/gamification/leaderboard            # Global leaderboard
+GET  /api/gamification/achievement-definitions # All possible achievements
+```
+
+---
+
+### 7. Badges System
+
+**Purpose:** Visual recognition of chess competencies.
+
+**Components:**
+- `BadgeDetailModal.jsx` - Badge details view
+
+**Features:**
+- **Skill Badges** - Based on demonstrated abilities
+- **Progress Tracking** - How close to earning each badge
+- **Badge Details** - Evidence from your games
+- **Badge Tiers** - Bronze, Silver, Gold, Platinum
+
+**API Endpoints:**
+```
+GET  /api/badges                        # All badges with status
+GET  /api/badges/{badge_key}/details    # Specific badge evidence
+```
+
+---
+
+### 8. Coaching Loop
+
+**Purpose:** Continuous improvement cycle.
+
+**Features:**
+- **Plan Generation** - AI creates improvement plan
+- **Mission System** - Specific focus areas per game
+- **Habit Tracking** - Build good chess habits
+- **Discipline Checks** - Did you follow your plan?
+- **Focus Plan** - What to work on this week
+
+**API Endpoints:**
+```
+GET  /api/focus-plan                    # Current focus plan
+POST /api/focus-plan/regenerate         # Create new plan
+POST /api/focus-plan/mission/start      # Start a mission
+POST /api/focus-plan/mission/complete   # Complete mission
+GET  /api/coaching-loop/profile         # Coaching profile
+POST /api/coaching-loop/audit-game/{game_id} # Audit game vs plan
+```
+
+---
+
+### 9. Notifications
+
+**Purpose:** Keep users engaged and informed.
+
+**Features:**
+- **In-App Notifications** - Game analysis complete, achievements, etc.
+- **Push Notifications** - Mobile push support
+- **Email Summaries** - Weekly digest
+- **Notification Center** - View all notifications
+
+**API Endpoints:**
+```
+GET  /api/notifications                       # Get notifications
+POST /api/notifications/{id}/read             # Mark as read
+POST /api/notifications/read-all              # Mark all read
+POST /api/notifications/register-device       # Register for push
+GET  /api/settings/email-notifications        # Email preferences
+PUT  /api/settings/email-notifications        # Update preferences
+```
+
+---
+
+## Data Models
+
+### User
+```javascript
+{
+  user_id: string,
+  email: string,
+  name: string,
+  picture: string,
+  linked_accounts: {
+    chess_com: { username: string, linked_at: date },
+    lichess: { username: string, linked_at: date }
+  },
+  preferences: {
+    coach_mode: boolean,
+    email_notifications: boolean
+  },
+  created_at: date,
+  last_login: date
+}
+```
+
+### Game
+```javascript
+{
+  game_id: string,
+  user_id: string,
+  pgn: string,
+  source: "chess.com" | "lichess" | "manual",
+  user_color: "white" | "black",
+  opponent_name: string,
+  result: "win" | "loss" | "draw",
+  time_control: string,
+  played_at: date,
+  imported_at: date
+}
+```
+
+### Game Analysis
+```javascript
+{
+  game_id: string,
+  user_id: string,
+  stockfish_analysis: {
+    move_evaluations: [{
+      move_number: number,
+      move: string,
+      fen_before: string,
+      fen_after: string,
+      eval_before: number,
+      eval_after: number,
+      cp_loss: number,
+      best_move: string,
+      mistake_type: string,
+      phase: "opening" | "middlegame" | "endgame"
+    }],
+    accuracy: number,
+    blunders: number,
+    mistakes: number,
+    inaccuracies: number
+  },
+  opening: { eco: string, name: string },
+  created_at: date
+}
+```
+
+### Puzzle Rating
+```javascript
+{
+  user_id: string,
+  puzzle_rating: number,  // Starts at 1200
+  highest_rating: number,
+  current_streak: number,
+  best_streak: number,
+  total_puzzles: number,
+  puzzles_solved: number,
+  level: "beginner" | "easy" | "intermediate" | "advanced" | "expert" | "master",
+  achievements: string[],
+  last_puzzle_at: date
+}
+```
+
+### Trap Statistics
+```javascript
+{
+  user_id: string,
+  trap_key: string,
+  mode: "execution" | "avoidance" | "recognition",
+  attempts: number,
+  successes: number,
+  failures: number,
+  last_attempted: date
+}
+```
+
+### Reflection
+```javascript
+{
+  user_id: string,
+  game_id: string,
+  move_number: number,
+  fen: string,
+  reflection_text: string,
+  tags: string[],
+  intent: string,  // What user was trying to do
+  created_at: date
+}
+```
+
+### Community Puzzle
+```javascript
+{
+  puzzle_id: string,
+  source_game_id: string,
+  source_user_id: string,
+  fen: string,
+  correct_move: string,
+  difficulty: number,
+  times_solved: number,
+  times_attempted: number,
+  featured: boolean,
+  created_at: date
+}
+```
+
+---
+
+## Key Services
+
+### 1. Stockfish Service (`stockfish_service.py`)
+- Manages Stockfish engine instances
+- Position evaluation with depth control
+- Best move calculation
+- Move validation
+- Caching for performance
+
+### 2. Coaching Classifier Service (`coaching_classifier_service.py`)
+- Classifies moves into coaching categories
+- Prophylactic move detection (h6, a6, etc.)
+- Forcing tactic detection
+- Determines what shows in Coach Mode vs Engine Mode
+
+### 3. Mistake Explanation Service (`mistake_explanation_service.py`)
+- Analyzes why a move was a mistake
+- Generates LLM-powered explanations
+- Detects tactical patterns (forks, pins, etc.)
+- Capture move detection to prevent hallucinations
+
+### 4. Interactive Training Service (`interactive_training_service.py`)
+- Generates puzzles from user's games
+- Validates puzzle attempts with Stockfish
+- Provides detailed feedback on attempts
+
+### 5. Puzzle Progression Service (`puzzle_progression_service.py`)
+- Elo-based rating updates
+- Level progression
+- Achievement tracking
+- Streak management
+
+### 6. Trick Library Service (`trick_library_service.py`)
+- Database of 30+ chess traps
+- Practice position generation
+- Move validation for all three modes
+- Statistics tracking
+
+### 7. Journey Service (`journey_service.py`)
+- Background game sync
+- Chess.com & Lichess API integration
+- Progress calculation
+- Weakness trend analysis
+
+### 8. Blunder Intelligence Service (`blunder_intelligence_service.py`)
+- Deep analysis of blunders
+- Pattern recognition
+- Thinking error categorization
+- Evidence gathering for badges
+
+---
+
+## External Integrations
+
+### Chess.com API
+- Game history fetching
+- Player statistics
+- Automatic sync
+
+### Lichess API
+- Opening Explorer (position statistics)
+- Game imports
+- Player data
+
+### OpenAI (via Emergent LLM Key)
+- Natural language explanations
+- Weekly assessments
+- Coaching insights
+- Plan generation
+
+---
+
+## Frontend Components
+
+### Pages
+| Page | File | Purpose |
+|------|------|---------|
+| Landing | `Landing.jsx` | Marketing/login page |
+| Dashboard | `Dashboard.jsx` | Main overview |
+| Lab | `Lab.jsx` | Game analysis |
+| Training | `TrainingNew.jsx` | Puzzles & training |
+| Journey | `JourneyV2.jsx` | Progress tracking |
+| Reflect | `Reflect.jsx` | Post-game reflection |
+| Import | `ImportGames.jsx` | Manual game import |
+| Settings | `Settings.jsx` | User preferences |
+
+### Key Components
+| Component | Purpose |
+|-----------|---------|
+| `CoachBoard.jsx` | Interactive chessboard |
+| `LichessBoard.jsx` | Board using Lichess assets |
+| `OpeningTrainer.jsx` | Opening & trap training |
+| `BadgeDetailModal.jsx` | Badge evidence display |
+| `MistakeMastery.jsx` | Mistake pattern training |
+| `Layout.jsx` | App shell with navigation |
+| `NotificationBell.jsx` | Notification center |
+
+---
+
+## Authentication Flow
+
+1. **Google OAuth**
+   - User clicks "Sign in with Google"
+   - Redirects to Google OAuth
+   - Callback creates/updates user record
+   - Session token stored in cookie
+
+2. **Dev Login** (development only)
+   - One-click login for testing
+   - Creates test user with ID `test_session_*`
+
+3. **Session Management**
+   - Session token in HTTP-only cookie
+   - 30-day expiration
+   - Auto-refresh on activity
+
+---
+
+## Analysis Pipeline
+
+1. **Game Import**
+   - User connects Chess.com/Lichess OR uploads PGN
+   - Background sync fetches new games
+
+2. **Stockfish Analysis**
+   - Each move evaluated at depth 18
+   - Best move calculated
+   - CP loss computed
+   - Position cached for speed
+
+3. **Move Classification**
+   - Coaching Classifier determines category
+   - Tactical patterns detected
+   - Phase identified (opening/middle/endgame)
+
+4. **Puzzle Generation**
+   - Moves with cp_loss >= 150 OR forced tactics
+   - Filter out "engine preferences"
+   - Store as drillable puzzles
+
+5. **Explanation Generation**
+   - On-demand LLM explanation
+   - Context includes tactical patterns
+   - Coaching principles emphasized
+
+---
+
+## Configuration
+
+### Environment Variables
+
+**Backend (`/app/backend/.env`)**
+```
+MONGO_URL=mongodb://...
+DB_NAME=chess_coach
+EMERGENT_LLM_KEY=...
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+DEV_MODE=true  # Enables dev login
+```
+
+**Frontend (`/app/frontend/.env`)**
+```
+REACT_APP_BACKEND_URL=https://...
+```
+
+---
+
+## Key User Flows
+
+### 1. First-Time User
+1. Land on homepage → Click "Sign in with Google"
+2. Authorize app → Redirect to dashboard
+3. Prompt to connect Chess.com/Lichess
+4. Background sync imports recent games
+5. Navigate to Training for first puzzles
+
+### 2. Post-Game Analysis
+1. Game synced automatically (or manual import)
+2. Navigate to Lab → Select game
+3. View Coach Mode analysis
+4. Click mistakes to expand explanations
+5. Toggle to Engine Mode for full details
+6. Practice critical moments
+
+### 3. Daily Training
+1. Navigate to Training tab
+2. View puzzle rating and streak
+3. Solve puzzles from your games
+4. Review mistakes with explanations
+5. Check Trick Library for new traps
+
+### 4. Reflection Flow
+1. Navigate to Reflect tab
+2. See pending games for reflection
+3. Click into game → View critical moments
+4. Record your thinking at each moment
+5. Compare intent vs reality
+6. Complete reflection
+
+---
+
+## Recent Changes (Feb 2026)
+
+### Coaching Philosophy Update
+- **Coach Mode/Engine Mode toggle** in Lab
+- **New move categorization**: Blunder > Tactical > Strategic > Engine Preference
+- **Prophylactic move handling**: Good/Phantom/Wrong classification
+- **Puzzle threshold raised** from 100cp to 150cp
+- **Capture move detection** prevents "undefended" hallucinations
+
+### Puzzle Difficulty Progression
+- **Elo-based rating system** (K-factor=32)
+- **Level-up celebrations** with modal
+- **Achievement system** with toasts
+- **Rating change badges** in feedback
+
+### Trick Library Complete
+- **30+ traps** with full metadata
+- **Three modes**: Execution, Avoidance, Recognition
+- **Statistics tracking** per trap
+- **Personalized recommendations**
+
+### Community Learning
+- **Shared puzzle pool** from all users
+- **Integrated into main Puzzles tab**
+- **Source attribution** (Your Game vs Community)
+
+---
+
+## Testing
+
+### Test Files
+```
+/app/tests/
+├── test_puzzle_validation.py
+├── test_trick_library_modes.py
+├── test_community_learning.py
+└── ...
+```
+
+### Test Reports
+```
+/app/test_reports/
+├── iteration_1.json
+├── iteration_2.json
+└── ...
+```
+
+### Test User
+- Dev Login creates: `test_session_{uuid}`
+- Use Cookie: `session_token=test_session_...`
+
+---
+
+## Performance Considerations
+
+1. **Stockfish Caching**
+   - Position evaluations cached in MongoDB
+   - Avoids re-analyzing same positions
+   - Cache hit rate typically >60%
+
+2. **Background Processing**
+   - Game sync runs in background
+   - 6-hour interval for batch sync
+   - 5-minute interval for real-time monitoring
+
+3. **Lazy Loading**
+   - Explanations generated on-demand
+   - PV lines fetched when expanded
+   - Images loaded progressively
+
+---
+
+## Known Limitations
+
+1. **Analysis Depth** - Stockfish runs at depth 18 (not tournament depth)
+2. **Opening Database** - Limited to common lines from Lichess
+3. **Trap Library** - 30+ traps, not exhaustive
+4. **Reflection Validation** - Intent validation not yet integrated with coaching
+
+---
+
+## Roadmap (Upcoming)
+
+1. **Reflection Integration** - Validate user intent against position reality
+2. **Re-analyze Existing Games** - Apply new coaching classification
+3. **Repeated Pattern Detection** - Surface personal "leaks"
+4. **Thinking Score** - Separate from engine score
+5. **Advanced Trap Recommendations** - Based on opening repertoire
+
+---
+
+## API Quick Reference
+
+### Authentication
+```
+GET  /api/auth/google/login
+GET  /api/auth/dev-login
+GET  /api/auth/me
+POST /api/auth/logout
+```
+
+### Games
+```
+GET  /api/games
+GET  /api/games/{game_id}
+POST /api/import-games
+POST /api/analyze-game
+```
+
+### Training
+```
+GET  /api/training/puzzles
+POST /api/training/puzzle/validate
+GET  /api/training/puzzle-progress
+GET  /api/training/tricks
+POST /api/training/tricks/record-attempt
+```
+
+### Analysis
+```
+GET  /api/lab/{game_id}
+POST /api/explain-mistake
+GET  /api/eval/position
+```
+
+### Progress
+```
+GET  /api/journey
+GET  /api/progress
+GET  /api/badges
+GET  /api/gamification/progress
+```
+
+---
+
+*Last Updated: February 23, 2026*
