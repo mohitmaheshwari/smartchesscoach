@@ -1,0 +1,69 @@
+{
+  "summary": "Journey Page Patch Testing Complete - All features verified. Backend reuses existing pattern detection from baseline_service.py (detect_weakness_patterns, calculate_blunder_context_stats). Frontend displays all 3 tabs correctly with proper data-testid attributes.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "features_tested": {
+    "tab_a_now_snapshot": {
+      "top_issue_field": "PASS - Shows 'top_issue' with name ('Relaxes when winning'), id ('relaxes_when_winning'), impact ('Moderate')",
+      "top_issue_id": "PASS - ID matches valid weakness pattern from detect_weakness_patterns",
+      "top_issue_occurrence_pct": "PASS - Shows occurrence_pct (40%)",
+      "impact_bands": "PASS - Uses Low/Moderate/High (not raw numbers)",
+      "decision_stability": "PASS - Band (Volatile) and meaning present",
+      "advantage_discipline": "PASS - Band (High risk) with blunder_when_winning_pct",
+      "unstable_phase": "PASS - Shows 'Middlegame'",
+      "directive": "PASS - Action-oriented in plain English"
+    },
+    "tab_b_journey": {
+      "primary_driver_evolution": "PASS - Shows then_driver/now_driver with then_impact/now_impact",
+      "then_driver_data": "Piece safety issues (High) -> Relaxes when winning (Moderate)",
+      "4_rows": "PASS - Decision Stability, Primary Driver, Advantage Discipline, Weakest Phase",
+      "trend_indicators": "PASS - Shows (Improving) on Decision Stability row"
+    },
+    "tab_c_trend": {
+      "top_issues_array": "PASS - Array with 1 item (only issues >= 25% occurrence)",
+      "top_issue_item_structure": "PASS - Has id, name, impact, occurrence_pct, examples",
+      "max_3_items": "PASS - Only 1 item displayed (only 1 pattern >= 25%)",
+      "advantage_shift": "PASS - Shows previous (High risk), recent (Low risk), delta_pct (-100), direction (improving)",
+      "evidence_ready": "PASS - evidence_ready=true with 2 evidence items",
+      "evidence_game_id_move_number": "PASS - Each evidence item has game_id and move_number for Lab navigation"
+    },
+    "evidence_navigation": {
+      "click_navigation": "PASS - Evidence click navigates to /game/{game_id}?move={move_number}&src=journey",
+      "example_url": "/game/57be160e-0b6b-4015-b4f8-6d626244c80b?move=19&src=journey"
+    },
+    "backend_reuse_verification": {
+      "imports_baseline_service": "PASS - journey_engine.py imports from baseline_service.py",
+      "detect_weakness_patterns_reuse": "PASS - Used in compute_snapshot_now, compute_overall_journey, compute_momentum_5v5",
+      "calculate_blunder_context_stats_reuse": "PASS - Used for advantage_discipline calculations"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_journey_patch.py",
+    "/app/test_reports/pytest/pytest_journey_patch.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_journey_patch.py (created - 20 tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20 tests passed)",
+    "frontend": "100% (all UI elements verified via Playwright)"
+  },
+  "test_credentials": "Dev Login via /api/auth/dev-login",
+  "seed_data_creation": "None - used existing game data (100+ analyzed games)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Journey page patch complete. Key changes: Tab A shows 'top_issue' (not 'primary_driver') with name/id/impact/occurrence_pct. Tab B shows Primary Driver evolution with then_driver/now_driver/then_impact/now_impact. Tab C shows 'top_issues' array (max 3, only if >= 25% occurrence) and 'advantage_shift' with previous/recent/delta_pct/direction. Evidence links navigate to Lab with game_id and move_number. All pattern detection reuses existing functions from baseline_service.py.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}
