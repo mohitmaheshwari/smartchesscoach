@@ -509,15 +509,42 @@ def _detect_piece_trap(board: chess.Board, target_color: chess.Color) -> Optiona
     A piece is considered trapped if:
     - It has 2 or fewer safe squares to move to
     - It's a valuable piece (knight, bishop, rook, queen)
+    - It's NOT on a starting square (opening pieces have limited moves normally)
+    - The position is past the opening phase (at least 6 moves played)
     """
     valuable_pieces = [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]
     our_color = not target_color
+    
+    # Piece starting squares - pieces here are not "trapped", just undeveloped
+    WHITE_STARTING = {
+        chess.KNIGHT: [chess.B1, chess.G1],
+        chess.BISHOP: [chess.C1, chess.F1],
+        chess.ROOK: [chess.A1, chess.H1],
+        chess.QUEEN: [chess.D1]
+    }
+    BLACK_STARTING = {
+        chess.KNIGHT: [chess.B8, chess.G8],
+        chess.BISHOP: [chess.C8, chess.F8],
+        chess.ROOK: [chess.A8, chess.H8],
+        chess.QUEEN: [chess.D8]
+    }
+    starting_squares = BLACK_STARTING if target_color == chess.BLACK else WHITE_STARTING
+    
+    # Count total pieces to estimate game phase - don't detect traps in the opening
+    total_pieces = len(list(board.piece_map()))
+    if total_pieces > 28:  # Very early game, most pieces still present
+        return None
     
     for sq in chess.SQUARES:
         piece = board.piece_at(sq)
         if not piece or piece.color != target_color:
             continue
         if piece.piece_type not in valuable_pieces:
+            continue
+        
+        # CRITICAL: Skip pieces on starting squares - they're not trapped, just undeveloped
+        piece_starting = starting_squares.get(piece.piece_type, [])
+        if sq in piece_starting:
             continue
         
         # Count safe squares for this piece
