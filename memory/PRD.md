@@ -15,6 +15,32 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 23, 2026)
 
+### Move Arrow Implementation ✅ COMPLETE (Feb 23, 2026)
+
+**Problem:** Users requested visual arrows on chessboards to indicate the "you played" move, improving readability in both Lab (game analysis) and Reflect (milestone trainer) pages.
+
+**Solution:** Added customArrows prop to react-chessboard (Lab) and Chessground via LichessBoard (Reflect).
+
+**Implementation:**
+1. **Lab Page (`Lab.jsx`):**
+   - Added `customArrows` state initialized as `[]`
+   - In `goToMove()` function, sets `setCustomArrows([[move.from, move.to, "rgb(255,100,0)"]])` (orange arrow)
+   - Passed to `<Chessboard customArrows={customArrows} />` component
+
+2. **Reflect Page (`Reflect.jsx`):**
+   - `sanToArrow()` helper converts SAN notation to arrow coordinates
+   - `getArrows()` returns arrows based on `viewMode` ("your_move", "better_move", "both")
+   - Red arrow for user's move, green arrow for better move
+   - Toggle buttons allow switching between views
+
+**Arrow Format:**
+- react-chessboard: `[[from, to, color]]` where color is `rgb()` string
+- Chessground (LichessBoard): Maps color strings to brush names (red/green/blue/yellow)
+
+**Test Report:** `/app/test_reports/iteration_70.json` - 100% pass
+
+---
+
 ### Journey Page Master Spec v4 Implementation ✅ COMPLETE (Feb 23, 2026)
 
 **Problem:** Previous Journey implementations lacked:
