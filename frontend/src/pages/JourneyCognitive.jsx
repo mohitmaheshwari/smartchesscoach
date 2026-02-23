@@ -348,7 +348,7 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 3: Top Instability Drivers - #4: No "Stable" badge */}
+        {/* SECTION 3: Top Instability Drivers - #3: Severity change indicator */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
@@ -369,23 +369,17 @@ const Journey = ({ user }) => {
                       </span>
                       <span className="text-sm text-white">{pattern.name}</span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      {/* Severity with tiny ↑/↓ indicator if change > 10% */}
                       <span className="text-sm text-muted-foreground">
                         Severity {Math.round(pattern.severity)}
+                        {pattern.severityChange === "↑" && (
+                          <span className="text-red-400 ml-1">↑</span>
+                        )}
+                        {pattern.severityChange === "↓" && (
+                          <span className="text-green-400 ml-1">↓</span>
+                        )}
                       </span>
-                      {/* Only show badge for Improving or Worsening - Stable = no indicator */}
-                      {pattern.trend === "improving" && (
-                        <span className="flex items-center gap-1 text-xs text-green-400">
-                          <TrendingUp className="w-3 h-3" />
-                          Improving
-                        </span>
-                      )}
-                      {pattern.trend === "worsening" && (
-                        <span className="flex items-center gap-1 text-xs text-red-400">
-                          <TrendingDown className="w-3 h-3" />
-                          Worsening
-                        </span>
-                      )}
                     </div>
                   </div>
                 ))}
