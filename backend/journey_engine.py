@@ -408,7 +408,7 @@ def compute_micro(recent_5: List[Dict], previous_5: List[Dict],
     
     pattern_impact = len(pattern_changes) * 5
     
-    # Generate headline in plain Indian-English
+    # Generate headline in plain Indian-English (direct, simple)
     impacts = {
         "stability": stability_impact,
         "context": context_impact,
@@ -417,43 +417,43 @@ def compute_micro(recent_5: List[Dict], previous_5: List[Dict],
     strongest = max(impacts, key=impacts.get)
     
     if impacts[strongest] < 3:
-        headline = "Same pattern: no big change in your recent games."
+        headline = "No big change. Same as before."
     elif strongest == "stability":
         if stability_delta > 0:
             if context_delta > 10:
-                headline = "Good: you are more stable, but still slipping when ahead."
+                headline = "Getting steadier, but still throwing when ahead."
             else:
-                headline = "Good: your decision-making is more steady now."
+                headline = "Your play is becoming more steady. Keep it up."
         else:
             if recent_driver:
                 driver_name = get_pattern_label(recent_driver)
-                headline = f"Issue: stability dropped, mainly because of {driver_name.lower()}."
+                headline = f"Dropped off a bit—mainly {driver_name.lower()}."
             else:
-                headline = "Issue: your decisions are less steady in recent games."
+                headline = "Decisions less steady lately. Need to slow down."
     elif strongest == "context":
         if context_delta > 0:
-            headline = "Issue: you are still slipping after getting advantage."
+            headline = "Still throwing away winning games. Work on finishing."
         else:
-            headline = "Good: you are handling winning positions better."
+            headline = "Finishing winning games better. Good progress."
     else:
         if pattern_changes:
             change = pattern_changes[0]
             name = get_pattern_label(change["category"])
             if change["direction"] == "improved":
-                headline = f"Good: {name.lower()} is happening less often."
+                headline = f"{name} is getting better."
             else:
-                headline = f"Issue: {name.lower()} is happening more often."
+                headline = f"{name} is getting worse. Focus here."
         else:
-            headline = "Same pattern: no big change in your recent games."
+            headline = "No big change. Same as before."
     
-    # What changed with meaning
+    # What changed - simple, direct
     what_changed = []
     for change in pattern_changes[:2]:
         name = get_pattern_label(change["category"])
         if change["direction"] == "improved":
-            what_changed.append(f"{name}: {change['previous']} → {change['recent']} (this is improving)")
+            what_changed.append(f"{name}: improving")
         else:
-            what_changed.append(f"{name}: {change['previous']} → {change['recent']} (this is slipping)")
+            what_changed.append(f"{name}: slipping")
     
     # Action directive based on main driver
     directive = DRIVER_DIRECTIVES.get(
