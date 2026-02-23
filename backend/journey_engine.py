@@ -1,57 +1,81 @@
 """
-Journey Engine v2 - Before/After Report
+Journey Engine v3 - 3-Tab Journey Page
 
-Architecture:
-A) MICRO: Now vs Then (Recent 5 vs Previous 5)
-B) MACRO: Becoming vs Started (Recent 15 vs First 15)
-C) EVIDENCE: 2 clickable game links
+Tabs:
+A) NOW (Snapshot): Current identity - 5 items + directive
+B) JOURNEY (Overall): First 15 vs Recent 15 - 4 rows + directive  
+C) TREND (Momentum): Recent 5 vs Previous 5 - headline + shifts + evidence + directive
 
-Tone: Plain Indian-English, simple, direct.
+Rules:
+- No raw severity numbers (use bands: Low/Moderate/High)
+- No empty section spam (collapse to one line)
+- One directive per tab (deterministic from driver)
+- Plain Indian-English tone
+
 """
 
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
 
 
-# Plain Indian-English labels for stability (simpler)
+# ============================================
+# LABELS - Plain Indian-English
+# ============================================
+
 STABILITY_LABELS = {
-    "STABLE": "Playing steady",
-    "MIXED": "Hit and miss",
-    "VOLATILE": "Too many slips",
-    "CHAOTIC": "All over the place"
+    "STABLE": "Stable",
+    "MIXED": "Mixed",
+    "VOLATILE": "Volatile",
+    "CHAOTIC": "Chaotic"
 }
 
-# Plain Indian-English labels for risk (simpler)
+STABILITY_MEANING = {
+    "STABLE": "Most games are clean and consistent.",
+    "MIXED": "Some games are clean, some games collapse.",
+    "VOLATILE": "Too many ups and downs in your play.",
+    "CHAOTIC": "Very inconsistent—needs urgent work."
+}
+
 RISK_LABELS = {
-    "LOW": "Finishing games well",
-    "MEDIUM": "Sometimes losing grip when winning",
-    "HIGH": "Throwing away winning positions"
+    "LOW": "Low risk",
+    "MEDIUM": "Medium risk", 
+    "HIGH": "High risk"
 }
 
-# Pattern names in plain language (what it means, not technical term)
+RISK_MEANING = {
+    "LOW": "You finish winning games well.",
+    "MEDIUM": "Sometimes you relax and make mistakes when ahead.",
+    "HIGH": "You often throw away winning positions."
+}
+
+# Pattern names - plain language
 PATTERN_LABELS = {
-    "structural_misjudgment": "Weak pawns or squares",
-    "critical_moment_drift": "Losing focus at key moments", 
+    "structural_misjudgment": "Structural mistakes",
+    "critical_moment_drift": "Critical moment drift", 
     "missed_forcing_move": "Missing winning moves",
     "advantage_mismanagement": "Relaxing when ahead",
-    "random_critical_move": "Random moves when it matters"
+    "random_critical_move": "Random moves in key spots",
+    "time_pressure_drop": "Time pressure mistakes"
 }
 
-# Action directives based on main driver (plain, direct)
+# Impact bands (not raw numbers)
+IMPACT_BANDS = {
+    "LOW": "Low",
+    "MODERATE": "Moderate",
+    "HIGH": "High"
+}
+
+# Directive mapping - deterministic, one per driver
 DRIVER_DIRECTIVES = {
-    "structural_misjudgment": "Next 5 games: before pawn moves, ask 'what becomes weak after this?'",
+    "structural_misjudgment": "Next 5 games: before pawn move, ask 'what becomes weak after this?'",
     "critical_moment_drift": "Next 5 games: when position changes, pause 10 seconds and scan threats.",
     "missed_forcing_move": "Next 5 games: every move do Checks → Captures → Threats.",
-    "advantage_mismanagement": "Next 5 games: when ahead, play safe improving moves—no rushing.",
-    "random_critical_move": "Next 5 games: in sharp positions, calculate 2 moves deeper before deciding."
+    "advantage_mismanagement": "When ahead: trade pieces, avoid risky pawn pushes, and check opponent threats every move.",
+    "random_critical_move": "Next 5 games: in sharp positions, calculate 2 moves deeper before deciding.",
+    "time_pressure_drop": "Play 3 slow games this week. In complex spots, spend extra time."
 }
 
-# Weekly focus directives for macro level
-MACRO_DIRECTIVES = {
-    "improving": "Keep doing what you're doing. Your discipline is showing results.",
-    "declining": "This week: slow down. Take 5 extra seconds before each move.",
-    "same": "Time to push. Pick one weakness and drill it this week."
-}
+DEFAULT_DIRECTIVE = "Next 5 games: every move do Checks → Captures → Threats."
 
 
 class StabilityBand(Enum):
@@ -67,30 +91,15 @@ class RiskBand(Enum):
     HIGH = "HIGH"
 
 
-class SeverityBand(Enum):
-    LOW = "Low"
-    MODERATE = "Moderate"
-    HIGH = "High"
+class ImpactBand(Enum):
+    LOW = "LOW"
+    MODERATE = "MODERATE"
+    HIGH = "HIGH"
 
 
-# Rating cohort baselines
-RATING_COHORTS = {
-    "under_1200": {"avg_tsi": 50, "label": "<1200"},
-    "1200_1599": {"avg_tsi": 58, "label": "1200-1599"},
-    "1600_1999": {"avg_tsi": 68, "label": "1600-1999"},
-    "2000_plus": {"avg_tsi": 78, "label": "2000+"}
-}
-
-
-def get_rating_cohort(rating: int) -> Dict:
-    if rating < 1200:
-        return RATING_COHORTS["under_1200"]
-    elif rating < 1600:
-        return RATING_COHORTS["1200_1599"]
-    elif rating < 2000:
-        return RATING_COHORTS["1600_1999"]
-    return RATING_COHORTS["2000_plus"]
-
+# ============================================
+# HELPER FUNCTIONS
+# ============================================
 
 def get_stability_band(tsi_avg: float) -> StabilityBand:
     """Map TSI average to stability band."""
@@ -103,10 +112,6 @@ def get_stability_band(tsi_avg: float) -> StabilityBand:
     return StabilityBand.CHAOTIC
 
 
-def get_stability_label(band: StabilityBand) -> str:
-    return STABILITY_LABELS.get(band.value, "Unknown")
-
-
 def get_risk_band(blunder_rate: float) -> RiskBand:
     """Map blunders-when-ahead rate to risk band."""
     if blunder_rate <= 30:
@@ -116,21 +121,13 @@ def get_risk_band(blunder_rate: float) -> RiskBand:
     return RiskBand.HIGH
 
 
-def get_risk_label(band: RiskBand) -> str:
-    return RISK_LABELS.get(band.value, "Unknown")
-
-
-def get_pattern_label(key: str) -> str:
-    return PATTERN_LABELS.get(key, key.replace("_", " ").title())
-
-
-def get_severity_band(score: float) -> SeverityBand:
-    """Map pattern severity to band."""
-    if score <= 0.20:
-        return SeverityBand.LOW
+def get_impact_band(score: float) -> ImpactBand:
+    """Map pattern score to impact band."""
+    if score <= 0.25:
+        return ImpactBand.LOW
     elif score <= 0.50:
-        return SeverityBand.MODERATE
-    return SeverityBand.HIGH
+        return ImpactBand.MODERATE
+    return ImpactBand.HIGH
 
 
 def calculate_game_tsi(analysis: Dict) -> int:
@@ -162,7 +159,7 @@ def calculate_game_tsi(analysis: Dict) -> int:
 
 
 def calculate_blunder_context(analyses: List[Dict]) -> Dict:
-    """Calculate blunder context for a window."""
+    """Calculate blunder context distribution."""
     winning = 0
     equal = 0
     losing = 0
@@ -190,10 +187,12 @@ def calculate_blunder_context(analyses: List[Dict]) -> Dict:
                 equal += 1
     
     if total == 0:
-        return {"winning_rate": 0, "total": 0}
+        return {"winning_rate": 0, "equal_rate": 0, "losing_rate": 0, "total": 0}
     
     return {
         "winning_rate": round((winning / total) * 100),
+        "equal_rate": round((equal / total) * 100),
+        "losing_rate": round((losing / total) * 100),
         "total": total
     }
 
@@ -247,19 +246,19 @@ def calculate_pattern_scores(analyses: List[Dict], classify_func, severity_func)
 
 
 def get_primary_driver(scores: Dict[str, float]) -> Tuple[Optional[str], float]:
-    """Get primary driver if it explains >= 35% of instability."""
+    """Get primary driver if it explains >= 30% of instability."""
     if not scores:
         return None, 0
     
     top_driver = max(scores, key=scores.get)
     top_share = scores[top_driver]
     
-    if top_share >= 0.35:
+    if top_share >= 0.30:
         return top_driver, top_share
     return None, 0
 
 
-def calculate_phase_instability(analyses: List[Dict]) -> str:
+def get_most_unstable_phase(analyses: List[Dict]) -> str:
     """Get the most unstable phase."""
     phase_scores = {"opening": 0, "middlegame": 0, "endgame": 0}
     
@@ -278,15 +277,213 @@ def calculate_phase_instability(analyses: List[Dict]) -> str:
     return max(phase_scores, key=phase_scores.get).capitalize()
 
 
-def find_evidence_games(analyses: List[Dict]) -> List[Dict]:
-    """Find 2 evidence examples: one negative (blunder when ahead), one positive if available."""
+def get_directive(driver: Optional[str]) -> str:
+    """Get directive for a driver."""
+    if driver and driver in DRIVER_DIRECTIVES:
+        return DRIVER_DIRECTIVES[driver]
+    return DEFAULT_DIRECTIVE
+
+
+# ============================================
+# TAB A: SNAPSHOT (NOW)
+# ============================================
+
+def compute_snapshot_now(recent_games: List[Dict], classify_func, severity_func) -> Dict:
+    """
+    Tab A - Snapshot (Current)
+    
+    Shows exactly 5 items:
+    1. Decision Stability (band + meaning)
+    2. Primary Driver (one only)
+    3. Advantage Discipline (band)
+    4. Most Unstable Phase
+    5. Do this next
+    """
+    if len(recent_games) < 5:
+        return {
+            "ready": False,
+            "games_needed": 5 - len(recent_games),
+            "message": f"Need {5 - len(recent_games)} more games for snapshot."
+        }
+    
+    # Use recent 10 games for current snapshot
+    window = recent_games[:min(10, len(recent_games))]
+    
+    # Calculate metrics
+    tsi_scores = [calculate_game_tsi(g) for g in window]
+    tsi_avg = sum(tsi_scores) / len(tsi_scores) if tsi_scores else 50
+    
+    stability_band = get_stability_band(tsi_avg)
+    
+    blunder_context = calculate_blunder_context(window)
+    risk_band = get_risk_band(blunder_context["winning_rate"])
+    
+    pattern_scores = calculate_pattern_scores(window, classify_func, severity_func)
+    primary_driver, driver_share = get_primary_driver(pattern_scores)
+    
+    unstable_phase = get_most_unstable_phase(window)
+    
+    directive = get_directive(primary_driver)
+    
+    return {
+        "ready": True,
+        "decision_stability": {
+            "band": STABILITY_LABELS[stability_band.value],
+            "meaning": STABILITY_MEANING[stability_band.value]
+        },
+        "primary_driver": {
+            "name": PATTERN_LABELS.get(primary_driver, "No clear pattern") if primary_driver else "No clear pattern",
+            "key": primary_driver,
+            "impact": IMPACT_BANDS[get_impact_band(driver_share).value] if primary_driver else None
+        },
+        "advantage_discipline": {
+            "band": RISK_LABELS[risk_band.value],
+            "meaning": RISK_MEANING[risk_band.value]
+        },
+        "unstable_phase": unstable_phase,
+        "directive": directive
+    }
+
+
+# ============================================
+# TAB B: OVERALL JOURNEY (THEN VS NOW)
+# ============================================
+
+def compute_overall_journey(all_games: List[Dict], classify_func, severity_func) -> Dict:
+    """
+    Tab B - Overall Journey (Then vs Now)
+    
+    Shows 4 before/after rows:
+    1. Decision Stability: Then → Now
+    2. Primary Driver Evolution: Then → Now
+    3. Advantage Discipline Evolution: Then → Now
+    4. Phase Evolution: Then → Now
+    + Do this next
+    """
+    total = len(all_games)
+    
+    # Need at least 15 games for meaningful comparison
+    if total < 15:
+        return {
+            "ready": False,
+            "games_needed": 15 - total,
+            "message": f"Need {15 - total} more games to see your journey."
+        }
+    
+    # "Then" = first 15 games (oldest), "Now" = recent 15 games
+    then_games = all_games[-15:]  # Oldest 15
+    now_games = all_games[:15]    # Recent 15
+    
+    # Calculate for THEN
+    then_tsi = [calculate_game_tsi(g) for g in then_games]
+    then_tsi_avg = sum(then_tsi) / len(then_tsi) if then_tsi else 50
+    then_stability = get_stability_band(then_tsi_avg)
+    
+    then_context = calculate_blunder_context(then_games)
+    then_risk = get_risk_band(then_context["winning_rate"])
+    
+    then_patterns = calculate_pattern_scores(then_games, classify_func, severity_func)
+    then_driver, then_share = get_primary_driver(then_patterns)
+    then_phase = get_most_unstable_phase(then_games)
+    
+    # Calculate for NOW
+    now_tsi = [calculate_game_tsi(g) for g in now_games]
+    now_tsi_avg = sum(now_tsi) / len(now_tsi) if now_tsi else 50
+    now_stability = get_stability_band(now_tsi_avg)
+    
+    now_context = calculate_blunder_context(now_games)
+    now_risk = get_risk_band(now_context["winning_rate"])
+    
+    now_patterns = calculate_pattern_scores(now_games, classify_func, severity_func)
+    now_driver, now_share = get_primary_driver(now_patterns)
+    now_phase = get_most_unstable_phase(now_games)
+    
+    # Determine trend descriptions
+    stability_delta = now_tsi_avg - then_tsi_avg
+    if stability_delta >= 8:
+        stability_trend = "Improving"
+    elif stability_delta <= -8:
+        stability_trend = "Declining"
+    else:
+        stability_trend = "No major shift"
+    
+    # Primary driver evolution
+    if then_driver:
+        then_driver_band = get_impact_band(then_patterns.get(then_driver, 0))
+        now_driver_band = get_impact_band(now_patterns.get(then_driver, 0))
+        driver_evolution = {
+            "driver": PATTERN_LABELS.get(then_driver, then_driver),
+            "then_band": IMPACT_BANDS[then_driver_band.value],
+            "now_band": IMPACT_BANDS[now_driver_band.value],
+            "changed": then_driver_band != now_driver_band
+        }
+    else:
+        driver_evolution = {
+            "driver": "No clear pattern",
+            "then_band": None,
+            "now_band": None,
+            "changed": False
+        }
+    
+    # Risk evolution
+    risk_changed = then_risk != now_risk
+    
+    # Phase evolution
+    phase_changed = then_phase != now_phase
+    
+    # Directive based on current worst
+    directive = get_directive(now_driver)
+    
+    return {
+        "ready": True,
+        "rows": [
+            {
+                "label": "Decision Stability",
+                "then": STABILITY_LABELS[then_stability.value],
+                "now": STABILITY_LABELS[now_stability.value],
+                "trend": stability_trend,
+                "changed": then_stability != now_stability
+            },
+            {
+                "label": "Primary Driver",
+                "driver": driver_evolution["driver"],
+                "then_band": driver_evolution["then_band"],
+                "now_band": driver_evolution["now_band"],
+                "changed": driver_evolution["changed"]
+            },
+            {
+                "label": "Advantage Discipline",
+                "then": RISK_LABELS[then_risk.value],
+                "now": RISK_LABELS[now_risk.value],
+                "changed": risk_changed
+            },
+            {
+                "label": "Weakest Phase",
+                "then": then_phase,
+                "now": now_phase,
+                "changed": phase_changed
+            }
+        ],
+        "directive": directive
+    }
+
+
+# ============================================
+# TAB C: RECENT MOMENTUM (5 VS 5)
+# ============================================
+
+def find_evidence_items(analyses: List[Dict]) -> List[Dict]:
+    """
+    Find 2 strong evidence items for momentum tab.
+    Returns empty list if confidence is low.
+    """
     evidence = []
     
-    # Find a blunder when ahead (negative)
-    for i, analysis in enumerate(analyses):
+    # Evidence 1: Blunder when winning
+    for i, analysis in enumerate(analyses[:10]):
         sf = analysis.get("stockfish_analysis", {})
         user_color = analysis.get("user_color", "white")
-        game_id = analysis.get("game_id", f"game_{i}")
+        game_id = analysis.get("game_id", "")
         
         for move in sf.get("move_evaluations", []):
             cp_loss = abs(move.get("cp_loss", 0))
@@ -299,325 +496,277 @@ def find_evidence_games(analyses: List[Dict]) -> List[Dict]:
             
             if eval_before >= 150:  # Was winning
                 evidence.append({
-                    "type": "negative",
-                    "label": "Blunder in winning position",
-                    "game_index": i,
+                    "type": "blunder_when_winning",
+                    "label": "Blunder while winning",
+                    "game_id": game_id,
                     "move_number": move.get("move_number", 0),
-                    "description": f"Game {i+1}, Move {move.get('move_number', '?')}"
+                    "description": f"Move {move.get('move_number', '?')}"
                 })
                 break
         
         if len(evidence) >= 1:
             break
     
-    # Find a good decision (positive) - look for moves where user didn't blunder in critical moment
-    for i, analysis in enumerate(analyses):
+    # Evidence 2: Critical moment drift
+    for i, analysis in enumerate(analyses[:10]):
         sf = analysis.get("stockfish_analysis", {})
-        moves = sf.get("move_evaluations", [])
+        game_id = analysis.get("game_id", "")
         
-        # Look for a complex position handled well
-        for move in moves:
+        for move in sf.get("move_evaluations", []):
             cp_loss = abs(move.get("cp_loss", 0))
-            complexity = move.get("position_complexity", 0)
+            mistake_type = move.get("mistake_type", "")
             
-            if complexity > 0.5 and cp_loss < 30:
-                evidence.append({
-                    "type": "positive",
-                    "label": "Critical moment handled well",
-                    "game_index": i,
-                    "move_number": move.get("move_number", 0),
-                    "description": f"Game {i+1}, Move {move.get('move_number', '?')}"
-                })
-                break
+            if cp_loss >= 100 and mistake_type:
+                # Avoid duplicate game
+                if not any(e["game_id"] == game_id and e["move_number"] == move.get("move_number") for e in evidence):
+                    evidence.append({
+                        "type": "critical_moment",
+                        "label": "Critical moment drift",
+                        "game_id": game_id,
+                        "move_number": move.get("move_number", 0),
+                        "description": f"Move {move.get('move_number', '?')}"
+                    })
+                    break
         
         if len(evidence) >= 2:
             break
     
-    # If we don't have 2, fill with more negative examples
-    while len(evidence) < 2:
-        for i, analysis in enumerate(analyses[len(evidence):]):
-            sf = analysis.get("stockfish_analysis", {})
-            for move in sf.get("move_evaluations", []):
-                cp_loss = abs(move.get("cp_loss", 0))
-                if cp_loss >= 100:
-                    evidence.append({
-                        "type": "negative",
-                        "label": "Significant mistake",
-                        "game_index": i + len(evidence),
-                        "move_number": move.get("move_number", 0),
-                        "description": f"Game {i+1+len(evidence)}, Move {move.get('move_number', '?')}"
-                    })
-                    break
-            if len(evidence) >= 2:
-                break
-        break
+    # Only return if we have 2 strong items
+    if len(evidence) < 2:
+        return []
     
     return evidence[:2]
 
 
-def compute_micro(recent_5: List[Dict], previous_5: List[Dict], 
-                  classify_func, severity_func) -> Dict:
+def compute_momentum_5v5(recent_games: List[Dict], classify_func, severity_func) -> Dict:
     """
-    Compute MICRO: Now vs Then (5 vs 5)
+    Tab C - Recent Momentum (5 vs 5)
     
-    Returns exactly 3 rows + headline + what_changed
+    Rolling continuous tracker:
+    - Headline (one line)
+    - Top 2 meaningful shifts (if any)
+    - 2 Evidence items (with game links)
+    - Do this next
     """
-    # Calculate metrics for both windows
+    if len(recent_games) < 10:
+        return {
+            "ready": False,
+            "games_needed": 10 - len(recent_games),
+            "message": f"Need {10 - len(recent_games)} more games for momentum tracking."
+        }
+    
+    # Recent 5 vs Previous 5
+    recent_5 = recent_games[:5]
+    previous_5 = recent_games[5:10]
+    
+    # Calculate for both windows
     recent_tsi = [calculate_game_tsi(g) for g in recent_5]
     previous_tsi = [calculate_game_tsi(g) for g in previous_5]
     
     recent_tsi_avg = sum(recent_tsi) / len(recent_tsi) if recent_tsi else 50
     previous_tsi_avg = sum(previous_tsi) / len(previous_tsi) if previous_tsi else 50
     
+    recent_stability = get_stability_band(recent_tsi_avg)
+    previous_stability = get_stability_band(previous_tsi_avg)
+    
     recent_context = calculate_blunder_context(recent_5)
     previous_context = calculate_blunder_context(previous_5)
+    
+    recent_risk = get_risk_band(recent_context["winning_rate"])
+    previous_risk = get_risk_band(previous_context["winning_rate"])
     
     recent_patterns = calculate_pattern_scores(recent_5, classify_func, severity_func)
     previous_patterns = calculate_pattern_scores(previous_5, classify_func, severity_func)
     
-    # Row 1: Decision Stability
-    recent_stability_band = get_stability_band(recent_tsi_avg)
-    previous_stability_band = get_stability_band(previous_tsi_avg)
-    stability_delta = recent_tsi_avg - previous_tsi_avg
-    
-    # Row 2: Advantage Discipline
-    recent_risk_band = get_risk_band(recent_context["winning_rate"])
-    previous_risk_band = get_risk_band(previous_context["winning_rate"])
-    context_delta = recent_context["winning_rate"] - previous_context["winning_rate"]
-    
-    # Row 3: Primary Driver
     recent_driver, recent_share = get_primary_driver(recent_patterns)
     
-    # Impact scoring for headline
-    stability_impact = abs(stability_delta)
-    context_impact = abs(context_delta)
+    # Calculate deltas
+    stability_delta = recent_tsi_avg - previous_tsi_avg
+    context_delta = recent_context["winning_rate"] - previous_context["winning_rate"]
     
-    # Pattern band changes
-    pattern_changes = []
+    # Find pattern shifts (band changes)
+    pattern_shifts = []
     for cat in recent_patterns:
-        recent_band = get_severity_band(recent_patterns.get(cat, 0))
-        previous_band = get_severity_band(previous_patterns.get(cat, 0))
+        recent_band = get_impact_band(recent_patterns.get(cat, 0))
+        previous_band = get_impact_band(previous_patterns.get(cat, 0))
         if recent_band != previous_band:
             direction = "improved" if recent_band.value < previous_band.value else "worsened"
-            pattern_changes.append({
-                "category": cat,
-                "previous": previous_band.value,
-                "recent": recent_band.value,
+            pattern_shifts.append({
+                "pattern": PATTERN_LABELS.get(cat, cat),
+                "previous_band": IMPACT_BANDS[previous_band.value],
+                "recent_band": IMPACT_BANDS[recent_band.value],
                 "direction": direction
             })
     
-    pattern_impact = len(pattern_changes) * 5
+    # Generate headline (pick strongest signal)
+    stability_changed = abs(stability_delta) >= 8
+    risk_changed = previous_risk != recent_risk
+    has_pattern_shifts = len(pattern_shifts) > 0
     
-    # Generate headline in plain Indian-English (direct, simple)
-    impacts = {
-        "stability": stability_impact,
-        "context": context_impact,
-        "pattern": pattern_impact
-    }
-    strongest = max(impacts, key=impacts.get)
-    
-    if impacts[strongest] < 3:
-        headline = "No big change. Same as before."
-    elif strongest == "stability":
+    if not stability_changed and not risk_changed and not has_pattern_shifts:
+        headline = "No meaningful shift in last 10 games."
+    elif stability_changed and risk_changed:
         if stability_delta > 0:
             if context_delta > 10:
-                headline = "Getting steadier, but still throwing when ahead."
+                headline = "This week stability improved, but winning positions got riskier."
             else:
-                headline = "Your play is becoming more steady. Keep it up."
+                headline = "This week stability improved and you're finishing games better."
         else:
             if recent_driver:
-                driver_name = get_pattern_label(recent_driver)
-                headline = f"Dropped off a bit—mainly {driver_name.lower()}."
+                headline = f"This week stability dropped mainly due to {PATTERN_LABELS.get(recent_driver, 'mistakes').lower()}."
             else:
-                headline = "Decisions less steady lately. Need to slow down."
-    elif strongest == "context":
-        if context_delta > 0:
-            headline = "Still throwing away winning games. Work on finishing."
+                headline = "This week stability dropped. Need to slow down."
+    elif stability_changed:
+        if stability_delta > 0:
+            headline = "This week your play became more stable."
         else:
-            headline = "Finishing winning games better. Good progress."
+            headline = "This week your play became less stable."
+    elif risk_changed:
+        if context_delta < 0:
+            headline = "This week you're converting winning positions better."
+        else:
+            headline = "This week you're throwing more winning positions."
+    elif has_pattern_shifts:
+        shift = pattern_shifts[0]
+        if shift["direction"] == "improved":
+            headline = f"{shift['pattern']} is improving this week."
+        else:
+            headline = f"{shift['pattern']} got worse this week."
     else:
-        if pattern_changes:
-            change = pattern_changes[0]
-            name = get_pattern_label(change["category"])
-            if change["direction"] == "improved":
-                headline = f"{name} is getting better."
-            else:
-                headline = f"{name} is getting worse. Focus here."
-        else:
-            headline = "No big change. Same as before."
+        headline = "No meaningful shift in last 10 games."
     
-    # What changed - simple, direct
-    what_changed = []
-    for change in pattern_changes[:2]:
-        name = get_pattern_label(change["category"])
-        if change["direction"] == "improved":
-            what_changed.append(f"{name}: improving")
-        else:
-            what_changed.append(f"{name}: slipping")
+    # Top 2 meaningful shifts
+    meaningful_shifts = []
     
-    # Action directive based on main driver
-    directive = DRIVER_DIRECTIVES.get(
-        recent_driver, 
-        "Next 5 games: before every move, do Checks → Captures → Threats."
-    )
+    # Add stability shift if significant
+    if stability_changed:
+        direction = "improving" if stability_delta > 0 else "declining"
+        meaningful_shifts.append({
+            "type": "stability",
+            "label": "Decision Stability",
+            "previous": STABILITY_LABELS[previous_stability.value],
+            "recent": STABILITY_LABELS[recent_stability.value],
+            "direction": direction
+        })
+    
+    # Add risk shift if significant
+    if risk_changed and abs(context_delta) > 15:
+        direction = "improving" if context_delta < 0 else "declining"
+        meaningful_shifts.append({
+            "type": "risk",
+            "label": "Advantage Discipline",
+            "previous": RISK_LABELS[previous_risk.value],
+            "recent": RISK_LABELS[recent_risk.value],
+            "direction": direction
+        })
+    
+    # Add pattern shifts
+    for shift in pattern_shifts[:2]:
+        if len(meaningful_shifts) >= 2:
+            break
+        meaningful_shifts.append({
+            "type": "pattern",
+            "label": shift["pattern"],
+            "previous": shift["previous_band"],
+            "recent": shift["recent_band"],
+            "direction": "improving" if shift["direction"] == "improved" else "declining"
+        })
+    
+    # Evidence items
+    evidence = find_evidence_items(recent_games)
+    
+    # Directive
+    directive = get_directive(recent_driver)
     
     return {
+        "ready": True,
         "headline": headline,
-        "rows": [
-            {
-                "label": "How steady?",
-                "previous": get_stability_label(previous_stability_band),
-                "recent": get_stability_label(recent_stability_band),
-                "changed": previous_stability_band != recent_stability_band
-            },
-            {
-                "label": "When winning?", 
-                "previous": get_risk_label(previous_risk_band),
-                "recent": get_risk_label(recent_risk_band),
-                "changed": previous_risk_band != recent_risk_band
-            },
-            {
-                "label": "Main issue",
-                "value": get_pattern_label(recent_driver) if recent_driver else "No clear pattern",
-                "note": "(most slips come from this)" if recent_driver else "(spread out)"
-            }
-        ],
-        "what_changed": what_changed,
+        "shifts": meaningful_shifts[:2],
+        "evidence": evidence,
+        "evidence_ready": len(evidence) == 2,
         "directive": directive,
-        "metrics": {
-            "tsi_previous": round(previous_tsi_avg),
-            "tsi_recent": round(recent_tsi_avg),
-            "tsi_delta": round(stability_delta),
-            "context_previous": previous_context["winning_rate"],
-            "context_recent": recent_context["winning_rate"],
+        "stats": {
+            "stability_delta": round(stability_delta),
             "context_delta": round(context_delta)
         }
     }
 
 
-def compute_macro(recent_15: List[Dict], first_15: List[Dict],
-                  classify_func, severity_func, user_rating: int) -> Dict:
+# ============================================
+# STATS DRAWER DATA
+# ============================================
+
+def compute_stats_drawer(recent_games: List[Dict]) -> Dict:
     """
-    Compute MACRO: Becoming vs Started (15 vs 15)
+    Collapsible stats drawer - for users who want numbers.
     
-    Plain Indian-English, with directive.
+    Shows: Accuracy, Win Rate, Blunders/game, Mistakes/game
     """
-    # Calculate metrics
-    recent_tsi = [calculate_game_tsi(g) for g in recent_15]
-    first_tsi = [calculate_game_tsi(g) for g in first_15]
+    if len(recent_games) < 5:
+        return {"ready": False}
     
-    recent_tsi_avg = sum(recent_tsi) / len(recent_tsi) if recent_tsi else 50
-    first_tsi_avg = sum(first_tsi) / len(first_tsi) if first_tsi else 50
+    window = recent_games[:20]  # Last 20 games
     
-    recent_patterns = calculate_pattern_scores(recent_15, classify_func, severity_func)
-    first_patterns = calculate_pattern_scores(first_15, classify_func, severity_func)
+    total_accuracy = 0
+    total_blunders = 0
+    total_mistakes = 0
+    wins = 0
+    losses = 0
+    draws = 0
     
-    recent_phase = calculate_phase_instability(recent_15)
-    first_phase = calculate_phase_instability(first_15)
+    for game in window:
+        sf = game.get("stockfish_analysis", {})
+        
+        # Accuracy
+        accuracy = sf.get("accuracy", 0)
+        if accuracy > 0:
+            total_accuracy += accuracy
+        
+        # Blunders and mistakes
+        blunders = sf.get("blunders", 0)
+        mistakes = sf.get("mistakes", 0)
+        total_blunders += blunders
+        total_mistakes += mistakes
+        
+        # Result
+        result = game.get("user_result", "")
+        if result == "win":
+            wins += 1
+        elif result == "loss":
+            losses += 1
+        else:
+            draws += 1
     
-    # Row 1: Long-term Stability - plain language
-    recent_band = get_stability_band(recent_tsi_avg)
-    first_band = get_stability_band(first_tsi_avg)
-    stability_delta = recent_tsi_avg - first_tsi_avg
-    
-    if stability_delta >= 8:
-        stability_clause = "Getting better over time. Keep it up."
-    elif stability_delta <= -8:
-        stability_clause = "Slipped compared to when you started."
-    else:
-        stability_clause = "About the same as before."
-    
-    # Row 2: Weakness Evolution
-    first_driver, first_share = get_primary_driver(first_patterns)
-    if first_driver:
-        first_driver_band = get_severity_band(first_patterns.get(first_driver, 0))
-        recent_driver_band = get_severity_band(recent_patterns.get(first_driver, 0))
-        driver_evolution = {
-            "driver": get_pattern_label(first_driver),
-            "first_band": first_driver_band.value,
-            "recent_band": recent_driver_band.value,
-            "changed": first_driver_band != recent_driver_band
-        }
-    else:
-        driver_evolution = {
-            "driver": None,
-            "text": "No clear pattern"
-        }
-    
-    # Row 3: Phase Evolution
-    phase_changed = first_phase != recent_phase
-    
-    # Row 4: Peer Context - simple
-    cohort = get_rating_cohort(user_rating)
-    peer_delta = recent_tsi_avg - cohort["avg_tsi"]
-    
-    if len(recent_15) < 10:
-        peer_text = "Need more games to compare"
-        peer_status = "unavailable"
-    elif peer_delta >= 8:
-        peer_text = "Better than most at your rating"
-        peer_status = "above"
-    elif peer_delta <= -8:
-        peer_text = "Below average for your rating"
-        peer_status = "below"
-    else:
-        peer_text = "About average for your rating"
-        peer_status = "inline"
-    
-    # Determine macro directive
-    if stability_delta >= 8:
-        macro_directive = MACRO_DIRECTIVES["improving"]
-    elif stability_delta <= -8:
-        macro_directive = MACRO_DIRECTIVES["declining"]
-    else:
-        macro_directive = MACRO_DIRECTIVES["same"]
+    game_count = len(window)
     
     return {
-        "rows": [
-            {
-                "label": "Overall",
-                "first": first_band.value,
-                "recent": recent_band.value,
-                "clause": stability_clause
-            },
-            {
-                "label": "Main weakness",
-                "driver": driver_evolution.get("driver"),
-                "first_band": driver_evolution.get("first_band"),
-                "recent_band": driver_evolution.get("recent_band"),
-                "changed": driver_evolution.get("changed", False),
-                "text": driver_evolution.get("text")
-            },
-            {
-                "label": "Weakest phase",
-                "first": first_phase,
-                "recent": recent_phase,
-                "changed": phase_changed
-            },
-            {
-                "label": "vs Others",
-                "text": peer_text,
-                "status": peer_status
-            }
-        ],
-        "directive": macro_directive,
-        "metrics": {
-            "tsi_first": round(first_tsi_avg),
-            "tsi_recent": round(recent_tsi_avg),
-            "cohort_label": cohort["label"]
+        "ready": True,
+        "games_count": game_count,
+        "accuracy": round(total_accuracy / game_count, 1) if game_count > 0 else 0,
+        "win_rate": round((wins / game_count) * 100) if game_count > 0 else 0,
+        "blunders_per_game": round(total_blunders / game_count, 1) if game_count > 0 else 0,
+        "mistakes_per_game": round(total_mistakes / game_count, 1) if game_count > 0 else 0,
+        "record": {
+            "wins": wins,
+            "losses": losses,
+            "draws": draws
         }
     }
 
 
-def compute_journey(all_games: List[Dict], classify_func, severity_func, 
-                    user_rating: int = 1200) -> Dict:
+# ============================================
+# MAIN ENTRY POINT
+# ============================================
+
+def compute_journey(all_games: List[Dict], classify_func, severity_func) -> Dict:
     """
-    Main entry point for Journey computation.
+    Main entry point for Journey page.
     
-    Returns the full journey report with:
-    - micro: Now vs Then (5 vs 5)
-    - macro: Becoming vs Started (15 vs 15)
-    - evidence: 2 game links
+    Returns data for all 3 tabs + stats drawer:
+    - snapshot: Tab A (Now)
+    - journey: Tab B (Overall Journey)
+    - momentum: Tab C (Recent Momentum)
+    - stats: Collapsible stats drawer
     """
     total_games = len(all_games)
     
@@ -629,26 +778,17 @@ def compute_journey(all_games: List[Dict], classify_func, severity_func,
             "games_required": 10
         }
     
-    # MICRO: Recent 5 vs Previous 5
-    recent_5 = all_games[:5]
-    previous_5 = all_games[5:10]
-    
-    micro = compute_micro(recent_5, previous_5, classify_func, severity_func)
-    
-    # MACRO: Recent 15 vs First 15 (if enough games)
-    macro = None
-    if total_games >= 30:
-        recent_15 = all_games[:15]
-        first_15 = all_games[-15:]  # First 15 (oldest)
-        macro = compute_macro(recent_15, first_15, classify_func, severity_func, user_rating)
-    
-    # EVIDENCE: 2 game links
-    evidence = find_evidence_games(all_games[:20])
+    # Compute each tab
+    snapshot = compute_snapshot_now(all_games, classify_func, severity_func)
+    journey = compute_overall_journey(all_games, classify_func, severity_func)
+    momentum = compute_momentum_5v5(all_games, classify_func, severity_func)
+    stats = compute_stats_drawer(all_games)
     
     return {
         "activated": True,
         "games_analyzed": total_games,
-        "micro": micro,
-        "macro": macro,
-        "evidence": evidence
+        "snapshot": snapshot,
+        "journey": journey,
+        "momentum": momentum,
+        "stats": stats
     }
