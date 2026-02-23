@@ -465,21 +465,21 @@ def compute_micro(recent_5: List[Dict], previous_5: List[Dict],
         "headline": headline,
         "rows": [
             {
-                "label": "Decision Stability",
+                "label": "How steady?",
                 "previous": get_stability_label(previous_stability_band),
                 "recent": get_stability_label(recent_stability_band),
                 "changed": previous_stability_band != recent_stability_band
             },
             {
-                "label": "Advantage Discipline", 
+                "label": "When winning?", 
                 "previous": get_risk_label(previous_risk_band),
                 "recent": get_risk_label(recent_risk_band),
                 "changed": previous_risk_band != recent_risk_band
             },
             {
-                "label": "Main reason",
-                "value": get_pattern_label(recent_driver) if recent_driver else "No single cause",
-                "note": "(most of your slips come from this)" if recent_driver else "(mistakes are spread across different areas)"
+                "label": "Main issue",
+                "value": get_pattern_label(recent_driver) if recent_driver else "No clear pattern",
+                "note": "(most slips come from this)" if recent_driver else "(spread out)"
             }
         ],
         "what_changed": what_changed,
