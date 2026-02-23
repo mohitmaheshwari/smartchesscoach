@@ -488,17 +488,19 @@ def _calculate_tsi(
     # Total weighted score
     total_weighted = recent_weighted + previous_weighted + older_weighted
     
-    # Calculate total weight denominator (for normalization)
-    # Max mistakes per game ~= 5, max severity = 1.0
-    # 5 games * 5 mistakes * 1.0 * weight_3 = 75 for recent tier
-    # This gives us a reasonable ceiling
-    total_weight_sum = (5 * GAME_WEIGHTS["recent"] + 
-                        5 * GAME_WEIGHTS["middle"] + 
-                        10 * GAME_WEIGHTS["older"])  # 15 + 10 + 10 = 35
+    # Dynamic max calculation based on actual game volume
+    # Use 10 significant mistakes per game at severity 0.5 as max (very bad player)
+    # This gives a reasonable ceiling that scales with actual data
+    games_analyzed = 20  # We analyze last 20 games
     
-    # Normalize: assume max ~3 significant mistakes per game at severity 0.5
-    max_expected = total_weight_sum * 3 * 0.5  # ~52.5
+    # Max possible: 10 mistakes/game * 0.6 avg severity
+    # Weighted across tiers: 5*3 + 5*2 + 10*1 = 35 game-weights
+    max_mistakes_per_weighted_game = 10 * 0.6
+    max_expected = 35 * max_mistakes_per_weighted_game  # = 210
     
+    # Normalize: 0-100 scale
+    # 0 weighted = TSI 100 (perfect)
+    # max_expected weighted = TSI 0 (very bad)
     if max_expected > 0:
         normalized = min(100, (total_weighted / max_expected) * 100)
     else:
