@@ -324,7 +324,7 @@ const Journey = ({ user }) => {
           </CardContent>
         </Card>
 
-        {/* SECTION 3: Top Instability Drivers */}
+        {/* SECTION 3: Top Instability Drivers - #4: No "Stable" badge */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
@@ -349,16 +349,19 @@ const Journey = ({ user }) => {
                       <span className="text-sm text-muted-foreground">
                         Severity {Math.round(pattern.severity)}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded ${
-                        pattern.trend === "improving" 
-                          ? "bg-green-500/20 text-green-400"
-                          : pattern.trend === "worsening"
-                          ? "bg-red-500/20 text-red-400"
-                          : "bg-slate-500/20 text-slate-400"
-                      }`}>
-                        {pattern.trend === "improving" ? "Improving" :
-                         pattern.trend === "worsening" ? "Worsening" : "Stable"}
-                      </span>
+                      {/* Only show badge for Improving or Worsening - Stable = no indicator */}
+                      {pattern.trend === "improving" && (
+                        <span className="flex items-center gap-1 text-xs text-green-400">
+                          <TrendingUp className="w-3 h-3" />
+                          Improving
+                        </span>
+                      )}
+                      {pattern.trend === "worsening" && (
+                        <span className="flex items-center gap-1 text-xs text-red-400">
+                          <TrendingDown className="w-3 h-3" />
+                          Worsening
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
