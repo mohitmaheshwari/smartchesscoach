@@ -4099,6 +4099,142 @@ async def send_test_email(user: User = Depends(get_current_user)):
     else:
         raise HTTPException(status_code=500, detail="Failed to send test email")
 
+# ==================== ONBOARDING ====================
+
+@api_router.get("/onboarding/status")
+async def get_onboarding_status(user: User = Depends(get_current_user)):
+    """
+    Check if user needs onboarding.
+    Returns needs_onboarding=true if no linked accounts AND no analyzed games.
+    """
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "chesscom_username": 1, "lichess_username": 1, "onboarding_completed": 1}
+    )
+    
+    if not user_doc:
+        return {"needs_onboarding": True, "reason": "user_not_found"}
+    
+    # Check if onboarding was explicitly completed
+    if user_doc.get("onboarding_completed"):
+        return {"needs_onboarding": False}
+    
+    # Check if user has linked accounts
+    has_linked = user_doc.get("chesscom_username") or user_doc.get("lichess_username")
+    
+    if not has_linked:
+        return {"needs_onboarding": True, "reason": "no_linked_accounts"}
+    
+    # Check if user has analyzed games
+    game_count = await db.game_analyses.count_documents({"user_id": user.user_id})
+    
+    if game_count == 0:
+        return {"needs_onboarding": True, "reason": "no_analyzed_games"}
+    
+    return {"needs_onboarding": False}
+
+
+class ProfileSettingsRequest(BaseModel):
+    fide_rating: Optional[int] = None
+    self_rating: Optional[str] = None  # beginner, intermediate, advanced
+    focus_intent: Optional[str] = None  # tactics, openings, endgames, stability
+
+
+@api_router.post("/settings/profile")
+async def update_profile_settings(req: ProfileSettingsRequest, user: User = Depends(get_current_user)):
+    """
+    Update user profile settings from onboarding.
+    - fide_rating: Used for puzzle difficulty calibration
+    - self_rating: User's self-assessment (beginner/intermediate/advanced)
+    - focus_intent: What user wants to improve (doesn't override diagnosis)
+    """
+    update_data = {}
+    
+    if req.fide_rating is not None:
+        update_data["fide_rating"] = req.fide_rating
+    if req.self_rating is not None:
+        update_data["self_rating"] = req.self_rating
+    if req.focus_intent is not None:
+        update_data["focus_intent"] = req.focus_intent
+    
+    update_data["onboarding_completed"] = True
+    update_data["onboarding_completed_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Profile updated successfully"}
+
+
+@api_router.post("/settings/link-account")
+async def settings_link_account(req: LinkAccountRequest, user: User = Depends(get_current_user)):
+    """
+    Alias for journey/link-account - used by onboarding flow.
+    """
+    platform = req.platform.lower()
+    username = req.username.strip()
+    
+    if platform not in ["chess.com", "lichess"]:
+        raise HTTPException(status_code=400, detail="Invalid platform. Use 'chess.com' or 'lichess'")
+    
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+    
+    # Update user record based on platform
+    if platform == "chess.com":
+        update_field = "chesscom_username"
+    else:
+        update_field = "lichess_username"
+    
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {
+            update_field: username,
+            "last_game_sync": None
+        }}
+    )
+    
+    return {
+        "message": "Account linked successfully",
+        "platform": platform,
+        "username": username
+    }
+
+
+@api_router.post("/games/sync")
+async def sync_games_now(background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
+    """
+    Trigger immediate game sync for onboarding.
+    Runs sync in background and returns immediately.
+    """
+    from journey_service import sync_user_games
+    
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    has_linked = user_doc.get("chesscom_username") or user_doc.get("lichess_username")
+    if not has_linked:
+        raise HTTPException(status_code=400, detail="No chess accounts linked")
+    
+    # Run sync in background
+    async def do_sync():
+        try:
+            await sync_user_games(db, user.user_id, user_doc)
+        except Exception as e:
+            logger.error(f"Game sync failed for {user.user_id}: {e}")
+    
+    background_tasks.add_task(do_sync)
+    
+    return {"message": "Game sync started", "status": "processing"}
+
+
 # ==================== PUSH NOTIFICATIONS ====================
 
 class RegisterDeviceRequest(BaseModel):
