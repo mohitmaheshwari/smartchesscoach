@@ -401,7 +401,7 @@ def compute_micro(recent_5: List[Dict], previous_5: List[Dict],
     
     pattern_impact = len(pattern_changes) * 5
     
-    # Generate headline based on strongest signal
+    # Generate headline in plain Indian-English
     impacts = {
         "stability": stability_impact,
         "context": context_impact,
@@ -410,51 +410,63 @@ def compute_micro(recent_5: List[Dict], previous_5: List[Dict],
     strongest = max(impacts, key=impacts.get)
     
     if impacts[strongest] < 3:
-        headline = "No meaningful shift—recent games are consistent with previous."
+        headline = "Same pattern: no big change in your recent games."
     elif strongest == "stability":
         if stability_delta > 0:
             if context_delta > 10:
-                headline = "Stability improved, but you're slipping when ahead."
+                headline = "Good: you are more stable, but still slipping when ahead."
             else:
-                headline = "Decision stability has improved in recent games."
+                headline = "Good: your decision-making is more steady now."
         else:
             if recent_driver:
-                driver_name = recent_driver.replace("_", " ").title()
-                headline = f"Stability declined, mainly due to {driver_name}."
+                driver_name = get_pattern_label(recent_driver)
+                headline = f"Issue: stability dropped, mainly because of {driver_name.lower()}."
             else:
-                headline = "Decision stability has declined in recent games."
+                headline = "Issue: your decisions are less steady in recent games."
     elif strongest == "context":
         if context_delta > 0:
-            headline = "You're losing more games from winning positions."
+            headline = "Issue: you are still slipping after getting advantage."
         else:
-            headline = "Advantage discipline has improved."
+            headline = "Good: you are handling winning positions better."
     else:
         if pattern_changes:
             change = pattern_changes[0]
-            name = change["category"].replace("_", " ").title()
-            headline = f"{name} has {change['direction']} recently."
+            name = get_pattern_label(change["category"])
+            if change["direction"] == "improved":
+                headline = f"Good: {name.lower()} is happening less often."
+            else:
+                headline = f"Issue: {name.lower()} is happening more often."
         else:
-            headline = "No meaningful shift—recent games are consistent with previous."
+            headline = "Same pattern: no big change in your recent games."
     
-    # What changed (max 2 bullets, only if meaningful)
+    # What changed with meaning
     what_changed = []
     for change in pattern_changes[:2]:
-        name = change["category"].replace("_", " ").title()
-        what_changed.append(f"{name}: {change['previous']} → {change['recent']}")
+        name = get_pattern_label(change["category"])
+        if change["direction"] == "improved":
+            what_changed.append(f"{name}: {change['previous']} → {change['recent']} (this is improving)")
+        else:
+            what_changed.append(f"{name}: {change['previous']} → {change['recent']} (this is slipping)")
+    
+    # Action directive based on main driver
+    directive = DRIVER_DIRECTIVES.get(
+        recent_driver, 
+        "Next 5 games: before every move, do Checks → Captures → Threats."
+    )
     
     return {
         "headline": headline,
         "rows": [
             {
                 "label": "Decision Stability",
-                "previous": previous_stability_band.value,
-                "recent": recent_stability_band.value,
+                "previous": get_stability_label(previous_stability_band),
+                "recent": get_stability_label(recent_stability_band),
                 "changed": previous_stability_band != recent_stability_band
             },
             {
                 "label": "Advantage Discipline", 
-                "previous": f"{previous_risk_band.value} risk",
-                "recent": f"{recent_risk_band.value} risk",
+                "previous": get_risk_label(previous_risk_band),
+                "recent": get_risk_label(recent_risk_band),
                 "changed": previous_risk_band != recent_risk_band
             },
             {
