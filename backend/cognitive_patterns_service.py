@@ -384,6 +384,11 @@ def _aggregate_for_games(analyses: List) -> Dict:
             patterns[cat_key]["frequency"] += 1
             patterns[cat_key]["total_severity"] += get_severity_weight(cp_loss)
     
+    # Calculate avg_severity for each pattern (needed for weighted TSI)
+    for cat_key, data in patterns.items():
+        freq = data["frequency"]
+        data["avg_severity"] = data["total_severity"] / freq if freq > 0 else 0
+    
     return patterns
 
 
