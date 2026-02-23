@@ -157,22 +157,31 @@ const Journey = ({ user }) => {
     return top[0];
   };
 
-  // Mock data for position distribution (would come from backend)
+  // Get position distribution from fetched blunder context data
   const getPositionDistribution = () => {
-    // In a real implementation, this would come from cognitiveData
-    return {
-      winning: 45,
-      equal: 35,
-      losing: 20
-    };
+    if (blunderContext && blunderContext.distribution) {
+      return blunderContext.distribution;
+    }
+    return { winning: 33, equal: 34, losing: 33 };
   };
 
-  const getPhaseInsight = () => {
-    // Would derive from cognitiveData.phase_breakdown
-    return {
-      mostUnstable: "Middlegame",
-      mostStable: "Endgame"
-    };
+  // Get blunder context interpretation - single line, no advice
+  const getBlunderInterpretation = (dist) => {
+    if (dist.winning >= 45) return "Instability spikes when ahead.";
+    if (dist.losing >= 45) return "Instability appears under pressure.";
+    if (dist.equal >= 45) return "Instability peaks in balanced positions.";
+    return "Decision quality is position-independent.";
+  };
+
+  // Get phase insight from fetched data
+  const getPhaseData = () => {
+    if (phaseInsight) {
+      return {
+        mostUnstable: phaseInsight.most_unstable || "Middlegame",
+        mostStable: phaseInsight.most_stable || "Endgame"
+      };
+    }
+    return { mostUnstable: "Middlegame", mostStable: "Endgame" };
   };
 
   if (loading) {
