@@ -50,7 +50,10 @@ import {
   Star,
   Trophy,
   MessageCircle,
-  Send
+  Send,
+  ListChecks,
+  Square,
+  CheckSquare
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
