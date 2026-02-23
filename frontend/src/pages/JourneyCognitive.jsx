@@ -200,7 +200,7 @@ const Journey = ({ user }) => {
   const primaryDriver = getPrimaryDriver(cognitiveData?.patterns);
   const topPatterns = getTopPatterns(cognitiveData?.patterns);
   const positionDist = getPositionDistribution();
-  const phaseInsight = getPhaseInsight();
+  const phaseData = getPhaseData();
   
   // Calculate stability metrics
   const stableStrength = Math.max(0, tsi - 15);
