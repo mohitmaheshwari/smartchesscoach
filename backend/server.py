@@ -7946,6 +7946,139 @@ async def get_all_user_thoughts(user: User = Depends(get_current_user)):
     }
 
 
+
+# ============================================================
+# COGNITIVE PATTERNS API (Diagnosis + Prescription + Audit)
+# ============================================================
+
+@api_router.get("/cognitive/patterns")
+async def get_cognitive_patterns(user: User = Depends(get_current_user)):
+    """
+    Get aggregated cognitive patterns from user's games.
+    
+    Returns:
+    - patterns: Dict of cognitive categories with frequency, severity, trend
+    - thinking_stability_index: 0-100 score
+    - tsi_trend: improving/worsening/stable
+    """
+    from cognitive_patterns_service import aggregate_cognitive_patterns
+    
+    result = await aggregate_cognitive_patterns(db, user.user_id)
+    return result
+
+
+@api_router.get("/cognitive/weaknesses")
+async def get_prioritized_weaknesses_api(user: User = Depends(get_current_user)):
+    """
+    Get prioritized list of cognitive weaknesses.
+    
+    Only includes patterns that cross the threshold.
+    Used by Training page for prescription.
+    """
+    from cognitive_patterns_service import get_prioritized_weaknesses
+    
+    weaknesses = await get_prioritized_weaknesses(db, user.user_id)
+    return {"weaknesses": weaknesses}
+
+
+@api_router.get("/cognitive/training-priority")
+async def get_training_priority(user: User = Depends(get_current_user)):
+    """
+    Get training content prioritization based on user's weaknesses.
+    
+    Returns:
+    - primary_focus: Main weakness to address
+    - secondary_focus: Additional weaknesses
+    - puzzle_priority_order: Types of puzzles to prioritize
+    - trap_priority_order: Types of traps to prioritize
+    - general_drills: If no specific weakness, show general drills
+    """
+    from cognitive_patterns_service import (
+        get_prioritized_weaknesses,
+        get_training_prioritization
+    )
+    
+    weaknesses = await get_prioritized_weaknesses(db, user.user_id)
+    prioritization = get_training_prioritization(weaknesses)
+    
+    return prioritization
+
+
+@api_router.post("/cognitive/focus/activate")
+async def activate_focus(
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Activate a focus module for the user.
+    
+    Body: { "category": "missed_forcing_move" }
+    
+    Starts audit tracking for next 5 games.
+    """
+    from cognitive_patterns_service import activate_focus_module
+    
+    category = data.get("category")
+    if not category:
+        raise HTTPException(400, "category is required")
+    
+    result = await activate_focus_module(db, user.user_id, category)
+    return result
+
+
+@api_router.get("/cognitive/focus/status")
+async def get_focus_status(user: User = Depends(get_current_user)):
+    """
+    Get current focus module status.
+    """
+    from cognitive_patterns_service import get_focus_module_status
+    
+    status = await get_focus_module_status(db, user.user_id)
+    if not status:
+        return {"active": False}
+    
+    return {
+        "active": True,
+        "category": status.get("active_category"),
+        "activated_at": status.get("activated_at")
+    }
+
+
+@api_router.get("/cognitive/focus/progress")
+async def get_focus_progress(user: User = Depends(get_current_user)):
+    """
+    Evaluate progress on active focus module.
+    
+    Compares baseline (10 games before) vs audit window (5 games after).
+    """
+    from cognitive_patterns_service import evaluate_focus_progress
+    
+    progress = await evaluate_focus_progress(db, user.user_id)
+    if not progress:
+        return {"active": False, "message": "No focus module active"}
+    
+    return progress
+
+
+@api_router.get("/cognitive/tsi")
+async def get_thinking_stability_index(user: User = Depends(get_current_user)):
+    """
+    Get Thinking Stability Index.
+    
+    Simple derived metric showing overall thinking stability.
+    """
+    from cognitive_patterns_service import aggregate_cognitive_patterns
+    
+    result = await aggregate_cognitive_patterns(db, user.user_id, num_games=20)
+    
+    return {
+        "thinking_stability_index": result.get("thinking_stability_index", 100),
+        "trend": result.get("tsi_trend", "stable"),
+        "games_analyzed": result.get("games_analyzed", 0)
+    }
+
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
