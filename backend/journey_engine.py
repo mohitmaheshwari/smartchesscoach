@@ -28,13 +28,13 @@ RISK_LABELS = {
     "HIGH": "Throwing away winning positions"
 }
 
-# Pattern names in plain language
+# Pattern names in plain language (what it means, not technical term)
 PATTERN_LABELS = {
-    "structural_misjudgment": "Structural mistakes",
-    "critical_moment_drift": "Missing key moments", 
+    "structural_misjudgment": "Weak pawns or squares",
+    "critical_moment_drift": "Losing focus at key moments", 
     "missed_forcing_move": "Missing winning moves",
-    "advantage_mismanagement": "Losing focus when ahead",
-    "random_critical_move": "Random moves in critical positions"
+    "advantage_mismanagement": "Relaxing when ahead",
+    "random_critical_move": "Random moves when it matters"
 }
 
 # Action directives based on main driver (plain, direct)
