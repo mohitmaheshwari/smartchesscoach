@@ -502,67 +502,40 @@ const Onboarding = () => {
           
           {step === 2 && (
             <>
-              {/* FIDE Rating */}
+              {/* Detected Rating Display */}
+              {detectedRating && (
+                <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Detected from {detectedPlatform}</p>
+                      <p className="text-2xl font-bold text-white">{detectedRating}</p>
+                    </div>
+                    <div className={`px-3 py-1 rounded text-sm font-medium ${
+                      detectedRating >= 1800 ? 'bg-purple-500/20 text-purple-400' :
+                      detectedRating >= 1200 ? 'bg-blue-500/20 text-blue-400' :
+                      'bg-green-500/20 text-green-400'
+                    }`}>
+                      {detectedRating >= 1800 ? 'Advanced' :
+                       detectedRating >= 1200 ? 'Intermediate' : 'Developing'}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* FIDE Rating - only show if they have one */}
               <div className="space-y-2">
                 <Label htmlFor="fide">FIDE Rating (Optional)</Label>
                 <Input
                   id="fide"
                   type="number"
-                  placeholder="e.g., 1500"
+                  placeholder="Leave blank if you don't have one"
                   value={fideRating}
                   onChange={(e) => setFideRating(e.target.value)}
                   data-testid="fide-input"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Used to calibrate puzzle difficulty
+                  Only if you have an official FIDE rating
                 </p>
-              </div>
-              
-              {/* Self Rating */}
-              <div className="space-y-3">
-                <Label>How would you rate yourself?</Label>
-                <RadioGroup
-                  value={selfRating}
-                  onValueChange={setSelfRating}
-                  className="grid grid-cols-3 gap-2"
-                >
-                  <Label
-                    htmlFor="beginner"
-                    className={`flex flex-col items-center p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selfRating === "beginner" 
-                        ? "border-primary bg-primary/10" 
-                        : "border-slate-700 hover:border-slate-600"
-                    }`}
-                  >
-                    <RadioGroupItem value="beginner" id="beginner" className="sr-only" />
-                    <span className="text-sm font-medium">Beginner</span>
-                    <span className="text-xs text-muted-foreground">&lt; 1200</span>
-                  </Label>
-                  <Label
-                    htmlFor="intermediate"
-                    className={`flex flex-col items-center p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selfRating === "intermediate" 
-                        ? "border-primary bg-primary/10" 
-                        : "border-slate-700 hover:border-slate-600"
-                    }`}
-                  >
-                    <RadioGroupItem value="intermediate" id="intermediate" className="sr-only" />
-                    <span className="text-sm font-medium">Intermediate</span>
-                    <span className="text-xs text-muted-foreground">1200-1800</span>
-                  </Label>
-                  <Label
-                    htmlFor="advanced"
-                    className={`flex flex-col items-center p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selfRating === "advanced" 
-                        ? "border-primary bg-primary/10" 
-                        : "border-slate-700 hover:border-slate-600"
-                    }`}
-                  >
-                    <RadioGroupItem value="advanced" id="advanced" className="sr-only" />
-                    <span className="text-sm font-medium">Advanced</span>
-                    <span className="text-xs text-muted-foreground">1800+</span>
-                  </Label>
-                </RadioGroup>
               </div>
               
               {/* Focus Intent */}
