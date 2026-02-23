@@ -114,7 +114,8 @@ class TestTSICalculation:
         tsi, trend = _calculate_tsi(all_patterns, recent, previous)
         
         print(f"User A (Stable): TSI={tsi}, Trend={trend}")
-        assert 60 <= tsi <= 90, f"Stable player TSI should be 60-90, got {tsi}"
+        # With new max_expected=210, moderate player should be 70-95
+        assert 65 <= tsi <= 95, f"Stable player TSI should be 65-95, got {tsi}"
         # Recent is better than previous, so should be improving
         assert trend in ["stable", "improving"], f"Stable player trend should be stable/improving, got {trend}"
     
@@ -181,7 +182,8 @@ class TestTSICalculation:
         
         print(f"User B (Sustained bad): TSI={tsi}, Trend={trend}")
         # Sustained bad performance SHOULD show low TSI
-        assert tsi <= 50, f"Sustained bad performance should have TSI <= 50, got {tsi}"
+        # With new max_expected=210, this profile should be ~55-65
+        assert tsi <= 70, f"Sustained bad performance should have TSI <= 70, got {tsi}"
         assert trend == "worsening", "Should clearly be worsening"
     
     def test_user_c_gradual_improver(self):
