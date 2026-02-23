@@ -25,7 +25,7 @@ import {
   Minus
 } from "lucide-react";
 
-// Professional line chart - single dark blue line, subtle grid, context bands
+// Professional line chart - single dark blue line, subtle grid, context bands, current marker
 const TrendChart = ({ data, height = 160 }) => {
   if (!data || data.length === 0) return null;
   
@@ -42,6 +42,11 @@ const TrendChart = ({ data, height = 160 }) => {
   
   // Calculate Y positions for bands (inverted because SVG y increases downward)
   const getY = (tsi) => padding.top + (1 - tsi / 100) * (chartHeight - padding.top - padding.bottom);
+  
+  // #4: Current TSI marker - last data point
+  const lastPoint = data[data.length - 1];
+  const currentX = padding.left + ((data.length - 1) / (data.length - 1)) * (chartWidth - padding.left - padding.right);
+  const currentY = padding.top + (1 - lastPoint.value / 100) * (chartHeight - padding.top - padding.bottom);
   
   return (
     <div className="w-full" style={{ height }}>
@@ -76,6 +81,9 @@ const TrendChart = ({ data, height = 160 }) => {
           strokeLinejoin="round"
           points={points}
         />
+        
+        {/* #4: Current TSI marker dot at latest value */}
+        <circle cx={currentX} cy={currentY} r="2" fill="#1e3a8a" stroke="#fff" strokeWidth="0.5" />
       </svg>
     </div>
   );
