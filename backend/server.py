@@ -8474,9 +8474,46 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
     # Phase shift
     phase_changed = recent_phase != previous_phase
     
+    # FIX #1 & #2: Generate integrative summary that reconciles all signals
+    def generate_cognitive_summary():
+        if not tsi_valid:
+            return "Insufficient data to assess cognitive momentum."
+        
+        # Collect signals
+        stability_improving = tsi_delta >= 5
+        stability_declining = tsi_delta <= -5
+        stability_stable = abs(tsi_delta) < 5
+        
+        context_worsening = context_shift and context_shift["change"] > 0
+        context_improving = context_shift and context_shift["change"] < 0
+        
+        patterns_improving = any(p["status"] == "Improving" for p in pattern_shifts)
+        patterns_worsening = any(p["status"] == "Worsening" for p in pattern_shifts)
+        
+        # Build integrative narrative
+        if stability_improving and context_worsening:
+            return "Overall decision stability is improving, but advantage discipline has weakened."
+        elif stability_improving and patterns_improving:
+            return "Cognitive consistency is strengthening across recent games."
+        elif stability_improving:
+            return "Decision stability is trending upward."
+        elif stability_declining and context_improving:
+            return "Overall stability has declined, though pressure handling shows improvement."
+        elif stability_declining:
+            return "Decision consistency has weakened in recent games."
+        elif stability_stable and context_worsening:
+            return "Stability is holding steady, but errors increase when ahead."
+        elif stability_stable and patterns_worsening:
+            return "No major stability shift, but some patterns are emerging."
+        else:
+            return "Recent performance shows no significant cognitive shift."
+    
+    cognitive_summary = generate_cognitive_summary()
+    
     return {
         "activated": True,
         "games_analyzed": total_games,
+        "cognitive_summary": cognitive_summary,
         "stability_momentum": {
             "valid": tsi_valid,
             "recent_tsi": recent_tsi,
