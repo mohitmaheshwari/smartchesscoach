@@ -493,9 +493,6 @@ def compute_momentum_5v5(recent_games: List[Dict], games_for_pattern: List[Dict]
     recent_tsi_avg = sum(recent_tsi) / len(recent_tsi) if recent_tsi else 50
     previous_tsi_avg = sum(previous_tsi) / len(previous_tsi) if previous_tsi else 50
     
-    recent_stability = get_stability_band(recent_tsi_avg)
-    previous_stability = get_stability_band(previous_tsi_avg)
-    
     # REUSE: Blunder context for advantage discipline
     recent_context = calculate_blunder_context_stats(recent_5)
     previous_context = calculate_blunder_context_stats(previous_5)
