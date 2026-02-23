@@ -15,6 +15,60 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 23, 2026)
 
+### Journey Page Redesign ✅ COMPLETE (Feb 23, 2026)
+
+**Problem:** Journey page was an analytics dump, not aligned with the cognitive coaching philosophy.
+
+**Solution:** Redesigned as "Cognitive Evolution Dashboard" - a focused reflection page answering: "Is my decision-making becoming more stable over time?"
+
+**5-Section Layout (Authoritative Spec):**
+
+1. **Cognitive Stability Overview (Top Section)**
+   - TSI (large number) with trend arrow and interpretation band (Stable/Moderate/Unstable/Volatile)
+   - Stable Strength, Peak Performance, Stability Gap metrics
+   - Primary Instability Driver (1-line clinical explanation)
+   - `data-testid="tsi-main"`
+
+2. **Blunder Context Distribution**
+   - Simple breakdown: Winning X%, Equal X%, Losing X%
+   - Single-line interpretation ("Instability spikes when ahead.")
+   - No example links, no drill suggestions
+
+3. **Top Instability Drivers (Last 20 Games)**
+   - List top 3 patterns with: Pattern Name, Severity Score, Trend badge (Improving/Stable/Worsening)
+   - No raw mistake counts, no percentages, no training links
+   - `data-testid="pattern-0/1/2"`
+
+4. **Cognitive Trend Timeline**
+   - Line chart (X: last 30 games, Y: TSI 0-100 scale)
+   - Single dark blue line (#1e3a8a), subtle gray grid
+   - No gradient fills, no animations, no multiple colors
+
+5. **Phase Stability Insight**
+   - Most Unstable Phase, Most Stable Phase
+   - One-line explanation, no advice, no drills
+
+**Backend Endpoints:**
+- `GET /api/cognitive/patterns` - TSI, patterns, games_analyzed
+- `GET /api/cognitive/trend` - TSI per game (last 30) for line chart
+- `GET /api/cognitive/blunder-context` - NEW: Position distribution (winning/equal/losing %)
+- `GET /api/cognitive/phase-insight` - Phase stability data
+
+**Files Updated:**
+- `frontend/src/pages/JourneyCognitive.jsx` - Complete redesign
+- `backend/server.py` - Added /cognitive/blunder-context endpoint (lines 8463-8520)
+
+**Design Rules Enforced:**
+- No motivational language ("Keep Going!")
+- No drill shortcuts or training links
+- No badges or gamification
+- No winrate/accuracy comparisons
+- Calm, professional, analytical design
+
+**Test Report:** `/app/test_reports/iteration_65.json` - 100% pass (15/15 backend, all UI verified)
+
+---
+
 ### Onboarding Flow Implementation ✅ COMPLETE (Feb 23, 2026)
 
 **Problem:** New users were thrown directly into Training page with no linked accounts and no data.
