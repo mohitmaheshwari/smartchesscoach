@@ -4180,8 +4180,10 @@ async def update_profile_settings(req: ProfileSettingsRequest, user: User = Depe
 @api_router.post("/settings/link-account")
 async def settings_link_account(req: LinkAccountRequest, user: User = Depends(get_current_user)):
     """
-    Alias for journey/link-account - used by onboarding flow.
+    Link chess account and calculate assessed skill rating.
     """
+    from skill_calibration_service import calculate_performance_rating, classify_time_control
+    
     platform = req.platform.lower()
     username = req.username.strip()
     
@@ -4205,10 +4207,144 @@ async def settings_link_account(req: LinkAccountRequest, user: User = Depends(ge
         }}
     )
     
+    # Fetch recent games and calculate performance rating
+    assessed_rating = None
+    games_data = []
+    
+    try:
+        if platform == "chess.com":
+            import httpx
+            async with httpx.AsyncClient() as client:
+                # Get recent games from Chess.com
+                from datetime import datetime
+                now = datetime.now()
+                year, month = now.year, now.month
+                
+                for _ in range(3):  # Check last 3 months
+                    url = f"https://api.chess.com/pub/player/{username}/games/{year}/{month:02d}"
+                    resp = await client.get(url, timeout=10)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        for game in data.get("games", [])[:25]:
+                            # Extract game info
+                            white = game.get("white", {})
+                            black = game.get("black", {})
+                            is_white = white.get("username", "").lower() == username.lower()
+                            
+                            opp = black if is_white else white
+                            player = white if is_white else black
+                            
+                            opp_rating = opp.get("rating")
+                            result_str = player.get("result", "")
+                            
+                            if result_str == "win":
+                                result = "win"
+                            elif result_str in ["checkmated", "timeout", "resigned", "abandoned"]:
+                                result = "loss"
+                            else:
+                                result = "draw"
+                            
+                            tc = game.get("time_class", "blitz")
+                            
+                            if opp_rating:
+                                games_data.append({
+                                    "opponent_rating": opp_rating,
+                                    "result": result,
+                                    "time_control": tc
+                                })
+                    
+                    # Move to previous month
+                    month -= 1
+                    if month == 0:
+                        month = 12
+                        year -= 1
+                    
+                    if len(games_data) >= 25:
+                        break
+        
+        elif platform == "lichess":
+            import httpx
+            async with httpx.AsyncClient() as client:
+                url = f"https://lichess.org/api/games/user/{username}?max=25&perfType=rapid,classical,blitz"
+                headers = {"Accept": "application/x-ndjson"}
+                resp = await client.get(url, headers=headers, timeout=15)
+                
+                if resp.status_code == 200:
+                    import json
+                    for line in resp.text.strip().split("\n"):
+                        if not line:
+                            continue
+                        try:
+                            game = json.loads(line)
+                            players = game.get("players", {})
+                            white = players.get("white", {})
+                            black = players.get("black", {})
+                            
+                            is_white = white.get("user", {}).get("name", "").lower() == username.lower()
+                            
+                            opp = black if is_white else white
+                            player_color = "white" if is_white else "black"
+                            
+                            opp_rating = opp.get("rating")
+                            winner = game.get("winner")
+                            
+                            if winner == player_color:
+                                result = "win"
+                            elif winner is None:
+                                result = "draw"
+                            else:
+                                result = "loss"
+                            
+                            tc = game.get("speed", "blitz")
+                            
+                            if opp_rating:
+                                games_data.append({
+                                    "opponent_rating": opp_rating,
+                                    "result": result,
+                                    "time_control": tc
+                                })
+                        except:
+                            continue
+        
+        # Calculate performance rating
+        if games_data:
+            perf, confidence = calculate_performance_rating(games_data, platform)
+            if perf:
+                assessed_rating = int(perf)
+                
+                # Determine skill level
+                if assessed_rating >= 2000:
+                    skill_level = "expert"
+                elif assessed_rating >= 1800:
+                    skill_level = "advanced"
+                elif assessed_rating >= 1400:
+                    skill_level = "intermediate"
+                elif assessed_rating >= 1000:
+                    skill_level = "developing"
+                else:
+                    skill_level = "beginner"
+                
+                # Store assessed rating
+                await db.users.update_one(
+                    {"user_id": user.user_id},
+                    {"$set": {
+                        "assessed_rating": assessed_rating,
+                        "skill_level": skill_level,
+                        "rating_confidence": confidence,
+                        "rating_source": platform,
+                        "rating_games_analyzed": len(games_data)
+                    }}
+                )
+    
+    except Exception as e:
+        logger.warning(f"Failed to calculate performance rating: {e}")
+    
     return {
         "message": "Account linked successfully",
         "platform": platform,
-        "username": username
+        "username": username,
+        "assessed_rating": assessed_rating,
+        "games_analyzed": len(games_data)
     }
 
 
