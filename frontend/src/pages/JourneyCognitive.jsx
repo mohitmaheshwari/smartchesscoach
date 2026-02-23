@@ -260,6 +260,30 @@ const Journey = ({ user }) => {
   const peakPerformance = Math.min(100, tsi + 20);
   const stabilityGap = peakPerformance - stableStrength;
 
+  // Gap behavioral interpretation
+  const getGapInterpretation = (gap) => {
+    if (gap >= 40) return "Large gap between your floor and ceiling. High variance in decision quality.";
+    if (gap >= 25) return "Moderate gap. Your consistency has room to improve.";
+    return "Narrow gap. Your decisions are relatively consistent.";
+  };
+
+  // Severity to impact band mapping
+  const getImpactBand = (severity) => {
+    if (severity >= 20) return { label: "High Impact", color: "text-red-400" };
+    if (severity >= 10) return { label: "Moderate Impact", color: "text-amber-400" };
+    return { label: "Low Impact", color: "text-slate-400" };
+  };
+
+  // Enhanced TSI descriptive line
+  const getTSIDescription = (tsi, trend) => {
+    const trendText = trend === "improving" ? "trending upward" : 
+                      trend === "worsening" ? "trending downward" : "holding steady";
+    if (tsi >= 85) return `Your decision-making is stable and ${trendText}.`;
+    if (tsi >= 70) return `Some inconsistency in critical moments, ${trendText}.`;
+    if (tsi >= 55) return `Decision quality fluctuates under pressure, ${trendText}.`;
+    return `High variability in thinking process, ${trendText}.`;
+  };
+
   return (
     <Layout user={user}>
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8" data-testid="journey-page">
@@ -271,46 +295,33 @@ const Journey = ({ user }) => {
           <h1 className="text-2xl font-semibold text-white">Journey</h1>
         </div>
 
-        {/* SECTION 1: Cognitive Stability Overview */}
+        {/* SECTION 1: Cognitive Stability Overview - Simplified */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              {/* TSI Display */}
-              <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                  Thinking Stability Index
-                </p>
-                <div className="flex items-center gap-3">
-                  <span className={`text-5xl font-bold ${tsiInterpretation.color}`} data-testid="tsi-main">
-                    {tsi}
-                  </span>
-                  {getTrendIcon(tsiTrend)}
-                </div>
-                <p className={`text-sm mt-1 ${tsiInterpretation.color}`}>
-                  {tsiInterpretation.label}
-                </p>
+            {/* TSI Display */}
+            <div className="mb-4">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                Thinking Stability Index
+              </p>
+              <div className="flex items-center gap-3">
+                <span className={`text-5xl font-bold ${tsiInterpretation.color}`} data-testid="tsi-main">
+                  {tsi}
+                </span>
+                {getTrendIcon(tsiTrend)}
               </div>
-
-              {/* Stability Metrics */}
-              <div className="text-right space-y-1">
-                <div>
-                  <p className="text-xs text-muted-foreground">Stable Strength</p>
-                  <p className="text-lg font-medium text-white">{stableStrength}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Peak Performance</p>
-                  <p className="text-lg font-medium text-white">{peakPerformance}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Stability Gap</p>
-                  <p className="text-lg font-medium text-amber-400">+{stabilityGap}</p>
-                </div>
-              </div>
+              <p className={`text-sm mt-1 ${tsiInterpretation.color}`}>
+                {tsiInterpretation.label}
+              </p>
             </div>
 
-            {/* #1: Micro explanation for stability gap */}
+            {/* Enhanced TSI description */}
+            <p className="text-sm text-slate-400">
+              {getTSIDescription(tsi, tsiTrend)}
+            </p>
+
+            {/* Gap behavioral interpretation (replaces numeric gap) */}
             <p className="text-xs text-slate-500 mt-3">
-              Stability gap reflects difference between your consistent level and peak capability.
+              {getGapInterpretation(stabilityGap)}
             </p>
 
             {/* Gap Driver - clinical, no narrative */}
