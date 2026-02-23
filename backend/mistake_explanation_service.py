@@ -347,6 +347,9 @@ def analyze_mistake_position(fen_before: str, move_played: str, best_move: str,
             "error": "Could not parse move"
         }
     
+    # Initialize details dict
+    details = {}
+    
     # CRITICAL: Detect if this move is a capture
     is_capture = board.is_capture(move_obj)
     captured_piece = None
