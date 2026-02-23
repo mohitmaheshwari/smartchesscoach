@@ -346,22 +346,20 @@ const Journey = ({ user }) => {
         {/* SECTION 4: Cognitive Trend Timeline */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                Cognitive Trend (Last 30 Games)
-              </p>
-            </div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
+              Cognitive Trend (Last 30 Games)
+            </p>
             
             {trendData.length > 0 ? (
               <div className="relative">
-                <TrendChart data={trendData} height={140} />
+                <TrendChart data={trendData} height={160} />
                 <div className="flex justify-between text-xs text-muted-foreground mt-2">
                   <span>30 games ago</span>
                   <span>Recent</span>
                 </div>
               </div>
             ) : (
-              <div className="h-[140px] flex items-center justify-center bg-slate-800/30 rounded-lg">
+              <div className="h-[160px] flex items-center justify-center bg-slate-800/30 rounded-lg">
                 <p className="text-sm text-muted-foreground">
                   Trend data available after more games
                 </p>
