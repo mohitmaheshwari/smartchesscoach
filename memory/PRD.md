@@ -15,46 +15,91 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 23, 2026)
 
-### Journey Page Patch: Reuse Existing Pattern Logic ✅ COMPLETE (Feb 23, 2026)
+### Journey Page Master Spec v4 Implementation ✅ COMPLETE (Feb 23, 2026)
 
-**Problem:** Journey page had its own pattern analysis logic. This duplicated existing `/progress` page logic.
+**Problem:** Previous Journey implementations lacked:
+1. Deterministic signal interpretation (threshold-based)
+2. Structured Indian-English coach voice
+3. Dopamine loop rules (badge, anti-repetition)
+4. Proper hide-noise rule for micro-deltas
 
-**Solution:** Refactored Journey to **reuse existing pattern detection** from `baseline_service.py`:
-- `detect_weakness_patterns()` - For Top Issues detection
-- `calculate_blunder_context_stats()` - For Advantage Discipline analysis
+**Solution:** Full Master Spec implementation with 3 new backend engines:
 
-**Changes Made:**
+#### 1. Stat Interpretation Engine (`stat_interpretation_engine.py`)
+- **Purpose:** Convert raw metrics into stable signals deterministically
+- **Threshold-based signals:** major_improvement, improving, stable, declining, major_decline
+- **Priority:** blunders > mistakes > accuracy > winrate
+- **Hide-noise rule:** If all deltas are small → `overall_change = stable_hidden`
+- **Confidence score:** `min(1.0, games/15)`
 
-| Tab | What Changed |
-|-----|--------------|
-| A (Now) | Shows **Top 1 Issue** via `top_issue` field (reuses `detect_weakness_patterns`) |
-| B (Journey) | Primary Driver Evolution shows `then_driver → now_driver` with `then_impact → now_impact` |
-| C (Trend) | Shows **Top 3 Issues** via `top_issues` array + **Advantage Shift** (5 vs 5) with evidence |
-
-**Tab C - Trend Additions:**
-- **Top Issues Right Now**: Up to 3 issues (only if `occurrence_pct >= 25%`)
-- **When Ahead (5 vs 5)**: Advantage Discipline change with `previous → recent` and direction arrow
-- **Evidence**: 2 clickable links with `game_id` and `move_number` → Opens Lab at `/game/{id}?move={n}&src=journey`
-
-**Backend Imports:**
 ```python
-from baseline_service import (
-    calculate_blunder_context_stats,  # For advantage discipline
-    detect_weakness_patterns           # For top issues
-)
+# Example output
+{
+  "evaluation_ready": True,
+  "confidence": 0.87,
+  "overall_change": "visible",  # or "stable_hidden"
+  "stability_band": "stable",   # stable/moderate/volatile
+  "signals": {
+    "accuracy": "improving",
+    "blunders": "major_improvement",
+    "mistakes": "improving",
+    "winrate": "stable",
+    "headline": "major_improvement"  # Priority-based
+  },
+  "deltas": {...},
+  "show_deltas": True
+}
 ```
 
-**Explicit Exclusions (NOT in Journey):**
-- ❌ Opening progress tables
-- ❌ Fundamentals scorecards (Endgame %, Positional %, etc.)
-- ❌ Practice games lists
-- ❌ Generic advice paragraphs
+#### 2. Coach Voice Generator (`coach_voice_generator.py`)
+- **Purpose:** Deterministic Indian-English text generation (NO LLM)
+- **Output:** headline (≤10 words), explanation (≤18 words), focus_instruction (≤16 words)
+- **Tone levels:** positive (green), concern (amber), neutral (white)
+- **Instruction mapping:** primary_driver → specific protocol
 
-**Test Report:** `/app/test_reports/iteration_68.json` - 100% pass (20/20 backend, all UI verified)
+```python
+INSTRUCTION_MAP = {
+    "structural_misjudgment": "Before pawn moves, ask what becomes weak.",
+    "missed_forcing_move": "Every move: checks, captures, threats.",
+    "critical_moment_drift": "When position changes, pause and scan threats.",
+    "advantage_mismanagement": "When ahead, simplify and avoid risky attacks.",
+    ...
+}
+```
+
+#### 3. Dopamine Loop Rules
+- **Badge:** "Big improvement this week." when `headline_signal == major_improvement`
+- **Anti-repetition:** If stable 2x in a row, alternate headline used
+- **No fake praise:** Only truthful celebration of major improvements
+
+#### Tab Structure (Master Spec Section 8)
+
+**Tab A - Now (Snapshot):** 5 items exactly
+1. Decision Stability (band + meaning)
+2. Main issue (TOP 1 from weakness detection)
+3. When ahead (risk band + meaning)
+4. Weakest phase
+5. Do this next (directive)
+
+**Tab B - Journey (Then vs Now):**
+- Voice headline with tone color + optional badge
+- 4 stat rows: Accuracy, Blunders/Game, Mistakes/Game, Win Rate
+  - Show deltas ONLY if `overall_change = visible`
+- 4 cognitive rows: Decision Stability, Primary Driver, Advantage Risk, Weakest Phase
+- Do this next (directive)
+
+**Tab C - Trend (5 vs 5):**
+- Headline (from voice)
+- Max 2 meaningful shifts (pattern or advantage >15%)
+- Top Issues Right Now (up to 3 if ≥25% occurrence)
+- 2 Evidence links → `/game/{id}?move={n}&src=journey`
+- Do this next (directive)
+
+**Test Report:** `/app/test_reports/iteration_69.json` - 100% pass (40/40 backend, all UI verified)
 
 ---
 
-### Journey Page 3-Tab Redesign ✅ COMPLETE (Feb 23, 2026)
+### Journey Page Patch: Reuse Existing Pattern Logic ✅ SUPERSEDED
 
 **Problem:** Journey page felt like a stats dashboard rather than a cognitive journey. Indian users wanted a clear before/after progress view.
 
