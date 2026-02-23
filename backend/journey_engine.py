@@ -493,13 +493,13 @@ def compute_macro(recent_15: List[Dict], first_15: List[Dict],
         peer_text = "Peer comparison unavailable (insufficient games)"
         peer_status = "unavailable"
     elif peer_delta >= 8:
-        peer_text = f"Compared to similar-rated players: Above average"
+        peer_text = "Compared to similar-rated players: Above average"
         peer_status = "above"
     elif peer_delta <= -8:
-        peer_text = f"Compared to similar-rated players: Below average"
+        peer_text = "Compared to similar-rated players: Below average"
         peer_status = "below"
     else:
-        peer_text = f"Compared to similar-rated players: In line"
+        peer_text = "Compared to similar-rated players: In line"
         peer_status = "inline"
     
     return {
