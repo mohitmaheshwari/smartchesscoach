@@ -631,6 +631,7 @@ def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_chan
             # The "I didn't notice" tag below will handle this case
         
         # 6. Check what threat the best move addresses that user missed
+        # BUT: Don't say "I didn't notice X" if X is giving check - they obviously noticed it!
         if best_analysis and not best_analysis.get("error"):
             best_attacks = best_analysis.get("attacks_after_move", [])
             user_attack_squares = {a.get("square") for a in attacks}
@@ -642,6 +643,10 @@ def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_chan
                 target_piece = best_attack.get("piece", "piece")
                 target_sq = best_attack.get("square", "")
                 is_hanging = best_attack.get("is_hanging", False) or target_sq in opponent_hanging_squares
+                
+                # SKIP pieces that are giving check - user definitely noticed them!
+                if target_sq in checking_squares:
+                    continue
                 
                 if target_sq not in user_attack_squares and target_piece in ["knight", "bishop", "rook", "queen", "king"]:
                     # User missed this target - they were unaware
