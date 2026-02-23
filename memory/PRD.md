@@ -15,6 +15,46 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 23, 2026)
 
+### TSI Stabilization & Threshold Calibration ✅ COMPLETE (Feb 23, 2026)
+
+**Problem:** Original TSI calculation had no smoothing - single bad games could spike TSI significantly.
+
+**Implemented Fixes:**
+
+1. **Weighted Rolling Window TSI**
+   - Games 1-5 (recent): weight 3
+   - Games 6-10 (middle): weight 2
+   - Games 11-20 (older): weight 1
+   - Dampens single-game spikes while responding to sustained patterns
+
+2. **Minimum Baseline Floor Guard**
+   - MIN_BASELINE_FLOOR = 2
+   - Prevents noise like 0.02 → 0.04 = "100% worsening"
+   - Only triggers trend when >= 4 mistakes in a category
+
+3. **Fixed Trend Inversion Bug**
+   - Trend now correctly reflects: more recent mistakes = "worsening"
+
+4. **Adjusted Normalization Scale**
+   - max_expected = 210 (10 mistakes/game at 0.6 severity)
+   - Prevents TSI collapsing to 0 for high-volume mistake players
+
+5. **Frequency Threshold Raised**
+   - Pattern detection threshold: 4 (was 3)
+   - 4 occurrences in 20 games = 20% signal strength
+
+**TSI Interpretation Bands (locked):**
+- 85-100: Strong decision discipline
+- 70-84: Moderate instability
+- 55-69: Frequent cognitive lapses
+- Below 55: High volatility
+
+**Validation Tests:** 12/12 passed - `/app/backend/tests/test_tsi_validation.py`
+
+**Status:** Ready for real user testing. No further threshold tuning until observing real behavior.
+
+---
+
 ### Behavior Shaping UI Implementation ✅ COMPLETE (Feb 23, 2026)
 
 **Core Philosophy:** Transform the app from an analytics dashboard into a behavioral shaping coach. Users should instantly understand "what I'm fixing and how to think differently."
