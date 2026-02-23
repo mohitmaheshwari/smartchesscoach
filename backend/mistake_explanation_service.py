@@ -696,6 +696,12 @@ def build_explanation_prompt(analysis: Dict, move_data: Dict) -> str:
         if key_insight:
             context_parts.append(f"KEY INSIGHT: {key_insight}")
     
+    # CRITICAL: Add capture context if this was a capture move
+    if details.get("is_capture"):
+        captured = details.get("captured_piece", "piece")
+        context_parts.append(f"NOTE: This move WAS a capture (took opponent's {captured})")
+        context_parts.append("IMPORTANT: Do NOT say the piece was 'undefended' or 'left hanging' - it captured an enemy piece")
+    
     # CRITICAL: For positional errors with no tactical pattern, explicitly state NO TACTICS
     is_purely_positional = mistake_type in ["inaccuracy", "positional_error", "unknown"] and not details.get("fork") and not details.get("pin") and not details.get("hanging") and not details.get("skewer") and not details.get("deep_tactics")
     
