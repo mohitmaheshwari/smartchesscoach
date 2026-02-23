@@ -25,29 +25,36 @@ import {
   Minus
 } from "lucide-react";
 
-// Professional line chart - single dark blue line, subtle grid, no animations
+// Professional line chart - single dark blue line, subtle grid, context bands
 const TrendChart = ({ data, height = 160 }) => {
   if (!data || data.length === 0) return null;
   
   // Fixed 0-100 Y-axis scale for TSI
-  const maxVal = 100;
-  const minVal = 0;
-  const range = 100;
-  
-  // SVG dimensions with padding for labels
   const padding = { top: 10, right: 10, bottom: 20, left: 30 };
   const chartWidth = 100;
   const chartHeight = 100;
   
   const points = data.map((d, i) => {
     const x = padding.left + (i / (data.length - 1)) * (chartWidth - padding.left - padding.right);
-    const y = padding.top + (1 - (d.value - minVal) / range) * (chartHeight - padding.top - padding.bottom);
+    const y = padding.top + (1 - d.value / 100) * (chartHeight - padding.top - padding.bottom);
     return `${x},${y}`;
   }).join(' ');
+  
+  // Calculate Y positions for bands (inverted because SVG y increases downward)
+  const getY = (tsi) => padding.top + (1 - tsi / 100) * (chartHeight - padding.top - padding.bottom);
   
   return (
     <div className="w-full" style={{ height }}>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+        {/* #6: Context bands - subtle shading */}
+        {/* 85-100: Strong Decision Discipline - very light green */}
+        <rect x={padding.left} y={getY(100)} width={60} height={getY(85) - getY(100)} fill="#22c55e" fillOpacity="0.06" />
+        {/* 70-84: Moderate Instability - no shading (neutral) */}
+        {/* 55-69: Frequent Cognitive Lapses - very light amber */}
+        <rect x={padding.left} y={getY(69)} width={60} height={getY(55) - getY(69)} fill="#f59e0b" fillOpacity="0.06" />
+        {/* <55: High Volatility - very light red */}
+        <rect x={padding.left} y={getY(55)} width={60} height={getY(0) - getY(55)} fill="#ef4444" fillOpacity="0.06" />
+        
         {/* Y-axis labels */}
         <text x="2" y="15" className="fill-slate-500 text-[3px]">100</text>
         <text x="2" y="38" className="fill-slate-500 text-[3px]">75</text>
