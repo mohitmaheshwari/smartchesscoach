@@ -1714,6 +1714,59 @@ const Lab = ({ user }) => {
 
                     {/* MILESTONES TAB - Brilliant Moves & Learning Moments */}
                     <TabsContent value="milestones" className="p-4 space-y-4 m-0">
+                      {/* MICRO-PROTOCOL CARD - Behavioral checklist */}
+                      {focusModule && coachMode && (
+                        <div className="p-3 rounded-lg border border-slate-700 bg-slate-900/50" data-testid="micro-protocol-card">
+                          <div className="flex items-center gap-2 mb-3">
+                            <ListChecks className="w-4 h-4 text-slate-400" />
+                            <p className="text-sm font-medium text-slate-300">Decision Protocol</p>
+                          </div>
+                          <div className="space-y-2">
+                            {(focusModule.category === "missed_forcing_move" ? [
+                              "Check all forcing moves",
+                              "Check opponent forcing replies",
+                              "Confirm no hanging pieces"
+                            ] : focusModule.category === "ignored_opponent_forcing" ? [
+                              "Decide your candidate move",
+                              "Ask: what's their best reply?",
+                              "If dangerous, reconsider"
+                            ] : focusModule.category === "phantom_threat_reaction" ? [
+                              "Identify the 'threat'",
+                              "Ask: what happens if I ignore it?",
+                              "Only defend if truly forcing"
+                            ] : focusModule.category === "advantage_mismanagement" ? [
+                              "Recognize you're winning",
+                              "Look for forcing continuations",
+                              "Don't trade into a drawn endgame"
+                            ] : [
+                              "Analyze the position",
+                              "Consider candidate moves",
+                              "Verify your choice"
+                            ]).map((step, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  const newChecks = [...protocolChecks];
+                                  newChecks[idx] = !newChecks[idx];
+                                  setProtocolChecks(newChecks);
+                                }}
+                                className="flex items-center gap-2 w-full text-left text-sm text-slate-400 hover:text-slate-300 transition-colors"
+                                data-testid={`protocol-check-${idx}`}
+                              >
+                                {protocolChecks[idx] ? (
+                                  <CheckSquare className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                ) : (
+                                  <Square className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                                )}
+                                <span className={protocolChecks[idx] ? "text-slate-500 line-through" : ""}>
+                                  {step}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       {displayedMilestones.length > 0 ? (
                         displayedMilestones.map((group) => (
                           <MilestoneGroup 
