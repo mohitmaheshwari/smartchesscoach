@@ -229,18 +229,18 @@ const Journey = ({ user }) => {
                   </CardContent>
                 </Card>
 
-                {/* Item 2: Primary Driver */}
+                {/* Item 2: Top Issue (Primary Driver) */}
                 <Card className="border-slate-700 bg-slate-900/50" data-testid="snapshot-driver">
                   <CardContent className="p-5">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Main reason you slip</span>
                       <span className="text-base font-medium text-white">
-                        {snapshot.primary_driver.name}
+                        {snapshot.top_issue?.name || "No clear pattern"}
                       </span>
                     </div>
-                    {snapshot.primary_driver.impact && (
+                    {snapshot.top_issue?.impact && (
                       <p className="text-xs text-slate-500 mt-1">
-                        Impact: {snapshot.primary_driver.impact}
+                        Impact: {snapshot.top_issue.impact}
                       </p>
                     )}
                   </CardContent>
