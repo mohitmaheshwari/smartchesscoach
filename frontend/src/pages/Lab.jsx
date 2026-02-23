@@ -107,6 +107,7 @@ const Lab = ({ user }) => {
   const [positionObject, setPositionObject] = useState(() => fenToPositionObject(START_FEN));
   const [boardOrientation, setBoardOrientation] = useState("white");
   const [lastMoveSquares, setLastMoveSquares] = useState({});
+  const [customArrows, setCustomArrows] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   
   // UI states
