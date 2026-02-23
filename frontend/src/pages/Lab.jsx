@@ -222,6 +222,19 @@ const Lab = ({ user }) => {
           const labDataResponse = await labResponse.json();
           setLabData(labDataResponse);
         }
+        
+        // Fetch active focus module
+        try {
+          const focusResponse = await fetch(`${API}/cognitive/training-priority`, { credentials: "include" });
+          if (focusResponse.ok) {
+            const focusData = await focusResponse.json();
+            if (focusData.primary_focus) {
+              setFocusModule(focusData.primary_focus);
+            }
+          }
+        } catch (e) {
+          console.log("Focus module not available");
+        }
       } catch (error) {
         toast.error("Failed to load game");
         navigate("/import");
