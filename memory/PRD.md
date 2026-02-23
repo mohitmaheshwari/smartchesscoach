@@ -15,6 +15,22 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 23, 2026)
 
+### Account Linking Security Fix ✅ COMPLETE (Feb 23, 2026)
+
+**Problem:** Games from wrong Chess.com accounts were being imported because `/import-games` didn't validate against linked accounts.
+
+**Solution:**
+1. Added validation to `/import-games` to only allow imports from linked accounts
+2. Added validation to `/journey/link-account` to prevent linking multiple accounts per platform
+3. Added `/journey/unlink-account` endpoint for proper account management
+4. Standardized field names (`chess_com_username` with backward compatibility)
+5. Cleaned up 26 incorrectly imported games from user account
+
+**Files Modified:**
+- `backend/server.py`: Lines 1015-1040 (import validation), 2355-2395 (link validation), 2437-2466 (unlink endpoint)
+
+---
+
 ### Move Arrow Implementation ✅ COMPLETE (Feb 23, 2026)
 
 **Problem:** Users requested visual arrows on chessboards to indicate the "you played" move, improving readability in both Lab (game analysis) and Reflect (milestone trainer) pages.
