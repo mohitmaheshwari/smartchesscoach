@@ -191,6 +191,20 @@ const Journey = ({ user }) => {
               </CardContent>
             </Card>
           )}
+
+          {/* Do This Next - Action Directive */}
+          {micro.directive && (
+            <Card className="border-amber-800/50 bg-amber-900/10" data-testid="micro-directive">
+              <CardContent className="p-6">
+                <p className="text-xs uppercase tracking-wider text-amber-400/80 mb-2">
+                  Do This Next
+                </p>
+                <p className="text-sm text-white leading-relaxed">
+                  {micro.directive}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* ============================================ */}
