@@ -32,6 +32,115 @@ class CognitiveCategory(str, Enum):
     TIME_PRESSURE = "time_pressure_collapse"
 
 
+# ============================================================
+# BEHAVIORAL FRAMING - Makes analytics actionable
+# ============================================================
+
+BEHAVIORAL_FRAMING = {
+    "missed_forcing_move": {
+        "behavioral_diagnosis": "You are not scanning checks and captures consistently.",
+        "corrective_protocol": "Before every move: check all forcing moves for both sides.",
+        "micro_protocol": [
+            "Check all checks",
+            "Check all captures", 
+            "Check all threats"
+        ],
+        "lab_prompt": "Did you scan forcing moves before each decision?"
+    },
+    "ignored_opponent_forcing": {
+        "behavioral_diagnosis": "You are not asking 'What's my opponent's best reply?' before moving.",
+        "corrective_protocol": "After deciding your move, pause and ask: what will they do?",
+        "micro_protocol": [
+            "Decide your candidate move",
+            "Ask: what's their best reply?",
+            "If dangerous, reconsider"
+        ],
+        "lab_prompt": "Did you check your opponent's threats before each move?"
+    },
+    "phantom_threat_reaction": {
+        "behavioral_diagnosis": "You are defending against threats that aren't actually forcing.",
+        "corrective_protocol": "Before defending, verify: is this threat actually forcing?",
+        "micro_protocol": [
+            "Identify the 'threat'",
+            "Ask: what happens if I ignore it?",
+            "Only defend if truly forcing"
+        ],
+        "lab_prompt": "Did you verify threats were real before defending?"
+    },
+    "advantage_mismanagement": {
+        "behavioral_diagnosis": "You are relaxing when you should be pressing your advantage.",
+        "corrective_protocol": "When ahead, increase tension—don't release it.",
+        "micro_protocol": [
+            "Recognize you're winning",
+            "Look for forcing continuations",
+            "Don't trade into a drawn endgame"
+        ],
+        "lab_prompt": "When ahead, did you maintain pressure or relax?"
+    },
+    "structural_misjudgment": {
+        "behavioral_diagnosis": "You are not evaluating piece coordination and pawn structure.",
+        "corrective_protocol": "Before pawn moves, ask: what squares am I weakening?",
+        "micro_protocol": [
+            "Check pawn structure impact",
+            "Verify piece coordination",
+            "Consider long-term weaknesses"
+        ],
+        "lab_prompt": "Did you consider structural consequences of your moves?"
+    },
+    "random_move_critical": {
+        "behavioral_diagnosis": "You are moving without a plan in positions that require calculation.",
+        "corrective_protocol": "In critical positions, calculate before moving—never guess.",
+        "micro_protocol": [
+            "Recognize the position is critical",
+            "Calculate concrete variations",
+            "Choose based on analysis, not instinct"
+        ],
+        "lab_prompt": "In critical moments, did you calculate or guess?"
+    },
+    "time_pressure_collapse": {
+        "behavioral_diagnosis": "Your decision quality collapses under time pressure.",
+        "corrective_protocol": "Practice quick pattern recognition and pre-move routines.",
+        "micro_protocol": [
+            "Use increment wisely",
+            "Have a default thought process",
+            "Simplify when short on time"
+        ],
+        "lab_prompt": "Did time pressure affect your decision quality?"
+    }
+}
+
+
+# TSI Interpretation Bands
+TSI_BANDS = {
+    "stable": {"min": 80, "max": 100, "label": "Stable decision process", "color": "green"},
+    "moderate": {"min": 65, "max": 79, "label": "Moderate instability", "color": "yellow"},
+    "frequent": {"min": 50, "max": 64, "label": "Frequent cognitive lapses", "color": "orange"},
+    "volatile": {"min": 0, "max": 49, "label": "High volatility", "color": "red"}
+}
+
+
+def get_tsi_interpretation(tsi: int) -> Dict:
+    """Get interpretation band for TSI score"""
+    if tsi >= 80:
+        return TSI_BANDS["stable"]
+    elif tsi >= 65:
+        return TSI_BANDS["moderate"]
+    elif tsi >= 50:
+        return TSI_BANDS["frequent"]
+    else:
+        return TSI_BANDS["volatile"]
+
+
+def get_behavioral_framing(category: str) -> Dict:
+    """Get behavioral framing for a cognitive category"""
+    return BEHAVIORAL_FRAMING.get(category, {
+        "behavioral_diagnosis": "Review your decision-making process.",
+        "corrective_protocol": "Focus on deliberate practice.",
+        "micro_protocol": ["Analyze", "Plan", "Execute"],
+        "lab_prompt": "Did you follow your protocol?"
+    })
+
+
 # Mapping from existing mistake_type to cognitive category
 MISTAKE_TO_COGNITIVE = {
     # Missed Forcing Move
