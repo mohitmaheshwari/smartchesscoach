@@ -8400,7 +8400,10 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
     # Calculate for both windows
     recent_tsi = calculate_window_tsi(recent_window)
     previous_tsi = calculate_window_tsi(previous_window)
-    tsi_delta = recent_tsi - previous_tsi
+    
+    # TSI validation - both windows must have valid TSI
+    tsi_valid = recent_tsi is not None and previous_tsi is not None
+    tsi_delta = (recent_tsi - previous_tsi) if tsi_valid else 0
     
     recent_patterns = calculate_window_patterns(recent_window)
     previous_patterns = calculate_window_patterns(previous_window)
@@ -8412,39 +8415,42 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
     previous_phase = calculate_phase_instability(previous_window)
     
     # Stability momentum interpretation
-    if abs(tsi_delta) < 5:
+    if not tsi_valid:
+        stability_interpretation = "Insufficient baseline data for comparison."
+    elif abs(tsi_delta) < 5:
         stability_interpretation = "No significant change in decision stability."
     elif tsi_delta >= 5:
-        stability_interpretation = "Your decision stability is improving."
+        stability_interpretation = "Your decision consistency has improved over recent games."
     else:
-        stability_interpretation = "Your decision stability has declined in recent games."
+        stability_interpretation = "Your decision consistency has declined in recent games."
     
-    # Pattern shifts (only show meaningful changes)
+    # Pattern shifts - FIX #2: Only show Improving/Worsening if band CHANGES
     pattern_shifts = []
     all_patterns = set(recent_patterns.keys()) | set(previous_patterns.keys())
     
     def get_impact_band(severity):
         if severity >= 3:
-            return "High Impact"
+            return "High"
         elif severity >= 1.5:
-            return "Moderate Impact"
-        return "Low Impact"
+            return "Moderate"
+        return "Low"
     
     for cat_key in all_patterns:
         recent_score = recent_patterns.get(cat_key, {}).get("weighted_score", 0)
         previous_score = previous_patterns.get(cat_key, {}).get("weighted_score", 0)
         
-        # Check for meaningful change (10% relative or band shift)
-        if previous_score > 0:
-            change_pct = abs(recent_score - previous_score) / previous_score * 100
-        else:
-            change_pct = 100 if recent_score > 0 else 0
-        
         recent_band = get_impact_band(recent_score)
         previous_band = get_impact_band(previous_score)
         
-        if change_pct >= 10 or recent_band != previous_band:
-            status = "Improving" if recent_score < previous_score else "Worsening" if recent_score > previous_score else "Stable"
+        # FIX #2: Status determined by BAND change only, not raw delta
+        if recent_band != previous_band:
+            # Band changed - determine direction
+            band_order = {"Low": 0, "Moderate": 1, "High": 2}
+            if band_order[recent_band] < band_order[previous_band]:
+                status = "Improving"
+            else:
+                status = "Worsening"
+            
             pattern_shifts.append({
                 "category": cat_key,
                 "name": cat_key.replace("_", " ").title(),
@@ -8452,15 +8458,17 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
                 "recent_band": recent_band,
                 "status": status
             })
+        # If bands are same, don't show - it's stable (not meaningful)
     
-    # Context shift
+    # FIX #3: Context shift with clear directional change
     winning_diff = recent_context["winning"] - previous_context["winning"]
     context_shift = None
     if abs(winning_diff) >= 15:
         context_shift = {
             "previous": previous_context["winning"],
             "recent": recent_context["winning"],
-            "status": "Improving" if winning_diff < 0 else "Worsening"
+            "change": winning_diff,
+            "direction": "Increased" if winning_diff > 0 else "Decreased"
         }
     
     # Phase shift
