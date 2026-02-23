@@ -8460,6 +8460,78 @@ async def get_phase_insight(user: User = Depends(get_current_user)):
     }
 
 
+@api_router.get("/cognitive/blunder-context")
+async def get_blunder_context(user: User = Depends(get_current_user)):
+    """
+    Get blunder context distribution - where do mistakes happen?
+    
+    Analyzes the position evaluation BEFORE each blunder to determine
+    if user blunders more when winning, equal, or losing.
+    
+    Returns:
+        winning: % of blunders that occurred in winning positions
+        equal: % of blunders that occurred in equal positions  
+        losing: % of blunders that occurred in losing positions
+    """
+    # Get recent analyses
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "stockfish_analysis": 1, "user_color": 1}
+    ).sort("created_at", -1).limit(20).to_list(20)
+    
+    context_counts = {
+        "winning": 0,
+        "equal": 0,
+        "losing": 0
+    }
+    total_blunders = 0
+    
+    for analysis in analyses:
+        sf = analysis.get("stockfish_analysis", {})
+        user_color = analysis.get("user_color", "white")
+        
+        for move in sf.get("move_evaluations", []):
+            cp_loss = abs(move.get("cp_loss", 0))
+            if cp_loss < 100:  # Only count significant mistakes/blunders
+                continue
+            
+            total_blunders += 1
+            
+            # Get evaluation BEFORE the blunder
+            eval_before = move.get("eval_before", 0)
+            
+            # Adjust for user's perspective
+            if user_color == "black":
+                eval_before = -eval_before
+            
+            # Classify position context
+            if eval_before >= 150:  # +1.5 or better = winning
+                context_counts["winning"] += 1
+            elif eval_before <= -150:  # -1.5 or worse = losing
+                context_counts["losing"] += 1
+            else:  # Between -1.5 and +1.5 = equal
+                context_counts["equal"] += 1
+    
+    # Calculate percentages
+    if total_blunders > 0:
+        distribution = {
+            "winning": round((context_counts["winning"] / total_blunders) * 100),
+            "equal": round((context_counts["equal"] / total_blunders) * 100),
+            "losing": round((context_counts["losing"] / total_blunders) * 100)
+        }
+        # Ensure they sum to 100 (handle rounding)
+        diff = 100 - (distribution["winning"] + distribution["equal"] + distribution["losing"])
+        distribution["equal"] += diff
+    else:
+        distribution = {"winning": 33, "equal": 34, "losing": 33}
+    
+    return {
+        "distribution": distribution,
+        "total_blunders": total_blunders,
+        "games_analyzed": len(analyses)
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
