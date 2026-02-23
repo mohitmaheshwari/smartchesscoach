@@ -8230,13 +8230,13 @@ async def get_all_user_thoughts(user: User = Depends(get_current_user)):
 @api_router.get("/cognitive/journey")
 async def get_cognitive_journey(user: User = Depends(get_current_user)):
     """
-    Journey Page - 3-Tab Cognitive Progress Tracker
+    Journey Page - 3-Tab Cognitive Progress Tracker (Master Spec v4)
     
-    Tab A (Now): Snapshot - shows Top 1 issue
-    Tab B (Journey): Overall - Then vs Now comparison
-    Tab C (Trend): Momentum - Top 3 issues + evidence
+    Tab A (Now): Snapshot - 5 items + directive
+    Tab B (Journey): 4 stat rows + 4 cognitive rows + directive
+    Tab C (Trend): Headline + shifts + evidence + directive
     
-    REUSES: Existing pattern detection from baseline_service.py
+    INTEGRATES: Stat Interpretation Engine + Coach Voice Generator
     """
     from journey_engine import compute_journey
     
@@ -8254,20 +8254,11 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
     
     all_analyses = await db.game_analyses.find(
         query,
-        {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1, "game_id": 1, "user_result": 1, "blunders": 1, "mistakes": 1}
+        {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1, "game_id": 1, "user_result": 1}
     ).sort("created_at", -1).to_list(100)
     
-    # Get games for pattern detection (baseline_service uses games collection)
-    all_games = await db.games.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "pgn": 1, "user_color": 1, "result": 1, "imported_at": 1}
-    ).sort("imported_at", -1).to_list(100)
-    
-    # Compute journey - now reuses existing pattern detection
-    result = compute_journey(
-        all_games=all_analyses,
-        games_for_pattern=all_games
-    )
+    # Compute journey with integrated engines
+    result = compute_journey(all_games=all_analyses)
     
     return result
 
