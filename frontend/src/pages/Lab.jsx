@@ -1933,7 +1933,7 @@ const BrilliantMoveItem = ({ move, onClick }) => {
 };
 
 // Learning Moment Item - Constructive, coach-like feedback
-const LearningMomentItem = ({ mistake, onClick, userColor, gameId, onPlayVariation }) => {
+const LearningMomentItem = ({ mistake, onClick, userColor, gameId, focusModule, onPlayVariation }) => {
   const cpLossInfo = formatCpLoss(mistake.cp_loss);
   const [expanded, setExpanded] = useState(false);
   const [explanation, setExplanation] = useState(null);
