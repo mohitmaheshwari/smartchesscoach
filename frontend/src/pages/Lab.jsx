@@ -319,9 +319,9 @@ const Lab = ({ user }) => {
         [move.to]: { backgroundColor: "rgba(255, 255, 0, 0.4)" }
       });
       // Show arrow for "you played" move (orange/red for user moves)
-      // react-chessboard expects: [{ from, to, color }]
+      // react-chessboard expects: [[from, to, color]]
       if (move.from && move.to) {
-        setCustomArrows([{ from: move.from, to: move.to, color: "rgba(255, 100, 0, 0.9)" }]);
+        setCustomArrows([[move.from, move.to, "rgb(255,100,0)"]]);
       } else {
         setCustomArrows([]);
       }
