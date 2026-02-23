@@ -1018,6 +1018,25 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
     platform = req.platform.lower()
     username = req.username.strip()
     
+    # Validate that the username matches user's linked account
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    if user_doc:
+        linked_chesscom = user_doc.get("chess_com_username") or user_doc.get("chesscom_username")
+        linked_lichess = user_doc.get("lichess_username")
+        
+        if platform == "chess.com" and linked_chesscom:
+            if linked_chesscom.lower() != username.lower():
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"You can only import games from your linked Chess.com account ({linked_chesscom}). Unlink first to change accounts."
+                )
+        elif platform == "lichess" and linked_lichess:
+            if linked_lichess.lower() != username.lower():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"You can only import games from your linked Lichess account ({linked_lichess}). Unlink first to change accounts."
+                )
+    
     games_to_import = []
     
     if platform == "chess.com":
