@@ -151,13 +151,15 @@ const Training = ({ user }) => {
       try {
         setLoading(true);
         
-        // Fetch user's puzzles, community puzzles, progress, weaknesses, and puzzle progression
-        const [puzzlesRes, communityRes, progressRes, weaknessRes, puzzleProgressRes] = await Promise.all([
+        // Fetch user's puzzles, community puzzles, progress, weaknesses, puzzle progression, AND training priority
+        const [puzzlesRes, communityRes, progressRes, weaknessRes, puzzleProgressRes, priorityRes, patternsRes] = await Promise.all([
           fetch(`${API}/training/puzzles?limit=10`, { credentials: "include" }),
           fetch(`${API}/community/puzzles?limit=10`, { credentials: "include" }),
           fetch(`${API}/training/progress`, { credentials: "include" }),
           fetch(`${API}/training/weakness-patterns`, { credentials: "include" }),
-          fetch(`${API}/training/puzzle-progress`, { credentials: "include" })
+          fetch(`${API}/training/puzzle-progress`, { credentials: "include" }),
+          fetch(`${API}/cognitive/training-priority`, { credentials: "include" }),
+          fetch(`${API}/cognitive/patterns`, { credentials: "include" })
         ]);
         
         let allPuzzles = [];
