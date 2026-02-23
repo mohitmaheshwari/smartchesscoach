@@ -8354,6 +8354,111 @@ async def get_thinking_stability_index(user: User = Depends(get_current_user)):
     }
 
 
+@api_router.get("/cognitive/trend")
+async def get_cognitive_trend(user: User = Depends(get_current_user)):
+    """
+    Get TSI trend data for last 30 games.
+    
+    Returns array of {game_num, value} for charting.
+    """
+    from cognitive_patterns_service import aggregate_cognitive_patterns
+    
+    # Get analyses for last 30 games
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "stockfish_analysis": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(30).to_list(30)
+    
+    if not analyses:
+        return {"data": []}
+    
+    # Calculate rolling TSI for each game window
+    trend_data = []
+    analyses.reverse()  # Oldest first
+    
+    for i in range(len(analyses)):
+        # Use a sliding window of up to 5 games
+        window_start = max(0, i - 4)
+        window = analyses[window_start:i + 1]
+        
+        # Simple TSI approximation based on mistake severity in window
+        total_mistakes = 0
+        total_severity = 0
+        
+        for analysis in window:
+            sf = analysis.get("stockfish_analysis", {})
+            for move in sf.get("move_evaluations", []):
+                cp_loss = abs(move.get("cp_loss", 0))
+                if cp_loss >= 50:  # Significant mistake
+                    total_mistakes += 1
+                    total_severity += min(1.0, cp_loss / 300)
+        
+        # Calculate TSI for this window (100 = perfect, 0 = very bad)
+        if total_mistakes > 0:
+            avg_severity = total_severity / total_mistakes
+            # Normalize: assume max 5 mistakes per game at 0.5 severity
+            normalized = min(1.0, (total_mistakes * avg_severity) / (len(window) * 2.5))
+            tsi = max(0, min(100, int(100 - normalized * 100)))
+        else:
+            tsi = 100
+        
+        trend_data.append({
+            "game_num": i + 1,
+            "value": tsi
+        })
+    
+    return {"data": trend_data}
+
+
+@api_router.get("/cognitive/phase-insight")
+async def get_phase_insight(user: User = Depends(get_current_user)):
+    """
+    Get phase stability insight.
+    
+    Returns most stable and most unstable phases.
+    """
+    # Get recent analyses
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "stockfish_analysis": 1}
+    ).sort("created_at", -1).limit(20).to_list(20)
+    
+    phase_mistakes = {
+        "opening": {"count": 0, "severity": 0},
+        "middlegame": {"count": 0, "severity": 0},
+        "endgame": {"count": 0, "severity": 0}
+    }
+    
+    for analysis in analyses:
+        sf = analysis.get("stockfish_analysis", {})
+        for move in sf.get("move_evaluations", []):
+            cp_loss = abs(move.get("cp_loss", 0))
+            if cp_loss >= 50:
+                phase = move.get("phase", "middlegame")
+                if phase in phase_mistakes:
+                    phase_mistakes[phase]["count"] += 1
+                    phase_mistakes[phase]["severity"] += min(1.0, cp_loss / 300)
+    
+    # Calculate weighted score per phase
+    phase_scores = {}
+    for phase, data in phase_mistakes.items():
+        if data["count"] > 0:
+            phase_scores[phase] = data["count"] * (data["severity"] / data["count"])
+        else:
+            phase_scores[phase] = 0
+    
+    # Find most unstable and most stable
+    sorted_phases = sorted(phase_scores.items(), key=lambda x: x[1], reverse=True)
+    
+    most_unstable = sorted_phases[0][0].capitalize() if sorted_phases else "Middlegame"
+    most_stable = sorted_phases[-1][0].capitalize() if sorted_phases else "Endgame"
+    
+    return {
+        "most_unstable": most_unstable,
+        "most_stable": most_stable,
+        "phase_scores": phase_scores
+    }
+
 
 # Include the router in the main app
 app.include_router(api_router)
