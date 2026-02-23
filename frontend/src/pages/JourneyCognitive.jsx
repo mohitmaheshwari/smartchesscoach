@@ -111,6 +111,30 @@ const Journey = ({ user }) => {
 
   const { stability_momentum, pattern_shifts, context_shift, phase_shift } = data;
 
+  // Pattern explanation mapping
+  const getPatternExplanation = (category, status) => {
+    const explanations = {
+      "random_move_critical": status === "Improving" 
+        ? "Reduced frequency of unstable decisions in critical positions."
+        : "Increased drift in critical decision moments.",
+      "missed_forcing_move": status === "Improving"
+        ? "Better recognition of forcing opportunities."
+        : "More forcing moves being overlooked.",
+      "structural_misjudgment": status === "Improving"
+        ? "Improved evaluation of positional factors."
+        : "More frequent positional misjudgments.",
+      "advantage_mismanagement": status === "Improving"
+        ? "Better technique when converting advantages."
+        : "More errors when ahead in material or position.",
+      "time_pressure_collapse": status === "Improving"
+        ? "Better decision quality under time pressure."
+        : "Decisions deteriorate more under time constraints."
+    };
+    return explanations[category] || (status === "Improving" 
+      ? "Pattern frequency has decreased."
+      : "Pattern frequency has increased.");
+  };
+
   // Delta color
   const getDeltaColor = (delta) => {
     if (delta >= 5) return "text-green-400";
@@ -136,11 +160,23 @@ const Journey = ({ user }) => {
           <h1 className="text-2xl font-semibold text-white">Journey</h1>
         </div>
 
-        {/* SECTION 1: Decision Stability Momentum - FIX #4: Horizontal layout */}
+        {/* FIX #1 & #2: Cognitive Momentum Summary - Integrative narrative */}
+        <Card className="border-slate-700 bg-slate-900/50">
+          <CardContent className="p-6">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+              Cognitive Momentum Summary
+            </p>
+            <p className="text-base text-white">
+              {data.cognitive_summary}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* SECTION 1: Decision Stability Momentum */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Decision Stability Momentum
+              Decision Stability
             </p>
             
             {!stability_momentum.valid ? (
@@ -148,27 +184,22 @@ const Journey = ({ user }) => {
                 {stability_momentum.interpretation}
               </p>
             ) : (
-              <>
-                <div className="flex items-baseline gap-6 mb-3">
-                  <div>
-                    <span className="text-sm text-muted-foreground mr-2">Previous 5:</span>
-                    <span className="text-2xl font-bold text-slate-400">{stability_momentum.previous_tsi}</span>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground mr-2">Recent 5:</span>
-                    <span className="text-2xl font-bold text-white">{stability_momentum.recent_tsi}</span>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground mr-2">Change:</span>
-                    <span className={`text-2xl font-bold ${getDeltaColor(stability_momentum.delta)}`}>
-                      {stability_momentum.delta >= 0 ? "+" : ""}{stability_momentum.delta}
-                    </span>
-                  </div>
+              <div className="flex items-baseline gap-6">
+                <div>
+                  <span className="text-sm text-muted-foreground mr-2">Previous 5:</span>
+                  <span className="text-2xl font-bold text-slate-400">{stability_momentum.previous_tsi}</span>
                 </div>
-                <p className="text-sm text-slate-400">
-                  {stability_momentum.interpretation}
-                </p>
-              </>
+                <div>
+                  <span className="text-sm text-muted-foreground mr-2">Recent 5:</span>
+                  <span className="text-2xl font-bold text-white">{stability_momentum.recent_tsi}</span>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground mr-2">Change:</span>
+                  <span className={`text-2xl font-bold ${getDeltaColor(stability_momentum.delta)}`}>
+                    {stability_momentum.delta >= 0 ? "+" : ""}{stability_momentum.delta}
+                  </span>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
