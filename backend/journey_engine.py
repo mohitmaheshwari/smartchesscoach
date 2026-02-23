@@ -13,19 +13,19 @@ from typing import Dict, List, Optional, Tuple
 from enum import Enum
 
 
-# Plain Indian-English labels for stability
+# Plain Indian-English labels for stability (simpler)
 STABILITY_LABELS = {
-    "STABLE": "Mostly steady",
-    "MIXED": "Sometimes steady, sometimes careless",
-    "VOLATILE": "Too many ups and downs",
-    "CHAOTIC": "Very inconsistent"
+    "STABLE": "Playing steady",
+    "MIXED": "Hit and miss",
+    "VOLATILE": "Too many slips",
+    "CHAOTIC": "All over the place"
 }
 
-# Plain Indian-English labels for risk
+# Plain Indian-English labels for risk (simpler)
 RISK_LABELS = {
-    "LOW": "Usually converts advantage",
-    "MEDIUM": "Sometimes relaxes when ahead",
-    "HIGH": "Often throws advantage"
+    "LOW": "Finishing games well",
+    "MEDIUM": "Sometimes losing grip when winning",
+    "HIGH": "Throwing away winning positions"
 }
 
 # Pattern names in plain language
