@@ -15,6 +15,52 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 23, 2026)
 
+### Onboarding Flow Implementation ✅ COMPLETE (Feb 23, 2026)
+
+**Problem:** New users were thrown directly into Training page with no linked accounts and no data.
+
+**Solution:** 2-step wizard that establishes data source, skill baseline, and behavioral intent.
+
+**Flow:**
+1. **Step 0 - Detection:** Check if user has linked accounts AND analyzed games
+   - API: `GET /api/onboarding/status`
+   - Redirects to onboarding if either is missing
+
+2. **Step 1 - Account Linking (MANDATORY):**
+   - Chess.com username (verifies against API)
+   - Lichess username (verifies against API)
+   - Must link at least ONE account
+   - "Explore Demo Mode Instead" option for curious users
+
+3. **Step 2 - Skill Calibration:**
+   - FIDE rating (optional) - for puzzle difficulty
+   - Self-rating: Beginner (<1200) / Intermediate (1200-1800) / Advanced (1800+)
+   - Focus intent: Tactical awareness / Opening discipline / Endgame precision / Decision stability
+   - Focus intent biases drill ordering but DOES NOT override diagnosis
+
+4. **Immediate Feedback:**
+   - "Analyzing your games..." progress indicator
+   - Shows TSI score + Primary weakness
+   - "Start Fixing This" CTA
+
+**Backend Endpoints:**
+- `GET /api/onboarding/status` - Check if user needs onboarding
+- `POST /api/settings/profile` - Save calibration settings
+- `POST /api/settings/link-account` - Link Chess.com/Lichess
+- `POST /api/games/sync` - Trigger immediate game sync
+
+**Files Created:**
+- `frontend/src/pages/Onboarding.jsx`
+- Updated `frontend/src/App.js` with onboarding route and ProtectedRoute check
+
+**Design:**
+- Clean 2-step wizard (not overwhelming)
+- Progress indicator (Step 1 of 2)
+- Validation before Continue
+- Professional, not gamified
+
+---
+
 ### TSI Stabilization & Threshold Calibration ✅ COMPLETE (Feb 23, 2026)
 
 **Problem:** Original TSI calculation had no smoothing - single bad games could spike TSI significantly.
