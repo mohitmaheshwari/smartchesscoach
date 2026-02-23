@@ -480,6 +480,9 @@ const Lab = ({ user }) => {
   // State for collapsible positional insight
   const [insightExpanded, setInsightExpanded] = useState(false);
   
+  // Coach Mode vs Engine Mode toggle
+  const [coachMode, setCoachMode] = useState(true); // Default to Coach Mode
+  
   // User color from game data (needed for move filtering)
   const userColor = game?.user_color || "white";
   
@@ -490,6 +493,64 @@ const Lab = ({ user }) => {
     const parts = fen.split(' ');
     const turn = parts[1]; // 'w' or 'b'
     return (userColor === 'white' && turn === 'w') || (userColor === 'black' && turn === 'b');
+  };
+  
+  // COACHING PHILOSOPHY:
+  // Coach Mode: Only show human-improvable errors
+  // - Forcing tactics (missed/allowed)
+  // - Repeated patterns
+  // - Threat-check failures
+  // - No-plan moves in critical phases
+  // Engine Mode: Show all engine disagreements
+  
+  // Categorize a move for coaching
+  const categorizeMoveForCoaching = (m) => {
+    const cpLoss = Math.abs(m.cp_loss || 0);
+    const mistakeType = m.mistake_type || '';
+    const move = m.move || '';
+    
+    // Check for prophylactic moves (h6, a6, g6, h3, a3, g3 type moves)
+    const isProphylactic = /^[hag][36]$/.test(move.toLowerCase());
+    
+    // Determine category
+    if (cpLoss >= 300) {
+      return { category: 'blunder', showInCoachMode: true, priority: 1 };
+    }
+    
+    // Check for tactical content
+    const hasTactic = mistakeType.includes('mate') || 
+                      mistakeType.includes('fork') || 
+                      mistakeType.includes('pin') ||
+                      mistakeType.includes('hanging') ||
+                      mistakeType.includes('trap');
+    
+    if (cpLoss >= 150 || hasTactic) {
+      return { category: 'tactical_mistake', showInCoachMode: true, priority: 2 };
+    }
+    
+    // Prophylactic moves - only show if really wrong (>150cp) or creates tactic
+    if (isProphylactic && cpLoss < 150) {
+      if (cpLoss < 100) {
+        // Good prophylaxis - don't show
+        return { category: 'engine_preference', showInCoachMode: false, priority: 99 };
+      } else {
+        // Questionable prophylaxis - show as coaching moment but not puzzle
+        return { category: 'phantom_threat', showInCoachMode: true, priority: 3 };
+      }
+    }
+    
+    // Strategic slip (50-149cp)
+    if (cpLoss >= 100) {
+      return { category: 'strategic_slip', showInCoachMode: true, priority: 3 };
+    }
+    
+    // Small inaccuracies (50-99cp) - check if there's a coaching angle
+    if (cpLoss >= 50) {
+      // These are engine preferences unless they reveal a thinking pattern
+      return { category: 'engine_preference', showInCoachMode: false, priority: 99 };
+    }
+    
+    return { category: 'good_move', showInCoachMode: false, priority: 99 };
   };
   
   // Count mistakes
