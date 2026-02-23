@@ -8230,25 +8230,25 @@ async def get_all_user_thoughts(user: User = Depends(get_current_user)):
 @api_router.get("/cognitive/journey")
 async def get_cognitive_journey(user: User = Depends(get_current_user)):
     """
-    Journey Engine - Cognitive Evolution System.
+    Journey Page - Before/After Report
     
-    Architecture:
-    1. SHORT-TERM MOMENTUM (5 vs 5)
-    2. LONG-TERM GROWTH ARC (Early vs Recent)
+    A) MICRO: Now vs Then (Recent 5 vs Previous 5)
+    B) MACRO: Becoming vs Started (Recent 15 vs First 15)
+    C) EVIDENCE: 2 clickable game links
     
-    Core Principle: Never "invent insight" - all commentary derived from measured deltas.
+    Core Rules:
+    - No "no change" spam
+    - Always exactly 3 rows (micro), 4 rows (macro)
+    - Impact scoring for headline
+    - Banding instead of raw numbers
     """
     from cognitive_patterns_service import (
         classify_move_to_cognitive,
         get_severity_weight
     )
-    from journey_engine import (
-        compute_momentum,
-        compute_growth_arc,
-        generate_cognitive_summary
-    )
+    from journey_engine import compute_journey
     
-    # Get user rating for cohort comparison
+    # Get user rating
     user_doc = await db.users.find_one(
         {"user_id": user.user_id}, 
         {"_id": 0, "assessed_rating": 1, "onboarding_completed_at": 1}
@@ -8256,80 +8256,25 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
     user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
     onboarding_date = user_doc.get("onboarding_completed_at") if user_doc else None
     
-    # Get analyzed games (after onboarding if applicable)
+    # Get analyzed games
     query = {"user_id": user.user_id}
     if onboarding_date:
         query["created_at"] = {"$gte": onboarding_date}
     
-    # Get all games for Growth Arc, but at least 10 for activation
-    all_analyses = await db.game_analyses.find(
+    all_games = await db.game_analyses.find(
         query,
-        {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1}
-    ).sort("created_at", -1).to_list(100)  # Cap at 100 for performance
+        {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1, "game_id": 1}
+    ).sort("created_at", -1).to_list(100)
     
-    total_games = len(all_analyses)
-    
-    # Safety Guard: Minimum 10 games required
-    if total_games < 10:
-        return {
-            "activated": False,
-            "games_analyzed": total_games,
-            "games_required": 10,
-            "message": "Insufficient data to detect meaningful cognitive shifts."
-        }
-    
-    # Safety Guard: Check minimum blunders across windows
-    def count_blunders(analyses):
-        count = 0
-        for a in analyses:
-            sf = a.get("stockfish_analysis", {})
-            for move in sf.get("move_evaluations", []):
-                if abs(move.get("cp_loss", 0)) >= 100:
-                    count += 1
-        return count
-    
-    recent_blunders = count_blunders(all_analyses[:10])
-    if recent_blunders < 5:
-        return {
-            "activated": False,
-            "games_analyzed": total_games,
-            "games_required": 10,
-            "message": "Insufficient data to detect meaningful cognitive shifts."
-        }
-    
-    # Split for Momentum (5 vs 5)
-    recent_window = all_analyses[:5]
-    previous_window = all_analyses[5:10]
-    
-    # Compute Short-Term Momentum
-    momentum = compute_momentum(
-        recent_games=recent_window,
-        previous_games=previous_window,
+    # Compute journey
+    result = compute_journey(
+        all_games=all_games,
         classify_func=classify_move_to_cognitive,
         severity_func=get_severity_weight,
         user_rating=user_rating
     )
     
-    # Compute Long-Term Growth Arc (if enough games)
-    growth_arc = None
-    if total_games >= 20:
-        growth_arc = compute_growth_arc(
-            all_games=all_analyses,
-            classify_func=classify_move_to_cognitive,
-            severity_func=get_severity_weight,
-            user_rating=user_rating
-        )
-    
-    # Generate integrative summary
-    cognitive_summary = generate_cognitive_summary(momentum, growth_arc)
-    
-    return {
-        "activated": True,
-        "games_analyzed": total_games,
-        "cognitive_summary": cognitive_summary,
-        "momentum": momentum,
-        "growth_arc": growth_arc
-    }
+    return result
 
 
 @api_router.get("/cognitive/patterns")
