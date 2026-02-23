@@ -55,7 +55,7 @@ const Journey = ({ user }) => {
 
   const handleEvidenceClick = (gameId, moveNumber) => {
     // Route format: /lab/game/{id}?move={n}&src=journey
-    navigate(`/game/${gameId}?move=${moveNumber}&src=journey`);
+    navigate(`/lab/game/${gameId}?move=${moveNumber}&src=journey`);
   };
 
   const getTrendIcon = (direction) => {
