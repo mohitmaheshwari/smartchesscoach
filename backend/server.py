@@ -8270,24 +8270,42 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
     recent_window = analyses[:5]  # Last 5 games
     previous_window = analyses[5:10]  # Previous 5 games
     
-    # Helper: Calculate TSI for a window
+    # Helper: Calculate TSI for a window (returns None if insufficient data)
     def calculate_window_tsi(window):
+        if not window:
+            return None
+            
         total_mistakes = 0
         total_severity = 0
+        total_moves = 0
+        
         for analysis in window:
             sf = analysis.get("stockfish_analysis", {})
-            for move in sf.get("move_evaluations", []):
+            moves = sf.get("move_evaluations", [])
+            total_moves += len(moves)
+            
+            for move in moves:
                 cp_loss = abs(move.get("cp_loss", 0))
                 if cp_loss >= 50:
                     total_mistakes += 1
                     total_severity += min(1.0, cp_loss / 300)
         
+        # Need at least some moves analyzed
+        if total_moves < 20:
+            return None
+        
         if total_mistakes > 0:
             avg_severity = total_severity / total_mistakes
-            # Normalize: max 5 mistakes per game at 0.5 severity
-            normalized = min(1.0, (total_mistakes * avg_severity) / (len(window) * 2.5))
-            return max(0, min(100, int(100 - normalized * 100)))
-        return 100
+            # Mistakes per game normalized
+            mistakes_per_game = total_mistakes / len(window)
+            # Expected range: 2-8 mistakes per game is normal
+            # TSI formula: 100 - (mistakes * severity) scaled
+            instability = (mistakes_per_game * avg_severity) / 4  # 4 mistakes at 1.0 severity = max instability
+            instability = min(1.0, instability)
+            return max(20, min(95, int(100 - instability * 80)))  # Range 20-95, never 0 or 100
+        
+        # Very few mistakes = high stability (but not perfect)
+        return 90
     
     # Helper: Calculate pattern severities for a window
     def calculate_window_patterns(window):
