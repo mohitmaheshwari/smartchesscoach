@@ -1,64 +1,18 @@
 /**
- * JOURNEY PAGE - Cognitive Evolution System
+ * JOURNEY PAGE - Before/After Report
  * 
- * Architecture:
- * 1. SHORT-TERM MOMENTUM (5 vs 5)
- * 2. LONG-TERM GROWTH ARC (Early vs Recent)
+ * A) MICRO: Now vs Then (Recent 5 vs Previous 5)
+ * B) MACRO: Becoming vs Started (Recent 15 vs First 15)  
+ * C) EVIDENCE: 2 clickable game links
  * 
- * Core Principle: Never "invent insight" - all commentary derived from measured deltas.
- * 
- * Page Structure (LOCKED):
- * - Cognitive Momentum (5 vs 5): Stability, Pattern, Advantage, Phase
- * - Divider
- * - Growth Arc (Early vs Recent): Stability Growth, Driver Evolution, Peer Comparison, Phase Evolution
+ * No tabs. No "no change" spam. Impact-driven headline.
  */
 
 import { useState, useEffect } from "react";
 import { API } from "@/App";
 import { Card, CardContent } from "@/components/ui/card";
 import Layout from "@/components/Layout";
-import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
-
-// Pattern name mapping
-const PATTERN_NAMES = {
-  "structural_misjudgment": "Structural Misjudgment",
-  "critical_moment_drift": "Critical Moment Drift",
-  "missed_forcing_move": "Missed Forcing Move",
-  "random_critical_move": "Critical Moment Drift",
-  "advantage_mismanagement": "Advantage Mismanagement",
-  "time_pressure_collapse": "Time Pressure Collapse"
-};
-
-const getPatternName = (key) => PATTERN_NAMES[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-// Behavioral explanations derived from measured deltas
-const getPatternBehavior = (category, status) => {
-  const behaviors = {
-    "structural_misjudgment": {
-      "improving": "Positional evaluation has improved.",
-      "worsening": "Positional misjudgments have increased."
-    },
-    "critical_moment_drift": {
-      "improving": "Reduced instability in high-pressure positions.",
-      "worsening": "Increased drift in critical decision moments."
-    },
-    "random_critical_move": {
-      "improving": "Reduced instability in high-pressure positions.",
-      "worsening": "Increased drift in critical decision moments."
-    },
-    "missed_forcing_move": {
-      "improving": "Better recognition of forcing opportunities.",
-      "worsening": "More forcing moves being overlooked."
-    },
-    "advantage_mismanagement": {
-      "improving": "Better technique when converting advantages.",
-      "worsening": "More carelessness after gaining an edge."
-    }
-  };
-  return behaviors[category]?.[status] || (status === "improving" 
-    ? "This pattern is becoming less frequent."
-    : "This pattern is becoming more frequent.");
-};
+import { Loader2, ChevronDown, ChevronUp, ArrowRight, ExternalLink } from "lucide-react";
 
 const Journey = ({ user }) => {
   const [loading, setLoading] = useState(true);
@@ -107,7 +61,7 @@ const Journey = ({ user }) => {
     );
   }
 
-  // Not activated - Safety Guard
+  // Not activated
   if (!data.activated) {
     return (
       <Layout user={user}>
@@ -121,14 +75,12 @@ const Journey = ({ user }) => {
 
           <Card className="border-slate-700 bg-slate-900/50">
             <CardContent className="p-8 text-center">
-              <p className="text-sm text-slate-400">
-                {data.message}
+              <p className="text-sm text-slate-300 mb-2">
+                Journey unlocks after 10 analyzed games.
               </p>
-              {data.games_required && (
-                <p className="text-xs text-slate-600 mt-4">
-                  Games analyzed: {data.games_analyzed} / {data.games_required}
-                </p>
-              )}
+              <p className="text-lg text-white">
+                You have {data.games_analyzed}/{data.games_required}.
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -136,7 +88,7 @@ const Journey = ({ user }) => {
     );
   }
 
-  const { momentum, growth_arc } = data;
+  const { micro, macro, evidence } = data;
 
   return (
     <Layout user={user}>
@@ -150,7 +102,6 @@ const Journey = ({ user }) => {
             <h1 className="text-2xl font-semibold text-white">Journey</h1>
           </div>
           
-          {/* Metrics Toggle */}
           <button
             onClick={() => setShowMetrics(!showMetrics)}
             className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
@@ -161,201 +112,199 @@ const Journey = ({ user }) => {
           </button>
         </div>
 
-        {/* Cognitive Summary */}
-        <Card className="border-slate-700 bg-slate-900/50">
-          <CardContent className="p-6">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-              Cognitive Momentum
-            </p>
-            <p className="text-base text-white leading-relaxed">
-              {data.cognitive_summary}
-            </p>
-          </CardContent>
-        </Card>
-
         {/* ============================================ */}
-        {/* SHORT-TERM MOMENTUM (5 vs 5) */}
-        {/* ============================================ */}
-
-        {/* Stability Delta */}
-        <Card className="border-slate-700 bg-slate-900/50">
-          <CardContent className="p-6">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-              Stability Trend
-            </p>
-            <p className="text-sm text-slate-300">
-              {momentum.stability.text}
-            </p>
-            
-            {showMetrics && (
-              <div className="mt-3 pt-3 border-t border-slate-700/50 text-xs text-slate-500">
-                Previous 5: {momentum.stability.previous_avg} | Recent 5: {momentum.stability.recent_avg} | Delta: {momentum.stability.delta >= 0 ? "+" : ""}{momentum.stability.delta}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Pattern Shifts */}
-        <Card className="border-slate-700 bg-slate-900/50">
-          <CardContent className="p-6">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Pattern Evolution
-            </p>
-            
-            {momentum.no_pattern_shifts ? (
-              <p className="text-sm text-slate-400">
-                No significant pattern shifts detected.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {momentum.pattern_shifts.map((shift, idx) => (
-                  <div key={shift.category} data-testid={`pattern-shift-${idx}`}>
-                    <p className="text-sm font-medium text-white mb-1">
-                      {getPatternName(shift.category)}
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      {getPatternBehavior(shift.category, shift.status)}
-                    </p>
-                    
-                    {showMetrics && (
-                      <p className="text-xs text-slate-600 mt-1">
-                        {shift.previous_band} → {shift.recent_band}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Advantage Discipline */}
-        <Card className="border-slate-700 bg-slate-900/50">
-          <CardContent className="p-6">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-              Advantage Discipline
-            </p>
-            
-            {momentum.context_unchanged ? (
-              <p className="text-sm text-slate-400">
-                No meaningful context shift.
-              </p>
-            ) : (
-              <>
-                <p className="text-sm text-slate-300">
-                  {momentum.context_shift.status === "worsening"
-                    ? "You are losing focus after gaining an advantage more often."
-                    : "You are maintaining focus better after gaining an advantage."}
-                </p>
-                
-                {showMetrics && (
-                  <div className="mt-3 pt-3 border-t border-slate-700/50 text-xs text-slate-500">
-                    Blunders when ahead: {momentum.context_shift.previous_rate}% → {momentum.context_shift.recent_rate}% ({momentum.context_shift.delta > 0 ? "+" : ""}{momentum.context_shift.delta}%)
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Phase Stability */}
-        <Card className="border-slate-700 bg-slate-900/50">
-          <CardContent className="p-6">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-              Phase Stability
-            </p>
-            
-            {momentum.phase.changed ? (
-              <p className="text-sm text-slate-300">
-                Primary instability shifted from <span className="text-white">{momentum.phase.previous}</span> to <span className="text-white">{momentum.phase.recent}</span>.
-              </p>
-            ) : (
-              <p className="text-sm text-slate-300">
-                <span className="text-white">{momentum.phase.recent}</span> remains your most unstable phase.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ============================================ */}
-        {/* DIVIDER */}
+        {/* A) MICRO: Now vs Then (5 vs 5) */}
         {/* ============================================ */}
         
-        {growth_arc && (
-          <>
-            <div className="border-t border-slate-700 my-8" />
+        <div className="space-y-4">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            Now vs Then
+          </p>
 
-            {/* ============================================ */}
-            {/* LONG-TERM GROWTH ARC */}
-            {/* ============================================ */}
+          {/* Headline */}
+          <Card className="border-slate-700 bg-slate-900/50">
+            <CardContent className="p-6">
+              <p className="text-base text-white leading-relaxed">
+                {micro.headline}
+              </p>
+            </CardContent>
+          </Card>
 
+          {/* 3 Comparative Rows */}
+          <Card className="border-slate-700 bg-slate-900/50">
+            <CardContent className="p-6 space-y-4">
+              {/* Row 1: Decision Stability */}
+              <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
+                <span className="text-sm text-muted-foreground">{micro.rows[0].label}</span>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-400">{micro.rows[0].previous}</span>
+                  <ArrowRight className="w-3 h-3 text-slate-600" />
+                  <span className={micro.rows[0].changed ? "text-white font-medium" : "text-slate-300"}>
+                    {micro.rows[0].recent}
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 2: Advantage Discipline */}
+              <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
+                <span className="text-sm text-muted-foreground">{micro.rows[1].label}</span>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-400">{micro.rows[1].previous}</span>
+                  <ArrowRight className="w-3 h-3 text-slate-600" />
+                  <span className={micro.rows[1].changed ? "text-white font-medium" : "text-slate-300"}>
+                    {micro.rows[1].recent}
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 3: Primary Driver */}
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm text-muted-foreground">{micro.rows[2].label}</span>
+                <div className="text-sm text-right">
+                  <span className="text-white">{micro.rows[2].value}</span>
+                  <span className="text-slate-500 ml-1 text-xs">{micro.rows[2].note}</span>
+                </div>
+              </div>
+
+              {/* Optional metrics */}
+              {showMetrics && (
+                <div className="pt-3 border-t border-slate-700/50 text-xs text-slate-500">
+                  TSI: {micro.metrics.tsi_previous} → {micro.metrics.tsi_recent} (Δ{micro.metrics.tsi_delta >= 0 ? "+" : ""}{micro.metrics.tsi_delta}) | 
+                  Blunders when ahead: {micro.metrics.context_previous}% → {micro.metrics.context_recent}%
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* What Changed (only if meaningful) */}
+          {micro.what_changed && micro.what_changed.length > 0 && (
+            <Card className="border-slate-700 bg-slate-900/50">
+              <CardContent className="p-6">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+                  What Changed
+                </p>
+                <ul className="space-y-1">
+                  {micro.what_changed.map((change, idx) => (
+                    <li key={idx} className="text-sm text-slate-300">• {change}</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* ============================================ */}
+        {/* B) MACRO: Becoming vs Started (15 vs 15) */}
+        {/* ============================================ */}
+        
+        {macro && (
+          <div className="space-y-4 pt-6 border-t border-slate-700">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Growth Arc
+              Becoming vs Started
             </p>
 
-            {/* Stability Growth */}
             <Card className="border-slate-700 bg-slate-900/50">
-              <CardContent className="p-6">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-                  Long-Term Stability
-                </p>
-                <p className="text-sm text-slate-300">
-                  {growth_arc.stability_growth.text}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Driver Evolution */}
-            {growth_arc.driver_evolution && (
-              <Card className="border-slate-700 bg-slate-900/50">
-                <CardContent className="p-6">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-                    Primary Weakness Evolution
-                  </p>
-                  <p className="text-sm text-slate-300">
-                    {growth_arc.driver_evolution.text}
-                  </p>
-                  
-                  {showMetrics && (
-                    <div className="mt-3 pt-3 border-t border-slate-700/50 text-xs text-slate-500">
-                      {getPatternName(growth_arc.driver_evolution.driver)}: {growth_arc.driver_evolution.early_band} → {growth_arc.driver_evolution.recent_band}
+              <CardContent className="p-6 space-y-4">
+                {/* Row 1: Long-term Stability */}
+                <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
+                  <span className="text-sm text-muted-foreground">{macro.rows[0].label}</span>
+                  <div className="text-sm text-right">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400">{macro.rows[0].first}</span>
+                      <ArrowRight className="w-3 h-3 text-slate-600" />
+                      <span className="text-white">{macro.rows[0].recent}</span>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                    <p className="text-xs text-slate-500 mt-1">{macro.rows[0].clause}</p>
+                  </div>
+                </div>
 
-            {/* Peer Comparison */}
-            <Card className="border-slate-700 bg-slate-900/50">
-              <CardContent className="p-6">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-                  Peer Comparison
-                </p>
-                <p className="text-sm text-slate-300">
-                  {growth_arc.peer_comparison.text}
-                </p>
-              </CardContent>
-            </Card>
+                {/* Row 2: Weakness Evolution */}
+                <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
+                  <span className="text-sm text-muted-foreground">{macro.rows[1].label}</span>
+                  <div className="text-sm text-right">
+                    {macro.rows[1].driver ? (
+                      <>
+                        <span className="text-white">{macro.rows[1].driver}</span>
+                        {macro.rows[1].changed && (
+                          <span className="text-slate-400 ml-2">
+                            {macro.rows[1].first_band} → {macro.rows[1].recent_band}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-slate-400">{macro.rows[1].text}</span>
+                    )}
+                  </div>
+                </div>
 
-            {/* Phase Evolution */}
-            <Card className="border-slate-700 bg-slate-900/50">
-              <CardContent className="p-6">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-                  Phase Evolution
-                </p>
-                
-                {growth_arc.phase_evolution.changed ? (
-                  <p className="text-sm text-slate-300">
-                    Primary instability has shifted from <span className="text-white">{growth_arc.phase_evolution.early}</span> to <span className="text-white">{growth_arc.phase_evolution.recent}</span> over time.
-                  </p>
-                ) : (
-                  <p className="text-sm text-slate-300">
-                    <span className="text-white">{growth_arc.phase_evolution.recent}</span> has remained your primary instability phase.
-                  </p>
+                {/* Row 3: Phase Evolution */}
+                <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
+                  <span className="text-sm text-muted-foreground">{macro.rows[2].label}</span>
+                  <div className="flex items-center gap-2 text-sm">
+                    {macro.rows[2].changed ? (
+                      <>
+                        <span className="text-slate-400">{macro.rows[2].first}</span>
+                        <ArrowRight className="w-3 h-3 text-slate-600" />
+                        <span className="text-white">{macro.rows[2].recent}</span>
+                      </>
+                    ) : (
+                      <span className="text-slate-300">{macro.rows[2].recent} (unchanged)</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Row 4: Peer Context */}
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-muted-foreground">{macro.rows[3].label}</span>
+                  <span className={`text-sm ${
+                    macro.rows[3].status === "above" ? "text-green-400" :
+                    macro.rows[3].status === "below" ? "text-amber-400" :
+                    "text-slate-300"
+                  }`}>
+                    {macro.rows[3].text}
+                  </span>
+                </div>
+
+                {/* Optional metrics */}
+                {showMetrics && (
+                  <div className="pt-3 border-t border-slate-700/50 text-xs text-slate-500">
+                    TSI: {macro.metrics.tsi_first} (start) → {macro.metrics.tsi_recent} (now) | 
+                    Cohort: {macro.metrics.cohort_label}
+                  </div>
                 )}
               </CardContent>
             </Card>
-          </>
+          </div>
+        )}
+
+        {/* ============================================ */}
+        {/* C) EVIDENCE */}
+        {/* ============================================ */}
+        
+        {evidence && evidence.length > 0 && (
+          <div className="space-y-4 pt-6 border-t border-slate-700">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              Evidence
+            </p>
+
+            <Card className="border-slate-700 bg-slate-900/50">
+              <CardContent className="p-6 space-y-3">
+                {evidence.map((item, idx) => (
+                  <div 
+                    key={idx}
+                    className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors cursor-pointer"
+                    data-testid={`evidence-${idx}`}
+                  >
+                    <div>
+                      <p className="text-sm text-white">{item.label}</p>
+                      <p className="text-xs text-slate-500">{item.description}</p>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-slate-500" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </Layout>
