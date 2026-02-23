@@ -166,6 +166,11 @@ function AppRouter() {
           {({ user }) => <Lab user={user} />}
         </ProtectedRoute>
       } />
+      <Route path="/lab/game/:gameId" element={
+        <ProtectedRoute>
+          {({ user }) => <Lab user={user} />}
+        </ProtectedRoute>
+      } />
       <Route path="/weaknesses" element={
         <ProtectedRoute>
           {({ user }) => <WeaknessTracker user={user} />}
