@@ -1,240 +1,62 @@
 /**
- * JOURNEY PAGE - Cognitive Evolution Dashboard
+ * JOURNEY PAGE - Rolling 5 vs 5 Cognitive Evolution
  * 
- * Purpose: Answer one question - Is my decision-making becoming more stable over time?
+ * Purpose: Show delta between recent 5 games and previous 5 games.
  * 
- * NOT an analytics dump. NOT a drill recommender.
- * A reflection page showing stability evolution.
+ * Activation: Requires ≥10 analyzed games.
  * 
  * Sections:
- * 1. Cognitive Stability Overview (TSI + Gap Analysis)
- * 2. Blunder Context Distribution
- * 3. Top Instability Drivers (Last 20 Games)
- * 4. Cognitive Trend Timeline (30-game graph)
- * 5. Phase Stability Insight
+ * 1. Stability Momentum (TSI comparison)
+ * 2. Cognitive Pattern Shifts (impact band changes)
+ * 3. Instability Context Shift (blunder distribution)
+ * 4. Phase Stability Shift
+ * 
+ * Tone: Clinical, reflective. No motivational copy.
  */
 
 import { useState, useEffect } from "react";
 import { API } from "@/App";
 import { Card, CardContent } from "@/components/ui/card";
 import Layout from "@/components/Layout";
-import { 
-  Loader2, 
-  TrendingUp,
-  TrendingDown,
-  Minus
-} from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
-// Professional line chart - single dark blue line, subtle grid, context bands, current marker
-const TrendChart = ({ data, height = 160 }) => {
-  if (!data || data.length === 0) return null;
-  
-  // Fixed 0-100 Y-axis scale for TSI
-  const padding = { top: 10, right: 10, bottom: 20, left: 30 };
-  const chartWidth = 100;
-  const chartHeight = 100;
-  
-  const points = data.map((d, i) => {
-    const x = padding.left + (i / (data.length - 1)) * (chartWidth - padding.left - padding.right);
-    const y = padding.top + (1 - d.value / 100) * (chartHeight - padding.top - padding.bottom);
-    return `${x},${y}`;
-  }).join(' ');
-  
-  // Calculate Y positions for bands (inverted because SVG y increases downward)
-  const getY = (tsi) => padding.top + (1 - tsi / 100) * (chartHeight - padding.top - padding.bottom);
-  
-  // #4: Current TSI marker - last data point
-  const lastPoint = data[data.length - 1];
-  const currentX = padding.left + ((data.length - 1) / (data.length - 1)) * (chartWidth - padding.left - padding.right);
-  const currentY = padding.top + (1 - lastPoint.value / 100) * (chartHeight - padding.top - padding.bottom);
-  
-  return (
-    <div className="w-full" style={{ height }}>
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-        {/* #6: Context bands - subtle shading */}
-        {/* 85-100: Strong Decision Discipline - very light green */}
-        <rect x={padding.left} y={getY(100)} width={60} height={getY(85) - getY(100)} fill="#22c55e" fillOpacity="0.06" />
-        {/* 70-84: Moderate Instability - no shading (neutral) */}
-        {/* 55-69: Frequent Cognitive Lapses - very light amber */}
-        <rect x={padding.left} y={getY(69)} width={60} height={getY(55) - getY(69)} fill="#f59e0b" fillOpacity="0.06" />
-        {/* <55: High Volatility - very light red */}
-        <rect x={padding.left} y={getY(55)} width={60} height={getY(0) - getY(55)} fill="#ef4444" fillOpacity="0.06" />
-        
-        {/* Y-axis labels */}
-        <text x="2" y="15" className="fill-slate-500 text-[3px]">100</text>
-        <text x="2" y="38" className="fill-slate-500 text-[3px]">75</text>
-        <text x="2" y="60" className="fill-slate-500 text-[3px]">50</text>
-        <text x="2" y="83" className="fill-slate-500 text-[3px]">25</text>
-        
-        {/* Horizontal grid lines - subtle gray */}
-        <line x1={padding.left} y1="15" x2="90" y2="15" stroke="#334155" strokeWidth="0.3" />
-        <line x1={padding.left} y1="37.5" x2="90" y2="37.5" stroke="#334155" strokeWidth="0.3" />
-        <line x1={padding.left} y1="60" x2="90" y2="60" stroke="#334155" strokeWidth="0.3" />
-        <line x1={padding.left} y1="82.5" x2="90" y2="82.5" stroke="#334155" strokeWidth="0.3" />
-        
-        {/* Single dark blue trend line - #1e3a8a */}
-        <polyline
-          fill="none"
-          stroke="#1e3a8a"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points}
-        />
-        
-        {/* #4: Current TSI marker dot at latest value */}
-        <circle cx={currentX} cy={currentY} r="2" fill="#1e3a8a" stroke="#fff" strokeWidth="0.5" />
-      </svg>
-    </div>
-  );
+// Pattern name mapping for cognitive framing
+const PATTERN_NAMES = {
+  "random_move_critical": "Critical Moment Drift",
+  "missed_forcing_move": "Missed Forcing Move",
+  "ignored_opponent_forcing": "Ignored Opponent Forcing",
+  "phantom_threat_reaction": "Phantom Threat Reaction",
+  "advantage_mismanagement": "Advantage Mismanagement",
+  "structural_misjudgment": "Structural Misjudgment",
+  "time_pressure_collapse": "Time Pressure Collapse"
 };
+
+const getPatternName = (key) => PATTERN_NAMES[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
 const Journey = ({ user }) => {
   const [loading, setLoading] = useState(true);
-  const [cognitiveData, setCognitiveData] = useState(null);
-  const [trendData, setTrendData] = useState([]);
-  const [blunderContext, setBlunderContext] = useState(null);
-  const [phaseInsight, setPhaseInsight] = useState(null);
+  const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchCognitiveData();
+    fetchJourneyData();
   }, []);
 
-  const fetchCognitiveData = async () => {
+  const fetchJourneyData = async () => {
     try {
-      // Fetch all data in parallel
-      const [patternsRes, trendRes, blunderRes, phaseRes] = await Promise.all([
-        fetch(`${API}/cognitive/patterns`, { credentials: "include" }),
-        fetch(`${API}/cognitive/trend`, { credentials: "include" }).catch(() => null),
-        fetch(`${API}/cognitive/blunder-context`, { credentials: "include" }).catch(() => null),
-        fetch(`${API}/cognitive/phase-insight`, { credentials: "include" }).catch(() => null)
-      ]);
-      
-      if (patternsRes.ok) {
-        const patterns = await patternsRes.json();
-        setCognitiveData(patterns);
-      }
-      
-      if (trendRes && trendRes.ok) {
-        const trend = await trendRes.json();
-        setTrendData(trend.data || []);
-      }
-      
-      if (blunderRes && blunderRes.ok) {
-        const blunder = await blunderRes.json();
-        setBlunderContext(blunder);
-      }
-      
-      if (phaseRes && phaseRes.ok) {
-        const phase = await phaseRes.json();
-        setPhaseInsight(phase);
+      const response = await fetch(`${API}/cognitive/journey`, { credentials: "include" });
+      if (response.ok) {
+        const result = await response.json();
+        setData(result);
+      } else {
+        setError("Failed to load journey data");
       }
     } catch (e) {
-      console.error("Failed to fetch cognitive data:", e);
-      setError("Failed to load cognitive data");
+      console.error("Failed to fetch journey data:", e);
+      setError("Failed to load journey data");
     } finally {
       setLoading(false);
     }
-  };
-
-  // #1: TSI Interpretation - Use exact band language
-  const getTSIInterpretation = (tsi) => {
-    if (tsi >= 85) return { label: "Strong Decision Discipline", color: "text-green-400" };
-    if (tsi >= 70) return { label: "Moderate Instability", color: "text-yellow-400" };
-    if (tsi >= 55) return { label: "Frequent Cognitive Lapses", color: "text-orange-400" };
-    return { label: "High Volatility", color: "text-red-400" };
-  };
-
-  // TSI trend icon - only for improving/worsening
-  const getTrendIcon = (trend) => {
-    if (trend === "improving") return <TrendingUp className="w-5 h-5 text-green-400" />;
-    if (trend === "worsening") return <TrendingDown className="w-5 h-5 text-red-400" />;
-    return null; // No icon for stable
-  };
-
-  // #5: Pattern label mapping - cognitive framing
-  const getPatternDisplayName = (key) => {
-    const labelMap = {
-      "random_move_critical": "Critical Moment Drift",
-      "missed_forcing_move": "Missed Forcing Move",
-      "ignored_opponent_forcing": "Ignored Opponent Forcing",
-      "phantom_threat_reaction": "Phantom Threat Reaction",
-      "advantage_mismanagement": "Advantage Mismanagement",
-      "structural_misjudgment": "Structural Misjudgment",
-      "time_pressure_collapse": "Time Pressure Collapse"
-    };
-    return labelMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
-  // #3: Calculate severity change indicator (↑/↓ if > 10% change)
-  const getSeverityChange = (data) => {
-    const recentFreq = data.recent_frequency || 0;
-    const prevFreq = data.previous_frequency || 0;
-    
-    // Only show indicator if there's meaningful baseline
-    if (prevFreq < 2) return null;
-    
-    const changePercent = ((recentFreq - prevFreq) / prevFreq) * 100;
-    
-    if (changePercent > 10) return "↑";  // Worsening (more mistakes recently)
-    if (changePercent < -10) return "↓"; // Improving (fewer mistakes recently)
-    return null;
-  };
-
-  const getTopPatterns = (patterns) => {
-    if (!patterns) return [];
-    return Object.entries(patterns)
-      .map(([key, data]) => ({
-        key,
-        name: getPatternDisplayName(key),
-        severity: data.weighted_score || data.frequency * (data.avg_severity || 0.5),
-        trend: data.trend || "stable",
-        frequency: data.frequency,
-        severityChange: getSeverityChange(data)
-      }))
-      .sort((a, b) => b.severity - a.severity)
-      .slice(0, 3);
-  };
-
-  const getPrimaryDriver = (patterns) => {
-    const top = getTopPatterns(patterns);
-    if (top.length === 0) return null;
-    return top[0];
-  };
-
-  // Get position distribution from fetched blunder context data
-  const getPositionDistribution = () => {
-    if (blunderContext && blunderContext.distribution) {
-      return blunderContext.distribution;
-    }
-    return { winning: 33, equal: 34, losing: 33 };
-  };
-
-  // #3: Blunder context interpretation - fixed conditional logic
-  const getBlunderInterpretation = (dist) => {
-    const { winning, equal, losing } = dist;
-    // Winning dominates: >= equal+15 AND >= losing+15
-    if (winning >= equal + 15 && winning >= losing + 15) {
-      return "Instability increases when ahead.";
-    }
-    // Losing dominates: >= winning+15
-    if (losing >= winning + 15) {
-      return "Instability increases under pressure.";
-    }
-    // No clear pattern
-    return "Blunders distributed across position types.";
-  };
-
-  // Get phase insight from fetched data
-  const getPhaseData = () => {
-    if (phaseInsight) {
-      return {
-        mostUnstable: phaseInsight.most_unstable || "Middlegame",
-        mostStable: phaseInsight.most_stable || "Endgame"
-      };
-    }
-    return { mostUnstable: "Middlegame", mostStable: "Endgame" };
   };
 
   if (loading) {
@@ -247,46 +69,65 @@ const Journey = ({ user }) => {
     );
   }
 
-  const tsi = cognitiveData?.thinking_stability_index || 0;
-  const tsiTrend = cognitiveData?.tsi_trend || "stable";
-  const tsiInterpretation = getTSIInterpretation(tsi);
-  const primaryDriver = getPrimaryDriver(cognitiveData?.patterns);
-  const topPatterns = getTopPatterns(cognitiveData?.patterns);
-  const positionDist = getPositionDistribution();
-  const phaseData = getPhaseData();
-  
-  // Calculate stability metrics
-  const stableStrength = Math.max(0, tsi - 15);
-  const peakPerformance = Math.min(100, tsi + 20);
-  const stabilityGap = peakPerformance - stableStrength;
+  if (error) {
+    return (
+      <Layout user={user}>
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <p className="text-red-400">{error}</p>
+        </div>
+      </Layout>
+    );
+  }
 
-  // Gap behavioral interpretation
-  const getGapInterpretation = (gap) => {
-    if (gap >= 40) return "Large gap between your floor and ceiling. High variance in decision quality.";
-    if (gap >= 25) return "Moderate gap. Your consistency has room to improve.";
-    return "Narrow gap. Your decisions are relatively consistent.";
+  // Not activated yet
+  if (!data.activated) {
+    return (
+      <Layout user={user}>
+        <div className="max-w-4xl mx-auto px-4 py-8 space-y-8" data-testid="journey-page">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+              Cognitive Evolution
+            </p>
+            <h1 className="text-2xl font-semibold text-white">Journey</h1>
+          </div>
+
+          <Card className="border-slate-700 bg-slate-900/50">
+            <CardContent className="p-8 text-center">
+              <p className="text-lg text-white mb-2">
+                Journey will activate after {data.games_required} analyzed games.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                We need at least 10 games to detect meaningful cognitive shifts.
+              </p>
+              <p className="text-sm text-slate-500 mt-4">
+                Games analyzed: {data.games_analyzed} / {data.games_required}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  const { stability_momentum, pattern_shifts, context_shift, phase_shift } = data;
+
+  // Delta color
+  const getDeltaColor = (delta) => {
+    if (delta >= 5) return "text-green-400";
+    if (delta <= -5) return "text-red-400";
+    return "text-slate-400";
   };
 
-  // Severity to impact band mapping
-  const getImpactBand = (severity) => {
-    if (severity >= 20) return { label: "High Impact", color: "text-red-400" };
-    if (severity >= 10) return { label: "Moderate Impact", color: "text-amber-400" };
-    return { label: "Low Impact", color: "text-slate-400" };
-  };
-
-  // Enhanced TSI descriptive line
-  const getTSIDescription = (tsi, trend) => {
-    const trendText = trend === "improving" ? "trending upward" : 
-                      trend === "worsening" ? "trending downward" : "holding steady";
-    if (tsi >= 85) return `Your decision-making is stable and ${trendText}.`;
-    if (tsi >= 70) return `Some inconsistency in critical moments, ${trendText}.`;
-    if (tsi >= 55) return `Decision quality fluctuates under pressure, ${trendText}.`;
-    return `High variability in thinking process, ${trendText}.`;
+  // Status color
+  const getStatusColor = (status) => {
+    if (status === "Improving") return "text-green-400";
+    if (status === "Worsening") return "text-red-400";
+    return "text-slate-400";
   };
 
   return (
     <Layout user={user}>
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8" data-testid="journey-page">
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6" data-testid="journey-page">
         {/* Page Header */}
         <div>
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
@@ -295,166 +136,132 @@ const Journey = ({ user }) => {
           <h1 className="text-2xl font-semibold text-white">Journey</h1>
         </div>
 
-        {/* SECTION 1: Cognitive Stability Overview - Simplified */}
+        {/* SECTION 1: Stability Momentum */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
-            {/* TSI Display */}
-            <div className="mb-4">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                Thinking Stability Index
-              </p>
-              <div className="flex items-center gap-3">
-                <span className={`text-5xl font-bold ${tsiInterpretation.color}`} data-testid="tsi-main">
-                  {tsi}
-                </span>
-                {getTrendIcon(tsiTrend)}
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
+              Decision Stability Momentum
+            </p>
+            
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-1">Recent 5 Games</p>
+                <p className="text-3xl font-bold text-white">{stability_momentum.recent_tsi}</p>
               </div>
-              <p className={`text-sm mt-1 ${tsiInterpretation.color}`}>
-                {tsiInterpretation.label}
-              </p>
-            </div>
-
-            {/* Enhanced TSI description */}
-            <p className="text-sm text-slate-400">
-              {getTSIDescription(tsi, tsiTrend)}
-            </p>
-
-            {/* Gap behavioral interpretation (replaces numeric gap) */}
-            <p className="text-xs text-slate-500 mt-3">
-              {getGapInterpretation(stabilityGap)}
-            </p>
-
-            {/* Gap Driver - clinical, no narrative */}
-            {primaryDriver && (
-              <div className="mt-4 pt-4 border-t border-slate-700">
-                <p className="text-sm text-white">
-                  <span className="text-muted-foreground">Primary Instability Driver: </span>
-                  <span className="font-medium">{primaryDriver.name}</span>
+              
+              <div className="text-center px-6">
+                <p className="text-xs text-muted-foreground mb-1">Change</p>
+                <p className={`text-2xl font-bold ${getDeltaColor(stability_momentum.delta)}`}>
+                  {stability_momentum.delta >= 0 ? "+" : ""}{stability_momentum.delta}
                 </p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* SECTION 2: Blunder Context Distribution - #2: Horizontal layout */}
-        <Card className="border-slate-700 bg-slate-900/50">
-          <CardContent className="p-6">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Blunder Context Distribution
-            </p>
-            
-            {/* Horizontal layout: Winning 54% | Equal 33% | Losing 13% */}
-            <div className="flex items-center justify-center gap-6 py-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Winning</span>
-                <span className="text-xl font-bold text-green-400">{positionDist.winning}%</span>
-              </div>
-              <span className="text-slate-600">|</span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Equal</span>
-                <span className="text-xl font-bold text-slate-300">{positionDist.equal}%</span>
-              </div>
-              <span className="text-slate-600">|</span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Losing</span>
-                <span className="text-xl font-bold text-red-400">{positionDist.losing}%</span>
+              
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-1">Previous 5 Games</p>
+                <p className="text-3xl font-bold text-slate-400">{stability_momentum.previous_tsi}</p>
               </div>
             </div>
 
-            <p className="text-sm text-muted-foreground mt-3 text-center">
-              {getBlunderInterpretation(positionDist)}
+            <p className="text-sm text-slate-400 text-center">
+              {stability_momentum.interpretation}
             </p>
           </CardContent>
         </Card>
 
-        {/* SECTION 3: Top Instability Drivers - Impact bands instead of numbers */}
+        {/* SECTION 2: Cognitive Pattern Shifts */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Top Instability Drivers
+              Cognitive Pattern Shifts
             </p>
             
-            {topPatterns.length > 0 ? (
-              <div className="space-y-3">
-                {topPatterns.map((pattern, idx) => {
-                  const impact = getImpactBand(pattern.severity);
-                  return (
-                    <div 
-                      key={pattern.key}
-                      className="flex items-center justify-between p-3 rounded-lg bg-slate-800/30"
-                      data-testid={`pattern-${idx}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-muted-foreground w-4">
-                          {idx + 1}.
-                        </span>
-                        <span className="text-sm text-white">{pattern.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm ${impact.color}`}>
-                          {impact.label}
-                          {pattern.severityChange === "↑" && (
-                            <span className="text-red-400 ml-1">↑</span>
-                          )}
-                          {pattern.severityChange === "↓" && (
-                            <span className="text-green-400 ml-1">↓</span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Not enough data to identify patterns yet.
+            {data.no_pattern_shifts ? (
+              <p className="text-sm text-slate-400">
+                Your cognitive patterns remain stable across recent games.
               </p>
+            ) : (
+              <div className="space-y-4">
+                {pattern_shifts.map((shift, idx) => (
+                  <div 
+                    key={shift.category}
+                    className="p-3 rounded-lg bg-slate-800/30"
+                    data-testid={`pattern-shift-${idx}`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-white">
+                        {getPatternName(shift.category)}
+                      </span>
+                      <span className={`text-sm ${getStatusColor(shift.status)}`}>
+                        {shift.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>Previous: {shift.previous_band}</span>
+                      <span className="text-slate-600">→</span>
+                      <span>Recent: {shift.recent_band}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* SECTION 4: Cognitive Trend Timeline */}
+        {/* SECTION 3: Instability Context Shift */}
         <Card className="border-slate-700 bg-slate-900/50">
           <CardContent className="p-6">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Cognitive Trend (Last 30 Games)
+              Blunder Context Shift
             </p>
             
-            {trendData.length > 0 ? (
-              <div className="relative">
-                <TrendChart data={trendData} height={160} />
-                <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                  <span>30 games ago</span>
-                  <span>Recent</span>
+            {data.context_unchanged ? (
+              <p className="text-sm text-slate-400">
+                Blunder distribution unchanged across position types.
+              </p>
+            ) : (
+              <div className="p-3 rounded-lg bg-slate-800/30">
+                <p className="text-sm text-white mb-3">Blunders in Winning Positions</p>
+                <div className="flex items-center justify-between">
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Previous 5</p>
+                    <p className="text-2xl font-bold text-slate-400">{context_shift.previous}%</p>
+                  </div>
+                  <div className="text-center px-6">
+                    <span className={`text-sm ${getStatusColor(context_shift.status)}`}>
+                      {context_shift.status}
+                    </span>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Recent 5</p>
+                    <p className="text-2xl font-bold text-white">{context_shift.recent}%</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* SECTION 4: Phase Stability Shift */}
+        <Card className="border-slate-700 bg-slate-900/50">
+          <CardContent className="p-6">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
+              Phase Stability Shift
+            </p>
+            
+            {phase_shift.changed ? (
+              <div className="p-3 rounded-lg bg-slate-800/30">
+                <p className="text-sm text-white mb-3">Primary Instability Phase</p>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-muted-foreground">Previous: <span className="text-slate-300">{phase_shift.previous}</span></span>
+                  <span className="text-slate-600">→</span>
+                  <span className="text-muted-foreground">Recent: <span className="text-white">{phase_shift.recent}</span></span>
                 </div>
               </div>
             ) : (
-              <div className="h-[160px] flex items-center justify-center bg-slate-800/30 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  Trend data available after more games
-                </p>
-              </div>
+              <p className="text-sm text-slate-400">
+                Primary instability phase remains: {phase_shift.recent}.
+              </p>
             )}
-          </CardContent>
-        </Card>
-
-        {/* SECTION 5: Phase Stability Insight - #7: Direct labels, no narrative */}
-        <Card className="border-slate-700 bg-slate-900/50">
-          <CardContent className="p-6">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
-              Phase Stability Insight
-            </p>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-                <p className="text-xs text-muted-foreground mb-1">Primary Instability Phase</p>
-                <p className="text-lg font-medium text-white">{phaseData.mostUnstable}</p>
-              </div>
-              <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                <p className="text-xs text-muted-foreground mb-1">Most Stable Phase</p>
-                <p className="text-lg font-medium text-white">{phaseData.mostStable}</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
