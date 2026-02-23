@@ -132,17 +132,19 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
     """
     Get personalized puzzles from user's own mistakes.
     
-    These are positions where:
-    1. User made a mistake (cp_loss >= 100)
-    2. There's a clear better move
-    3. We can explain WHY it's better
+    PUZZLE CRITERIA (updated per coaching philosophy):
+    1. cp_loss >= 150 OR involves a forcing tactic
+    2. NOT just an "engine preference"
+    3. Must have a clear teaching point
+    
+    Moves with 50-149 cp_loss are coaching moments, not puzzles.
     """
     from chess_verification_layer import get_critical_facts
+    from coaching_classifier_service import classify_move_for_coaching, should_create_puzzle
     
     logger.info(f"Getting puzzles for user: {user_id}")
     
     # Query games that have been analyzed (have stockfish data)
-    # First, get games from the game_analyses collection directly
     analyses = await db.game_analyses.find({"user_id": user_id}).sort("created_at", -1).limit(20).to_list(20)
     
     logger.info(f"Found {len(analyses)} analyses for user")
@@ -167,8 +169,8 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
         for move_data in moves:
             cp_loss = move_data.get("cp_loss", 0)
             
-            # Only include significant mistakes
-            if cp_loss < 100:
+            # Skip small losses - these are at most coaching moments, not puzzles
+            if cp_loss < 50:
                 continue
             
             fen = move_data.get("fen_before")
@@ -179,7 +181,20 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
             if not all([fen, user_move, best_move]):
                 continue
             
-            # Get verified analysis
+            # Use the new coaching classifier to determine if this should be a puzzle
+            classification = classify_move_for_coaching(
+                fen_before=fen,
+                move_played=user_move,
+                best_move=best_move,
+                cp_loss=cp_loss,
+                user_color=user_color
+            )
+            
+            # Only create puzzles for moves that pass the coaching filter
+            if not should_create_puzzle(classification):
+                continue
+            
+            # Get verified analysis for the puzzle content
             try:
                 critical_facts = get_critical_facts(fen, user_move, best_move, cp_loss)
                 
@@ -198,6 +213,8 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
                     "opponent": game.get("opponent_name") or game.get("black_player") or "Unknown",
                     "user_color": user_color,
                     "issue_type": issue_type,
+                    "category": classification.get('category', 'tactical_mistake'),
+                    "coaching_priority": classification.get('priority', 99),
                     "principle": principle,
                     "critical_detail": critical_facts.get("primary_detail", ""),
                     "thinking_habit": critical_facts.get("thinking_habit", ""),
