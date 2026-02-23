@@ -395,11 +395,18 @@ def _calculate_trend(recent: int, previous: int) -> str:
     If weighted severity decreases by > 20%, mark improving.
     If increases > 20%, mark worsening.
     Else stable.
+    
+    GUARD: Minimum baseline floor to prevent noise from small numbers.
     """
-    if previous == 0:
-        if recent == 0:
-            return "stable"
-        return "worsening"  # New pattern appearing
+    # Minimum floor - prevents meaningless trends like 0.02 → 0.04 = "100% worsening"
+    MIN_BASELINE_FLOOR = 2
+    
+    if previous < MIN_BASELINE_FLOOR:
+        if recent < MIN_BASELINE_FLOOR:
+            return "stable"  # Both below threshold - no meaningful pattern
+        elif recent >= MIN_BASELINE_FLOOR + 2:
+            return "worsening"  # New significant pattern appearing
+        return "stable"  # Not enough signal
     
     change_pct = (recent - previous) / previous * 100
     
@@ -408,6 +415,22 @@ def _calculate_trend(recent: int, previous: int) -> str:
     elif change_pct > 20:
         return "worsening"
     return "stable"
+
+
+# ============================================================
+# WEIGHTED ROLLING WINDOW TSI - Dampens single-game spikes
+# ============================================================
+# Weight distribution for 20 games:
+#   Games 1-5 (most recent): weight 3
+#   Games 6-10: weight 2
+#   Games 11-20: weight 1
+# This responds to recent changes but dampens isolated bad games.
+
+GAME_WEIGHTS = {
+    "recent": 3.0,      # Games 1-5
+    "middle": 2.0,      # Games 6-10
+    "older": 1.0        # Games 11-20
+}
 
 
 def _calculate_tsi(
