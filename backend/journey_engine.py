@@ -470,12 +470,13 @@ def compute_micro(recent_5: List[Dict], previous_5: List[Dict],
                 "changed": previous_risk_band != recent_risk_band
             },
             {
-                "label": "Primary Driver",
-                "value": recent_driver.replace("_", " ").title() if recent_driver else "Distributed",
-                "note": f"({round(recent_share * 100)}% of instability)" if recent_driver else "(no single dominant cause)"
+                "label": "Main reason",
+                "value": get_pattern_label(recent_driver) if recent_driver else "No single cause",
+                "note": "(most of your slips come from this)" if recent_driver else "(mistakes are spread across different areas)"
             }
         ],
         "what_changed": what_changed,
+        "directive": directive,
         "metrics": {
             "tsi_previous": round(previous_tsi_avg),
             "tsi_recent": round(recent_tsi_avg),
@@ -492,7 +493,7 @@ def compute_macro(recent_15: List[Dict], first_15: List[Dict],
     """
     Compute MACRO: Becoming vs Started (15 vs 15)
     
-    Returns exactly 4 rows
+    Plain Indian-English, with directive.
     """
     # Calculate metrics
     recent_tsi = [calculate_game_tsi(g) for g in recent_15]
@@ -507,17 +508,17 @@ def compute_macro(recent_15: List[Dict], first_15: List[Dict],
     recent_phase = calculate_phase_instability(recent_15)
     first_phase = calculate_phase_instability(first_15)
     
-    # Row 1: Long-term Stability
+    # Row 1: Long-term Stability - plain language
     recent_band = get_stability_band(recent_tsi_avg)
     first_band = get_stability_band(first_tsi_avg)
     stability_delta = recent_tsi_avg - first_tsi_avg
     
     if stability_delta >= 8:
-        stability_clause = "Sustained improvement"
+        stability_clause = "Overall you're improving, but still work to do."
     elif stability_delta <= -8:
-        stability_clause = "Long-term decline"
+        stability_clause = "Your stability has dropped compared to earlier."
     else:
-        stability_clause = "No significant long-term shift"
+        stability_clause = "No big change over time yet."
     
     # Row 2: Weakness Evolution
     first_driver, first_share = get_primary_driver(first_patterns)
