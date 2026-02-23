@@ -8230,30 +8230,21 @@ async def get_all_user_thoughts(user: User = Depends(get_current_user)):
 @api_router.get("/cognitive/journey")
 async def get_cognitive_journey(user: User = Depends(get_current_user)):
     """
-    Journey Page - Before/After Report
+    Journey Page - 3-Tab Cognitive Progress Tracker
     
-    A) MICRO: Now vs Then (Recent 5 vs Previous 5)
-    B) MACRO: Becoming vs Started (Recent 15 vs First 15)
-    C) EVIDENCE: 2 clickable game links
+    Tab A (Now): Snapshot - shows Top 1 issue
+    Tab B (Journey): Overall - Then vs Now comparison
+    Tab C (Trend): Momentum - Top 3 issues + evidence
     
-    Core Rules:
-    - No "no change" spam
-    - Always exactly 3 rows (micro), 4 rows (macro)
-    - Impact scoring for headline
-    - Banding instead of raw numbers
+    REUSES: Existing pattern detection from baseline_service.py
     """
-    from cognitive_patterns_service import (
-        classify_move_to_cognitive,
-        get_severity_weight
-    )
     from journey_engine import compute_journey
     
-    # Get user rating
+    # Get user's onboarding date
     user_doc = await db.users.find_one(
         {"user_id": user.user_id}, 
-        {"_id": 0, "assessed_rating": 1, "onboarding_completed_at": 1}
+        {"_id": 0, "onboarding_completed_at": 1}
     )
-    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
     onboarding_date = user_doc.get("onboarding_completed_at") if user_doc else None
     
     # Get analyzed games
@@ -8261,16 +8252,21 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
     if onboarding_date:
         query["created_at"] = {"$gte": onboarding_date}
     
-    all_games = await db.game_analyses.find(
+    all_analyses = await db.game_analyses.find(
         query,
-        {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1, "game_id": 1, "user_result": 1}
+        {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1, "game_id": 1, "user_result": 1, "blunders": 1, "mistakes": 1}
     ).sort("created_at", -1).to_list(100)
     
-    # Compute journey
+    # Get games for pattern detection (baseline_service uses games collection)
+    all_games = await db.games.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "pgn": 1, "user_color": 1, "result": 1, "imported_at": 1}
+    ).sort("imported_at", -1).to_list(100)
+    
+    # Compute journey - now reuses existing pattern detection
     result = compute_journey(
-        all_games=all_games,
-        classify_func=classify_move_to_cognitive,
-        severity_func=get_severity_weight
+        all_games=all_analyses,
+        games_for_pattern=all_games
     )
     
     return result
