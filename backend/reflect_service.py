@@ -595,17 +595,28 @@ def generate_contextual_tags(fen: str, user_move: str, best_move: str, eval_chan
             tags.append(f"I was defending my {defended_piece} on {defended_sq}")
         
         # 5. If there's a hanging piece nearby user might have been worried about
+        # ONLY show "I saw X was undefended" if user's move actually tried to exploit it
         hanging = position.get("hanging_pieces", [])
         user_color = "white" if "w" in fen.split()[1] else "black"
         
-        # Check opponent's hanging pieces (potential targets user saw)
+        # Check opponent's hanging pieces (potential targets)
         opponent_hanging = [h for h in hanging if h.get("color") != user_color]
-        if opponent_hanging:
-            piece = opponent_hanging[0].get("piece", "piece")
-            sq = opponent_hanging[0].get("square", "")
-            tag = f"I saw the {piece} on {sq} was undefended"
-            if tag not in tags:
-                tags.append(tag)
+        
+        # Only suggest "I saw it" if user's move attacked or captured it
+        user_attacked_squares = {a.get("square") for a in attacks}
+        captured_square = user_analysis.get("capture_square")
+        
+        for h in opponent_hanging:
+            piece = h.get("piece", "piece")
+            sq = h.get("square", "")
+            
+            # If user's move attacked or captured this hanging piece, they saw it
+            if sq in user_attacked_squares or sq == captured_square:
+                tag = f"I saw the {piece} on {sq} was undefended"
+                if tag not in tags:
+                    tags.append(tag)
+            # Otherwise, they likely MISSED it - don't suggest "I saw it"
+            # The "I didn't notice" tag below will handle this case
         
         # 6. Check what threat the best move addresses that user missed
         if best_analysis and not best_analysis.get("error"):
