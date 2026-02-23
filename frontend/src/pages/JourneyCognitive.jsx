@@ -378,16 +378,16 @@ const Journey = ({ user }) => {
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
                 <p className="text-xs text-red-400 mb-1">Most Unstable Phase</p>
-                <p className="text-lg font-medium text-white">{phaseInsight.mostUnstable}</p>
+                <p className="text-lg font-medium text-white">{phaseData.mostUnstable}</p>
               </div>
               <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
                 <p className="text-xs text-green-400 mb-1">Most Stable Phase</p>
-                <p className="text-lg font-medium text-white">{phaseInsight.mostStable}</p>
+                <p className="text-lg font-medium text-white">{phaseData.mostStable}</p>
               </div>
             </div>
 
             <p className="text-sm text-muted-foreground mt-4">
-              Decision quality drops during complex {phaseInsight.mostUnstable.toLowerCase()} transitions.
+              Decision quality drops during {phaseData.mostUnstable.toLowerCase()} transitions.
             </p>
           </CardContent>
         </Card>
