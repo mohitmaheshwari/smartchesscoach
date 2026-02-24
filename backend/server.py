@@ -2759,6 +2759,266 @@ async def explain_moment(data: MomentExplanationRequest, user: User = Depends(ge
             "error": True
         }
 
+# ==================== REFLECTION ENGINE V1 ROUTES ====================
+# Deterministic, config-driven reflection system
+# No LLM in critical path - rule-based only
+
+class ReflectEngineTagsRequest(BaseModel):
+    """Request for V1 quick tag generation"""
+    fen: str
+    user_move: str
+    best_move: str
+    mistake_category: str
+    cp_loss: float = 0.0
+    time_remaining_sec: Optional[int] = None
+    move_number: int = 0
+
+class ReflectSessionSubmitRequest(BaseModel):
+    """Request to complete a reflection session"""
+    game_id: str
+    move_index: int
+    fen: str
+    user_move: str
+    best_move: str
+    mistake_category: str
+    intent: str
+    intent_confidence: str
+    selected_quick_tags: List[str]
+    free_text: Optional[str] = ""
+    cp_loss: float = 0.0
+    time_remaining_sec: Optional[int] = None
+    move_number: int = 0
+
+@api_router.get("/reflect/v1/profile")
+async def get_reflection_profile(user: User = Depends(get_current_user)):
+    """
+    Get user's adaptive reflection profile.
+    Frontend uses this to configure UX - no hardcoded values in React.
+    """
+    # Get user's rating
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    profile = await get_adaptive_profile(user.user_id, rating, db)
+    profile["rule_version"] = REFLECT_RULES_VERSION
+    
+    return profile
+
+@api_router.post("/reflect/v1/quick-tags")
+async def get_quick_tags_v1(data: ReflectEngineTagsRequest, user: User = Depends(get_current_user)):
+    """
+    Generate quick tags using the V1 deterministic engine.
+    Tags are config-driven, predicate-backed, and rating-adaptive.
+    """
+    # Get user's rating
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    result = generate_quick_tags(
+        fen_before=data.fen,
+        user_move=data.user_move,
+        best_move=data.best_move,
+        mistake_category=data.mistake_category,
+        rating=rating,
+        cp_loss=data.cp_loss,
+        time_remaining_sec=data.time_remaining_sec,
+        move_number=data.move_number,
+    )
+    
+    # Add profile info for frontend
+    profile = get_adaptive_profile_sync(rating)
+    result["intent_options"] = profile["intent_options"]
+    result["confidence_options"] = profile["confidence_options"]
+    result["max_quick_tags"] = profile["max_quick_tags"]
+    result["friction_budget_taps"] = profile["friction_budget_taps"]
+    result["rule_version"] = REFLECT_RULES_VERSION
+    
+    return result
+
+@api_router.post("/reflect/v1/submit")
+async def submit_reflection_v1(data: ReflectSessionSubmitRequest, user: User = Depends(get_current_user)):
+    """
+    Submit a completed reflection session.
+    Stores structured data, computes awareness gap, returns reward.
+    """
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    # Compute awareness gap
+    awareness_result = evaluate_awareness_gap(
+        fen_before=data.fen,
+        user_move=data.user_move,
+        best_move=data.best_move,
+        intent=data.intent,
+        confidence=data.intent_confidence,
+        selected_tags=data.selected_quick_tags,
+        mistake_category=data.mistake_category,
+        rating=rating,
+        cp_loss=data.cp_loss,
+        time_remaining_sec=data.time_remaining_sec,
+        move_number=data.move_number,
+    )
+    
+    # Build reflection session document
+    reflection_id = f"r_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    reflection_doc = {
+        "reflection_id": reflection_id,
+        "user_id": user.user_id,
+        "game_id": data.game_id,
+        "move_index": data.move_index,
+        
+        "mistake_category": data.mistake_category,
+        "mistake_category_version": "v1",
+        
+        "intent": data.intent,
+        "intent_confidence": data.intent_confidence,
+        
+        "selected_quick_tags": data.selected_quick_tags,
+        "auto_tag_candidates_shown": [],  # Will be filled by frontend
+        
+        "awareness_gap_type": awareness_result["gap_type"],
+        "awareness_gap_reason_codes": awareness_result["reason_codes"],
+        "awareness_gap_rule_id": awareness_result.get("rule_id"),
+        
+        "free_text": data.free_text or "",
+        "completed_in_seconds": 0,  # Frontend will update
+        
+        "rule_version": REFLECT_RULES_VERSION,
+        "created_at": now.isoformat(),
+        
+        # Position data for replay
+        "fen": data.fen,
+        "user_move": data.user_move,
+        "best_move": data.best_move,
+        "cp_loss": data.cp_loss,
+    }
+    
+    # Store reflection
+    await db.reflection_sessions.insert_one(reflection_doc)
+    
+    # Get reward message
+    # Determine which reward type based on reflection quality
+    reward_event = RewardEventType.REFLECTION_COMPLETE
+    
+    if data.intent_confidence == "guessing" and "not_sure" in data.selected_quick_tags:
+        reward_event = RewardEventType.REFLECTION_HONEST_NOT_SURE
+    elif awareness_result["gap_type"] == "confidence_gap":
+        reward_event = RewardEventType.REFLECTION_CONFIDENCE_INSIGHT
+    
+    # Get recent messages for anti-repeat
+    recent = await db.reward_events.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    recent_ids = [r.get("message_id") for r in recent if r.get("message_id")]
+    
+    reward_message = get_reward_message(
+        event_type=reward_event,
+        rating=rating,
+        context={"focus_label": awareness_result.get("focus_recommendation", "")},
+        recent_message_ids=recent_ids,
+    )
+    
+    # Store reward event
+    if reward_message:
+        await db.reward_events.insert_one({
+            "event_id": f"e_{uuid.uuid4().hex[:12]}",
+            "user_id": user.user_id,
+            "event_type": reward_event.value,
+            "source": "reflection",
+            "payload": {
+                "reflection_id": reflection_id,
+                "gap_type": awareness_result["gap_type"],
+            },
+            "message_id": reward_message["message_id"],
+            "created_at": now.isoformat(),
+            "seen": False,
+        })
+    
+    # Build next actions
+    next_actions = [
+        {"type": "next_moment", "label": "Next moment"},
+    ]
+    
+    # If there's a focus recommendation, offer training
+    if awareness_result.get("focus_recommendation"):
+        next_actions.insert(0, {
+            "type": "start_mission",
+            "label": f"Train: {awareness_result['focus_recommendation']}",
+            "focus": awareness_result["focus_recommendation"],
+        })
+    
+    return {
+        "reflection_status": "completed",
+        "reflection_id": reflection_id,
+        "awareness_result": {
+            "type": awareness_result["gap_type"],
+            "headline": awareness_result["headline"],
+            "focus_recommendation": awareness_result.get("focus_recommendation"),
+        },
+        "coach_message": reward_message["text"] if reward_message else "Good. Reflection captured.",
+        "next_actions": next_actions,
+        "rule_version": REFLECT_RULES_VERSION,
+    }
+
+@api_router.get("/reflect/v1/post-loss/{game_id}")
+async def get_post_loss_recovery(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Get post-loss recovery screen data.
+    Shows after a loss to convert pain into training.
+    """
+    # Get the game
+    game = await db.games.find_one({"game_id": game_id, "user_id": user.user_id})
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Get analysis
+    analysis = await db.game_analyses.find_one({"game_id": game_id})
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Game not analyzed yet")
+    
+    # Get user rating
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    # Get main issue from game
+    blunders = analysis.get("blunders", [])
+    mistakes = analysis.get("mistakes", [])
+    
+    main_issue = "General improvement"
+    if blunders:
+        # Get most severe blunder category
+        categories = [b.get("mistake_category", "unknown") for b in blunders if b.get("mistake_category")]
+        if categories:
+            from collections import Counter
+            main_category = Counter(categories).most_common(1)[0][0]
+            main_issue = {
+                "ignored_opponent_forcing": "Opponent Threat Awareness",
+                "missed_forcing_move": "Forcing Move Awareness",
+                "phantom_threat": "Threat Prioritization",
+                "advantage_mismanagement": "Advantage Conversion",
+                "critical_moment_drift": "Critical Position Focus",
+            }.get(main_category, main_category.replace("_", " ").title())
+    
+    # Get adaptive profile for mission time
+    profile = get_adaptive_profile_sync(rating)
+    minutes = profile["mission_minutes_target"]
+    
+    # Get post-loss message
+    message = get_post_loss_message(rating, main_issue, minutes)
+    
+    return {
+        "game_id": game_id,
+        "result": game.get("result", "loss"),
+        "opponent": game.get("opponent_name", "opponent"),
+        "main_issue": main_issue,
+        "message": message,
+        "has_pending_reflection": len(blunders) + len(mistakes) > 0,
+        "blunder_count": len(blunders),
+        "mistake_count": len(mistakes),
+    }
+
 # ==================== COACH MODE ROUTES ====================
 
 @api_router.post("/coach/start-session")
