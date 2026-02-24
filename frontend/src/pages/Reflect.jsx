@@ -141,6 +141,10 @@ const Reflect = ({ user }) => {
       return;
     }
     
+    // Calculate completion time
+    const completionTimeMs = reflectionStartTime ? Date.now() - reflectionStartTime : 0;
+    const completionTimeSec = Math.round(completionTimeMs / 1000);
+    
     setSubmitting(true);
     try {
       const res = await fetch(`${API}/reflect/v1/submit`, {
@@ -157,9 +161,12 @@ const Reflect = ({ user }) => {
           intent: selectedIntent,
           intent_confidence: selectedConfidence,
           selected_quick_tags: selectedTags,
+          auto_tag_candidates_shown: v1QuickTags.map(t => t.id),
           free_text: userThought || "",
           cp_loss: Math.abs(currentMoment.eval_change || 0) * 100,
           move_number: currentMoment.move_number || 0,
+          completed_in_seconds: completionTimeSec,
+          game_ended_at: currentGame.played_at || currentGame.created_at,
         })
       });
       
