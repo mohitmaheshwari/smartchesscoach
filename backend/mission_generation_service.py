@@ -413,8 +413,8 @@ async def generate_daily_mission(
     mission = generator.build_mission(
         pattern=pattern,
         pattern_data=pattern_data,
-        trigger_type=trigger_type,
-        source_game_id=source_game_id,
+        trigger_type=final_trigger_type,
+        source_game_id=final_source_game_id,
         metadata={
             "pattern_priority": generator.compute_pattern_priority(
                 pattern=pattern,
