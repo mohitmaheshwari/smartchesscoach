@@ -2,7 +2,43 @@
 
 ## Feb 24, 2026
 
-### Reflection Engine V1 - Phase 1B Complete ✅ (Frontend Integration)
+### Mission Engine & Reward System - Phase 2A/2B Complete ✅
+
+Built the Dopamine Engine with mission generation and reward tracking.
+
+**New Backend Modules:**
+- `mission_generation_service.py` - Deterministic mission generation
+  - Pattern priority scoring formula
+  - Rating-band difficulty presets
+  - Rotation rules to prevent repetition
+
+**New API Endpoints:**
+- `GET /api/missions/today` - Get/generate daily mission
+- `POST /api/missions/:id/start` - Start mission session
+- `POST /api/missions/:id/step` - Record step + emit rewards
+- `POST /api/missions/:id/complete` - Complete mission
+- `GET /api/missions/history` - Mission history
+- `GET /api/missions/focus-mastery` - Focus mastery levels
+- `GET /api/rewards/feed` - Reward event feed
+- `POST /api/rewards/mark-seen` - Mark rewards seen
+- `GET /api/rewards/stats` - Reflection statistics
+- `GET /api/weekly-proof` - Weekly proof card
+
+**Reward Event Types:**
+- process_recognition (threat scan used)
+- pattern_recognition (2+ correct)
+- recovery_moment (wrong→correct→correct)
+- mission_complete_pass/fail
+
+**Collections Created:**
+- `behavioral_missions` - Mission records
+- `mission_sessions` - Session tracking with steps
+- `focus_mastery` - Pattern mastery scores
+- `reward_events` - Reward audit trail
+
+---
+
+### Reflection Engine V1 - Phase 1B/1C Complete ✅ (Frontend + Timing)
 
 Updated Reflect.jsx to use the V1 deterministic engine with progressive 2-tap flow.
 
