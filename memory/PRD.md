@@ -1318,6 +1318,51 @@ Created `chess_verification_layer.py` that:
 
 ---
 
+## Current Priority: UX Paradigm Shift (In Progress)
+
+### Coach Home - Action-First Design ✅ COMPLETE (Feb 24, 2026)
+
+**UX Promise:** "From loss to learning in under 90 seconds."
+
+**Problem:** Previous dashboard was feature-first, causing analysis paralysis.
+
+**Solution:** Replace Dashboard with Coach Home - action-first paradigm:
+
+1. **Primary Action Card (Above Fold)**
+   - Post-Loss Recovery card (highest priority) OR Today's Mission card
+   - Single CTA, single focus
+   - Emotional headlines, direct language
+
+2. **Simplified Navigation**
+   - Old: Reflect, Training, Journey, Lab, Import (5 items)
+   - New: Home, Analyze, Train, Progress (4 items)
+   - Reflect is now embedded in mission flow, not standalone
+
+3. **New Color System**
+   - Background: `#0F1115` (Deep Graphite)
+   - Cards: `#161A22`
+   - Primary Accent: `#3B82F6` (Electric Blue)
+   - Success: `#10B981` (Emerald)
+   - Warning: `#F59E0B` (Amber)
+   - Critical: `#EF4444` (Muted Red - rare)
+
+4. **New Backend Endpoints**
+   - `GET /api/coach/fresh-loss` - Check for recent losses requiring recovery
+   - `GET /api/coach/weekly-proof` - Weekly proof summary (wins, streaks, improvements)
+
+**Files Created:**
+- `/app/frontend/src/pages/CoachHome.jsx`
+
+**Files Modified:**
+- `/app/frontend/src/components/Layout.jsx` - Simplified navigation
+- `/app/frontend/src/index.css` - New color system
+- `/app/frontend/src/App.js` - Added /home route
+- `/app/backend/server.py` - Added coach endpoints
+
+**Test Report:** `/app/test_reports/iteration_72.json` - 100% pass (20 backend, 15 frontend)
+
+---
+
 ## Current Priority: Dopamine Engine Implementation (In Progress)
 
 ### Phase 2C/2D: Mission System UI ✅ COMPLETE (Feb 24, 2026)
