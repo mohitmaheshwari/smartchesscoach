@@ -444,12 +444,12 @@ const MissionRunner = ({ user }) => {
               <Card className="surface overflow-hidden">
                 <div className="aspect-square max-w-[480px] mx-auto">
                   <CoachBoard
-                    fen={currentPosition.fen}
-                    orientation={currentPosition.fen?.includes(" w ") ? "white" : "black"}
+                    position={currentPosition.fen}
+                    userColor={currentPosition.fen?.includes(" w ") ? "white" : "black"}
                     interactive={!feedback}
-                    viewOnly={!!feedback}
+                    expectedMoves={[]}
+                    onUserMove={(moveData) => handleMoveSelect(moveData.san)}
                     customArrows={getArrows()}
-                    onMove={(move) => handleMoveSelect(move.san)}
                   />
                 </div>
               </Card>
