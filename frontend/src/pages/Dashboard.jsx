@@ -663,6 +663,11 @@ const Dashboard = ({ user }) => {
           </motion.div>
         ) : (
           <AnimatedList className="space-y-6">
+            {/* Daily Mission Card - Dopamine Engine Entry Point */}
+            <AnimatedItem>
+              <DailyMissionCard />
+            </AnimatedItem>
+            
             {/* Stats Row - Clickable */}
             <AnimatedItem>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
