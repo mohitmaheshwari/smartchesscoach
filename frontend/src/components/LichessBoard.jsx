@@ -252,19 +252,26 @@ const LichessBoard = forwardRef(({
     };
   }, [shouldBeInteractive, planMode, onMove]);  // Re-create when interactivity changes
 
+  // Track the previous fen to detect if we need to update it
+  const prevFenRef = useRef(fen);
+  
   // Update position when fen changes AND update interactivity
   // Combined effect to avoid race conditions between fen updates and interactivity changes
   useEffect(() => {
     if (groundRef.current) {
       const shouldBeInteractive = planMode || (interactive && !viewOnly);
+      const fenChanged = prevFenRef.current !== fen;
+      prevFenRef.current = fen;
       
-      // Update chess instance with current FEN
-      try {
-        if (fen) {
-          chessRef.current = new Chess(fen);
+      // Update chess instance with current FEN only if FEN actually changed
+      if (fenChanged) {
+        try {
+          if (fen) {
+            chessRef.current = new Chess(fen);
+          }
+        } catch (e) {
+          console.warn("Could not sync chess instance:", e);
         }
-      } catch (e) {
-        console.warn("Could not sync chess instance:", e);
       }
       
       // For plan mode, get moves for BOTH colors
@@ -273,12 +280,9 @@ const LichessBoard = forwardRef(({
         ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current))
         : new Map();
       
-      console.log("LichessBoard update:", { shouldBeInteractive, planMode, interactive, viewOnly, destsSize: dests.size, fenStart: fen?.substring(0, 30) });
-      
-      // Apply all configuration together
-      groundRef.current.set({
-        fen: fen,
-        turnColor: getTurnColor(fen),
+      // Build config - only include fen if it actually changed
+      const config = {
+        turnColor: getTurnColor(chessRef.current.fen()),
         viewOnly: !shouldBeInteractive,
         movable: {
           free: false,
@@ -294,7 +298,14 @@ const LichessBoard = forwardRef(({
           enabled: shouldBeInteractive,
         },
         lastMove: lastMove || undefined,
-      });
+      };
+      
+      // Only set fen if it actually changed from props
+      if (fenChanged) {
+        config.fen = fen;
+      }
+      
+      groundRef.current.set(config);
     }
   }, [fen, interactive, viewOnly, showDests, lastMove, planMode]);
 
