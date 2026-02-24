@@ -3470,65 +3470,53 @@ def extract_drill_positions(analysis: dict, focus_pattern: str, limit: int = 5) 
     Extract drill-worthy positions from a game analysis based on focus pattern.
     """
     positions = []
-    blunders = analysis.get("blunders", [])
-    mistakes = analysis.get("mistakes", [])
     game_id = analysis.get("game_id")
     
-    # Map focus patterns to mistake categories
-    pattern_map = {
-        "ignored_opponent_forcing": ["ignored_opponent_forcing", "missed_threat"],
-        "missed_forcing_move": ["missed_forcing_move", "missed_tactic"],
-        "phantom_threat": ["phantom_threat", "overreaction"],
-        "advantage_mismanagement": ["advantage_mismanagement", "premature_attack"],
-        "critical_moment_drift": ["critical_moment_drift", "time_trouble"],
-        "structural_misjudgment": ["structural_misjudgment", "pawn_weakness"],
+    # Get move evaluations from stockfish_analysis
+    sf = analysis.get("stockfish_analysis", {})
+    move_evals = sf.get("move_evaluations", [])
+    
+    # Map focus patterns to evaluation types
+    pattern_eval_map = {
+        "ignored_opponent_forcing": ["blunder", "mistake"],
+        "missed_forcing_move": ["blunder", "mistake"],
+        "phantom_threat": ["blunder", "mistake", "inaccuracy"],
+        "advantage_mismanagement": ["blunder", "mistake"],
+        "critical_moment_drift": ["blunder", "mistake"],
+        "structural_misjudgment": ["blunder", "mistake", "inaccuracy"],
     }
     
-    target_categories = pattern_map.get(focus_pattern, [focus_pattern])
+    target_evals = pattern_eval_map.get(focus_pattern, ["blunder", "mistake"])
     
-    # First, get positions matching the pattern
-    for blunder in blunders:
+    # Find positions matching the pattern
+    for move_eval in move_evals:
         if len(positions) >= limit:
             break
-        cat = blunder.get("mistake_category", "")
-        if cat in target_categories or not target_categories:
-            pos = {
-                "position_id": f"{game_id}_{blunder.get('move_number', 0)}",
-                "game_id": game_id,
-                "fen": blunder.get("fen"),
-                "move_number": blunder.get("move_number"),
-                "user_move": blunder.get("user_move"),
-                "best_move": blunder.get("best_move"),
-                "eval_before": blunder.get("eval_before"),
-                "eval_after": blunder.get("eval_after"),
-                "eval_change": blunder.get("eval_change") or blunder.get("cp_loss"),
-                "category": cat,
-                "explanation": blunder.get("explanation", "Find the best move in this position."),
-                "type": "blunder"
-            }
-            if pos["fen"]:  # Only add if we have a valid FEN
-                positions.append(pos)
-    
-    # Add mistakes if we need more positions
-    for mistake in mistakes:
-        if len(positions) >= limit:
-            break
+            
+        eval_type = move_eval.get("evaluation")
+        if eval_type not in target_evals:
+            continue
+        
+        # Get the FEN - it's stored as 'fen_before' in the move evaluation
+        fen = move_eval.get("fen_before")
+        if not fen:
+            continue
+        
         pos = {
-            "position_id": f"{game_id}_{mistake.get('move_number', 0)}",
+            "position_id": f"{game_id}_{move_eval.get('move_number', 0)}",
             "game_id": game_id,
-            "fen": mistake.get("fen"),
-            "move_number": mistake.get("move_number"),
-            "user_move": mistake.get("user_move"),
-            "best_move": mistake.get("best_move"),
-            "eval_before": mistake.get("eval_before"),
-            "eval_after": mistake.get("eval_after"),
-            "eval_change": mistake.get("eval_change") or mistake.get("cp_loss"),
-            "category": mistake.get("mistake_category", "unknown"),
-            "explanation": mistake.get("explanation", "Find the best move in this position."),
-            "type": "mistake"
+            "fen": fen,
+            "move_number": move_eval.get("move_number"),
+            "user_move": move_eval.get("move"),
+            "best_move": move_eval.get("best_move"),
+            "eval_before": move_eval.get("eval_before"),
+            "eval_after": move_eval.get("eval_after"),
+            "eval_change": move_eval.get("cp_loss"),
+            "category": focus_pattern,
+            "explanation": f"You played {move_eval.get('move')}, but {move_eval.get('best_move')} was better. {move_eval.get('threat', '')}",
+            "type": eval_type,
         }
-        if pos["fen"]:
-            positions.append(pos)
+        positions.append(pos)
     
     return positions
 
