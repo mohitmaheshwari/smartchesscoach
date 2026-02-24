@@ -194,8 +194,16 @@ from reflect_constants import (
 from quick_tag_registry import generate_quick_tags
 from awareness_gap_rules import evaluate_awareness_gap
 from adaptive_profile_engine import get_adaptive_profile, get_adaptive_profile_sync
-from reward_message_service import get_reward_message, get_post_loss_message
+from reward_message_service import get_reward_message, get_post_loss_message, generate_weekly_proof
 from reflect_predicates import BoardFacts
+
+# === MISSION ENGINE IMPORTS ===
+from mission_generation_service import (
+    generate_daily_mission,
+    start_mission,
+    complete_mission,
+    PATTERN_FOCUS_MAP,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
