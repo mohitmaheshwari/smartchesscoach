@@ -1318,22 +1318,57 @@ Created `chess_verification_layer.py` that:
 
 ---
 
-## Current Priority: Validation Phase (Mandated)
+## Current Priority: Dopamine Engine Implementation (In Progress)
 
-**Status:** Journey page complete. All new feature development is PAUSED.
+### Phase 2C/2D: Mission System UI ✅ COMPLETE (Feb 24, 2026)
 
-**Next Action:** Observe 3-5 real users to confirm if the system (TSI, focus area, micro-protocols) actually changes their in-game thinking.
+**Problem:** Users needed a visible daily coaching mission to guide their training.
 
-**Validation Metrics to Observe:**
-- Emotional fairness (do users feel the feedback is fair?)
-- Behavioral awareness (do users recognize their patterns?)
-- Improvement speed (is the focus area reducing in frequency?)
+**Solution:** Built frontend components for the mission system:
 
-**DO NOT BUILD until validation is complete:**
-- Weekly reports
-- Leak timeline expansion
-- Reflection reinforcement
-- Any new analytics or features
+1. **DailyMissionCard (`/app/frontend/src/components/DailyMissionCard.jsx`)**
+   - Displays daily mission on Dashboard
+   - Shows focus label, duration, protocol steps, and goal
+   - "Start Mission" button navigates to MissionRunner
+   - Handles pending/active/completed/expired states
+
+2. **PostLossRecoveryCard (`/app/frontend/src/components/PostLossRecoveryCard.jsx`)**
+   - Triggered after game losses
+   - Shows adaptive recovery message
+   - Links to "fix-it" mission
+
+3. **MissionRunner Page (`/app/frontend/src/pages/MissionRunner.jsx`)**
+   - Briefing phase: Shows protocol steps and pass criteria
+   - Drill phase: Timer, progress bar, position counter, score tracking
+   - Completion phase: Results display with reward messages
+   - Exit functionality returns to dashboard
+
+4. **Backend API Additions:**
+   - `GET /api/rewards/post-loss-message` - Rating-adaptive recovery messages
+
+**Test Report:** `/app/test_reports/iteration_71.json` - 100% pass (8 backend, 16 frontend)
+
+---
+
+### Completed Dopamine Engine Phases:
+
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 1A | Reflection Engine V1 Backend | ✅ Complete |
+| 1B | Reflection V1 Frontend (2-tap flow) | ✅ Complete |
+| 1C | Reflection Timing + Freshness | ✅ Complete |
+| 2A | Reward Event Engine Backend | ✅ Complete |
+| 2B | Mission Generation Service Backend | ✅ Complete |
+| 2C | Daily Mission Card UI | ✅ Complete |
+| 2D | Mission Runner UI (placeholder) | ✅ Complete |
+
+### Remaining Dopamine Engine Phases:
+
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 2D+ | Mission Runner with Real Chess Positions | P0 - Next |
+| 3A | Focus Mastery Meter | P1 |
+| 3B | Weekly Proof Card | P1 |
 
 ---
 
