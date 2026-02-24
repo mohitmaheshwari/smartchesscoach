@@ -55,11 +55,14 @@ const DailyMissionCard = ({ onStartMission }) => {
         credentials: "include",
       });
       if (res.ok) {
-        // Navigate to training with mission context
+        const data = await res.json();
+        // Navigate to mission runner with session context
         if (onStartMission) {
           onStartMission(mission);
         } else {
-          navigate(`/training?mission=${mission.mission_id}`);
+          navigate(`/mission/${mission.mission_id}`, {
+            state: { session_id: data.session_id, mission }
+          });
         }
       }
     } catch (err) {
