@@ -2866,6 +2866,17 @@ async def submit_reflection_v1(data: ReflectSessionSubmitRequest, user: User = D
     reflection_id = f"r_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc)
     
+    # Calculate freshness (hours since game ended)
+    is_fresh = False
+    hours_since_game = None
+    if data.game_ended_at:
+        try:
+            game_time = datetime.fromisoformat(data.game_ended_at.replace("Z", "+00:00"))
+            hours_since_game = (now - game_time).total_seconds() / 3600
+            is_fresh = hours_since_game < 12  # Fresh if within 12 hours
+        except:
+            pass
+    
     reflection_doc = {
         "reflection_id": reflection_id,
         "user_id": user.user_id,
@@ -2879,14 +2890,18 @@ async def submit_reflection_v1(data: ReflectSessionSubmitRequest, user: User = D
         "intent_confidence": data.intent_confidence,
         
         "selected_quick_tags": data.selected_quick_tags,
-        "auto_tag_candidates_shown": [],  # Will be filled by frontend
+        "auto_tag_candidates_shown": data.auto_tag_candidates_shown,
         
         "awareness_gap_type": awareness_result["gap_type"],
         "awareness_gap_reason_codes": awareness_result["reason_codes"],
         "awareness_gap_rule_id": awareness_result.get("rule_id"),
         
         "free_text": data.free_text or "",
-        "completed_in_seconds": 0,  # Frontend will update
+        "completed_in_seconds": data.completed_in_seconds,
+        
+        # Freshness tracking
+        "is_fresh": is_fresh,
+        "hours_since_game": hours_since_game,
         
         "rule_version": REFLECT_RULES_VERSION,
         "created_at": now.isoformat(),
@@ -2905,7 +2920,10 @@ async def submit_reflection_v1(data: ReflectSessionSubmitRequest, user: User = D
     # Determine which reward type based on reflection quality
     reward_event = RewardEventType.REFLECTION_COMPLETE
     
-    if data.intent_confidence == "guessing" and "not_sure" in data.selected_quick_tags:
+    # Fresh reflection gets special recognition
+    if is_fresh and data.completed_in_seconds < 30:
+        reward_event = RewardEventType.REFLECTION_CAPTURED_FAST
+    elif data.intent_confidence == "guessing" and "not_sure" in data.selected_quick_tags:
         reward_event = RewardEventType.REFLECTION_HONEST_NOT_SURE
     elif awareness_result["gap_type"] == "confidence_gap":
         reward_event = RewardEventType.REFLECTION_CONFIDENCE_INSIGHT
