@@ -6,6 +6,7 @@ import "@/App.css";
 import Landing from "@/pages/Landing";
 import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
+import CoachHome from "@/pages/CoachHome";
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import WeaknessTracker from "@/pages/WeaknessTracker";
