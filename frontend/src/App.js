@@ -219,6 +219,11 @@ function AppRouter() {
           {({ user }) => <MissionRunner user={user} />}
         </ProtectedRoute>
       } />
+      <Route path="/recover/:gameId" element={
+        <ProtectedRoute>
+          {({ user }) => <PostLossRecovery user={user} />}
+        </ProtectedRoute>
+      } />
     </Routes>
   );
 }
