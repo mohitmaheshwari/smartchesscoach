@@ -20,6 +20,7 @@ import ProgressV2 from "@/pages/ProgressV2";
 import Reflect from "@/pages/Reflect";
 import Onboarding from "@/pages/Onboarding";
 import MissionRunner from "@/pages/MissionRunner";
+import PostLossRecovery from "@/pages/PostLossRecovery";
 
 // Components
 import { Toaster } from "@/components/ui/sonner";
