@@ -182,6 +182,21 @@ from mistake_explanation_service import (
 # Import Discipline Check Service for sharp, data-driven analysis
 from discipline_check_service import get_discipline_check
 
+# === REFLECTION ENGINE V1 IMPORTS ===
+from reflect_constants import (
+    REFLECT_RULES_VERSION,
+    get_intent_options,
+    get_confidence_options,
+    Intent,
+    Confidence,
+    RewardEventType,
+)
+from quick_tag_registry import generate_quick_tags
+from awareness_gap_rules import evaluate_awareness_gap
+from adaptive_profile_engine import get_adaptive_profile, get_adaptive_profile_sync
+from reward_message_service import get_reward_message, get_post_loss_message
+from reflect_predicates import BoardFacts
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
