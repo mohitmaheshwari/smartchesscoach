@@ -1,0 +1,438 @@
+{
+  "config": {
+    "configFile": "/app/tests/playwright.config.ts",
+    "rootDir": "/app/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/app/tests/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/app/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "./test-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "mission-flow.spec.ts",
+      "file": "mission-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Mission System - Dashboard and Mission Flow",
+          "file": "mission-flow.spec.ts",
+          "line": 6,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Dashboard displays DailyMissionCard when user has games",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f5a7d3c970054ecdf2e-f5dbc4c99ec7ccdee9ba",
+              "file": "mission-flow.spec.ts",
+              "line": 17,
+              "column": 7
+            },
+            {
+              "title": "DailyMissionCard shows focus, duration, and protocol steps",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f5a7d3c970054ecdf2e-1ac9ebb3acc77212af3d",
+              "file": "mission-flow.spec.ts",
+              "line": 33,
+              "column": 7
+            },
+            {
+              "title": "Start Mission button navigates to MissionRunner page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f5a7d3c970054ecdf2e-dbba3aa67a07c1daf246",
+              "file": "mission-flow.spec.ts",
+              "line": 60,
+              "column": 7
+            },
+            {
+              "title": "MissionRunner shows briefing phase with protocol steps",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f5a7d3c970054ecdf2e-93eb25d60ff4ac6a6ac5",
+              "file": "mission-flow.spec.ts",
+              "line": 85,
+              "column": 7
+            },
+            {
+              "title": "MissionRunner Start Mission transitions to drill phase",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f5a7d3c970054ecdf2e-34fcd6baa5cfa29dc201",
+              "file": "mission-flow.spec.ts",
+              "line": 118,
+              "column": 7
+            },
+            {
+              "title": "Exit button returns to dashboard from MissionRunner",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f5a7d3c970054ecdf2e-a807a9460903db5d7a16",
+              "file": "mission-flow.spec.ts",
+              "line": 154,
+              "column": 7
+            },
+            {
+              "title": "Drill phase shows correct and missed score tracking",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f5a7d3c970054ecdf2e-f7bb647e7cc0f1fb093b",
+              "file": "mission-flow.spec.ts",
+              "line": 179,
+              "column": 7
+            },
+            {
+              "title": "Dashboard displays loading state, then mission card",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7f5a7d3c970054ecdf2e-990e0002d00c7c91561c",
+              "file": "mission-flow.spec.ts",
+              "line": 217,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "secondary-features.spec.ts",
+      "file": "secondary-features.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "PostLossRecoveryCard Component",
+          "file": "secondary-features.spec.ts",
+          "line": 6,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Post-loss message API endpoint returns valid data",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c282c8e71dda8c066e12-1e247ad04ee4a9a739d7",
+              "file": "secondary-features.spec.ts",
+              "line": 15,
+              "column": 7
+            },
+            {
+              "title": "Post-loss message contains appropriate recovery copy",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c282c8e71dda8c066e12-d967349f27987cbc93cc",
+              "file": "secondary-features.spec.ts",
+              "line": 47,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Missions API Endpoints",
+          "file": "secondary-features.spec.ts",
+          "line": 76,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Mission history endpoint returns mission list",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c282c8e71dda8c066e12-84c59c6a9ca3fd63a9b3",
+              "file": "secondary-features.spec.ts",
+              "line": 83,
+              "column": 7
+            },
+            {
+              "title": "Mission focus mastery endpoint returns data",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c282c8e71dda8c066e12-4386430d1a8d01902971",
+              "file": "secondary-features.spec.ts",
+              "line": 92,
+              "column": 7
+            },
+            {
+              "title": "Mission step recording works correctly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c282c8e71dda8c066e12-0d0709b2d0cf08f65c74",
+              "file": "secondary-features.spec.ts",
+              "line": 97,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Dashboard Mission Integration",
+          "file": "secondary-features.spec.ts",
+          "line": 127,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Dashboard stats include game counts",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c282c8e71dda8c066e12-54073cfd795208b2b764",
+              "file": "secondary-features.spec.ts",
+              "line": 135,
+              "column": 7
+            },
+            {
+              "title": "Dashboard shows mission card with correct structure",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c282c8e71dda8c066e12-e61eee78b49edb209e32",
+              "file": "secondary-features.spec.ts",
+              "line": 145,
+              "column": 7
+            },
+            {
+              "title": "Mission card displays estimated time",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c282c8e71dda8c066e12-d9fc8df9af36b74b3784",
+              "file": "secondary-features.spec.ts",
+              "line": 167,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-02-24T14:53:02.852Z",
+    "duration": 22.01400000000001,
+    "expected": 0,
+    "skipped": 16,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
