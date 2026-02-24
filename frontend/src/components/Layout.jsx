@@ -11,20 +11,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/context/ThemeContext";
 import { 
-  LayoutDashboard, 
-  Import, 
+  Home,
+  FlaskConical,
   Target, 
-  Swords,
+  TrendingUp,
   Settings,
   Sun,
   Moon,
   LogOut,
   Menu,
   X,
-  TrendingUp,
   Bell,
   CheckCheck,
-  Brain
+  Sparkles
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { API } from "@/App";
