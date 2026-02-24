@@ -64,6 +64,16 @@ const Reflect = ({ user }) => {
   const [loadingTags, setLoadingTags] = useState(false);
   const [couldNotInferIntent, setCouldNotInferIntent] = useState(false);
   
+  // V1 REFLECTION ENGINE STATE (Progressive 2-tap flow)
+  const [reflectProfile, setReflectProfile] = useState(null);
+  const [reflectStep, setReflectStep] = useState(0); // 0=intent, 1=confidence, 2=tags, 3=done
+  const [selectedIntent, setSelectedIntent] = useState(null);
+  const [selectedConfidence, setSelectedConfidence] = useState(null);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [v1QuickTags, setV1QuickTags] = useState([]);
+  const [coachReward, setCoachReward] = useState(null);
+  const [reflectionStartTime, setReflectionStartTime] = useState(null);
+  
   const currentGame = gamesNeedingReflection[currentGameIndex];
   const currentMoment = moments[currentMomentIndex];
   const totalMoments = moments.length;
