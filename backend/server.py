@@ -3124,6 +3124,107 @@ async def get_post_loss_message_endpoint(game_id: str, user: User = Depends(get_
     
     return message
 
+# ==================== COACH HOME ROUTES ====================
+
+@api_router.get("/coach/fresh-loss")
+async def get_fresh_loss(user: User = Depends(get_current_user)):
+    """
+    Check if user has a fresh loss (within last 2 hours) that needs recovery.
+    Returns the loss details and recommended recovery path.
+    """
+    from datetime import datetime, timezone, timedelta
+    
+    # Look for games in last 2 hours marked as loss
+    two_hours_ago = datetime.now(timezone.utc) - timedelta(hours=2)
+    
+    recent_loss = await db.game_analyses.find_one(
+        {
+            "user_id": user.user_id,
+            "result": "loss",
+            "analyzed_at": {"$gte": two_hours_ago}
+        },
+        sort=[("analyzed_at", -1)]
+    )
+    
+    if not recent_loss:
+        return {"has_fresh_loss": False}
+    
+    # Get the main mistake pattern from this game
+    focus_label = "Critical moment"
+    blunders = recent_loss.get("stockfish_analysis", {}).get("move_evaluations", [])
+    
+    for move in blunders:
+        eval_type = move.get("evaluation")
+        if hasattr(eval_type, 'value'):
+            eval_type = eval_type.value
+        if eval_type in ["blunder", "mistake"]:
+            thinking_pattern = move.get("thinking_pattern")
+            if thinking_pattern:
+                focus_label = thinking_pattern.replace("_", " ").title()
+            break
+    
+    # Get user rating for adaptive timing
+    profile = await db.player_profiles.find_one({"user_id": user.user_id})
+    rating = profile.get("estimated_rating", 1200) if profile else 1200
+    adaptive = get_adaptive_profile_sync(rating)
+    minutes = adaptive.get("mission_minutes_target", 6)
+    
+    return {
+        "has_fresh_loss": True,
+        "game_id": str(recent_loss.get("game_id")),
+        "focus_label": focus_label,
+        "estimated_minutes": minutes,
+        "opponent": recent_loss.get("opponent"),
+        "time_since_loss_minutes": int((datetime.now(timezone.utc) - recent_loss.get("analyzed_at", datetime.now(timezone.utc))).total_seconds() / 60)
+    }
+
+@api_router.get("/coach/weekly-proof")
+async def get_weekly_proof(user: User = Depends(get_current_user)):
+    """
+    Get weekly proof summary - wins, improvements, streaks.
+    Used for the compact weekly proof card on Coach Home.
+    """
+    from datetime import datetime, timezone, timedelta
+    
+    one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    
+    # Count wins this week
+    wins = await db.game_analyses.count_documents({
+        "user_id": user.user_id,
+        "result": "win",
+        "analyzed_at": {"$gte": one_week_ago}
+    })
+    
+    # Count completed missions this week
+    missions_completed = await db.behavioral_missions.count_documents({
+        "user_id": user.user_id,
+        "status": "completed",
+        "completed_at": {"$gte": one_week_ago}
+    })
+    
+    # Check for improving patterns (from focus_mastery collection)
+    improving_pattern = None
+    mastery_doc = await db.focus_mastery.find_one({"user_id": user.user_id})
+    if mastery_doc:
+        patterns = mastery_doc.get("patterns", {})
+        for pattern_name, pattern_data in patterns.items():
+            if pattern_data.get("trend") == "improving":
+                improving_pattern = pattern_name.replace("_", " ").title()
+                break
+    
+    # Get streak
+    streak_days = 0
+    streak_doc = await db.user_streaks.find_one({"user_id": user.user_id})
+    if streak_doc:
+        streak_days = streak_doc.get("current_streak", 0)
+    
+    return {
+        "wins": wins,
+        "missions_completed": missions_completed,
+        "leak_reduced": improving_pattern,
+        "streak_days": streak_days
+    }
+
 # ==================== MISSION ENGINE ROUTES ====================
 
 class MissionStepRequest(BaseModel):
