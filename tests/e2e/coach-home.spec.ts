@@ -257,14 +257,20 @@ test.describe('Coach Home - Navigation Integration', () => {
     // Test Analyze navigation
     await page.getByTestId('nav-analyze').click({ force: true });
     await page.waitForURL(/\/lab/, { timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
     
     // Test Train navigation
     await page.getByTestId('nav-train').click({ force: true });
     await page.waitForURL(/\/training/, { timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
     
     // Test Progress navigation
     await page.getByTestId('nav-progress').click({ force: true });
     await page.waitForURL(/\/progress/, { timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
+    
+    // Wait for progress page to fully load before clicking Home
+    await expect(page.getByTestId('nav-home')).toBeVisible({ timeout: 10000 });
     
     // Test Home navigation (back)
     await page.getByTestId('nav-home').click({ force: true });
