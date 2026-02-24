@@ -3273,6 +3273,140 @@ async def start_mission_endpoint(mission_id: str, user: User = Depends(get_curre
     result = await start_mission(mission_id, user.user_id, db)
     return result
 
+@api_router.get("/missions/{mission_id}/positions")
+async def get_mission_positions(mission_id: str, user: User = Depends(get_current_user)):
+    """
+    Get drill positions for a specific mission.
+    Returns positions from user's games that match the mission's focus pattern.
+    """
+    # Get mission
+    mission = await db.behavioral_missions.find_one({
+        "mission_id": mission_id,
+        "user_id": user.user_id
+    })
+    
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    
+    focus_pattern = mission.get("focus_pattern", "critical_moment_drift")
+    target_count = mission.get("goal_target", 5)
+    source_game_id = mission.get("source_game_id")
+    
+    # Get positions from user's analyzed games
+    query = {"user_id": user.user_id}
+    
+    # If mission is from a specific game, prioritize that game
+    if source_game_id:
+        # Get positions from source game first
+        source_analysis = await db.game_analyses.find_one({"game_id": source_game_id})
+        if source_analysis:
+            positions = extract_drill_positions(source_analysis, focus_pattern, limit=target_count)
+            
+            # If not enough from source, get more from other games
+            if len(positions) < target_count:
+                other_analyses = await db.game_analyses.find({
+                    "user_id": user.user_id,
+                    "game_id": {"$ne": source_game_id}
+                }).sort("analyzed_at", -1).limit(10).to_list(10)
+                
+                for analysis in other_analyses:
+                    more_positions = extract_drill_positions(analysis, focus_pattern, limit=target_count - len(positions))
+                    positions.extend(more_positions)
+                    if len(positions) >= target_count:
+                        break
+            
+            return {
+                "positions": positions[:target_count],
+                "total": len(positions[:target_count]),
+                "focus_pattern": focus_pattern,
+                "mission_id": mission_id
+            }
+    
+    # Otherwise get from recent analyses
+    analyses = await db.game_analyses.find(query).sort("analyzed_at", -1).limit(15).to_list(15)
+    
+    positions = []
+    for analysis in analyses:
+        extracted = extract_drill_positions(analysis, focus_pattern, limit=target_count - len(positions))
+        positions.extend(extracted)
+        if len(positions) >= target_count:
+            break
+    
+    return {
+        "positions": positions[:target_count],
+        "total": len(positions[:target_count]),
+        "focus_pattern": focus_pattern,
+        "mission_id": mission_id
+    }
+
+
+def extract_drill_positions(analysis: dict, focus_pattern: str, limit: int = 5) -> list:
+    """
+    Extract drill-worthy positions from a game analysis based on focus pattern.
+    """
+    positions = []
+    blunders = analysis.get("blunders", [])
+    mistakes = analysis.get("mistakes", [])
+    game_id = analysis.get("game_id")
+    
+    # Map focus patterns to mistake categories
+    pattern_map = {
+        "ignored_opponent_forcing": ["ignored_opponent_forcing", "missed_threat"],
+        "missed_forcing_move": ["missed_forcing_move", "missed_tactic"],
+        "phantom_threat": ["phantom_threat", "overreaction"],
+        "advantage_mismanagement": ["advantage_mismanagement", "premature_attack"],
+        "critical_moment_drift": ["critical_moment_drift", "time_trouble"],
+        "structural_misjudgment": ["structural_misjudgment", "pawn_weakness"],
+    }
+    
+    target_categories = pattern_map.get(focus_pattern, [focus_pattern])
+    
+    # First, get positions matching the pattern
+    for blunder in blunders:
+        if len(positions) >= limit:
+            break
+        cat = blunder.get("mistake_category", "")
+        if cat in target_categories or not target_categories:
+            pos = {
+                "position_id": f"{game_id}_{blunder.get('move_number', 0)}",
+                "game_id": game_id,
+                "fen": blunder.get("fen"),
+                "move_number": blunder.get("move_number"),
+                "user_move": blunder.get("user_move"),
+                "best_move": blunder.get("best_move"),
+                "eval_before": blunder.get("eval_before"),
+                "eval_after": blunder.get("eval_after"),
+                "eval_change": blunder.get("eval_change") or blunder.get("cp_loss"),
+                "category": cat,
+                "explanation": blunder.get("explanation", "Find the best move in this position."),
+                "type": "blunder"
+            }
+            if pos["fen"]:  # Only add if we have a valid FEN
+                positions.append(pos)
+    
+    # Add mistakes if we need more positions
+    for mistake in mistakes:
+        if len(positions) >= limit:
+            break
+        pos = {
+            "position_id": f"{game_id}_{mistake.get('move_number', 0)}",
+            "game_id": game_id,
+            "fen": mistake.get("fen"),
+            "move_number": mistake.get("move_number"),
+            "user_move": mistake.get("user_move"),
+            "best_move": mistake.get("best_move"),
+            "eval_before": mistake.get("eval_before"),
+            "eval_after": mistake.get("eval_after"),
+            "eval_change": mistake.get("eval_change") or mistake.get("cp_loss"),
+            "category": mistake.get("mistake_category", "unknown"),
+            "explanation": mistake.get("explanation", "Find the best move in this position."),
+            "type": "mistake"
+        }
+        if pos["fen"]:
+            positions.append(pos)
+    
+    return positions
+
 @api_router.post("/missions/generate-fix")
 async def generate_fix_mission(data: dict, user: User = Depends(get_current_user)):
     """
