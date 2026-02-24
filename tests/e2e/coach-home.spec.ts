@@ -259,10 +259,16 @@ test.describe('Coach Home - Navigation Integration', () => {
     await page.waitForURL(/\/lab/, { timeout: 10000 });
     await page.waitForLoadState('domcontentloaded');
     
+    // Wait for nav to be visible before Train navigation
+    await expect(page.getByTestId('nav-train')).toBeVisible({ timeout: 10000 });
+    
     // Test Train navigation
     await page.getByTestId('nav-train').click({ force: true });
     await page.waitForURL(/\/training/, { timeout: 10000 });
     await page.waitForLoadState('domcontentloaded');
+    
+    // Wait for nav to be visible before Progress navigation
+    await expect(page.getByTestId('nav-progress')).toBeVisible({ timeout: 10000 });
     
     // Test Progress navigation
     await page.getByTestId('nav-progress').click({ force: true });
