@@ -131,7 +131,6 @@ const MissionRunner = ({ user }) => {
     
     const isCorrect = move === currentPosition.best_move;
     setSelectedMove(move);
-    setFeedback(isCorrect ? "correct" : "incorrect");
     
     // Update score
     const newScore = {
@@ -143,6 +142,11 @@ const MissionRunner = ({ user }) => {
     
     // Record step to backend
     recordStep(isCorrect);
+    
+    // Delay setting feedback to allow board animation to complete
+    setTimeout(() => {
+      setFeedback(isCorrect ? "correct" : "incorrect");
+    }, 300);
   };
 
   const handleShowAnswer = () => {
