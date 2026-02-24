@@ -1363,6 +1363,33 @@ Created `chess_verification_layer.py` that:
 
 ---
 
+### Post-Loss Recovery Screen ✅ COMPLETE (Feb 24, 2026)
+
+**UX Promise:** "Tough game. Don't waste it."
+
+**The Signature UX Pattern** - Converts negative emotion into action instantly.
+
+**Layout:**
+- Board on left (60%)
+- Recovery panel on right (40%)
+
+**Elements:**
+1. **Emotional Headline**: "That game had lessons. Let's fix one now."
+2. **Main Issue Card**: Single insight (e.g., "Critical position focus")
+3. **Primary CTA**: Big red "Fix this in X min" button
+4. **Secondary**: "See full analysis instead →"
+
+**Files Created:**
+- `/app/frontend/src/pages/PostLossRecovery.jsx`
+
+**Backend Endpoints Added:**
+- `GET /api/reflect/v1/post-loss/{game_id}` - Enhanced with critical_moment, headline
+- `POST /api/missions/generate-fix` - Generate fix-it mission for a game
+
+**Test Report:** `/app/test_reports/iteration_73.json` - 100% pass (24 backend, 26 frontend)
+
+---
+
 ## Current Priority: Dopamine Engine Implementation (In Progress)
 
 ### Phase 2C/2D: Mission System UI ✅ COMPLETE (Feb 24, 2026)
