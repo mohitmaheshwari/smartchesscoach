@@ -1,0 +1,119 @@
+{
+  "summary": "Post-Loss Recovery feature testing complete. All endpoints and UI components working correctly. The signature UX pattern ('From loss to learning in under 90 seconds') is fully functional with board on left (60%), recovery panel on right (40%), emotional headlines, and fix-it CTA.",
+  "mode": "generate",
+  "baseline_commit": "44446fa850d0ef299e1644fb933af4b4714d08cd",
+  "head_commit": "1ffc463da91d2403cb3fad9daf4fb9d33eb0ac81",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Post-Loss Recovery",
+        "issues": ["Board shows starting position when critical_moment.fen is null - this is expected per agent_to_agent_context_note but could be improved to show the actual critical position"]
+      }
+    ]
+  },
+  "regression_results": {
+    "total_specs": 50,
+    "passed": 50,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/tests/e2e/post-loss-recovery.spec.ts",
+    "/app/backend/tests/test_post_loss_recovery_api.py"
+  ],
+  "specs_updated": [
+    "/app/tests/e2e/coach-home.spec.ts"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/post-loss-recovery.spec.ts",
+    "/app/tests/e2e/coach-home.spec.ts",
+    "/app/backend/tests/test_post_loss_recovery_api.py",
+    "/app/test_reports/pytest/pytest_post_loss_recovery.xml"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/post-loss-recovery.spec.ts",
+    "/app/tests/e2e/coach-home.spec.ts",
+    "/app/backend/tests/test_post_loss_recovery_api.py"
+  ],
+  "success_rate": {
+    "backend": "100% (24/24 pytest tests passed)",
+    "frontend": "100% (26/26 Playwright tests passed: 11 post-loss-recovery + 15 coach-home)"
+  },
+  "seed_data_creation": "None - used existing test game_id: 2d46940d-dfce-4534-9935-9b1ba3829c92 (a loss)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Post-Loss Recovery page at /recover/:gameId is fully tested. data-testids: post-loss-recovery-page, fix-it-btn, see-analysis-btn. All Coach Home 4-item navigation tests updated and passing. APIs tested: /api/reflect/v1/post-loss/{game_id}, /api/missions/generate-fix, /api/coach/fresh-loss, /api/coach/weekly-proof, /api/missions/today.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  },
+  "features_tested": {
+    "post_loss_recovery_page": {
+      "status": "PASS",
+      "tests": [
+        "Post-Loss Recovery page loads at /recover/:gameId route",
+        "Board displays on left side (60% width)",
+        "Recovery panel shows emotional headline",
+        "Main Issue card displays focus pattern",
+        "Fix-it button is visible and clickable",
+        "Fix-it button navigates to mission",
+        "See full analysis link is visible and works",
+        "Recovery page shows opponent name",
+        "Recovery page shows time estimate",
+        "Recovery page shows move comparison",
+        "Shows error for invalid game ID"
+      ]
+    },
+    "post_loss_api": {
+      "status": "PASS",
+      "tests": [
+        "/api/reflect/v1/post-loss/{game_id} returns 200",
+        "Returns required fields (game_id, headline, main_issue, estimated_minutes, critical_moment)",
+        "Headline is non-empty motivational text",
+        "Returns 404 for invalid game"
+      ]
+    },
+    "generate_fix_mission_api": {
+      "status": "PASS",
+      "tests": [
+        "/api/missions/generate-fix returns 200",
+        "Returns valid mission structure",
+        "trigger_type is post_loss",
+        "source_game_id matches request",
+        "micro_protocol is list of steps",
+        "goal has type and target",
+        "Requires game_id parameter",
+        "Returns 404 for invalid game"
+      ]
+    },
+    "coach_home_navigation": {
+      "status": "PASS",
+      "tests": [
+        "Coach Home shows 4-item navigation (Home, Analyze, Train, Progress)",
+        "Navigation items navigate to correct routes"
+      ]
+    },
+    "weekly_proof_api": {
+      "status": "PASS",
+      "tests": [
+        "/api/coach/weekly-proof returns 200",
+        "Returns wins, missions_completed, streak_days"
+      ]
+    },
+    "fresh_loss_api": {
+      "status": "PASS",
+      "tests": [
+        "/api/coach/fresh-loss returns 200",
+        "Returns has_fresh_loss boolean"
+      ]
+    }
+  }
+}
