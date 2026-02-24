@@ -219,7 +219,7 @@ const DailyMissionCard = ({ onStartMission }) => {
           <div className="shrink-0">
             {isActive ? (
               <Button 
-                onClick={() => navigate(`/training?mission=${mission.mission_id}`)}
+                onClick={() => navigate(`/mission/${mission.mission_id}`, { state: { mission } })}
                 className="bg-primary hover:bg-primary/90"
               >
                 <Play className="w-4 h-4 mr-1" /> Continue
