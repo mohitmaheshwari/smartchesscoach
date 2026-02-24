@@ -2784,10 +2784,13 @@ class ReflectSessionSubmitRequest(BaseModel):
     intent: str
     intent_confidence: str
     selected_quick_tags: List[str]
+    auto_tag_candidates_shown: List[str] = []  # For analytics
     free_text: Optional[str] = ""
     cp_loss: float = 0.0
     time_remaining_sec: Optional[int] = None
     move_number: int = 0
+    completed_in_seconds: int = 0  # Time to complete reflection
+    game_ended_at: Optional[str] = None  # For freshness calculation
 
 @api_router.get("/reflect/v1/profile")
 async def get_reflection_profile(user: User = Depends(get_current_user)):
