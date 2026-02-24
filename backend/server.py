@@ -2981,6 +2981,99 @@ async def submit_reflection_v1(data: ReflectSessionSubmitRequest, user: User = D
         "coach_message": reward_message["text"] if reward_message else "Good. Reflection captured.",
         "next_actions": next_actions,
         "rule_version": REFLECT_RULES_VERSION,
+        # Timing metrics
+        "completed_in_seconds": data.completed_in_seconds,
+        "is_fresh": is_fresh,
+        "freshness_badge": "Fresh Memory" if is_fresh else None,
+    }
+
+# ==================== REWARD EVENT FEED ====================
+
+@api_router.get("/rewards/feed")
+async def get_reward_feed(limit: int = 20, user: User = Depends(get_current_user)):
+    """
+    Get user's recent reward events.
+    Used for reward feed/history display.
+    """
+    events = await db.reward_events.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Clean up for response
+    result = []
+    for event in events:
+        result.append({
+            "event_id": event.get("event_id"),
+            "event_type": event.get("event_type"),
+            "source": event.get("source"),
+            "message_id": event.get("message_id"),
+            "created_at": event.get("created_at"),
+            "seen": event.get("seen", False),
+        })
+    
+    # Count unseen
+    unseen_count = sum(1 for e in result if not e["seen"])
+    
+    return {
+        "events": result,
+        "unseen_count": unseen_count,
+        "total": len(result),
+    }
+
+@api_router.post("/rewards/mark-seen")
+async def mark_rewards_seen(user: User = Depends(get_current_user)):
+    """Mark all reward events as seen."""
+    await db.reward_events.update_many(
+        {"user_id": user.user_id, "seen": False},
+        {"$set": {"seen": True}}
+    )
+    return {"status": "ok"}
+
+@api_router.get("/rewards/stats")
+async def get_reward_stats(user: User = Depends(get_current_user)):
+    """
+    Get reward statistics for the user.
+    Used for weekly proof card and progress display.
+    """
+    # Get reflections for stats
+    reflections = await db.reflection_sessions.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(50).to_list(50)
+    
+    total_reflections = len(reflections)
+    fresh_reflections = sum(1 for r in reflections if r.get("is_fresh"))
+    avg_completion_time = 0
+    if reflections:
+        times = [r.get("completed_in_seconds", 0) for r in reflections if r.get("completed_in_seconds", 0) > 0]
+        if times:
+            avg_completion_time = sum(times) / len(times)
+    
+    # Intent distribution
+    intent_counts = {}
+    for r in reflections:
+        intent = r.get("intent", "unknown")
+        intent_counts[intent] = intent_counts.get(intent, 0) + 1
+    
+    # Tag usage
+    tag_usage = {}
+    for r in reflections:
+        for tag in r.get("selected_quick_tags", []):
+            tag_usage[tag] = tag_usage.get(tag, 0) + 1
+    
+    # Gap types
+    gap_types = {}
+    for r in reflections:
+        gap = r.get("awareness_gap_type", "unknown")
+        gap_types[gap] = gap_types.get(gap, 0) + 1
+    
+    return {
+        "total_reflections": total_reflections,
+        "fresh_reflections": fresh_reflections,
+        "fresh_rate": fresh_reflections / total_reflections if total_reflections > 0 else 0,
+        "avg_completion_time_sec": round(avg_completion_time, 1),
+        "intent_distribution": intent_counts,
+        "tag_usage": dict(sorted(tag_usage.items(), key=lambda x: x[1], reverse=True)[:10]),
+        "gap_type_distribution": gap_types,
     }
 
 @api_router.get("/reflect/v1/post-loss/{game_id}")
