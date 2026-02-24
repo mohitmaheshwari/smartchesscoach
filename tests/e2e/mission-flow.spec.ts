@@ -199,8 +199,9 @@ test.describe('Mission System - Dashboard and Mission Flow', () => {
     await expect(page.getByTestId('answer-correct')).toBeVisible({ timeout: 5000 });
     
     // Check initial score display (Correct: 0, Missed: 0)
-    await expect(page.getByText('Correct')).toBeVisible();
-    await expect(page.getByText('Missed')).toBeVisible();
+    // Use role to avoid button text ambiguity
+    await expect(page.getByRole('paragraph').filter({ hasText: 'Correct' })).toBeVisible();
+    await expect(page.getByRole('paragraph').filter({ hasText: 'Missed' })).toBeVisible();
     
     // Click "Got it" (correct answer)
     await page.getByTestId('answer-correct').click();
@@ -208,8 +209,9 @@ test.describe('Mission System - Dashboard and Mission Flow', () => {
     // Position counter should update to 2/5
     await expect(page.getByText(/2 \/ \d+/)).toBeVisible({ timeout: 5000 });
     
-    // Score should update
-    await expect(page.locator('text="1"').first()).toBeVisible();
+    // Score for correct should be 1
+    const correctScore = page.locator('.text-emerald-500.font-bold.text-xl');
+    await expect(correctScore).toHaveText('1');
   });
 
   test('Dashboard displays loading state, then mission card', async ({ page }) => {
