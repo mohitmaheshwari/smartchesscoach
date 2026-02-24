@@ -36,7 +36,6 @@ const Layout = ({ children, user }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [prevUnreadCount, setPrevUnreadCount] = useState(0);
-  const [pendingReflections, setPendingReflections] = useState(0);
 
   // Request browser notification permission
   useEffect(() => {
