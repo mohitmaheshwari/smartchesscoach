@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { Chess } from "chess.js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
+import CoachBoard from "@/components/CoachBoard";
 import {
   Target,
   ChevronRight,
@@ -17,6 +19,8 @@ import {
   AlertTriangle,
   RotateCcw,
   Home,
+  Eye,
+  Lightbulb,
 } from "lucide-react";
 import { ProgressRing } from "@/components/ui/premium";
 
@@ -38,8 +42,12 @@ const MissionRunner = ({ user }) => {
   // State from navigation or fetched
   const [mission, setMission] = useState(location.state?.mission || null);
   const [sessionId, setSessionId] = useState(location.state?.session_id || null);
-  const [loading, setLoading] = useState(!mission);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Drill positions
+  const [positions, setPositions] = useState([]);
+  const [positionsLoading, setPositionsLoading] = useState(false);
   
   // Mission progress state
   const [phase, setPhase] = useState("briefing"); // briefing | drill | complete
@@ -47,14 +55,18 @@ const MissionRunner = ({ user }) => {
   const [score, setScore] = useState({ attempted: 0, correct: 0, process_points: 0 });
   const [completionResult, setCompletionResult] = useState(null);
   
+  // Drill interaction state
+  const [showHint, setShowHint] = useState(false);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [selectedMove, setSelectedMove] = useState(null);
+  const [feedback, setFeedback] = useState(null); // "correct" | "incorrect" | null
+  
   // Timer
   const [startTime, setStartTime] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
-    if (!mission) {
-      fetchMission();
-    }
+    fetchMissionData();
   }, [missionId]);
   
   // Timer effect
@@ -67,26 +79,33 @@ const MissionRunner = ({ user }) => {
     }
   }, [phase, startTime]);
 
-  const fetchMission = async () => {
+  const fetchMissionData = async () => {
     try {
-      const res = await fetch(`${API}/missions/today`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMission(data);
-        
-        // Start mission if not already started
-        if (data.status === "pending") {
-          const startRes = await fetch(`${API}/missions/${data.mission_id}/start`, {
-            method: "POST",
-            credentials: "include",
-          });
-          if (startRes.ok) {
-            const startData = await startRes.json();
-            setSessionId(startData.session_id);
-          }
+      setLoading(true);
+      
+      // Fetch mission if not provided
+      let missionData = mission;
+      if (!missionData) {
+        const res = await fetch(`${API}/missions/today`, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          missionData = await res.json();
+          setMission(missionData);
         }
+      }
+      
+      // Fetch drill positions for this mission
+      if (missionData?.mission_id) {
+        setPositionsLoading(true);
+        const posRes = await fetch(`${API}/missions/${missionData.mission_id}/positions`, {
+          credentials: "include",
+        });
+        if (posRes.ok) {
+          const posData = await posRes.json();
+          setPositions(posData.positions || []);
+        }
+        setPositionsLoading(false);
       }
     } catch (err) {
       setError("Could not load mission");
@@ -99,17 +118,47 @@ const MissionRunner = ({ user }) => {
     setPhase("drill");
     setStartTime(Date.now());
     setCurrentStep(0);
+    setShowHint(false);
+    setShowAnswer(false);
+    setFeedback(null);
   };
 
-  const handleDrillAnswer = async (correct) => {
+  const handleMoveSelect = (move) => {
+    if (feedback) return; // Already answered
+    
+    const currentPosition = positions[currentStep];
+    if (!currentPosition) return;
+    
+    const isCorrect = move === currentPosition.best_move;
+    setSelectedMove(move);
+    setFeedback(isCorrect ? "correct" : "incorrect");
+    
+    // Update score
     const newScore = {
       ...score,
       attempted: score.attempted + 1,
-      correct: score.correct + (correct ? 1 : 0),
+      correct: score.correct + (isCorrect ? 1 : 0),
     };
     setScore(newScore);
     
     // Record step to backend
+    recordStep(isCorrect);
+  };
+
+  const handleShowAnswer = () => {
+    setShowAnswer(true);
+    // Count as incorrect if they needed to see answer
+    if (!feedback) {
+      setFeedback("incorrect");
+      setScore({
+        ...score,
+        attempted: score.attempted + 1,
+      });
+      recordStep(false);
+    }
+  };
+
+  const recordStep = async (correct) => {
     try {
       await fetch(`${API}/missions/${missionId}/step`, {
         method: "POST",
@@ -119,21 +168,29 @@ const MissionRunner = ({ user }) => {
           step_type: "drill_result",
           payload: {
             step_index: currentStep,
-            correct,
+            is_correct: correct,
             time_taken_ms: Date.now() - startTime,
+            position_id: positions[currentStep]?.position_id,
+            used_hint: showHint,
           },
         }),
       });
     } catch (err) {
       console.error("Failed to record step:", err);
     }
+  };
+
+  const handleNextPosition = () => {
+    const totalSteps = positions.length || mission?.goal?.target || 5;
     
-    // Move to next step or complete
-    const totalSteps = mission?.goal?.target || 5;
     if (currentStep + 1 >= totalSteps) {
-      handleComplete(newScore);
+      handleComplete(score);
     } else {
       setCurrentStep(currentStep + 1);
+      setShowHint(false);
+      setShowAnswer(false);
+      setFeedback(null);
+      setSelectedMove(null);
     }
   };
 
@@ -145,7 +202,7 @@ const MissionRunner = ({ user }) => {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ final_score: finalScore }),
+        body: JSON.stringify({ score: finalScore }),
       });
       
       if (res.ok) {
@@ -161,6 +218,53 @@ const MissionRunner = ({ user }) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Get arrows for the current position
+  const getArrows = () => {
+    if (!positions[currentStep]) return [];
+    const pos = positions[currentStep];
+    const arrows = [];
+    
+    // Show user's wrong move in red if answered incorrectly
+    if (feedback === "incorrect" && selectedMove) {
+      const userArrow = sanToArrow(selectedMove, pos.fen, "red");
+      if (userArrow) arrows.push(userArrow);
+    }
+    
+    // Show best move in green if showing answer or correct
+    if (showAnswer || feedback === "correct") {
+      const bestArrow = sanToArrow(pos.best_move, pos.fen, "green");
+      if (bestArrow) arrows.push(bestArrow);
+    }
+    
+    return arrows;
+  };
+
+  const sanToArrow = (san, fen, color) => {
+    if (!san || !fen) return null;
+    try {
+      const chess = new Chess(fen);
+      const move = chess.move(san);
+      if (move) {
+        return [move.from, move.to, color];
+      }
+    } catch (e) {
+      return null;
+    }
+    return null;
+  };
+
+  // Get legal moves for current position
+  const getLegalMoves = () => {
+    const pos = positions[currentStep];
+    if (!pos?.fen) return [];
+    try {
+      const chess = new Chess(pos.fen);
+      return chess.moves();
+    } catch (e) {
+      return [];
+    }
   };
 
   if (loading) {
@@ -180,9 +284,9 @@ const MissionRunner = ({ user }) => {
           <AlertTriangle className="w-12 h-12 text-amber-500 mb-4" />
           <h2 className="text-xl font-semibold mb-2">Mission Not Found</h2>
           <p className="text-muted-foreground mb-4">{error || "No active mission available"}</p>
-          <Button onClick={() => navigate("/dashboard")}>
+          <Button onClick={() => navigate("/home")}>
             <Home className="w-4 h-4 mr-2" />
-            Back to Dashboard
+            Back to Home
           </Button>
         </div>
       </Layout>
@@ -190,20 +294,21 @@ const MissionRunner = ({ user }) => {
   }
 
   const protocolSteps = mission.micro_protocol || [];
-  const totalSteps = mission.goal?.target || 5;
-  const threshold = mission.goal?.success_threshold || 4;
+  const totalSteps = positions.length || mission.goal?.target || 5;
+  const threshold = mission.goal?.success_threshold || Math.ceil(totalSteps * 0.8);
   const passed = score.correct >= threshold;
+  const currentPosition = positions[currentStep];
 
   return (
     <Layout user={user}>
-      <div className="max-w-2xl mx-auto" data-testid="mission-runner-page">
+      <div className="max-w-3xl mx-auto" data-testid="mission-runner-page">
         {/* Progress Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/home")}
               className="text-muted-foreground hover:text-foreground -ml-2"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
@@ -292,74 +397,155 @@ const MissionRunner = ({ user }) => {
               {/* Start Button */}
               <Button
                 onClick={handleStartDrill}
+                disabled={positionsLoading || positions.length === 0}
                 size="lg"
                 className="w-full"
                 data-testid="start-drill-btn"
               >
-                Start Mission
-                <ChevronRight className="w-5 h-5 ml-2" />
+                {positionsLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Loading positions...
+                  </>
+                ) : positions.length === 0 ? (
+                  "No positions available"
+                ) : (
+                  <>
+                    Start Mission
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </>
+                )}
               </Button>
             </motion.div>
           )}
 
           {/* ========== DRILL PHASE ========== */}
-          {phase === "drill" && (
+          {phase === "drill" && currentPosition && (
             <motion.div
-              key="drill"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
+              key={`drill-${currentStep}`}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-4"
             >
-              {/* Placeholder drill UI - To be replaced with actual chess position */}
-              <Card className="surface">
-                <CardContent className="py-8">
-                  <div className="text-center">
-                    <h2 className="text-lg font-semibold mb-4">Position {currentStep + 1}</h2>
-                    
-                    {/* Placeholder board */}
-                    <div className="w-full aspect-square max-w-md mx-auto bg-muted/50 rounded-lg flex items-center justify-center mb-6 border-2 border-dashed border-border">
-                      <div className="text-center text-muted-foreground">
-                        <Target className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Chess position will appear here</p>
-                        <p className="text-xs mt-1">Find the best move</p>
+              {/* Position info */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Position {currentStep + 1}</h2>
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  currentPosition.type === "blunder" 
+                    ? "bg-red-500/20 text-red-500" 
+                    : "bg-amber-500/20 text-amber-500"
+                }`}>
+                  {currentPosition.type === "blunder" ? "Blunder" : "Mistake"}
+                </span>
+              </div>
+              
+              {/* Chess Board */}
+              <Card className="surface overflow-hidden">
+                <div className="aspect-square max-w-[480px] mx-auto">
+                  <CoachBoard
+                    fen={currentPosition.fen}
+                    orientation={currentPosition.fen?.includes(" w ") ? "white" : "black"}
+                    interactive={!feedback}
+                    viewOnly={!!feedback}
+                    customArrows={getArrows()}
+                    onMove={(move) => handleMoveSelect(move.san)}
+                  />
+                </div>
+              </Card>
+              
+              {/* Protocol reminder */}
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <p className="text-xs text-primary font-medium mb-1">Remember:</p>
+                <p className="text-sm text-muted-foreground">
+                  {protocolSteps[currentStep % protocolSteps.length] || "Find the best move"}
+                </p>
+              </div>
+              
+              {/* Feedback */}
+              <AnimatePresence>
+                {feedback && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-4 rounded-lg ${
+                      feedback === "correct" 
+                        ? "bg-emerald-500/10 border border-emerald-500/30" 
+                        : "bg-red-500/10 border border-red-500/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {feedback === "correct" ? (
+                        <Check className="w-6 h-6 text-emerald-500" />
+                      ) : (
+                        <X className="w-6 h-6 text-red-500" />
+                      )}
+                      <div>
+                        <p className={`font-semibold ${
+                          feedback === "correct" ? "text-emerald-500" : "text-red-500"
+                        }`}>
+                          {feedback === "correct" ? "Correct!" : "Not quite"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Best move: <span className="font-mono font-bold">{currentPosition.best_move}</span>
+                        </p>
                       </div>
                     </div>
-                    
-                    {/* Protocol reminder */}
-                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 mb-6 text-left">
-                      <p className="text-xs text-primary font-medium mb-1">Remember:</p>
-                      <p className="text-sm text-muted-foreground">{protocolSteps[currentStep % protocolSteps.length]}</p>
-                    </div>
-                    
-                    {/* Answer buttons (placeholder) */}
-                    <div className="flex gap-4 justify-center">
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        onClick={() => handleDrillAnswer(false)}
-                        className="flex-1 max-w-[150px]"
-                        data-testid="answer-wrong"
-                      >
-                        <X className="w-5 h-5 mr-2 text-red-500" />
-                        Missed
-                      </Button>
-                      <Button
-                        size="lg"
-                        onClick={() => handleDrillAnswer(true)}
-                        className="flex-1 max-w-[150px] bg-emerald-600 hover:bg-emerald-700"
-                        data-testid="answer-correct"
-                      >
-                        <Check className="w-5 h-5 mr-2" />
-                        Got it
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
+              {/* Action buttons */}
+              <div className="flex gap-3">
+                {!feedback ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowHint(!showHint)}
+                      className="flex-1"
+                    >
+                      <Lightbulb className="w-4 h-4 mr-2" />
+                      {showHint ? "Hide Hint" : "Show Hint"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleShowAnswer}
+                      className="flex-1"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Show Answer
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    onClick={handleNextPosition}
+                    className="w-full"
+                    data-testid="next-position-btn"
+                  >
+                    {currentStep + 1 >= totalSteps ? "Finish" : "Next Position"}
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </Button>
+                )}
+              </div>
+              
+              {/* Hint display */}
+              {showHint && !feedback && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30"
+                >
+                  <p className="text-sm text-amber-600">
+                    <Lightbulb className="w-4 h-4 inline mr-1" />
+                    {currentPosition.explanation || "Look for forcing moves: checks, captures, threats."}
+                  </p>
+                </motion.div>
+              )}
+              
               {/* Current score */}
-              <div className="flex justify-center gap-8 text-sm">
+              <div className="flex justify-center gap-8 text-sm pt-2">
                 <div className="text-center">
                   <p className="text-emerald-500 font-bold text-xl">{score.correct}</p>
                   <p className="text-muted-foreground">Correct</p>
@@ -445,11 +631,11 @@ const MissionRunner = ({ user }) => {
               <div className="flex gap-4 justify-center pt-4">
                 <Button
                   variant="outline"
-                  onClick={() => navigate("/dashboard")}
-                  data-testid="back-to-dashboard"
+                  onClick={() => navigate("/home")}
+                  data-testid="back-to-home"
                 >
                   <Home className="w-4 h-4 mr-2" />
-                  Dashboard
+                  Home
                 </Button>
                 <Button
                   onClick={() => navigate("/training")}
