@@ -824,7 +824,7 @@ const Reflect = ({ user }) => {
               )}
             </div>
 
-            {/* Reflection Section */}
+            {/* Reflection Section - V1 Progressive Flow */}
             <div>
               <AnimatePresence mode="wait">
                 {showingGap && awarenessGap ? (
@@ -836,138 +836,259 @@ const Reflect = ({ user }) => {
                   >
                     <Card className="border-amber-500/50 bg-amber-500/5">
                       <CardContent className="py-6">
+                        {/* Coach Reward Message */}
+                        {coachReward && (
+                          <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                            <div className="flex items-center gap-2 text-green-400">
+                              <Check className="w-4 h-4" />
+                              <span className="text-sm">{coachReward}</span>
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="flex items-start gap-3 mb-4">
                           <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
                             <Eye className="w-5 h-5 text-amber-500" />
                           </div>
                           <div>
                             <h3 className="font-semibold text-amber-400 mb-1">
-                              Awareness Gap Detected
+                              {awarenessGap.type === "aligned" ? "Good Self-Awareness" : 
+                               awarenessGap.type === "confidence_gap" ? "Confidence Gap" :
+                               awarenessGap.type === "panic_pattern" ? "Time Pressure Pattern" :
+                               "Awareness Insight"}
                             </h3>
                             <p className="text-sm text-muted-foreground">
-                              There's a difference between what you noticed and what happened
+                              {awarenessGap.headline}
                             </p>
                           </div>
                         </div>
                         
-                        <div className="space-y-3 mb-6">
-                          <div className="p-3 rounded-lg bg-muted/50">
-                            <div className="text-xs text-muted-foreground mb-1">You thought:</div>
-                            <div className="text-sm">{userThought}</div>
+                        {awarenessGap.focus_recommendation && (
+                          <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 mb-4">
+                            <div className="text-xs text-purple-400 mb-1">Recommended focus:</div>
+                            <div className="text-sm text-purple-300">{awarenessGap.focus_recommendation}</div>
                           </div>
-                          
-                          <div className="p-3 rounded-lg bg-muted/50">
-                            <div className="text-xs text-muted-foreground mb-1">What actually happened:</div>
-                            <div className="text-sm">{awarenessGap.engine_insight}</div>
-                          </div>
-                          
-                          {awarenessGap.training_hint && (
-                            <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
-                              <div className="text-xs text-purple-400 mb-1">Training opportunity:</div>
-                              <div className="text-sm text-purple-300">{awarenessGap.training_hint}</div>
-                            </div>
-                          )}
-                        </div>
+                        )}
                         
                         <Button onClick={acknowledgeGap} className="w-full">
-                          Got it, continue
-                          <ChevronRight className="w-4 h-4 ml-2" />
+                          {currentMomentIndex < totalMoments - 1 ? (
+                            <>Next moment <ChevronRight className="w-4 h-4 ml-1" /></>
+                          ) : (
+                            <>Complete <Check className="w-4 h-4 ml-1" /></>
+                          )}
                         </Button>
                       </CardContent>
                     </Card>
                   </motion.div>
                 ) : (
                   <motion.div
-                    key="reflect"
+                    key="reflect-v1"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                   >
                     <Card>
                       <CardContent className="py-6">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Brain className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold">What were you thinking?</h3>
-                            <p className="text-sm text-muted-foreground">
-                              Before you played {currentMoment.user_move}
-                            </p>
-                          </div>
+                        {/* Ego-safe framing */}
+                        <div className="text-xs text-muted-foreground mb-4 p-2 bg-muted/30 rounded">
+                          No judgment — we're capturing what you saw, so training becomes personal.
                         </div>
                         
-                        <div className="space-y-4">
-                          <div className="relative">
-                            <Textarea
-                              value={userThought}
-                              onChange={(e) => setUserThought(e.target.value)}
-                              placeholder="I was trying to... / I didn't see... / I thought my opponent would..."
-                              className="min-h-[120px] resize-none"
-                              disabled={isPlanMode}
+                        {/* Progress indicator */}
+                        <div className="flex items-center gap-2 mb-6">
+                          {[0, 1, 2].map(step => (
+                            <div 
+                              key={step}
+                              className={`h-1 flex-1 rounded-full transition-colors ${
+                                step < reflectStep ? "bg-green-500" :
+                                step === reflectStep ? "bg-primary" : "bg-muted"
+                              }`}
                             />
+                          ))}
+                        </div>
+                        
+                        {/* Step 0: Intent Selection (1 tap) */}
+                        {reflectStep === 0 && (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Target className="w-4 h-4 text-primary" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold">What were you trying to do?</h3>
+                                <p className="text-xs text-muted-foreground">
+                                  Before you played {currentMoment?.user_move}
+                                </p>
+                              </div>
+                            </div>
                             
-                            {!isPlanMode && !userThought && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="absolute bottom-3 right-3 gap-1 text-xs"
-                                onClick={startPlanMode}
-                              >
-                                <Play className="w-3 h-3" />
-                                Show on board
-                              </Button>
-                            )}
+                            <div className="grid grid-cols-2 gap-2">
+                              {(reflectProfile?.intent_options || [
+                                { id: "attack", label: "Attack" },
+                                { id: "defend", label: "Defend" },
+                                { id: "improve_pieces", label: "Develop / Improve piece" },
+                                { id: "trade_simplify", label: "Simplify / Trade" },
+                                { id: "win_material", label: "Win material" },
+                                { id: "avoid_threat", label: "Avoid a threat" },
+                                { id: "time_panic", label: "Time pressure move" },
+                                { id: "not_sure", label: "Not sure" },
+                              ]).map(option => (
+                                <Button
+                                  key={option.id}
+                                  variant={selectedIntent === option.id ? "default" : "outline"}
+                                  size="sm"
+                                  className="h-auto py-2 px-3 text-left justify-start"
+                                  onClick={() => {
+                                    setSelectedIntent(option.id);
+                                    // Auto-advance after selection
+                                    setTimeout(() => setReflectStep(1), 150);
+                                  }}
+                                >
+                                  {option.label}
+                                </Button>
+                              ))}
+                            </div>
                           </div>
-                          
-                          {/* Contextual quick tags */}
-                          <div className="space-y-2">
+                        )}
+                        
+                        {/* Step 1: Confidence Selection (1 tap) */}
+                        {reflectStep === 1 && (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Brain className="w-4 h-4 text-primary" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold">How sure were you?</h3>
+                                <p className="text-xs text-muted-foreground">
+                                  When you played {currentMoment?.user_move}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Show selected intent as context */}
+                            <div className="text-xs text-muted-foreground mb-2">
+                              Intent: <span className="text-foreground">{selectedIntent?.replace(/_/g, " ")}</span>
+                              <button 
+                                className="ml-2 text-primary hover:underline"
+                                onClick={() => setReflectStep(0)}
+                              >
+                                change
+                              </button>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 gap-2">
+                              {(reflectProfile?.confidence_options || [
+                                { id: "very_sure", label: "Very sure" },
+                                { id: "somewhat_sure", label: "Somewhat sure" },
+                                { id: "guessing", label: "Guessing / fast move" },
+                              ]).map(option => (
+                                <Button
+                                  key={option.id}
+                                  variant={selectedConfidence === option.id ? "default" : "outline"}
+                                  className="h-auto py-3 text-left justify-start"
+                                  onClick={() => {
+                                    setSelectedConfidence(option.id);
+                                    // Auto-advance after selection
+                                    setTimeout(() => setReflectStep(2), 150);
+                                  }}
+                                >
+                                  {option.label}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Step 2: Quick Tags (optional, multi-select) */}
+                        {reflectStep === 2 && (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Lightbulb className="w-4 h-4 text-primary" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold">What fits your thinking?</h3>
+                                <p className="text-xs text-muted-foreground">
+                                  Select any that apply (optional)
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Context */}
+                            <div className="text-xs text-muted-foreground mb-2 flex items-center gap-2 flex-wrap">
+                              <span>Intent: <span className="text-foreground">{selectedIntent?.replace(/_/g, " ")}</span></span>
+                              <span>•</span>
+                              <span>Confidence: <span className="text-foreground">{selectedConfidence?.replace(/_/g, " ")}</span></span>
+                              <button 
+                                className="text-primary hover:underline"
+                                onClick={() => setReflectStep(0)}
+                              >
+                                restart
+                              </button>
+                            </div>
+                            
                             {loadingTags ? (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
                                 <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                                 Analyzing position...
                               </div>
-                            ) : couldNotInferIntent ? (
-                              <div className="text-sm text-muted-foreground py-2">
-                                <span className="text-amber-500">Unable to infer intent from this position.</span>
-                                <span className="ml-1">Please describe what you were thinking in your own words, or show your plan on the board.</span>
-                              </div>
-                            ) : contextualTags.length > 0 ? (
+                            ) : (
                               <div className="flex flex-wrap gap-2">
-                                {contextualTags.map((tag) => (
+                                {v1QuickTags.map(tag => (
                                   <Button
-                                    key={tag}
-                                    variant="outline"
+                                    key={tag.id}
+                                    variant={selectedTags.includes(tag.id) ? "default" : "outline"}
                                     size="sm"
-                                    className="text-xs h-auto py-1.5 px-3 whitespace-normal text-left"
-                                    onClick={() => setUserThought(tag)}
-                                    disabled={isPlanMode}
+                                    className="h-auto py-1.5 px-3 text-xs"
+                                    onClick={() => {
+                                      setSelectedTags(prev => 
+                                        prev.includes(tag.id)
+                                          ? prev.filter(t => t !== tag.id)
+                                          : [...prev, tag.id]
+                                      );
+                                    }}
                                   >
-                                    {tag}
+                                    {selectedTags.includes(tag.id) && (
+                                      <Check className="w-3 h-3 mr-1" />
+                                    )}
+                                    {tag.label}
                                   </Button>
                                 ))}
                               </div>
-                            ) : (
-                              <div className="text-sm text-muted-foreground py-2">
-                                Describe what you were thinking in your own words.
-                              </div>
                             )}
+                            
+                            {/* Optional free text */}
+                            <div className="pt-2">
+                              <button 
+                                className="text-xs text-muted-foreground hover:text-foreground"
+                                onClick={() => {
+                                  const text = prompt("Add your exact thought (optional):");
+                                  if (text) setUserThought(text);
+                                }}
+                              >
+                                + Add your own description
+                              </button>
+                              {userThought && (
+                                <div className="mt-2 text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+                                  "{userThought}"
+                                </div>
+                              )}
+                            </div>
+                            
+                            <Button 
+                              onClick={submitReflectionV1}
+                              className="w-full mt-4"
+                              disabled={submitting}
+                            >
+                              {submitting ? (
+                                "Analyzing..."
+                              ) : (
+                                <>Submit Reflection <Check className="w-4 h-4 ml-1" /></>
+                              )}
+                            </Button>
                           </div>
-                          
-                          <Button 
-                            onClick={submitReflection} 
-                            className="w-full"
-                            disabled={!userThought.trim() || submitting || isPlanMode}
-                          >
-                            {submitting ? (
-                              "Analyzing..."
-                            ) : currentMomentIndex < totalMoments - 1 ? (
-                              <>Next moment <ChevronRight className="w-4 h-4 ml-1" /></>
-                            ) : (
-                              <>Complete reflection <Check className="w-4 h-4 ml-1" /></>
-                            )}
-                          </Button>
-                        </div>
+                        )}
                       </CardContent>
                     </Card>
                     
@@ -977,8 +1098,9 @@ const Reflect = ({ user }) => {
                         <div className="flex items-start gap-2">
                           <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                           <p className="text-xs text-muted-foreground">
-                            Be honest about what you were thinking - not what you know now. 
-                            This helps identify blind spots in your thinking process.
+                            {reflectStep === 0 && "Pick your main intention before the move."}
+                            {reflectStep === 1 && "How confident were you? Honest answers help training."}
+                            {reflectStep === 2 && "Select tags that match your thinking. This takes under 20 seconds."}
                           </p>
                         </div>
                       </CardContent>
