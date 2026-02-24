@@ -3273,6 +3273,64 @@ async def start_mission_endpoint(mission_id: str, user: User = Depends(get_curre
     result = await start_mission(mission_id, user.user_id, db)
     return result
 
+@api_router.post("/missions/generate-fix")
+async def generate_fix_mission(data: dict, user: User = Depends(get_current_user)):
+    """
+    Generate a fix-it mission for a specific game (post-loss recovery).
+    Returns the mission that targets the main issue from the game.
+    """
+    game_id = data.get("game_id")
+    if not game_id:
+        raise HTTPException(status_code=400, detail="game_id required")
+    
+    # Get game analysis
+    analysis = await db.game_analyses.find_one({"game_id": game_id, "user_id": user.user_id})
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Game analysis not found")
+    
+    # Get user rating
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    # Find main issue pattern
+    blunders = analysis.get("blunders", [])
+    main_pattern = "critical_moment_drift"  # Default
+    
+    if blunders:
+        categories = [b.get("mistake_category") for b in blunders if b.get("mistake_category")]
+        if categories:
+            from collections import Counter
+            main_pattern = Counter(categories).most_common(1)[0][0]
+    
+    # Generate mission targeting this pattern
+    mission = await generate_daily_mission(
+        user.user_id, 
+        rating, 
+        db,
+        trigger_type="post_loss",
+        source_game_id=game_id,
+        force_pattern=main_pattern
+    )
+    
+    # Get focus info
+    focus_data = PATTERN_FOCUS_MAP.get(mission.get("focus_pattern"), {})
+    
+    return {
+        "mission_id": mission.get("mission_id"),
+        "trigger_type": "post_loss",
+        "focus_label": mission.get("focus_label"),
+        "focus_pattern": mission.get("focus_pattern"),
+        "micro_protocol": mission.get("micro_protocol", focus_data.get("micro_protocol", [])),
+        "goal": {
+            "type": mission.get("goal_type"),
+            "target": mission.get("goal_target"),
+            "success_threshold": mission.get("goal_threshold"),
+        },
+        "estimated_minutes": mission.get("estimated_minutes"),
+        "difficulty_band": mission.get("difficulty_band"),
+        "source_game_id": game_id,
+    }
+
 @api_router.post("/missions/{mission_id}/step")
 async def record_mission_step(
     mission_id: str,
