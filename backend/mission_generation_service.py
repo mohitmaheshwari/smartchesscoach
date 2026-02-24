@@ -317,23 +317,36 @@ async def generate_daily_mission(
     rating: int,
     db,
     post_loss_game: Optional[Dict] = None,
+    trigger_type: Optional[str] = None,
+    source_game_id: Optional[str] = None,
+    force_pattern: Optional[str] = None,
 ) -> Dict:
     """
     Main entry point for generating today's mission.
+    
+    Args:
+        user_id: User ID
+        rating: User's rating
+        db: Database connection
+        post_loss_game: Game dict if triggered by loss
+        trigger_type: Override trigger type ("daily", "post_loss", "relapse")
+        source_game_id: Override source game ID
+        force_pattern: Force a specific pattern (for post-loss recovery)
     """
     generator = MissionGenerator(user_id, rating)
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
     
-    # Check if mission already exists for today
-    existing = await db.behavioral_missions.find_one({
-        "user_id": user_id,
-        "mission_date": today,
-        "status": {"$in": ["pending", "active"]},
-    })
-    
-    if existing:
-        return existing
+    # Check if mission already exists for today (only for daily missions)
+    if not force_pattern:
+        existing = await db.behavioral_missions.find_one({
+            "user_id": user_id,
+            "mission_date": today,
+            "status": {"$in": ["pending", "active"]},
+        })
+        
+        if existing:
+            return existing
     
     # Get recent patterns from game analyses
     recent_analyses = await db.game_analyses.find({
