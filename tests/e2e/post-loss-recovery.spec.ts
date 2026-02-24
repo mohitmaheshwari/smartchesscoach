@@ -179,15 +179,10 @@ test.describe('Post-Loss Recovery - Error Handling', () => {
     await page.goto(`${BASE_URL}/recover/invalid-game-id-12345`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
-    // Should show error state with warning icon or message
-    const errorVisible = await page.getByText(/Could not load|not found|error/i).isVisible({ timeout: 10000 }).catch(() => false);
+    // Should show error state with "Could not load recovery" message
+    await expect(page.getByText(/Could not load recovery/i)).toBeVisible({ timeout: 10000 });
     
-    // Either error message or redirect to home
-    if (errorVisible) {
-      await expect(page.getByText(/Could not load|not found|error/i)).toBeVisible();
-    } else {
-      // May have redirected - that's also acceptable
-      expect(page.url()).not.toContain('recover/invalid');
-    }
+    // Back to Home button should be visible
+    await expect(page.getByRole('button', { name: /Back to Home/i })).toBeVisible();
   });
 });
