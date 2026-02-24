@@ -158,6 +158,16 @@ function AppRouter() {
           {({ user }) => <Dashboard user={user} />}
         </ProtectedRoute>
       } />
+      <Route path="/home" element={
+        <ProtectedRoute>
+          {({ user }) => <CoachHome user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/lab" element={
+        <ProtectedRoute>
+          {({ user }) => <Dashboard user={user} />}
+        </ProtectedRoute>
+      } />
       <Route path="/import" element={
         <ProtectedRoute>
           {({ user }) => <ImportGames user={user} />}
