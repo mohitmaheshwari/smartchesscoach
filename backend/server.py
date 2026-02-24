@@ -3513,7 +3513,7 @@ async def get_focus_mastery(user: User = Depends(get_current_user)):
     return {"masteries": result}
 
 @api_router.get("/weekly-proof")
-async def get_weekly_proof(user: User = Depends(get_current_user)):
+async def get_weekly_proof_endpoint(user: User = Depends(get_current_user)):
     """
     Get weekly proof card data.
     Shows improvement, ongoing issues, and next focus.
