@@ -202,6 +202,11 @@ function AppRouter() {
           {({ user }) => <Reflect user={user} />}
         </ProtectedRoute>
       } />
+      <Route path="/mission/:missionId" element={
+        <ProtectedRoute>
+          {({ user }) => <MissionRunner user={user} />}
+        </ProtectedRoute>
+      } />
     </Routes>
   );
 }
