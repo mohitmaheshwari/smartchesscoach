@@ -3293,44 +3293,29 @@ async def get_mission_positions(mission_id: str, user: User = Depends(get_curren
     source_game_id = mission.get("source_game_id")
     
     # Get positions from user's analyzed games
-    query = {"user_id": user.user_id}
+    positions = []
     
     # If mission is from a specific game, prioritize that game
     if source_game_id:
-        # Get positions from source game first
         source_analysis = await db.game_analyses.find_one({"game_id": source_game_id})
         if source_analysis:
             positions = extract_drill_positions(source_analysis, focus_pattern, limit=target_count)
-            
-            # If not enough from source, get more from other games
-            if len(positions) < target_count:
-                other_analyses = await db.game_analyses.find({
-                    "user_id": user.user_id,
-                    "game_id": {"$ne": source_game_id}
-                }).sort("analyzed_at", -1).limit(10).to_list(10)
-                
-                for analysis in other_analyses:
-                    more_positions = extract_drill_positions(analysis, focus_pattern, limit=target_count - len(positions))
-                    positions.extend(more_positions)
-                    if len(positions) >= target_count:
-                        break
-            
-            return {
-                "positions": positions[:target_count],
-                "total": len(positions[:target_count]),
-                "focus_pattern": focus_pattern,
-                "mission_id": mission_id
-            }
     
-    # Otherwise get from recent analyses
-    analyses = await db.game_analyses.find(query).sort("analyzed_at", -1).limit(15).to_list(15)
+    # Get more from other games if needed
+    if len(positions) < target_count:
+        other_analyses = await db.game_analyses.find({
+            "user_id": user.user_id,
+        }).sort("analyzed_at", -1).limit(15).to_list(15)
+        
+        for analysis in other_analyses:
+            more_positions = extract_drill_positions(analysis, focus_pattern, limit=target_count - len(positions))
+            positions.extend(more_positions)
+            if len(positions) >= target_count:
+                break
     
-    positions = []
-    for analysis in analyses:
-        extracted = extract_drill_positions(analysis, focus_pattern, limit=target_count - len(positions))
-        positions.extend(extracted)
-        if len(positions) >= target_count:
-            break
+    # If still no positions, generate sample positions for the pattern
+    if len(positions) == 0:
+        positions = get_sample_drill_positions(focus_pattern, target_count)
     
     return {
         "positions": positions[:target_count],
@@ -3338,6 +3323,146 @@ async def get_mission_positions(mission_id: str, user: User = Depends(get_curren
         "focus_pattern": focus_pattern,
         "mission_id": mission_id
     }
+
+
+def get_sample_drill_positions(focus_pattern: str, count: int = 5) -> list:
+    """
+    Generate sample drill positions for training when no user-specific positions exist.
+    These are common tactical patterns matching the focus area.
+    """
+    # Sample positions by pattern - real tactical puzzles
+    SAMPLE_POSITIONS = {
+        "ignored_opponent_forcing": [
+            {
+                "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
+                "best_move": "Qxf7+",
+                "explanation": "White can win material - what threat did Black ignore?",
+            },
+            {
+                "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 3",
+                "best_move": "Ng5",
+                "explanation": "Look for forcing moves against f7.",
+            },
+            {
+                "fen": "rnbqkb1r/pppp1ppp/5n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+                "best_move": "Nc6",
+                "explanation": "Develop while defending - what threat must Black see?",
+            },
+            {
+                "fen": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+                "best_move": "a6",
+                "explanation": "Address the bishop's threat to the knight.",
+            },
+            {
+                "fen": "r2qkb1r/ppp2ppp/2n1bn2/3pp3/2B1P3/2NP1N2/PPP2PPP/R1BQK2R w KQkq - 0 6",
+                "best_move": "exd5",
+                "explanation": "Open lines while the king is in the center.",
+            },
+        ],
+        "missed_forcing_move": [
+            {
+                "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+                "best_move": "Ng5",
+                "explanation": "Find the most aggressive move targeting f7.",
+            },
+            {
+                "fen": "r1bqkbnr/pppp1Qpp/2n5/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4",
+                "best_move": "Kxf7",
+                "explanation": "The only legal move - but what did White miss before?",
+            },
+            {
+                "fen": "rnb1kbnr/pppp1ppp/8/4p3/5PPq/8/PPPPP2P/RNBQKBNR w KQkq - 1 3",
+                "best_move": "g3",
+                "explanation": "Trap the queen - forcing moves work both ways!",
+            },
+            {
+                "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+                "best_move": "d3",
+                "explanation": "Solidify before attacking - sometimes defense is forcing.",
+            },
+            {
+                "fen": "r1bqkb1r/1ppp1ppp/p1n2n2/4p3/B3P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5",
+                "best_move": "Bxc6",
+                "explanation": "Exchange before Black can castle.",
+            },
+        ],
+        "critical_moment_drift": [
+            {
+                "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
+                "best_move": "Bb5",
+                "explanation": "The critical moment - choose the most active development.",
+            },
+            {
+                "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/4P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 4",
+                "best_move": "Bb5",
+                "explanation": "Don't drift - keep the pressure on.",
+            },
+            {
+                "fen": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+                "best_move": "Nf6",
+                "explanation": "Develop with tempo - challenge the center.",
+            },
+            {
+                "fen": "rnbqkb1r/pp2pppp/5n2/2pp4/3P4/2N2N2/PPP1PPPP/R1BQKB1R w KQkq - 0 4",
+                "best_move": "cxd5",
+                "explanation": "Critical pawn tension - make the right capture.",
+            },
+            {
+                "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+                "best_move": "d3",
+                "explanation": "Solid over flashy - protect before attacking.",
+            },
+        ],
+        "advantage_mismanagement": [
+            {
+                "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/1bPP4/2NBPN2/PP3PPP/R1BQK2R w KQ - 2 7",
+                "best_move": "O-O",
+                "explanation": "Consolidate your advantage - safety first.",
+            },
+            {
+                "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2BPP3/5N2/PPP2PPP/RNBQK2R b KQkq - 0 4",
+                "best_move": "exd4",
+                "explanation": "Convert the advantage carefully.",
+            },
+            {
+                "fen": "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+                "best_move": "c3",
+                "explanation": "Prepare d4 - don't rush the attack.",
+            },
+            {
+                "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2BPP3/5N2/PPP2PPP/RNBQK2R b KQkq - 0 4",
+                "best_move": "exd4",
+                "explanation": "Simplify when ahead - trade pieces.",
+            },
+            {
+                "fen": "r1bq1rk1/ppppbppp/2n2n2/4p3/2B1P3/3P1N2/PPP2PPP/RNBQ1RK1 w - - 6 6",
+                "best_move": "Nc3",
+                "explanation": "Develop all pieces before attacking.",
+            },
+        ],
+    }
+    
+    # Default to critical_moment_drift if pattern not found
+    pattern_positions = SAMPLE_POSITIONS.get(focus_pattern, SAMPLE_POSITIONS["critical_moment_drift"])
+    
+    positions = []
+    for i, pos in enumerate(pattern_positions[:count]):
+        positions.append({
+            "position_id": f"sample_{focus_pattern}_{i}",
+            "game_id": "sample",
+            "fen": pos["fen"],
+            "move_number": i + 1,
+            "user_move": None,
+            "best_move": pos["best_move"],
+            "eval_before": 0,
+            "eval_after": 0,
+            "eval_change": 0,
+            "category": focus_pattern,
+            "explanation": pos["explanation"],
+            "type": "drill",
+        })
+    
+    return positions
 
 
 def extract_drill_positions(analysis: dict, focus_pattern: str, limit: int = 5) -> list:
