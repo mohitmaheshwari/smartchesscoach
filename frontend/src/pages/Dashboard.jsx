@@ -43,6 +43,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import DailyMissionCard from "@/components/DailyMissionCard";
 
 // Milestone celebration banner component
 const MilestoneBanner = ({ milestone, onDismiss }) => {
