@@ -179,8 +179,8 @@ test.describe('Post-Loss Recovery - Error Handling', () => {
     await page.goto(`${BASE_URL}/recover/invalid-game-id-12345`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
-    // Should show error state with "Could not load recovery" message
-    await expect(page.getByText(/Could not load recovery/i)).toBeVisible({ timeout: 10000 });
+    // Should show error state with "Could not load recovery" heading
+    await expect(page.getByRole('heading', { name: 'Could not load recovery' })).toBeVisible({ timeout: 10000 });
     
     // Back to Home button should be visible
     await expect(page.getByRole('button', { name: /Back to Home/i })).toBeVisible();
