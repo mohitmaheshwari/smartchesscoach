@@ -132,11 +132,10 @@ const Layout = ({ children, user }) => {
   };
 
   const navigation = [
-    { name: 'Reflect', href: '/reflect', icon: Brain, badge: pendingReflections },
-    { name: 'Training', href: '/training', icon: Target },
-    { name: 'Journey', href: '/progress', icon: TrendingUp },
-    { name: 'Lab', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Import', href: '/import', icon: Import },
+    { name: 'Home', href: '/home', icon: Home },
+    { name: 'Analyze', href: '/lab', icon: FlaskConical },
+    { name: 'Train', href: '/training', icon: Target },
+    { name: 'Progress', href: '/progress', icon: TrendingUp },
   ];
 
   const isActive = (href) => location.pathname === href;
