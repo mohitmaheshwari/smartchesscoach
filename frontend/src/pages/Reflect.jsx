@@ -299,7 +299,16 @@ const Reflect = ({ user }) => {
     setContextualTags([]);
     setCouldNotInferIntent(false);
     setViewMode("your_move");
+    // V1: Reset progressive flow state
+    resetV1State();
   }, [currentMomentIndex, currentGameIndex]);
+  
+  // V1: Fetch tags when moment is available
+  useEffect(() => {
+    if (currentMoment) {
+      fetchV1QuickTags(currentMoment);
+    }
+  }, [currentMoment?.fen]);
   
   // Fetch games needing reflection
   useEffect(() => {
