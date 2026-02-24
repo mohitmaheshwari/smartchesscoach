@@ -393,20 +393,21 @@ async def generate_daily_mission(
     training_profile = await db.training_profiles.find_one({"user_id": user_id})
     current_focus = training_profile.get("current_focus_pattern") if training_profile else None
     
-    # Select pattern
-    pattern, pattern_data = generator.select_pattern(
-        patterns=patterns,
-        recent_missions=recent_missions,
-        current_focus=current_focus,
-        post_loss_game=post_loss_game,
-    )
+    # Select pattern (or use forced pattern)
+    if force_pattern and force_pattern in PATTERN_FOCUS_MAP:
+        pattern = force_pattern
+        pattern_data = PATTERN_FOCUS_MAP[force_pattern]
+    else:
+        pattern, pattern_data = generator.select_pattern(
+            patterns=patterns,
+            recent_missions=recent_missions,
+            current_focus=current_focus,
+            post_loss_game=post_loss_game,
+        )
     
-    # Determine trigger type
-    trigger_type = "daily"
-    source_game_id = None
-    if post_loss_game:
-        trigger_type = "post_loss"
-        source_game_id = post_loss_game.get("game_id")
+    # Determine trigger type (use override if provided)
+    final_trigger_type = trigger_type or ("post_loss" if post_loss_game else "daily")
+    final_source_game_id = source_game_id or (post_loss_game.get("game_id") if post_loss_game else None)
     
     # Build mission
     mission = generator.build_mission(
