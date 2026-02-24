@@ -3084,6 +3084,361 @@ async def get_reward_stats(user: User = Depends(get_current_user)):
         "gap_type_distribution": gap_types,
     }
 
+# ==================== MISSION ENGINE ROUTES ====================
+
+class MissionStepRequest(BaseModel):
+    """Request for recording a mission step"""
+    step_type: str  # "drill_result" | "reflect_complete" | "process_signal"
+    payload: Dict = {}
+
+class MissionCompleteRequest(BaseModel):
+    """Request for completing a mission"""
+    score: Dict
+
+@api_router.get("/missions/today")
+async def get_today_mission(user: User = Depends(get_current_user)):
+    """
+    Get or generate today's mission.
+    Returns active mission if exists, otherwise generates new one.
+    """
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    mission = await generate_daily_mission(user.user_id, rating, db)
+    
+    # Get focus info
+    focus_data = PATTERN_FOCUS_MAP.get(mission.get("focus_pattern"), {})
+    
+    return {
+        "mission_id": mission.get("mission_id"),
+        "trigger_type": mission.get("trigger_type"),
+        "focus_label": mission.get("focus_label"),
+        "focus_pattern": mission.get("focus_pattern"),
+        "micro_protocol": mission.get("micro_protocol", focus_data.get("micro_protocol", [])),
+        "goal": {
+            "type": mission.get("goal_type"),
+            "target": mission.get("goal_target"),
+            "success_threshold": mission.get("goal_success_threshold"),
+        },
+        "estimated_minutes": mission.get("estimated_minutes"),
+        "difficulty_band": mission.get("difficulty_band"),
+        "status": mission.get("status"),
+        "source_game_id": mission.get("source_game_id"),
+    }
+
+@api_router.post("/missions/{mission_id}/start")
+async def start_mission_endpoint(mission_id: str, user: User = Depends(get_current_user)):
+    """Start a mission session."""
+    result = await start_mission(mission_id, user.user_id, db)
+    return result
+
+@api_router.post("/missions/{mission_id}/step")
+async def record_mission_step(
+    mission_id: str,
+    data: MissionStepRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Record a step in the mission session.
+    Emits reward events for process recognition.
+    """
+    now = datetime.now(timezone.utc)
+    
+    # Get active session
+    session = await db.mission_sessions.find_one({
+        "mission_id": mission_id,
+        "user_id": user.user_id,
+        "ended_at": None,
+    })
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="No active session for this mission")
+    
+    # Build step record
+    step = {
+        "type": data.step_type,
+        "payload": data.payload,
+        "status": data.payload.get("status", "done"),
+        "duration_ms": data.payload.get("duration_ms", 0),
+        "recorded_at": now.isoformat(),
+    }
+    
+    # Update session
+    await db.mission_sessions.update_one(
+        {"session_id": session["session_id"]},
+        {"$push": {"steps": step}}
+    )
+    
+    # Check for reward triggers
+    reward_events = []
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    # Process Recognition: Check if user used threat scan
+    if data.step_type == "drill_result" and data.payload.get("used_threat_scan"):
+        reward_msg = get_reward_message(
+            RewardEventType.PROCESS_THREAT_SCAN,
+            rating,
+        )
+        if reward_msg:
+            reward_events.append({
+                "type": "process_recognition",
+                "message": reward_msg["text"],
+            })
+            # Store event
+            await db.reward_events.insert_one({
+                "event_id": f"e_{uuid.uuid4().hex[:12]}",
+                "user_id": user.user_id,
+                "event_type": RewardEventType.PROCESS_THREAT_SCAN.value,
+                "source": "mission",
+                "payload": {"mission_id": mission_id},
+                "message_id": reward_msg["message_id"],
+                "created_at": now.isoformat(),
+                "seen": False,
+            })
+    
+    # Pattern Recognition: Check if user got 2+ correct on same pattern
+    if data.step_type == "drill_result" and data.payload.get("is_correct"):
+        # Count correct in session
+        correct_count = sum(1 for s in session.get("steps", []) 
+                          if s.get("type") == "drill_result" and s.get("payload", {}).get("is_correct"))
+        if correct_count == 1:  # This is their second correct
+            reward_msg = get_reward_message(
+                RewardEventType.PATTERN_RECOGNIZED,
+                rating,
+            )
+            if reward_msg:
+                reward_events.append({
+                    "type": "pattern_recognition",
+                    "message": reward_msg["text"],
+                })
+    
+    # Recovery: Check for wrong → correct → correct sequence
+    steps = session.get("steps", []) + [step]
+    drill_results = [s for s in steps if s.get("type") == "drill_result"]
+    if len(drill_results) >= 3:
+        last_three = drill_results[-3:]
+        results = [s.get("payload", {}).get("is_correct") for s in last_three]
+        if results == [False, True, True]:
+            reward_msg = get_reward_message(
+                RewardEventType.RECOVERY_GOOD_RESET,
+                rating,
+            )
+            if reward_msg:
+                reward_events.append({
+                    "type": "recovery_moment",
+                    "message": reward_msg["text"],
+                })
+    
+    # Update score in session
+    if data.step_type == "drill_result":
+        is_correct = data.payload.get("is_correct", False)
+        await db.mission_sessions.update_one(
+            {"session_id": session["session_id"]},
+            {
+                "$inc": {
+                    "score.attempted": 1,
+                    "score.correct": 1 if is_correct else 0,
+                }
+            }
+        )
+    
+    # Get updated score
+    updated_session = await db.mission_sessions.find_one({"session_id": session["session_id"]})
+    
+    return {
+        "step_recorded": True,
+        "reward_events": reward_events,
+        "progress": {
+            "attempted": updated_session.get("score", {}).get("attempted", 0),
+            "correct": updated_session.get("score", {}).get("correct", 0),
+            "target": 5,  # From mission
+        },
+    }
+
+@api_router.post("/missions/{mission_id}/complete")
+async def complete_mission_endpoint(
+    mission_id: str,
+    data: MissionCompleteRequest,
+    user: User = Depends(get_current_user)
+):
+    """Complete a mission and get result + rewards."""
+    # Get active session
+    session = await db.mission_sessions.find_one({
+        "mission_id": mission_id,
+        "user_id": user.user_id,
+        "ended_at": None,
+    })
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="No active session")
+    
+    result = await complete_mission(
+        mission_id=mission_id,
+        session_id=session["session_id"],
+        user_id=user.user_id,
+        score=data.score,
+        db=db,
+    )
+    
+    # Get reward message
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    passed = result.get("result") == "pass"
+    reward_event = RewardEventType.MISSION_COMPLETE_PASS if passed else RewardEventType.MISSION_COMPLETE_FAIL
+    
+    reward_msg = get_reward_message(reward_event, rating, {
+        "focus_label": result.get("focus_label"),
+        "correct": result.get("score", {}).get("correct", 0),
+        "attempted": result.get("score", {}).get("attempted", 0),
+    })
+    
+    # Store reward event
+    if reward_msg:
+        await db.reward_events.insert_one({
+            "event_id": f"e_{uuid.uuid4().hex[:12]}",
+            "user_id": user.user_id,
+            "event_type": reward_event.value,
+            "source": "mission",
+            "payload": {"mission_id": mission_id, "result": result.get("result")},
+            "message_id": reward_msg["message_id"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "seen": False,
+        })
+    
+    return {
+        "result": result.get("result"),
+        "score": result.get("score"),
+        "threshold": result.get("threshold"),
+        "focus_label": result.get("focus_label"),
+        "coach_message": reward_msg["text"] if reward_msg else ("Good work!" if passed else "Keep practicing."),
+    }
+
+@api_router.get("/missions/history")
+async def get_mission_history(limit: int = 10, user: User = Depends(get_current_user)):
+    """Get user's recent mission history."""
+    missions = await db.behavioral_missions.find({
+        "user_id": user.user_id,
+        "status": "completed",
+    }).sort("completed_at", -1).limit(limit).to_list(limit)
+    
+    result = []
+    for m in missions:
+        result.append({
+            "mission_id": m.get("mission_id"),
+            "focus_label": m.get("focus_label"),
+            "result": m.get("result"),
+            "completed_at": m.get("completed_at"),
+            "trigger_type": m.get("trigger_type"),
+        })
+    
+    # Stats
+    total = len(result)
+    passed = sum(1 for m in result if m["result"] == "pass")
+    
+    return {
+        "missions": result,
+        "stats": {
+            "total": total,
+            "passed": passed,
+            "pass_rate": passed / total if total > 0 else 0,
+        },
+    }
+
+@api_router.get("/missions/focus-mastery")
+async def get_focus_mastery(user: User = Depends(get_current_user)):
+    """Get user's focus mastery levels."""
+    masteries = await db.focus_mastery.find({
+        "user_id": user.user_id,
+    }).to_list(20)
+    
+    result = []
+    for m in masteries:
+        score = m.get("mastery_score", 0)
+        band = "Emerging" if score < 25 else "Improving" if score < 50 else "Stable" if score < 75 else "Reliable"
+        
+        pattern = m.get("pattern")
+        focus_data = PATTERN_FOCUS_MAP.get(pattern, {})
+        
+        result.append({
+            "pattern": pattern,
+            "label": focus_data.get("focus_label", pattern),
+            "mastery_score": score,
+            "band": band,
+            "recent_results": m.get("recent_mission_results", [])[-5:],
+        })
+    
+    return {"masteries": result}
+
+@api_router.get("/weekly-proof")
+async def get_weekly_proof(user: User = Depends(get_current_user)):
+    """
+    Get weekly proof card data.
+    Shows improvement, ongoing issues, and next focus.
+    """
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    # Get recent analyses for blunder trend
+    now = datetime.now(timezone.utc)
+    week_ago = now - timedelta(days=7)
+    two_weeks_ago = now - timedelta(days=14)
+    
+    this_week = await db.game_analyses.find({
+        "user_id": user.user_id,
+        "analyzed_at": {"$gte": week_ago.isoformat()},
+    }).to_list(50)
+    
+    last_week = await db.game_analyses.find({
+        "user_id": user.user_id,
+        "analyzed_at": {"$gte": two_weeks_ago.isoformat(), "$lt": week_ago.isoformat()},
+    }).to_list(50)
+    
+    # Calculate blunder rates
+    this_week_blunders = sum(len(a.get("blunders", [])) for a in this_week)
+    this_week_games = len(this_week) or 1
+    last_week_blunders = sum(len(a.get("blunders", [])) for a in last_week)
+    last_week_games = len(last_week) or 1
+    
+    blunders_delta = (this_week_blunders / this_week_games) - (last_week_blunders / last_week_games)
+    
+    # Get main leak
+    pattern_counts = {}
+    for a in this_week:
+        for b in a.get("blunders", []):
+            cat = b.get("mistake_category")
+            if cat:
+                pattern_counts[cat] = pattern_counts.get(cat, 0) + 1
+    
+    main_leak = None
+    if pattern_counts:
+        main_pattern = max(pattern_counts, key=pattern_counts.get)
+        main_leak = PATTERN_FOCUS_MAP.get(main_pattern, {}).get("focus_label", main_pattern)
+    
+    # Get next focus from training profile or top pattern
+    training_profile = await db.training_profiles.find_one({"user_id": user.user_id})
+    next_focus = training_profile.get("current_focus_label") if training_profile else main_leak
+    
+    # Generate proof
+    proof = generate_weekly_proof(
+        rating=rating,
+        blunders_delta=blunders_delta,
+        main_leak=main_leak or "General patterns",
+        improvement_area=None,
+        next_focus=next_focus,
+    )
+    
+    return {
+        "lines": proof["lines"],
+        "rating_band": proof["rating_band"],
+        "stats": {
+            "this_week_games": this_week_games,
+            "this_week_blunders_per_game": round(this_week_blunders / this_week_games, 2),
+            "blunders_delta": round(blunders_delta, 2),
+        },
+    }
+
 @api_router.get("/reflect/v1/post-loss/{game_id}")
 async def get_post_loss_recovery(game_id: str, user: User = Depends(get_current_user)):
     """
