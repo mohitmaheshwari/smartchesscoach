@@ -78,6 +78,119 @@ const Reflect = ({ user }) => {
   const currentMoment = moments[currentMomentIndex];
   const totalMoments = moments.length;
   
+  // V1 Engine: Fetch adaptive profile on mount
+  useEffect(() => {
+    fetchReflectProfile();
+  }, []);
+  
+  const fetchReflectProfile = async () => {
+    try {
+      const res = await fetch(`${API}/reflect/v1/profile`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setReflectProfile(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch reflect profile:", err);
+    }
+  };
+  
+  // V1 Engine: Fetch quick tags when moment changes
+  const fetchV1QuickTags = async (moment) => {
+    if (!moment) return;
+    setLoadingTags(true);
+    setV1QuickTags([]);
+    
+    try {
+      const res = await fetch(`${API}/reflect/v1/quick-tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen: moment.fen,
+          user_move: moment.user_move,
+          best_move: moment.best_move,
+          mistake_category: moment.mistake_category || "critical_moment_drift",
+          cp_loss: Math.abs(moment.eval_change || 0) * 100,
+          move_number: moment.move_number || 0,
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setV1QuickTags(data.tags || []);
+        // Also update profile if returned
+        if (data.intent_options && reflectProfile) {
+          setReflectProfile(prev => ({
+            ...prev,
+            intent_options: data.intent_options,
+            confidence_options: data.confidence_options,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching V1 quick tags:", err);
+    } finally {
+      setLoadingTags(false);
+    }
+  };
+  
+  // V1 Engine: Submit reflection
+  const submitReflectionV1 = async () => {
+    if (!selectedIntent || !selectedConfidence) {
+      toast.error("Please select your intent and confidence");
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/reflect/v1/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          game_id: currentGame.game_id,
+          move_index: currentMomentIndex,
+          fen: currentMoment.fen,
+          user_move: currentMoment.user_move,
+          best_move: currentMoment.best_move,
+          mistake_category: currentMoment.mistake_category || "critical_moment_drift",
+          intent: selectedIntent,
+          intent_confidence: selectedConfidence,
+          selected_quick_tags: selectedTags,
+          free_text: userThought || "",
+          cp_loss: Math.abs(currentMoment.eval_change || 0) * 100,
+          move_number: currentMoment.move_number || 0,
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (data.awareness_result) {
+        setAwarenessGap(data.awareness_result);
+        setCoachReward(data.coach_message);
+        setShowingGap(true);
+      } else {
+        // Move to next moment
+        moveToNextMoment();
+      }
+    } catch (err) {
+      toast.error("Failed to save reflection");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
+  // Reset V1 state when moment changes
+  const resetV1State = () => {
+    setReflectStep(0);
+    setSelectedIntent(null);
+    setSelectedConfidence(null);
+    setSelectedTags([]);
+    setV1QuickTags([]);
+    setCoachReward(null);
+    setReflectionStartTime(Date.now());
+  };
+  
   // Helper to convert SAN move to arrow coordinates
   const sanToArrow = (san, fen, color = "red") => {
     if (!san || !fen) return null;
