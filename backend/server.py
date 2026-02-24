@@ -3600,11 +3600,16 @@ async def get_post_loss_recovery(game_id: str, user: User = Depends(get_current_
     user_doc = await db.users.find_one({"user_id": user.user_id})
     rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
     
-    # Get main issue from game
+    # Get main issue and critical moment from game
     blunders = analysis.get("blunders", [])
     mistakes = analysis.get("mistakes", [])
+    stockfish_eval = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
     
-    main_issue = "General improvement"
+    main_issue = "Critical position focus"
+    critical_moment = None
+    main_category = None
+    
+    # Find the most critical blunder
     if blunders:
         # Get most severe blunder category
         categories = [b.get("mistake_category", "unknown") for b in blunders if b.get("mistake_category")]
@@ -3617,21 +3622,59 @@ async def get_post_loss_recovery(game_id: str, user: User = Depends(get_current_
                 "phantom_threat": "Threat Prioritization",
                 "advantage_mismanagement": "Advantage Conversion",
                 "critical_moment_drift": "Critical Position Focus",
+                "structural_misjudgment": "Pawn Structure Judgment",
             }.get(main_category, main_category.replace("_", " ").title())
+        
+        # Get the critical moment (worst blunder)
+        worst_blunder = max(blunders, key=lambda b: abs(b.get("eval_change", 0)))
+        critical_moment = {
+            "fen": worst_blunder.get("fen"),
+            "user_move": worst_blunder.get("user_move"),
+            "best_move": worst_blunder.get("best_move"),
+            "eval_change": worst_blunder.get("eval_change"),
+            "move_number": worst_blunder.get("move_number"),
+        }
+    elif mistakes:
+        worst_mistake = max(mistakes, key=lambda m: abs(m.get("eval_change", 0)))
+        critical_moment = {
+            "fen": worst_mistake.get("fen"),
+            "user_move": worst_mistake.get("user_move"),
+            "best_move": worst_mistake.get("best_move"),
+            "eval_change": worst_mistake.get("eval_change"),
+            "move_number": worst_mistake.get("move_number"),
+        }
+    elif stockfish_eval:
+        # Find worst eval drop from stockfish analysis
+        for move in stockfish_eval:
+            eval_type = move.get("evaluation")
+            if hasattr(eval_type, 'value'):
+                eval_type = eval_type.value
+            if eval_type in ["blunder", "mistake"]:
+                critical_moment = {
+                    "fen": move.get("fen"),
+                    "user_move": move.get("san"),
+                    "best_move": move.get("best_move"),
+                    "eval_change": move.get("eval_delta"),
+                    "move_number": move.get("move_number"),
+                }
+                break
     
     # Get adaptive profile for mission time
     profile = get_adaptive_profile_sync(rating)
     minutes = profile["mission_minutes_target"]
     
-    # Get post-loss message
+    # Get post-loss message for headline
     message = get_post_loss_message(rating, main_issue, minutes)
     
     return {
         "game_id": game_id,
         "result": game.get("result", "loss"),
-        "opponent": game.get("opponent_name", "opponent"),
+        "opponent_name": game.get("opponent_name", "Opponent"),
+        "user_color": game.get("user_color", "white"),
         "main_issue": main_issue,
-        "message": message,
+        "headline": message.get("headline", "Let's fix this moment."),
+        "estimated_minutes": minutes,
+        "critical_moment": critical_moment,
         "has_pending_reflection": len(blunders) + len(mistakes) > 0,
         "blunder_count": len(blunders),
         "mistake_count": len(mistakes),
