@@ -1,5 +1,38 @@
 # Chess Coach - Changelog
 
+## Feb 24, 2026
+
+### Reflection Engine V1 - Phase 1B Complete ✅ (Frontend Integration)
+
+Updated Reflect.jsx to use the V1 deterministic engine with progressive 2-tap flow.
+
+**New UX Flow:**
+- Step 0: Intent selection (8 options, 1 tap)
+- Step 1: Confidence selection (3 options, 1 tap)
+- Step 2: Quick tags (optional, multi-select)
+- Submit → Awareness insight + coach reward
+
+**Key Features:**
+- Ego-safe framing: "No judgment — we're capturing what you saw"
+- Progress indicator (3-step bar)
+- Context tracking (shows selected intent/confidence with "change" link)
+- Auto-advance on selection
+- Tip hints for each step
+- Rating-adaptive tags from V1 engine
+
+**Data Stored:**
+```json
+{
+  "intent": "attack",
+  "intent_confidence": "very_sure",
+  "selected_quick_tags": ["missed_threat"],
+  "awareness_gap_type": "partial_alignment",
+  "rule_version": "v1"
+}
+```
+
+---
+
 ## Feb 23, 2026
 
 ### Reflection Engine V1 - Phase 1A Complete ✅
