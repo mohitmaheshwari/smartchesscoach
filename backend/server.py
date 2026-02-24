@@ -3084,6 +3084,46 @@ async def get_reward_stats(user: User = Depends(get_current_user)):
         "gap_type_distribution": gap_types,
     }
 
+@api_router.get("/rewards/post-loss-message")
+async def get_post_loss_message_endpoint(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Get post-loss recovery message for a specific game.
+    Returns personalized, rating-adaptive messaging.
+    """
+    # Get user's profile for rating
+    profile = await db.player_profiles.find_one({"user_id": user.user_id})
+    rating = profile.get("estimated_rating", 1200) if profile else 1200
+    
+    # Get the game to check main pattern
+    analysis = await db.game_analyses.find_one({"game_id": game_id, "user_id": user.user_id})
+    
+    # Find the main pattern from the game
+    focus_label = "Critical Position Focus"  # Default
+    minutes = 5
+    
+    if analysis:
+        # Try to find the main mistake pattern
+        blunders = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+        for move in blunders:
+            eval_type = move.get("evaluation")
+            if hasattr(eval_type, 'value'):
+                eval_type = eval_type.value
+            if eval_type in ["blunder", "mistake"]:
+                # Use the first major mistake as focus
+                thinking_pattern = move.get("thinking_pattern")
+                if thinking_pattern:
+                    focus_label = thinking_pattern.replace("_", " ").title()
+                break
+    
+    # Get adaptive profile for this rating
+    adaptive_profile = get_adaptive_profile_sync(rating)
+    minutes = adaptive_profile.get("mission_minutes_target", 5)
+    
+    # Get the message
+    message = get_post_loss_message(rating, focus_label, minutes)
+    
+    return message
+
 # ==================== MISSION ENGINE ROUTES ====================
 
 class MissionStepRequest(BaseModel):
