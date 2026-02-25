@@ -265,13 +265,16 @@ def analyze_move_intent(
     # 8. DEVELOPMENT
     # ========================================
     # Check if piece is moving from starting position
-    starting_ranks = {
-        chess.WHITE: [chess.RANK_1, chess.RANK_2],
-        chess.BLACK: [chess.RANK_7, chess.RANK_8],
-    }
+    starting_ranks_white = [0, 1]  # Ranks 1 and 2 (0-indexed)
+    starting_ranks_black = [6, 7]  # Ranks 7 and 8 (0-indexed)
     
     from_rank = chess.square_rank(from_square)
-    if from_rank in starting_ranks.get(user_color, []):
+    is_from_starting = (
+        (user_color == chess.WHITE and from_rank in starting_ranks_white) or
+        (user_color == chess.BLACK and from_rank in starting_ranks_black)
+    )
+    
+    if is_from_starting:
         if moving_piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
             hypotheses.append(IntentHypothesis(
                 category=IntentCategory.DEVELOP,
