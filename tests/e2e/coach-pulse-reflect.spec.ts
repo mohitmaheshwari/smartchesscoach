@@ -627,29 +627,38 @@ test.describe('Cognitive Gap Analysis Feature', () => {
       return;
     }
     
-    // Navigate through flow
-    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
-    await page.locator('button').filter({ hasText: /Defend|Attack|Not sure/i }).first().click();
+    // Navigate through flow - Step 0
+    await expect(page.getByText(/What was your plan here/i)).toBeVisible({ timeout: 15000 });
     
-    await expect(page.getByRole('heading', { name: /How confident|How sure/i })).toBeVisible({ timeout: 10000 });
+    const hypothesisBtn = page.locator('button').filter({ hasText: /Were you trying to/ });
+    if (await hypothesisBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await hypothesisBtn.click();
+      await page.locator('button').filter({ hasText: 'Continue' }).click();
+    } else {
+      await page.locator('button').filter({ hasText: /Defend|Attack|Not sure/i }).first().click();
+    }
+    
+    // Step 1
+    await expect(page.getByText(/How confident were you/i)).toBeVisible({ timeout: 10000 });
     await page.locator('button').filter({ hasText: /Somewhat sure|Very sure/i }).first().click();
     
-    await expect(page.getByRole('heading', { name: /What else|What fits/i })).toBeVisible({ timeout: 10000 });
+    // Step 2: Submit
+    await expect(page.getByText(/What else was in your thinking/i)).toBeVisible({ timeout: 10000 });
     const submitBtn = page.getByTestId('submit-reflection-btn');
     await submitBtn.click();
     
     // Wait for result
-    await expect(page.getByText(/Why this was a mistake|Awareness Insight|Good Self-Awareness/i)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/Why this was a mistake/i)).toBeVisible({ timeout: 30000 });
     
     // Look for Evidence section 
-    const evidenceLabel = page.getByText('Evidence', { exact: true });
+    const evidenceLabel = page.getByText(/EVIDENCE/i);
     const evidenceVisible = await evidenceLabel.isVisible({ timeout: 5000 }).catch(() => false);
     
     if (evidenceVisible) {
       console.log('Evidence section visible');
       await expect(evidenceLabel).toBeVisible();
     } else {
-      console.log('Evidence section not visible (may be fallback UI or no evidence available)');
+      console.log('Evidence section not visible (may not have evidence for this analysis)');
     }
     
     await page.screenshot({ path: '.screenshots/cognitive-gap-evidence.jpeg', quality: 20 });
