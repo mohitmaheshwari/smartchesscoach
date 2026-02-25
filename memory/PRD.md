@@ -15,6 +15,37 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 25, 2026)
 
+### Three Features Implementation ✅ COMPLETE (Feb 25, 2026)
+
+**1. Mission Stepper UI (P1)**
+- Added visual stepper showing `Reflect → Train → Wrap-up` flow at the top of MissionRunner
+- Each step has an icon (Brain, Dumbbell, Flag) with connecting lines
+- Current phase is highlighted in primary color, completed phases show checkmarks
+- Component: `MissionStepper` in `/app/frontend/src/pages/MissionRunner.jsx`
+
+**2. Focus Mastery Section (P2)**
+- Created comprehensive Focus Mastery service tracking cognitive patterns
+- 10 patterns tracked: check_captures_threats, scan_for_pins, calculate_forcing_moves, etc.
+- Mastery levels: novice, developing, competent, proficient, master
+- Features:
+  - Overall mastery progress ring with animated fill
+  - Individual pattern progress bars with trend indicators
+  - Strongest pattern and Focus Area highlights
+  - Recommended focus suggestions
+- Backend: `/app/backend/focus_mastery_service.py`
+- Frontend: `FocusMasterySection` component in JourneyV2.jsx
+- API: `GET /api/missions/focus-mastery`
+
+**3. Journey Page Coach Narrative (P1)**
+- Added Coach Narrative Rail with Before/After/Your Growth tabs
+- Shows What's Improving and Focus Areas
+- Displays coaching comparison data (accuracy, blunders/game, win rate)
+- Already existed in CoachingComparison component, verified working
+
+**Test Report:** `/app/test_reports/iteration_76.json` - 100% pass (32/32 tests)
+
+---
+
 ### Pattern Intelligence - Specific Contextual Insights ✅ COMPLETE (Feb 25, 2026)
 
 **Problem:** Original pattern context used vague labels like "positional" or "knight_tactics" - not actionable.
