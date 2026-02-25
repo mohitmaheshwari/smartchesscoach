@@ -189,6 +189,22 @@ const CoachHome = ({ user }) => {
 
         {/* ========== SECONDARY SECTION (Below Fold) ========== */}
         <div className="space-y-4">
+          {/* Adaptive Coach - Game Analysis & Plan */}
+          {coachData && !coachData.needs_more_games && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              <AdaptiveCoachCard 
+                data={coachData}
+                expanded={showPlanDetails}
+                onToggle={() => setShowPlanDetails(!showPlanDetails)}
+                onViewGame={(gameId) => navigate(`/game/${gameId}`)}
+              />
+            </motion.div>
+          )}
+          
           {/* Weekly Proof - compact */}
           {weeklyProof && (
             <motion.div
