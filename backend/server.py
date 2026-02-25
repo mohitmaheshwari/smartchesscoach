@@ -169,6 +169,14 @@ from blunder_intelligence_service import (
     find_similar_pattern_games
 )
 
+# Import Pattern Context Service for longitudinal tracking
+from pattern_context_service import (
+    build_pattern_history,
+    get_pattern_context_for_mistake,
+    get_game_pattern_summary,
+    extract_mistake_patterns,
+)
+
 # Import Badge Service
 from badge_service import calculate_all_badges, get_badge_history, calculate_badge_trends
 
