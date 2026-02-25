@@ -256,7 +256,7 @@ def analyze_move_intent(
         hypotheses.append(IntentHypothesis(
             category=IntentCategory.CONTROL,
             confidence=0.85,
-            description=f"Occupying the center with a pawn",
+            description="Occupying the center with a pawn",
             evidence=f"Your pawn now occupies the central {get_square_name(to_square)} square",
             square_or_piece=get_square_name(to_square),
         ))
@@ -343,7 +343,7 @@ def analyze_move_intent(
                 category=IntentCategory.STRUCTURE,
                 confidence=0.65,
                 description="Advancing pawn to gain space",
-                evidence=f"Pushing the pawn forward to control territory",
+                evidence="Pushing the pawn forward to control territory",
                 square_or_piece="pawn",
             ))
     
