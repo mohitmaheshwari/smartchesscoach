@@ -130,8 +130,12 @@ def build_pattern_history(user_id: str, all_analyses: List[Dict], all_games: Lis
         game_id = analysis.get("game_id")
         game_info = games_lookup.get(game_id, {})
         
-        user_color = game_info.get("user_color", "white")
-        opponent = game_info.get("black_player") if user_color == "white" else game_info.get("white_player")
+        # Get opponent name - try multiple fields
+        opponent = game_info.get("opponent_name")
+        if not opponent:
+            user_color = game_info.get("user_color", "white")
+            opponent = game_info.get("black_player") if user_color == "white" else game_info.get("white_player")
+        
         result = game_info.get("result", "")
         created_at = analysis.get("created_at")
         
