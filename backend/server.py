@@ -8772,7 +8772,7 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     
     all_games = await db.games.find(
         {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, "result": 1, "imported_at": 1}
+        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, "opponent_name": 1, "result": 1, "imported_at": 1}
     ).to_list(100)
     
     # Add similar games (Behavior Memory)
@@ -8841,7 +8841,7 @@ async def get_mistake_pattern_context(game_id: str, move_number: int, user: User
     
     all_games = await db.games.find(
         {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, "result": 1, "imported_at": 1}
+        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, "opponent_name": 1, "result": 1, "imported_at": 1}
     ).to_list(100)
     
     # Build pattern history and get context
