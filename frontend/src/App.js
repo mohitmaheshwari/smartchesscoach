@@ -147,6 +147,11 @@ function AppRouter() {
       } />
       <Route path="/progress" element={
         <ProtectedRoute>
+          {({ user }) => <JourneyIntelligence user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/progress-v2" element={
+        <ProtectedRoute>
           {({ user }) => <JourneyV2 user={user} />}
         </ProtectedRoute>
       } />
