@@ -1390,6 +1390,29 @@ Created `chess_verification_layer.py` that:
 
 ---
 
+### Coach Pulse & Reflect Access ✅ COMPLETE (Feb 25, 2026)
+
+**Problem:** Reflect was removed from nav per spec ("not top-level nav"), but users needed a way to access it.
+
+**Solution:** Added **Coach Pulse** indicator - a pulsing Brain icon in the header that:
+- Appears when there are pending reflections OR fresh losses
+- Pulses with primary color animation
+- Clicking navigates to `/reflect` or `/recover/:game_id`
+
+**Reflect Page Already Chip-Based:**
+- Step 0: Intent selection (8 chip options)
+- Step 1: Confidence selection (3 chip options)  
+- Step 2: Optional quick tags (multi-select chips)
+- No textarea required - all tap-based
+- Board on left with move arrows
+
+**Files Modified:**
+- `/app/frontend/src/components/Layout.jsx` - Added Coach Pulse component
+
+**Test Report:** `/app/test_reports/iteration_74.json` - 100% pass (12 backend, 36 frontend)
+
+---
+
 ## Current Priority: Dopamine Engine Implementation (In Progress)
 
 ### Phase 2C/2D: Mission System UI ✅ COMPLETE (Feb 24, 2026)
