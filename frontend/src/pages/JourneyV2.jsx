@@ -26,7 +26,9 @@ import {
   BookOpen,
   Clock,
   Crown,
-  Minus
+  Minus,
+  Award,
+  Sparkles,
 } from "lucide-react";
 import EvidenceModal from "@/components/EvidenceModal";
 import DrillMode from "@/components/DrillMode";
