@@ -111,11 +111,20 @@ def build_pattern_history(user_id: str, all_analyses: List[Dict], all_games: Lis
         "timeline": [],  # (date, count) for trend
     })
     
+    # Helper to parse date
+    def get_sortable_date(analysis):
+        created = analysis.get("created_at")
+        if created is None:
+            return datetime.min.replace(tzinfo=timezone.utc)
+        if isinstance(created, str):
+            try:
+                return datetime.fromisoformat(created.replace('Z', '+00:00'))
+            except:
+                return datetime.min.replace(tzinfo=timezone.utc)
+        return created if created.tzinfo else created.replace(tzinfo=timezone.utc)
+    
     # Process all analyses chronologically
-    sorted_analyses = sorted(
-        all_analyses, 
-        key=lambda x: x.get("created_at") or datetime.min.replace(tzinfo=timezone.utc)
-    )
+    sorted_analyses = sorted(all_analyses, key=get_sortable_date)
     
     for analysis in sorted_analyses:
         game_id = analysis.get("game_id")
