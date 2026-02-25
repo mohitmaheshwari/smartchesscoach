@@ -3474,6 +3474,30 @@ async def get_latest_rich_audit(user: User = Depends(get_current_user)):
     return await generate_rich_coach_audit(db, user.user_id, latest_game["game_id"])
 
 
+# ==================== JOURNEY INTELLIGENCE ====================
+
+@api_router.get("/journey/intelligence")
+async def get_journey_intelligence(user: User = Depends(get_current_user)):
+    """
+    Get comprehensive journey intelligence for the user.
+    
+    Returns all 8 sections:
+    1. Identity Snapshot
+    2. Growth Delta
+    3. Rating Ceiling Model
+    4. Pattern Engine
+    5. Phase Discipline
+    6. Fundamentals Snapshot
+    7. Opening Snapshot
+    8. Momentum Trend
+    
+    All computed deterministically from game data - no LLM required.
+    """
+    from journey_intelligence_service import compute_journey_intelligence
+    
+    return await compute_journey_intelligence(db, user.user_id)
+
+
 # ==================== REWARD EVENT FEED ====================
 
 @api_router.get("/rewards/feed")
