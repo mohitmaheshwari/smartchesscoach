@@ -3063,6 +3063,84 @@ async def submit_reflection_v1(data: ReflectSessionSubmitRequest, user: User = D
         "freshness_badge": "Fresh Memory" if is_fresh else None,
     }
 
+
+# ==================== TIME ANALYSIS ENDPOINTS ====================
+
+@api_router.get("/games/{game_id}/time-analysis")
+async def get_game_time_analysis(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Get time analysis for a game - time spent on each move, time pressure detection.
+    
+    Uses clock data from PGN to provide insights like:
+    - "You spent only 3 seconds on move 23 - a rushed decision"
+    - "You played 8 moves under time pressure"
+    """
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "pgn": 1, "user_color": 1}
+    )
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    pgn = game.get("pgn", "")
+    user_color = game.get("user_color", "white")
+    
+    # Extract time data from PGN
+    time_data = extract_time_data_from_pgn(pgn)
+    
+    if not time_data.get("has_time_data"):
+        return {"has_time_data": False, "message": "No clock data available for this game"}
+    
+    # Add time management analysis
+    time_management = analyze_time_management(time_data, user_color)
+    
+    return {
+        "has_time_data": True,
+        "initial_time": time_data.get("initial_time"),
+        "increment": time_data.get("increment"),
+        "total_moves": time_data.get("total_moves"),
+        "user_profile": time_data.get(f"{user_color}_profile"),
+        "time_pressure_moves": time_data.get("time_pressure_moves"),
+        "rushed_moves": time_data.get("rushed_moves"),
+        "time_management": time_management,
+        "moves": time_data.get("moves"),  # Full move-by-move time data
+    }
+
+
+@api_router.get("/games/{game_id}/move/{move_number}/time-context")
+async def get_move_time_context(game_id: str, move_number: int, user: User = Depends(get_current_user)):
+    """
+    Get time context for a specific move.
+    
+    Used in reflection to understand if a mistake was due to:
+    - Time pressure (< 30s remaining)
+    - Rushed decision (< 5s spent)
+    - Normal thinking time
+    """
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "pgn": 1, "user_color": 1}
+    )
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    pgn = game.get("pgn", "")
+    user_color = game.get("user_color", "white")
+    
+    # Extract time data
+    time_data = extract_time_data_from_pgn(pgn)
+    
+    if not time_data.get("has_time_data"):
+        return {"has_data": False, "message": "No clock data available"}
+    
+    # Get context for specific move
+    context = get_time_context_for_move(time_data, move_number, user_color)
+    
+    return context
+
+
 # ==================== REWARD EVENT FEED ====================
 
 @api_router.get("/rewards/feed")
