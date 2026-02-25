@@ -166,6 +166,8 @@ const LichessBoard = forwardRef(({
         draggable: {
           enabled: shouldBeInteractive,
           showGhost: true,
+          // No auto-cancel timeout
+          distance: 3,
         },
         selectable: {
           enabled: shouldBeInteractive,
@@ -179,6 +181,9 @@ const LichessBoard = forwardRef(({
           duration: 200,
         },
         premovable: {
+          enabled: false,
+        },
+        predroppable: {
           enabled: false,
         },
         drawable: {
