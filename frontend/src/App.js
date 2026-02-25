@@ -16,6 +16,7 @@ import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
 import Journey from "@/pages/JourneyCognitive";
 import JourneyV2 from "@/pages/JourneyV2";
+import JourneyIntelligence from "@/pages/JourneyIntelligence";
 import ProgressV2 from "@/pages/ProgressV2";
 import Reflect from "@/pages/Reflect";
 import Onboarding from "@/pages/Onboarding";
