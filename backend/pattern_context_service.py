@@ -661,7 +661,7 @@ def get_pattern_context_for_mistake(
         if loss_pct > 60:
             specific_insights["outcome_insight"] = f"This mistake led to a loss {loss_pct}% of the time - high cost pattern"
         elif oi.get("still_won", 0) > total_outcomes * 0.5:
-            specific_insights["outcome_insight"] = f"You often still win despite this mistake - lucky escape pattern"
+            specific_insights["outcome_insight"] = "You often still win despite this mistake - lucky escape pattern"
     
     # Generate coach insight with specifics
     coach_insight = generate_specific_insight(
