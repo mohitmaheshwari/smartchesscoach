@@ -299,6 +299,7 @@ const Reflect = ({ user }) => {
     setV1QuickTags([]);
     setCoachReward(null);
     setReflectionStartTime(Date.now());
+    setCognitiveGapAnalysis(null);
   };
   
   // Helper to convert SAN move to arrow coordinates
