@@ -90,66 +90,6 @@ def extract_time_data_from_pgn(pgn: str) -> Dict:
             except ValueError:
                 pass
     
-    # Extract clock times from move comments
-    # Pattern: {[%clk 0:15:07.6]}
-    clock_pattern = r'\{?\[%clk ([0-9:\.]+)\]\}?'
-    
-    # Split PGN into moves section (after headers)
-    moves_section = pgn.split('\n\n')[-1] if '\n\n' in pgn else pgn
-    
-    # Parse moves with their clock times
-    moves = []
-    move_pattern = r'(\d+)\.\s*(\S+)\s*(?:\{[^}]*\[%clk ([0-9:\.]+)\][^}]*\})?\s*(?:(\S+)\s*(?:\{[^}]*\[%clk ([0-9:\.]+)\][^}]*\})?)?'
-    
-    prev_white_clock = initial_time
-    prev_black_clock = initial_time
-    
-    for match in re.finditer(move_pattern, moves_section):
-        move_num = int(match.group(1))
-        white_move = match.group(2)
-        white_clock_str = match.group(3)
-        black_move = match.group(4)
-        black_clock_str = match.group(5)
-        
-        # Skip result indicators
-        if white_move in ['1-0', '0-1', '1/2-1/2', '*']:
-            continue
-        
-        # White's move
-        if white_move and white_clock_str:
-            white_clock = parse_clock_time(white_clock_str)
-            # Time spent = previous clock - current clock + increment (if any)
-            time_spent = max(0, prev_white_clock - white_clock + increment)
-            
-            moves.append(MoveTime(
-                move_number=move_num,
-                color='white',
-                san=white_move,
-                clock_after=white_clock,
-                time_spent=time_spent,
-                is_time_pressure=white_clock < 30,
-                is_rushed=time_spent < 5 and move_num > 5,  # Allow fast opening moves
-                is_slow=time_spent > 60,
-            ))
-            prev_white_clock = white_clock
-        
-        # Black's move
-        if black_move and black_clock_str and black_move not in ['1-0', '0-1', '1/2-1/2', '*']:
-            black_clock = parse_clock_time(black_clock_str)
-            time_spent = max(0, prev_black_clock - black_clock + increment)
-            
-            moves.append(MoveTime(
-                move_number=move_num,
-                color='black',
-                san=black_move,
-                clock_after=black_clock,
-                time_spent=time_spent,
-                is_time_pressure=black_clock < 30,
-                is_rushed=time_spent < 5 and move_num > 5,
-                is_slow=time_spent > 60,
-            ))
-            prev_black_clock = black_clock
-    
     if not moves:
         return {"has_time_data": False, "moves": []}
     
