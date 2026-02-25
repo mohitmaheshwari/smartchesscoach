@@ -585,32 +585,32 @@ test.describe('Cognitive Gap Analysis Feature', () => {
       return;
     }
     
-    // Navigate through flow
-    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
-    await page.locator('button').filter({ hasText: /Defend|Attack|Not sure/i }).first().click();
+    // Navigate through flow - Step 0
+    await expect(page.getByText(/What was your plan here/i)).toBeVisible({ timeout: 15000 });
     
-    await expect(page.getByRole('heading', { name: /How confident|How sure/i })).toBeVisible({ timeout: 10000 });
+    const hypothesisBtn = page.locator('button').filter({ hasText: /Were you trying to/ });
+    if (await hypothesisBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await hypothesisBtn.click();
+      await page.locator('button').filter({ hasText: 'Continue' }).click();
+    } else {
+      await page.locator('button').filter({ hasText: /Defend|Attack|Not sure/i }).first().click();
+    }
+    
+    // Step 1
+    await expect(page.getByText(/How confident were you/i)).toBeVisible({ timeout: 10000 });
     await page.locator('button').filter({ hasText: /Somewhat sure|Very sure/i }).first().click();
     
-    await expect(page.getByRole('heading', { name: /What else|What fits/i })).toBeVisible({ timeout: 10000 });
+    // Step 2: Submit
+    await expect(page.getByText(/What else was in your thinking/i)).toBeVisible({ timeout: 10000 });
     const submitBtn = page.getByTestId('submit-reflection-btn');
     await submitBtn.click();
     
-    // Look for "Your focus" section which shows coaching advice
-    const coachingFocus = page.getByText(/Your focus|Recommended focus/i);
-    
     // Wait for result
-    await expect(page.getByText(/Why this was a mistake|Awareness Insight|Good Self-Awareness/i)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/Why this was a mistake/i)).toBeVisible({ timeout: 30000 });
     
-    // Check if coaching focus is visible
-    const focusVisible = await coachingFocus.first().isVisible({ timeout: 5000 }).catch(() => false);
-    
-    if (focusVisible) {
-      console.log('Coaching focus section visible');
-      // Verify the focus has actual content
-      const focusSection = page.locator('div').filter({ hasText: /Your focus|Recommended focus/i }).first();
-      await expect(focusSection).toBeVisible();
-    }
+    // Look for "YOUR FOCUS" section which shows coaching advice
+    const coachingFocus = page.getByText(/YOUR FOCUS|Your focus/i);
+    await expect(coachingFocus.first()).toBeVisible({ timeout: 5000 });
     
     await page.screenshot({ path: '.screenshots/cognitive-gap-coaching-focus.jpeg', quality: 20 });
   });
