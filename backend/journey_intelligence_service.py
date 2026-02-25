@@ -82,6 +82,9 @@ async def compute_journey_intelligence(db, user_id: str) -> Dict:
     Returns structured data for all 8 sections.
     """
     
+    # Import identity engine
+    from player_identity_engine import compute_player_identity
+    
     # Fetch all games and analyses
     games = await db.games.find(
         {"user_id": user_id},
@@ -139,8 +142,8 @@ async def compute_journey_intelligence(db, user_id: str) -> Dict:
         "computed_at": datetime.now(timezone.utc).isoformat(),
     }
     
-    # Section 1: Identity Snapshot
-    result["identity"] = compute_identity_snapshot(enriched_games, cognitive_gaps)
+    # Section 1: Player Identity (NEW - Rich Identity Engine)
+    result["identity"] = await compute_player_identity(db, user_id, enriched_games)
     
     # Section 2: Growth Delta
     result["growth_delta"] = compute_growth_delta(enriched_games)
@@ -162,6 +165,16 @@ async def compute_journey_intelligence(db, user_id: str) -> Dict:
     
     # Section 8: Momentum Trend
     result["momentum"] = compute_momentum_trend(enriched_games)
+    
+    # Section 1b: Immediate Focus (extracted from identity for backwards compat)
+    if result["identity"].get("has_identity") and result["identity"].get("raw"):
+        raw_identity = result["identity"]["raw"]
+        result["immediate_focus"] = determine_immediate_focus(
+            enriched_games[:25], 
+            cognitive_gaps[:30], 
+            {"opening": 0, "middlegame": 0, "endgame": 0},  # Will recalculate
+            raw_identity.get("leak", "calculation_depth")
+        )
     
     return result
 
