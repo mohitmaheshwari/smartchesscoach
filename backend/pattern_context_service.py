@@ -244,7 +244,18 @@ def get_pattern_context_for_mistake(
     ]
     
     # Sort by date, most recent first
-    other_games.sort(key=lambda x: x.get("date") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    def get_sort_date(game):
+        d = game.get("date")
+        if d is None:
+            return datetime.min.replace(tzinfo=timezone.utc)
+        if isinstance(d, str):
+            try:
+                return datetime.fromisoformat(d.replace('Z', '+00:00'))
+            except:
+                return datetime.min.replace(tzinfo=timezone.utc)
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    
+    other_games.sort(key=get_sort_date, reverse=True)
     
     total_occurrences = pattern_info.get("total_occurrences", 0)
     trend = pattern_info.get("trend", "stable")
