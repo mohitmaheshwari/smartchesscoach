@@ -1163,29 +1163,11 @@ const Reflect = ({ user }) => {
                               </div>
                             )}
                             
-                            {/* For plan mode users, also show intent after plan */}
-                            {reflectProfile?.show_plan_input && (userThought || planMoves.length > 0) && (
-                              <div className="mt-4 pt-4 border-t border-border/30">
-                                <p className="text-xs text-muted-foreground mb-2">Your main intent:</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {(reflectProfile?.intent_options || []).slice(0, 6).map(option => (
-                                    <Button
-                                      key={option.value || option.id}
-                                      variant={selectedIntent === (option.value || option.id) ? "default" : "outline"}
-                                      size="sm"
-                                      className="text-xs py-1 px-2"
-                                      onClick={() => setSelectedIntent(option.value || option.id)}
-                                    >
-                                      {option.label}
-                                    </Button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                            {/* For 1000+ players - just show hypothesis selection, no generic options */}
                           </div>
                         )}
                         
-                        {/* Step 1: Confidence Selection (1 tap) */}
+                        {/* Step 1: Confidence Selection - Only show for lower-rated or skip for 1000+ */}
                         {reflectStep === 1 && (
                           <div className="space-y-4">
                             <div className="flex items-center gap-3 mb-4">
@@ -1193,21 +1175,24 @@ const Reflect = ({ user }) => {
                                 <Brain className="w-4 h-4 text-primary" />
                               </div>
                               <div>
-                                <h3 className="font-semibold">How sure were you?</h3>
+                                <h3 className="font-semibold">How confident were you?</h3>
                                 <p className="text-xs text-muted-foreground">
                                   When you played {currentMoment?.user_move}
                                 </p>
                               </div>
                             </div>
                             
-                            {/* Show selected intent as context */}
-                            <div className="text-xs text-muted-foreground mb-2">
-                              Intent: <span className="text-foreground">{selectedIntent?.replace(/_/g, " ")}</span>
-                              <button 
-                                className="ml-2 text-primary hover:underline"
-                                onClick={() => setReflectStep(0)}
-                              >
-                                change
+                            {/* Show what user selected/wrote */}
+                            {(userThought || selectedHypothesis !== null) && (
+                              <div className="p-3 rounded bg-muted/30 mb-3">
+                                <p className="text-xs text-muted-foreground mb-1">Your plan:</p>
+                                <p className="text-sm">{userThought || intentHypotheses[selectedHypothesis]?.description}</p>
+                                <button 
+                                  className="text-xs text-primary hover:underline mt-1"
+                                  onClick={() => setReflectStep(0)}
+                                >
+                                  change
+
                               </button>
                             </div>
                             
