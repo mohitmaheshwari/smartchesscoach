@@ -351,7 +351,11 @@ const Reflect = ({ user }) => {
     // Fetch time context for this move
     if (currentGame && currentMoment?.move_number) {
       fetchTimeContext(currentGame.game_id, currentMoment.move_number);
+      // Fetch position-specific intent hypotheses
+      fetchIntentHypotheses(currentGame.game_id, currentMoment.move_number);
     }
+    // Reset hypothesis selection when moment changes
+    setSelectedHypothesis(null);
   }, [currentMoment, currentGame]);
   
   // Reset explanation and tags when moment changes
