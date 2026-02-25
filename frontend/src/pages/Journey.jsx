@@ -67,15 +67,20 @@ const Journey = ({ user }) => {
 
   const fetchDashboard = async () => {
     try {
-      const [res1, res2, res3] = await Promise.all([
+      const [res1, res2, res3, res4] = await Promise.all([
         fetch(API + "/journey/linked-accounts", { credentials: "include" }),
         fetch(API + "/journey/v2", { credentials: "include" }),
-        fetch(API + "/gamification/progress", { credentials: "include" })
+        fetch(API + "/gamification/progress", { credentials: "include" }),
+        fetch(API + "/missions/focus-mastery", { credentials: "include" }),
       ]);
       
       if (res1.ok) setAccounts(await res1.json());
       if (res2.ok) setJourneyData(await res2.json());
       if (res3.ok) setProgress(await res3.json());
+      if (res4.ok) {
+        const masteryData = await res4.json();
+        setFocusMastery(masteryData.focus_mastery || null);
+      }
     } catch (e) {
       console.error(e);
     } finally {
