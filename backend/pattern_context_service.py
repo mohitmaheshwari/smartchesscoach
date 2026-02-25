@@ -527,16 +527,30 @@ def get_pattern_context_for_mistake(
     all_games: List[Dict]
 ) -> Dict:
     """
-    Get contextual insights for a specific mistake.
+    Get SPECIFIC contextual insights for a mistake.
+    
+    Returns rich, actionable insights:
+    - Rating context: "This happens more against lower-rated opponents"
+    - Opening context: "You've made this in the Italian Game 3 times"
+    - Time control: "80% of these are in blitz games"
+    - Historical games with specific opponents
+    - Improvement tracking
     
     Returns:
         {
             "is_recurring": True,
             "recurrence_count": 5,
-            "other_games": [{"game_id": ..., "opponent": ..., "result": ...}],
+            "other_games": [{"game_id": ..., "opponent": ..., "opponent_rating": ..., "result": ...}],
             "trend": "improving" | "recurring" | "fixed",
             "coach_insight": "You've made this same mistake against 3 other opponents...",
+            "specific_insights": {
+                "rating_insight": "This mostly happens vs lower-rated players (60%)",
+                "opening_insight": "Most common in Italian Game (3 times)",
+                "time_insight": "Happens mostly in blitz (5 of 8 times)",
+                "position_insight": "You do this when winning (70%)",
+            },
             "improvement_example": {"game_id": ..., "opponent": ...} | None,
+            "action_recommendation": "Focus on blitz time management in Italian Game positions"
         }
     """
     category = mistake.get("category") or get_threat_category(mistake.get("threat", ""))
@@ -550,7 +564,9 @@ def get_pattern_context_for_mistake(
             "other_games": [],
             "trend": "new",
             "coach_insight": None,
+            "specific_insights": {},
             "improvement_example": None,
+            "action_recommendation": None,
         }
     
     # Build games lookup
@@ -561,7 +577,9 @@ def get_pattern_context_for_mistake(
         {
             "game_id": g["game_id"],
             "opponent": g["opponent"],
+            "opponent_rating": g.get("opponent_rating"),
             "result": g["result"],
+            "outcome": g.get("outcome", "unknown"),
             "date": g.get("date"),
             "instance_count": len(g["instances"]),
         }
@@ -586,24 +604,87 @@ def get_pattern_context_for_mistake(
     total_occurrences = pattern_info.get("total_occurrences", 0)
     trend = pattern_info.get("trend", "stable")
     
-    # Generate coach insight
-    coach_insight = generate_pattern_insight(
+    # Build SPECIFIC insights
+    specific_insights = {}
+    
+    # Rating insight
+    rc = pattern_info.get("rating_context", {})
+    if rc:
+        vs_lower = rc.get("vs_lower_rated", {}).get("pct", 0)
+        vs_higher = rc.get("vs_higher_rated", {}).get("pct", 0)
+        
+        if vs_lower > 50:
+            specific_insights["rating_insight"] = f"This happens more against lower-rated opponents ({vs_lower}%) - possible overconfidence"
+        elif vs_higher > 50:
+            specific_insights["rating_insight"] = f"This happens more against higher-rated opponents ({vs_higher}%) - under pressure"
+        elif rc.get("avg_rating_delta"):
+            avg_delta = rc["avg_rating_delta"]
+            if avg_delta > 0:
+                specific_insights["rating_insight"] = f"Average opponent when this happens is {abs(avg_delta)} points above you"
+            else:
+                specific_insights["rating_insight"] = f"Average opponent when this happens is {abs(avg_delta)} points below you"
+    
+    # Opening insight
+    oc = pattern_info.get("opening_context", {})
+    if oc and oc.get("top_openings"):
+        top = oc["top_openings"][0]
+        if top["count"] >= 2:
+            specific_insights["opening_insight"] = f"Most common in {top['name']} ({top['count']} times)"
+    
+    # Time control insight
+    tc = pattern_info.get("time_context", {})
+    if tc:
+        total_tc = sum(tc.values())
+        for time_type, count in sorted(tc.items(), key=lambda x: -x[1]):
+            if count > total_tc * 0.5:  # Majority
+                specific_insights["time_insight"] = f"Happens mostly in {time_type} games ({count} of {total_tc})"
+                break
+    
+    # Position context insight
+    pc = pattern_info.get("position_context", {})
+    if pc:
+        total_pc = sum(pc.values())
+        when_winning = pc.get("winning", 0)
+        when_losing = pc.get("losing", 0)
+        
+        if when_winning > total_pc * 0.5:
+            specific_insights["position_insight"] = f"You make this mistake mostly when winning ({round(when_winning * 100 / total_pc)}%) - possible overconfidence"
+        elif when_losing > total_pc * 0.5:
+            specific_insights["position_insight"] = f"You make this mistake when already losing ({round(when_losing * 100 / total_pc)}%) - desperation moves"
+    
+    # Outcome impact insight
+    oi = pattern_info.get("outcome_impact", {})
+    if oi:
+        total_outcomes = oi.get("led_to_loss", 0) + oi.get("still_won", 0) + oi.get("drew", 0)
+        loss_pct = round(oi.get("led_to_loss", 0) * 100 / total_outcomes) if total_outcomes else 0
+        
+        if loss_pct > 60:
+            specific_insights["outcome_insight"] = f"This mistake led to a loss {loss_pct}% of the time - high cost pattern"
+        elif oi.get("still_won", 0) > total_outcomes * 0.5:
+            specific_insights["outcome_insight"] = f"You often still win despite this mistake - lucky escape pattern"
+    
+    # Generate coach insight with specifics
+    coach_insight = generate_specific_insight(
         category=category,
         total_occurrences=total_occurrences,
         other_games=other_games[:5],
+        trend=trend,
+        specific_insights=specific_insights,
+        pattern_info=pattern_info,
+    )
+    
+    # Generate action recommendation
+    action_recommendation = generate_action_recommendation(
+        category=category,
+        specific_insights=specific_insights,
         trend=trend,
     )
     
     # Find improvement example if trend is improving
     improvement_example = None
     if trend == "improving" and len(other_games) >= 2:
-        # Find a game where the pattern appeared but user did better overall
         for game in other_games:
-            game_info = games_lookup.get(game["game_id"], {})
-            result = game_info.get("result", "")
-            user_color = game_info.get("user_color", "white")
-            is_win = (result == "1-0" and user_color == "white") or (result == "0-1" and user_color == "black")
-            if is_win:
+            if game.get("outcome") == "win":
                 improvement_example = game
                 break
     
@@ -613,48 +694,136 @@ def get_pattern_context_for_mistake(
         "other_games": other_games[:5],
         "trend": trend,
         "coach_insight": coach_insight,
+        "specific_insights": specific_insights,
         "improvement_example": improvement_example,
+        "action_recommendation": action_recommendation,
     }
 
 
-def generate_pattern_insight(category: str, total_occurrences: int, other_games: List[Dict], trend: str) -> str:
-    """Generate a coach insight message for a pattern."""
+def generate_specific_insight(category: str, total_occurrences: int, other_games: List[Dict], trend: str, specific_insights: Dict, pattern_info: Dict) -> str:
+    """Generate a SPECIFIC coach insight - no vague labels."""
     
     category_labels = {
+        "checkmate_threats": "checkmate threats",
+        "fork_vulnerability": "forks",
+        "pin_vulnerability": "pins",
+        "hanging_pieces": "leaving pieces undefended",
+        "back_rank_weakness": "back rank issues",
         "knight_tactics": "knight threats",
         "bishop_tactics": "bishop attacks",
         "rook_tactics": "rook play",
         "queen_tactics": "queen threats",
-        "pawn_play": "pawn moves",
+        "pawn_play": "pawn decisions",
         "king_safety": "king safety",
         "material_tactics": "material calculation",
-        "positional": "positional play",
+        "positional": "positional judgment",
         "general": "this type of position",
     }
     
-    label = category_labels.get(category, category)
+    label = category_labels.get(category, category.replace("_", " "))
     
     if total_occurrences <= 1:
         return None
     
+    # Build specific context
+    context_parts = []
+    
+    # Add rating context
+    if specific_insights.get("rating_insight"):
+        context_parts.append(specific_insights["rating_insight"])
+    
+    # Add opening context
+    if specific_insights.get("opening_insight"):
+        context_parts.append(specific_insights["opening_insight"])
+    
+    # Base message based on trend
     if trend == "fixed":
-        return f"Good news! You used to struggle with {label}, but you've fixed this pattern."
+        base = f"Good news! You used to struggle with {label}, but you've fixed this pattern."
+    elif trend == "improving":
+        base = f"You're getting better at {label}. This appeared {total_occurrences} times but is decreasing."
+    elif trend == "recurring":
+        # Include specific opponents with ratings
+        opponent_details = []
+        for g in other_games[:3]:
+            opp = g.get("opponent", "Unknown")
+            rating = g.get("opponent_rating")
+            if rating:
+                opponent_details.append(f"{opp} ({rating})")
+            else:
+                opponent_details.append(opp)
+        
+        if opponent_details:
+            base = f"Pattern alert: {label.capitalize()} issues against {', '.join(opponent_details[:2])} and {total_occurrences - 2} other games."
+        else:
+            base = f"This keeps appearing. You've made similar {label} mistakes in {total_occurrences} games."
+    else:
+        # Stable - include most recent specific opponent
+        if other_games:
+            recent = other_games[0]
+            opp = recent.get("opponent", "Unknown")
+            rating = recent.get("opponent_rating")
+            if rating:
+                base = f"You've seen this before - same {label} issue vs {opp} ({rating}). "
+            else:
+                base = f"You've seen this before - same {label} issue vs {opp}. "
+        else:
+            base = f"You've encountered {label} issues in {total_occurrences} games."
     
-    if trend == "improving":
-        return f"You're getting better at {label}. This appeared in {total_occurrences} games but less frequently now."
+    # Add one specific insight
+    if context_parts:
+        base += " " + context_parts[0]
     
-    if trend == "recurring":
-        opponents = [g["opponent"] for g in other_games[:3]]
-        if len(opponents) >= 2:
-            return f"Pattern alert: You've missed {label} against {', '.join(opponents[:2])} and {total_occurrences - 2} other games. This needs work."
-        return f"This pattern keeps appearing. You've made similar mistakes with {label} in {total_occurrences} games."
+    return base
+
+
+def generate_action_recommendation(category: str, specific_insights: Dict, trend: str) -> str:
+    """Generate actionable recommendation based on specific insights."""
     
-    # Stable
-    if len(other_games) >= 1:
-        recent_opponent = other_games[0]["opponent"]
-        return f"You've seen this before - same issue vs {recent_opponent}. {label.capitalize()} continues to be a weak spot."
+    if trend == "fixed":
+        return None  # No action needed for fixed patterns
     
-    return f"You've encountered {label} issues in {total_occurrences} games."
+    recommendations = []
+    
+    # Opening-specific
+    if specific_insights.get("opening_insight"):
+        opening = specific_insights["opening_insight"].split(" in ")[-1].split(" (")[0]
+        recommendations.append(f"Study {opening} positions more carefully")
+    
+    # Time-specific
+    if specific_insights.get("time_insight"):
+        if "blitz" in specific_insights["time_insight"].lower():
+            recommendations.append("Slow down in blitz - take an extra second on critical moves")
+        elif "bullet" in specific_insights["time_insight"].lower():
+            recommendations.append("Consider playing more rapid games to train calculation")
+    
+    # Position-specific
+    if specific_insights.get("position_insight"):
+        if "winning" in specific_insights["position_insight"].lower():
+            recommendations.append("When ahead, pause and ask: 'What can go wrong here?'")
+        elif "losing" in specific_insights["position_insight"].lower():
+            recommendations.append("When behind, avoid desperation moves - look for solid defense first")
+    
+    # Rating-specific
+    if specific_insights.get("rating_insight"):
+        if "lower-rated" in specific_insights["rating_insight"].lower():
+            recommendations.append("Play more seriously against all opponents, regardless of rating")
+        elif "higher-rated" in specific_insights["rating_insight"].lower():
+            recommendations.append("Against stronger players, focus on solid moves over brilliancies")
+    
+    # Category-specific fallbacks
+    category_recommendations = {
+        "hanging_pieces": "Before each move, ask: 'Is anything undefended?'",
+        "fork_vulnerability": "Check for knight and pawn fork squares before moving",
+        "pin_vulnerability": "Keep pieces off the same line as your king/queen",
+        "back_rank_weakness": "Create a luft (escape square) before it's urgent",
+        "checkmate_threats": "Always check opponent's checks, captures, and threats",
+        "king_safety": "Complete castling before opening the center",
+    }
+    
+    if not recommendations and category in category_recommendations:
+        recommendations.append(category_recommendations[category])
+    
+    return recommendations[0] if recommendations else "Review these positions in training mode"
 
 
 def get_game_pattern_summary(
