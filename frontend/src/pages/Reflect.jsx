@@ -1015,14 +1015,52 @@ const Reflect = ({ user }) => {
                             {/* Plan Input for 1000+ players */}
                             {reflectProfile?.show_plan_input && (
                               <div className="mb-4 space-y-3">
-                                {/* Plan questions */}
-                                <div className="text-sm text-muted-foreground space-y-1">
-                                  {(reflectProfile?.plan_questions || []).map((q, idx) => (
-                                    <p key={idx} className="flex items-start gap-2">
-                                      <span className="text-primary">•</span> {q}
+                                {/* Position-specific intent hypotheses */}
+                                {intentHypotheses.length > 0 && (
+                                  <div className="space-y-2">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                                      Quick select - what fits your thinking?
                                     </p>
-                                  ))}
-                                </div>
+                                    {intentHypotheses.map((h, idx) => (
+                                      <Button
+                                        key={idx}
+                                        variant={selectedHypothesis === idx ? "default" : "outline"}
+                                        size="sm"
+                                        className={`w-full h-auto py-2.5 px-3 text-left justify-start ${
+                                          selectedHypothesis === idx ? 'ring-2 ring-primary' : ''
+                                        }`}
+                                        onClick={() => {
+                                          setSelectedHypothesis(idx);
+                                          setUserThought(h.description);
+                                          setSelectedIntent(h.category);
+                                        }}
+                                      >
+                                        <div className="flex flex-col items-start w-full">
+                                          <span className="text-sm">{h.question}</span>
+                                          <span className="text-xs text-muted-foreground mt-0.5">
+                                            {h.evidence}
+                                          </span>
+                                        </div>
+                                      </Button>
+                                    ))}
+                                  </div>
+                                )}
+                                
+                                {loadingHypotheses && (
+                                  <div className="flex items-center justify-center py-4">
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                    <span className="text-sm text-muted-foreground">Analyzing position...</span>
+                                  </div>
+                                )}
+                                
+                                {/* Separator */}
+                                {intentHypotheses.length > 0 && (
+                                  <div className="flex items-center gap-3 py-2">
+                                    <div className="flex-1 h-px bg-border"></div>
+                                    <span className="text-xs text-muted-foreground">or explain differently</span>
+                                    <div className="flex-1 h-px bg-border"></div>
+                                  </div>
+                                )}
                                 
                                 {/* Board input for 1300+ */}
                                 {reflectProfile?.allow_board_moves && (
@@ -1050,7 +1088,7 @@ const Reflect = ({ user }) => {
                                 
                                 {/* Text input */}
                                 <Textarea
-                                  placeholder="Describe what you were planning..."
+                                  placeholder="Or describe what you were planning in your own words..."
                                   value={userThought}
                                   onChange={(e) => setUserThought(e.target.value)}
                                   className="min-h-[60px] text-sm"
@@ -1059,7 +1097,7 @@ const Reflect = ({ user }) => {
                                 <Button 
                                   size="sm" 
                                   onClick={() => setReflectStep(1)}
-                                  disabled={!userThought && planMoves.length === 0}
+                                  disabled={!userThought && planMoves.length === 0 && selectedHypothesis === null}
                                   className="w-full"
                                 >
                                   Continue
@@ -1070,14 +1108,39 @@ const Reflect = ({ user }) => {
                             
                             {/* Simple tap options for lower-rated players */}
                             {!reflectProfile?.show_plan_input && (
-                              <div className="grid grid-cols-2 gap-2">
-                                {(reflectProfile?.intent_options || [
-                                  { value: "attack", label: "Attack" },
-                                  { value: "defend", label: "Defend" },
-                                  { value: "improve_pieces", label: "Develop / Improve piece" },
-                                  { value: "trade_simplify", label: "Simplify / Trade" },
-                                  { value: "win_material", label: "Win material" },
-                                  { value: "avoid_threat", label: "Avoid a threat" },
+                              <div className="space-y-3">
+                                {/* Show position-specific hypotheses first if available */}
+                                {intentHypotheses.length > 0 && (
+                                  <div className="space-y-2 mb-3">
+                                    <p className="text-xs text-muted-foreground">Based on the position:</p>
+                                    {intentHypotheses.slice(0, 3).map((h, idx) => (
+                                      <Button
+                                        key={idx}
+                                        variant={selectedIntent === h.category ? "default" : "outline"}
+                                        size="sm"
+                                        className="w-full h-auto py-2 px-3 text-left justify-start"
+                                        onClick={() => {
+                                          setSelectedIntent(h.category);
+                                          setUserThought(h.description);
+                                          setTimeout(() => setReflectStep(1), 150);
+                                        }}
+                                      >
+                                        {h.question}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                )}
+                                
+                                {/* Generic options as fallback */}
+                                <p className="text-xs text-muted-foreground">Or choose:</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(reflectProfile?.intent_options || [
+                                    { value: "attack", label: "Attack" },
+                                    { value: "defend", label: "Defend" },
+                                    { value: "improve_pieces", label: "Develop / Improve piece" },
+                                    { value: "trade_simplify", label: "Simplify / Trade" },
+                                    { value: "win_material", label: "Win material" },
+                                    { value: "avoid_threat", label: "Avoid a threat" },
                                   { value: "time_panic", label: "Time pressure move" },
                                   { value: "not_sure", label: "Not sure" },
                                 ]).map(option => (
