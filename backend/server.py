@@ -198,12 +198,24 @@ from reflect_constants import (
     Intent,
     Confidence,
     RewardEventType,
+    ReflectionStyle,
+    get_reflection_style,
+    get_rating_band,
+    INTENT_BY_RATING,
+    INTENT_LABELS,
 )
 from quick_tag_registry import generate_quick_tags
 from awareness_gap_rules import evaluate_awareness_gap
 from adaptive_profile_engine import get_adaptive_profile, get_adaptive_profile_sync
 from reward_message_service import get_reward_message, get_post_loss_message, generate_weekly_proof
 from reflect_predicates import BoardFacts
+
+# === TIME ANALYSIS SERVICE ===
+from time_analysis_service import (
+    extract_time_data_from_pgn,
+    get_time_context_for_move,
+    analyze_time_management,
+)
 
 # === MISSION ENGINE IMPORTS ===
 from mission_generation_service import (
