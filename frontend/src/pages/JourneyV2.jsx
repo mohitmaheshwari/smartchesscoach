@@ -910,6 +910,7 @@ const JourneyPage = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [journeyData, setJourneyData] = useState(null);
+  const [focusMastery, setFocusMastery] = useState(null);
   
   // Lifted tab state for coordinating weakness/pattern display
   const [activeComparisonTab, setActiveComparisonTab] = useState('growth'); // 'before', 'after', 'growth'
@@ -932,10 +933,19 @@ const JourneyPage = ({ user }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch(`${API}/journey/v2`, { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
+        const [journeyRes, masteryRes] = await Promise.all([
+          fetch(`${API}/journey/v2`, { credentials: "include" }),
+          fetch(`${API}/missions/focus-mastery`, { credentials: "include" }),
+        ]);
+        
+        if (journeyRes.ok) {
+          const data = await journeyRes.json();
           setJourneyData(data);
+        }
+        
+        if (masteryRes.ok) {
+          const masteryData = await masteryRes.json();
+          setFocusMastery(masteryData.focus_mastery || null);
         }
       } catch (err) {
         console.error("Failed to load journey data:", err);
