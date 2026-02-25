@@ -296,6 +296,183 @@ const WeaknessRanking = ({ data, onShowEvidence, onStartDrill }) => {
 };
 
 // ============================================
+// Focus Mastery Section - Cognitive Pattern Progress
+// ============================================
+const FocusMasterySection = ({ data, onNavigate }) => {
+  if (!data?.patterns || Object.keys(data.patterns).length === 0) {
+    return null;
+  }
+  
+  // Get top patterns to display (sorted by relevance)
+  const patternsArray = Object.values(data.patterns);
+  const activePatterns = patternsArray
+    .filter(p => data.active_patterns?.includes(p.pattern_key) || p.occurrences_total > 0)
+    .sort((a, b) => b.occurrences_total - a.occurrences_total)
+    .slice(0, 4);
+  
+  const levelColors = {
+    master: "bg-yellow-500",
+    proficient: "bg-emerald-500",
+    competent: "bg-blue-500",
+    developing: "bg-amber-500",
+    novice: "bg-gray-500",
+  };
+  
+  const levelLabels = {
+    master: "Master",
+    proficient: "Proficient",
+    competent: "Competent",
+    developing: "Developing",
+    novice: "Learning",
+  };
+  
+  const trendIcons = {
+    improving: <TrendingUp className="w-3 h-3 text-emerald-500" />,
+    declining: <TrendingDown className="w-3 h-3 text-red-500" />,
+    stable: <Minus className="w-3 h-3 text-muted-foreground" />,
+  };
+  
+  return (
+    <Card className="border-purple-500/20" data-testid="focus-mastery-section">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Brain className="w-5 h-5 text-purple-500" />
+          Focus Mastery
+          <span className="ml-auto flex items-center gap-2 text-sm font-normal">
+            <span className="text-muted-foreground">Overall:</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs text-white ${levelColors[data.overall_level]}`}>
+              {data.overall_level}
+            </span>
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* Overall Progress Ring */}
+        <div className="flex items-center gap-6 mb-6">
+          <div className="relative w-20 h-20 flex-shrink-0">
+            <svg className="w-20 h-20 transform -rotate-90">
+              <circle
+                cx="40"
+                cy="40"
+                r="35"
+                stroke="currentColor"
+                strokeWidth="6"
+                fill="transparent"
+                className="text-muted/30"
+              />
+              <motion.circle
+                cx="40"
+                cy="40"
+                r="35"
+                stroke="currentColor"
+                strokeWidth="6"
+                fill="transparent"
+                strokeDasharray={`${(data.overall_mastery / 100) * 220} 220`}
+                className={`${levelColors[data.overall_level].replace('bg-', 'text-')}`}
+                strokeLinecap="round"
+                initial={{ strokeDasharray: "0 220" }}
+                animate={{ strokeDasharray: `${(data.overall_mastery / 100) * 220} 220` }}
+                transition={{ duration: 1 }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-lg font-bold">{Math.round(data.overall_mastery)}%</span>
+            </div>
+          </div>
+          
+          <div className="flex-1 grid grid-cols-2 gap-3">
+            {data.top_strength && (
+              <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20">
+                <p className="text-xs text-emerald-500 font-medium flex items-center gap-1">
+                  <Award className="w-3 h-3" /> Strongest
+                </p>
+                <p className="text-sm truncate">{data.top_strength.name}</p>
+              </div>
+            )}
+            {data.biggest_gap && (
+              <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                <p className="text-xs text-amber-500 font-medium flex items-center gap-1">
+                  <Target className="w-3 h-3" /> Focus Area
+                </p>
+                <p className="text-sm truncate">{data.biggest_gap.name}</p>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Individual Pattern Progress */}
+        <div className="space-y-3">
+          {activePatterns.map((pattern) => (
+            <motion.div 
+              key={pattern.pattern_key}
+              className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+              onClick={() => onNavigate?.(pattern.pattern_key)}
+              whileHover={{ scale: 1.01 }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">{pattern.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {trendIcons[pattern.trend]}
+                  <span className={`text-xs px-2 py-0.5 rounded-full text-white ${levelColors[pattern.mastery_level]}`}>
+                    {levelLabels[pattern.mastery_level]}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                      className={`h-full ${levelColors[pattern.mastery_level]}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pattern.mastery_score}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground w-12 text-right">
+                  {Math.round(pattern.mastery_score)}%
+                </span>
+              </div>
+              
+              {/* Stats */}
+              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                {pattern.occurrences_total > 0 && (
+                  <span>
+                    {pattern.occurrences_total} occurrence{pattern.occurrences_total !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {pattern.improvement_rate > 0 && (
+                  <span className="text-emerald-500">
+                    +{Math.round(pattern.improvement_rate)}% better
+                  </span>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+        
+        {/* Recommended Focus */}
+        {data.recommended_focus && data.patterns[data.recommended_focus] && (
+          <div className="mt-4 p-3 rounded-lg border border-purple-500/30 bg-purple-500/5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              <span className="text-sm font-medium">
+                Recommended: Work on <span className="text-purple-400">{data.patterns[data.recommended_focus]?.name}</span>
+              </span>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ============================================
 // NEW SECTION: Chess Fundamentals Assessment
 // ============================================
 const FundamentalsSection = ({ data, onViewGame }) => {
