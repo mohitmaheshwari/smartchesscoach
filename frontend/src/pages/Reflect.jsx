@@ -1141,23 +1141,24 @@ const Reflect = ({ user }) => {
                                     { value: "trade_simplify", label: "Simplify / Trade" },
                                     { value: "win_material", label: "Win material" },
                                     { value: "avoid_threat", label: "Avoid a threat" },
-                                  { value: "time_panic", label: "Time pressure move" },
-                                  { value: "not_sure", label: "Not sure" },
-                                ]).map(option => (
-                                  <Button
-                                    key={option.value || option.id}
-                                    variant={selectedIntent === (option.value || option.id) ? "default" : "outline"}
-                                    size="sm"
-                                    className="h-auto py-2 px-3 text-left justify-start"
-                                    onClick={() => {
-                                      setSelectedIntent(option.value || option.id);
-                                      // Auto-advance after selection
-                                      setTimeout(() => setReflectStep(1), 150);
-                                    }}
-                                  >
-                                    {option.label}
-                                  </Button>
-                                ))}
+                                    { value: "time_panic", label: "Time pressure move" },
+                                    { value: "not_sure", label: "Not sure" },
+                                  ]).map(option => (
+                                    <Button
+                                      key={option.value || option.id}
+                                      variant={selectedIntent === (option.value || option.id) ? "default" : "outline"}
+                                      size="sm"
+                                      className="h-auto py-2 px-3 text-left justify-start"
+                                      onClick={() => {
+                                        setSelectedIntent(option.value || option.id);
+                                        // Auto-advance after selection
+                                        setTimeout(() => setReflectStep(1), 150);
+                                      }}
+                                    >
+                                      {option.label}
+                                    </Button>
+                                  ))}
+                                </div>
                               </div>
                             )}
                             
