@@ -134,6 +134,12 @@ const LichessBoard = forwardRef(({
     return dests;
   };
 
+  // Use ref for onMove to avoid recreating the board when callback changes
+  const onMoveRef = useRef(onMove);
+  useEffect(() => {
+    onMoveRef.current = onMove;
+  }, [onMove]);
+  
   // Key to force re-creation when interactivity changes
   const shouldBeInteractive = planMode || (interactive && !viewOnly);
   
