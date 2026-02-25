@@ -1227,20 +1227,21 @@ const Reflect = ({ user }) => {
                                 <Lightbulb className="w-4 h-4 text-primary" />
                               </div>
                               <div>
-                                <h3 className="font-semibold">What fits your thinking?</h3>
+                                <h3 className="font-semibold">What else was in your thinking?</h3>
                                 <p className="text-xs text-muted-foreground">
                                   Select any that apply (optional)
                                 </p>
                               </div>
                             </div>
                             
-                            {/* Context */}
-                            <div className="text-xs text-muted-foreground mb-2 flex items-center gap-2 flex-wrap">
-                              <span>Intent: <span className="text-foreground">{selectedIntent?.replace(/_/g, " ")}</span></span>
-                              <span>•</span>
+                            {/* Context - show plan, not generic intent */}
+                            <div className="text-xs text-muted-foreground mb-2">
+                              <div className="p-2 rounded bg-muted/30 mb-2">
+                                <span className="text-foreground">{userThought || intentHypotheses[selectedHypothesis]?.description || "Your plan"}</span>
+                              </div>
                               <span>Confidence: <span className="text-foreground">{selectedConfidence?.replace(/_/g, " ")}</span></span>
                               <button 
-                                className="text-primary hover:underline"
+                                className="ml-2 text-primary hover:underline"
                                 onClick={() => setReflectStep(0)}
                               >
                                 restart
