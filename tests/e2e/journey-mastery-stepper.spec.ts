@@ -267,20 +267,26 @@ test.describe('Focus Mastery Section on Progress Page (JourneyV2)', () => {
       return;
     }
     
-    // Mastery levels are shown as badges (lowercase in the code)
-    // Valid levels: master, proficient, competent, developing, learning
-    const validLevels = ['master', 'proficient', 'competent', 'developing', 'Learning'];
+    // Scroll to make sure the section is in view
+    await focusMasterySection.scrollIntoViewIfNeeded();
+    
+    // Mastery levels are shown as badges
+    // Overall level is lowercase: master, proficient, competent, developing, novice
+    // Individual pattern levels use labels: Master, Proficient, Competent, Developing, Learning
+    const validLevels = ['master', 'Master', 'proficient', 'Proficient', 'competent', 'Competent', 'developing', 'Developing', 'novice', 'Learning'];
     
     let foundLevel = false;
     for (const level of validLevels) {
-      // Use regex to match case-insensitively
-      const levelBadge = focusMasterySection.getByText(new RegExp(level, 'i'));
-      const isLevelVisible = await levelBadge.isVisible().catch(() => false);
-      if (isLevelVisible) {
+      const levelBadge = focusMasterySection.getByText(level, { exact: true });
+      const count = await levelBadge.count();
+      if (count > 0) {
         foundLevel = true;
         break;
       }
     }
+    
+    // Take screenshot for debugging
+    await page.screenshot({ path: '.screenshots/focus-mastery-levels.jpeg', quality: 20 });
     
     expect(foundLevel).toBe(true);
   });
