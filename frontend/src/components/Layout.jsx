@@ -23,7 +23,9 @@ import {
   X,
   Bell,
   CheckCheck,
-  Sparkles
+  Sparkles,
+  Brain,
+  Zap
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { API } from "@/App";
