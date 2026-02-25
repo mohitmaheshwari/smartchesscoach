@@ -279,6 +279,20 @@ const Journey = ({ user }) => {
         {/* Main Journey Content */}
         {hasAccount && journeyData && (
           <AnimatedList className="space-y-6">
+            {/* Coach Narrative Rail - Story-driven overview */}
+            <CoachNarrativeRail 
+              journeyData={journeyData}
+              focusMastery={focusMastery}
+            />
+
+            {/* Focus Mastery Section - Cognitive Pattern Progress */}
+            {focusMastery && (
+              <FocusMasterySection 
+                data={focusMastery}
+                onNavigate={(pattern) => navigate(`/training?focus=${pattern}`)}
+              />
+            )}
+
             {/* NEW: Progress Tracker - Baseline vs Current */}
             <ProgressTrackerSection 
               baseline={journeyData.baseline}
