@@ -3147,6 +3147,77 @@ async def get_move_time_context(game_id: str, move_number: int, user: User = Dep
     return context
 
 
+# ==================== MOVE INTENT HYPOTHESES ====================
+
+@api_router.get("/games/{game_id}/move/{move_number}/intent-hypotheses")
+async def get_move_intent_hypotheses(game_id: str, move_number: int, user: User = Depends(get_current_user)):
+    """
+    Get position-specific hypotheses about why the user played their move.
+    
+    This is the crucial layer between Stockfish analysis and user reflection.
+    Analyzes the actual position to generate confident hypotheses like:
+    - "Were you trying to control the e5 square?"
+    - "Were you defending the d4 pawn?"
+    
+    Only returns CONFIDENT hypotheses that are actually valid in the position.
+    """
+    # Get the game analysis to find the move
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Game analysis not found")
+    
+    # Find the move evaluation
+    sf = analysis.get("stockfish_analysis", {})
+    evals = sf.get("move_evaluations", [])
+    
+    target_eval = None
+    for ev in evals:
+        if ev.get("move_number") == move_number:
+            target_eval = ev
+            break
+    
+    if not target_eval:
+        raise HTTPException(status_code=404, detail="Move not found in analysis")
+    
+    fen_before = target_eval.get("fen_before")
+    user_move = target_eval.get("move")
+    best_move = target_eval.get("best_move")
+    
+    if not fen_before or not user_move:
+        return {"hypotheses": [], "message": "Insufficient data for analysis"}
+    
+    # Get the intent summary with hypotheses
+    intent_summary = get_move_intent_summary(fen_before, user_move, best_move)
+    
+    # Also get time context if available
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "pgn": 1, "user_color": 1}
+    )
+    
+    time_context = None
+    if game and game.get("pgn"):
+        from time_analysis_service import extract_time_data_from_pgn, get_time_context_for_move
+        time_data = extract_time_data_from_pgn(game["pgn"])
+        if time_data.get("has_time_data"):
+            time_context = get_time_context_for_move(time_data, move_number, game.get("user_color", "white"))
+    
+    return {
+        "move_number": move_number,
+        "user_move": user_move,
+        "best_move": best_move,
+        "fen_before": fen_before,
+        "intent_summary": intent_summary,
+        "hypotheses": intent_summary.get("hypotheses", []),
+        "primary_intent": intent_summary.get("primary_intent"),
+        "time_context": time_context,
+    }
+
+
 # ==================== REWARD EVENT FEED ====================
 
 @api_router.get("/rewards/feed")
