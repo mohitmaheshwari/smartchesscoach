@@ -17,8 +17,10 @@ MISTAKE_CATEGORY_VERSION = "v1"
 
 # ============================================
 # INTENT OPTIONS (ordered for UI)
+# Rating-adaptive: Different questions for different skill levels
 # ============================================
 class Intent(str, Enum):
+    # Basic intents (all ratings)
     ATTACK = "attack"
     DEFEND = "defend"
     IMPROVE_PIECES = "improve_pieces"
@@ -27,6 +29,13 @@ class Intent(str, Enum):
     AVOID_THREAT = "avoid_threat"
     TIME_PANIC = "time_panic"
     NOT_SURE = "not_sure"
+    
+    # Advanced intents (1000+ only)
+    PREPARE_ATTACK = "prepare_attack"  # Setting up for later
+    PROPHYLAXIS = "prophylaxis"  # Preventing opponent's plan
+    IMPROVE_WORST_PIECE = "improve_worst_piece"
+    CREATE_WEAKNESS = "create_weakness"
+    CONVERT_ADVANTAGE = "convert_advantage"
 
 INTENT_LABELS = {
     Intent.ATTACK: "Attack",
@@ -37,7 +46,78 @@ INTENT_LABELS = {
     Intent.AVOID_THREAT: "Avoid a threat",
     Intent.TIME_PANIC: "Time pressure move",
     Intent.NOT_SURE: "Not sure",
+    # Advanced
+    Intent.PREPARE_ATTACK: "Preparing an attack",
+    Intent.PROPHYLAXIS: "Stopping opponent's plan",
+    Intent.IMPROVE_WORST_PIECE: "Activating my worst piece",
+    Intent.CREATE_WEAKNESS: "Creating a weakness in opponent's camp",
+    Intent.CONVERT_ADVANTAGE: "Converting my advantage",
 }
+
+# Rating-specific intent sets
+INTENT_BY_RATING = {
+    RatingBand.BAND_A: [  # 400-799: Keep it simple
+        Intent.ATTACK,
+        Intent.DEFEND,
+        Intent.WIN_MATERIAL,
+        Intent.TIME_PANIC,
+        Intent.NOT_SURE,
+    ],
+    RatingBand.BAND_B: [  # 800-1099: Add development
+        Intent.ATTACK,
+        Intent.DEFEND,
+        Intent.IMPROVE_PIECES,
+        Intent.WIN_MATERIAL,
+        Intent.AVOID_THREAT,
+        Intent.TIME_PANIC,
+        Intent.NOT_SURE,
+    ],
+    RatingBand.BAND_C: [  # 1100-1399: Full basic set
+        Intent.ATTACK,
+        Intent.DEFEND,
+        Intent.IMPROVE_PIECES,
+        Intent.TRADE_SIMPLIFY,
+        Intent.WIN_MATERIAL,
+        Intent.AVOID_THREAT,
+        Intent.TIME_PANIC,
+        Intent.NOT_SURE,
+    ],
+    RatingBand.BAND_D: [  # 1400-1699: Add advanced concepts
+        Intent.ATTACK,
+        Intent.DEFEND,
+        Intent.IMPROVE_PIECES,
+        Intent.TRADE_SIMPLIFY,
+        Intent.WIN_MATERIAL,
+        Intent.AVOID_THREAT,
+        Intent.PREPARE_ATTACK,
+        Intent.PROPHYLAXIS,
+        Intent.TIME_PANIC,
+        Intent.NOT_SURE,
+    ],
+    RatingBand.BAND_E: [  # 1700+: Full advanced set
+        Intent.ATTACK,
+        Intent.DEFEND,
+        Intent.IMPROVE_PIECES,
+        Intent.TRADE_SIMPLIFY,
+        Intent.WIN_MATERIAL,
+        Intent.AVOID_THREAT,
+        Intent.PREPARE_ATTACK,
+        Intent.PROPHYLAXIS,
+        Intent.IMPROVE_WORST_PIECE,
+        Intent.CREATE_WEAKNESS,
+        Intent.CONVERT_ADVANTAGE,
+        Intent.TIME_PANIC,
+        Intent.NOT_SURE,
+    ],
+}
+
+# ============================================
+# REFLECTION MODE BY RATING
+# ============================================
+class ReflectionStyle(str, Enum):
+    SIMPLE_TAP = "simple_tap"  # 400-999: Just tap options
+    PLAN_TEXT = "plan_text"  # 1000-1299: Type your plan
+    PLAN_BOARD = "plan_board"  # 1300+: Show plan on board + explain
 
 # ============================================
 # CONFIDENCE OPTIONS
