@@ -3225,6 +3225,116 @@ async def get_move_intent_hypotheses(game_id: str, move_number: int, user: User 
     }
 
 
+# ==================== COGNITIVE GAP ANALYSIS ====================
+
+class CognitiveGapRequest(BaseModel):
+    """Request body for cognitive gap analysis."""
+    user_stated_plan: Optional[str] = None
+    user_hypothesis_category: Optional[str] = None
+    user_confidence: Optional[str] = None
+
+@api_router.post("/games/{game_id}/move/{move_number}/analyze-gap")
+async def analyze_move_cognitive_gap(
+    game_id: str, 
+    move_number: int, 
+    request: CognitiveGapRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Analyze the cognitive gap for a specific move.
+    
+    This is the CRITICAL endpoint that determines WHY the user made a mistake.
+    Uses the user's stated plan + position analysis to give precise diagnosis.
+    
+    Returns:
+        - primary_gap: The main cognitive error type
+        - confidence: How sure we are about this diagnosis  
+        - evidence: Concrete proof from the position
+        - explanation: Human-readable explanation
+        - coaching_focus: What to work on
+    """
+    # Get game analysis
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Game analysis not found")
+    
+    # Find the move evaluation
+    sf = analysis.get("stockfish_analysis", {})
+    evals = sf.get("move_evaluations", [])
+    
+    target_eval = None
+    for ev in evals:
+        if ev.get("move_number") == move_number:
+            target_eval = ev
+            break
+    
+    if not target_eval:
+        raise HTTPException(status_code=404, detail="Move not found in analysis")
+    
+    fen_before = target_eval.get("fen_before")
+    user_move = target_eval.get("move")
+    best_move = target_eval.get("best_move")
+    eval_before = target_eval.get("eval_before", 0)
+    eval_after = target_eval.get("eval_after", 0)
+    threat = target_eval.get("threat")
+    
+    if not fen_before or not user_move or not best_move:
+        return {"error": "Insufficient data for analysis"}
+    
+    # Get time context
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "pgn": 1, "user_color": 1}
+    )
+    
+    time_spent = None
+    clock_remaining = None
+    
+    if game and game.get("pgn"):
+        from time_analysis_service import extract_time_data_from_pgn, get_time_context_for_move
+        time_data = extract_time_data_from_pgn(game["pgn"])
+        if time_data.get("has_time_data"):
+            tc = get_time_context_for_move(time_data, move_number, game.get("user_color", "white"))
+            if tc.get("has_data"):
+                time_spent = tc.get("time_spent")
+                clock_remaining = tc.get("clock_after")
+    
+    # Perform cognitive gap analysis
+    gap_result = analyze_cognitive_gap(
+        fen_before=fen_before,
+        user_move_san=user_move,
+        best_move_san=best_move,
+        eval_before=eval_before,
+        eval_after=eval_after,
+        threat_description=threat,
+        user_stated_plan=request.user_stated_plan,
+        user_hypothesis_category=request.user_hypothesis_category,
+        time_spent_seconds=time_spent,
+        clock_remaining_seconds=clock_remaining,
+        user_confidence=request.user_confidence,
+    )
+    
+    # Add coaching message
+    coaching_message = get_coaching_message(gap_result)
+    
+    return {
+        "move_number": move_number,
+        "user_move": user_move,
+        "best_move": best_move,
+        "cp_loss": abs(eval_before - eval_after),
+        "gap_analysis": gap_result,
+        "coaching_message": coaching_message,
+        "time_context": {
+            "time_spent": time_spent,
+            "clock_remaining": clock_remaining,
+        } if time_spent else None,
+    }
+
+
 # ==================== REWARD EVENT FEED ====================
 
 @api_router.get("/rewards/feed")
