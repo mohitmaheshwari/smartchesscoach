@@ -452,7 +452,7 @@ def analyze_cognitive_gap(
             "primary_gap": CognitiveGap.MISSED_DISCOVERED_ATTACK.value,
             "confidence": 0.85,
             "evidence": f"{best_move_san} creates {disc['description']}",
-            "explanation": f"Moving allows a discovered attack. Your piece clears the way for another piece to attack.",
+            "explanation": "Moving allows a discovered attack. Your piece clears the way for another piece to attack.",
             "secondary_gaps": [CognitiveGap.PATTERN_UNFAMILIARITY.value],
             "coaching_focus": "When moving a piece, check: 'What does this uncover behind it?'",
         }
@@ -535,7 +535,7 @@ def analyze_cognitive_gap(
                 return {
                     "primary_gap": CognitiveGap.CALCULATION_DEPTH.value,
                     "confidence": 0.75,
-                    "evidence": f"Defensive intent was correct, but the specific move didn't work",
+                    "evidence": "Defensive intent was correct, but the specific move didn't work",
                     "explanation": "You correctly identified the need to defend, but the move you chose doesn't actually solve the problem. Calculate one move deeper.",
                     "secondary_gaps": [],
                     "coaching_focus": "When defending, calculate: 'After I defend, what does opponent do next?'",
