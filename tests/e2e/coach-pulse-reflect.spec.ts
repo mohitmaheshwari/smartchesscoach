@@ -536,40 +536,41 @@ test.describe('Cognitive Gap Analysis Feature', () => {
       return;
     }
     
-    // Navigate through reflection flow
-    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
+    // Navigate through reflection flow - Step 0
+    await expect(page.getByText(/What was your plan here/i)).toBeVisible({ timeout: 15000 });
     
-    const attackChip = page.locator('button').filter({ hasText: 'Attack' });
-    if (await attackChip.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await attackChip.click();
+    const hypothesisBtn = page.locator('button').filter({ hasText: /Were you trying to/ });
+    if (await hypothesisBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await hypothesisBtn.click();
+      await page.locator('button').filter({ hasText: 'Continue' }).click();
     } else {
-      // Fallback: click any visible intent button
-      await page.locator('button').filter({ hasText: /Defend|Not sure/i }).first().click();
+      await page.locator('button').filter({ hasText: /Defend|Attack|Not sure/i }).first().click();
     }
     
-    await expect(page.getByRole('heading', { name: /How confident|How sure/i })).toBeVisible({ timeout: 10000 });
+    // Step 1
+    await expect(page.getByText(/How confident were you/i)).toBeVisible({ timeout: 10000 });
     await page.locator('button').filter({ hasText: /Very sure/i }).click();
     
-    await expect(page.getByRole('heading', { name: /What else|What fits/i })).toBeVisible({ timeout: 10000 });
+    // Step 2: Submit
+    await expect(page.getByText(/What else was in your thinking/i)).toBeVisible({ timeout: 10000 });
     const submitBtn = page.getByTestId('submit-reflection-btn');
     await submitBtn.click();
     
+    // Wait for result
+    await expect(page.getByText(/Why this was a mistake/i)).toBeVisible({ timeout: 30000 });
+    
     // Look for gap type badge - these are the possible gap types shown as badges
-    const gapTypeBadges = page.locator('text=/calculation depth|threat blindness|tactical oversight|positional misread|defensive lapse|overconfidence|time pressure|pattern unfamiliarity|hanging piece|check blindness|missed fork|missed pin|Confidence Gap|Good Self-Awareness/i');
+    // e.g., "Calculation Depth", "Threat Blindness", "Tactical Oversight", etc.
+    const gapTypeBadges = page.locator('text=/Calculation Depth|Threat Blindness|Tactical Oversight|Positional Misread|Defensive Lapse|Overconfidence|Time Pressure|Pattern Unfamiliarity|Hanging Piece|Check Blindness|Missed Fork|Missed Pin/i');
     
-    // Wait for result to appear
-    await expect(page.getByText(/Why this was a mistake|Awareness Insight|Good Self-Awareness/i)).toBeVisible({ timeout: 30000 });
-    
-    // Gap type badge may or may not be visible depending on the analysis result
     const badgeVisible = await gapTypeBadges.first().isVisible({ timeout: 5000 }).catch(() => false);
     
     if (badgeVisible) {
       console.log('Gap type badge is visible');
-      await page.screenshot({ path: '.screenshots/cognitive-gap-badge.jpeg', quality: 20 });
-    } else {
-      console.log('Gap type badge not visible (may be fallback UI)');
-      await page.screenshot({ path: '.screenshots/cognitive-gap-fallback.jpeg', quality: 20 });
+      await expect(gapTypeBadges.first()).toBeVisible();
     }
+    
+    await page.screenshot({ path: '.screenshots/cognitive-gap-badge.jpeg', quality: 20 });
   });
 
   test('Cognitive Gap Analysis shows coaching focus section', async ({ page }) => {
