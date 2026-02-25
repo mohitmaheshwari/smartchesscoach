@@ -163,6 +163,27 @@ const Reflect = ({ user }) => {
     }
   };
   
+  // Fetch position-specific intent hypotheses
+  const fetchIntentHypotheses = async (gameId, moveNumber) => {
+    if (!gameId || !moveNumber) return;
+    setLoadingHypotheses(true);
+    setIntentHypotheses([]);
+    
+    try {
+      const res = await fetch(`${API}/games/${gameId}/move/${moveNumber}/intent-hypotheses`, {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIntentHypotheses(data.hypotheses || []);
+      }
+    } catch (err) {
+      console.error("Error fetching intent hypotheses:", err);
+    } finally {
+      setLoadingHypotheses(false);
+    }
+  };
+  
   // V1 Engine: Submit reflection
   const submitReflectionV1 = async () => {
     if (!selectedIntent || !selectedConfidence) {
