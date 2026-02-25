@@ -942,7 +942,7 @@ const Reflect = ({ user }) => {
                           ))}
                         </div>
                         
-                        {/* Step 0: Intent Selection (1 tap) */}
+                        {/* Step 0: Intent/Plan Selection */}
                         {reflectStep === 0 && (
                           <div className="space-y-4">
                             <div className="flex items-center gap-3 mb-4">
@@ -950,39 +950,143 @@ const Reflect = ({ user }) => {
                                 <Target className="w-4 h-4 text-primary" />
                               </div>
                               <div>
-                                <h3 className="font-semibold">What were you trying to do?</h3>
+                                <h3 className="font-semibold">
+                                  {reflectProfile?.show_plan_input 
+                                    ? "What was your plan here?" 
+                                    : "What were you trying to do?"}
+                                </h3>
                                 <p className="text-xs text-muted-foreground">
                                   Before you played {currentMoment?.user_move}
                                 </p>
                               </div>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-2">
-                              {(reflectProfile?.intent_options || [
-                                { id: "attack", label: "Attack" },
-                                { id: "defend", label: "Defend" },
-                                { id: "improve_pieces", label: "Develop / Improve piece" },
-                                { id: "trade_simplify", label: "Simplify / Trade" },
-                                { id: "win_material", label: "Win material" },
-                                { id: "avoid_threat", label: "Avoid a threat" },
-                                { id: "time_panic", label: "Time pressure move" },
-                                { id: "not_sure", label: "Not sure" },
-                              ]).map(option => (
-                                <Button
-                                  key={option.id}
-                                  variant={selectedIntent === option.id ? "default" : "outline"}
-                                  size="sm"
-                                  className="h-auto py-2 px-3 text-left justify-start"
-                                  onClick={() => {
-                                    setSelectedIntent(option.id);
-                                    // Auto-advance after selection
-                                    setTimeout(() => setReflectStep(1), 150);
-                                  }}
+                            {/* Time Context Badge - Show if available */}
+                            {timeContext?.has_data && (
+                              <div className={`mb-3 p-2 rounded text-xs flex items-center gap-2 ${
+                                timeContext.time_category === 'time_pressure' 
+                                  ? 'bg-red-500/10 text-red-400 border border-red-500/30' 
+                                  : timeContext.time_category === 'rushed'
+                                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                    : timeContext.time_category === 'long_think'
+                                      ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                                      : 'bg-muted/30 text-muted-foreground'
+                              }`}>
+                                <Clock className="w-3 h-3" />
+                                <span>
+                                  {timeContext.time_category === 'time_pressure' && `Only ${Math.round(timeContext.clock_after)}s left`}
+                                  {timeContext.time_category === 'rushed' && `Spent ${timeContext.time_spent.toFixed(1)}s on this move`}
+                                  {timeContext.time_category === 'long_think' && `Thought for ${Math.round(timeContext.time_spent)}s`}
+                                  {timeContext.time_category === 'normal' && `${timeContext.time_spent.toFixed(1)}s spent`}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {/* Plan Input for 1000+ players */}
+                            {reflectProfile?.show_plan_input && (
+                              <div className="mb-4 space-y-3">
+                                {/* Plan questions */}
+                                <div className="text-sm text-muted-foreground space-y-1">
+                                  {(reflectProfile?.plan_questions || []).map((q, idx) => (
+                                    <p key={idx} className="flex items-start gap-2">
+                                      <span className="text-primary">•</span> {q}
+                                    </p>
+                                  ))}
+                                </div>
+                                
+                                {/* Board input for 1300+ */}
+                                {reflectProfile?.allow_board_moves && (
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant={isPlanMode ? "default" : "outline"}
+                                      onClick={() => setIsPlanMode(true)}
+                                      className="text-xs"
+                                    >
+                                      <Play className="w-3 h-3 mr-1" />
+                                      Show on board
+                                    </Button>
+                                    <span className="text-xs text-muted-foreground">or type below</span>
+                                  </div>
+                                )}
+                                
+                                {/* Show recorded moves */}
+                                {planMoves.length > 0 && (
+                                  <div className="p-2 rounded bg-blue-500/10 border border-blue-500/30">
+                                    <div className="text-xs text-blue-400 mb-1">Your plan:</div>
+                                    <div className="text-sm font-mono">{planMoves.join(" → ")}</div>
+                                  </div>
+                                )}
+                                
+                                {/* Text input */}
+                                <Textarea
+                                  placeholder="Describe what you were planning..."
+                                  value={userThought}
+                                  onChange={(e) => setUserThought(e.target.value)}
+                                  className="min-h-[60px] text-sm"
+                                />
+                                
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => setReflectStep(1)}
+                                  disabled={!userThought && planMoves.length === 0}
+                                  className="w-full"
                                 >
-                                  {option.label}
+                                  Continue
+                                  <ChevronRight className="w-4 h-4 ml-1" />
                                 </Button>
-                              ))}
-                            </div>
+                              </div>
+                            )}
+                            
+                            {/* Simple tap options for lower-rated players */}
+                            {!reflectProfile?.show_plan_input && (
+                              <div className="grid grid-cols-2 gap-2">
+                                {(reflectProfile?.intent_options || [
+                                  { value: "attack", label: "Attack" },
+                                  { value: "defend", label: "Defend" },
+                                  { value: "improve_pieces", label: "Develop / Improve piece" },
+                                  { value: "trade_simplify", label: "Simplify / Trade" },
+                                  { value: "win_material", label: "Win material" },
+                                  { value: "avoid_threat", label: "Avoid a threat" },
+                                  { value: "time_panic", label: "Time pressure move" },
+                                  { value: "not_sure", label: "Not sure" },
+                                ]).map(option => (
+                                  <Button
+                                    key={option.value || option.id}
+                                    variant={selectedIntent === (option.value || option.id) ? "default" : "outline"}
+                                    size="sm"
+                                    className="h-auto py-2 px-3 text-left justify-start"
+                                    onClick={() => {
+                                      setSelectedIntent(option.value || option.id);
+                                      // Auto-advance after selection
+                                      setTimeout(() => setReflectStep(1), 150);
+                                    }}
+                                  >
+                                    {option.label}
+                                  </Button>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* For plan mode users, also show intent after plan */}
+                            {reflectProfile?.show_plan_input && (userThought || planMoves.length > 0) && (
+                              <div className="mt-4 pt-4 border-t border-border/30">
+                                <p className="text-xs text-muted-foreground mb-2">Your main intent:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {(reflectProfile?.intent_options || []).slice(0, 6).map(option => (
+                                    <Button
+                                      key={option.value || option.id}
+                                      variant={selectedIntent === (option.value || option.id) ? "default" : "outline"}
+                                      size="sm"
+                                      className="text-xs py-1 px-2"
+                                      onClick={() => setSelectedIntent(option.value || option.id)}
+                                    >
+                                      {option.label}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                         
