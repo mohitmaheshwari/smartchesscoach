@@ -166,6 +166,10 @@ def calculate_pattern_mastery(
             except ValueError:
                 continue
         
+        # Make sure both datetimes are offset-aware
+        if created and created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        
         is_recent = created and created >= cutoff
         
         # Check stockfish analysis for mistake types
