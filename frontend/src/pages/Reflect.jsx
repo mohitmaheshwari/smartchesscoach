@@ -816,7 +816,7 @@ const Reflect = ({ user }) => {
                       onPlanMove={handlePlanMove}
                       showDests={isPlanMode}
                       viewOnly={!isPlanMode}
-                      customArrows={getArrows()}
+                      customArrows={arrows}
                     />
                   </div>
                   
