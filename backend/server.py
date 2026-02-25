@@ -8837,13 +8837,16 @@ async def get_mistake_pattern_context(game_id: str, move_number: int, user: User
                 "move": e.get("move"),
                 "threat": e.get("threat"),
                 "cp_loss": e.get("cp_loss"),
+                "phase": e.get("phase"),
+                "eval_before": e.get("eval_before"),
+                "eval_after": e.get("eval_after"),
             }
             break
     
     if not mistake:
         return {"context": None, "message": "No mistake found at this move"}
     
-    # Get all analyses and games for pattern history
+    # Get all analyses and games for pattern history with rich context
     all_analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
         {"_id": 0}
@@ -8851,10 +8854,13 @@ async def get_mistake_pattern_context(game_id: str, move_number: int, user: User
     
     all_games = await db.games.find(
         {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, "opponent_name": 1, "result": 1, "imported_at": 1}
+        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, 
+         "opponent_name": 1, "result": 1, "imported_at": 1,
+         "white_rating": 1, "black_rating": 1, "time_control": 1,
+         "opening": 1, "opening_name": 1, "eco": 1}
     ).to_list(100)
     
-    # Build pattern history and get context
+    # Build pattern history and get SPECIFIC context
     pattern_history = build_pattern_history(user.user_id, all_analyses, all_games)
     context = get_pattern_context_for_mistake(mistake, game_id, pattern_history, all_games)
     
