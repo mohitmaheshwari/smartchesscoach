@@ -1192,9 +1192,9 @@ const Reflect = ({ user }) => {
                                   onClick={() => setReflectStep(0)}
                                 >
                                   change
-
-                              </button>
-                            </div>
+                                </button>
+                              </div>
+                            )}
                             
                             <div className="grid grid-cols-1 gap-2">
                               {(reflectProfile?.confidence_options || [
