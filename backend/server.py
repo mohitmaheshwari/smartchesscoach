@@ -233,6 +233,12 @@ from focus_mastery_service import (
     FOCUS_PATTERNS,
 )
 
+# === MOVE INTENT SERVICE (Position-specific hypotheses) ===
+from move_intent_service import (
+    analyze_move_intent,
+    get_move_intent_summary,
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
