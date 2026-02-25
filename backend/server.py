@@ -213,6 +213,14 @@ from mission_generation_service import (
     PATTERN_FOCUS_MAP,
 )
 
+# === FOCUS MASTERY SERVICE ===
+from focus_mastery_service import (
+    get_user_focus_mastery,
+    calculate_pattern_mastery,
+    get_pattern_drill_positions,
+    FOCUS_PATTERNS,
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
