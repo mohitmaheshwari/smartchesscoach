@@ -296,7 +296,7 @@ def build_pattern_history(user_id: str, all_analyses: List[Dict], all_games: Lis
         if isinstance(created, str):
             try:
                 return datetime.fromisoformat(created.replace('Z', '+00:00'))
-            except:
+            except ValueError:
                 return datetime.min.replace(tzinfo=timezone.utc)
         return created if created.tzinfo else created.replace(tzinfo=timezone.utc)
     
@@ -326,7 +326,7 @@ def build_pattern_history(user_id: str, all_analyses: List[Dict], all_games: Lis
         if user_rating and opponent_rating:
             try:
                 rating_delta = int(opponent_rating) - int(user_rating)
-            except:
+            except (ValueError, TypeError):
                 pass
         
         # Get result
