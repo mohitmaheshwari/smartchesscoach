@@ -3434,6 +3434,46 @@ async def sync_gap_training(user: User = Depends(get_current_user)):
     return await update_training_from_gaps(db, user.user_id)
 
 
+# ==================== RICH COACH AUDIT ====================
+
+@api_router.get("/coach/rich-audit/{game_id}")
+async def get_rich_coach_audit(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Get a comprehensive, coach-like audit of a game.
+    
+    Combines ALL available data:
+    - Game analysis (Stockfish)
+    - Cognitive gap history (from reflections)
+    - Pattern recurrence data
+    - Skill trends
+    - Historical baseline comparison
+    
+    Returns a rich narrative with specific insights and a targeted plan.
+    """
+    from rich_coach_audit_service import generate_rich_coach_audit
+    
+    return await generate_rich_coach_audit(db, user.user_id, game_id)
+
+
+@api_router.get("/coach/rich-audit-latest")
+async def get_latest_rich_audit(user: User = Depends(get_current_user)):
+    """
+    Get rich coach audit for the user's most recently played game.
+    """
+    from rich_coach_audit_service import generate_rich_coach_audit
+    
+    # Get the latest game
+    latest_game = await db.games.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1}
+    )
+    
+    if not latest_game:
+        return {"error": "No games found", "has_audit": False}
+    
+    return await generate_rich_coach_audit(db, user.user_id, latest_game["game_id"])
+
+
 # ==================== REWARD EVENT FEED ====================
 
 @api_router.get("/rewards/feed")
