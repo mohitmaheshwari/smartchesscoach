@@ -43,6 +43,10 @@ const CoachHome = ({ user }) => {
   const [recentGames, setRecentGames] = useState([]);
   const [showRecentGames, setShowRecentGames] = useState(false);
   const [starting, setStarting] = useState(false);
+  
+  // Adaptive Coach data
+  const [coachData, setCoachData] = useState(null);
+  const [showPlanDetails, setShowPlanDetails] = useState(false);
 
   useEffect(() => {
     fetchCoachData();
@@ -53,11 +57,12 @@ const CoachHome = ({ user }) => {
       setLoading(true);
       
       // Fetch in parallel
-      const [missionRes, lossRes, proofRes, gamesRes] = await Promise.all([
+      const [missionRes, lossRes, proofRes, gamesRes, adaptiveRes] = await Promise.all([
         fetch(`${API}/missions/today`, { credentials: "include" }),
         fetch(`${API}/coach/fresh-loss`, { credentials: "include" }).catch(() => null),
         fetch(`${API}/coach/weekly-proof`, { credentials: "include" }).catch(() => null),
         fetch(`${API}/games?limit=5`, { credentials: "include" }).catch(() => null),
+        fetch(`${API}/adaptive-coach`, { credentials: "include" }).catch(() => null),
       ]);
       
       if (missionRes.ok) {
@@ -78,6 +83,10 @@ const CoachHome = ({ user }) => {
       if (gamesRes?.ok) {
         const gamesData = await gamesRes.json();
         setRecentGames(gamesData.games || []);
+      }
+      
+      if (adaptiveRes?.ok) {
+        setCoachData(await adaptiveRes.json());
       }
     } catch (err) {
       console.error("Error fetching coach data:", err);
