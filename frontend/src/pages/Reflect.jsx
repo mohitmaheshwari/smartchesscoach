@@ -78,6 +78,11 @@ const Reflect = ({ user }) => {
   const [timeContext, setTimeContext] = useState(null);
   const [loadingTimeContext, setLoadingTimeContext] = useState(false);
   
+  // Move intent hypotheses - position-specific options
+  const [intentHypotheses, setIntentHypotheses] = useState([]);
+  const [loadingHypotheses, setLoadingHypotheses] = useState(false);
+  const [selectedHypothesis, setSelectedHypothesis] = useState(null);
+  
   const currentGame = gamesNeedingReflection[currentGameIndex];
   const currentMoment = moments[currentMomentIndex];
   const totalMoments = moments.length;
