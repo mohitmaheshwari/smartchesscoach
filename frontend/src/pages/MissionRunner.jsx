@@ -21,6 +21,9 @@ import {
   Home,
   Eye,
   Lightbulb,
+  Brain,
+  Dumbbell,
+  Flag,
 } from "lucide-react";
 import { ProgressRing } from "@/components/ui/premium";
 
@@ -29,11 +32,67 @@ import { ProgressRing } from "@/components/ui/premium";
  * Part of the Dopamine Engine Phase 2D.
  * 
  * Flow:
- * 1. Show mission briefing (protocol steps)
- * 2. Present drill positions one by one
- * 3. Track score and process signals
- * 4. Show completion screen with reward message
+ * 1. Reflect Phase - Protocol briefing  
+ * 2. Train Phase - Drill positions
+ * 3. Wrap-up Phase - Results and next steps
  */
+
+// Mission Stepper Component - Shows Reflect → Train → Wrap-up progress
+const MissionStepper = ({ currentPhase }) => {
+  const steps = [
+    { id: "briefing", label: "Reflect", icon: Brain, description: "Review protocol" },
+    { id: "drill", label: "Train", icon: Dumbbell, description: "Solve positions" },
+    { id: "complete", label: "Wrap-up", icon: Flag, description: "See results" },
+  ];
+  
+  const currentIndex = steps.findIndex(s => s.id === currentPhase);
+  
+  return (
+    <div className="flex items-center justify-center gap-2 mb-6" data-testid="mission-stepper">
+      {steps.map((step, idx) => {
+        const StepIcon = step.icon;
+        const isActive = step.id === currentPhase;
+        const isComplete = idx < currentIndex;
+        
+        return (
+          <div key={step.id} className="flex items-center">
+            {/* Step */}
+            <div className="flex flex-col items-center">
+              <div 
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                  isActive 
+                    ? "bg-primary text-primary-foreground scale-110" 
+                    : isComplete 
+                      ? "bg-emerald-500/20 text-emerald-500" 
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {isComplete ? (
+                  <Check className="w-5 h-5" />
+                ) : (
+                  <StepIcon className="w-5 h-5" />
+                )}
+              </div>
+              <span className={`text-xs mt-1 font-medium ${
+                isActive ? "text-primary" : isComplete ? "text-emerald-500" : "text-muted-foreground"
+              }`}>
+                {step.label}
+              </span>
+            </div>
+            
+            {/* Connector */}
+            {idx < steps.length - 1 && (
+              <div className={`w-12 h-0.5 mx-2 transition-colors ${
+                idx < currentIndex ? "bg-emerald-500" : "bg-muted"
+              }`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const MissionRunner = ({ user }) => {
   const { missionId } = useParams();
   const navigate = useNavigate();
