@@ -226,31 +226,68 @@ def extract_mistake_patterns(analysis: Dict, game_info: Optional[Dict] = None) -
 
 def build_pattern_history(user_id: str, all_analyses: List[Dict], all_games: List[Dict]) -> Dict:
     """
-    Build a comprehensive pattern history for a user.
+    Build a comprehensive pattern history with SPECIFIC contextual insights.
+    
+    Returns rich context mapped to:
+    - Player rating (vs higher/lower rated opponents)
+    - Openings (which openings trigger this mistake)
+    - Time control (blitz vs rapid patterns)
+    - Win/loss correlation
+    - Position context (when winning/equal/losing)
     
     Returns:
         {
             "patterns": {
-                "knight_tactics": {
+                "hanging_pieces": {
                     "total_occurrences": 15,
-                    "games": [{"game_id": ..., "opponent": ..., "instances": [...]}],
+                    "games": [...],
                     "trend": "improving" | "stable" | "recurring",
-                    "last_5_games": 2,  # How many in last 5 games
+                    "rating_context": {
+                        "vs_higher_rated": {"count": 5, "pct": 33},
+                        "vs_lower_rated": {"count": 8, "pct": 53},
+                        "vs_equal_rated": {"count": 2, "pct": 14},
+                    },
+                    "opening_context": {
+                        "top_openings": [{"name": "Italian Game", "count": 4}]
+                    },
+                    "time_context": {
+                        "blitz": 8, "rapid": 5, "bullet": 2
+                    },
+                    "position_context": {
+                        "when_winning": 6, "when_equal": 4, "when_losing": 5
+                    },
+                    "outcome_impact": {
+                        "led_to_loss": 10, "still_won": 3, "drew": 2
+                    }
                 }
             },
-            "most_recurring": "knight_tactics",
-            "improving_patterns": ["bishop_tactics"],
-            "fixed_patterns": ["pawn_play"],
+            "most_recurring": "hanging_pieces",
+            "rating_vulnerable": {
+                "pattern": "You make more mistakes vs lower-rated opponents",
+                "detail": "60% of your blunders happen against players rated below you"
+            },
+            "time_vulnerable": "blitz",
+            "opening_triggers": ["Italian Game", "Sicilian Defense"]
         }
     """
-    # Build games lookup
-    games_lookup = {g.get("game_id"): g for g in all_games}
+    # Build games lookup with full data
+    games_lookup = {}
+    for g in all_games:
+        game_id = g.get("game_id")
+        if game_id:
+            games_lookup[game_id] = g
     
-    # Track patterns across all games
+    # Track patterns across all games with rich context
     pattern_data = defaultdict(lambda: {
         "total_occurrences": 0,
         "games": [],
-        "timeline": [],  # (date, count) for trend
+        "timeline": [],
+        "rating_deltas": [],  # (opponent_rating - user_rating) for each occurrence
+        "openings": [],
+        "time_controls": [],
+        "position_contexts": [],  # winning/equal/losing
+        "outcomes": [],  # win/loss/draw
+        "specific_types": [],  # Detailed pattern types
     })
     
     # Helper to parse date
@@ -272,30 +309,53 @@ def build_pattern_history(user_id: str, all_analyses: List[Dict], all_games: Lis
         game_id = analysis.get("game_id")
         game_info = games_lookup.get(game_id, {})
         
-        # Get opponent name - try multiple fields
+        # Get opponent info
+        user_color = game_info.get("user_color", "white")
         opponent = game_info.get("opponent_name")
         if not opponent:
-            user_color = game_info.get("user_color", "white")
             opponent = game_info.get("black_player") if user_color == "white" else game_info.get("white_player")
         
+        # Get ratings
+        if user_color == "white":
+            user_rating = game_info.get("white_rating")
+            opponent_rating = game_info.get("black_rating")
+        else:
+            user_rating = game_info.get("black_rating")
+            opponent_rating = game_info.get("white_rating")
+        
+        # Calculate rating delta
+        rating_delta = None
+        if user_rating and opponent_rating:
+            try:
+                rating_delta = int(opponent_rating) - int(user_rating)
+            except:
+                pass
+        
+        # Get result
         result = game_info.get("result", "")
+        user_won = (result == "1-0" and user_color == "white") or (result == "0-1" and user_color == "black")
+        user_lost = (result == "0-1" and user_color == "white") or (result == "1-0" and user_color == "black")
+        outcome = "win" if user_won else "loss" if user_lost else "draw"
+        
         created_at = analysis.get("created_at")
         
-        # Extract patterns from this game
-        patterns = extract_mistake_patterns(analysis)
+        # Extract patterns with game context
+        patterns = extract_mistake_patterns(analysis, game_info)
         
         # Group by category
         game_patterns = defaultdict(list)
         for p in patterns:
             game_patterns[p["category"]].append(p)
         
-        # Add to pattern history
+        # Add to pattern history with full context
         for category, instances in game_patterns.items():
             pattern_data[category]["total_occurrences"] += len(instances)
             pattern_data[category]["games"].append({
                 "game_id": game_id,
                 "opponent": opponent or "Opponent",
+                "opponent_rating": opponent_rating,
                 "result": result,
+                "outcome": outcome,
                 "instances": instances,
                 "date": created_at,
             })
@@ -304,12 +364,30 @@ def build_pattern_history(user_id: str, all_analyses: List[Dict], all_games: Lis
                 "count": len(instances),
                 "game_id": game_id,
             })
+            
+            # Track rating context
+            if rating_delta is not None:
+                pattern_data[category]["rating_deltas"].extend([rating_delta] * len(instances))
+            
+            # Track opening
+            for inst in instances:
+                if inst.get("opening"):
+                    pattern_data[category]["openings"].append(inst["opening"])
+                if inst.get("time_category"):
+                    pattern_data[category]["time_controls"].append(inst["time_category"])
+                if inst.get("position_context"):
+                    pattern_data[category]["position_contexts"].append(inst["position_context"])
+                if inst.get("specific_type"):
+                    pattern_data[category]["specific_types"].append(inst["specific_type"])
+            
+            pattern_data[category]["outcomes"].extend([outcome] * len(instances))
     
-    # Calculate trends for each pattern
+    # Calculate derived insights for each pattern
     for category, data in pattern_data.items():
         timeline = data["timeline"]
+        
+        # Trend calculation
         if len(timeline) >= 5:
-            # Compare last 5 games to previous 5
             recent = sum(t["count"] for t in timeline[-5:])
             previous = sum(t["count"] for t in timeline[-10:-5]) if len(timeline) >= 10 else sum(t["count"] for t in timeline[:-5])
             
@@ -326,17 +404,119 @@ def build_pattern_history(user_id: str, all_analyses: List[Dict], all_games: Lis
         else:
             data["trend"] = "not_enough_data"
             data["last_5_games"] = sum(t["count"] for t in timeline)
+        
+        # Rating context analysis
+        deltas = data["rating_deltas"]
+        if deltas:
+            vs_higher = len([d for d in deltas if d > 50])
+            vs_lower = len([d for d in deltas if d < -50])
+            vs_equal = len(deltas) - vs_higher - vs_lower
+            total = len(deltas)
+            
+            data["rating_context"] = {
+                "vs_higher_rated": {"count": vs_higher, "pct": round(vs_higher * 100 / total) if total else 0},
+                "vs_lower_rated": {"count": vs_lower, "pct": round(vs_lower * 100 / total) if total else 0},
+                "vs_equal_rated": {"count": vs_equal, "pct": round(vs_equal * 100 / total) if total else 0},
+                "avg_rating_delta": round(sum(deltas) / len(deltas)) if deltas else 0,
+            }
+        
+        # Opening context
+        opening_counts = Counter(data["openings"])
+        if opening_counts:
+            data["opening_context"] = {
+                "top_openings": [{"name": name, "count": count} for name, count in opening_counts.most_common(3)]
+            }
+        
+        # Time control context
+        time_counts = Counter(data["time_controls"])
+        if time_counts:
+            data["time_context"] = dict(time_counts)
+        
+        # Position context
+        pos_counts = Counter(data["position_contexts"])
+        if pos_counts:
+            data["position_context"] = dict(pos_counts)
+        
+        # Outcome impact
+        outcome_counts = Counter(data["outcomes"])
+        if outcome_counts:
+            data["outcome_impact"] = {
+                "led_to_loss": outcome_counts.get("loss", 0),
+                "still_won": outcome_counts.get("win", 0),
+                "drew": outcome_counts.get("draw", 0),
+            }
+        
+        # Specific type breakdown
+        type_counts = Counter(data["specific_types"])
+        if type_counts:
+            data["specific_breakdown"] = [
+                {"type": t, "count": c, "label": t.replace("_", " ").title()}
+                for t, c in type_counts.most_common(3)
+            ]
+        
+        # Clean up temporary tracking fields
+        del data["rating_deltas"]
+        del data["openings"]
+        del data["time_controls"]
+        del data["position_contexts"]
+        del data["outcomes"]
+        del data["specific_types"]
     
-    # Find most recurring and improving patterns
+    # Global insights
     most_recurring = max(pattern_data.items(), key=lambda x: x[1]["total_occurrences"])[0] if pattern_data else None
     improving = [cat for cat, data in pattern_data.items() if data.get("trend") == "improving"]
     fixed = [cat for cat, data in pattern_data.items() if data.get("trend") == "fixed"]
+    
+    # Find vulnerable rating zone
+    all_rating_deltas = []
+    for cat, data in pattern_data.items():
+        rc = data.get("rating_context", {})
+        if rc.get("vs_lower_rated", {}).get("pct", 0) > 50:
+            all_rating_deltas.append(("lower", rc["vs_lower_rated"]["pct"]))
+        elif rc.get("vs_higher_rated", {}).get("pct", 0) > 50:
+            all_rating_deltas.append(("higher", rc["vs_higher_rated"]["pct"]))
+    
+    rating_vulnerable = None
+    if all_rating_deltas:
+        most_common = Counter([x[0] for x in all_rating_deltas]).most_common(1)
+        if most_common:
+            zone = most_common[0][0]
+            if zone == "lower":
+                rating_vulnerable = {
+                    "pattern": "You make more mistakes vs lower-rated players",
+                    "detail": "Over 50% of your mistakes happen against weaker opponents - likely overconfidence"
+                }
+            else:
+                rating_vulnerable = {
+                    "pattern": "You struggle more vs higher-rated players", 
+                    "detail": "Most mistakes happen against stronger opponents - focus on defense"
+                }
+    
+    # Find time control vulnerability
+    all_time_contexts = []
+    for cat, data in pattern_data.items():
+        tc = data.get("time_context", {})
+        if tc:
+            all_time_contexts.extend(list(tc.keys()) * tc.get(list(tc.keys())[0] if tc else 0, 0))
+    
+    time_vulnerable = Counter(all_time_contexts).most_common(1)[0][0] if all_time_contexts else None
+    
+    # Find opening triggers
+    all_openings = []
+    for cat, data in pattern_data.items():
+        oc = data.get("opening_context", {}).get("top_openings", [])
+        all_openings.extend([o["name"] for o in oc])
+    
+    opening_triggers = [name for name, count in Counter(all_openings).most_common(3)]
     
     return {
         "patterns": dict(pattern_data),
         "most_recurring": most_recurring,
         "improving_patterns": improving,
         "fixed_patterns": fixed,
+        "rating_vulnerable": rating_vulnerable,
+        "time_vulnerable": time_vulnerable,
+        "opening_triggers": opening_triggers,
     }
 
 
