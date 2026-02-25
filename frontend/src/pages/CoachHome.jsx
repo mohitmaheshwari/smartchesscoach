@@ -543,43 +543,75 @@ const RecentGamesCollapsed = ({ games, expanded, onToggle, onSelectGame }) => {
 };
 
 /**
- * Adaptive Coach Card - Last game analysis, plan audit, and next game plan
+ * Adaptive Coach Card - Rich game analysis and personalized plan
  */
 const AdaptiveCoachCard = ({ data, expanded, onToggle, onViewGame }) => {
-  const { diagnosis, plan_audit, next_game_plan, skill_signals } = data;
+  const [richAudit, setRichAudit] = useState(null);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+  
+  // Fetch rich audit when expanded
+  useEffect(() => {
+    if (expanded && !richAudit && !loadingAudit) {
+      fetchRichAudit();
+    }
+  }, [expanded]);
+  
+  const fetchRichAudit = async () => {
+    setLoadingAudit(true);
+    try {
+      const res = await fetch(`${API}/coach/rich-audit-latest`, { credentials: "include" });
+      if (res.ok) {
+        setRichAudit(await res.json());
+      }
+    } catch (err) {
+      console.error("Error fetching rich audit:", err);
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+  
+  const { diagnosis, plan_audit, next_game_plan, skill_signals } = data || {};
   
   const getStatusIcon = (status) => {
-    if (status === "executed") return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+    if (status === "executed" || status === "better") return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
     if (status === "partial") return <MinusCircle className="w-4 h-4 text-amber-500" />;
-    if (status === "missed") return <XCircle className="w-4 h-4 text-red-500" />;
+    if (status === "missed" || status === "worse") return <XCircle className="w-4 h-4 text-red-500" />;
     return <Minus className="w-4 h-4 text-muted-foreground" />;
   };
   
   const getStatusColor = (status) => {
-    if (status === "executed") return "border-emerald-500/30 bg-emerald-500/5";
+    if (status === "executed" || status === "better") return "border-emerald-500/30 bg-emerald-500/5";
     if (status === "partial") return "border-amber-500/30 bg-amber-500/5";
-    if (status === "missed") return "border-red-500/30 bg-red-500/5";
+    if (status === "missed" || status === "worse") return "border-red-500/30 bg-red-500/5";
     return "border-border bg-muted/30";
   };
   
   const getTrendIcon = (trend) => {
-    if (trend === "improving") return <TrendingUp className="w-3 h-3 text-emerald-500" />;
-    if (trend === "declining") return <TrendingDown className="w-3 h-3 text-red-500" />;
+    if (trend === "improving" || trend === "better") return <TrendingUp className="w-3 h-3 text-emerald-500" />;
+    if (trend === "declining" || trend === "worse") return <TrendingDown className="w-3 h-3 text-red-500" />;
     return <Minus className="w-3 h-3 text-muted-foreground" />;
   };
   
-  // Count plan audit results
+  // Use rich audit if available
+  const audit = richAudit;
+  const gameSummary = audit?.game_summary;
+  const baseline = audit?.performance_vs_baseline;
+  const recurring = audit?.recurring_patterns || [];
+  const improvements = audit?.improvements || [];
+  const concerns = audit?.concerns || [];
+  const coachNarrative = audit?.coach_narrative;
+  const targetedPlan = audit?.next_game_plan;
+  
+  // Fallback to basic audit data
   const auditCards = plan_audit?.audit_cards || [];
   const executed = auditCards.filter(c => c.status === "executed").length;
-  const missed = auditCards.filter(c => c.status === "missed").length;
   const total = auditCards.filter(c => c.status !== "n/a").length;
   
-  // Determine overall performance
-  const overallGood = executed >= missed && total > 0;
+  const overallGood = audit ? baseline?.overall === "better" : (executed >= total / 2 && total > 0);
   
   return (
     <div className="rounded-lg bg-card border border-border overflow-hidden" data-testid="adaptive-coach">
-      {/* Header - always visible */}
+      {/* Header */}
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between p-4 hover:bg-secondary/30 transition-colors"
@@ -592,10 +624,14 @@ const AdaptiveCoachCard = ({ data, expanded, onToggle, onViewGame }) => {
           </div>
           <div className="text-left">
             <p className="text-sm font-medium">
-              {overallGood ? "Good progress on your plan" : "Room for improvement"}
+              {gameSummary ? `Last game: ${gameSummary.outcome} vs ${gameSummary.opponent}` : 
+               overallGood ? "Good progress on your plan" : "Room for improvement"}
             </p>
             <p className="text-xs text-muted-foreground">
-              {executed}/{total} goals executed in last game
+              {baseline?.has_baseline ? 
+                (baseline.overall === "better" ? "Better than your average" : 
+                 baseline.overall === "worse" ? "Below your average" : "Typical performance") :
+                `${executed}/${total} goals executed`}
             </p>
           </div>
         </div>
@@ -606,7 +642,7 @@ const AdaptiveCoachCard = ({ data, expanded, onToggle, onViewGame }) => {
         )}
       </button>
       
-      {/* Expandable content */}
+      {/* Expanded content */}
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -616,102 +652,235 @@ const AdaptiveCoachCard = ({ data, expanded, onToggle, onViewGame }) => {
             transition={{ duration: 0.2 }}
             className="border-t border-border"
           >
-            {/* Last Game Audit */}
-            {plan_audit?.has_plan && (
-              <div className="p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Swords className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Last Game vs Your Plan
-                  </span>
-                </div>
-                
-                {/* Audit cards */}
-                <div className="space-y-2">
-                  {auditCards.filter(c => c.status !== "n/a").map((card, idx) => (
-                    <div 
-                      key={idx}
-                      className={`p-3 rounded-lg border ${getStatusColor(card.status)} cursor-pointer hover:opacity-80`}
-                      onClick={() => card.board_link_fen && onViewGame?.(plan_audit.last_game?.game_id)}
-                    >
+            {loadingAudit ? (
+              <div className="p-8 flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : audit?.has_audit ? (
+              <>
+                {/* Coach Narrative */}
+                {coachNarrative && (
+                  <div className="p-4 border-b border-border">
+                    <div className="p-4 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/30">
                       <div className="flex items-start gap-3">
-                        {getStatusIcon(card.status)}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{card.label}</p>
-                          <p className="text-xs text-muted-foreground">{card.goal}</p>
-                          {card.data_line && (
-                            <p className={`text-xs mt-1 ${
-                              card.status === "executed" ? "text-emerald-400" :
-                              card.status === "missed" ? "text-red-400" : "text-amber-400"
-                            }`}>
-                              {card.data_line}
-                            </p>
-                          )}
-                        </div>
-                        {card.board_link_fen && (
-                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                        )}
+                        <Brain className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                        <p className="text-sm leading-relaxed">{coachNarrative}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Skill Trends */}
-            {skill_signals && Object.keys(skill_signals).length > 0 && (
-              <div className="p-4 border-t border-border space-y-3">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Your Trends
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(skill_signals).slice(0, 4).map(([key, signal]) => (
-                    <div key={key} className="flex items-center gap-2 text-sm">
-                      {getTrendIcon(signal.trend)}
-                      <span className="text-muted-foreground truncate">{signal.label || key}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Next Game Plan */}
-            {next_game_plan?.domains && (
-              <div className="p-4 border-t border-border space-y-3">
-                <div className="flex items-center gap-2">
-                  <Lightbulb className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-primary">
-                    Your Plan for Next Game
-                  </span>
-                </div>
-                
-                <div className="space-y-2">
-                  {next_game_plan.domains.map((domain, idx) => (
-                    <div key={idx} className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                      <p className="text-xs text-primary font-medium mb-1">{domain.label}</p>
-                      <p className="text-sm">{domain.goal}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Primary Focus */}
-            {diagnosis?.primary_leak && (
-              <div className="p-4 border-t border-border">
-                <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target className="w-4 h-4 text-red-500" />
-                    <span className="text-xs font-semibold text-red-500">Main Focus Area</span>
                   </div>
-                  <p className="text-sm font-medium">{diagnosis.primary_leak.label}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{diagnosis.primary_leak.explanation}</p>
-                </div>
-              </div>
+                )}
+                
+                {/* Game Summary */}
+                {gameSummary && (
+                  <div className="p-4 border-b border-border space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Swords className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Game Analysis
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="p-2 rounded-lg bg-muted/30">
+                        <div className={`text-xl font-bold ${
+                          gameSummary.blunders === 0 ? 'text-emerald-500' : 'text-red-500'
+                        }`}>{gameSummary.blunders}</div>
+                        <div className="text-xs text-muted-foreground">Blunders</div>
+                      </div>
+                      <div className="p-2 rounded-lg bg-muted/30">
+                        <div className="text-xl font-bold text-amber-500">{gameSummary.mistakes}</div>
+                        <div className="text-xs text-muted-foreground">Mistakes</div>
+                      </div>
+                      <div className="p-2 rounded-lg bg-muted/30">
+                        <div className="text-xl font-bold">{gameSummary.avg_cp_loss}</div>
+                        <div className="text-xs text-muted-foreground">Avg CP Loss</div>
+                      </div>
+                    </div>
+                    
+                    {/* Turning point */}
+                    {gameSummary.turning_point && gameSummary.turning_point.cp_loss >= 100 && (
+                      <div 
+                        className="p-3 rounded-lg bg-red-500/5 border border-red-500/20 cursor-pointer hover:bg-red-500/10"
+                        onClick={() => onViewGame?.(audit.game_id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-red-400 mb-1">Key moment: Move {gameSummary.turning_point.move_number}</p>
+                            <p className="text-sm font-medium">{gameSummary.turning_point.move} lost {gameSummary.turning_point.cp_loss} centipawns</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-red-400" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Performance vs Baseline */}
+                {baseline?.has_baseline && baseline.comparisons?.length > 0 && (
+                  <div className="p-4 border-b border-border space-y-3">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        vs Your Average ({baseline.baseline_games} games)
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {baseline.comparisons.map((comp, idx) => (
+                        <div key={idx} className={`p-3 rounded-lg border ${getStatusColor(comp.status)}`}>
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(comp.status)}
+                            <span className="text-sm">{comp.message}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Recurring Patterns (Important!) */}
+                {recurring.length > 0 && (
+                  <div className="p-4 border-b border-border space-y-3">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-amber-500">
+                        Recurring Patterns
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {recurring.map((pattern, idx) => (
+                        <div key={idx} className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/30">
+                          <p className="text-sm font-medium text-amber-400">{pattern.message}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{pattern.coach_advice}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Improvements & Concerns */}
+                {(improvements.length > 0 || concerns.length > 0) && (
+                  <div className="p-4 border-b border-border space-y-3">
+                    {improvements.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-emerald-500">
+                            What's Improving
+                          </span>
+                        </div>
+                        {improvements.map((imp, idx) => (
+                          <div key={idx} className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/30">
+                            <p className="text-sm font-medium text-emerald-400">{imp.message}</p>
+                            <p className="text-xs text-muted-foreground">{imp.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {concerns.length > 0 && (
+                      <div className="space-y-2 mt-3">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-red-500" />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-red-500">
+                            Needs Attention
+                          </span>
+                        </div>
+                        {concerns.map((con, idx) => (
+                          <div key={idx} className="p-3 rounded-lg bg-red-500/5 border border-red-500/30">
+                            <p className="text-sm font-medium text-red-400">{con.message}</p>
+                            <p className="text-xs text-muted-foreground">{con.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Next Game Plan */}
+                {targetedPlan && (
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-primary">
+                        Your Plan for Next Game
+                      </span>
+                    </div>
+                    
+                    {targetedPlan.primary_focus && (
+                      <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
+                        <p className="text-xs text-primary mb-1">Primary Focus</p>
+                        <p className="text-sm font-medium">{targetedPlan.primary_focus.area}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{targetedPlan.primary_focus.action}</p>
+                      </div>
+                    )}
+                    
+                    {targetedPlan.before_each_move?.length > 0 && (
+                      <div className="p-3 rounded-lg bg-muted/30">
+                        <p className="text-xs text-muted-foreground mb-2">Before Each Move</p>
+                        <div className="space-y-1">
+                          {targetedPlan.before_each_move.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-sm">
+                              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs">{idx + 1}</span>
+                              <span>{item}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {targetedPlan.situational_rules?.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">Situational Rules</p>
+                        {targetedPlan.situational_rules.map((rule, idx) => (
+                          <div key={idx} className="p-2 rounded bg-muted/20 text-sm">
+                            <span className="text-muted-foreground">When:</span> {rule.situation}<br/>
+                            <span className="text-primary">→</span> {rule.action}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Fallback to basic audit */
+              <>
+                {plan_audit?.has_plan && (
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Swords className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Last Game vs Your Plan
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {auditCards.filter(c => c.status !== "n/a").map((card, idx) => (
+                        <div 
+                          key={idx}
+                          className={`p-3 rounded-lg border ${getStatusColor(card.status)}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {getStatusIcon(card.status)}
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{card.label}</p>
+                              <p className="text-xs text-muted-foreground">{card.goal}</p>
+                              {card.data_line && (
+                                <p className={`text-xs mt-1 ${
+                                  card.status === "executed" ? "text-emerald-400" :
+                                  card.status === "missed" ? "text-red-400" : "text-amber-400"
+                                }`}>{card.data_line}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         )}
