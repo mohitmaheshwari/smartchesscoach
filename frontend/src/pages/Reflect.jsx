@@ -231,6 +231,15 @@ const Reflect = ({ user }) => {
     
     setSubmitting(true);
     try {
+      // Step 1: Fetch cognitive gap analysis FIRST (the "why" behind the mistake)
+      const gapAnalysis = await fetchCognitiveGapAnalysis(
+        currentGame.game_id,
+        currentMoment.move_number,
+        userThought || intentHypotheses[selectedHypothesis]?.description,
+        selectedConfidence
+      );
+      
+      // Step 2: Submit the reflection
       const res = await fetch(`${API}/reflect/v1/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -251,12 +260,22 @@ const Reflect = ({ user }) => {
           move_number: currentMoment.move_number || 0,
           completed_in_seconds: completionTimeSec,
           game_ended_at: currentGame.played_at || currentGame.created_at,
+          cognitive_gap: gapAnalysis?.gap_analysis || null,
         })
       });
       
       const data = await res.json();
       
-      if (data.awareness_result) {
+      // Step 3: Show the cognitive gap analysis if we have it
+      if (gapAnalysis?.gap_analysis) {
+        setAwarenessGap({
+          ...data.awareness_result,
+          cognitive_gap: gapAnalysis.gap_analysis,
+          coaching_message: gapAnalysis.coaching_message,
+        });
+        setCoachReward(data.coach_message);
+        setShowingGap(true);
+      } else if (data.awareness_result) {
         setAwarenessGap(data.awareness_result);
         setCoachReward(data.coach_message);
         setShowingGap(true);
