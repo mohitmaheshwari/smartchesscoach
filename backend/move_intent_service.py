@@ -477,7 +477,7 @@ def get_move_intent_summary(
         
         board.push(move)
         is_check = board.is_check()
-    except:
+    except (ValueError, chess.InvalidMoveError, chess.AmbiguousMoveError):
         return {
             "move": user_move_san,
             "hypotheses": hypotheses,
