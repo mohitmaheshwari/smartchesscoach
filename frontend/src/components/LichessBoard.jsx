@@ -346,9 +346,22 @@ const LichessBoard = forwardRef(({
     }
   }, [orientation]);
 
-  // Update arrows
+  // Track previous arrows to avoid unnecessary updates
+  const prevArrowsRef = useRef([]);
+  
+  // Update arrows - only when they actually change
   useEffect(() => {
-    if (groundRef.current && arrows.length > 0) {
+    if (!groundRef.current) return;
+    
+    // Convert arrows to comparable string
+    const arrowsKey = JSON.stringify(arrows);
+    const prevArrowsKey = JSON.stringify(prevArrowsRef.current);
+    
+    if (arrowsKey === prevArrowsKey) return; // No change
+    
+    prevArrowsRef.current = arrows;
+    
+    if (arrows.length > 0) {
       const shapes = arrows.map(([from, to, color]) => {
         // Determine brush based on color - chessground uses named brushes
         let brush = "blue";  // default
@@ -369,7 +382,7 @@ const LichessBoard = forwardRef(({
         };
       });
       groundRef.current.setAutoShapes(shapes);
-    } else if (groundRef.current) {
+    } else {
       groundRef.current.setAutoShapes([]);
     }
   }, [arrows]);
