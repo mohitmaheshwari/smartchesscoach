@@ -318,23 +318,23 @@ const Reflect = ({ user }) => {
     return null;
   };
   
-  // Calculate arrows based on view mode
-  const getArrows = () => {
+  // Calculate arrows based on view mode - memoized to prevent unnecessary re-renders
+  const arrows = useMemo(() => {
     if (!currentMoment) return [];
-    const arrows = [];
+    const result = [];
     
     if (viewMode === "your_move" || viewMode === "both") {
       const userArrow = sanToArrow(currentMoment.user_move, currentMoment.fen, "red");
-      if (userArrow) arrows.push(userArrow);
+      if (userArrow) result.push(userArrow);
     }
     
     if (viewMode === "better_move" || viewMode === "both") {
       const betterArrow = sanToArrow(currentMoment.best_move, currentMoment.fen, "green");
-      if (betterArrow) arrows.push(betterArrow);
+      if (betterArrow) result.push(betterArrow);
     }
     
-    return arrows;
-  };
+    return result;
+  }, [currentMoment?.user_move, currentMoment?.best_move, currentMoment?.fen, viewMode]);
   
   // Fetch coach explanation for the moment
   const fetchCoachExplanation = async (moment) => {
