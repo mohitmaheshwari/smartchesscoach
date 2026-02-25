@@ -1409,10 +1409,11 @@ const Reflect = ({ user }) => {
                             <Button 
                               onClick={submitReflectionV1}
                               className="w-full mt-4"
-                              disabled={submitting}
+                              disabled={submitting || loadingCognitiveGap}
+                              data-testid="submit-reflection-btn"
                             >
-                              {submitting ? (
-                                "Analyzing..."
+                              {submitting || loadingCognitiveGap ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing your mistake...</>
                               ) : (
                                 <>Submit Reflection <Check className="w-4 h-4 ml-1" /></>
                               )}
