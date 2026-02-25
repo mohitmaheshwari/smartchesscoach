@@ -180,30 +180,6 @@ class AwarenessGapType(str, Enum):
     UNCLEAR = "unclear"                     # Couldn't determine
 
 # ============================================
-# RATING BANDS (for adaptive behavior)
-# ============================================
-class RatingBand(str, Enum):
-    BAND_A = "A"  # 500-799
-    BAND_B = "B"  # 800-1099
-    BAND_C = "C"  # 1100-1399
-    BAND_D = "D"  # 1400-1699
-    BAND_E = "E"  # 1700-2000+
-
-RATING_BAND_RANGES = {
-    RatingBand.BAND_A: (0, 799),
-    RatingBand.BAND_B: (800, 1099),
-    RatingBand.BAND_C: (1100, 1399),
-    RatingBand.BAND_D: (1400, 1699),
-    RatingBand.BAND_E: (1700, 3000),
-}
-
-def get_rating_band(rating: int) -> RatingBand:
-    """Get rating band from numeric rating."""
-    for band, (low, high) in RATING_BAND_RANGES.items():
-        if low <= rating <= high:
-            return band
-    return RatingBand.BAND_C  # Default to middle
-
 # ============================================
 # STABILITY BANDS (from TSI)
 # ============================================
