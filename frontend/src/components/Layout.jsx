@@ -38,6 +38,55 @@ const Layout = ({ children, user }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [prevUnreadCount, setPrevUnreadCount] = useState(0);
+  
+  // Coach Pulse state - shows when action is needed
+  const [coachPulse, setCoachPulse] = useState(null); // { type: "reflect" | "loss" | "mission", count: number }
+
+  // Fetch coach pulse status (pending reflections, fresh loss, etc.)
+  useEffect(() => {
+    const fetchCoachPulse = async () => {
+      try {
+        // Check for pending reflections
+        const reflectRes = await fetch(`${API}/reflect/pending/count`, { credentials: 'include' });
+        if (reflectRes.ok) {
+          const data = await reflectRes.json();
+          if (data.count > 0) {
+            setCoachPulse({ type: "reflect", count: data.count, label: "Reflect on recent games" });
+            return;
+          }
+        }
+        
+        // Check for fresh loss
+        const lossRes = await fetch(`${API}/coach/fresh-loss`, { credentials: 'include' });
+        if (lossRes.ok) {
+          const data = await lossRes.json();
+          if (data.has_fresh_loss) {
+            setCoachPulse({ type: "loss", count: 1, label: "Fix your last loss", game_id: data.game_id });
+            return;
+          }
+        }
+        
+        // No pending actions
+        setCoachPulse(null);
+      } catch (e) {
+        // Silently fail
+      }
+    };
+    
+    fetchCoachPulse();
+    const interval = setInterval(fetchCoachPulse, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleCoachPulseClick = () => {
+    if (coachPulse?.type === "reflect") {
+      navigate("/reflect");
+    } else if (coachPulse?.type === "loss" && coachPulse?.game_id) {
+      navigate(`/recover/${coachPulse.game_id}`);
+    } else {
+      navigate("/reflect");
+    }
+  };
 
   // Request browser notification permission
   useEffect(() => {
