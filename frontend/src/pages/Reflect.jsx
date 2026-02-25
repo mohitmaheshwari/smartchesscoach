@@ -965,31 +965,88 @@ const Reflect = ({ user }) => {
                           </div>
                         )}
                         
-                        <div className="flex items-start gap-3 mb-4">
-                          <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
-                            <Eye className="w-5 h-5 text-amber-500" />
+                        {/* COGNITIVE GAP ANALYSIS - The core "why" */}
+                        {awarenessGap.cognitive_gap && (
+                          <div className="mb-4">
+                            <div className="flex items-start gap-3 mb-3">
+                              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                                <Brain className="w-5 h-5 text-red-400" />
+                              </div>
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-red-400 mb-1">
+                                  Why this was a mistake
+                                </h3>
+                                <p className="text-sm text-foreground/90 leading-relaxed">
+                                  {awarenessGap.cognitive_gap.explanation}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Evidence from the position */}
+                            {awarenessGap.cognitive_gap.evidence && (
+                              <div className="ml-13 p-3 rounded-lg bg-muted/30 border-l-2 border-red-500/50 mb-3">
+                                <div className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Evidence</div>
+                                <p className="text-sm text-foreground/80">{awarenessGap.cognitive_gap.evidence}</p>
+                              </div>
+                            )}
+                            
+                            {/* Gap type badge */}
+                            <div className="ml-13 flex items-center gap-2 mb-3">
+                              <Badge variant="outline" className="text-xs capitalize border-red-500/30 text-red-400">
+                                {awarenessGap.cognitive_gap.primary_gap?.replace(/_/g, " ")}
+                              </Badge>
+                              {awarenessGap.cognitive_gap.confidence >= 0.8 && (
+                                <Badge variant="outline" className="text-xs border-green-500/30 text-green-400">
+                                  High confidence
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="font-semibold text-amber-400 mb-1">
-                              {awarenessGap.type === "aligned" ? "Good Self-Awareness" : 
-                               awarenessGap.type === "confidence_gap" ? "Confidence Gap" :
-                               awarenessGap.type === "panic_pattern" ? "Time Pressure Pattern" :
-                               "Awareness Insight"}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {awarenessGap.headline}
-                            </p>
-                          </div>
-                        </div>
+                        )}
                         
-                        {awarenessGap.focus_recommendation && (
+                        {/* Coaching focus - The actionable takeaway */}
+                        {(awarenessGap.coaching_message || awarenessGap.cognitive_gap?.coaching_focus) && (
+                          <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 mb-4">
+                            <div className="flex items-start gap-3">
+                              <Target className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+                              <div>
+                                <div className="text-xs text-purple-400 mb-1 uppercase tracking-wider font-medium">Your focus</div>
+                                <p className="text-sm text-foreground font-medium">
+                                  {awarenessGap.cognitive_gap?.coaching_focus || awarenessGap.coaching_message}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Original awareness gap display (fallback) */}
+                        {!awarenessGap.cognitive_gap && (
+                          <div className="flex items-start gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                              <Eye className="w-5 h-5 text-amber-500" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-amber-400 mb-1">
+                                {awarenessGap.type === "aligned" ? "Good Self-Awareness" : 
+                                 awarenessGap.type === "confidence_gap" ? "Confidence Gap" :
+                                 awarenessGap.type === "panic_pattern" ? "Time Pressure Pattern" :
+                                 "Awareness Insight"}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">
+                                {awarenessGap.headline}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {awarenessGap.focus_recommendation && !awarenessGap.cognitive_gap && (
                           <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 mb-4">
                             <div className="text-xs text-purple-400 mb-1">Recommended focus:</div>
                             <div className="text-sm text-purple-300">{awarenessGap.focus_recommendation}</div>
                           </div>
                         )}
                         
-                        <Button onClick={acknowledgeGap} className="w-full">
+                        <Button onClick={acknowledgeGap} className="w-full" data-testid="next-moment-btn">
                           {currentMomentIndex < totalMoments - 1 ? (
                             <>Next moment <ChevronRight className="w-4 h-4 ml-1" /></>
                           ) : (
