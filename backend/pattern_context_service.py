@@ -25,12 +25,10 @@ def get_specific_mistake_type(move_eval: Dict) -> Dict:
     Returns a structured pattern with actionable details.
     """
     move = move_eval.get("move", "")
-    best_move = move_eval.get("best_move", "")
     threat = move_eval.get("threat", "")
     cp_loss = abs(move_eval.get("cp_loss", 0))
     phase = move_eval.get("phase", "middlegame")
     eval_before = move_eval.get("eval_before", 0)
-    eval_after = move_eval.get("eval_after", 0)
     
     # Check for specific tactical patterns
     pattern = {
