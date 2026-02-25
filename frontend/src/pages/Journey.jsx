@@ -29,7 +29,10 @@ import {
   XCircle,
   BarChart3,
   Swords,
-  Shield
+  Shield,
+  Sparkles,
+  Award,
+  Eye,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -48,6 +51,7 @@ const Journey = ({ user }) => {
   const [username, setUsername] = useState("");
   const [linking, setLinking] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [focusMastery, setFocusMastery] = useState(null);
   
   // Gamification state
   const [progress, setProgress] = useState(null);
