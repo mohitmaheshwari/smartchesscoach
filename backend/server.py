@@ -8795,6 +8795,65 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     return lab_data
 
 
+@api_router.get("/lab/{game_id}/mistake/{move_number}/context")
+async def get_mistake_pattern_context(game_id: str, move_number: int, user: User = Depends(get_current_user)):
+    """
+    Get pattern context for a specific mistake in a game.
+    Shows if this pattern has occurred before and in which games.
+    
+    THE GOLDEN INFORMATION:
+    - "You made this same mistake in 3 other games"
+    - "You did this against opponent X too"  
+    - "You FIXED this! Compare to your game vs Y"
+    """
+    # Get the analysis for this game
+    analysis = await db.game_analyses.find_one({
+        "game_id": game_id,
+        "user_id": user.user_id
+    })
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    # Find the specific mistake
+    sf = analysis.get("stockfish_analysis", {})
+    evals = sf.get("move_evaluations", [])
+    
+    mistake = None
+    for e in evals:
+        if e.get("move_number") == move_number and e.get("evaluation") in ["blunder", "mistake"]:
+            mistake = {
+                "move_number": e.get("move_number"),
+                "move": e.get("move"),
+                "threat": e.get("threat"),
+                "cp_loss": e.get("cp_loss"),
+            }
+            break
+    
+    if not mistake:
+        return {"context": None, "message": "No mistake found at this move"}
+    
+    # Get all analyses and games for pattern history
+    all_analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    all_games = await db.games.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, "result": 1, "imported_at": 1}
+    ).to_list(100)
+    
+    # Build pattern history and get context
+    pattern_history = build_pattern_history(user.user_id, all_analyses, all_games)
+    context = get_pattern_context_for_mistake(mistake, game_id, pattern_history, all_games)
+    
+    return {
+        "mistake": mistake,
+        "context": context,
+    }
+
+
 class MistakeExplanationRequest(BaseModel):
     """Request for on-demand mistake explanation"""
     fen_before: str
