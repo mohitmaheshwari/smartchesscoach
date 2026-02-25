@@ -365,6 +365,9 @@ const MissionRunner = ({ user }) => {
   return (
     <Layout user={user}>
       <div className="max-w-3xl mx-auto" data-testid="mission-runner-page">
+        {/* Mission Stepper - Shows Reflect → Train → Wrap-up */}
+        <MissionStepper currentPhase={phase} />
+        
         {/* Progress Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
