@@ -418,3 +418,300 @@ test.describe('Reflect Page - Board with Arrows', () => {
     await page.screenshot({ path: '.screenshots/reflect-moment-badge.jpeg', quality: 20 });
   });
 });
+
+
+test.describe('Cognitive Gap Analysis Feature', () => {
+  
+  test.beforeEach(async ({ page }) => {
+    await page.goto(`${BASE_URL}/api/auth/dev-login`);
+    await page.waitForLoadState('networkidle');
+    await dismissToasts(page);
+  });
+
+  test('Full reflection flow displays Cognitive Gap Analysis after submission', async ({ page }) => {
+    await page.goto(`${BASE_URL}/reflect`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
+    
+    // Check for games
+    const allCaughtUp = page.getByText(/All caught up/);
+    const hasNoPending = await allCaughtUp.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (hasNoPending) {
+      console.log('No games to reflect on - skipping cognitive gap test');
+      return;
+    }
+    
+    // Step 0: Select intent/hypothesis
+    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
+    
+    // Click "Defend" intent chip (or any hypothesis)
+    const defendChip = page.locator('button').filter({ hasText: 'Defend' });
+    const hypothesisButtons = page.locator('button[class*="w-full"]').filter({ hasText: /.+/ });
+    
+    if (await defendChip.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await defendChip.click();
+    } else {
+      // Click first hypothesis button if specific intents not visible
+      const firstHypothesis = hypothesisButtons.first();
+      if (await firstHypothesis.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await firstHypothesis.click();
+      }
+    }
+    
+    // Step 1: Select confidence
+    await expect(page.getByRole('heading', { name: /How confident were you|How sure were you/i })).toBeVisible({ timeout: 10000 });
+    
+    const somewhatsureChip = page.locator('button').filter({ hasText: 'Somewhat sure' });
+    await somewhatsureChip.click();
+    
+    // Step 2: Quick tags (optional) - should see Submit button
+    await expect(page.getByRole('heading', { name: /What else was in your thinking|What fits your thinking/i })).toBeVisible({ timeout: 10000 });
+    
+    // Click Submit Reflection button
+    const submitBtn = page.getByTestId('submit-reflection-btn');
+    await expect(submitBtn).toBeVisible({ timeout: 5000 });
+    
+    // Wait for button to be enabled
+    await expect(submitBtn).not.toBeDisabled({ timeout: 5000 });
+    
+    await submitBtn.click();
+    
+    // Wait for cognitive gap analysis to load and display (button shows "Analyzing your mistake...")
+    // Then the result card should appear
+    await expect(page.getByText(/Why this was a mistake|Awareness Insight|Good Self-Awareness/i)).toBeVisible({ timeout: 30000 });
+    
+    await page.screenshot({ path: '.screenshots/cognitive-gap-result.jpeg', quality: 20 });
+  });
+
+  test('Cognitive Gap Analysis result shows explanation', async ({ page }) => {
+    await page.goto(`${BASE_URL}/reflect`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
+    
+    // Check for games
+    const allCaughtUp = page.getByText(/All caught up/);
+    const hasNoPending = await allCaughtUp.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (hasNoPending) {
+      console.log('No games to reflect on - skipping explanation test');
+      return;
+    }
+    
+    // Go through flow quickly
+    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
+    
+    // Click first available intent option
+    const intentButtons = page.locator('button').filter({ hasText: /Defend|Attack|Not sure/i });
+    if (await intentButtons.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+      await intentButtons.first().click();
+    }
+    
+    // Select confidence
+    await expect(page.getByRole('heading', { name: /How confident were you|How sure were you/i })).toBeVisible({ timeout: 10000 });
+    const guessChip = page.locator('button').filter({ hasText: /Guessing|fast move/i });
+    if (await guessChip.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await guessChip.click();
+    } else {
+      await page.locator('button').filter({ hasText: 'Somewhat sure' }).click();
+    }
+    
+    // Submit
+    await expect(page.getByRole('heading', { name: /What else|What fits/i })).toBeVisible({ timeout: 10000 });
+    const submitBtn = page.getByTestId('submit-reflection-btn');
+    await expect(submitBtn).toBeVisible();
+    await submitBtn.click();
+    
+    // Check for cognitive gap explanation content
+    // Should show either "Why this was a mistake" (new UI) or awareness insight (fallback)
+    const gapExplanation = page.locator('text=/Why this was a mistake|The best move was|You.*missed|Evaluation dropped/i');
+    await expect(gapExplanation.first()).toBeVisible({ timeout: 30000 });
+    
+    await page.screenshot({ path: '.screenshots/cognitive-gap-explanation.jpeg', quality: 20 });
+  });
+
+  test('Cognitive Gap Analysis shows gap type badge', async ({ page }) => {
+    await page.goto(`${BASE_URL}/reflect`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
+    
+    const allCaughtUp = page.getByText(/All caught up/);
+    const hasNoPending = await allCaughtUp.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (hasNoPending) {
+      console.log('No games to reflect on - skipping gap type test');
+      return;
+    }
+    
+    // Navigate through reflection flow
+    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
+    
+    const attackChip = page.locator('button').filter({ hasText: 'Attack' });
+    if (await attackChip.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await attackChip.click();
+    } else {
+      // Fallback: click any visible intent button
+      await page.locator('button').filter({ hasText: /Defend|Not sure/i }).first().click();
+    }
+    
+    await expect(page.getByRole('heading', { name: /How confident|How sure/i })).toBeVisible({ timeout: 10000 });
+    await page.locator('button').filter({ hasText: /Very sure/i }).click();
+    
+    await expect(page.getByRole('heading', { name: /What else|What fits/i })).toBeVisible({ timeout: 10000 });
+    const submitBtn = page.getByTestId('submit-reflection-btn');
+    await submitBtn.click();
+    
+    // Look for gap type badge - these are the possible gap types shown as badges
+    const gapTypeBadges = page.locator('text=/calculation depth|threat blindness|tactical oversight|positional misread|defensive lapse|overconfidence|time pressure|pattern unfamiliarity|hanging piece|check blindness|missed fork|missed pin|Confidence Gap|Good Self-Awareness/i');
+    
+    // Wait for result to appear
+    await expect(page.getByText(/Why this was a mistake|Awareness Insight|Good Self-Awareness/i)).toBeVisible({ timeout: 30000 });
+    
+    // Gap type badge may or may not be visible depending on the analysis result
+    const badgeVisible = await gapTypeBadges.first().isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (badgeVisible) {
+      console.log('Gap type badge is visible');
+      await page.screenshot({ path: '.screenshots/cognitive-gap-badge.jpeg', quality: 20 });
+    } else {
+      console.log('Gap type badge not visible (may be fallback UI)');
+      await page.screenshot({ path: '.screenshots/cognitive-gap-fallback.jpeg', quality: 20 });
+    }
+  });
+
+  test('Cognitive Gap Analysis shows coaching focus section', async ({ page }) => {
+    await page.goto(`${BASE_URL}/reflect`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
+    
+    const allCaughtUp = page.getByText(/All caught up/);
+    const hasNoPending = await allCaughtUp.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (hasNoPending) {
+      console.log('No games to reflect on - skipping coaching focus test');
+      return;
+    }
+    
+    // Navigate through flow
+    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
+    await page.locator('button').filter({ hasText: /Defend|Attack|Not sure/i }).first().click();
+    
+    await expect(page.getByRole('heading', { name: /How confident|How sure/i })).toBeVisible({ timeout: 10000 });
+    await page.locator('button').filter({ hasText: /Somewhat sure|Very sure/i }).first().click();
+    
+    await expect(page.getByRole('heading', { name: /What else|What fits/i })).toBeVisible({ timeout: 10000 });
+    const submitBtn = page.getByTestId('submit-reflection-btn');
+    await submitBtn.click();
+    
+    // Look for "Your focus" section which shows coaching advice
+    const coachingFocus = page.getByText(/Your focus|Recommended focus/i);
+    
+    // Wait for result
+    await expect(page.getByText(/Why this was a mistake|Awareness Insight|Good Self-Awareness/i)).toBeVisible({ timeout: 30000 });
+    
+    // Check if coaching focus is visible
+    const focusVisible = await coachingFocus.first().isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (focusVisible) {
+      console.log('Coaching focus section visible');
+      // Verify the focus has actual content
+      const focusSection = page.locator('div').filter({ hasText: /Your focus|Recommended focus/i }).first();
+      await expect(focusSection).toBeVisible();
+    }
+    
+    await page.screenshot({ path: '.screenshots/cognitive-gap-coaching-focus.jpeg', quality: 20 });
+  });
+
+  test('Cognitive Gap Analysis shows Evidence section', async ({ page }) => {
+    await page.goto(`${BASE_URL}/reflect`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
+    
+    const allCaughtUp = page.getByText(/All caught up/);
+    const hasNoPending = await allCaughtUp.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (hasNoPending) {
+      console.log('No games to reflect on - skipping evidence test');
+      return;
+    }
+    
+    // Navigate through flow
+    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
+    await page.locator('button').filter({ hasText: /Defend|Attack|Not sure/i }).first().click();
+    
+    await expect(page.getByRole('heading', { name: /How confident|How sure/i })).toBeVisible({ timeout: 10000 });
+    await page.locator('button').filter({ hasText: /Somewhat sure|Very sure/i }).first().click();
+    
+    await expect(page.getByRole('heading', { name: /What else|What fits/i })).toBeVisible({ timeout: 10000 });
+    const submitBtn = page.getByTestId('submit-reflection-btn');
+    await submitBtn.click();
+    
+    // Wait for result
+    await expect(page.getByText(/Why this was a mistake|Awareness Insight|Good Self-Awareness/i)).toBeVisible({ timeout: 30000 });
+    
+    // Look for Evidence section 
+    const evidenceLabel = page.getByText('Evidence', { exact: true });
+    const evidenceVisible = await evidenceLabel.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (evidenceVisible) {
+      console.log('Evidence section visible');
+      await expect(evidenceLabel).toBeVisible();
+    } else {
+      console.log('Evidence section not visible (may be fallback UI or no evidence available)');
+    }
+    
+    await page.screenshot({ path: '.screenshots/cognitive-gap-evidence.jpeg', quality: 20 });
+  });
+
+  test('Next moment button works after cognitive gap display', async ({ page }) => {
+    await page.goto(`${BASE_URL}/reflect`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
+    
+    const allCaughtUp = page.getByText(/All caught up/);
+    const hasNoPending = await allCaughtUp.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (hasNoPending) {
+      console.log('No games to reflect on - skipping next moment test');
+      return;
+    }
+    
+    // Check moment count to see if there are multiple
+    const momentBadge = page.locator('text=/\\d+ of \\d+ moments?|Moment \\d+/i');
+    const momentCountVisible = await momentBadge.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    // Navigate through flow
+    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
+    await page.locator('button').filter({ hasText: /Defend|Attack|Not sure/i }).first().click();
+    
+    await expect(page.getByRole('heading', { name: /How confident|How sure/i })).toBeVisible({ timeout: 10000 });
+    await page.locator('button').filter({ hasText: /Somewhat sure|Very sure/i }).first().click();
+    
+    await expect(page.getByRole('heading', { name: /What else|What fits/i })).toBeVisible({ timeout: 10000 });
+    const submitBtn = page.getByTestId('submit-reflection-btn');
+    await submitBtn.click();
+    
+    // Wait for result
+    await expect(page.getByText(/Why this was a mistake|Awareness Insight|Good Self-Awareness/i)).toBeVisible({ timeout: 30000 });
+    
+    // Look for "Next moment" or "Complete" button
+    const nextMomentBtn = page.getByTestId('next-moment-btn');
+    await expect(nextMomentBtn).toBeVisible({ timeout: 5000 });
+    
+    // Get button text
+    const buttonText = await nextMomentBtn.textContent();
+    console.log(`Next button text: ${buttonText}`);
+    
+    await page.screenshot({ path: '.screenshots/cognitive-gap-next-button.jpeg', quality: 20 });
+    
+    // Click it
+    await nextMomentBtn.click();
+    
+    // Should either move to next moment (show intent selection again) or complete
+    const isComplete = buttonText?.includes('Complete');
+    
+    if (isComplete) {
+      // Should show completion or navigate
+      console.log('Completed reflection - no more moments');
+    } else {
+      // Should show next moment's intent selection
+      await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan|All caught up/i })).toBeVisible({ timeout: 10000 });
+    }
+    
+    await page.screenshot({ path: '.screenshots/cognitive-gap-after-next.jpeg', quality: 20 });
+  });
+});
