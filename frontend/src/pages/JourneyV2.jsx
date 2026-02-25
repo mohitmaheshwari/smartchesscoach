@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import EvidenceModal from "@/components/EvidenceModal";
 import DrillMode from "@/components/DrillMode";
+import GapProgressDashboard from "@/components/Journey/GapProgressDashboard";
 import { formatTotalCpLoss } from "@/utils/evalFormatter";
 
 /**
