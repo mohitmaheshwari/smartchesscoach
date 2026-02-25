@@ -441,44 +441,41 @@ test.describe('Cognitive Gap Analysis Feature', () => {
       return;
     }
     
-    // Step 0: Select intent/hypothesis
-    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
+    // Step 0: Wait for plan/hypothesis page - heading is "What was your plan here?"
+    await expect(page.getByText(/What was your plan here/i)).toBeVisible({ timeout: 15000 });
     
-    // Click "Defend" intent chip (or any hypothesis)
-    const defendChip = page.locator('button').filter({ hasText: 'Defend' });
-    const hypothesisButtons = page.locator('button[class*="w-full"]').filter({ hasText: /.+/ });
-    
-    if (await defendChip.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await defendChip.click();
+    // Click the position-specific hypothesis button (e.g., "Were you trying to defend the pawn?")
+    const hypothesisBtn = page.locator('button').filter({ hasText: /Were you trying to/ });
+    if (await hypothesisBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await hypothesisBtn.click();
+      // After clicking hypothesis, need to click Continue
+      const continueBtn = page.locator('button').filter({ hasText: 'Continue' });
+      await continueBtn.click();
     } else {
-      // Click first hypothesis button if specific intents not visible
-      const firstHypothesis = hypothesisButtons.first();
-      if (await firstHypothesis.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await firstHypothesis.click();
+      // Fallback: for lower-rated players with simple intent chips
+      const defendChip = page.locator('button').filter({ hasText: 'Defend' });
+      if (await defendChip.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await defendChip.click();
       }
     }
     
-    // Step 1: Select confidence
-    await expect(page.getByRole('heading', { name: /How confident were you|How sure were you/i })).toBeVisible({ timeout: 10000 });
+    // Step 1: Select confidence - heading is "How confident were you?"
+    await expect(page.getByText(/How confident were you/i)).toBeVisible({ timeout: 10000 });
     
     const somewhatsureChip = page.locator('button').filter({ hasText: 'Somewhat sure' });
     await somewhatsureChip.click();
     
-    // Step 2: Quick tags (optional) - should see Submit button
-    await expect(page.getByRole('heading', { name: /What else was in your thinking|What fits your thinking/i })).toBeVisible({ timeout: 10000 });
+    // Step 2: Quick tags (optional) - heading is "What else was in your thinking?"
+    await expect(page.getByText(/What else was in your thinking/i)).toBeVisible({ timeout: 10000 });
     
     // Click Submit Reflection button
     const submitBtn = page.getByTestId('submit-reflection-btn');
     await expect(submitBtn).toBeVisible({ timeout: 5000 });
-    
-    // Wait for button to be enabled
     await expect(submitBtn).not.toBeDisabled({ timeout: 5000 });
-    
     await submitBtn.click();
     
-    // Wait for cognitive gap analysis to load and display (button shows "Analyzing your mistake...")
-    // Then the result card should appear
-    await expect(page.getByText(/Why this was a mistake|Awareness Insight|Good Self-Awareness/i)).toBeVisible({ timeout: 30000 });
+    // Wait for cognitive gap analysis result to display
+    await expect(page.getByText(/Why this was a mistake/i)).toBeVisible({ timeout: 30000 });
     
     await page.screenshot({ path: '.screenshots/cognitive-gap-result.jpeg', quality: 20 });
   });
