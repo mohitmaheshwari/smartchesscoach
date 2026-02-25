@@ -262,7 +262,7 @@ const LichessBoard = forwardRef(({
         groundRef.current = null;
       }
     };
-  }, [shouldBeInteractive, planMode, onMove]);  // Re-create when interactivity changes
+  }, [shouldBeInteractive, planMode]);  // Re-create only when interactivity mode changes
 
   // Track the previous fen to detect if we need to update it
   const prevFenRef = useRef(fen);
