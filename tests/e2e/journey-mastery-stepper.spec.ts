@@ -402,7 +402,8 @@ test.describe('Coach Narrative Rail on Progress Page (JourneyV2)', () => {
     await page.waitForLoadState('domcontentloaded');
     
     // Should show baseline stats (Accuracy, Blunders/Game, Win Rate, Mistakes/Game)
-    await expect(page.getByText('Accuracy')).toBeVisible();
+    // Use exact match to avoid strict mode issues
+    await expect(page.getByText('Accuracy', { exact: true }).first()).toBeVisible();
     
     await page.screenshot({ path: '.screenshots/progress-before-coach-tab.jpeg', quality: 20 });
     
@@ -412,7 +413,7 @@ test.describe('Coach Narrative Rail on Progress Page (JourneyV2)', () => {
     await page.waitForLoadState('domcontentloaded');
     
     // Should still show stats
-    await expect(page.getByText('Accuracy')).toBeVisible();
+    await expect(page.getByText('Accuracy', { exact: true }).first()).toBeVisible();
     
     await page.screenshot({ path: '.screenshots/progress-after-coach-tab.jpeg', quality: 20 });
     
