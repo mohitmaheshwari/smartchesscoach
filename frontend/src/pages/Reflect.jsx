@@ -84,6 +84,10 @@ const Reflect = ({ user }) => {
   const [loadingHypotheses, setLoadingHypotheses] = useState(false);
   const [selectedHypothesis, setSelectedHypothesis] = useState(null);
   
+  // Cognitive Gap Analysis state
+  const [cognitiveGapAnalysis, setCognitiveGapAnalysis] = useState(null);
+  const [loadingCognitiveGap, setLoadingCognitiveGap] = useState(false);
+  
   const currentGame = gamesNeedingReflection[currentGameIndex];
   const currentMoment = moments[currentMomentIndex];
   const totalMoments = moments.length;
