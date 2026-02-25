@@ -542,4 +542,182 @@ const RecentGamesCollapsed = ({ games, expanded, onToggle, onSelectGame }) => {
   );
 };
 
+/**
+ * Adaptive Coach Card - Last game analysis, plan audit, and next game plan
+ */
+const AdaptiveCoachCard = ({ data, expanded, onToggle, onViewGame }) => {
+  const { diagnosis, plan_audit, next_game_plan, skill_signals } = data;
+  
+  const getStatusIcon = (status) => {
+    if (status === "executed") return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+    if (status === "partial") return <MinusCircle className="w-4 h-4 text-amber-500" />;
+    if (status === "missed") return <XCircle className="w-4 h-4 text-red-500" />;
+    return <Minus className="w-4 h-4 text-muted-foreground" />;
+  };
+  
+  const getStatusColor = (status) => {
+    if (status === "executed") return "border-emerald-500/30 bg-emerald-500/5";
+    if (status === "partial") return "border-amber-500/30 bg-amber-500/5";
+    if (status === "missed") return "border-red-500/30 bg-red-500/5";
+    return "border-border bg-muted/30";
+  };
+  
+  const getTrendIcon = (trend) => {
+    if (trend === "improving") return <TrendingUp className="w-3 h-3 text-emerald-500" />;
+    if (trend === "declining") return <TrendingDown className="w-3 h-3 text-red-500" />;
+    return <Minus className="w-3 h-3 text-muted-foreground" />;
+  };
+  
+  // Count plan audit results
+  const auditCards = plan_audit?.audit_cards || [];
+  const executed = auditCards.filter(c => c.status === "executed").length;
+  const missed = auditCards.filter(c => c.status === "missed").length;
+  const total = auditCards.filter(c => c.status !== "n/a").length;
+  
+  // Determine overall performance
+  const overallGood = executed >= missed && total > 0;
+  
+  return (
+    <div className="rounded-lg bg-card border border-border overflow-hidden" data-testid="adaptive-coach">
+      {/* Header - always visible */}
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between p-4 hover:bg-secondary/30 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+            overallGood ? 'bg-emerald-500/10' : 'bg-amber-500/10'
+          }`}>
+            <Brain className={`w-5 h-5 ${overallGood ? 'text-emerald-500' : 'text-amber-500'}`} />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-medium">
+              {overallGood ? "Good progress on your plan" : "Room for improvement"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {executed}/{total} goals executed in last game
+            </p>
+          </div>
+        </div>
+        {expanded ? (
+          <ChevronUp className="w-4 h-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        )}
+      </button>
+      
+      {/* Expandable content */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="border-t border-border"
+          >
+            {/* Last Game Audit */}
+            {plan_audit?.has_plan && (
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Swords className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Last Game vs Your Plan
+                  </span>
+                </div>
+                
+                {/* Audit cards */}
+                <div className="space-y-2">
+                  {auditCards.filter(c => c.status !== "n/a").map((card, idx) => (
+                    <div 
+                      key={idx}
+                      className={`p-3 rounded-lg border ${getStatusColor(card.status)} cursor-pointer hover:opacity-80`}
+                      onClick={() => card.board_link_fen && onViewGame?.(plan_audit.last_game?.game_id)}
+                    >
+                      <div className="flex items-start gap-3">
+                        {getStatusIcon(card.status)}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{card.label}</p>
+                          <p className="text-xs text-muted-foreground">{card.goal}</p>
+                          {card.data_line && (
+                            <p className={`text-xs mt-1 ${
+                              card.status === "executed" ? "text-emerald-400" :
+                              card.status === "missed" ? "text-red-400" : "text-amber-400"
+                            }`}>
+                              {card.data_line}
+                            </p>
+                          )}
+                        </div>
+                        {card.board_link_fen && (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Skill Trends */}
+            {skill_signals && Object.keys(skill_signals).length > 0 && (
+              <div className="p-4 border-t border-border space-y-3">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Your Trends
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(skill_signals).slice(0, 4).map(([key, signal]) => (
+                    <div key={key} className="flex items-center gap-2 text-sm">
+                      {getTrendIcon(signal.trend)}
+                      <span className="text-muted-foreground truncate">{signal.label || key}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Next Game Plan */}
+            {next_game_plan?.domains && (
+              <div className="p-4 border-t border-border space-y-3">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-primary">
+                    Your Plan for Next Game
+                  </span>
+                </div>
+                
+                <div className="space-y-2">
+                  {next_game_plan.domains.map((domain, idx) => (
+                    <div key={idx} className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                      <p className="text-xs text-primary font-medium mb-1">{domain.label}</p>
+                      <p className="text-sm">{domain.goal}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Primary Focus */}
+            {diagnosis?.primary_leak && (
+              <div className="p-4 border-t border-border">
+                <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="w-4 h-4 text-red-500" />
+                    <span className="text-xs font-semibold text-red-500">Main Focus Area</span>
+                  </div>
+                  <p className="text-sm font-medium">{diagnosis.primary_leak.label}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{diagnosis.primary_leak.explanation}</p>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 export default CoachHome;
