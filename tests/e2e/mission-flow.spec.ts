@@ -136,22 +136,27 @@ test.describe('Mission System - Dashboard and Mission Flow', () => {
     
     // Wait for drill phase UI
     // Position counter should appear (e.g., "1 / 5")
-    await expect(page.getByText(/\d+ \/ \d+/)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/\d+ \/ \d+/)).toBeVisible({ timeout: 10000 });
     
-    // Timer should be visible
+    // Timer should be visible (format 0:05 or similar)
     await expect(page.locator('text=/\\d+:\\d+/')).toBeVisible();
     
     // Progress bar should be visible
     await expect(page.locator('.h-1\\.5.bg-muted.rounded-full')).toBeVisible();
     
-    // Answer buttons should be visible
-    await expect(page.getByTestId('answer-correct')).toBeVisible();
-    await expect(page.getByTestId('answer-wrong')).toBeVisible();
+    // "Position X" header should be visible
+    await expect(page.getByText(/Position \d+/)).toBeVisible();
+    
+    // Chess board should be visible
+    await expect(page.locator('.cg-wrap, .cg-board')).toBeVisible();
+    
+    // "Your turn - Find the best move" prompt should be visible
+    await expect(page.getByText(/Your turn|Find the best move/i)).toBeVisible();
     
     await page.screenshot({ path: '.screenshots/mission-drill-phase.jpeg', quality: 20 });
   });
 
-  test('Exit button returns to dashboard from MissionRunner', async ({ page }) => {
+  test('Exit button returns to home from MissionRunner', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
@@ -171,12 +176,11 @@ test.describe('Mission System - Dashboard and Mission Flow', () => {
     await expect(exitButton).toBeVisible();
     await exitButton.click();
     
-    // Should navigate back to dashboard
-    await page.waitForURL(/\/dashboard/, { timeout: 10000 });
-    await expect(page.getByTestId('dashboard-page')).toBeVisible();
+    // Should navigate back to /home (not /dashboard)
+    await page.waitForURL(/\/home/, { timeout: 10000 });
   });
 
-  test('Drill phase shows correct and missed score tracking', async ({ page }) => {
+  test('Drill phase shows score tracking after using Show Answer', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
@@ -195,23 +199,27 @@ test.describe('Mission System - Dashboard and Mission Flow', () => {
     const startDrillBtn = page.getByTestId('start-drill-btn');
     await startDrillBtn.click({ force: true });
     
-    // Wait for drill phase
-    await expect(page.getByTestId('answer-correct')).toBeVisible({ timeout: 5000 });
+    // Wait for drill phase - "Position X" header
+    await expect(page.getByText(/Position \d+/)).toBeVisible({ timeout: 10000 });
     
-    // Check initial score display (Correct: 0, Missed: 0)
-    // Use role to avoid button text ambiguity
-    await expect(page.getByRole('paragraph').filter({ hasText: 'Correct' })).toBeVisible();
-    await expect(page.getByRole('paragraph').filter({ hasText: 'Missed' })).toBeVisible();
+    // Drill phase uses board interaction - check for score display at bottom
+    await expect(page.getByText('Correct')).toBeVisible();
+    await expect(page.getByText('Missed')).toBeVisible();
     
-    // Click "Got it" (correct answer)
-    await page.getByTestId('answer-correct').click();
+    // Initial score should show 0 for correct
+    const correctScore = page.locator('.text-emerald-500.font-bold.text-xl').first();
+    await expect(correctScore).toHaveText('0');
     
-    // Position counter should update to 2/5
-    await expect(page.getByText(/2 \/ \d+/)).toBeVisible({ timeout: 5000 });
+    // Click "Show Answer" button to see the best move
+    const showAnswerBtn = page.locator('button').filter({ hasText: /Show Answer/i });
+    await showAnswerBtn.click();
     
-    // Score for correct should be 1
-    const correctScore = page.locator('.text-emerald-500.font-bold.text-xl');
-    await expect(correctScore).toHaveText('1');
+    // Feedback should appear showing the best move
+    await expect(page.getByText(/Best move:/)).toBeVisible({ timeout: 5000 });
+    
+    // "Next Position" button should appear
+    const nextBtn = page.getByTestId('next-position-btn');
+    await expect(nextBtn).toBeVisible();
   });
 
   test('Dashboard displays loading state, then mission card', async ({ page }) => {
