@@ -3335,6 +3335,20 @@ async def analyze_move_cognitive_gap(
     # Add coaching message
     coaching_message = get_coaching_message(gap_result)
     
+    # PHASE 1: Persist the cognitive gap for tracking
+    await persist_cognitive_gap(
+        db=db,
+        user_id=user.user_id,
+        game_id=game_id,
+        move_number=move_number,
+        gap_analysis=gap_result,
+        user_plan=request.user_stated_plan,
+        user_confidence=request.user_confidence,
+    )
+    
+    # PHASE 2: Check for recurrence alerts
+    recurrence_alert = await check_recurrence_alerts(db, user.user_id, gap_result.get("primary_gap", "unclear"))
+    
     return {
         "move_number": move_number,
         "user_move": user_move,
@@ -3346,7 +3360,78 @@ async def analyze_move_cognitive_gap(
             "time_spent": time_spent,
             "clock_remaining": clock_remaining,
         } if time_spent else None,
+        "recurrence_alert": recurrence_alert,
     }
+
+
+# ==================== COGNITIVE GAP INTELLIGENCE API ====================
+
+@api_router.get("/cognitive-gaps/summary")
+async def get_cognitive_gap_summary(user: User = Depends(get_current_user)):
+    """
+    Get a quick summary of user's cognitive gap status.
+    Used for dashboard display.
+    """
+    return await get_gap_summary(db, user.user_id)
+
+
+@api_router.get("/cognitive-gaps/progress")
+async def get_cognitive_gap_progress(weeks: int = 8, user: User = Depends(get_current_user)):
+    """
+    Get cognitive gap progress over time.
+    Shows trends: improving, worsening, or stable.
+    """
+    return await get_gap_progress(db, user.user_id, weeks)
+
+
+@api_router.get("/cognitive-gaps/recurring")
+async def get_recurring_patterns(min_occurrences: int = 3, user: User = Depends(get_current_user)):
+    """
+    Get all recurring cognitive gap patterns.
+    Returns patterns that occurred 3+ times in the last 7 days.
+    """
+    return {
+        "patterns": await get_all_recurring_patterns(db, user.user_id, min_occurrences),
+    }
+
+
+@api_router.get("/cognitive-gaps/plan-quality")
+async def get_plan_quality_analysis(user: User = Depends(get_current_user)):
+    """
+    Analyze the quality of user's plans over time.
+    Tracks plan specificity, accuracy, and improvement.
+    """
+    return await analyze_plan_quality(db, user.user_id)
+
+
+@api_router.get("/drills/recommended")
+async def get_recommended_drills_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get personalized drill recommendations based on cognitive gap history.
+    Prioritizes high severity gaps and recurring patterns.
+    """
+    return await get_recommended_drills(db, user.user_id)
+
+
+@api_router.get("/drills/from-gap/{gap_type}")
+async def get_drills_from_gap(gap_type: str, count: int = 5, user: User = Depends(get_current_user)):
+    """
+    Get drill positions targeting a specific cognitive gap type.
+    Uses user's own mistakes when available.
+    """
+    if gap_type not in COGNITIVE_GAP_CONFIG:
+        raise HTTPException(status_code=400, detail=f"Unknown gap type: {gap_type}")
+    
+    return await get_drills_for_gap(db, user.user_id, gap_type, count)
+
+
+@api_router.post("/cognitive-gaps/sync-training")
+async def sync_gap_training(user: User = Depends(get_current_user)):
+    """
+    Update training focus based on accumulated cognitive gaps.
+    Call this to ensure training reflects your actual weaknesses.
+    """
+    return await update_training_from_gaps(db, user.user_id)
 
 
 # ==================== REWARD EVENT FEED ====================
