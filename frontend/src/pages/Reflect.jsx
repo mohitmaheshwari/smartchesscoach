@@ -33,6 +33,7 @@ import {
   CheckCircle2,
   RotateCcw,
   Loader2,
+  Dumbbell,
 } from "lucide-react";
 
 const Reflect = ({ user }) => {
