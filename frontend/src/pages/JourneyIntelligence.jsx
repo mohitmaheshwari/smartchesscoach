@@ -128,50 +128,24 @@ const JourneyIntelligence = () => {
             animate={{ opacity: 1 }}
             className="space-y-6"
           >
-            {/* SECTION 1: Identity Snapshot */}
-            <Card data-testid="identity-snapshot">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-primary" />
-                  Player Identity
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg bg-muted/30">
-                    <p className="text-xs text-muted-foreground mb-1">Decision Stability</p>
-                    <p className="font-medium capitalize">{identity.decision_stability}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/30">
-                    <p className="text-xs text-muted-foreground mb-1">Primary Pattern</p>
-                    <p className="font-medium">{identity.primary_pattern}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/30">
-                    <p className="text-xs text-muted-foreground mb-1">Weakest Phase</p>
-                    <p className="font-medium capitalize">{identity.weakest_phase}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/30">
-                    <p className="text-xs text-muted-foreground mb-1">Risk Profile</p>
-                    <p className="font-medium capitalize">{identity.risk_profile}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground">{identity.decision_stability_text}</p>
-              </CardContent>
-            </Card>
+            {/* SECTION 1: Player Identity (New Rich Component) */}
+            <PlayerIdentityCard identity={identity} />
 
             {/* SECTION 1b: Immediate Focus (THE KEY CARD) */}
-            <Card className="border-primary/50 bg-primary/5" data-testid="immediate-focus">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2 text-primary">
-                  <Target className="w-5 h-5" />
-                  Do This Next
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-lg font-medium mb-2">{identity.immediate_focus.text}</p>
-                <p className="text-sm text-muted-foreground">{identity.immediate_focus.reason}</p>
-              </CardContent>
-            </Card>
+            {data.immediate_focus && (
+              <Card className="border-primary/50 bg-primary/5" data-testid="immediate-focus">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2 text-primary">
+                    <Target className="w-5 h-5" />
+                    Do This Next
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-medium mb-2">{data.immediate_focus.text}</p>
+                  <p className="text-sm text-muted-foreground">{data.immediate_focus.reason}</p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* SECTION 2: Growth Delta */}
             {growth_delta.has_delta && (
