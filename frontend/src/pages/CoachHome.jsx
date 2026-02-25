@@ -20,6 +20,12 @@ import {
   ChevronUp,
   Gamepad2,
   Import,
+  Brain,
+  CheckCircle2,
+  XCircle,
+  MinusCircle,
+  Lightbulb,
+  Swords,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
