@@ -1001,6 +1001,21 @@ const Reflect = ({ user }) => {
                                 </Badge>
                               )}
                             </div>
+                            
+                            {/* PHASE 2: Recurrence Alert */}
+                            {cognitiveGapAnalysis?.recurrence_alert && (
+                              <div className="ml-13 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-3">
+                                <div className="flex items-center gap-2 text-amber-400 mb-1">
+                                  <Flame className="w-4 h-4" />
+                                  <span className="text-xs font-medium uppercase">Recurring Pattern</span>
+                                </div>
+                                <p className="text-sm text-amber-300">{cognitiveGapAnalysis.recurrence_alert.message}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Trend: {cognitiveGapAnalysis.recurrence_alert.trend === "worsening" ? "Getting worse" : 
+                                          cognitiveGapAnalysis.recurrence_alert.trend === "improving" ? "Improving" : "Stable"}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                         
@@ -1017,6 +1032,19 @@ const Reflect = ({ user }) => {
                               </div>
                             </div>
                           </div>
+                        )}
+                        
+                        {/* PHASE 3: Train This Gap Button */}
+                        {awarenessGap.cognitive_gap?.primary_gap && (
+                          <Button 
+                            variant="outline" 
+                            className="w-full mb-3 gap-2 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                            onClick={() => navigate(`/train?gap=${awarenessGap.cognitive_gap.primary_gap}`)}
+                            data-testid="train-this-gap-btn"
+                          >
+                            <Dumbbell className="w-4 h-4" />
+                            Train this pattern
+                          </Button>
                         )}
                         
                         {/* Original awareness gap display (fallback) */}
