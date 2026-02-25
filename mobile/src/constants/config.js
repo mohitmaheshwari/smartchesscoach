@@ -1,5 +1,5 @@
 // API Configuration
-export const API_URL = 'https://dopamine-engine.preview.emergentagent.com/api';
+export const API_URL = 'https://loss-recovery.preview.emergentagent.com/api';
 
 // Google OAuth
 export const GOOGLE_CLIENT_ID = ''; // Will be configured for mobile

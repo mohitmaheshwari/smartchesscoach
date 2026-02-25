@@ -11,7 +11,7 @@ export default defineConfig({
     ['json', { outputFile: '/root/.emergent/automation_output/20260225_034443/results.json' }],
   ],
   use: {
-    baseURL: 'https://dopamine-engine.preview.emergentagent.com',
+    baseURL: 'https://loss-recovery.preview.emergentagent.com',
     screenshot: 'only-on-failure',
     trace: 'off',
     headless: true,

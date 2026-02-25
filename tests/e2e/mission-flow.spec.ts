@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://dopamine-engine.preview.emergentagent.com';
+const BASE_URL = 'https://loss-recovery.preview.emergentagent.com';
 
 test.describe('Mission System - Dashboard and Mission Flow', () => {
   
