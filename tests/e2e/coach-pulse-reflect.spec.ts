@@ -295,8 +295,15 @@ test.describe('Reflect Page - Board with Arrows', () => {
       return;
     }
     
-    // Chess board should be visible (using cg-wrap class from chessground)
-    await expect(page.locator('.cg-wrap, [class*="cg-wrap"]')).toBeVisible({ timeout: 15000 });
+    // Wait for moments to load (not "Loading moments...")
+    await expect(page.getByText(/Loading moments/)).not.toBeVisible({ timeout: 20000 });
+    
+    // Wait for intent question which signals board is loaded
+    await expect(page.getByRole('heading', { name: /What were you trying to do/i })).toBeVisible({ timeout: 15000 });
+    
+    // Chess board should be visible - CoachBoard uses cg-wrap or board div
+    const board = page.locator('.cg-wrap, [class*="cg-wrap"], .cg-board');
+    await expect(board.first()).toBeVisible({ timeout: 10000 });
     
     await page.screenshot({ path: '.screenshots/reflect-board.jpeg', quality: 20 });
   });
@@ -373,11 +380,17 @@ test.describe('Reflect Page - Board with Arrows', () => {
       return;
     }
     
-    // Check for "You played" label
-    await expect(page.getByText(/You played/i)).toBeVisible({ timeout: 15000 });
+    // Wait for moments to load
+    await expect(page.getByText(/Loading moments/)).not.toBeVisible({ timeout: 20000 });
+    
+    // Wait for intent question
+    await expect(page.getByRole('heading', { name: /What were you trying to do/i })).toBeVisible({ timeout: 15000 });
+    
+    // Check for "You played" label - use exact text to avoid matching "Before you played"
+    await expect(page.getByText('You played', { exact: true })).toBeVisible({ timeout: 5000 });
     
     // Check for "Better was" label
-    await expect(page.getByText(/Better was/i)).toBeVisible();
+    await expect(page.getByText('Better was', { exact: true })).toBeVisible();
     
     await page.screenshot({ path: '.screenshots/reflect-move-info.jpeg', quality: 20 });
   });
