@@ -236,7 +236,9 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 _background_sync_task = None
 _quick_sync_task = None
 
-# Sync status tracking
+# Sync status tracking with thread-safe lock
+import asyncio
+_sync_lock = asyncio.Lock()
 _sync_status = {
     "last_sync_at": None,
     "next_sync_at": None,
