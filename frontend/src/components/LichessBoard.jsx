@@ -199,7 +199,8 @@ const LichessBoard = forwardRef(({
         },
         events: {
           move: (orig, dest) => {
-            if (onMove) {
+            const currentOnMove = onMoveRef.current;
+            if (currentOnMove) {
               const chess = chessRef.current;
               let move = null;
               
@@ -222,7 +223,7 @@ const LichessBoard = forwardRef(({
               }
               
               if (move) {
-                onMove({
+                currentOnMove({
                   from: orig,
                   to: dest,
                   san: move.san,
