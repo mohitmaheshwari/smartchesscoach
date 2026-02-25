@@ -829,35 +829,71 @@ def generate_action_recommendation(category: str, specific_insights: Dict, trend
 def get_game_pattern_summary(
     analysis: Dict,
     pattern_history: Dict,
-    all_games: List[Dict]
+    all_games: List[Dict],
+    game_info: Optional[Dict] = None
 ) -> Dict:
     """
-    Get a summary of patterns for an entire game with context.
+    Get a SPECIFIC summary of patterns for an entire game.
     
     Returns:
         {
-            "dominant_pattern": "knight_tactics",
-            "patterns_in_game": ["knight_tactics", "king_safety"],
-            "recurring_patterns": [{"category": ..., "count": ..., "insight": ...}],
+            "dominant_pattern": "hanging_pieces",
+            "dominant_label": "Leaving pieces undefended",
+            "patterns_in_game": [...],
+            "recurring_patterns": [{"category": ..., "specific_insight": ..., "action": ...}],
             "new_patterns": [...],
-            "coach_summary": "This game shows your recurring struggle with knight threats..."
+            "coach_summary": "This game shows...",
+            "global_insights": {
+                "rating_vulnerable": {...},
+                "time_vulnerable": "blitz",
+                "opening_triggers": ["Italian Game"]
+            }
         }
     """
     game_id = analysis.get("game_id")
-    mistakes = extract_mistake_patterns(analysis)
+    
+    # Find game info if not provided
+    if not game_info:
+        for g in all_games:
+            if g.get("game_id") == game_id:
+                game_info = g
+                break
+    
+    mistakes = extract_mistake_patterns(analysis, game_info)
     
     if not mistakes:
         return {
             "dominant_pattern": None,
+            "dominant_label": None,
             "patterns_in_game": [],
             "recurring_patterns": [],
             "new_patterns": [],
             "coach_summary": "Clean game! No significant patterns to address.",
+            "global_insights": {},
         }
+    
+    # Category labels for display
+    category_labels = {
+        "checkmate_threats": "Missing checkmate threats",
+        "fork_vulnerability": "Allowing forks",
+        "pin_vulnerability": "Allowing pins",
+        "hanging_pieces": "Leaving pieces undefended",
+        "back_rank_weakness": "Back rank issues",
+        "knight_tactics": "Knight tactical errors",
+        "bishop_tactics": "Bishop tactical errors",
+        "rook_tactics": "Rook play errors",
+        "queen_tactics": "Queen placement errors",
+        "pawn_play": "Pawn structure decisions",
+        "king_safety": "King safety lapses",
+        "material_tactics": "Material calculation",
+        "positional": "Positional judgment",
+        "general": "General decision making",
+    }
     
     # Group mistakes by category
     category_counts = Counter(m["category"] for m in mistakes)
     dominant = category_counts.most_common(1)[0][0] if category_counts else None
+    dominant_label = category_labels.get(dominant, dominant.replace("_", " ").title()) if dominant else None
     
     # Get context for each pattern
     recurring = []
@@ -867,40 +903,99 @@ def get_game_pattern_summary(
         pattern_info = pattern_history.get("patterns", {}).get(category, {})
         total = pattern_info.get("total_occurrences", count)
         
+        label = category_labels.get(category, category.replace("_", " ").title())
+        
         if total > count:
             # This pattern existed before this game
+            specific_insights = {}
+            
+            # Build specific insights from pattern info
+            rc = pattern_info.get("rating_context", {})
+            if rc.get("vs_lower_rated", {}).get("pct", 0) > 50:
+                specific_insights["rating"] = f"Happens more vs weaker opponents ({rc['vs_lower_rated']['pct']}%)"
+            elif rc.get("vs_higher_rated", {}).get("pct", 0) > 50:
+                specific_insights["rating"] = f"Happens more vs stronger opponents ({rc['vs_higher_rated']['pct']}%)"
+            
+            oc = pattern_info.get("opening_context", {})
+            if oc and oc.get("top_openings"):
+                top = oc["top_openings"][0]
+                if top["count"] >= 2:
+                    specific_insights["opening"] = f"Common in {top['name']}"
+            
+            tc = pattern_info.get("time_context", {})
+            if tc:
+                top_time = max(tc.items(), key=lambda x: x[1])
+                if top_time[1] > sum(tc.values()) * 0.5:
+                    specific_insights["time"] = f"Mostly in {top_time[0]} games"
+            
+            # Action recommendation
+            action = generate_action_recommendation(
+                category=category,
+                specific_insights={
+                    "rating_insight": specific_insights.get("rating"),
+                    "opening_insight": specific_insights.get("opening"),
+                    "time_insight": specific_insights.get("time"),
+                },
+                trend=pattern_info.get("trend", "stable")
+            )
+            
             recurring.append({
                 "category": category,
+                "label": label,
                 "count_this_game": count,
                 "total_occurrences": total,
                 "trend": pattern_info.get("trend", "stable"),
-                "insight": generate_pattern_insight(
+                "specific_insights": specific_insights,
+                "action": action,
+                "insight": generate_specific_insight(
                     category, total,
                     [g for g in pattern_info.get("games", []) if g["game_id"] != game_id][:3],
-                    pattern_info.get("trend", "stable")
+                    pattern_info.get("trend", "stable"),
+                    specific_insights,
+                    pattern_info
                 ),
             })
         else:
             new_patterns.append({
                 "category": category,
+                "label": label,
                 "count": count,
             })
     
     # Generate overall summary
     if recurring:
         main_recurring = max(recurring, key=lambda x: x["total_occurrences"])
-        coach_summary = f"This game shows your recurring pattern: {main_recurring['category'].replace('_', ' ')}. "
+        coach_summary = f"This game shows your recurring pattern: {main_recurring['label'].lower()}. "
+        
         if main_recurring["trend"] == "improving":
             coach_summary += "Good news - you're getting better at this."
         elif main_recurring["trend"] == "recurring":
-            coach_summary += "This keeps appearing. Consider focused training on this."
+            coach_summary += "This keeps appearing. Consider focused training."
+            # Add specific context
+            if main_recurring.get("specific_insights"):
+                si = main_recurring["specific_insights"]
+                if si.get("rating"):
+                    coach_summary += f" Note: {si['rating'].lower()}."
+                elif si.get("opening"):
+                    coach_summary += f" Note: {si['opening'].lower()}."
+        elif main_recurring["trend"] == "fixed":
+            coach_summary = f"You've been working on {main_recurring['label'].lower()} - it's improving!"
     else:
         coach_summary = "These are new patterns. Let's see if they repeat in future games."
     
+    # Global insights from pattern history
+    global_insights = {
+        "rating_vulnerable": pattern_history.get("rating_vulnerable"),
+        "time_vulnerable": pattern_history.get("time_vulnerable"),
+        "opening_triggers": pattern_history.get("opening_triggers", []),
+    }
+    
     return {
         "dominant_pattern": dominant,
+        "dominant_label": dominant_label,
         "patterns_in_game": list(category_counts.keys()),
         "recurring_patterns": recurring,
         "new_patterns": new_patterns,
         "coach_summary": coach_summary,
+        "global_insights": global_insights,
     }
