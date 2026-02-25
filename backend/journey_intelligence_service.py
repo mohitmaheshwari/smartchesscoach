@@ -724,7 +724,6 @@ def compute_fundamentals_snapshot(games: List[Dict], gaps: List[Dict]) -> Dict:
         
         # Track metrics
         blunders = analysis.get("blunders", 0)
-        total_moves = len(moves)
         
         # Tactical awareness: inverse of missed tactics
         areas["tactical_awareness"]["max"] += 1
