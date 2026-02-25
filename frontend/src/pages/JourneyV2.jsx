@@ -1351,6 +1351,14 @@ const JourneyPage = ({ user }) => {
                 onShowEvidence={handleShowStateEvidence}
               />
               
+              {/* Focus Mastery - Cognitive Pattern Progress */}
+              {focusMastery && (
+                <FocusMasterySection 
+                  data={focusMastery}
+                  onNavigate={(pattern) => navigate(`/home?focus=${pattern}`)}
+                />
+              )}
+              
               {/* Chess Fundamentals */}
               <FundamentalsSection 
                 data={journeyData?.fundamentals} 
