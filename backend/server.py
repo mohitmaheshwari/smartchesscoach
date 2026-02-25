@@ -3810,20 +3810,39 @@ async def get_mission_history(limit: int = 10, user: User = Depends(get_current_
 
 @api_router.get("/missions/focus-mastery")
 async def get_focus_mastery(user: User = Depends(get_current_user)):
-    """Get user's focus mastery levels."""
-    masteries = await db.focus_mastery.find({
+    """
+    Get user's comprehensive focus mastery data.
+    Shows mastery scores, trends, and recommendations for cognitive patterns.
+    """
+    # Get all game analyses for this user
+    game_analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Get active patterns from user settings or defaults
+    user_settings = await db.user_settings.find_one({"user_id": user.user_id})
+    active_patterns = None
+    if user_settings:
+        active_patterns = user_settings.get("active_focus_patterns")
+    
+    # Get comprehensive mastery data
+    mastery_data = get_user_focus_mastery(user.user_id, game_analyses, active_patterns)
+    
+    # Also get legacy format for backwards compatibility
+    legacy_masteries = await db.focus_mastery.find({
         "user_id": user.user_id,
     }).to_list(20)
     
-    result = []
-    for m in masteries:
+    legacy_result = []
+    for m in legacy_masteries:
         score = m.get("mastery_score", 0)
         band = "Emerging" if score < 25 else "Improving" if score < 50 else "Stable" if score < 75 else "Reliable"
         
         pattern = m.get("pattern")
         focus_data = PATTERN_FOCUS_MAP.get(pattern, {})
         
-        result.append({
+        legacy_result.append({
             "pattern": pattern,
             "label": focus_data.get("focus_label", pattern),
             "mastery_score": score,
@@ -3831,7 +3850,10 @@ async def get_focus_mastery(user: User = Depends(get_current_user)):
             "recent_results": m.get("recent_mission_results", [])[-5:],
         })
     
-    return {"masteries": result}
+    return {
+        "masteries": legacy_result,  # Legacy format
+        "focus_mastery": mastery_data,  # New comprehensive format
+    }
 
 @api_router.get("/weekly-proof")
 async def get_weekly_proof_endpoint(user: User = Depends(get_current_user)):
