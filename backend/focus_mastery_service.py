@@ -163,7 +163,7 @@ def calculate_pattern_mastery(
         if isinstance(created, str):
             try:
                 created = datetime.fromisoformat(created.replace('Z', '+00:00'))
-            except:
+            except ValueError:
                 continue
         
         is_recent = created and created >= cutoff
