@@ -254,6 +254,9 @@ const LichessBoard = forwardRef(({
 
   // Track the previous fen to detect if we need to update it
   const prevFenRef = useRef(fen);
+  const prevInteractiveRef = useRef(interactive);
+  const prevViewOnlyRef = useRef(viewOnly);
+  const prevPlanModeRef = useRef(planMode);
   
   // Update position when fen changes AND update interactivity
   // Combined effect to avoid race conditions between fen updates and interactivity changes
@@ -261,7 +264,19 @@ const LichessBoard = forwardRef(({
     if (groundRef.current) {
       const shouldBeInteractive = planMode || (interactive && !viewOnly);
       const fenChanged = prevFenRef.current !== fen;
+      const interactivityChanged = prevInteractiveRef.current !== interactive || 
+                                   prevViewOnlyRef.current !== viewOnly ||
+                                   prevPlanModeRef.current !== planMode;
+      
       prevFenRef.current = fen;
+      prevInteractiveRef.current = interactive;
+      prevViewOnlyRef.current = viewOnly;
+      prevPlanModeRef.current = planMode;
+      
+      // If nothing changed, don't update the board (this preserves selection state)
+      if (!fenChanged && !interactivityChanged && !lastMove) {
+        return;
+      }
       
       // Update chess instance with current FEN only if FEN actually changed
       if (fenChanged) {
@@ -280,32 +295,42 @@ const LichessBoard = forwardRef(({
         ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current))
         : new Map();
       
-      // Build config - only include fen if it actually changed
-      const config = {
-        turnColor: getTurnColor(chessRef.current.fen()),
-        viewOnly: !shouldBeInteractive,
-        movable: {
-          free: false,
-          color: shouldBeInteractive ? "both" : undefined,
-          dests: dests,
-          showDests: showDests && shouldBeInteractive,
-        },
-        draggable: {
-          enabled: shouldBeInteractive,
-          showGhost: true,
-        },
-        selectable: {
-          enabled: shouldBeInteractive,
-        },
-        lastMove: lastMove || undefined,
-      };
+      // Build config - only include properties that need updating
+      const config = {};
       
       // Only set fen if it actually changed from props
       if (fenChanged) {
         config.fen = fen;
+        config.turnColor = getTurnColor(chessRef.current.fen());
       }
       
-      groundRef.current.set(config);
+      // Only update movable/draggable if interactivity changed or fen changed
+      if (interactivityChanged || fenChanged) {
+        config.viewOnly = !shouldBeInteractive;
+        config.movable = {
+          free: false,
+          color: shouldBeInteractive ? "both" : undefined,
+          dests: dests,
+          showDests: showDests && shouldBeInteractive,
+        };
+        config.draggable = {
+          enabled: shouldBeInteractive,
+          showGhost: true,
+        };
+        config.selectable = {
+          enabled: shouldBeInteractive,
+        };
+      }
+      
+      // Only set lastMove if it changed
+      if (lastMove) {
+        config.lastMove = lastMove;
+      }
+      
+      // Only call set if we have something to update
+      if (Object.keys(config).length > 0) {
+        groundRef.current.set(config);
+      }
     }
   }, [fen, interactive, viewOnly, showDests, lastMove, planMode]);
 
