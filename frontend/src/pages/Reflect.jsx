@@ -66,13 +66,17 @@ const Reflect = ({ user }) => {
   
   // V1 REFLECTION ENGINE STATE (Progressive 2-tap flow)
   const [reflectProfile, setReflectProfile] = useState(null);
-  const [reflectStep, setReflectStep] = useState(0); // 0=intent, 1=confidence, 2=tags, 3=done
+  const [reflectStep, setReflectStep] = useState(0); // 0=intent/plan, 1=confidence, 2=tags, 3=done
   const [selectedIntent, setSelectedIntent] = useState(null);
   const [selectedConfidence, setSelectedConfidence] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
   const [v1QuickTags, setV1QuickTags] = useState([]);
   const [coachReward, setCoachReward] = useState(null);
   const [reflectionStartTime, setReflectionStartTime] = useState(null);
+  
+  // Time context state
+  const [timeContext, setTimeContext] = useState(null);
+  const [loadingTimeContext, setLoadingTimeContext] = useState(false);
   
   const currentGame = gamesNeedingReflection[currentGameIndex];
   const currentMoment = moments[currentMomentIndex];
