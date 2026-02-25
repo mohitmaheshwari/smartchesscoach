@@ -15,6 +15,58 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 25, 2026)
 
+### Reflection Intelligence System ✅ COMPLETE (Feb 25, 2026)
+
+**User Request:** "We should track cognitive gap data and use it for: 1) Pattern recurrence alerts, 2) Drill generation from gaps, 3) Progress tracking over time, 4) Plan quality analysis, 5) Training focus updates."
+
+**Solution:** Implemented a complete 5-phase Reflection Intelligence System:
+
+**Phase 1: Cognitive Gap Data Persistence**
+- Gap data now persisted to `cognitive_gap_history` collection
+- Aggregated stats tracked in `cognitive_gap_aggregates`
+- Each gap record includes: gap_type, severity, layer, drill_category, user_plan, user_confidence
+
+**Phase 2: Pattern Recurrence Alerts**
+- Detects when same gap type occurs 3+ times in 7 days
+- Shows inline alert in Reflect page with trend (improving/worsening/stable)
+- API: `GET /api/cognitive-gaps/recurring`
+
+**Phase 3: Gap-Driven Drill Generation**
+- Maps 22 cognitive gap types to specific drill categories
+- Generates drills from user's own mistakes when available
+- "Train this pattern" button added after cognitive gap display
+- APIs: `GET /api/drills/from-gap/{gap_type}`, `GET /api/drills/recommended`
+
+**Phase 4: Progress Tracking Dashboard**
+- New `GapProgressDashboard` component with 3 tabs: Overview, Progress, Plans
+- Shows gap trends over 8 weeks (improving/worsening/stable)
+- Visual weekly mini-charts for each gap type
+- Integrated into Journey page
+- APIs: `GET /api/cognitive-gaps/progress`, `GET /api/cognitive-gaps/summary`
+
+**Phase 5: Plan Quality Analysis**
+- Tracks plan specificity, accuracy, and improvement over time
+- Confidence calibration: compares stated confidence vs actual accuracy
+- Generates insights like "Your 'guesses' are often good! Trust your intuition more."
+- API: `GET /api/cognitive-gaps/plan-quality`
+
+**New Files Created:**
+- `/app/backend/cognitive_gap_intelligence_service.py` - All 5 phases logic
+- `/app/frontend/src/components/Journey/GapProgressDashboard.jsx` - Dashboard component
+
+**Files Modified:**
+- `/app/backend/server.py` - 8 new API endpoints
+- `/app/backend/init_db.py` - New collection indexes
+- `/app/frontend/src/pages/Reflect.jsx` - Recurrence alert + Train button
+- `/app/frontend/src/pages/JourneyV2.jsx` - GapProgressDashboard integration
+
+**Test Report:** `/app/test_reports/iteration_78.json`
+- Backend: 100% (36/36 tests)
+- Frontend: 100% (18/18 tests)
+- Regression: 54 passed, 0 failed
+
+---
+
 ### Cognitive Gap Analysis ✅ COMPLETE (Feb 25, 2026)
 
 **Problem:** The reflection flow was too generic. Users wanted to understand *why* their mistake was wrong, not just *what* the better move was.
