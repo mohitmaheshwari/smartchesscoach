@@ -147,18 +147,54 @@ def get_threat_category(threat: str) -> str:
     return "positional"
 
 
-def extract_mistake_patterns(analysis: Dict) -> List[Dict]:
-    """Extract all mistake patterns from a game analysis."""
+def extract_mistake_patterns(analysis: Dict, game_info: Optional[Dict] = None) -> List[Dict]:
+    """
+    Extract SPECIFIC mistake patterns from a game analysis.
+    Includes game context (opening, time control, opponent rating).
+    """
     patterns = []
     
     sf = analysis.get("stockfish_analysis", {})
     evals = sf.get("move_evaluations", [])
+    
+    # Get game context
+    opening = None
+    time_control = None
+    opponent_rating = None
+    user_rating = None
+    
+    if game_info:
+        # Extract opening from various possible fields
+        opening = game_info.get("opening_name") or game_info.get("opening") or game_info.get("eco")
+        time_control = game_info.get("time_control") or ""
+        
+        # Get ratings
+        user_color = game_info.get("user_color", "white")
+        if user_color == "white":
+            user_rating = game_info.get("white_rating")
+            opponent_rating = game_info.get("black_rating")
+        else:
+            user_rating = game_info.get("black_rating")
+            opponent_rating = game_info.get("white_rating")
+    
+    # Classify time control
+    time_category = "classical"
+    if time_control:
+        tc_str = str(time_control).lower()
+        if any(x in tc_str for x in ["bullet", "60", "120"]) or (tc_str.isdigit() and int(tc_str) <= 120):
+            time_category = "bullet"
+        elif any(x in tc_str for x in ["blitz", "180", "300", "3|", "5|"]):
+            time_category = "blitz"
+        elif any(x in tc_str for x in ["rapid", "600", "900", "10|", "15|"]):
+            time_category = "rapid"
     
     for move_eval in evals:
         eval_type = move_eval.get("evaluation")
         if eval_type not in ["blunder", "mistake"]:
             continue
         
+        # Get specific pattern details
+        specific_pattern = get_specific_mistake_type(move_eval)
         threat = move_eval.get("threat", "")
         category = get_threat_category(threat)
         
@@ -171,6 +207,18 @@ def extract_mistake_patterns(analysis: Dict) -> List[Dict]:
             "eval_type": eval_type,
             "cp_loss": move_eval.get("cp_loss", 0),
             "fen": move_eval.get("fen_before"),
+            # New specific fields
+            "specific_type": specific_pattern["type"],
+            "specific_label": specific_pattern["specific_label"],
+            "piece_involved": specific_pattern.get("piece_involved"),
+            "tactical_theme": specific_pattern.get("tactical_theme"),
+            "position_context": specific_pattern.get("position_context"),
+            # Game context
+            "opening": opening,
+            "time_category": time_category,
+            "opponent_rating": opponent_rating,
+            "user_rating": user_rating,
+            "phase": move_eval.get("phase", "middlegame"),
         })
     
     return patterns
