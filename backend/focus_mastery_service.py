@@ -248,6 +248,136 @@ def calculate_pattern_mastery(
     }
 
 
+def calculate_all_pattern_mastery(game_analyses: List[Dict], recent_days: int = 30) -> Dict[str, Dict]:
+    """
+    OPTIMIZED: Calculate mastery for ALL patterns in a single pass through games.
+    
+    Instead of O(patterns * games), this is O(games) - much faster for users with many games.
+    
+    Returns:
+        Dict mapping pattern_key to mastery data
+    """
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=recent_days)
+    total_games = len(game_analyses)
+    
+    # Initialize tracking for all patterns
+    pattern_stats = {}
+    for pattern_key, pattern_def in FOCUS_PATTERNS.items():
+        pattern_stats[pattern_key] = {
+            "total_occurrences": 0,
+            "recent_occurrences": 0,
+            "old_occurrences": 0,
+            "last_occurrence": None,
+            "triggers": set(pattern_def.get("mistake_triggers", [])),
+            "def": pattern_def,
+        }
+    
+    # Single pass through all games
+    for analysis in game_analyses:
+        created = analysis.get("created_at")
+        if isinstance(created, str):
+            try:
+                created = datetime.fromisoformat(created.replace('Z', '+00:00'))
+            except ValueError:
+                continue
+        
+        # Make sure datetime is offset-aware
+        if created and created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        
+        is_recent = created and created >= cutoff
+        
+        # Check stockfish analysis for mistake types
+        sf = analysis.get("stockfish_analysis", {})
+        evals = sf.get("move_evaluations", [])
+        
+        # Track which patterns this game triggered
+        patterns_found_in_game = set()
+        
+        for move_eval in evals:
+            if move_eval.get("evaluation") not in ["blunder", "mistake"]:
+                continue
+            
+            threat = (move_eval.get("threat") or "").lower()
+            thinking = (move_eval.get("thinking_pattern") or "").lower()
+            combined = threat + " " + thinking
+            
+            # Check all patterns in one go
+            for pattern_key, stats in pattern_stats.items():
+                for trigger in stats["triggers"]:
+                    if trigger in combined:
+                        patterns_found_in_game.add(pattern_key)
+                        break
+        
+        # Update stats for patterns found in this game
+        for pattern_key in patterns_found_in_game:
+            stats = pattern_stats[pattern_key]
+            stats["total_occurrences"] += 1
+            
+            if is_recent:
+                stats["recent_occurrences"] += 1
+            else:
+                stats["old_occurrences"] += 1
+            
+            if stats["last_occurrence"] is None or (created and created > stats["last_occurrence"]):
+                stats["last_occurrence"] = created
+    
+    # Build final results
+    results = {}
+    for pattern_key, stats in pattern_stats.items():
+        pattern_def = stats["def"]
+        total_occurrences = stats["total_occurrences"]
+        recent_occurrences = stats["recent_occurrences"]
+        old_occurrences = stats["old_occurrences"]
+        last_occurrence = stats["last_occurrence"]
+        
+        # Calculate mastery score
+        if total_games == 0:
+            mastery_score = 50.0
+        else:
+            games_without = total_games - total_occurrences
+            base_score = (games_without / total_games) * 100
+            
+            trend_adjustment = 0
+            if recent_occurrences < old_occurrences:
+                trend_adjustment = 10
+            elif recent_occurrences > old_occurrences:
+                trend_adjustment = -10
+            
+            mastery_score = min(100, max(0, base_score + trend_adjustment))
+        
+        # Determine trend
+        if old_occurrences > 0 and recent_occurrences == 0:
+            trend = "improving"
+        elif recent_occurrences > old_occurrences * 1.5:
+            trend = "declining"
+        else:
+            trend = "stable"
+        
+        # Calculate improvement rate
+        improvement_rate = 0
+        if old_occurrences > 0:
+            improvement_rate = ((old_occurrences - recent_occurrences) / old_occurrences) * 100
+        
+        results[pattern_key] = {
+            "pattern_key": pattern_key,
+            "name": pattern_def["name"],
+            "category": pattern_def["category"],
+            "description": pattern_def["description"],
+            "protocol": pattern_def["protocol"],
+            "mastery_score": round(mastery_score, 1),
+            "mastery_level": get_mastery_level(mastery_score),
+            "trend": trend,
+            "occurrences_recent": recent_occurrences,
+            "occurrences_total": total_occurrences,
+            "last_occurrence": last_occurrence.isoformat() if last_occurrence else None,
+            "improvement_rate": round(improvement_rate, 1),
+            "total_games_analyzed": total_games,
+        }
+    
+    return results
+
 def get_user_focus_mastery(
     user_id: str,
     game_analyses: List[Dict],
