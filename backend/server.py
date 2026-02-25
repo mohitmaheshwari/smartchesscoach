@@ -246,6 +246,20 @@ from cognitive_gap_service import (
     CognitiveGap,
 )
 
+# === COGNITIVE GAP INTELLIGENCE SERVICE (Full tracking & training) ===
+from cognitive_gap_intelligence_service import (
+    persist_cognitive_gap,
+    check_recurrence_alerts,
+    get_all_recurring_patterns,
+    get_drills_for_gap,
+    get_recommended_drills,
+    get_gap_progress,
+    get_gap_summary,
+    analyze_plan_quality,
+    update_training_from_gaps,
+    COGNITIVE_GAP_CONFIG,
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
