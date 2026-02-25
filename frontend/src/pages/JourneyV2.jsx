@@ -1360,6 +1360,17 @@ const JourneyPage = ({ user }) => {
                 />
               )}
               
+              {/* Cognitive Gap Progress Dashboard */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-primary" />
+                  Cognitive Gap Progress
+                </h3>
+                <GapProgressDashboard 
+                  onTrainGap={(gapType) => navigate(`/train?gap=${gapType}`)}
+                />
+              </div>
+              
               {/* Chess Fundamentals */}
               <FundamentalsSection 
                 data={journeyData?.fundamentals} 
