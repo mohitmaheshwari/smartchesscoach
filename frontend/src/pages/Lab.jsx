@@ -1325,6 +1325,96 @@ const Lab = ({ user }) => {
                           </div>
                         </div>
                       )}
+                      
+                      {/* PATTERN INSIGHTS - Specific contextual analysis */}
+                      {labData?.pattern_context?.summary?.recurring_patterns?.length > 0 && (
+                        <div className="p-4 rounded-lg bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20" data-testid="pattern-insights-card">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Target className="w-5 h-5 text-orange-500" />
+                            <p className="font-semibold text-orange-400">Pattern Intelligence</p>
+                          </div>
+                          
+                          {/* Coach Summary */}
+                          <p className="text-sm mb-4 text-muted-foreground">
+                            {labData.pattern_context.summary.coach_summary}
+                          </p>
+                          
+                          {/* Recurring Patterns with Specific Insights */}
+                          <div className="space-y-3">
+                            {labData.pattern_context.summary.recurring_patterns.slice(0, 2).map((rp, idx) => (
+                              <div key={idx} className="p-3 rounded bg-background/50 border border-border/30">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="font-medium text-sm">{rp.label}</span>
+                                  <span className={`text-xs px-2 py-0.5 rounded ${
+                                    rp.trend === 'improving' ? 'bg-green-500/20 text-green-400' :
+                                    rp.trend === 'recurring' ? 'bg-red-500/20 text-red-400' :
+                                    'bg-gray-500/20 text-gray-400'
+                                  }`}>
+                                    {rp.trend === 'improving' ? 'Getting better' : rp.trend === 'recurring' ? 'Needs work' : 'Stable'}
+                                  </span>
+                                </div>
+                                
+                                {/* Specific Insights */}
+                                {rp.specific_insights && Object.keys(rp.specific_insights).length > 0 && (
+                                  <div className="space-y-1 mb-2">
+                                    {rp.specific_insights.rating && (
+                                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                        <TrendingUp className="w-3 h-3 text-blue-400" />
+                                        {rp.specific_insights.rating}
+                                      </p>
+                                    )}
+                                    {rp.specific_insights.opening && (
+                                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                        <BookOpen className="w-3 h-3 text-green-400" />
+                                        {rp.specific_insights.opening}
+                                      </p>
+                                    )}
+                                    {rp.specific_insights.time && (
+                                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                        <Zap className="w-3 h-3 text-yellow-400" />
+                                        {rp.specific_insights.time}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {/* Action Recommendation */}
+                                {rp.action && (
+                                  <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                                    <p className="text-xs font-medium text-amber-400">
+                                      Fix: {rp.action}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Global Vulnerability Insights */}
+                          {labData.pattern_context.global_insights && (
+                            <div className="mt-4 pt-3 border-t border-border/30">
+                              <p className="text-xs text-muted-foreground uppercase mb-2">Your Vulnerability Profile</p>
+                              <div className="flex flex-wrap gap-2">
+                                {labData.pattern_context.global_insights.time_vulnerable && (
+                                  <span className="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                                    Most issues in {labData.pattern_context.global_insights.time_vulnerable}
+                                  </span>
+                                )}
+                                {labData.pattern_context.global_insights.opening_triggers?.slice(0, 2).map((opening, idx) => (
+                                  <span key={idx} className="text-xs px-2 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                    Trigger: {opening}
+                                  </span>
+                                ))}
+                                {labData.pattern_context.global_insights.rating_vulnerable && (
+                                  <span className="text-xs px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+                                    {labData.pattern_context.global_insights.rating_vulnerable.pattern}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </TabsContent>
 
                     {/* STRATEGY TAB */}
