@@ -168,7 +168,7 @@ test.describe('Mission Stepper UI', () => {
 });
 
 
-test.describe('Focus Mastery Section on Journey Page', () => {
+test.describe('Focus Mastery Section on Progress Page (JourneyV2)', () => {
   
   test.beforeEach(async ({ page }) => {
     // Dev login
@@ -177,9 +177,9 @@ test.describe('Focus Mastery Section on Journey Page', () => {
     await dismissToasts(page);
   });
 
-  test('Journey page loads with Focus Mastery section', async ({ page }) => {
-    // Navigate to Journey page
-    await page.goto(`${BASE_URL}/journey`, { waitUntil: 'domcontentloaded' });
+  test('Progress page loads with Focus Mastery section', async ({ page }) => {
+    // JourneyV2 is at /progress route
+    await page.goto(`${BASE_URL}/progress`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
     // Wait for page to load
@@ -190,7 +190,7 @@ test.describe('Focus Mastery Section on Journey Page', () => {
     const focusMasterySection = page.getByTestId('focus-mastery-section');
     
     // Take screenshot to see the state
-    await page.screenshot({ path: '.screenshots/journey-focus-mastery-section.jpeg', quality: 20 });
+    await page.screenshot({ path: '.screenshots/progress-focus-mastery-section.jpeg', quality: 20 });
     
     // Check if it's visible OR page shows "Building Your Story" message
     const isVisible = await focusMasterySection.isVisible().catch(() => false);
@@ -201,7 +201,7 @@ test.describe('Focus Mastery Section on Journey Page', () => {
   });
 
   test('Focus Mastery Section shows overall mastery ring with percentage', async ({ page }) => {
-    await page.goto(`${BASE_URL}/journey`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/progress`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
     await expect(page.getByText('Your Chess Journey')).toBeVisible({ timeout: 15000 });
@@ -230,7 +230,7 @@ test.describe('Focus Mastery Section on Journey Page', () => {
   });
 
   test('Focus Mastery Section shows individual pattern progress bars', async ({ page }) => {
-    await page.goto(`${BASE_URL}/journey`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/progress`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
     await expect(page.getByText('Your Chess Journey')).toBeVisible({ timeout: 15000 });
@@ -254,7 +254,7 @@ test.describe('Focus Mastery Section on Journey Page', () => {
   });
 
   test('Focus Mastery Section shows mastery levels (master/proficient/etc)', async ({ page }) => {
-    await page.goto(`${BASE_URL}/journey`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/progress`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
     await expect(page.getByText('Your Chess Journey')).toBeVisible({ timeout: 15000 });
@@ -285,7 +285,7 @@ test.describe('Focus Mastery Section on Journey Page', () => {
   });
 
   test('Focus Mastery Section shows Strongest and Focus Area cards', async ({ page }) => {
-    await page.goto(`${BASE_URL}/journey`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/progress`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
     await expect(page.getByText('Your Chess Journey')).toBeVisible({ timeout: 15000 });
@@ -308,7 +308,7 @@ test.describe('Focus Mastery Section on Journey Page', () => {
   });
 
   test('Focus Mastery Section shows recommended focus suggestion', async ({ page }) => {
-    await page.goto(`${BASE_URL}/journey`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/progress`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
     await expect(page.getByText('Your Chess Journey')).toBeVisible({ timeout: 15000 });
@@ -339,7 +339,7 @@ test.describe('Focus Mastery Section on Journey Page', () => {
 });
 
 
-test.describe('Coach Narrative Rail on Journey Page', () => {
+test.describe('Coach Narrative Rail on Progress Page (JourneyV2)', () => {
   
   test.beforeEach(async ({ page }) => {
     // Dev login
@@ -348,15 +348,15 @@ test.describe('Coach Narrative Rail on Journey Page', () => {
     await dismissToasts(page);
   });
 
-  test('Journey page shows Coach Comparison section at top', async ({ page }) => {
-    await page.goto(`${BASE_URL}/journey`, { waitUntil: 'domcontentloaded' });
+  test('Progress page shows Coach Comparison section at top', async ({ page }) => {
+    await page.goto(`${BASE_URL}/progress`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
-    // Wait for journey page to load
+    // Wait for progress page to load
     await expect(page.getByText('Your Chess Journey')).toBeVisible({ timeout: 15000 });
     
     // Screenshot to verify layout
-    await page.screenshot({ path: '.screenshots/journey-coach-narrative.jpeg', quality: 20 });
+    await page.screenshot({ path: '.screenshots/progress-coach-narrative.jpeg', quality: 20 });
     
     // The CoachingComparison component should show either:
     // 1. "Getting to Know Your Game" if no baseline yet
@@ -380,8 +380,8 @@ test.describe('Coach Narrative Rail on Journey Page', () => {
     expect(hasCoachNarrative).toBe(true);
   });
 
-  test('Journey page Before/After Coach tabs work when baseline exists', async ({ page }) => {
-    await page.goto(`${BASE_URL}/journey`, { waitUntil: 'domcontentloaded' });
+  test('Progress page Before/After Coach tabs work when baseline exists', async ({ page }) => {
+    await page.goto(`${BASE_URL}/progress`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
     await expect(page.getByText('Your Chess Journey')).toBeVisible({ timeout: 15000 });
@@ -403,7 +403,7 @@ test.describe('Coach Narrative Rail on Journey Page', () => {
     // Should show baseline stats (Accuracy, Blunders/Game, Win Rate, Mistakes/Game)
     await expect(page.getByText('Accuracy')).toBeVisible();
     
-    await page.screenshot({ path: '.screenshots/journey-before-coach-tab.jpeg', quality: 20 });
+    await page.screenshot({ path: '.screenshots/progress-before-coach-tab.jpeg', quality: 20 });
     
     // Click After Coach tab
     const afterCoachTab = page.getByText('After Coach');
@@ -413,7 +413,7 @@ test.describe('Coach Narrative Rail on Journey Page', () => {
     // Should still show stats
     await expect(page.getByText('Accuracy')).toBeVisible();
     
-    await page.screenshot({ path: '.screenshots/journey-after-coach-tab.jpeg', quality: 20 });
+    await page.screenshot({ path: '.screenshots/progress-after-coach-tab.jpeg', quality: 20 });
     
     // Click Your Growth tab
     const yourGrowthTab = page.getByText('Your Growth');
@@ -431,11 +431,11 @@ test.describe('Coach Narrative Rail on Journey Page', () => {
     // At least one should be visible
     expect(hasImproving || hasFocus).toBe(true);
     
-    await page.screenshot({ path: '.screenshots/journey-your-growth-tab.jpeg', quality: 20 });
+    await page.screenshot({ path: '.screenshots/progress-your-growth-tab.jpeg', quality: 20 });
   });
 
-  test('Journey page shows progress bar when building baseline', async ({ page }) => {
-    await page.goto(`${BASE_URL}/journey`, { waitUntil: 'domcontentloaded' });
+  test('Progress page shows progress bar when building baseline', async ({ page }) => {
+    await page.goto(`${BASE_URL}/progress`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
     await expect(page.getByText('Your Chess Journey')).toBeVisible({ timeout: 15000 });
@@ -457,6 +457,6 @@ test.describe('Coach Narrative Rail on Journey Page', () => {
     const progressBar = page.locator('[role="progressbar"], .h-2');
     await expect(progressBar.first()).toBeVisible();
     
-    await page.screenshot({ path: '.screenshots/journey-baseline-progress.jpeg', quality: 20 });
+    await page.screenshot({ path: '.screenshots/progress-baseline-building.jpeg', quality: 20 });
   });
 });
