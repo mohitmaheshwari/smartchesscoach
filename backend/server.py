@@ -2839,6 +2839,11 @@ async def get_reflection_profile(user: User = Depends(get_current_user)):
     """
     Get user's adaptive reflection profile.
     Frontend uses this to configure UX - no hardcoded values in React.
+    
+    Now includes rating-aware reflection style:
+    - SIMPLE_TAP (400-999): Basic checkbox options
+    - PLAN_TEXT (1000-1299): Type your plan
+    - PLAN_BOARD (1300+): Show plan on board + explain
     """
     # Get user's rating
     user_doc = await db.users.find_one({"user_id": user.user_id})
@@ -2846,6 +2851,35 @@ async def get_reflection_profile(user: User = Depends(get_current_user)):
     
     profile = await get_adaptive_profile(user.user_id, rating, db)
     profile["rule_version"] = REFLECT_RULES_VERSION
+    
+    # Add rating-aware reflection style
+    rating_band = get_rating_band(rating)
+    reflection_style = get_reflection_style(rating)
+    
+    profile["reflection_style"] = reflection_style.value
+    profile["rating_band"] = rating_band.value
+    profile["rating"] = rating
+    
+    # Get rating-appropriate intent options
+    intent_list = INTENT_BY_RATING.get(rating_band, INTENT_BY_RATING[get_rating_band(1200)])
+    profile["intent_options"] = [
+        {"value": i.value, "label": INTENT_LABELS.get(i, i.value)}
+        for i in intent_list
+    ]
+    
+    # Add plan-based questions for 1000+ players
+    if rating >= 1000:
+        profile["plan_questions"] = [
+            "What was your plan in this position?",
+            "What did you think your opponent would do?",
+            "What candidate moves did you consider?",
+        ]
+        profile["show_plan_input"] = True
+        profile["allow_board_moves"] = rating >= 1300  # Board input for 1300+
+    else:
+        profile["plan_questions"] = []
+        profile["show_plan_input"] = False
+        profile["allow_board_moves"] = False
     
     return profile
 
