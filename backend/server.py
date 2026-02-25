@@ -239,6 +239,13 @@ from move_intent_service import (
     get_move_intent_summary,
 )
 
+# === COGNITIVE GAP SERVICE (Precise diagnosis) ===
+from cognitive_gap_service import (
+    analyze_cognitive_gap,
+    get_coaching_message,
+    CognitiveGap,
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
