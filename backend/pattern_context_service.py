@@ -1,54 +1,148 @@
 """
-Pattern Context Service - Longitudinal Pattern Tracking
+SMART Pattern Context Service - Specific, Contextual Insights
 
-Provides insights like:
-- "You made this same mistake in 3 other games"
-- "You did this against opponent X too"
-- "You FIXED this! Compare to your game vs Y"
-- "This pattern is recurring - let's drill it"
+Provides SPECIFIC insights mapped to:
+- Player rating context (vs higher/lower rated, rating trends)
+- Opening context (which openings trigger this mistake)
+- Time control context (blitz vs rapid patterns)
+- Win/loss correlation (when does this hurt most?)
+- Phase context (opening/middlegame/endgame)
 
-The golden information that makes coaching real.
+NO VAGUE LABELS like "positional" - everything is concrete and actionable.
 """
 
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 from collections import Counter, defaultdict
+import re
+
+
+# ============ SPECIFIC PATTERN DETECTION ============
+
+def get_specific_mistake_type(move_eval: Dict) -> Dict:
+    """
+    Detect SPECIFIC mistake type from move evaluation.
+    Returns a structured pattern with actionable details.
+    """
+    move = move_eval.get("move", "")
+    best_move = move_eval.get("best_move", "")
+    threat = move_eval.get("threat", "")
+    cp_loss = abs(move_eval.get("cp_loss", 0))
+    phase = move_eval.get("phase", "middlegame")
+    eval_before = move_eval.get("eval_before", 0)
+    eval_after = move_eval.get("eval_after", 0)
+    
+    # Check for specific tactical patterns
+    pattern = {
+        "type": "general_mistake",
+        "specific_label": "Inaccurate move",
+        "piece_involved": None,
+        "tactical_theme": None,
+        "severity": "medium" if cp_loss < 200 else "high" if cp_loss < 400 else "critical",
+    }
+    
+    # Detect piece involved from move notation
+    if move:
+        move_upper = move.upper()
+        if move_upper.startswith('K') and not move_upper.startswith('KN'):
+            pattern["piece_involved"] = "king"
+        elif move_upper.startswith('Q'):
+            pattern["piece_involved"] = "queen"
+        elif move_upper.startswith('R'):
+            pattern["piece_involved"] = "rook"
+        elif move_upper.startswith('B'):
+            pattern["piece_involved"] = "bishop"
+        elif move_upper.startswith('N'):
+            pattern["piece_involved"] = "knight"
+        elif move[0].islower() or 'x' in move.lower()[:2]:
+            pattern["piece_involved"] = "pawn"
+    
+    # Detect tactical themes from threat
+    threat_lower = (threat or "").lower()
+    
+    if "mate" in threat_lower or "checkmate" in threat_lower:
+        pattern["type"] = "missed_checkmate_threat"
+        pattern["specific_label"] = "Missed checkmate threat"
+        pattern["tactical_theme"] = "checkmate"
+    elif "fork" in threat_lower:
+        pattern["type"] = "allowed_fork"
+        pattern["specific_label"] = "Allowed a fork"
+        pattern["tactical_theme"] = "fork"
+    elif "pin" in threat_lower:
+        pattern["type"] = "allowed_pin"
+        pattern["specific_label"] = "Allowed a pin"
+        pattern["tactical_theme"] = "pin"
+    elif "skewer" in threat_lower:
+        pattern["type"] = "allowed_skewer"
+        pattern["specific_label"] = "Allowed a skewer"
+        pattern["tactical_theme"] = "skewer"
+    elif any(x in threat_lower for x in ["hanging", "undefended", "loose"]):
+        pattern["type"] = "left_piece_hanging"
+        pattern["specific_label"] = f"Left {pattern['piece_involved'] or 'piece'} hanging"
+        pattern["tactical_theme"] = "hanging_piece"
+    elif any(x in threat_lower for x in ["back rank", "backrank"]):
+        pattern["type"] = "back_rank_weakness"
+        pattern["specific_label"] = "Back rank weakness"
+        pattern["tactical_theme"] = "back_rank"
+    elif any(x in threat_lower for x in ["discovery", "discovered"]):
+        pattern["type"] = "allowed_discovered_attack"
+        pattern["specific_label"] = "Allowed discovered attack"
+        pattern["tactical_theme"] = "discovered_attack"
+    elif "x" in move.lower() and cp_loss > 150:
+        # Bad capture
+        pattern["type"] = "bad_exchange"
+        pattern["specific_label"] = "Lost material in exchange"
+        pattern["tactical_theme"] = "exchange"
+    elif phase == "opening" and cp_loss > 100:
+        pattern["type"] = "opening_mistake"
+        pattern["specific_label"] = "Opening inaccuracy"
+        pattern["tactical_theme"] = "opening"
+    elif phase == "endgame":
+        pattern["type"] = "endgame_mistake"
+        pattern["specific_label"] = "Endgame technique error"
+        pattern["tactical_theme"] = "endgame"
+    
+    # Position context: Was user winning, equal, or losing?
+    if eval_before > 150:
+        pattern["position_context"] = "winning"
+    elif eval_before < -150:
+        pattern["position_context"] = "losing"
+    else:
+        pattern["position_context"] = "equal"
+    
+    return pattern
 
 
 def get_threat_category(threat: str) -> str:
-    """Categorize threats into broader pattern types."""
+    """Categorize threats into specific pattern types - LEGACY for compatibility."""
     if not threat:
         return "general"
     
     threat_lower = threat.lower()
     
-    # Knight threats
-    if any(x in threat_lower for x in ['knight', 'nxe', 'nxd', 'nxf', 'nxc', 'nxg', 'nxb']):
+    # More specific categorizations
+    if "mate" in threat_lower:
+        return "checkmate_threats"
+    if "fork" in threat_lower:
+        return "fork_vulnerability"
+    if "pin" in threat_lower:
+        return "pin_vulnerability"  
+    if "hanging" in threat_lower or "undefended" in threat_lower:
+        return "hanging_pieces"
+    if "back rank" in threat_lower:
+        return "back_rank_weakness"
+    if any(x in threat_lower for x in ['knight', 'nxe', 'nxd', 'nxf']):
         return "knight_tactics"
-    
-    # Bishop threats
-    if any(x in threat_lower for x in ['bishop', 'bxe', 'bxd', 'bxf', 'bxc', 'bxg', 'bxb', 'diagonal']):
+    if any(x in threat_lower for x in ['bishop', 'bxe', 'diagonal']):
         return "bishop_tactics"
-    
-    # Rook threats
-    if any(x in threat_lower for x in ['rook', 'rxe', 'rxd', 'rxf', 'rxc', 'rxg', 'rxb', 'file', 'rank']):
+    if any(x in threat_lower for x in ['rook', 'file', 'rank']):
         return "rook_tactics"
-    
-    # Queen threats
-    if any(x in threat_lower for x in ['queen', 'qxe', 'qxd', 'qxf', 'qxc', 'qxg', 'qxb']):
+    if any(x in threat_lower for x in ['queen']):
         return "queen_tactics"
-    
-    # Pawn threats
-    if any(x in threat_lower for x in ['pawn', 'push', 'advance', 'passed']):
+    if any(x in threat_lower for x in ['pawn', 'push']):
         return "pawn_play"
-    
-    # King safety
-    if any(x in threat_lower for x in ['check', 'king', 'castle', 'mate', 'attack']):
+    if any(x in threat_lower for x in ['check', 'king', 'castle']):
         return "king_safety"
-    
-    # Material
-    if any(x in threat_lower for x in ['win', 'capture', 'take', 'fork', 'pin', 'skewer']):
-        return "material_tactics"
     
     return "positional"
 
