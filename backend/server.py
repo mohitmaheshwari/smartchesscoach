@@ -8770,18 +8770,22 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
         {"_id": 0}
     ).to_list(100)
     
+    # Include more fields for rich pattern context
     all_games = await db.games.find(
         {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, "opponent_name": 1, "result": 1, "imported_at": 1}
+        {"_id": 0, "game_id": 1, "user_color": 1, "white_player": 1, "black_player": 1, 
+         "opponent_name": 1, "result": 1, "imported_at": 1,
+         "white_rating": 1, "black_rating": 1, "time_control": 1, 
+         "opening": 1, "opening_name": 1, "eco": 1}
     ).to_list(100)
     
     # Add similar games (Behavior Memory)
     similar_games = find_similar_pattern_games(analysis, all_analyses, all_games)
     lab_data["similar_games"] = similar_games
     
-    # Add pattern context (longitudinal tracking) - THE GOLDEN INFORMATION
+    # Add pattern context (longitudinal tracking) - THE GOLDEN INFORMATION with SPECIFIC insights
     pattern_history = build_pattern_history(user.user_id, all_analyses, all_games)
-    game_pattern_summary = get_game_pattern_summary(analysis, pattern_history, all_games)
+    game_pattern_summary = get_game_pattern_summary(analysis, pattern_history, all_games, game)
     
     lab_data["pattern_context"] = {
         "summary": game_pattern_summary,
@@ -8789,6 +8793,12 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
             "most_recurring": pattern_history.get("most_recurring"),
             "improving_patterns": pattern_history.get("improving_patterns", []),
             "fixed_patterns": pattern_history.get("fixed_patterns", []),
+        },
+        # NEW: Global vulnerability insights
+        "global_insights": {
+            "rating_vulnerable": pattern_history.get("rating_vulnerable"),
+            "time_vulnerable": pattern_history.get("time_vulnerable"),
+            "opening_triggers": pattern_history.get("opening_triggers", []),
         }
     }
     
