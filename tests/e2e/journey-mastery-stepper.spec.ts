@@ -267,13 +267,14 @@ test.describe('Focus Mastery Section on Progress Page (JourneyV2)', () => {
       return;
     }
     
-    // Mastery levels are shown as badges
-    // Valid levels: Master, Proficient, Competent, Developing, Learning (novice shows as "Learning")
-    const validLevels = ['Master', 'Proficient', 'Competent', 'Developing', 'Learning'];
+    // Mastery levels are shown as badges (lowercase in the code)
+    // Valid levels: master, proficient, competent, developing, learning
+    const validLevels = ['master', 'proficient', 'competent', 'developing', 'Learning'];
     
     let foundLevel = false;
     for (const level of validLevels) {
-      const levelBadge = focusMasterySection.getByText(level);
+      // Use regex to match case-insensitively
+      const levelBadge = focusMasterySection.getByText(new RegExp(level, 'i'));
       const isLevelVisible = await levelBadge.isVisible().catch(() => false);
       if (isLevelVisible) {
         foundLevel = true;
