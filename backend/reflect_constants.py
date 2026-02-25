@@ -12,8 +12,49 @@ from typing import List, Dict
 # ============================================
 # VERSION TRACKING
 # ============================================
-REFLECT_RULES_VERSION = "v1"
+REFLECT_RULES_VERSION = "v1.1"  # Updated for rating-aware reflection
 MISTAKE_CATEGORY_VERSION = "v1"
+
+# ============================================
+# RATING BANDS (for adaptive behavior) - DEFINED FIRST
+# ============================================
+class RatingBand(str, Enum):
+    BAND_A = "A"  # 500-799
+    BAND_B = "B"  # 800-1099
+    BAND_C = "C"  # 1100-1399
+    BAND_D = "D"  # 1400-1699
+    BAND_E = "E"  # 1700-2000+
+
+RATING_BAND_RANGES = {
+    RatingBand.BAND_A: (0, 799),
+    RatingBand.BAND_B: (800, 1099),
+    RatingBand.BAND_C: (1100, 1399),
+    RatingBand.BAND_D: (1400, 1699),
+    RatingBand.BAND_E: (1700, 3000),
+}
+
+def get_rating_band(rating: int) -> RatingBand:
+    """Get rating band from numeric rating."""
+    for band, (low, high) in RATING_BAND_RANGES.items():
+        if low <= rating <= high:
+            return band
+    return RatingBand.BAND_C  # Default to middle
+
+# ============================================
+# REFLECTION STYLE BY RATING
+# ============================================
+class ReflectionStyle(str, Enum):
+    SIMPLE_TAP = "simple_tap"  # 400-999: Just tap options
+    PLAN_TEXT = "plan_text"  # 1000-1299: Type your plan  
+    PLAN_BOARD = "plan_board"  # 1300+: Show plan on board + explain
+
+def get_reflection_style(rating: int) -> ReflectionStyle:
+    """Get appropriate reflection style based on rating."""
+    if rating < 1000:
+        return ReflectionStyle.SIMPLE_TAP
+    elif rating < 1300:
+        return ReflectionStyle.PLAN_TEXT
+    return ReflectionStyle.PLAN_BOARD
 
 # ============================================
 # INTENT OPTIONS (ordered for UI)
@@ -110,14 +151,6 @@ INTENT_BY_RATING = {
         Intent.NOT_SURE,
     ],
 }
-
-# ============================================
-# REFLECTION MODE BY RATING
-# ============================================
-class ReflectionStyle(str, Enum):
-    SIMPLE_TAP = "simple_tap"  # 400-999: Just tap options
-    PLAN_TEXT = "plan_text"  # 1000-1299: Type your plan
-    PLAN_BOARD = "plan_board"  # 1300+: Show plan on board + explain
 
 # ============================================
 # CONFIDENCE OPTIONS
