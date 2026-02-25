@@ -13,7 +13,57 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ---
 
-## Latest Updates (Feb 23, 2026)
+## Latest Updates (Feb 25, 2026)
+
+### Pattern Intelligence - Specific Contextual Insights ✅ COMPLETE (Feb 25, 2026)
+
+**Problem:** Original pattern context used vague labels like "positional" or "knight_tactics" - not actionable.
+
+**User Request:** "Pattern context should not be vague like positional, that's too vague. It should be mapped to player style, player rating, and player history."
+
+**Solution:** Completely rewrote `pattern_context_service.py` to provide SPECIFIC, actionable insights:
+
+1. **Rating Context:**
+   - Tracks if mistakes happen more vs higher-rated or lower-rated opponents
+   - Calculates rating delta distribution
+   - Example insight: "This happens more against lower-rated opponents (60%) - possible overconfidence"
+
+2. **Opening Context:**
+   - Maps mistakes to specific opening names (not generic ECO codes)
+   - Tracks most common openings where mistakes occur
+   - Example insight: "Most common in Italian Game (3 times)"
+
+3. **Time Control Context:**
+   - Categorizes time controls into bullet/blitz/rapid/classical
+   - Shows which time format has most issues
+   - Example insight: "Happens mostly in blitz games (5 of 8)"
+
+4. **Position Context:**
+   - Tracks if mistakes happen when winning/equal/losing
+   - Example insight: "You make this mistake mostly when winning (70%) - possible overconfidence"
+
+5. **Outcome Impact:**
+   - Tracks correlation between mistake type and game result
+   - Example insight: "This mistake led to a loss 80% of the time - high cost pattern"
+
+**Frontend Updates:**
+- Added "Pattern Intelligence" card to Lab.jsx Summary tab
+- Shows recurring patterns with specific insights (opening, time, rating context)
+- Shows "Fix" recommendations for each pattern
+- Added "Vulnerability Profile" badges showing time_vulnerable and opening_triggers
+
+**API Endpoints:**
+- `GET /api/lab/{game_id}` - Returns pattern_context with summary, history, and global_insights
+- `GET /api/lab/{game_id}/mistake/{move_number}/context` - Returns specific_insights and action_recommendation
+
+**Files Modified:**
+- `/app/backend/pattern_context_service.py` - Complete rewrite with specific insights
+- `/app/backend/server.py` - Enhanced queries to include ratings, time_control, opening fields
+- `/app/frontend/src/pages/Lab.jsx` - Added Pattern Intelligence card
+
+**Test Report:** `/app/test_reports/iteration_75.json` - 100% pass (25/25 tests)
+
+---
 
 ### Account Linking Security Fix ✅ COMPLETE (Feb 23, 2026)
 
