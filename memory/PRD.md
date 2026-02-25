@@ -15,6 +15,53 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 25, 2026)
 
+### Cognitive Gap Analysis ✅ COMPLETE (Feb 25, 2026)
+
+**Problem:** The reflection flow was too generic. Users wanted to understand *why* their mistake was wrong, not just *what* the better move was.
+
+**User Request:** "I need accurate, rating-aware reflections that explain WHY a mistake was made. Ask for my plan, compare it to the engine's best move, and identify the specific cognitive gap."
+
+**Solution:** Implemented a comprehensive Cognitive Gap Analysis system:
+
+**1. Backend Service (`cognitive_gap_service.py`):**
+- Analyzes the tactical and positional difference between user's move and engine's best move
+- Identifies 18 cognitive gap types:
+  - Calculation errors: `calculation_depth`, `calculation_error`
+  - Awareness errors: `threat_blindness`, `hanging_piece_blindness`, `check_blindness`
+  - Tactical errors: `missed_fork`, `missed_pin`, `missed_skewer`, `missed_discovered_attack`, `back_rank_blindness`
+  - Positional errors: `positional_misread`, `wrong_plan`, `premature_action`
+  - Defensive errors: `defensive_lapse`, `king_safety_neglect`
+  - Psychological errors: `overconfidence`, `desperation`
+  - Time-related: `time_pressure`, `rushed_move`
+  - Pattern recognition: `pattern_unfamiliarity`
+- Returns: `primary_gap`, `confidence`, `evidence`, `explanation`, `coaching_focus`
+
+**2. API Endpoint:**
+- `POST /api/games/{game_id}/move/{move_number}/analyze-gap`
+- Accepts: `user_stated_plan`, `user_hypothesis_category`, `user_confidence`
+- Returns: Gap analysis with coaching message and time context
+
+**3. Frontend Integration (`Reflect.jsx`):**
+- Calls cognitive gap API during reflection submission
+- Displays results in "Why this was a mistake" card:
+  - **Explanation**: Human-readable reason for the mistake
+  - **Evidence**: Concrete proof from the position
+  - **Gap Type Badge**: e.g., "Calculation Depth"
+  - **YOUR FOCUS**: Actionable coaching advice
+- Animated transition from reflection steps to gap analysis display
+
+**Files Modified:**
+- `/app/backend/cognitive_gap_service.py` - Core analysis logic
+- `/app/backend/server.py` - API endpoint (lines 3230-3335)
+- `/app/frontend/src/pages/Reflect.jsx` - Frontend integration
+
+**Test Report:** `/app/test_reports/iteration_77.json`
+- Backend: 100% (16/16 tests)
+- Frontend: 100% (3/3 tests)
+- Regression: 19 passed, 0 failed
+
+---
+
 ### Three Features Implementation ✅ COMPLETE (Feb 25, 2026)
 
 **1. Mission Stepper UI (P1)**
