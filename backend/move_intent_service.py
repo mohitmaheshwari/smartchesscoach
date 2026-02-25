@@ -441,12 +441,47 @@ def analyze_move_intent(
     # Return top 5 most confident hypotheses
     result = []
     for h in unique_hypotheses[:5]:
+        # Clean up the description for question format
+        desc_lower = h.description.lower()
+        
+        # Fix common grammar issues
+        if desc_lower.startswith("giving "):
+            question = f"Were you trying to give {desc_lower[7:]}?"
+        elif desc_lower.startswith("capturing "):
+            question = f"Were you trying to capture {desc_lower[10:]}?"
+        elif desc_lower.startswith("attacking "):
+            question = f"Were you trying to attack {desc_lower[10:]}?"
+        elif desc_lower.startswith("defending "):
+            question = f"Were you trying to defend {desc_lower[10:]}?"
+        elif desc_lower.startswith("controlling "):
+            question = f"Were you trying to control {desc_lower[12:]}?"
+        elif desc_lower.startswith("developing "):
+            question = f"Were you trying to develop {desc_lower[11:]}?"
+        elif desc_lower.startswith("placing "):
+            question = f"Were you trying to place {desc_lower[8:]}?"
+        elif desc_lower.startswith("moving "):
+            question = f"Were you trying to move {desc_lower[7:]}?"
+        elif desc_lower.startswith("trading "):
+            question = f"Were you trying to trade {desc_lower[8:]}?"
+        elif desc_lower.startswith("fianchettoing "):
+            question = "Were you trying to fianchetto your bishop?"
+        elif desc_lower.startswith("lifting "):
+            question = f"Were you trying to lift {desc_lower[8:]}?"
+        elif desc_lower.startswith("castling "):
+            question = f"Were you trying to castle {desc_lower[9:]}?"
+        elif desc_lower.startswith("advancing "):
+            question = f"Were you trying to advance {desc_lower[10:]}?"
+        elif desc_lower.startswith("occupying "):
+            question = f"Were you trying to occupy {desc_lower[10:]}?"
+        else:
+            question = f"Were you trying to {desc_lower}?"
+        
         result.append({
             "category": h.category.value,
             "confidence": round(h.confidence, 2),
             "description": h.description,
             "evidence": h.evidence,
-            "question": f"Were you trying to {h.description.lower()}?",
+            "question": question,
         })
     
     return result
