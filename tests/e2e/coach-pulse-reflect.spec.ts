@@ -493,34 +493,33 @@ test.describe('Cognitive Gap Analysis Feature', () => {
       return;
     }
     
-    // Go through flow quickly
-    await expect(page.getByRole('heading', { name: /What were you trying to do|What was your plan/i })).toBeVisible({ timeout: 15000 });
+    // Go through flow - Step 0
+    await expect(page.getByText(/What was your plan here/i)).toBeVisible({ timeout: 15000 });
     
-    // Click first available intent option
-    const intentButtons = page.locator('button').filter({ hasText: /Defend|Attack|Not sure/i });
-    if (await intentButtons.first().isVisible({ timeout: 2000 }).catch(() => false)) {
-      await intentButtons.first().click();
-    }
-    
-    // Select confidence
-    await expect(page.getByRole('heading', { name: /How confident were you|How sure were you/i })).toBeVisible({ timeout: 10000 });
-    const guessChip = page.locator('button').filter({ hasText: /Guessing|fast move/i });
-    if (await guessChip.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await guessChip.click();
+    const hypothesisBtn = page.locator('button').filter({ hasText: /Were you trying to/ });
+    if (await hypothesisBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await hypothesisBtn.click();
+      await page.locator('button').filter({ hasText: 'Continue' }).click();
     } else {
-      await page.locator('button').filter({ hasText: 'Somewhat sure' }).click();
+      await page.locator('button').filter({ hasText: /Defend|Not sure/i }).first().click();
     }
     
-    // Submit
-    await expect(page.getByRole('heading', { name: /What else|What fits/i })).toBeVisible({ timeout: 10000 });
+    // Step 1: Select confidence
+    await expect(page.getByText(/How confident were you/i)).toBeVisible({ timeout: 10000 });
+    await page.locator('button').filter({ hasText: /Guessing.*fast|Somewhat sure/i }).first().click();
+    
+    // Step 2: Submit
+    await expect(page.getByText(/What else was in your thinking/i)).toBeVisible({ timeout: 10000 });
     const submitBtn = page.getByTestId('submit-reflection-btn');
     await expect(submitBtn).toBeVisible();
     await submitBtn.click();
     
     // Check for cognitive gap explanation content
-    // Should show either "Why this was a mistake" (new UI) or awareness insight (fallback)
-    const gapExplanation = page.locator('text=/Why this was a mistake|The best move was|You.*missed|Evaluation dropped/i');
-    await expect(gapExplanation.first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/Why this was a mistake/i)).toBeVisible({ timeout: 30000 });
+    
+    // Should show explanation text explaining WHY the move was a mistake
+    const explanationText = page.locator('text=/You.*identified|The best move was|Calculate.*deeper|missed/i');
+    await expect(explanationText.first()).toBeVisible({ timeout: 5000 });
     
     await page.screenshot({ path: '.screenshots/cognitive-gap-explanation.jpeg', quality: 20 });
   });
