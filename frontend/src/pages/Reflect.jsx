@@ -138,6 +138,26 @@ const Reflect = ({ user }) => {
     }
   };
   
+  // Fetch time context for the current move
+  const fetchTimeContext = async (gameId, moveNumber) => {
+    if (!gameId || !moveNumber) return;
+    setLoadingTimeContext(true);
+    
+    try {
+      const res = await fetch(`${API}/games/${gameId}/move/${moveNumber}/time-context`, {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTimeContext(data);
+      }
+    } catch (err) {
+      console.error("Error fetching time context:", err);
+    } finally {
+      setLoadingTimeContext(false);
+    }
+  };
+  
   // V1 Engine: Submit reflection
   const submitReflectionV1 = async () => {
     if (!selectedIntent || !selectedConfidence) {
