@@ -733,7 +733,7 @@ async def analyze_plan_quality(db, user_id: str) -> Dict:
     """
     # Get all reflections with plans
     reflections = await db.cognitive_gap_history.find(
-        {"user_id": user_id, "user_plan": {"$exists": True, "$ne": None, "$ne": ""}},
+        {"user_id": user_id, "user_plan": {"$exists": True, "$nin": [None, ""]}},
         {"_id": 0, "user_plan": 1, "gap_type": 1, "created_at": 1, "user_confidence": 1}
     ).sort("created_at", -1).limit(100).to_list(100)
     
