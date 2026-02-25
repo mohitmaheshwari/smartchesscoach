@@ -286,14 +286,10 @@ def get_user_focus_mastery(
             "king_safety_awareness",
         ]
     
-    patterns_data = {}
-    scores = []
-    
-    for pattern_key in FOCUS_PATTERNS.keys():
-        mastery = calculate_pattern_mastery(pattern_key, game_analyses)
-        if mastery:
-            patterns_data[pattern_key] = mastery
-            scores.append(mastery["mastery_score"])
+    # OPTIMIZED: Single-pass through all games to collect pattern data
+    # Instead of O(patterns * games), we now do O(games)
+    patterns_data = calculate_all_pattern_mastery(game_analyses)
+    scores = [p["mastery_score"] for p in patterns_data.values()]
     
     # Calculate overall mastery
     overall_mastery = sum(scores) / len(scores) if scores else 50.0
