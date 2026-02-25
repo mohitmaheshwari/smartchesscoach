@@ -189,6 +189,35 @@ const Reflect = ({ user }) => {
     }
   };
   
+  // Fetch cognitive gap analysis - the core "why did I make this mistake?" answer
+  const fetchCognitiveGapAnalysis = async (gameId, moveNumber, userPlan, userConfidence) => {
+    if (!gameId || !moveNumber) return null;
+    setLoadingCognitiveGap(true);
+    
+    try {
+      const res = await fetch(`${API}/games/${gameId}/move/${moveNumber}/analyze-gap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          user_stated_plan: userPlan || null,
+          user_hypothesis_category: selectedIntent || null,
+          user_confidence: userConfidence || null,
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCognitiveGapAnalysis(data);
+        return data;
+      }
+    } catch (err) {
+      console.error("Error fetching cognitive gap analysis:", err);
+    } finally {
+      setLoadingCognitiveGap(false);
+    }
+    return null;
+  };
+  
   // V1 Engine: Submit reflection
   const submitReflectionV1 = async () => {
     if (!selectedIntent || !selectedConfidence) {
