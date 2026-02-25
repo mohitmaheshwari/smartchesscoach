@@ -1318,7 +1318,7 @@ const Reflect = ({ user }) => {
                         <div className="flex items-start gap-2">
                           <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                           <p className="text-xs text-muted-foreground">
-                            {reflectStep === 0 && "Pick your main intention before the move."}
+                            {reflectStep === 0 && "Select what matches your thinking, or explain in your own words."}
                             {reflectStep === 1 && "How confident were you? Honest answers help training."}
                             {reflectStep === 2 && "Select tags that match your thinking. This takes under 20 seconds."}
                           </p>
