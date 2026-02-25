@@ -129,6 +129,16 @@ async def init_database():
     await db.reflection_results.create_index("game_id")
     print("  ✓ reflection_results indexes")
     
+    # Cognitive Gap Intelligence indexes
+    await db.cognitive_gap_history.create_index("user_id")
+    await db.cognitive_gap_history.create_index([("user_id", 1), ("gap_type", 1)])
+    await db.cognitive_gap_history.create_index([("user_id", 1), ("created_at", -1)])
+    await db.cognitive_gap_history.create_index("created_at")
+    print("  ✓ cognitive_gap_history indexes")
+    
+    await db.cognitive_gap_aggregates.create_index("user_id", unique=True)
+    print("  ✓ cognitive_gap_aggregates indexes")
+    
     # Embedding collections indexes (for RAG)
     await db.game_embeddings.create_index("embedding_id", unique=True)
     await db.game_embeddings.create_index("user_id")
