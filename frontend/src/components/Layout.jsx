@@ -235,6 +235,25 @@ const Layout = ({ children, user }) => {
 
             {/* Right side */}
             <div className="flex items-center gap-1">
+              {/* Coach Pulse - Shows when action needed */}
+              {coachPulse && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCoachPulseClick}
+                  className="relative gap-2 text-primary hover:text-primary hover:bg-primary/10"
+                  data-testid="coach-pulse"
+                >
+                  <div className="relative">
+                    <Brain className="w-4 h-4" />
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full animate-pulse" />
+                  </div>
+                  <span className="hidden sm:inline text-sm">
+                    {coachPulse.type === "loss" ? "Fix Loss" : "Reflect"}
+                  </span>
+                </Button>
+              )}
+              
               {/* Notifications Bell */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
