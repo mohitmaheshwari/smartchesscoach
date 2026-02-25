@@ -371,7 +371,7 @@ def determine_immediate_focus(games: List[Dict], gaps: List[Dict], phase_errors:
     return {
         "key": focus_key,
         "text": FOCUS_RECOMMENDATIONS.get(focus_key, FOCUS_RECOMMENDATIONS["default"]),
-        "reason": f"Based on your most common error pattern.",
+        "reason": "Based on your most common error pattern.",
     }
 
 
