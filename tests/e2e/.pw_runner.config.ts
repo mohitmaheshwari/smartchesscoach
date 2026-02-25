@@ -11,7 +11,7 @@ export default defineConfig({
     ['json', { outputFile: '/root/.emergent/automation_output/20260225_072234/results.json' }],
   ],
   use: {
-    baseURL: 'https://loss-recovery.preview.emergentagent.com',
+    baseURL: 'https://chess-cognition-1.preview.emergentagent.com',
     screenshot: 'only-on-failure',
     trace: 'off',
     headless: true,

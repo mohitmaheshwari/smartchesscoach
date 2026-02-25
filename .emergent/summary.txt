@@ -1,68 +1,75 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to build an adaptive chess coaching application with a Journey page that provides actionable feedback in a plain Indian-English tone. This evolved into a detailed Master Spec for a complete redesign of the Journey page into a three-tab (Now, Journey, Trend) interface. The new design required deterministic backend engines for statistical interpretation and coach voice generation, reusing existing logic to avoid code duplication, and providing deep-links to the Lab page for evidence.
+The user's initial goal was to build an adaptive chess coaching application. This has evolved into a highly specific, multi-part LLM-generated specification to implement a **deterministic Dopamine Engine** and a **Recovery-first UX paradigm**.
 
-After completing the Journey page rewrite, the user requested an additional feature: to display arrows on the chessboard in both the Training and Lab pages to visually indicate the move that was played, making it more readable and consistent.
+The core product vision is now From loss to learning in under 90 seconds. This is to be achieved by replacing the standard dashboard with an action-oriented **Coach Home**, introducing a signature **Post-Loss Recovery** screen, and ensuring all reflection and training flows are mission-driven and low-friction. The visual identity is specified as a Premium training room with a dark-first, modern, and focused aesthetic.
 
-PRODUCT REQUIREMENTS are detailed in .
+The most recent and critical user requests focused on radically improving the game reflection process. The user wants to move away from generic, checkbox style reflections to a highly accurate, contextual, and rating-aware system that understands a player's thought process. This involves asking for the player's plan (via text or on-board moves), comparing it to the engine's best move, and then identifying the specific cognitive gap that caused the mistake.
 
-**User's preferred language**: English, with a specific request for the application's tone to be in **plain, simple, and direct Indian-English.**
+PRODUCT REQUIREMENTS:
+- A new Coach Home page.
+- A simplified, focused navigation structure.
+- A dedicated Post-Loss Recovery screen.
+- A chip-based Reflect UI that feels like a chat, not a form.
+- Mission Runner UI that displays real tactical positions from the user's own games.
+- A Coach Pulse indicator.
+- A Pattern Context feature showing recurring mistakes in the Lab page.
+- **A highly accurate, rating-aware Reflection Engine** that asks for a player's plan, uses time-per-move data, generates position-specific hypotheses, and performs a cognitive gap analysis to explain *why* a mistake was made.
+
+**User's preferred language**: English, with a request for the application's tone to be in **plain, simple, and direct Indian-English.**
 
 **what currently exists?**
 - A full-stack chess application (React/FastAPI/MongoDB).
-- A completely redesigned Journey page with three tabs (Now, Journey, Trend) that provides deterministic, rule-based cognitive feedback, adhering to a detailed Master Spec.
-- Backend services (, ) that power the Journey page by reusing existing logic for weakness detection and pattern analysis.
-- A deep-linking mechanism from the Journey page to the Lab page () which displays a From Journey banner for context.
-- An incomplete implementation for showing move arrows on the chessboards. Logic has been added to  and , but it is not fully verified or correctly implemented across all relevant user contexts.
+- Coach Home page, Post-Loss Recovery screen, and Mission Runner with real drills are implemented.
+- **Pattern Context v2:** The Lab (analysis) page now features a Pattern Intelligence card with specific, actionable insights about a player's recurring mistakes, mapped to openings, time controls, and opponent ratings.
+- **Code Optimization:** Critical performance issues have been addressed, including fixing an N+1 database query in the mastery service and preventing a race condition in the game sync status endpoint using an .
+- **Reflection Engine v2 (Major Overhaul):**
+    - **Rating-Aware UI:** For players 1000+, the UI now prompts for their plan using on-board move input and text, removing the generic attack/defend options.
+    - **Position-Specific Hypotheses:** A new service () analyzes the board state and generates intelligent, clickable hypotheses about the user's intent (e.g., Were you trying to defend the pawn?).
+    - **Time Context Analysis:** A service () parses clock data from PGNs to incorporate time pressure into the analysis.
+    - **Cognitive Gap Analysis (Backend):** A new service () and API endpoint have been created to analyze the tactical and positional difference between the user's move and the engine's best move.
 
 **Last working item**:
--   **Last item agent was working:** Implementing user's request to add arrows on the chessboards to visually indicate the you played move, enhancing readability on the Lab and Training pages. The agent added logic for  to  and attempted to modify the  component interactions in .
+-   **Last item agent was working:** Building the **Cognitive Gap Analysis** feature. The agent created the backend service () and API endpoint () to provide an accurate explanation of *why* a user's move was a mistake by comparing it to the engine's recommendation.
 -   **Status:** IN PROGRESS
--   **Agent Testing Done:** N
--   **Which testing method agent to use?** frontend testing agent (to verify UI components like chessboards) and manual screenshot testing.
+-   **Agent Testing Done:** Y (via  for the backend endpoint, which successfully returned gap analysis for test cases).
+-   **Which testing method agent to use?** Frontend testing agent to integrate the cognitive gap analysis into the  page and verify the complete, multi-step reflection flow.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Complete and Verify Move Arrow Implementation (P0)**
-    -   **Description:** The user wants arrows on the board to indicate the you played move on both the Training and Lab pages for better readability and consistency. The current implementation is incomplete and unverified.
-    -   **Attempted fixes:**
-        -   **Lab Page ():** Added a  state variable and updated the  function to calculate the arrow's  and  squares. The  prop was passed to the  component. This has not been visually verified.
-        -   **Training/Reflect Page (, ):** Modified the  function in  to draw an arrow. The agent observed an arrow on the  page (which seems to share UI components/logic with the milestone trainer) but was confused about the different training modes (puzzle vs. milestone). The implementation needs to be verified in the correct user context.
-    -   **Next debug checklist:**
-        1.  Verify the arrow implementation on the **Lab page ()**. Navigate to a game, step through moves, and ensure a prominent red arrow correctly shows the current move being analyzed.
-        2.  Investigate the difference between the puzzle trainer in  and the milestone trainer UI seen in .
-        3.  Ensure the arrow implementation in  and/or  works correctly within the You Played / Better Was context.
-        4.  Ensure arrow style (color, thickness) is consistent and clearly visible on all relevant pages.
-    -   **Why fix this issue and what will be achieved with the fix?** Fulfills a direct user request to improve UI/UX consistency and the clarity of game analysis features.
-    -   **Status:** IN PROGRESS
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Frontend
-    -   **Blocked on other issue:** No
+-   **Issue 1: Stuck Analysis Screen (P2):** An old, recurring issue where the Analyzing games screen can get stuck indefinitely. The root cause is suspected to be data schema inconsistencies. A workaround (timeout and skip button) is in place, but a permanent fix is needed.
 
 **In progress Task List**:
--   **Task 1: Complete and Verify Move Arrow Implementation (P0)**
-    -   **Where to resume:** Verifying the arrow on the  page and then debugging the arrow implementation for the milestone trainer, likely located in  or .
-    -   **What will be achieved with this?** The application will visually indicate played moves on chessboards, improving user experience as requested.
-    -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** Frontend
-    -   **Blocked on something:** No
+-   **Task 1: Integrate Cognitive Gap Analysis into Frontend (P0)**
+    -   **Where to resume:** The backend API () is complete and tested. The next step is to call this API from . After the user submits their plan or selects a hypothesis, the frontend should fetch the analysis and display the cognitive gap explanation.
+    -   **What will be achieved with this?** This will complete the user's core vision for an accurate, coaching-first reflection, delivering a powerful insight that explains the precise reason for a mistake.
+    -   **Status:** NOT STARTED
+    -   **Should Test frontend/backend/both after fix?** Both.
+    -   **Blocked on something:** None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **P0: Real User Testing & Validation Phase:** After the arrow feature is complete, pause new feature development to observe 3-5 users interacting with the system to validate if it genuinely changes their in-game thinking.
+    -   **P1: Focus Lock Mode:** When a mission starts, hide navigation and other UI clutter to create a focused training environment.
 -   **Future Tasks:**
-    -   **P1: Re-analyze existing games:** Implement a background job to re-calculate analysis for old games using the new cognitive classification logic.
-    -   **P2: Personal Leak Timeline:** A visual graph showing the trend of each cognitive category over time.
-    -   **P2: Weekly Focus Report:** An automated report to reinforce progress.
+    -   **P2:  Meter Refinement:** The meter is implemented, but the underlying pattern detection logic may need tuning to be more sensitive to user data, as it currently shows 100% mastery for many patterns.
+    -   **P2: Re-analyze existing games:** Implement a background job to apply the new, richer analysis (pattern context, time data, cognitive gaps) to all historical games in the user's database.
 
 **Completed work in this session**
--   **Journey Page Master Spec Implementation:** The Journey page was completely rewritten into a 3-tab interface (Now, Journey, Trend) based on a detailed user specification.
--   **Deterministic Backend Engines:** Created a  and  in  to deliver rule-based, non-LLM feedback in the desired Indian-English tone.
--   **Backend Logic Consolidation:** Refactored the Journey page backend to reuse existing weakness detection and pattern analysis logic from , preventing code duplication.
--   **Evidence Deep-Linking to Lab:** Implemented clickable evidence links on the Journey page that navigate to the Lab page () with query parameters to highlight the specific move. A contextual From Journey banner was also added to the Lab page.
--   **Route Aliasing:** Created a  route as an alias for  to match the spec.
+-   **Pattern Context v2 (SMART Insights):** Refactored the service to provide specific, actionable insights on the Lab page, mapped to openings, time controls, and rating context.
+-   **Multi-Feature Implementation:**
+    -   Added a  **Mission Stepper UI** to the .
+    -   Implemented a ** Meter** and **Coach Narrative Rail** on the  page.
+-   **Critical Code Optimization:**
+    -   Fixed a major N+1 query in  using a MongoDB aggregation pipeline.
+    -   Resolved a race condition in the game sync endpoint using an .
+-   **Reflection Engine v2 (Complete Overhaul):**
+    -   Removed generic attack/defend options for users 1000+.
+    -   Implemented a **Plan-First** reflection flow with on-board and text input.
+    -   Created a service to generate **position-specific hypotheses** about the user's intent.
+    -   Built a service to parse and utilize **time-per-move data** from PGNs.
+    -   Created the backend service for **Cognitive Gap Analysis**.
 
 **Earlier issues found/mentioned but not fixed**
--   **Stuck Analysis Screen Root Cause:** The workaround (45-second timeout and a Skip button) for the Analyzing games screen getting stuck is still in place. The root cause was never diagnosed and remains a latent technical debt issue.
+-   **Stuck Analysis Screen:** The root cause for the Analyzing games screen getting stuck indefinitely has not been diagnosed. A 45-second timeout and a Skip button remain as a workaround.
 
 **Known issue recurrence from previous fork**
 -   None.
@@ -71,73 +78,65 @@ PRODUCT REQUIREMENTS are detailed in .
 
 
 **Key Technical Concepts**
--   **Deterministic Feedback Engines:** Using rule-based systems (, ) instead of LLMs for core coaching feedback to ensure accuracy and consistency.
--   **Logic Reuse:** Calling existing service functions () from a new feature () to maintain a single source of truth and reduce code duplication.
--   **Three-Tiered Time Analysis:** The Journey page structure provides three views of user progress: current snapshot (Now), long-term growth (Journey), and short-term trends (Trend).
--   **Frontend State for UI Interaction:** Using React state () to dynamically update UI components like the chessboard based on user actions or application state.
-
-**key DB schema**
--   **game_analyses:** (No changes) Contains per-game analysis data, including TSI scores, cognitive category scores, and blunder contexts.
+-   **Cognitive Gap Analysis:** Analyzing the tactical and positional differences between a user's move and the engine's optimal move to diagnose the root cause of an error.
+-   **Position-Specific Hypothesis Generation:** Using chess logic to programmatically generate plausible intentions for a move based on its immediate consequences (e.g., Were you trying to attack piece X?).
+-   **Rating-Aware UI/Logic:** Conditionally rendering different UI flows and using different logic based on the user's rating band to provide a tailored experience.
+-   **PGN Parsing:** Extracting metadata, specifically  tags, from PGN game records to add a time dimension to the analysis.
+-   **Database Query Optimization (MongoDB Aggregation):** Replacing an inefficient N+1 query loop with a single, performant database aggregation pipeline.
 
 **All files of reference**
--   : Core logic for the new 3-tab Journey page.
--   : Contains the  endpoint.
--   : Frontend for the new Journey page.
--   : Game analysis page, now with arrow logic.
--   : Page for puzzles and milestone training, with attempted arrow logic.
--   : Another page that seems to use the milestone training UI.
--   : Reusable chessboard component used in Training/Reflect.
--   : Existing service whose logic is now reused by the Journey engine.
--   : Main React app file where routes are defined.
-
-**key api endpoints**
--   : The primary endpoint that powers the entire 3-tab Journey page.
+-    (Last created service)
+-    (Primary file for next steps)
+-    (Contains all new API endpoints)
+-   
+-   
+-   
 
 **Critical Info for New Agent**
--   Your immediate priority is to fix and verify the **move arrow implementation**.
--   Pay close attention to the distinction between the puzzle trainer and the milestone trainer. The user's request for arrows applies to the milestone context (You Played / Better Was). This UI appears in  and possibly a specific mode within . Do not waste time on the puzzle-solving UI.
--   Once the arrow feature is complete and verified by the user, the next step is a **mandatory validation phase with real users.** Do not propose or build any new features.
+-   Your immediate priority (P0) is to integrate the **Cognitive Gap Analysis** into the frontend. The backend is ready. You need to modify  to call the  endpoint and display the resulting analysis to the user. This completes the core reflection loop the user has been asking for.
+-   The user places extreme importance on **accuracy**. The reflection flow must be robust. The move intent hypotheses and cognitive gap analysis are the smart layer between the user and Stockfish.
+-   The Stuck Analysis Screen is a persistent, low-priority bug likely caused by inconsistent data schemas. While not the immediate focus, be mindful of this when writing new database queries and make them defensive.
+-   The active journey page is , not . All future changes to the journey/progress page should be made there.
 
 **documents and test reports created in this job**
--    (updated with the master spec)
 -   
 -   
--   
+-    (Updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (LATEST):** Requested arrows to be shown on the board for the you played move in both Training and Lab pages.
-2.  **Agent:** Completed the From Journey breadcrumb fix.
-3.  **User:** Approved proceeding with the next action items (fixing the evidence link route and adding the breadcrumb).
-4.  **Agent:** Finished the Journey Page Master Spec implementation and updated .
-5.  **User:** Provided a detailed Master Spec for the Journey page, locking in the design and introducing deterministic engines.
-6.  **Agent:** Implemented the reuse of existing logic from the  page for weakness detection.
-7.  **User:** Provided a patch instruction to reuse existing logic from the  page instead of rebuilding it for the Journey page.
-8.  **Agent:** Completed the 3-tab redesign of the Journey page based on user's prior spec.
-9.  **User:** Provided a detailed spec for a 3-tab redesign (Now, Journey, Trend) with simpler Indian-English labels and specific evidence behavior.
-10. **Agent:** Completed the initial Journey page language rewrite.
+1.  **User (summary):** Expressed frustration with the generic reflection options (attack/defend) for a 1300-rated player.
+2.  **User (summary):** Requested a smarter reflection that asks for the player's plan. (IN PROGRESS)
+3.  **User (summary):** Suggested the plan should be playable on the board, as notation is difficult. (COMPLETED)
+4.  **User (summary):** Asked to use the time-per-move data from PGNs for more accurate analysis. (COMPLETED)
+5.  **User (summary):** Requested that the system generate possible explanations (hypotheses) for why a move was played, based on analyzing the position. (COMPLETED)
+6.  **User (summary):** Confirmed the generic attack/defend options provide little value and asked for them to be removed. (COMPLETED)
+7.  **Agent:** Proposed removing the generic options for 1000+ players.
+8.  **Agent:** Implemented the cleaner UI without the generic options.
+9.  **User:** Approved moving forward with cognitive gap analysis and stressed the need for extreme accuracy. (IN PROGRESS)
+10. **Agent:** Began building the cognitive gap analysis service.
 
 **Project Health Check:**
--   **Broken:** None.
--   **Mocked:** None.
+-   **Broken:**
+    -   The Stuck Analysis Screen remains a known, non-critical bug.
+-   **Mocked:**
+    -   None.
 
 **3rd Party Integrations**
 -   **Stockfish:** Used via  for game analysis.
--   **:** Frontend chessboard UI library.
--   **:** Another frontend chessboard component used in the Lab.
--   ** (GPT-4o-mini):** Used for generating mistake explanations. Uses the Emergent LLM Key.
+-   ** & :** Frontend chessboard libraries.
+-   ** (GPT-4o-mini):** Used for generating secondary mistake explanations. Uses the Emergent LLM Key.
 -   **Lichess & Chess.com APIs:** Used to fetch user game history during onboarding.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES (used 3 times for the major Journey page refactors).
+-   **Testing agent used after significant changes:** YES (after implementing Pattern Context v2 and the multi-feature batch).
 -   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** []
+-   **Test files created:**
+    -   Pytest tests were created for the Pattern Context API.
+    -   Playwright tests were created for the Pattern Intelligence card and other frontend features.
 -   **Known regressions:** None.
 
 **Credentials to test flow:**
--   Use the Dev Login button on the landing page for an existing user with game data.
--   To test the milestone trainer, navigate to the Reflect page or find the correct entry point for the milestone puzzles in the Training page.
--   To test the Lab page, open any game for analysis.
+-   Use the Dev Login button on the landing page. This logs you in as the correct user with a full history of analyzed games.
 
 **What agent forgot to execute**
--   The implementation of move arrows is incomplete and not fully verified in the correct user contexts.
--   The root cause of the analyzing games screen getting stuck indefinitely has still not been diagnosed.</analysis>
+-   The agent has been diligent in following the user's evolving requirements for the reflection engine. The long-standing Stuck Analysis Screen issue has been deferred in favor of high-priority feature development, which aligns with the user's focus. No requested tasks were missed.</analysis>
