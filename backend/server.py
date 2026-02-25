@@ -9555,20 +9555,10 @@ async def get_cognitive_journey(user: User = Depends(get_current_user)):
     """
     from journey_engine import compute_journey
     
-    # Get user's onboarding date
-    user_doc = await db.users.find_one(
-        {"user_id": user.user_id}, 
-        {"_id": 0, "onboarding_completed_at": 1}
-    )
-    onboarding_date = user_doc.get("onboarding_completed_at") if user_doc else None
-    
-    # Get analyzed games
-    query = {"user_id": user.user_id}
-    if onboarding_date:
-        query["created_at"] = {"$gte": onboarding_date}
-    
+    # Get analyzed games - include ALL games for the user
+    # Previously filtered by onboarding_date but this excluded pre-existing games
     all_analyses = await db.game_analyses.find(
-        query,
+        {"user_id": user.user_id},
         {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1, "game_id": 1, "user_result": 1}
     ).sort("created_at", -1).to_list(100)
     
