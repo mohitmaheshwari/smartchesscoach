@@ -567,9 +567,6 @@ def get_pattern_context_for_mistake(
             "action_recommendation": None,
         }
     
-    # Build games lookup
-    games_lookup = {g.get("game_id"): g for g in all_games}
-    
     # Get other games with this pattern (excluding current)
     other_games = [
         {
@@ -593,7 +590,7 @@ def get_pattern_context_for_mistake(
         if isinstance(d, str):
             try:
                 return datetime.fromisoformat(d.replace('Z', '+00:00'))
-            except:
+            except ValueError:
                 return datetime.min.replace(tzinfo=timezone.utc)
         return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
     
