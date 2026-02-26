@@ -566,10 +566,22 @@ const Training = ({ user }) => {
   // Reset current puzzle
   const resetPuzzle = () => {
     if (displayPuzzle) {
+      // Force board to re-render by changing key
+      setBoardKey(prev => prev + 1);
       setBoardFen(displayPuzzle.fen);
       setPuzzleState("thinking");
       setUserAnswer(null);
       setFeedback(null);
+      
+      // Re-show the mistake arrow
+      const badMove = displayPuzzle.user_move;
+      if (badMove && badMove.length >= 4) {
+        const from = badMove.slice(0, 2);
+        const to = badMove.slice(2, 4);
+        if (/^[a-h][1-8]$/.test(from) && /^[a-h][1-8]$/.test(to)) {
+          setMistakeArrow([[from, to, "rgb(239, 68, 68)"]]);
+        }
+      }
     }
   };
   
