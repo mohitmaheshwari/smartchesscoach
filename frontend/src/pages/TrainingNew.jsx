@@ -559,8 +559,82 @@ const Training = ({ user }) => {
       setPuzzleState("thinking");
       setUserAnswer(null);
       setFeedback(null);
+      setShowingBlunderLine(false);
       // Arrow will be computed automatically via useMemo when puzzleState changes to "thinking"
     }
+  };
+  
+  // Play the blunder line to show why it's bad
+  const playBlunderLine = async () => {
+    if (!displayPuzzle || !displayPuzzle.user_move_uci) return;
+    
+    setShowingBlunderLine(true);
+    
+    try {
+      const { Chess } = await import('chess.js');
+      const chess = new Chess(displayPuzzle.fen);
+      
+      // Step 1: Show the position before the blunder
+      setBoardFen(displayPuzzle.fen);
+      await new Promise(r => setTimeout(r, 800));
+      
+      // Step 2: Play the user's bad move
+      const userMove = chess.move({
+        from: displayPuzzle.user_move_uci.slice(0, 2),
+        to: displayPuzzle.user_move_uci.slice(2, 4),
+        promotion: displayPuzzle.user_move_uci.length > 4 ? displayPuzzle.user_move_uci[4] : undefined
+      });
+      
+      if (userMove) {
+        setBoardFen(chess.fen());
+        await new Promise(r => setTimeout(r, 1000));
+        
+        // Step 3: Play the refutation (opponent's response from threat or pv_after_played)
+        // The threat field usually contains what the opponent can do
+        const threat = displayPuzzle.threat;
+        const pvAfterPlayed = displayPuzzle.pv_after_played;
+        
+        let refutationMove = null;
+        
+        // Try to play the threat or first move of PV
+        if (threat && threat.length >= 4) {
+          try {
+            refutationMove = chess.move({
+              from: threat.slice(0, 2),
+              to: threat.slice(2, 4),
+              promotion: threat.length > 4 ? threat[4] : undefined
+            });
+          } catch (e) {
+            // Threat move invalid, try PV
+          }
+        }
+        
+        if (!refutationMove && pvAfterPlayed && pvAfterPlayed.length > 0) {
+          // PV is usually in UCI format like "e2e4 e7e5"
+          const firstMove = pvAfterPlayed.split(' ')[0];
+          if (firstMove && firstMove.length >= 4) {
+            try {
+              refutationMove = chess.move({
+                from: firstMove.slice(0, 2),
+                to: firstMove.slice(2, 4),
+                promotion: firstMove.length > 4 ? firstMove[4] : undefined
+              });
+            } catch (e) {
+              // PV move invalid
+            }
+          }
+        }
+        
+        if (refutationMove) {
+          setBoardFen(chess.fen());
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+    } catch (e) {
+      console.error("Error playing blunder line:", e);
+    }
+    
+    setShowingBlunderLine(false);
   };
   
   // Get difficulty badge color
