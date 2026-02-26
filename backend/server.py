@@ -335,11 +335,12 @@ async def quick_sync_loop():
                 _sync_status["last_sync_at"] = datetime.now(timezone.utc).isoformat()
             logger.info("Quick sync: Checking for new games...")
             
-            # Get all users with linked chess accounts
+            # Get all users with linked chess accounts (support both field naming conventions)
             users = await db.users.find({
                 "$or": [
-                    {"chess_com_username": {"$exists": True, "$ne": None}},
-                    {"lichess_username": {"$exists": True, "$ne": None}}
+                    {"chess_com_username": {"$exists": True, "$ne": None, "$ne": ""}},
+                    {"chesscom_username": {"$exists": True, "$ne": None, "$ne": ""}},
+                    {"lichess_username": {"$exists": True, "$ne": None, "$ne": ""}}
                 ]
             }, {"_id": 0}).to_list(100)
             
