@@ -383,14 +383,18 @@ const Training = ({ user }) => {
   
   // Sort filtered puzzles - put focus-matching ones first
   const sortedFilteredPuzzles = [...filteredPuzzles].sort((a, b) => {
-    if (!focusOverride?.focus_key) return 0;
+    const activeFocusKey = focusOverride?.focus_key || focusFromUrl;
+    if (!activeFocusKey) return 0;
     
-    const focusKey = focusOverride.focus_key.toLowerCase();
+    // Put "your_blunders" source first
+    if (a.source === "your_blunders" && b.source !== "your_blunders") return -1;
+    if (a.source !== "your_blunders" && b.source === "your_blunders") return 1;
+    
     const aType = (a.issue_type || a.mistake_type || "").toLowerCase();
     const bType = (b.issue_type || b.mistake_type || "").toLowerCase();
     
-    const aMatches = aType.includes("blunder") || aType.includes("hanging") || aType.includes("tactical");
-    const bMatches = bType.includes("blunder") || bType.includes("hanging") || bType.includes("tactical");
+    const aMatches = aType.includes("blunder") || aType.includes("mistake") || aType.includes("hanging") || aType.includes("tactical");
+    const bMatches = bType.includes("blunder") || bType.includes("mistake") || bType.includes("hanging") || bType.includes("tactical");
     
     if (aMatches && !bMatches) return -1;
     if (!aMatches && bMatches) return 1;
