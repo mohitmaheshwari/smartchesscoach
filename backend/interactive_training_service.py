@@ -213,8 +213,14 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10, include_solved: bo
                 issue_type = critical_facts.get("primary_issue", "positional_error")
                 principle = get_principle_for_issue(issue_type)
                 
+                puzzle_id = f"{game_id}_{move_number}"
+                
+                # Skip if user already solved this puzzle
+                if puzzle_id in solved_puzzle_ids:
+                    continue
+                
                 puzzle = {
-                    "id": f"{game_id}_{move_number}",
+                    "id": puzzle_id,
                     "fen": fen,
                     "user_move": user_move,
                     "correct_move": best_move,
