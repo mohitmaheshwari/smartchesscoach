@@ -407,7 +407,12 @@ const Training = ({ user }) => {
       setFeedback(null);
       
       // Show the user's bad move as a red arrow
-      if (displayPuzzle.user_move_from && displayPuzzle.user_move_to) {
+      // Try user_move_uci first (e.g., "e2e4"), then fall back to from/to fields
+      if (displayPuzzle.user_move_uci && displayPuzzle.user_move_uci.length >= 4) {
+        const from = displayPuzzle.user_move_uci.slice(0, 2);
+        const to = displayPuzzle.user_move_uci.slice(2, 4);
+        setMistakeArrow([[from, to, "rgb(239, 68, 68)"]]);
+      } else if (displayPuzzle.user_move_from && displayPuzzle.user_move_to) {
         // Use pre-calculated from/to squares
         setMistakeArrow([[displayPuzzle.user_move_from, displayPuzzle.user_move_to, "rgb(239, 68, 68)"]]);
       } else {
