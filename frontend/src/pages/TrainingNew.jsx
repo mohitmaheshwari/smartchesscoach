@@ -560,7 +560,11 @@ const Training = ({ user }) => {
       setFeedback(null);
       
       // Re-show the mistake arrow
-      if (displayPuzzle.user_move_from && displayPuzzle.user_move_to) {
+      if (displayPuzzle.user_move_uci && displayPuzzle.user_move_uci.length >= 4) {
+        const from = displayPuzzle.user_move_uci.slice(0, 2);
+        const to = displayPuzzle.user_move_uci.slice(2, 4);
+        setMistakeArrow([[from, to, "rgb(239, 68, 68)"]]);
+      } else if (displayPuzzle.user_move_from && displayPuzzle.user_move_to) {
         setMistakeArrow([[displayPuzzle.user_move_from, displayPuzzle.user_move_to, "rgb(239, 68, 68)"]]);
       }
     }
