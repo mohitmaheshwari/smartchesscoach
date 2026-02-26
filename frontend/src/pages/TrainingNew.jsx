@@ -346,6 +346,11 @@ const Training = ({ user }) => {
     if (puzzleSource === "my_games" && p.source !== "my_game") return false;
     if (puzzleSource === "community" && p.source !== "community") return false;
     
+    // Special handling for "your_blunders" source - always include when in blunder focus
+    if (p.source === "your_blunders") {
+      return true; // Always show user's actual blunders
+    }
+    
     // Focus override filter - when URL has focus param, prioritize matching puzzles
     if (focusOverride?.focus_key) {
       const focusKey = focusOverride.focus_key.toLowerCase();
@@ -355,9 +360,11 @@ const Training = ({ user }) => {
       // Match one_move_blunders with blunder-related puzzles
       if (focusKey.includes("blunder") || focusKey.includes("one_move")) {
         return issueType.includes("blunder") || 
+               issueType.includes("mistake") ||  // Include mistakes too!
                issueType.includes("hanging") || 
                issueType.includes("tactical") ||
                principle.includes("blunder") ||
+               principle.includes("mistake") ||  // Include mistakes too!
                principle.includes("hanging");
       }
       
