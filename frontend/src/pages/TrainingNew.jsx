@@ -297,6 +297,11 @@ const Training = ({ user }) => {
             if (blundersRes.ok) {
               const blunderData = await blundersRes.json();
               
+              // Track how many puzzles user has already solved
+              if (blunderData.solved_count) {
+                setSolvedCount(blunderData.solved_count);
+              }
+              
               // These puzzles already have the correct structure from the backend
               // Don't show the correct move - let user find it!
               const blunderPuzzles = (blunderData.puzzles || []).map((p) => ({
