@@ -289,42 +289,19 @@ const Training = ({ user }) => {
             focus_key: data.override_focus || focusFromUrl
           });
           
-          // If focus is about blunders, fetch user's actual blunders as puzzles
+          // If focus is about one-move blunders, fetch from NEW Stockfish-based endpoint
           if (focusFromUrl.toLowerCase().includes('blunder') || 
-              focusFromUrl.toLowerCase().includes('one_move') ||
-              focusFromUrl.toLowerCase().includes('tactical')) {
-            const blundersRes = await fetch(`${API}/games/blunders`, { credentials: "include" });
+              focusFromUrl.toLowerCase().includes('one_move')) {
+            const blundersRes = await fetch(`${API}/training/one-move-blunders`, { credentials: "include" });
             if (blundersRes.ok) {
               const blunderData = await blundersRes.json();
               
-              const blunderPuzzles = (blunderData.blunders || []).map((b, idx) => {
-                // Note: We won't try to parse SAN moves since the FEN position
-                // might not match where the move was actually made.
-                // The arrow feature will be added when backend provides from/to squares.
-                
-                // Determine user color from FEN (whose turn it is)
-                const userColor = b.fen.includes(' w ') ? 'white' : 'black';
-                
-                return {
-                  puzzle_id: `blunder_${b.game_id}_${b.move_number}`,
-                  fen: b.fen,
-                  user_move: b.move,
-                  user_move_from: null, // TODO: Backend should provide this
-                  user_move_to: null,   // TODO: Backend should provide this  
-                  correct_move: b.consider || "Find the better move",
-                  user_color: userColor,
-                  issue_type: b.evaluation,
-                  source: "your_blunders",
-                  source_label: `Move ${b.move_number}`,
-                  source_detail: b.feedback || "Your blunder from a real game",
-                  move_number: b.move_number,
-                  game_id: b.game_id,
-                  principle: {
-                    name: b.evaluation === "blunder" ? "Blunder" : "Mistake",
-                    description: b.feedback || "Review this critical moment"
-                  }
-                };
-              });
+              // These puzzles already have the correct structure from the backend
+              const blunderPuzzles = (blunderData.puzzles || []).map((p) => ({
+                ...p,
+                source_label: `Move ${p.move_number}`,
+                source_detail: `Lost ${p.cp_loss} centipawns - ${p.correct_move} was better`,
+              }));
               
               // Add blunder puzzles to the front of the puzzle list
               if (blunderPuzzles.length > 0) {
