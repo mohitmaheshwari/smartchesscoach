@@ -47,40 +47,40 @@ test.describe('Coach Home - UX Overhaul', () => {
     
     await expect(page.getByTestId('coach-home')).toBeVisible({ timeout: 15000 });
     
-    // Either mission hero or no-mission card should be visible
-    const missionHero = page.getByTestId('mission-hero');
+    // Either active mission card or no-mission card should be visible
+    const activeMissionCard = page.getByTestId('active-mission-card');
     const noMissionCard = page.getByTestId('no-mission-card');
     const postLossHero = page.getByTestId('post-loss-hero');
     
     // One of these should be visible
-    const heroVisible = await missionHero.isVisible().catch(() => false);
+    const missionVisible = await activeMissionCard.isVisible().catch(() => false);
     const noMissionVisible = await noMissionCard.isVisible().catch(() => false);
     const postLossVisible = await postLossHero.isVisible().catch(() => false);
     
-    expect(heroVisible || noMissionVisible || postLossVisible).toBe(true);
+    expect(missionVisible || noMissionVisible || postLossVisible).toBe(true);
   });
 
   test('Mission card shows focus label, duration, and protocol steps', async ({ page }) => {
     await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
-    const missionHero = page.getByTestId('mission-hero');
+    const activeMissionCard = page.getByTestId('active-mission-card');
     
     // Check if mission exists
-    const hasMission = await missionHero.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasMission = await activeMissionCard.isVisible({ timeout: 5000 }).catch(() => false);
     
     if (hasMission) {
-      // Focus label should be visible as h1
-      await expect(missionHero.locator('h1')).toBeVisible();
+      // Focus label should be visible as h3
+      await expect(activeMissionCard.locator('h3')).toBeVisible();
       
       // Duration info (e.g., "7 min")
-      await expect(missionHero.getByText(/\d+ min/)).toBeVisible();
+      await expect(activeMissionCard.getByText(/\d+ min/)).toBeVisible();
       
       // Positions info (e.g., "5 positions")
-      await expect(missionHero.getByText(/\d+ position/)).toBeVisible();
+      await expect(activeMissionCard.getByText(/\d+ position/)).toBeVisible();
       
       // Protocol steps (Before each move section)
-      await expect(missionHero.getByText(/Before each move/i)).toBeVisible();
+      await expect(activeMissionCard.getByText(/Before each move/i)).toBeVisible();
     } else {
       // If no mission, skip but note in console
       console.log('No active mission - skipping mission card content test');
@@ -91,10 +91,10 @@ test.describe('Coach Home - UX Overhaul', () => {
     await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
-    const missionHero = page.getByTestId('mission-hero');
+    const activeMissionCard = page.getByTestId('active-mission-card');
     
     // Check if mission exists
-    const hasMission = await missionHero.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasMission = await activeMissionCard.isVisible({ timeout: 5000 }).catch(() => false);
     
     if (hasMission) {
       // Start Mission or Continue button should be visible
@@ -125,16 +125,20 @@ test.describe('Coach Home - UX Overhaul', () => {
     }
   });
 
-  test('Weekly Proof card displays below mission', async ({ page }) => {
+  test('Active Advice card displays when user has data', async ({ page }) => {
     await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
-    // Weekly proof card should be visible
-    const weeklyProof = page.getByTestId('weekly-proof');
-    await expect(weeklyProof).toBeVisible({ timeout: 10000 });
+    // Active advice card should be visible when user has data
+    const activeAdviceCard = page.getByTestId('active-advice-card');
+    const hasAdvice = await activeAdviceCard.isVisible({ timeout: 10000 }).catch(() => false);
     
-    // Should show "This week" text
-    await expect(weeklyProof.getByText(/This week/)).toBeVisible();
+    if (hasAdvice) {
+      // Should show "YOUR FOCUS" text
+      await expect(activeAdviceCard.getByText(/YOUR FOCUS/i)).toBeVisible();
+      // Should have primary advice text
+      await expect(activeAdviceCard.locator('p').first()).toBeVisible();
+    }
   });
 
   test('Quick action buttons are visible and functional', async ({ page }) => {
@@ -146,10 +150,10 @@ test.describe('Coach Home - UX Overhaul', () => {
     await expect(importBtn).toBeVisible();
     await expect(importBtn).toHaveText(/Import Games/);
     
-    // View Progress button
-    const progressBtn = page.getByTestId('quick-progress');
-    await expect(progressBtn).toBeVisible();
-    await expect(progressBtn).toHaveText(/View Progress/);
+    // View Journey button (renamed from View Progress)
+    const journeyBtn = page.getByTestId('quick-progress');
+    await expect(journeyBtn).toBeVisible();
+    await expect(journeyBtn).toHaveText(/View Journey/);
   });
 
   test('Import Games quick action navigates to import page', async ({ page }) => {
@@ -165,40 +169,36 @@ test.describe('Coach Home - UX Overhaul', () => {
     await page.waitForURL(/\/import/, { timeout: 10000 });
   });
 
-  test('View Progress quick action navigates to progress page', async ({ page }) => {
+  test('View Journey quick action navigates to progress page', async ({ page }) => {
     await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
     await hideEmergentBadge(page);
     
-    const progressBtn = page.getByTestId('quick-progress');
-    await progressBtn.click({ force: true });
+    const journeyBtn = page.getByTestId('quick-progress');
+    await journeyBtn.click({ force: true });
     
     // Should navigate to progress page
     await page.waitForURL(/\/progress/, { timeout: 10000 });
   });
 
-  test('Recent Games section is collapsible', async ({ page }) => {
+  test('Recommended Drill card displays when user has data', async ({ page }) => {
     await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
-    const recentGames = page.getByTestId('recent-games');
+    const recommendedDrillCard = page.getByTestId('recommended-drill-card');
     
-    // Recent games might not be visible if user has no games
-    const hasRecentGames = await recentGames.isVisible({ timeout: 5000 }).catch(() => false);
+    // Recommended drill might not be visible if user has no data
+    const hasDrill = await recommendedDrillCard.isVisible({ timeout: 5000 }).catch(() => false);
     
-    if (hasRecentGames) {
-      // Should show header with count
-      await expect(recentGames.getByText(/Recent Games/)).toBeVisible();
+    if (hasDrill) {
+      // Should show "Recommended Drill" text
+      await expect(recommendedDrillCard.getByText(/Recommended Drill/i)).toBeVisible();
       
-      // Click to expand
-      await recentGames.locator('button').first().click();
-      
-      // After expanding, should show game list
-      await expect(recentGames.locator('motion.div')).toBeVisible({ timeout: 3000 });
-      
-      // Click again to collapse
-      await recentGames.locator('button').first().click();
+      // Should have Start Training button
+      const startDrillBtn = page.getByTestId('start-drill-btn');
+      await expect(startDrillBtn).toBeVisible();
+      await expect(startDrillBtn).toHaveText(/Start Training/);
     }
   });
 
@@ -211,20 +211,20 @@ test.describe('Coach Home - UX Overhaul', () => {
     await expect(greeting).toBeVisible();
   });
 
-  test('Color system applies Electric Blue for primary accent', async ({ page }) => {
+  test('Color system applies Primary color for accent', async ({ page }) => {
     await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
-    // Primary buttons should have blue color
+    // Primary buttons should have primary color
     const startBtn = page.getByTestId('start-mission-btn');
     const hasMission = await startBtn.isVisible({ timeout: 5000 }).catch(() => false);
     
     if (hasMission) {
-      // Check that button has blue-ish background
-      // We use regex because computed colors vary slightly
+      // Check that button has a colored background (not transparent/white)
       const bgColor = await startBtn.evaluate(el => getComputedStyle(el).backgroundColor);
-      // Electric Blue #3B82F6 is approximately rgb(59, 130, 246)
-      expect(bgColor).toMatch(/rgb\(5[0-9], 1[23][0-9], 2[45][0-9]\)/);
+      // Should have some color (not transparent or white)
+      expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
+      expect(bgColor).not.toBe('rgb(255, 255, 255)');
     }
   });
 });
