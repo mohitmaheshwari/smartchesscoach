@@ -1,0 +1,63 @@
+{
+  "summary": "Tested Home Intelligence API and CoachHome frontend components (5 components: DevelopmentPhaseBanner, ActiveMissionCard, ActiveAdviceCard, RecommendedDrillCard, CoachGameReviewCard). All backend API tests pass (17/17). All frontend E2E tests pass (16/16). All components render correctly with proper data from home-intelligence API.",
+  "mode": "generate",
+  "baseline_commit": "cf9fe6f9887faa0e829c7186b59c70a93ce9c43d",
+  "head_commit": "645dca93d46a526e74e82d6ca54397c519f79a3c",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 2,
+    "passed": 33,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [],
+  "specs_updated": [
+    "/app/backend/tests/test_coach_home_api.py",
+    "/app/tests/e2e/coach-home.spec.ts"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_coach_home_api.py",
+    "/app/tests/e2e/coach-home.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_coach_home_api.py",
+    "/app/tests/e2e/coach-home.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "N/A - Used dev login with existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Home Intelligence API and CoachHome components are fully tested. The existing test suite has been updated to match the new component structure (active-mission-card instead of mission-hero, View Journey instead of View Progress). All 5 components (DevelopmentPhaseBanner, ActiveMissionCard, ActiveAdviceCard, RecommendedDrillCard, CoachGameReviewCard) are rendering correctly.",
+  "features_tested": {
+    "backend": [
+      "/api/coach/home-intelligence returns correct data structure",
+      "Development Phase detection based on blunders/mistakes",
+      "Focus Capacity calculation",
+      "Active Advice generation",
+      "Stats include metrics (blunders_per_game, mistakes_per_game)",
+      "Last game structure is correct"
+    ],
+    "frontend": [
+      "CoachHome renders all components",
+      "DevelopmentPhaseBanner shows phase correctly",
+      "ActiveMissionCard shows mission with protocol",
+      "ActiveAdviceCard shows focus advice",
+      "RecommendedDrillCard shows drill recommendation",
+      "Quick action buttons navigate correctly (Import Games, View Journey)",
+      "Navigation between Home, Analyze, Train, Progress works"
+    ]
+  }
+}
