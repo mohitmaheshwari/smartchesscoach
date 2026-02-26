@@ -588,13 +588,8 @@ const Training = ({ user }) => {
       setFeedback(null);
       
       // Re-show the mistake arrow
-      const badMove = displayPuzzle.user_move;
-      if (badMove && badMove.length >= 4) {
-        const from = badMove.slice(0, 2);
-        const to = badMove.slice(2, 4);
-        if (/^[a-h][1-8]$/.test(from) && /^[a-h][1-8]$/.test(to)) {
-          setMistakeArrow([[from, to, "rgb(239, 68, 68)"]]);
-        }
+      if (displayPuzzle.user_move_from && displayPuzzle.user_move_to) {
+        setMistakeArrow([[displayPuzzle.user_move_from, displayPuzzle.user_move_to, "rgb(239, 68, 68)"]]);
       }
     }
   };
