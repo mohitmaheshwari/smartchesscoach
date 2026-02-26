@@ -15,6 +15,34 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 26, 2026)
 
+### Training Page: Proper One-Move Blunders ✅ COMPLETE (Feb 26, 2026)
+
+**Problem Solved:** Dashboard showed "39 One-Move Blunders" but Training page was showing AI commentary mistakes, not actual Stockfish-detected tactical blunders.
+
+**Root Cause Identified:**
+- Dashboard count came from weakness tracking (occurrence-based)
+- Training used `/games/blunders` which returned AI commentary (different classification)
+- Stockfish data had the actual blunders but wasn't being used
+
+**Solution Implemented:**
+1. **New API endpoint:** `GET /api/training/one-move-blunders`
+   - Returns actual Stockfish-detected blunders (150-600 cp loss)
+   - Includes: FEN, user move, correct move, UCI notation for arrows, threat info
+   - Returns 85 actual one-move tactical errors from user's games
+
+2. **Frontend updated** to use new endpoint when focus is "one_move_blunders"
+   - Red arrow shows the bad move on the board
+   - "You played: Nd5" indicator with coaching tip
+   - Proper severity labels ("Major blunder - piece lost")
+
+**Files Created/Modified:**
+- `/app/backend/server.py` - Added `/training/one-move-blunders` endpoint
+- `/app/frontend/src/pages/TrainingNew.jsx` - Updated to use new endpoint and show arrows
+
+**Result:** Training now shows ACTUAL one-move tactical blunders from Stockfish analysis, not mislabeled AI commentary.
+
+---
+
 ### Training Page Improvements ✅ COMPLETE (Feb 26, 2026)
 
 **Features Added:**
