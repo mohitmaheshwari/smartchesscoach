@@ -15,6 +15,24 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 26, 2026)
 
+### Training Page Improvements ✅ COMPLETE (Feb 26, 2026)
+
+**Features Added:**
+1. **Reset Puzzle Button** - "Try Again" button in revealed state to retry the puzzle
+2. **"You played" Indicator** - Shows the user's mistake move (e.g., "You played: Nh4")
+3. **"Your Mistake" Badge** - Red badge to distinguish user's blunders from community puzzles
+4. **Better Filtering** - Blunder puzzles always shown regardless of source filter
+
+**Arrow Feature (Partial):**
+- Text indicator for the bad move is shown
+- Visual arrow on board not implemented due to FEN data inconsistency (FEN doesn't always match the position where the move was made)
+- Future: Backend needs to provide from/to squares for the arrow
+
+**Files Modified:**
+- `/app/frontend/src/pages/TrainingNew.jsx`
+
+---
+
 ### Bug Fix: Training Page Focus Area Mismatch ✅ FIXED (Feb 26, 2026)
 
 **Issue:** Clicking "One Move Blunders" on Dashboard redirected to Training page but showed wrong focus area ("Structural Misjudgments") and wrong puzzles (community puzzles instead of user's actual blunders)
