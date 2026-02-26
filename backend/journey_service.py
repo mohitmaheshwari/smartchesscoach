@@ -765,7 +765,8 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
     """
     import uuid
     
-    chesscom_username = user_doc.get("chesscom_username")
+    # Support both field naming conventions (chess_com_username and chesscom_username)
+    chesscom_username = user_doc.get("chesscom_username") or user_doc.get("chess_com_username")
     lichess_username = user_doc.get("lichess_username")
     
     # Get last sync timestamp
