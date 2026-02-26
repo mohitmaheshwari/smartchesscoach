@@ -297,10 +297,11 @@ const Training = ({ user }) => {
               const blunderData = await blundersRes.json();
               
               // These puzzles already have the correct structure from the backend
+              // Don't show the correct move - let user find it!
               const blunderPuzzles = (blunderData.puzzles || []).map((p) => ({
                 ...p,
                 source_label: `Move ${p.move_number}`,
-                source_detail: `Lost ${p.cp_loss} centipawns - ${p.correct_move} was better`,
+                source_detail: `Lost ${p.cp_loss} centipawns - find the better move`,
               }));
               
               // Add blunder puzzles to the front of the puzzle list
