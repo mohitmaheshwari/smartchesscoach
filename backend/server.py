@@ -2741,23 +2741,35 @@ async def get_data_driven_training(
             result["micro_habit"] = focus_key
             result["micro_habit_label"] = label
             result["micro_habit_description"] = description
+            # Also update the main layer display when focus is overridden
+            result["active_layer_label"] = label
+            result["active_layer_description"] = description
             result["override_focus"] = focus_key
             result["training_reason"] = f"Focused training on {label}"
         # Try PATTERN_INFO as fallback
         elif focus_key in PATTERN_INFO:
             pattern_info = PATTERN_INFO[focus_key]
+            label = pattern_info.get("label", focus_key.replace("_", " ").title())
+            desc = pattern_info.get("description", "")
             result["micro_habit"] = focus_key
-            result["micro_habit_label"] = pattern_info.get("label", focus_key.replace("_", " ").title())
-            result["micro_habit_description"] = pattern_info.get("description", "")
+            result["micro_habit_label"] = label
+            result["micro_habit_description"] = desc
+            # Also update the main layer display
+            result["active_layer_label"] = label
+            result["active_layer_description"] = desc
             result["override_focus"] = focus_key
-            result["training_reason"] = f"Focused training on {result['micro_habit_label']}"
+            result["training_reason"] = f"Focused training on {label}"
         else:
             # Still set the focus but use a generic label
+            label = focus_key.replace("_", " ").title()
+            desc = f"Training focus on {focus_key.replace('_', ' ')}"
             result["micro_habit"] = focus_key
-            result["micro_habit_label"] = focus_key.replace("_", " ").title()
-            result["micro_habit_description"] = f"Training focus on {focus_key.replace('_', ' ')}"
+            result["micro_habit_label"] = label
+            result["micro_habit_description"] = desc
+            result["active_layer_label"] = label
+            result["active_layer_description"] = desc
             result["override_focus"] = focus_key
-            result["training_reason"] = f"Focused training on {result['micro_habit_label']}"
+            result["training_reason"] = f"Focused training on {label}"
     
     return result
 
