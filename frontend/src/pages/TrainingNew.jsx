@@ -307,17 +307,58 @@ const Training = ({ user }) => {
     }
   };
   
-  // Filter puzzles based on source selection and training mode
+  // Filter puzzles based on source selection, training mode, AND focus override
   const filteredPuzzles = puzzles.filter(p => {
-    if (puzzleSource === "all") return true;
-    if (puzzleSource === "my_games") return p.source === "my_game";
-    if (puzzleSource === "community") return p.source === "community";
+    // Source filter
+    if (puzzleSource === "my_games" && p.source !== "my_game") return false;
+    if (puzzleSource === "community" && p.source !== "community") return false;
+    
+    // Focus override filter - when URL has focus param, prioritize matching puzzles
+    if (focusOverride?.focus_key) {
+      const focusKey = focusOverride.focus_key.toLowerCase();
+      const issueType = (p.issue_type || p.mistake_type || "").toLowerCase();
+      const principle = (p.principle?.name || "").toLowerCase();
+      
+      // Match one_move_blunders with blunder-related puzzles
+      if (focusKey.includes("blunder") || focusKey.includes("one_move")) {
+        return issueType.includes("blunder") || 
+               issueType.includes("hanging") || 
+               issueType.includes("tactical") ||
+               principle.includes("blunder") ||
+               principle.includes("hanging");
+      }
+      
+      // Match other focus areas
+      if (issueType.includes(focusKey) || principle.includes(focusKey)) {
+        return true;
+      }
+      
+      // For other focus areas, be more lenient
+      return true;
+    }
+    
     return true;
   });
   
+  // Sort filtered puzzles - put focus-matching ones first
+  const sortedFilteredPuzzles = [...filteredPuzzles].sort((a, b) => {
+    if (!focusOverride?.focus_key) return 0;
+    
+    const focusKey = focusOverride.focus_key.toLowerCase();
+    const aType = (a.issue_type || a.mistake_type || "").toLowerCase();
+    const bType = (b.issue_type || b.mistake_type || "").toLowerCase();
+    
+    const aMatches = aType.includes("blunder") || aType.includes("hanging") || aType.includes("tactical");
+    const bMatches = bType.includes("blunder") || bType.includes("hanging") || bType.includes("tactical");
+    
+    if (aMatches && !bMatches) return -1;
+    if (!aMatches && bMatches) return 1;
+    return 0;
+  });
+  
   // Get current puzzle from filtered list
-  const displayPuzzle = filteredPuzzles[currentPuzzleIndex] || null;
-  const hasMoreFilteredPuzzles = currentPuzzleIndex < filteredPuzzles.length - 1;
+  const displayPuzzle = sortedFilteredPuzzles[currentPuzzleIndex] || null;
+  const hasMoreFilteredPuzzles = currentPuzzleIndex < sortedFilteredPuzzles.length - 1;
   
   // Update board when puzzle changes
   useEffect(() => {
