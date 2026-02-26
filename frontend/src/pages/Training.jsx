@@ -106,7 +106,11 @@ const STEP_LABELS = ["Focus", "Reflect", "Practice"];
  */
 const Training = ({ user }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const boardRef = useRef(null);
+  
+  // Get focus param from URL (e.g., /coach?focus=one_move_blunder)
+  const focusFromUrl = searchParams.get('focus');
 
   // Core data states
   const [loading, setLoading] = useState(true);
