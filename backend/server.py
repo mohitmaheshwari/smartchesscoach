@@ -1290,6 +1290,84 @@ async def get_all_blunders(user: User = Depends(get_current_user)):
     return {"blunders": blunders[:50], "total": len(blunders)}
 
 
+@api_router.get("/training/one-move-blunders")
+async def get_one_move_blunders(user: User = Depends(get_current_user)):
+    """
+    Get ACTUAL one-move tactical blunders from Stockfish analysis.
+    
+    These are positions where:
+    - The user made a blunder (classification = "blunder")
+    - The eval drop was significant but not complex (150-600 cp loss)
+    - Represents simple tactical oversights that can be fixed with one correct move
+    
+    Returns positions suitable for training the user's tactical awareness.
+    """
+    # Get all analyzed games
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "stockfish_analysis": 1, "white_player": 1, "black_player": 1}
+    ).to_list(100)
+    
+    one_move_blunders = []
+    
+    for analysis in analyses:
+        sf_analysis = analysis.get("stockfish_analysis", {})
+        move_evals = sf_analysis.get("move_evaluations", [])
+        game_id = analysis.get("game_id")
+        
+        # Determine user's color
+        # For now, assume user played as the side with more blunders or use metadata
+        user_stats = sf_analysis.get("user_stats", {})
+        
+        for m in move_evals:
+            # Only blunders with actual move data
+            if m.get("evaluation") != "blunder" or not m.get("move"):
+                continue
+            
+            cp_loss = m.get("cp_loss", 0)
+            fen_before = m.get("fen_before")
+            
+            # One-move blunders: significant but not overwhelming losses
+            # 150-600cp typically means material loss (piece hanging, simple tactic)
+            # Not 1000+ which usually means missed mate or complex tactics
+            if 150 <= cp_loss <= 600 and fen_before:
+                # Determine user color from FEN (whose turn it was)
+                user_color = "white" if " w " in fen_before else "black"
+                
+                one_move_blunders.append({
+                    "puzzle_id": f"sf_blunder_{game_id}_{m.get('move_number')}",
+                    "game_id": game_id,
+                    "move_number": m.get("move_number"),
+                    "fen": fen_before,
+                    "user_move": m.get("move"),
+                    "user_move_uci": m.get("move_uci"),
+                    "correct_move": m.get("best_move"),
+                    "correct_move_uci": m.get("best_move_uci"),
+                    "user_color": user_color,
+                    "cp_loss": cp_loss,
+                    "eval_before": m.get("eval_before"),
+                    "eval_after": m.get("eval_after"),
+                    "threat": m.get("threat"),  # What threat did user miss?
+                    "pv_after_best": m.get("pv_after_best"),  # Better continuation
+                    "issue_type": "one_move_blunder",
+                    "source": "your_blunders",
+                    "principle": {
+                        "name": "One-Move Blunder",
+                        "description": f"Lost {cp_loss} centipawns with a simple tactical error",
+                        "quick_tip": "Always check what your opponent can do after your move"
+                    }
+                })
+    
+    # Sort by cp_loss (most severe first) to prioritize learning
+    one_move_blunders.sort(key=lambda x: x["cp_loss"], reverse=True)
+    
+    return {
+        "puzzles": one_move_blunders[:30],  # Limit to 30 for training session
+        "total": len(one_move_blunders),
+        "source": "stockfish_analysis"
+    }
+
+
 @api_router.get("/games/best-moves")
 async def get_all_best_moves(user: User = Depends(get_current_user)):
     """Get all best/excellent moves from user's games"""
