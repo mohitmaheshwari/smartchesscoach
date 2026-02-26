@@ -888,7 +888,7 @@ const Training = ({ user }) => {
                     userColor={boardOrientation}
                     onUserMove={puzzleState === "thinking" ? (moveData) => handleMove(moveData.san) : null}
                     interactive={puzzleState === "thinking"}
-                    customArrows={puzzleState === "thinking" ? mistakeArrow : []}
+                    customArrows={mistakeArrow}
                     highlightSquares={
                       puzzleState !== "thinking" && displayPuzzle
                         ? [(displayPuzzle.correct_move || displayPuzzle.best_move_san || "").slice(-2)]
