@@ -15,6 +15,25 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 26, 2026)
 
+### Bug Fix: Training Page Focus Area Mismatch ✅ FIXED (Feb 26, 2026)
+
+**Issue:** Clicking "One Move Blunders" on Dashboard redirected to Training page but showed wrong focus area ("Structural Misjudgments")
+
+**Root Cause:** Dashboard navigation to `/coach` didn't pass the weakness category. TrainingNew.jsx fetched focus from a different API (`/cognitive/training-priority`) that returned the default focus.
+
+**Solution:**
+1. Dashboard.jsx: Updated to pass focus param: `/coach?focus={subcategory}`
+2. server.py: Added `focus` query param to `/training/data-driven` endpoint with comprehensive pattern mapping
+3. TrainingNew.jsx: Added `useSearchParams` hook and `focusOverride` state to display URL-specified focus
+
+**Files Modified:**
+- `/app/frontend/src/pages/Dashboard.jsx`
+- `/app/frontend/src/pages/TrainingNew.jsx`
+- `/app/frontend/src/pages/Training.jsx` (unused but updated for consistency)
+- `/app/backend/server.py`
+
+---
+
 ### Final Home Page Implementation ✅ COMPLETE (Feb 26, 2026)
 
 **User Request:** "Create a focused Home Page that answers in 5 seconds: What stage am I in? What am I working on? How did I do? What should I do next?"
