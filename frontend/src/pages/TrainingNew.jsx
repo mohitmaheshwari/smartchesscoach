@@ -519,6 +519,8 @@ const Training = ({ user }) => {
             correct: prev.correct + 1,
             streak: prev.streak + 1
           }));
+          // Increment mastered count when user solves a puzzle
+          setSolvedCount(prev => prev + 1);
           toast.success("Correct! Well done!");
         } else {
           setPuzzleState("incorrect");
