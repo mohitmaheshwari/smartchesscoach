@@ -1349,6 +1349,7 @@ async def get_one_move_blunders(user: User = Depends(get_current_user)):
                     "eval_after": m.get("eval_after"),
                     "threat": m.get("threat"),  # What threat did user miss?
                     "pv_after_best": m.get("pv_after_best"),  # Better continuation
+                    "pv_after_played": m.get("pv_after_played"),  # Refutation line after the blunder
                     "issue_type": "one_move_blunder",
                     "source": "your_blunders",
                     "principle": {
