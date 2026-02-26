@@ -17,20 +17,31 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ### Bug Fix: Training Page Focus Area Mismatch ✅ FIXED (Feb 26, 2026)
 
-**Issue:** Clicking "One Move Blunders" on Dashboard redirected to Training page but showed wrong focus area ("Structural Misjudgments")
+**Issue:** Clicking "One Move Blunders" on Dashboard redirected to Training page but showed wrong focus area ("Structural Misjudgments") and wrong puzzles (community puzzles instead of user's actual blunders)
 
-**Root Cause:** Dashboard navigation to `/coach` didn't pass the weakness category. TrainingNew.jsx fetched focus from a different API (`/cognitive/training-priority`) that returned the default focus.
+**Root Cause:** 
+1. Dashboard navigation to `/coach` didn't pass the weakness category
+2. TrainingNew.jsx fetched focus from a different API (`/cognitive/training-priority`)
+3. Puzzle system didn't have access to user's actual game blunders
 
 **Solution:**
-1. Dashboard.jsx: Updated to pass focus param: `/coach?focus={subcategory}`
-2. server.py: Added `focus` query param to `/training/data-driven` endpoint with comprehensive pattern mapping
-3. TrainingNew.jsx: Added `useSearchParams` hook and `focusOverride` state to display URL-specified focus
+1. Dashboard.jsx: Pass focus param: `/coach?focus={subcategory}`
+2. server.py: Added `focus` query param to `/training/data-driven` endpoint with pattern mapping
+3. TrainingNew.jsx: 
+   - Added `useSearchParams` hook and `focusOverride` state
+   - When focus is blunder-related, fetch user's actual blunders from `/games/blunders` API
+   - Display user's real mistakes as training puzzles (22 positions from their games)
 
 **Files Modified:**
 - `/app/frontend/src/pages/Dashboard.jsx`
 - `/app/frontend/src/pages/TrainingNew.jsx`
-- `/app/frontend/src/pages/Training.jsx` (unused but updated for consistency)
+- `/app/frontend/src/pages/Training.jsx`
 - `/app/backend/server.py`
+
+**Result:** Clicking "One Move Blunders" now shows:
+- Correct focus label: "One-Move Blunders"
+- User's actual blunders from their games (22 positions)
+- Real feedback from game analysis for each position
 
 ---
 
