@@ -571,8 +571,8 @@ const Training = ({ user }) => {
 
           {/* Puzzles Tab */}
           <TabsContent value="puzzles" className="mt-0">
-            {/* Training Focus Banner - Shows cognitive priority */}
-            {trainingPriority && trainingPriority.primary_focus && (
+            {/* Training Focus Banner - Shows cognitive priority (or URL override) */}
+            {(focusOverride || (trainingPriority && trainingPriority.primary_focus)) && (
               <Card className="bg-gradient-to-r from-amber-900/30 to-gray-900/50 border-amber-500/20 mb-4" data-testid="training-focus-card">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
@@ -582,8 +582,12 @@ const Training = ({ user }) => {
                       </div>
                       <div>
                         <p className="text-xs text-amber-400/80 font-medium uppercase tracking-wide">Your Focus Area</p>
-                        <p className="text-white font-semibold">{trainingPriority.primary_focus.display_name}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{trainingPriority.primary_focus.message}</p>
+                        <p className="text-white font-semibold" data-testid="focus-display-name">
+                          {focusOverride?.display_name || trainingPriority?.primary_focus?.display_name}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {focusOverride?.message || trainingPriority?.primary_focus?.message}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
