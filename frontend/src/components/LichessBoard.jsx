@@ -366,8 +366,6 @@ const LichessBoard = forwardRef(({
   
   // Update arrows - only when they actually change
   useEffect(() => {
-    if (!groundRef.current) return;
-    
     // Convert arrows to comparable string
     const arrowsKey = JSON.stringify(arrows);
     const prevArrowsKey = JSON.stringify(prevArrowsRef.current);
@@ -376,30 +374,40 @@ const LichessBoard = forwardRef(({
     
     prevArrowsRef.current = arrows;
     
-    if (arrows.length > 0) {
-      const shapes = arrows.map(([from, to, color]) => {
-        // Determine brush based on color - chessground uses named brushes
-        let brush = "blue";  // default
-        if (color) {
-          const colorLower = color.toLowerCase();
-          if (colorLower.includes("red") || colorLower.includes("239")) {
-            brush = "red";
-          } else if (colorLower.includes("green") || colorLower.includes("34,") || colorLower.includes("200, 83")) {
-            brush = "green";
-          } else if (colorLower.includes("yellow") || colorLower.includes("255, 200")) {
-            brush = "yellow";
+    const applyArrows = () => {
+      if (!groundRef.current) {
+        // Board not ready yet, retry after a short delay
+        setTimeout(applyArrows, 50);
+        return;
+      }
+      
+      if (arrows.length > 0) {
+        const shapes = arrows.map(([from, to, color]) => {
+          // Determine brush based on color - chessground uses named brushes
+          let brush = "blue";  // default
+          if (color) {
+            const colorLower = color.toLowerCase();
+            if (colorLower.includes("red") || colorLower.includes("239")) {
+              brush = "red";
+            } else if (colorLower.includes("green") || colorLower.includes("34,") || colorLower.includes("200, 83")) {
+              brush = "green";
+            } else if (colorLower.includes("yellow") || colorLower.includes("255, 200")) {
+              brush = "yellow";
+            }
           }
-        }
-        return {
-          orig: from,
-          dest: to,
-          brush: brush,
-        };
-      });
-      groundRef.current.setAutoShapes(shapes);
-    } else {
-      groundRef.current.setAutoShapes([]);
-    }
+          return {
+            orig: from,
+            dest: to,
+            brush: brush,
+          };
+        });
+        groundRef.current.setAutoShapes(shapes);
+      } else {
+        groundRef.current.setAutoShapes([]);
+      }
+    };
+    
+    applyArrows();
   }, [arrows]);
 
   return (
