@@ -903,10 +903,12 @@ const Training = ({ user }) => {
                 {/* Chess Board */}
                 <div className="aspect-square max-w-lg mx-auto">
                   <CoachBoard
+                    key={boardKey}
                     position={boardFen}
                     userColor={boardOrientation}
                     onUserMove={puzzleState === "thinking" ? (moveData) => handleMove(moveData.san) : null}
                     interactive={puzzleState === "thinking"}
+                    customArrows={puzzleState === "thinking" ? mistakeArrow : []}
                     highlightSquares={
                       puzzleState !== "thinking" && displayPuzzle
                         ? [(displayPuzzle.correct_move || displayPuzzle.best_move_san || "").slice(-2)]
