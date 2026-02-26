@@ -15,6 +15,28 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 26, 2026)
 
+### "Show Why It's Bad" Feature ✅ VERIFIED (Feb 26, 2026)
+
+**User Request:** "Show why bad only plays the move, but not the engine line that tells why it was bad"
+
+**Feature:** Added a button that animates the user's blunder followed by the engine's refutation line (up to 3 moves), providing clear visual feedback on why the move was tactically bad.
+
+**Implementation:**
+1. **Backend:** `/api/training/one-move-blunders` endpoint returns `pv_after_played` field with the engine's refutation line (e.g., `["Nxd5", "cxd5", "Rxe7+", "Kf8"]`)
+2. **Frontend:** `playBlunderLine()` function in `TrainingNew.jsx`:
+   - Shows original position
+   - Plays user's bad move (with red arrow)
+   - Animates opponent's refutation moves (up to 3 from `pv_after_played`)
+   - Shows feedback messages like "Opponent plays Nxd5!"
+
+**Files Modified:**
+- `/app/backend/server.py` - Added `pv_after_played` to blunder puzzle data
+- `/app/frontend/src/pages/TrainingNew.jsx` - `playBlunderLine()` function
+
+**Verification:** Tested successfully - animation plays full sequence including opponent's punishment.
+
+---
+
 ### Training Page: Proper One-Move Blunders ✅ COMPLETE (Feb 26, 2026)
 
 **Problem Solved:** Dashboard showed "39 One-Move Blunders" but Training page was showing AI commentary mistakes, not actual Stockfish-detected tactical blunders.
