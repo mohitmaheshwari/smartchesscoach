@@ -409,7 +409,19 @@ const Training = ({ user }) => {
   const displayPuzzle = sortedFilteredPuzzles[currentPuzzleIndex] || null;
   const hasMoreFilteredPuzzles = currentPuzzleIndex < sortedFilteredPuzzles.length - 1;
   
-  // Update board when puzzle changes (use puzzle_id + index to ensure proper dependency tracking)
+  // Compute mistake arrow directly from displayPuzzle
+  const mistakeArrow = useMemo(() => {
+    if (!displayPuzzle || puzzleState !== "thinking") return [];
+    
+    if (displayPuzzle.user_move_uci && displayPuzzle.user_move_uci.length >= 4) {
+      const from = displayPuzzle.user_move_uci.slice(0, 2);
+      const to = displayPuzzle.user_move_uci.slice(2, 4);
+      return [[from, to, "rgb(239, 68, 68)"]];
+    }
+    return [];
+  }, [displayPuzzle?.puzzle_id, displayPuzzle?.user_move_uci, puzzleState]);
+  
+  // Update board when puzzle changes
   useEffect(() => {
     if (displayPuzzle && displayPuzzle.fen) {
       // Force board key change to ensure re-render
@@ -419,24 +431,10 @@ const Training = ({ user }) => {
       setPuzzleState("thinking");
       setUserAnswer(null);
       setFeedback(null);
-      
-      // Show the user's bad move as a red arrow
-      // Try user_move_uci first (e.g., "e2e4"), then fall back to from/to fields
-      if (displayPuzzle.user_move_uci && displayPuzzle.user_move_uci.length >= 4) {
-        const from = displayPuzzle.user_move_uci.slice(0, 2);
-        const to = displayPuzzle.user_move_uci.slice(2, 4);
-        setMistakeArrow([[from, to, "rgb(239, 68, 68)"]]);
-      } else if (displayPuzzle.user_move_from && displayPuzzle.user_move_to) {
-        // Use pre-calculated from/to squares
-        setMistakeArrow([[displayPuzzle.user_move_from, displayPuzzle.user_move_to, "rgb(239, 68, 68)"]]);
-      } else {
-        setMistakeArrow([]);
-      }
     } else {
       // Reset to starting position if no puzzle
       setBoardFen(START_FEN);
       setBoardOrientation("white");
-      setMistakeArrow([]);
     }
   }, [displayPuzzle?.puzzle_id, currentPuzzleIndex]);
   
