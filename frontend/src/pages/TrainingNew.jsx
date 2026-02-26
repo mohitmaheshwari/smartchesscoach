@@ -340,7 +340,7 @@ const Training = ({ user }) => {
     };
     
     fetchFocusOverride();
-  }, [focusFromUrl]);
+  }, [focusFromUrl, loading]); // Re-run when loading changes
   
   // Refresh puzzle progress
   const refreshPuzzleProgress = async () => {
