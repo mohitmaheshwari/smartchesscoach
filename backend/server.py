@@ -3728,6 +3728,17 @@ async def get_weekly_proof(user: User = Depends(get_current_user)):
         "streak_days": streak_days
     }
 
+@api_router.get("/coach/home-intelligence")
+async def get_home_intelligence_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get comprehensive home intelligence data for the Coach Home page.
+    Returns development phase, focus capacity, and actionable advice.
+    """
+    from home_intelligence_service import get_home_intelligence
+    
+    data = await get_home_intelligence(db, user.user_id)
+    return data
+
 # ==================== MISSION ENGINE ROUTES ====================
 
 class MissionStepRequest(BaseModel):
