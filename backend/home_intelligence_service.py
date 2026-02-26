@@ -422,6 +422,9 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         if analyzed_at:
             if isinstance(analyzed_at, str):
                 analyzed_at = datetime.fromisoformat(analyzed_at.replace("Z", "+00:00"))
+            # Ensure timezone-aware comparison
+            if analyzed_at.tzinfo is None:
+                analyzed_at = analyzed_at.replace(tzinfo=timezone.utc)
             is_new = (datetime.now(timezone.utc) - analyzed_at).total_seconds() < 86400  # 24 hours
         
         last_game_summary = {
