@@ -564,7 +564,7 @@ const Training = ({ user }) => {
     }
   };
   
-  // Play the blunder line to show why it's bad
+  // Play the blunder line to show why it's bad (up to 3 refutation moves)
   const playBlunderLine = async () => {
     if (!displayPuzzle || !displayPuzzle.user_move_uci) return;
     
@@ -591,47 +591,67 @@ const Training = ({ user }) => {
         setBoardFen(chess.fen());
         await new Promise(r => setTimeout(r, 1200));
         
-        // Step 3: Play the refutation (opponent's response from threat or pv_after_played)
-        const threat = displayPuzzle.threat;
-        const pvAfterPlayed = displayPuzzle.pv_after_played;
+        // Step 3: Play the refutation line (pv_after_played contains the engine's punishment)
+        // pv_after_played is an array like ['Rxe6+', 'Nfe7', 'Rxg6', 'Nxc6']
+        const pvLine = displayPuzzle.pv_after_played;
         
-        let refutationMove = null;
-        let refutationNotation = "";
-        
-        // Try to play the threat or first move of PV
-        if (threat && threat.length >= 4) {
-          try {
-            refutationMove = chess.move({
-              from: threat.slice(0, 2),
-              to: threat.slice(2, 4),
-              promotion: threat.length > 4 ? threat[4] : undefined
-            });
-            if (refutationMove) refutationNotation = refutationMove.san;
-          } catch (e) {
-            // Threat move invalid, try PV
-          }
-        }
-        
-        if (!refutationMove && pvAfterPlayed && pvAfterPlayed.length > 0) {
-          const firstMove = pvAfterPlayed.split(' ')[0];
-          if (firstMove && firstMove.length >= 4) {
+        if (pvLine && Array.isArray(pvLine) && pvLine.length > 0) {
+          // Play up to 3 moves from the refutation line
+          const movesToPlay = pvLine.slice(0, 3);
+          const moveNotations = [];
+          
+          for (let i = 0; i < movesToPlay.length; i++) {
+            const sanMove = movesToPlay[i];
             try {
-              refutationMove = chess.move({
-                from: firstMove.slice(0, 2),
-                to: firstMove.slice(2, 4),
-                promotion: firstMove.length > 4 ? firstMove[4] : undefined
-              });
-              if (refutationMove) refutationNotation = refutationMove.san;
+              const move = chess.move(sanMove);
+              if (move) {
+                moveNotations.push(move.san);
+                
+                // Update feedback to show the sequence
+                const isOpponentMove = i % 2 === 0; // First move after blunder is opponent's
+                if (isOpponentMove) {
+                  setFeedback({ 
+                    message: `Opponent plays ${move.san}!`, 
+                    type: "warning" 
+                  });
+                } else {
+                  setFeedback({ 
+                    message: `Then ${move.san}...` 
+                  });
+                }
+                
+                setBoardFen(chess.fen());
+                await new Promise(r => setTimeout(r, 1200));
+              }
             } catch (e) {
-              // PV move invalid
+              console.warn(`Could not play move ${sanMove}:`, e);
+              break;
             }
           }
-        }
-        
-        if (refutationMove) {
-          setFeedback({ message: `Opponent responds with ${refutationNotation}!`, type: "warning" });
-          setBoardFen(chess.fen());
-          await new Promise(r => setTimeout(r, 2000));
+          
+          // Show final summary
+          if (moveNotations.length > 0) {
+            setFeedback({ 
+              message: `Line: ${moveNotations.join(' → ')}`, 
+              type: "warning" 
+            });
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        } else {
+          // Fallback: try the threat field if pv_after_played is empty
+          const threat = displayPuzzle.threat;
+          if (threat) {
+            try {
+              const refutation = chess.move(threat);
+              if (refutation) {
+                setFeedback({ message: `Opponent threatens ${refutation.san}!`, type: "warning" });
+                setBoardFen(chess.fen());
+                await new Promise(r => setTimeout(r, 2000));
+              }
+            } catch (e) {
+              // Threat move invalid
+            }
+          }
         }
       }
       
