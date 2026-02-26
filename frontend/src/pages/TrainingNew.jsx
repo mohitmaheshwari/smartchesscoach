@@ -133,9 +133,20 @@ const Training = ({ user }) => {
   const [puzzleState, setPuzzleState] = useState("thinking"); // thinking | correct | incorrect | revealed
   const [userAnswer, setUserAnswer] = useState(null);
   const [feedback, setFeedback] = useState(null);
-  const [mistakeArrow, setMistakeArrow] = useState([]); // Arrow showing the bad move
   const [boardKey, setBoardKey] = useState(0); // Key to force board re-render on reset
   const [validating, setValidating] = useState(false);
+  
+  // Compute mistake arrow directly from displayPuzzle (not from state)
+  const mistakeArrow = React.useMemo(() => {
+    if (!displayPuzzle || puzzleState !== "thinking") return [];
+    
+    if (displayPuzzle.user_move_uci && displayPuzzle.user_move_uci.length >= 4) {
+      const from = displayPuzzle.user_move_uci.slice(0, 2);
+      const to = displayPuzzle.user_move_uci.slice(2, 4);
+      return [[from, to, "rgb(239, 68, 68)"]];
+    }
+    return [];
+  }, [displayPuzzle?.puzzle_id, displayPuzzle?.user_move_uci, puzzleState]);
   
   // Board state
   const [boardFen, setBoardFen] = useState(START_FEN);
