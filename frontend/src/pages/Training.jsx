@@ -168,9 +168,15 @@ const Training = ({ user }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        
+        // If focus param is in URL, fetch specific focus area
+        const focusUrl = focusFromUrl 
+          ? `${API}/training/data-driven?focus=${encodeURIComponent(focusFromUrl)}`
+          : `${API}/training/data-driven`;
+        
         const [profileRes, focusRes] = await Promise.all([
           fetch(`${API}/training/profile`, { credentials: "include" }),
-          fetch(`${API}/training/data-driven`, { credentials: "include" })
+          fetch(focusUrl, { credentials: "include" })
         ]);
         
         if (profileRes.ok) {
@@ -190,7 +196,7 @@ const Training = ({ user }) => {
     };
 
     fetchData();
-  }, []);
+  }, [focusFromUrl]);
 
   // Fetch milestones when on Reflect step
   useEffect(() => {
