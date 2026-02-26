@@ -37,6 +37,33 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ---
 
+### Puzzle Progress Tracking - Solved Puzzles Filter ✅ FIXED (Feb 26, 2026)
+
+**User Issue:** "We are showing the same puzzles again and again everytime I restart, are we not saving if user has learnt it or not?"
+
+**Root Cause:** The `/training/one-move-blunders` endpoint and `get_user_puzzles()` function were returning ALL puzzles without checking if the user had already solved them.
+
+**Solution Implemented:**
+1. **Backend:**
+   - Modified `/api/training/one-move-blunders` to query `puzzle_attempts_history` for solved puzzle IDs
+   - Filter out puzzles the user has already solved correctly
+   - Added `solved_count` to API response to show progress
+   - Added `include_solved=true` query param to optionally include all puzzles
+
+2. **Frontend:**
+   - Added `solvedCount` state variable
+   - Display "(X already mastered)" indicator next to puzzle count
+   - Increment mastered count when user solves a puzzle in current session
+
+**Files Modified:**
+- `/app/backend/server.py` - Updated `/training/one-move-blunders` endpoint
+- `/app/backend/interactive_training_service.py` - Updated `get_user_puzzles()` function
+- `/app/frontend/src/pages/TrainingNew.jsx` - Added solved count tracking and display
+
+**Result:** Training now shows only UNSOLVED puzzles. Users see their progress (e.g., "Puzzle 1 of 30 (15 already mastered)").
+
+---
+
 ### Training Page: Proper One-Move Blunders ✅ COMPLETE (Feb 26, 2026)
 
 **Problem Solved:** Dashboard showed "39 One-Move Blunders" but Training page was showing AI commentary mistakes, not actual Stockfish-detected tactical blunders.
