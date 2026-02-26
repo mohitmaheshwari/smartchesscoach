@@ -128,6 +128,7 @@ const Training = ({ user }) => {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpData, setLevelUpData] = useState(null);
   const [newAchievements, setNewAchievements] = useState([]);
+  const [solvedCount, setSolvedCount] = useState(0); // Track how many puzzles user has already solved
   
   // Puzzle solving state
   const [puzzleState, setPuzzleState] = useState("thinking"); // thinking | correct | incorrect | revealed | showing_line
