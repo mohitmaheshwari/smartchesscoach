@@ -412,10 +412,26 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     last_game_summary = None
     if last_game:
         result = last_game.get("result", "unknown")
-        opponent = last_game.get("opponent", "Unknown")
         blunders = last_game.get("blunders", 0)
         mistakes = last_game.get("mistakes", 0)
         analyzed_at = last_game.get("analyzed_at")
+        
+        # Get opponent name from games collection (more reliable than game_analyses)
+        game_doc = await db.games.find_one(
+            {"game_id": last_game.get("game_id")},
+            {"opponent_name": 1, "white_player": 1, "black_player": 1, "user_color": 1}
+        )
+        
+        opponent = "Unknown"
+        if game_doc:
+            opponent = game_doc.get("opponent_name")
+            if not opponent:
+                # Fallback: derive from white/black players
+                user_color = game_doc.get("user_color", "white")
+                if user_color == "white":
+                    opponent = game_doc.get("black_player", "Unknown")
+                else:
+                    opponent = game_doc.get("white_player", "Unknown")
         
         # Check if it's a "new" game (within last 24 hours)
         is_new = False
