@@ -356,14 +356,14 @@ const Training = ({ user }) => {
   
   // Filter puzzles based on source selection, training mode, AND focus override
   const filteredPuzzles = puzzles.filter(p => {
-    // Source filter
+    // Special handling for "your_blunders" source - ALWAYS include these
+    if (p.source === "your_blunders") {
+      return true; // Always show user's actual blunders regardless of filter
+    }
+    
+    // Source filter (only for non-blunder puzzles)
     if (puzzleSource === "my_games" && p.source !== "my_game") return false;
     if (puzzleSource === "community" && p.source !== "community") return false;
-    
-    // Special handling for "your_blunders" source - always include when in blunder focus
-    if (p.source === "your_blunders") {
-      return true; // Always show user's actual blunders
-    }
     
     // Focus override filter - when URL has focus param, prioritize matching puzzles
     const activeFocusKey = focusOverride?.focus_key || focusFromUrl;
