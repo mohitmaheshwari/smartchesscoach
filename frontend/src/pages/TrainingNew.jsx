@@ -118,6 +118,7 @@ const Training = ({ user }) => {
   const [trainingPriority, setTrainingPriority] = useState(null);
   const [cognitivePatterns, setCognitivePatterns] = useState(null);
   const [focusStatus, setFocusStatus] = useState(null);
+  const [focusOverride, setFocusOverride] = useState(null); // Override from URL param
   
   // Puzzle source filter: "my_games" | "community" | "all"
   const [puzzleSource, setPuzzleSource] = useState("all");
