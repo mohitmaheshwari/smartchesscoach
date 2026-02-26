@@ -128,7 +128,7 @@ OPENING_PRINCIPLES = {
 # PUZZLE GENERATION
 # ============================================================================
 
-async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
+async def get_user_puzzles(db, user_id: str, limit: int = 10, include_solved: bool = False) -> List[Dict]:
     """
     Get personalized puzzles from user's own mistakes.
     
@@ -136,6 +136,7 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
     1. cp_loss >= 150 OR involves a forcing tactic
     2. NOT just an "engine preference"
     3. Must have a clear teaching point
+    4. NOT already solved by the user (unless include_solved=True)
     
     Moves with 50-149 cp_loss are coaching moments, not puzzles.
     """
@@ -143,6 +144,16 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10) -> List[Dict]:
     from coaching_classifier_service import classify_move_for_coaching, should_create_puzzle
     
     logger.info(f"Getting puzzles for user: {user_id}")
+    
+    # Get puzzle IDs the user has already SOLVED correctly
+    solved_puzzle_ids = set()
+    if not include_solved:
+        solved_attempts = await db.puzzle_attempts_history.find(
+            {"user_id": user_id, "solved": True},
+            {"puzzle_id": 1}
+        ).to_list(1000)
+        solved_puzzle_ids = {a["puzzle_id"] for a in solved_attempts}
+        logger.info(f"User has solved {len(solved_puzzle_ids)} puzzles, filtering them out")
     
     # Query games that have been analyzed (have stockfish data)
     analyses = await db.game_analyses.find({"user_id": user_id}).sort("created_at", -1).limit(20).to_list(20)
