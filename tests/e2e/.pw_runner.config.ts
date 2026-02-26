@@ -2,13 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: '/app/tests/e2e',
-  outputDir: '/root/.emergent/automation_output/20260226_031036/test-results',
+  outputDir: '/root/.emergent/automation_output/20260226_031254/test-results',
   timeout: 60000,
   retries: 0,
   workers: 1,
   reporter: [
     ['line'],
-    ['json', { outputFile: '/root/.emergent/automation_output/20260226_031036/results.json' }],
+    ['json', { outputFile: '/root/.emergent/automation_output/20260226_031254/results.json' }],
   ],
   use: {
     baseURL: 'https://game-audit-lab.preview.emergentagent.com',
