@@ -270,10 +270,11 @@ const Training = ({ user }) => {
     fetchData();
   }, []);
   
-  // Fetch focus override when URL param is present
+  // Fetch focus override when URL param is present (wait for initial load)
   useEffect(() => {
     const fetchFocusOverride = async () => {
       if (!focusFromUrl) return;
+      if (loading) return; // Wait for initial load to complete
       
       try {
         const res = await fetch(`${API}/training/data-driven?focus=${encodeURIComponent(focusFromUrl)}`, {
