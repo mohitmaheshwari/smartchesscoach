@@ -96,6 +96,10 @@ const formatEvaluation = (cpLoss) => {
  */
 const Training = ({ user }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // Get focus override from URL (e.g., /coach?focus=one_move_blunders)
+  const focusFromUrl = searchParams.get('focus');
   
   // Tab state
   const [activeTab, setActiveTab] = useState("puzzles");
