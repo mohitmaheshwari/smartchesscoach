@@ -937,9 +937,21 @@ const Training = ({ user }) => {
                         exit={{ opacity: 0, y: -10 }}
                         className="text-center"
                       >
+                        {/* Show what was played (for blunder puzzles) */}
+                        {displayPuzzle?.user_move && displayPuzzle?.source === "your_blunders" && (
+                          <div className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg inline-block">
+                            <p className="text-sm text-red-400">
+                              <span className="font-medium">You played:</span>{' '}
+                              <span className="font-mono text-white">{displayPuzzle.user_move}</span>
+                              <span className="text-red-300 ml-2">(shown with red arrow)</span>
+                            </p>
+                          </div>
+                        )}
                         <p className="text-gray-300 mb-4">
                           <Brain className="w-5 h-5 inline mr-2 text-amber-500" />
-                          Find the best move. Take your time.
+                          {displayPuzzle?.source === "your_blunders" 
+                            ? "What should you have played instead?"
+                            : "Find the best move. Take your time."}
                         </p>
                         <div className="flex justify-center gap-3">
                           <Button
