@@ -133,6 +133,8 @@ const Training = ({ user }) => {
   const [puzzleState, setPuzzleState] = useState("thinking"); // thinking | correct | incorrect | revealed
   const [userAnswer, setUserAnswer] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [mistakeArrow, setMistakeArrow] = useState([]); // Arrow showing the bad move
+  const [boardKey, setBoardKey] = useState(0); // Key to force board re-render on reset
   const [validating, setValidating] = useState(false);
   
   // Board state
