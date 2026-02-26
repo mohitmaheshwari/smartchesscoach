@@ -439,19 +439,10 @@ const Training = ({ user }) => {
       setUserAnswer(null);
       setFeedback(null);
       
-      // Parse the user's bad move to show as an arrow
-      // user_move might be in format like "Nh4" or "e2e4" or just stored as a SAN move
-      const badMove = displayPuzzle.user_move;
-      if (badMove && badMove.length >= 4) {
-        // Try to extract from/to squares (for moves like "e2e4" or "Nh4" from fen context)
-        const from = badMove.slice(0, 2);
-        const to = badMove.slice(2, 4);
-        if (/^[a-h][1-8]$/.test(from) && /^[a-h][1-8]$/.test(to)) {
-          // Show the bad move with a red arrow
-          setMistakeArrow([[from, to, "rgb(239, 68, 68)"]]);
-        } else {
-          setMistakeArrow([]);
-        }
+      // Show the user's bad move as a red arrow
+      if (displayPuzzle.user_move_from && displayPuzzle.user_move_to) {
+        // Use pre-calculated from/to squares
+        setMistakeArrow([[displayPuzzle.user_move_from, displayPuzzle.user_move_to, "rgb(239, 68, 68)"]]);
       } else {
         setMistakeArrow([]);
       }
