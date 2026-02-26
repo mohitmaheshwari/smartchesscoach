@@ -861,10 +861,13 @@ const Training = ({ user }) => {
                       </Badge>
                       {/* Source indicator */}
                       <div className="flex items-center gap-2">
-                        {displayPuzzle.source === "my_game" ? (
-                          <Badge variant="outline" className="text-green-400 border-green-400/30">
+                        {displayPuzzle.source === "my_game" || displayPuzzle.source === "your_blunders" ? (
+                          <Badge variant="outline" className={displayPuzzle.source === "your_blunders" 
+                            ? "text-red-400 border-red-400/30" 
+                            : "text-green-400 border-green-400/30"
+                          }>
                             <Target className="w-3 h-3 mr-1" />
-                            Your Game
+                            {displayPuzzle.source === "your_blunders" ? "Your Mistake" : "Your Game"}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-blue-400 border-blue-400/30">
