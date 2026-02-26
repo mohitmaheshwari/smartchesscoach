@@ -285,6 +285,39 @@ const Training = ({ user }) => {
             message: data.active_layer_description || data.micro_habit_description,
             focus_key: data.override_focus || focusFromUrl
           });
+          
+          // If focus is about blunders, fetch user's actual blunders as puzzles
+          if (focusFromUrl.toLowerCase().includes('blunder') || 
+              focusFromUrl.toLowerCase().includes('one_move') ||
+              focusFromUrl.toLowerCase().includes('tactical')) {
+            const blundersRes = await fetch(`${API}/games/blunders`, { credentials: "include" });
+            if (blundersRes.ok) {
+              const blunderData = await blundersRes.json();
+              const blunderPuzzles = (blunderData.blunders || []).map((b, idx) => ({
+                puzzle_id: `blunder_${b.game_id}_${b.move_number}`,
+                fen: b.fen,
+                user_move: b.move,
+                correct_move: b.consider || "Find the better move",
+                user_color: "white", // Will be set correctly from game data
+                issue_type: b.evaluation,
+                source: "your_blunders",
+                source_label: `Move ${b.move_number}`,
+                source_detail: b.feedback || "Your blunder from a real game",
+                move_number: b.move_number,
+                game_id: b.game_id,
+                principle: {
+                  name: b.evaluation === "blunder" ? "Blunder" : "Mistake",
+                  description: b.feedback || "Review this critical moment"
+                }
+              }));
+              
+              // Add blunder puzzles to the front of the puzzle list
+              if (blunderPuzzles.length > 0) {
+                setPuzzles(prev => [...blunderPuzzles, ...prev.filter(p => p.source !== "your_blunders")]);
+                setCurrentPuzzleIndex(0);
+              }
+            }
+          }
         }
       } catch (err) {
         console.error("Error fetching focus override:", err);
