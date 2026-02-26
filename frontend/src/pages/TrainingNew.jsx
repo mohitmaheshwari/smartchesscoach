@@ -295,23 +295,46 @@ const Training = ({ user }) => {
             const blundersRes = await fetch(`${API}/games/blunders`, { credentials: "include" });
             if (blundersRes.ok) {
               const blunderData = await blundersRes.json();
-              const blunderPuzzles = (blunderData.blunders || []).map((b, idx) => ({
-                puzzle_id: `blunder_${b.game_id}_${b.move_number}`,
-                fen: b.fen,
-                user_move: b.move,
-                correct_move: b.consider || "Find the better move",
-                user_color: "white", // Will be set correctly from game data
-                issue_type: b.evaluation,
-                source: "your_blunders",
-                source_label: `Move ${b.move_number}`,
-                source_detail: b.feedback || "Your blunder from a real game",
-                move_number: b.move_number,
-                game_id: b.game_id,
-                principle: {
-                  name: b.evaluation === "blunder" ? "Blunder" : "Mistake",
-                  description: b.feedback || "Review this critical moment"
+              const { Chess } = await import('chess.js');
+              
+              const blunderPuzzles = (blunderData.blunders || []).map((b, idx) => {
+                // Try to parse the SAN move to get from/to squares
+                let moveFrom = null;
+                let moveTo = null;
+                try {
+                  const chess = new Chess(b.fen);
+                  const move = chess.move(b.move);
+                  if (move) {
+                    moveFrom = move.from;
+                    moveTo = move.to;
+                  }
+                } catch (e) {
+                  console.warn("Could not parse move:", b.move, e);
                 }
-              }));
+                
+                // Determine user color from FEN (whose turn it is)
+                const userColor = b.fen.includes(' w ') ? 'white' : 'black';
+                
+                return {
+                  puzzle_id: `blunder_${b.game_id}_${b.move_number}`,
+                  fen: b.fen,
+                  user_move: b.move,
+                  user_move_from: moveFrom,
+                  user_move_to: moveTo,
+                  correct_move: b.consider || "Find the better move",
+                  user_color: userColor,
+                  issue_type: b.evaluation,
+                  source: "your_blunders",
+                  source_label: `Move ${b.move_number}`,
+                  source_detail: b.feedback || "Your blunder from a real game",
+                  move_number: b.move_number,
+                  game_id: b.game_id,
+                  principle: {
+                    name: b.evaluation === "blunder" ? "Blunder" : "Mistake",
+                    description: b.feedback || "Review this critical moment"
+                  }
+                };
+              });
               
               // Add blunder puzzles to the front of the puzzle list
               if (blunderPuzzles.length > 0) {
