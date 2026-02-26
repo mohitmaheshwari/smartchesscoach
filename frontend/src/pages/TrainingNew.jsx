@@ -1118,7 +1118,16 @@ const Training = ({ user }) => {
                             <p className="text-sm text-gray-300">{displayPuzzle.principle.quick_tip}</p>
                           </div>
                         )}
-                        <div className="flex justify-center">
+                        <div className="flex justify-center gap-3">
+                          <Button
+                            variant="outline"
+                            onClick={resetPuzzle}
+                            className="border-gray-700 text-gray-400"
+                            data-testid="reset-puzzle-btn"
+                          >
+                            <RotateCcw className="w-4 h-4 mr-1" />
+                            Try Again
+                          </Button>
                           <Button
                             onClick={nextPuzzle}
                             disabled={!hasMoreFilteredPuzzles}
