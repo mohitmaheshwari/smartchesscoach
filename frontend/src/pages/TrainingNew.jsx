@@ -352,8 +352,9 @@ const Training = ({ user }) => {
     }
     
     // Focus override filter - when URL has focus param, prioritize matching puzzles
-    if (focusOverride?.focus_key) {
-      const focusKey = focusOverride.focus_key.toLowerCase();
+    const activeFocusKey = focusOverride?.focus_key || focusFromUrl;
+    if (activeFocusKey) {
+      const focusKey = activeFocusKey.toLowerCase();
       const issueType = (p.issue_type || p.mistake_type || "").toLowerCase();
       const principle = (p.principle?.name || "").toLowerCase();
       
