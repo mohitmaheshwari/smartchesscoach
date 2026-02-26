@@ -2699,13 +2699,36 @@ async def get_contextual_tags(data: ContextualTagsRequest, user: User = Depends(
 
 
 @api_router.get("/training/data-driven")
-async def get_data_driven_training(user: User = Depends(get_current_user)):
+async def get_data_driven_training(
+    focus: str = None,
+    user: User = Depends(get_current_user)
+):
     """
     Get training focus based purely on YOUR data (mistakes + reflections).
     This bypasses the rating-based curriculum.
+    
+    Optional param:
+    - focus: Override to show a specific focus area (e.g., "one_move_blunder")
     """
     from reflection_training_service import get_data_driven_training_focus
+    from cognitive_patterns_service import COGNITIVE_PATTERNS
+    
     result = await get_data_driven_training_focus(db, user.user_id)
+    
+    # If focus param provided, try to use that specific focus
+    if focus and result.get("focus_type"):
+        # Convert URL-friendly name to match our patterns
+        focus_key = focus.lower().replace(" ", "_").replace("-", "_")
+        
+        # Look up the focus area info
+        pattern_info = COGNITIVE_PATTERNS.get(focus_key)
+        if pattern_info:
+            result["micro_habit"] = focus_key
+            result["micro_habit_label"] = pattern_info.get("name", focus_key.replace("_", " ").title())
+            result["micro_habit_description"] = pattern_info.get("description", "")
+            result["override_focus"] = focus_key
+            result["training_reason"] = f"Focused training on {result['micro_habit_label']}"
+    
     return result
 
 @api_router.get("/training/reflection-impact")
