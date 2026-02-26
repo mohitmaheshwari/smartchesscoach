@@ -1291,7 +1291,10 @@ async def get_all_blunders(user: User = Depends(get_current_user)):
 
 
 @api_router.get("/training/one-move-blunders")
-async def get_one_move_blunders(user: User = Depends(get_current_user)):
+async def get_one_move_blunders(
+    user: User = Depends(get_current_user),
+    include_solved: bool = False  # Query param to include already-solved puzzles
+):
     """
     Get ACTUAL one-move tactical blunders from Stockfish analysis.
     
@@ -1300,8 +1303,21 @@ async def get_one_move_blunders(user: User = Depends(get_current_user)):
     - The eval drop was significant but not complex (150-600 cp loss)
     - Represents simple tactical oversights that can be fixed with one correct move
     
+    By default, excludes puzzles the user has already solved correctly.
+    Pass ?include_solved=true to include all puzzles.
+    
     Returns positions suitable for training the user's tactical awareness.
     """
+    # Get puzzle IDs the user has already SOLVED correctly
+    solved_puzzle_ids = set()
+    if not include_solved:
+        solved_attempts = await db.puzzle_attempts_history.find(
+            {"user_id": user.user_id, "solved": True},
+            {"puzzle_id": 1}
+        ).to_list(1000)
+        solved_puzzle_ids = {a["puzzle_id"] for a in solved_attempts}
+        logger.info(f"User has solved {len(solved_puzzle_ids)} puzzles, filtering them out")
+    
     # Get all analyzed games
     analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
@@ -1331,11 +1347,17 @@ async def get_one_move_blunders(user: User = Depends(get_current_user)):
             # 150-600cp typically means material loss (piece hanging, simple tactic)
             # Not 1000+ which usually means missed mate or complex tactics
             if 150 <= cp_loss <= 600 and fen_before:
+                puzzle_id = f"sf_blunder_{game_id}_{m.get('move_number')}"
+                
+                # Skip if user already solved this puzzle
+                if puzzle_id in solved_puzzle_ids:
+                    continue
+                
                 # Determine user color from FEN (whose turn it was)
                 user_color = "white" if " w " in fen_before else "black"
                 
                 one_move_blunders.append({
-                    "puzzle_id": f"sf_blunder_{game_id}_{m.get('move_number')}",
+                    "puzzle_id": puzzle_id,
                     "game_id": game_id,
                     "move_number": m.get("move_number"),
                     "fen": fen_before,
@@ -1365,6 +1387,7 @@ async def get_one_move_blunders(user: User = Depends(get_current_user)):
     return {
         "puzzles": one_move_blunders[:30],  # Limit to 30 for training session
         "total": len(one_move_blunders),
+        "solved_count": len(solved_puzzle_ids),
         "source": "stockfish_analysis"
     }
 
