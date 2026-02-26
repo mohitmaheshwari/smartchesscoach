@@ -985,11 +985,12 @@ async def run_background_sync(db):
     Background job to sync games for all users with linked accounts.
     Should be called periodically (every 6-12 hours).
     """
-    # Find users with linked accounts
+    # Find users with linked accounts (support both field naming conventions)
     users = await db.users.find({
         "$or": [
-            {"chesscom_username": {"$exists": True, "$ne": None}},
-            {"lichess_username": {"$exists": True, "$ne": None}}
+            {"chess_com_username": {"$exists": True, "$ne": None, "$ne": ""}},
+            {"chesscom_username": {"$exists": True, "$ne": None, "$ne": ""}},
+            {"lichess_username": {"$exists": True, "$ne": None, "$ne": ""}}
         ]
     }).to_list(1000)
     
