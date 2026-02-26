@@ -2708,10 +2708,10 @@ async def get_data_driven_training(
     This bypasses the rating-based curriculum.
     
     Optional param:
-    - focus: Override to show a specific focus area (e.g., "one_move_blunder")
+    - focus: Override to show a specific focus area (e.g., "one_move_blunders")
     """
     from reflection_training_service import get_data_driven_training_focus
-    from cognitive_patterns_service import COGNITIVE_PATTERNS
+    from training_profile_service import PATTERN_INFO
     
     result = await get_data_driven_training_focus(db, user.user_id)
     
@@ -2720,12 +2720,42 @@ async def get_data_driven_training(
         # Convert URL-friendly name to match our patterns
         focus_key = focus.lower().replace(" ", "_").replace("-", "_")
         
-        # Look up the focus area info
-        pattern_info = COGNITIVE_PATTERNS.get(focus_key)
-        if pattern_info:
+        # Pattern name mappings for common subcategory names
+        SUBCATEGORY_TO_LABEL = {
+            "one_move_blunders": ("One-Move Blunders", "Simple blunders where the solution is one move deep"),
+            "threat_blindness": ("Threat Blindness", "Missing opponent's threats"),
+            "hanging_pieces": ("Hanging Pieces", "Leaving pieces undefended"),
+            "pin_blindness": ("Pin Blindness", "Missing pins or being pinned"),
+            "fork_misses": ("Fork Misses", "Missing fork opportunities"),
+            "back_rank_weakness": ("Back Rank Weakness", "Vulnerable back rank leading to mate threats"),
+            "missed_forcing_move": ("Missed Forcing Moves", "Not seeing checks, captures, or threats"),
+            "ignored_opponent_forcing": ("Ignored Opponent Threats", "Moving without considering opponent's reply"),
+            "structural_misjudgment": ("Structural Misjudgments", "Pawn structure and piece coordination errors"),
+            "time_pressure_collapse": ("Time Pressure Collapse", "Mistakes due to running low on time"),
+            "advantage_mismanagement": ("Advantage Mismanagement", "Throwing away winning positions"),
+        }
+        
+        # Look up from our mappings first
+        if focus_key in SUBCATEGORY_TO_LABEL:
+            label, description = SUBCATEGORY_TO_LABEL[focus_key]
             result["micro_habit"] = focus_key
-            result["micro_habit_label"] = pattern_info.get("name", focus_key.replace("_", " ").title())
+            result["micro_habit_label"] = label
+            result["micro_habit_description"] = description
+            result["override_focus"] = focus_key
+            result["training_reason"] = f"Focused training on {label}"
+        # Try PATTERN_INFO as fallback
+        elif focus_key in PATTERN_INFO:
+            pattern_info = PATTERN_INFO[focus_key]
+            result["micro_habit"] = focus_key
+            result["micro_habit_label"] = pattern_info.get("label", focus_key.replace("_", " ").title())
             result["micro_habit_description"] = pattern_info.get("description", "")
+            result["override_focus"] = focus_key
+            result["training_reason"] = f"Focused training on {result['micro_habit_label']}"
+        else:
+            # Still set the focus but use a generic label
+            result["micro_habit"] = focus_key
+            result["micro_habit_label"] = focus_key.replace("_", " ").title()
+            result["micro_habit_description"] = f"Training focus on {focus_key.replace('_', ' ')}"
             result["override_focus"] = focus_key
             result["training_reason"] = f"Focused training on {result['micro_habit_label']}"
     
