@@ -11,7 +11,7 @@ export default defineConfig({
     ['json', { outputFile: '/root/.emergent/automation_output/20260226_031254/results.json' }],
   ],
   use: {
-    baseURL: 'https://game-audit-lab.preview.emergentagent.com',
+    baseURL: 'https://move-intelligence.preview.emergentagent.com',
     screenshot: 'only-on-failure',
     trace: 'off',
     headless: true,
