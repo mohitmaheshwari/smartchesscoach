@@ -295,22 +295,11 @@ const Training = ({ user }) => {
             const blundersRes = await fetch(`${API}/games/blunders`, { credentials: "include" });
             if (blundersRes.ok) {
               const blunderData = await blundersRes.json();
-              const { Chess } = await import('chess.js');
               
               const blunderPuzzles = (blunderData.blunders || []).map((b, idx) => {
-                // Try to parse the SAN move to get from/to squares
-                let moveFrom = null;
-                let moveTo = null;
-                try {
-                  const chess = new Chess(b.fen);
-                  const move = chess.move(b.move);
-                  if (move) {
-                    moveFrom = move.from;
-                    moveTo = move.to;
-                  }
-                } catch (e) {
-                  console.warn("Could not parse move:", b.move, e);
-                }
+                // Note: We won't try to parse SAN moves since the FEN position
+                // might not match where the move was actually made.
+                // The arrow feature will be added when backend provides from/to squares.
                 
                 // Determine user color from FEN (whose turn it is)
                 const userColor = b.fen.includes(' w ') ? 'white' : 'black';
@@ -319,8 +308,8 @@ const Training = ({ user }) => {
                   puzzle_id: `blunder_${b.game_id}_${b.move_number}`,
                   fen: b.fen,
                   user_move: b.move,
-                  user_move_from: moveFrom,
-                  user_move_to: moveTo,
+                  user_move_from: null, // TODO: Backend should provide this
+                  user_move_to: null,   // TODO: Backend should provide this  
                   correct_move: b.consider || "Find the better move",
                   user_color: userColor,
                   issue_type: b.evaluation,
