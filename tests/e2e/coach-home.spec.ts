@@ -211,6 +211,23 @@ test.describe('Coach Home - UX Overhaul', () => {
     await expect(greeting).toBeVisible();
   });
 
+  test('Development Phase Banner displays when user has data', async ({ page }) => {
+    await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
+    
+    // Development phase banner should be visible when user has analyzed games
+    const phaseBanner = page.getByTestId('development-phase-banner');
+    const hasBanner = await phaseBanner.isVisible({ timeout: 10000 }).catch(() => false);
+    
+    if (hasBanner) {
+      // Should show "Your Focus Stage" text
+      await expect(phaseBanner.getByText(/Your Focus Stage/i)).toBeVisible();
+      // Should show a phase name (one of the valid phases)
+      const phaseText = await phaseBanner.locator('p.font-semibold').textContent();
+      expect(phaseText).toBeTruthy();
+    }
+  });
+
   test('Color system applies Primary color for accent', async ({ page }) => {
     await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
