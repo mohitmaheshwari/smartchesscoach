@@ -195,7 +195,15 @@ const LichessBoard = forwardRef(({
         drawable: {
           enabled: true,
           visible: true,
-          autoShapes: [],
+          autoShapes: arrows.length > 0 ? arrows.map(([from, to, color]) => {
+            let brush = "blue";
+            if (color) {
+              const colorLower = color.toLowerCase();
+              if (colorLower.includes("red") || colorLower.includes("239")) brush = "red";
+              else if (colorLower.includes("green")) brush = "green";
+            }
+            return { orig: from, dest: to, brush };
+          }) : [],
         },
         events: {
           move: (orig, dest) => {
