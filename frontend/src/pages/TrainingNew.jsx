@@ -903,6 +903,11 @@ const Training = ({ user }) => {
               </div>
               <p className="text-xs text-muted-foreground">
                 Puzzle {currentPuzzleIndex + 1} of {filteredPuzzles.length}
+                {solvedCount > 0 && (
+                  <span className="ml-2 text-green-400">
+                    ({solvedCount} already mastered)
+                  </span>
+                )}
               </p>
             </div>
             
