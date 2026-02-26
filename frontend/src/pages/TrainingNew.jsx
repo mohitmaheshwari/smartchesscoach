@@ -130,11 +130,12 @@ const Training = ({ user }) => {
   const [newAchievements, setNewAchievements] = useState([]);
   
   // Puzzle solving state
-  const [puzzleState, setPuzzleState] = useState("thinking"); // thinking | correct | incorrect | revealed
+  const [puzzleState, setPuzzleState] = useState("thinking"); // thinking | correct | incorrect | revealed | showing_line
   const [userAnswer, setUserAnswer] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [boardKey, setBoardKey] = useState(0); // Key to force board re-render on reset
   const [validating, setValidating] = useState(false);
+  const [showingBlunderLine, setShowingBlunderLine] = useState(false); // For "Show Why" animation
   
   // Board state
   const [boardFen, setBoardFen] = useState(START_FEN);
