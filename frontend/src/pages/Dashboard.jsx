@@ -894,7 +894,11 @@ const Dashboard = ({ user }) => {
                           {/* Primary Focus - Highlighted */}
                           <div 
                             className="p-4 rounded-lg bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20 cursor-pointer hover:border-red-500/40 transition-colors"
-                            onClick={() => navigate('/coach')}
+                            onClick={() => {
+                              const focusKey = topWeaknesses[0]?.subcategory || topWeaknesses[0]?.name;
+                              navigate(`/coach?focus=${encodeURIComponent(focusKey)}`);
+                            }}
+                            data-testid="primary-focus-card"
                           >
                             <div className="flex items-center gap-2 mb-2">
                               <Target className="w-4 h-4 text-red-500" />
