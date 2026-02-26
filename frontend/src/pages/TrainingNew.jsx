@@ -569,6 +569,7 @@ const Training = ({ user }) => {
     if (!displayPuzzle || !displayPuzzle.user_move_uci) return;
     
     setShowingBlunderLine(true);
+    setFeedback({ message: "Watch what happens after your move..." });
     
     try {
       const { Chess } = await import('chess.js');
@@ -579,6 +580,7 @@ const Training = ({ user }) => {
       await new Promise(r => setTimeout(r, 800));
       
       // Step 2: Play the user's bad move
+      setFeedback({ message: `You played ${displayPuzzle.user_move}...` });
       const userMove = chess.move({
         from: displayPuzzle.user_move_uci.slice(0, 2),
         to: displayPuzzle.user_move_uci.slice(2, 4),
@@ -587,14 +589,14 @@ const Training = ({ user }) => {
       
       if (userMove) {
         setBoardFen(chess.fen());
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 1200));
         
         // Step 3: Play the refutation (opponent's response from threat or pv_after_played)
-        // The threat field usually contains what the opponent can do
         const threat = displayPuzzle.threat;
         const pvAfterPlayed = displayPuzzle.pv_after_played;
         
         let refutationMove = null;
+        let refutationNotation = "";
         
         // Try to play the threat or first move of PV
         if (threat && threat.length >= 4) {
@@ -604,13 +606,13 @@ const Training = ({ user }) => {
               to: threat.slice(2, 4),
               promotion: threat.length > 4 ? threat[4] : undefined
             });
+            if (refutationMove) refutationNotation = refutationMove.san;
           } catch (e) {
             // Threat move invalid, try PV
           }
         }
         
         if (!refutationMove && pvAfterPlayed && pvAfterPlayed.length > 0) {
-          // PV is usually in UCI format like "e2e4 e7e5"
           const firstMove = pvAfterPlayed.split(' ')[0];
           if (firstMove && firstMove.length >= 4) {
             try {
@@ -619,6 +621,7 @@ const Training = ({ user }) => {
                 to: firstMove.slice(2, 4),
                 promotion: firstMove.length > 4 ? firstMove[4] : undefined
               });
+              if (refutationMove) refutationNotation = refutationMove.san;
             } catch (e) {
               // PV move invalid
             }
@@ -626,10 +629,16 @@ const Training = ({ user }) => {
         }
         
         if (refutationMove) {
+          setFeedback({ message: `Opponent responds with ${refutationNotation}!`, type: "warning" });
           setBoardFen(chess.fen());
-          await new Promise(r => setTimeout(r, 1500));
+          await new Promise(r => setTimeout(r, 2000));
         }
       }
+      
+      // Reset back to original position
+      setFeedback(null);
+      setBoardFen(displayPuzzle.fen);
+      
     } catch (e) {
       console.error("Error playing blunder line:", e);
     }
