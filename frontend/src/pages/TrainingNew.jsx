@@ -1000,6 +1000,28 @@ const Training = ({ user }) => {
                             : "Find the best move. Take your time."}
                         </p>
                         <div className="flex justify-center gap-3">
+                          {/* Show Why button - only for blunder puzzles with move data */}
+                          {displayPuzzle?.source === "your_blunders" && displayPuzzle?.user_move_uci && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={playBlunderLine}
+                              disabled={showingBlunderLine}
+                              className="border-red-700 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            >
+                              {showingBlunderLine ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                  Playing...
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-4 h-4 mr-1" />
+                                  Show Why Bad
+                                </>
+                              )}
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
