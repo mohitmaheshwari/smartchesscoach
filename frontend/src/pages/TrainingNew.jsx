@@ -398,9 +398,11 @@ const Training = ({ user }) => {
   const displayPuzzle = sortedFilteredPuzzles[currentPuzzleIndex] || null;
   const hasMoreFilteredPuzzles = currentPuzzleIndex < sortedFilteredPuzzles.length - 1;
   
-  // Update board when puzzle changes
+  // Update board when puzzle changes (use puzzle_id + index to ensure proper dependency tracking)
   useEffect(() => {
     if (displayPuzzle && displayPuzzle.fen) {
+      // Force board key change to ensure re-render
+      setBoardKey(prev => prev + 1);
       setBoardFen(displayPuzzle.fen);
       setBoardOrientation(displayPuzzle.user_color || "white");
       setPuzzleState("thinking");
@@ -425,7 +427,7 @@ const Training = ({ user }) => {
       setBoardOrientation("white");
       setMistakeArrow([]);
     }
-  }, [displayPuzzle]);
+  }, [displayPuzzle?.puzzle_id, currentPuzzleIndex]);
   
   // Reset puzzle index when filter changes
   useEffect(() => {
