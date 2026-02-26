@@ -268,6 +268,32 @@ const Training = ({ user }) => {
     fetchData();
   }, []);
   
+  // Fetch focus override when URL param is present
+  useEffect(() => {
+    const fetchFocusOverride = async () => {
+      if (!focusFromUrl) return;
+      
+      try {
+        const res = await fetch(`${API}/training/data-driven?focus=${encodeURIComponent(focusFromUrl)}`, {
+          credentials: "include"
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Override the training priority display with the URL focus
+          setFocusOverride({
+            display_name: data.active_layer_label || data.micro_habit_label,
+            message: data.active_layer_description || data.micro_habit_description,
+            focus_key: data.override_focus || focusFromUrl
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching focus override:", err);
+      }
+    };
+    
+    fetchFocusOverride();
+  }, [focusFromUrl]);
+  
   // Refresh puzzle progress
   const refreshPuzzleProgress = async () => {
     try {
