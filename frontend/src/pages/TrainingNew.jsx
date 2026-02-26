@@ -1002,12 +1002,30 @@ const Training = ({ user }) => {
                             </p>
                           </div>
                         )}
-                        <p className="text-gray-300 mb-4">
-                          <Brain className="w-5 h-5 inline mr-2 text-amber-500" />
-                          {displayPuzzle?.source === "your_blunders" 
-                            ? "What should you have played instead?"
-                            : "Find the best move. Take your time."}
-                        </p>
+                        
+                        {/* Animation feedback message */}
+                        {showingBlunderLine && feedback?.message && (
+                          <div className={`p-3 rounded-lg mb-4 text-center ${
+                            feedback.type === "warning" 
+                              ? "bg-red-500/10 border border-red-500/30" 
+                              : "bg-amber-500/10 border border-amber-500/30"
+                          }`}>
+                            <p className={`text-sm font-medium ${
+                              feedback.type === "warning" ? "text-red-400" : "text-amber-400"
+                            }`}>
+                              {feedback.message}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {!showingBlunderLine && (
+                          <p className="text-gray-300 mb-4">
+                            <Brain className="w-5 h-5 inline mr-2 text-amber-500" />
+                            {displayPuzzle?.source === "your_blunders" 
+                              ? "What should you have played instead?"
+                              : "Find the best move. Take your time."}
+                          </p>
+                        )}
                         <div className="flex justify-center gap-3">
                           {/* Show Why button - only for blunder puzzles with move data */}
                           {displayPuzzle?.source === "your_blunders" && displayPuzzle?.user_move_uci && (
