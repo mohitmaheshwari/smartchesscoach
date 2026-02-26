@@ -910,11 +910,14 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
         except Exception as e:
             logger.error(f"Error auto-syncing game for {user_id}: {e}")
     
-    # Update last sync timestamp
-    await db.users.update_one(
-        {"user_id": user_id},
-        {"$set": {"last_game_sync": datetime.now(timezone.utc).isoformat()}}
-    )
+    # Only update last sync timestamp if we actually found and imported games
+    # This prevents the timestamp from advancing past games we haven't yet seen
+    if imported_count > 0:
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"last_game_sync": datetime.now(timezone.utc).isoformat()}}
+        )
+        logger.info(f"Updated last_game_sync for {user_id} after importing {imported_count} games")
     
     # Send notifications if games were synced
     if analyzed_count > 0:
