@@ -4072,6 +4072,49 @@ async def get_home_intelligence_endpoint(user: User = Depends(get_current_user))
     data = await get_home_intelligence(db, user.user_id)
     return data
 
+
+# ==================== BEHAVIORAL ANALYSIS ROUTES ====================
+
+@api_router.get("/behavioral/analyze/{game_id}")
+async def get_behavioral_report(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Get behavioral analysis report for a specific game.
+    
+    This is the core "coach memory" feature - returns:
+    - 5 behavioral scorecard dimensions
+    - One headline + one rich insight
+    - One mission (next action)
+    - Evidence references
+    - Confidence score
+    
+    NOT just "0 blunders, 1 mistake" - actual behavioral coaching.
+    """
+    from behavioral_analyzer_service import generate_behavioral_report
+    
+    report = await generate_behavioral_report(db, user.user_id, game_id)
+    return report
+
+
+@api_router.get("/behavioral/last-report")
+async def get_last_behavioral_report(user: User = Depends(get_current_user)):
+    """
+    Get behavioral report for the user's most recent analyzed game.
+    """
+    from behavioral_analyzer_service import generate_behavioral_report
+    
+    # Find most recent analyzed game
+    last_analysis = await db.game_analyses.find_one(
+        {"user_id": user.user_id},
+        sort=[("analyzed_at", -1)]
+    )
+    
+    if not last_analysis:
+        return {"error": "No analyzed games found"}
+    
+    report = await generate_behavioral_report(db, user.user_id, last_analysis.get("game_id"))
+    return report
+
+
 # ==================== MISSION ENGINE ROUTES ====================
 
 class MissionStepRequest(BaseModel):
