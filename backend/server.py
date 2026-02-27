@@ -4115,6 +4115,66 @@ async def get_last_behavioral_report(user: User = Depends(get_current_user)):
     return report
 
 
+# ==================== REANALYSIS JOB ROUTES (P1.6) ====================
+
+class ReanalysisRequest(BaseModel):
+    """Request for enqueueing a reanalysis job"""
+    user_id: Optional[str] = None  # Admin can specify, otherwise uses current user
+
+@api_router.post("/behavioral/reanalysis/enqueue")
+async def enqueue_reanalysis_job(
+    request: ReanalysisRequest = None,
+    user: User = Depends(get_current_user)
+):
+    """
+    Enqueue a historical reanalysis job for a user.
+    
+    Re-analyzes all historical games using the latest P1.6 engine.
+    - Idempotent: returns existing job if one is already pending/running
+    - Safe: max 1 running job per user, max 50 games per run
+    - historical_mode=True: does NOT mutate advice lifecycle
+    """
+    from jobs import enqueue_reanalysis, run_reanalysis_job
+    import asyncio
+    
+    target_user_id = request.user_id if request and request.user_id else user.user_id
+    
+    # Enqueue job (idempotent)
+    job = await enqueue_reanalysis(db, target_user_id)
+    
+    # Start job in background if PENDING
+    if job.status == "PENDING":
+        asyncio.create_task(run_reanalysis_job(db, job.job_id))
+    
+    return {
+        "job_id": job.job_id,
+        "status": job.status,
+        "message": "Reanalysis job enqueued" if job.status == "PENDING" else "Existing job found"
+    }
+
+
+@api_router.get("/behavioral/reanalysis/status")
+async def get_reanalysis_job_status(user: User = Depends(get_current_user)):
+    """
+    Get the status of the most recent reanalysis job for the current user.
+    
+    Returns progress information including:
+    - status: PENDING | RUNNING | DONE | FAILED
+    - processed_games: number of games reanalyzed
+    - skipped_games: number of games already up-to-date
+    - total_games: total games to process
+    - engine_version: version used for reanalysis
+    """
+    from jobs import get_reanalysis_status
+    
+    status = await get_reanalysis_status(db, user.user_id)
+    
+    if not status:
+        return {"status": "NO_JOB", "message": "No reanalysis job found"}
+    
+    return status
+
+
 # ==================== MISSION ENGINE ROUTES ====================
 
 class MissionStepRequest(BaseModel):
