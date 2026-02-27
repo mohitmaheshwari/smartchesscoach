@@ -5922,6 +5922,89 @@ async def get_player_profile(user: User = Depends(get_current_user)):
     profile = await get_or_create_profile(db, user.user_id, user.name)
     return profile
 
+@api_router.post("/profile/recalculate")
+async def recalculate_profile_stats(user: User = Depends(get_current_user)):
+    """
+    Recalculate player profile stats from all game analyses.
+    Use this to fix stale/out-of-sync profile data.
+    """
+    from datetime import datetime, timezone
+    
+    user_id = user.user_id
+    current_time = datetime.now(timezone.utc)
+    
+    # Get all game analyses for user
+    analyses = await db.game_analyses.find(
+        {"user_id": user_id},
+        {"_id": 0, "game_id": 1, "stockfish_analysis": 1, "analyzed_at": 1}
+    ).to_list(1000)
+    
+    if not analyses:
+        return {"error": "No analyzed games found", "games_count": 0}
+    
+    # Calculate totals
+    total_blunders = 0
+    total_mistakes = 0
+    total_best_moves = 0
+    total_inaccuracies = 0
+    
+    weakness_counts = {}
+    
+    for analysis in analyses:
+        sf = analysis.get("stockfish_analysis", {})
+        total_blunders += sf.get("blunders", 0)
+        total_mistakes += sf.get("mistakes", 0)
+        total_best_moves += sf.get("best_moves", 0)
+        total_inaccuracies += sf.get("inaccuracies", 0)
+        
+        # Extract weaknesses from move evaluations
+        for m in sf.get("move_evaluations", []):
+            if m.get("evaluation") in ["blunder", "mistake"]:
+                cp_loss = m.get("cp_loss", 0)
+                if 150 <= cp_loss <= 600:
+                    key = "tactical:one_move_blunder"
+                elif cp_loss > 600:
+                    key = "tactical:complex_tactical_miss"
+                else:
+                    key = "tactical:minor_inaccuracy"
+                weakness_counts[key] = weakness_counts.get(key, 0) + 1
+    
+    # Build top weaknesses list
+    top_weaknesses = []
+    for key, count in sorted(weakness_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
+        category, subcategory = key.split(":")
+        top_weaknesses.append({
+            "category": category,
+            "subcategory": subcategory,
+            "occurrence_count": count,
+            "last_occurrence": current_time.isoformat(),
+            "decayed_score": round(count * 1.0, 2)
+        })
+    
+    # Update profile
+    await db.player_profiles.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "games_analyzed_count": len(analyses),
+            "total_blunders": total_blunders,
+            "total_mistakes": total_mistakes,
+            "total_best_moves": total_best_moves,
+            "total_inaccuracies": total_inaccuracies,
+            "top_weaknesses": top_weaknesses,
+            "last_updated": current_time.isoformat(),
+            "last_recalculated": current_time.isoformat()
+        }}
+    )
+    
+    return {
+        "success": True,
+        "games_analyzed": len(analyses),
+        "total_blunders": total_blunders,
+        "total_mistakes": total_mistakes,
+        "total_best_moves": total_best_moves,
+        "top_weaknesses": top_weaknesses[:3]
+    }
+
 @api_router.get("/profile/weaknesses")
 async def get_ranked_weaknesses(user: User = Depends(get_current_user)):
     """Get player's top weaknesses with time decay applied"""
