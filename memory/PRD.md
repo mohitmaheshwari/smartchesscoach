@@ -10,10 +10,99 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - **Analysis Engine:** Stockfish with intelligent caching
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
 - **Opening Data:** Lichess Opening Explorer API (statistics only)
+- **Engine Version:** P1.6 (defined in `/app/backend/engine_config.py`)
 
 ---
 
 ## Latest Updates (Feb 27, 2026)
+
+### P1.6 Historical Re-Analysis + Adaptive Difficulty ✅ COMPLETE (Feb 27, 2026)
+
+**User Request:** Eliminate cold-start and make the coach feel instantly "aware of history." Implement adaptive coaching difficulty that scales based on learner performance.
+
+**Features Implemented:**
+
+1. **Historical Re-Analysis Job System**
+   - **Collection:** `reanalysis_jobs` with idempotency_key for duplicate prevention
+   - **Worker:** `/app/backend/jobs/reanalyze_user_games.py`
+   - **API Endpoints:**
+     - `POST /api/behavioral/reanalysis/enqueue`: Enqueue job (idempotent)
+     - `GET /api/behavioral/reanalysis/status`: Get job progress
+   - **Safety Constraints:**
+     - Max 1 RUNNING job per user
+     - Max 50 games per run
+     - `historical_mode=True`: Does NOT mutate advice lifecycle (no auto-create, no auto-resolve)
+     - Rate limited: 300ms sleep between games
+     - Skips games already analyzed with current engine version
+
+2. **Adaptive Difficulty Policy** (`/app/backend/behavioral/difficulty_policy.py`)
+   - Difficulty Levels: EASY, STANDARD, HARD
+   - **HARD Guardrails (ALL must pass):**
+     - Must be FAST_ADAPTER
+     - Must have confidence >= 0.7
+     - Must NOT be in stagnation
+     - Must NOT have 2+ recent severe collapses (tilt_index > 0.6 or game_quality == "BAD")
+   - **Difficulty Decay:** 2 consecutive HARD failures → downgrade to STANDARD
+   
+   **Example Outputs:**
+   ```json
+   // FAST_ADAPTER + confidence 0.8 + no stagnation → HARD
+   {"difficulty": "HARD", "reason": "Consistent adapter with stable recent play", "guardrail_triggered": null}
+   
+   // FAST_ADAPTER + recent collapses → capped STANDARD
+   {"difficulty": "STANDARD", "reason": "2 recent collapses — stabilizing first", "guardrail_triggered": "RECENT_COLLAPSE_CAP"}
+   
+   // TRYING_BUT_STUCK + stagnation → EASY
+   {"difficulty": "EASY", "reason": "Simplifying to break the stuck pattern", "guardrail_triggered": "STAGNATION_SIMPLIFY"}
+   
+   // NOT_APPLYING → EASY
+   {"difficulty": "EASY", "reason": "Focus on applying one rule at a time", "guardrail_triggered": null}
+   ```
+
+3. **Mission Templates** (`/app/backend/behavioral/mission_templates.py`)
+   - Parameter tables for each mission type at each difficulty
+   - Example (TIME_DECISION_DRILL):
+     - EASY: 1 position, 30s, 2 candidates, 2 reps
+     - STANDARD: 2 positions, 20s, 3 candidates, 3 reps
+     - HARD: 3 positions, 15s, 3 candidates + opponent threat, 4 reps
+
+4. **API Response Enhancement**
+   ```json
+   {
+     "difficulty": "STANDARD",
+     "difficulty_reason": "Maintaining steady progress",
+     "difficulty_guardrail": null,
+     "engine_version": "P1.6",
+     "historical_mode": false,
+     "next_mission": {
+       "type": "DEFENSIVE_RESILIENCE_DRILL",
+       "title": "Defensive Resilience (5 min)",
+       "difficulty": "STANDARD",
+       "timebox_seconds": 30,
+       "required_reps": 3,
+       "params": { ... }
+     }
+   }
+   ```
+
+5. **Frontend Enhancements**
+   - Difficulty badge on mission card (EASY=green, STANDARD=blue, HARD=orange)
+   - Reanalysis progress banner: "Updating your coaching history: 12/50 games analyzed..."
+
+**Files Created:**
+- `/app/backend/engine_config.py` (ENGINE_VERSION = "P1.6")
+- `/app/backend/jobs/__init__.py`
+- `/app/backend/jobs/reanalyze_user_games.py`
+- `/app/backend/behavioral/difficulty_policy.py`
+- `/app/backend/behavioral/mission_templates.py`
+- `/app/backend/tests/test_reanalysis_difficulty_p16.py`
+
+**Test Report:** `/app/test_reports/iteration_82.json`
+- Backend: 100% (18/18 tests)
+- Frontend: 100% (29/29 tests)
+- Regression: 47 passed, 0 failed
+
+---
 
 ### P1.5 Coach Memory & Learning Velocity System ✅ COMPLETE (Feb 27, 2026)
 
