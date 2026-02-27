@@ -109,6 +109,27 @@ const BehavioralInsightCard = ({ gameId, lastGame }) => {
     }
   };
 
+  // Root cause icon and colors
+  const getRootCauseIcon = (cause) => {
+    switch (cause) {
+      case "TIME_TRIGGERED": return <Timer className="w-3 h-3" />;
+      case "OVERCONFIDENCE": return <Trophy className="w-3 h-3" />;
+      case "CALCULATION_GAP": return <Calculator className="w-3 h-3" />;
+      case "DEFENSIVE_STRESS": return <ShieldAlert className="w-3 h-3" />;
+      default: return <AlertTriangle className="w-3 h-3" />;
+    }
+  };
+
+  const getRootCauseColor = (cause) => {
+    switch (cause) {
+      case "TIME_TRIGGERED": return "bg-orange-500/20 text-orange-400 border-orange-500/40";
+      case "OVERCONFIDENCE": return "bg-yellow-500/20 text-yellow-400 border-yellow-500/40";
+      case "CALCULATION_GAP": return "bg-blue-500/20 text-blue-400 border-blue-500/40";
+      case "DEFENSIVE_STRESS": return "bg-purple-500/20 text-purple-400 border-purple-500/40";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
   // Get icon for scorecard dimension
   const getDimensionIcon = (key) => {
     switch (key) {
