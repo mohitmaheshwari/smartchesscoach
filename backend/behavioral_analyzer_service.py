@@ -208,16 +208,15 @@ async def generate_behavioral_report(
     
     # ==================== P1.6: ADAPTIVE DIFFICULTY ====================
     
-    # 20. Load recent behavioral reports for collapse detection
+    # 22. Load recent behavioral reports for collapse detection
     recent_reports = await db.behavioral_reports.find(
         {"user_id": user_id}
     ).sort("computed_at", -1).limit(3).to_list(3)
     
-    # 21. Get user's difficulty profile
-    user_profile = await db.users.find_one({"user_id": user_id}) or {}
+    # Get consecutive hard failures (user_profile already loaded)
     consecutive_hard_failures = user_profile.get("consecutive_hard_failures", 0)
     
-    # 22. Choose difficulty based on learner_type, stagnation, confidence, recent collapses
+    # 23. Choose difficulty based on learner_type, stagnation, confidence, recent collapses
     difficulty_result = choose_difficulty(
         learner_type=velocity_result.learner_type,
         stagnation=is_stagnated,
