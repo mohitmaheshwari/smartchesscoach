@@ -413,8 +413,9 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     last_game_summary = None
     if last_game:
         result = last_game.get("result", "unknown")
-        blunders = last_game.get("blunders", 0)
-        mistakes = last_game.get("mistakes", 0)
+        sf_data = last_game.get("stockfish_analysis", {})
+        blunders = sf_data.get("blunders", 0) or last_game.get("blunders", 0)
+        mistakes = sf_data.get("mistakes", 0) or last_game.get("mistakes", 0)
         analyzed_at = last_game.get("analyzed_at")
         
         # Get opponent name from games collection (more reliable than game_analyses)
