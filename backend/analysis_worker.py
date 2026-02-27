@@ -229,6 +229,99 @@ def claim_next_job(db):
     return job
 
 
+def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mistakes: int, best_moves: int, move_evaluations: list):
+    """
+    Synchronous version of profile update for the analysis worker.
+    Updates player stats and recalculates top weaknesses.
+    """
+    try:
+        current_time = datetime.now(timezone.utc)
+        
+        profile = db.player_profiles.find_one({"user_id": user_id})
+        if not profile:
+            logger.warning(f"No profile found for user {user_id} - skipping profile update")
+            return
+        
+        # Update game counts
+        games_analyzed = profile.get("games_analyzed_count", 0) + 1
+        total_blunders = profile.get("total_blunders", 0) + blunders
+        total_mistakes = profile.get("total_mistakes", 0) + mistakes
+        total_best_moves = profile.get("total_best_moves", 0) + best_moves
+        
+        # Extract weaknesses from move evaluations
+        identified_weaknesses = []
+        for m in move_evaluations:
+            if m.get("evaluation") in ["blunder", "mistake"]:
+                # Classify the weakness type
+                cp_loss = m.get("cp_loss", 0)
+                if cp_loss >= 150 and cp_loss <= 600:
+                    identified_weaknesses.append({
+                        "category": "tactical",
+                        "subcategory": "one_move_blunder"
+                    })
+                elif cp_loss > 600:
+                    identified_weaknesses.append({
+                        "category": "tactical", 
+                        "subcategory": "complex_tactical_miss"
+                    })
+        
+        # Update weakness tracking
+        current_weaknesses = profile.get("top_weaknesses", [])
+        
+        # Count new weaknesses
+        weakness_counts = {}
+        for w in identified_weaknesses:
+            key = f"{w['category']}:{w['subcategory']}"
+            weakness_counts[key] = weakness_counts.get(key, 0) + 1
+        
+        # Update existing weaknesses or add new ones
+        for key, count in weakness_counts.items():
+            category, subcategory = key.split(":")
+            found = False
+            for w in current_weaknesses:
+                if w.get("category") == category and w.get("subcategory") == subcategory:
+                    w["occurrence_count"] = w.get("occurrence_count", 0) + count
+                    w["last_occurrence"] = current_time.isoformat()
+                    # Recalculate decayed score
+                    w["decayed_score"] = round(w["occurrence_count"] * 1.0, 2)  # Simple score for now
+                    found = True
+                    break
+            
+            if not found:
+                current_weaknesses.append({
+                    "category": category,
+                    "subcategory": subcategory,
+                    "occurrence_count": count,
+                    "first_occurrence": current_time.isoformat(),
+                    "last_occurrence": current_time.isoformat(),
+                    "decayed_score": round(count * 1.0, 2)
+                })
+        
+        # Sort by decayed score
+        current_weaknesses.sort(key=lambda x: x.get("decayed_score", 0), reverse=True)
+        
+        # Keep top 10
+        top_weaknesses = current_weaknesses[:10]
+        
+        # Update profile
+        db.player_profiles.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "games_analyzed_count": games_analyzed,
+                "total_blunders": total_blunders,
+                "total_mistakes": total_mistakes,
+                "total_best_moves": total_best_moves,
+                "top_weaknesses": top_weaknesses,
+                "last_updated": current_time.isoformat()
+            }}
+        )
+        
+        logger.info(f"Updated profile for {user_id}: {games_analyzed} games, {len(identified_weaknesses)} new weaknesses tracked")
+        
+    except Exception as e:
+        logger.error(f"Failed to update profile for {user_id}: {e}")
+
+
 def process_job(db, job):
     """
     Process a single analysis job.
