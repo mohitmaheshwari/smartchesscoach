@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from typing import Dict, Optional, List
 from dataclasses import dataclass, asdict
 
-from config import ENGINE_VERSION, REANALYSIS_CONFIG
+from engine_config import ENGINE_VERSION, REANALYSIS_CONFIG
 
 logger = logging.getLogger(__name__)
 
