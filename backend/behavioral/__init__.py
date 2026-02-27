@@ -144,4 +144,21 @@ __all__ = [
     "get_mission_params",
     "get_available_mission_types",
     "get_difficulty_description",
+    
+    # Mission Validation (P1.7)
+    "ValidationResult",
+    "validate_mission_effect",
+    "VALIDATION_WINDOW_GAMES",
+    
+    # Mission Lifecycle (P1.7)
+    "MissionRecord",
+    "start_mission",
+    "complete_mission",
+    "check_abandoned_missions",
+    "get_last_mission_result",
+    "get_recent_mission_validations",
+    "compute_mission_velocity_adjustment",
+    "get_mission_narrative_context",
+    "VALIDATION_SUCCESS_THRESHOLD",
+    "VALIDATION_FAILURE_THRESHOLD",
 ]
