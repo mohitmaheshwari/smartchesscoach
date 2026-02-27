@@ -86,6 +86,25 @@ from .mission_templates import (
     get_difficulty_description,
 )
 
+from .mission_validation import (
+    ValidationResult,
+    validate_mission_effect,
+    VALIDATION_WINDOW_GAMES,
+)
+
+from .mission_lifecycle import (
+    MissionRecord,
+    start_mission,
+    complete_mission,
+    check_abandoned_missions,
+    get_last_mission_result,
+    get_recent_mission_validations,
+    compute_mission_velocity_adjustment,
+    get_mission_narrative_context,
+    VALIDATION_SUCCESS_THRESHOLD,
+    VALIDATION_FAILURE_THRESHOLD,
+)
+
 __all__ = [
     # Feature extraction
     "BehaviorFeatures",
