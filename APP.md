@@ -1,12 +1,35 @@
-# Chess Coach - Comprehensive Technical & Strategic Document
+# ChessGuru - Comprehensive Technical & Strategic Document
 
-## Executive Summary
+## Product Truth
 
-**Chess Coach** is an AI-powered chess improvement platform built on a fundamentally different philosophy than existing tools. While competitors focus on **WHAT went wrong** (you blundered on move 25), Chess Coach focuses on **WHY it went wrong** (you stopped calculating when you felt winning) and **HOW to fix the thinking pattern** (not the specific position).
+**ChessGuru is not a generic chess analysis app.**
+**ChessGuru is a behavioral coaching system built on top of chess games.**
 
-### Core Philosophy: "Recovery-First" Coaching
+## Primary MOAT: Personal Behavioral Memory System
 
-Traditional chess apps treat mistakes as positions to memorize. Chess Coach treats mistakes as **cognitive patterns** to understand and rewire.
+A persistent coaching memory that learns how each player:
+- Repeatedly fails
+- Reacts to pressure
+- Loses confidence
+- Ignores advice
+- Responds to different coaching interventions
+- Actually improves over time
+
+**Core Loop:**
+```
+game -> reflection -> diagnosis -> memory update -> focused intervention -> future game check -> coaching adaptation
+```
+
+---
+
+## What the Product Must Feel Like
+
+| ✅ MUST feel like | ❌ MUST NOT feel like |
+|-------------------|----------------------|
+| A coach with memory | A stats dashboard |
+| A recovery system after losses | An engine explanation tool |
+| A pattern detector across many games | A chat wrapper around PGN analysis |
+| A personal improvement mirror | A lesson library with personalization |
 
 ---
 
