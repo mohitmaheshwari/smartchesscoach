@@ -114,7 +114,6 @@ class TimePanicRule(AdviceRule):
     
     def evaluate(self, facts, history: List[Dict], params: Dict) -> AdviceResult:
         severity = params.get("severity_weight", 4)
-        time_threshold_ms = params.get("time_threshold_ms", 30000)
         
         # Check if game had time pressure
         if not facts.has_clock_data:
