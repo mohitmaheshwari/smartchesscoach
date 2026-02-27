@@ -324,14 +324,22 @@ async def _auto_create_advice(
             logger.info(f"Auto-created advice {rule_code} for user {user_id}")
 
 
-def _build_advice_enforcement_mission(violated_advice: Dict, game_id: str) -> Dict:
+def _build_advice_enforcement_mission(
+    violated_advice: Dict, 
+    game_id: str,
+    difficulty: str = "STANDARD"
+) -> Dict:
     """Build a mission specifically to enforce violated advice"""
     from behavioral import Mission
+    from behavioral.mission_templates import get_mission_params
     
     rule_code = violated_advice.get("rule_code", "")
     text = violated_advice.get("text", "")
     
-    # Custom mission text based on rule
+    # Get difficulty-specific parameters
+    params = get_mission_params("ADVICE_ENFORCEMENT", difficulty)
+    
+    # Custom mission text based on rule and difficulty
     instruction_map = {
         "OPENING_REPEAT_PIECE": "Your only goal next game: avoid moving the same piece twice in the opening.",
         "TIME_PANIC": "Your only goal next game: under 30 seconds, pause and pick the safest move.",
@@ -341,17 +349,42 @@ def _build_advice_enforcement_mission(violated_advice: Dict, game_id: str) -> Di
         "CONVERSION_ISSUE": "Your only goal next game: when ahead, simplify and don't overpress.",
     }
     
+    base_instruction = instruction_map.get(rule_code, f"Focus on: {text}")
+    suffix = params.get("instruction_suffix", "")
+    
     return Mission(
         type="ADVICE_ENFORCEMENT",
         title="Fix This First",
-        instruction=instruction_map.get(rule_code, f"Focus on: {text}"),
+        instruction=f"{base_instruction} {suffix}".strip(),
         payload={
             "game_id": game_id,
             "advice_id": violated_advice.get("advice_id"),
             "rule_code": rule_code,
-            "focus": "advice_enforcement"
+            "focus": "advice_enforcement",
+            "difficulty": difficulty,
+            "checkpoint_reminder": params.get("checkpoint_reminder", False),
+            "checkpoint_move": params.get("checkpoint_move"),
+            "require_annotation": params.get("require_annotation", False),
         }
     )
+
+
+def _enrich_mission_with_difficulty(mission, mission_params: Dict, difficulty_result) -> Dict:
+    """Enrich mission with difficulty-specific parameters"""
+    base = mission.to_dict() if hasattr(mission, 'to_dict') else dict(mission)
+    
+    # Add difficulty info
+    base["difficulty"] = difficulty_result.difficulty
+    base["difficulty_reason"] = difficulty_result.reason
+    
+    # Add mission-specific params
+    if mission_params:
+        base["timebox_seconds"] = mission_params.get("timebox_seconds")
+        base["required_reps"] = mission_params.get("required_reps")
+        base["positions"] = mission_params.get("positions")
+        base["params"] = mission_params
+    
+    return base
 
 
 def _detect_main_problem(features, scorecard: Dict) -> str:
