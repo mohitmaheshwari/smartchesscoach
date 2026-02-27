@@ -5959,14 +5959,15 @@ async def recalculate_profile_stats(user: User = Depends(get_current_user)):
         
         # Extract weaknesses from move evaluations
         for m in sf.get("move_evaluations", []):
-            if m.get("evaluation") in ["blunder", "mistake"]:
-                cp_loss = m.get("cp_loss", 0)
-                if 150 <= cp_loss <= 600:
-                    key = "tactical:one_move_blunder"
-                elif cp_loss > 600:
-                    key = "tactical:complex_tactical_miss"
-                else:
-                    key = "tactical:minor_inaccuracy"
+            eval_type = m.get("evaluation")
+            cp_loss = m.get("cp_loss", 0)
+            
+            # Only count actual blunders as one-move blunders (not mistakes or inaccuracies)
+            if eval_type == "blunder" and 150 <= cp_loss <= 600:
+                key = "tactical:one_move_blunder"
+                weakness_counts[key] = weakness_counts.get(key, 0) + 1
+            elif eval_type == "blunder" and cp_loss > 600:
+                key = "tactical:complex_tactical_miss"
                 weakness_counts[key] = weakness_counts.get(key, 0) + 1
     
     # Build top weaknesses list
