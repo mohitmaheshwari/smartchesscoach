@@ -169,15 +169,33 @@ async def generate_behavioral_report(
     stagnation_info = await detect_stagnation(db, user_id, main_problem)
     is_stagnated = stagnation_info.get("is_stagnated", False)
     
-    # 18. Generate narrative (headline + rich insight) - now with compliance awareness
+    # ==================== P1.7: MISSION FEEDBACK LOOP ====================
+    
+    # 18. Get last mission result for narrative reference
+    from behavioral.mission_lifecycle import get_last_mission_result, get_recent_mission_validations
+    
+    last_mission = await get_last_mission_result(db, user_id) if not historical_mode else None
+    recent_mission_validations = await get_recent_mission_validations(db, user_id, limit=3) if not historical_mode else None
+    
+    # 19. Re-compute velocity with mission validation adjustment (smoothed)
+    previous_velocity = user_profile.get("last_learning_velocity") if user_profile else None
+    velocity_result = compute_learning_velocity(
+        applications, 
+        features.leak_trends,
+        previous_velocity=previous_velocity,
+        mission_validations=recent_mission_validations
+    )
+    
+    # 20. Generate narrative (headline + rich insight) - now with mission reference
     headline, rich_insight = build_behavioral_narrative(
         features, scorecard, history, 
         stagnation=is_stagnated,
         learner_type=velocity_result.learner_type,
-        advice_stats=velocity_result.advice_stats
+        advice_stats=velocity_result.advice_stats,
+        last_mission_result=last_mission  # P1.7
     )
     
-    # 19. Compute confidence
+    # 21. Compute confidence
     confidence = _compute_confidence(
         history_count=len(history),
         has_clock=features.has_clock_data,
