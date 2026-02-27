@@ -138,39 +138,60 @@ def _conversion_discipline_drill(features, game_id: str, difficulty: str = "STAN
             break
     
     move_no = winning_move or features.first_blunder_move or 20
+    suffix = _get_difficulty_suffix(difficulty)
+    
+    instruction = f"Review the position at move {move_no} where you were +2.0. Identify opponent counterplay before choosing your move."
+    if suffix:
+        instruction = f"{instruction} {suffix}"
     
     return Mission(
         type="CONVERSION_DISCIPLINE_DRILL",
         title="Conversion Discipline (5 min)",
-        instruction=f"Review the position at move {move_no} where you were +2.0. Identify opponent counterplay before choosing your move.",
+        instruction=instruction,
         payload={
             "game_id": game_id,
             "move_no": move_no,
-            "focus": "conversion"
+            "focus": "conversion",
+            "difficulty": difficulty
         }
     )
 
 
-def _candidate_move_drill(features, game_id: str) -> Mission:
+def _candidate_move_drill(features, game_id: str, difficulty: str = "STANDARD") -> Mission:
     """
     For CALCULATION_GAP root cause.
     Train systematic candidate move generation.
     """
     move_no = features.first_blunder_move or 20
     
+    # Difficulty-scaled parameters
+    candidate_counts = {"EASY": 2, "STANDARD": 3, "HARD": 3}
+    depth_moves = {"EASY": 1, "STANDARD": 2, "HARD": 3}
+    
+    candidates = candidate_counts.get(difficulty, 3)
+    depth = depth_moves.get(difficulty, 2)
+    suffix = _get_difficulty_suffix(difficulty)
+    
+    instruction = f"For the position at move {move_no}, write {candidates} candidate moves before calculating. Then calculate each for {depth} moves deep."
+    if difficulty == "HARD":
+        instruction += " Eliminate 1 by opponent's reply."
+    if suffix:
+        instruction = f"{instruction} {suffix}"
+    
     return Mission(
         type="CANDIDATE_MOVE_DRILL",
         title="Candidate Move Drill (5 min)",
-        instruction=f"For the position at move {move_no}, write 3 candidate moves before calculating. Then calculate each for 2 moves deep.",
+        instruction=instruction,
         payload={
             "game_id": game_id,
             "move_no": move_no,
-            "focus": "calculation"
+            "focus": "calculation",
+            "difficulty": difficulty
         }
     )
 
 
-def _defensive_resilience_drill(features, game_id: str) -> Mission:
+def _defensive_resilience_drill(features, game_id: str, difficulty: str = "STANDARD") -> Mission:
     """
     For DEFENSIVE_STRESS root cause.
     Train calm defensive play.
