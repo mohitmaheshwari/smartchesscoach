@@ -161,6 +161,21 @@ const CoachHome = ({ user }) => {
           {getGreeting()}, {userName}
         </motion.p>
 
+        {/* P1.6: Reanalysis Progress Banner */}
+        {reanalysisStatus && reanalysisStatus.status === "RUNNING" && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 py-2 px-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm"
+            data-testid="reanalysis-banner"
+          >
+            <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+            <span className="text-blue-300">
+              Updating your coaching history: {reanalysisStatus.processed_games}/{reanalysisStatus.total_games} games analyzed...
+            </span>
+          </motion.div>
+        )}
+
         {/* Section 1: Development Phase Banner */}
         {hasData && (
           <DevelopmentPhaseBanner phase={homeData.development_phase} />
