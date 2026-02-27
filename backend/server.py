@@ -4695,6 +4695,8 @@ async def get_post_loss_recovery(game_id: str, user: User = Depends(get_current_
         "has_pending_reflection": len(blunders) + len(mistakes) > 0,
         "blunder_count": len(blunders),
         "mistake_count": len(mistakes),
+        # COACH MEMORY: Recurring pattern context
+        "recurring_pattern": recurring_pattern,
     }
 
 # ==================== COACH MODE ROUTES ====================
