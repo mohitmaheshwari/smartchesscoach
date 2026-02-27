@@ -241,7 +241,10 @@ def _build_headline(
     progress_signal: Optional[str],
     core_problem: str,
     root_cause: str,
-    stagnation: bool
+    stagnation: bool,
+    learner_type: str = None,
+    advice_stats: Dict = None,
+    tone: str = "GUIDING"
 ) -> str:
     """
     Build the main headline.
@@ -250,11 +253,31 @@ def _build_headline(
     - If stagnation, use firm tone
     - If progress + problem, acknowledge both
     - Be specific about root cause
+    - P1.5: Adjust tone based on learner_type
     """
     
     # Stagnation override
     if stagnation:
         return "We are stuck in the same loop — this won't fix itself."
+    
+    # P1.5: Compliance-aware headlines
+    if learner_type and advice_stats:
+        followed = advice_stats.get("followed", 0)
+        applicable = advice_stats.get("applicable", 0)
+        
+        if learner_type == "FAST_ADAPTER" and applicable > 0:
+            if followed == applicable:
+                return f"You're applying coaching advice consistently — improvement is visible."
+            elif followed > 0:
+                return f"You applied {followed}/{applicable} advice — keep this up."
+        
+        elif learner_type == "NOT_APPLYING" and applicable >= 2:
+            violated = applicable - followed
+            if violated >= 2:
+                return f"{violated} of your {applicable} active advice were violated again."
+        
+        elif learner_type == "TRYING_BUT_STUCK" and applicable > 0:
+            return "You're attempting the right ideas, but execution still breaks under pressure."
     
     # Progress + problem
     if progress_signal and core_problem != "NONE":
