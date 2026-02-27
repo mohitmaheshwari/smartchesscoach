@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForAppReady, dismissToasts } from '../fixtures/helpers';
 
 /**
  * BehavioralInsightCard Frontend Tests
@@ -10,26 +11,22 @@ import { test, expect } from '@playwright/test';
  * - Mission CTA
  */
 
+const BASE_URL = 'https://player-behavior-lab.preview.emergentagent.com';
+
 test.describe('BehavioralInsightCard', () => {
   test.beforeEach(async ({ page }) => {
-    // Remove Emergent preview badge
-    await page.addInitScript(() => {
-      const observer = new MutationObserver(() => {
-        const badge = document.querySelector('[class*="emergent"], [id*="emergent-badge"]');
-        if (badge) badge.remove();
-      });
-      observer.observe(document.documentElement, { childList: true, subtree: true });
-    });
+    // Dev login first via API
+    await page.goto(`${BASE_URL}/api/auth/dev-login`);
+    await page.waitForLoadState('networkidle');
     
-    // Navigate to landing page and login
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    // Set up toast dismissal
+    await dismissToasts(page);
     
-    // Click Dev Login button
-    const devLoginBtn = page.getByRole('button', { name: /Dev Login/i });
-    await devLoginBtn.click();
+    // Navigate to home page where BehavioralInsightCard is displayed
+    await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
     
-    // Wait for home page to load
-    await page.waitForLoadState('domcontentloaded');
+    // Verify coach home loaded
     await expect(page.getByTestId('coach-home')).toBeVisible({ timeout: 15000 });
   });
 
