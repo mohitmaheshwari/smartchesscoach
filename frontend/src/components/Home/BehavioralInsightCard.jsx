@@ -200,6 +200,34 @@ const BehavioralInsightCard = ({ gameId, lastGame }) => {
         </p>
       </div>
 
+      {/* Coach Memory Row (P1.5) - Shows advice compliance */}
+      {report.advice_stats && report.advice_stats.applicable > 0 && (
+        <div 
+          className="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/30 text-xs"
+          data-testid="coach-memory-row"
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground">Coach Memory:</span>
+            <span className={`font-medium ${
+              report.advice_stats.followed === report.advice_stats.applicable 
+                ? 'text-emerald-400' 
+                : report.advice_stats.followed > 0 
+                  ? 'text-amber-400' 
+                  : 'text-red-400'
+            }`}>
+              Advice Applied: {report.advice_stats.followed}/{report.advice_stats.applicable}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">Learning Style:</span>
+            <span className={`font-medium ${getLearnerTypeColor(report.learner_type)}`}>
+              {formatLearnerType(report.learner_type)}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Scorecard chips - horizontal scroll on mobile */}
       <div className="flex flex-wrap gap-2">
         {relevantScores.map(([key, item]) => (
@@ -219,8 +247,8 @@ const BehavioralInsightCard = ({ gameId, lastGame }) => {
       {next_mission && (
         <div className="pt-2 border-t border-border/50">
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Target className="w-4 h-4 text-primary" />
+            <div className={`p-2 rounded-lg ${next_mission.type === 'ADVICE_ENFORCEMENT' ? 'bg-red-500/20' : 'bg-primary/10'}`}>
+              <Target className={`w-4 h-4 ${next_mission.type === 'ADVICE_ENFORCEMENT' ? 'text-red-400' : 'text-primary'}`} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium">{next_mission.title}</p>
@@ -242,6 +270,27 @@ const BehavioralInsightCard = ({ gameId, lastGame }) => {
       )}
     </motion.div>
   );
+};
+
+// Helper functions for P1.5
+const getLearnerTypeColor = (type) => {
+  switch (type) {
+    case "FAST_ADAPTER": return "text-emerald-400";
+    case "STEADY": return "text-blue-400";
+    case "TRYING_BUT_STUCK": return "text-amber-400";
+    case "NOT_APPLYING": return "text-red-400";
+    default: return "text-muted-foreground";
+  }
+};
+
+const formatLearnerType = (type) => {
+  switch (type) {
+    case "FAST_ADAPTER": return "Fast Adapter";
+    case "STEADY": return "Steady Learner";
+    case "TRYING_BUT_STUCK": return "Building";
+    case "NOT_APPLYING": return "Needs Focus";
+    default: return "Learning";
+  }
 };
 
 export default BehavioralInsightCard;
