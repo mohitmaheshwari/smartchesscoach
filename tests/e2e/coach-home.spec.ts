@@ -176,10 +176,15 @@ test.describe('Coach Home - UX Overhaul', () => {
     await hideEmergentBadge(page);
     
     const journeyBtn = page.getByTestId('quick-progress');
+    await expect(journeyBtn).toBeVisible({ timeout: 10000 });
     await journeyBtn.click({ force: true });
     
-    // Should navigate to progress page
-    await page.waitForURL(/\/progress/, { timeout: 10000 });
+    // Should navigate to progress page - use waitForLoadState instead of waitForURL
+    await page.waitForLoadState('domcontentloaded');
+    
+    // Verify URL contains progress
+    const currentUrl = page.url();
+    expect(currentUrl).toMatch(/\/progress/);
   });
 
   test('Recommended Drill card displays when user has data', async ({ page }) => {
