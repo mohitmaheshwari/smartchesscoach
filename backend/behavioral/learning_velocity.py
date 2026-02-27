@@ -62,12 +62,14 @@ def compute_learning_velocity(
     mission_validations: List[Dict] = None
 ) -> LearningVelocityResult:
     """
-    Compute learning velocity from advice applications.
+    Compute learning velocity from advice applications and mission validations.
     
     Args:
         applications: List of advice_applications (most recent first)
         leak_trends: Dict of leak tag trends from feature_extractor
         games_count: Number of games to consider
+        previous_velocity: Previous velocity for smoothing (P1.7)
+        mission_validations: Recent mission validation scores (P1.7)
         
     Returns:
         LearningVelocityResult with velocity, learner_type, and stats
@@ -82,6 +84,7 @@ def compute_learning_velocity(
             weighted_follow_rate=0.5,
             improvement_trend=0.5,
             stability_trend=0.5,
+            mission_adjustment=0.0,
             advice_stats={
                 "total_applications": 0,
                 "applicable": 0,
@@ -100,24 +103,74 @@ def compute_learning_velocity(
     # 3. Compute stability trend (from time panic specifically)
     stability_trend = _compute_stability_trend(leak_trends)
     
-    # 4. Combine into velocity
-    velocity = (
+    # 4. Compute base velocity
+    base_velocity = (
         0.5 * weighted_follow_rate +
         0.3 * improvement_trend +
         0.2 * stability_trend
     )
     
-    # 5. Classify learner type
+    # 5. P1.7: Add mission validation adjustment
+    mission_adjustment = _compute_mission_adjustment(mission_validations)
+    
+    # 6. P1.7: Apply smoothing if previous velocity exists
+    if previous_velocity is not None:
+        # Smoothed: 0.8 * previous + 0.2 * (base + mission_adjustment)
+        velocity = (
+            0.8 * previous_velocity + 
+            0.2 * (base_velocity + mission_adjustment)
+        )
+    else:
+        velocity = base_velocity + mission_adjustment
+    
+    # Clamp to 0-1
+    velocity = max(0.0, min(1.0, velocity))
+    
+    # 7. Classify learner type
     learner_type = _classify_learner(velocity)
     
-    # 6. Compute confidence
+    # 8. Compute confidence
     confidence = min(1.0, len(applicable) / 15)
     
-    # 7. Stats
+    # 9. Stats
     followed_count = sum(1 for a in applicable if a.get("outcome") == "FOLLOWED")
     violated_count = sum(1 for a in applicable if a.get("outcome") == "VIOLATED")
     
     return LearningVelocityResult(
+        velocity=velocity,
+        learner_type=learner_type,
+        weighted_follow_rate=weighted_follow_rate,
+        improvement_trend=improvement_trend,
+        stability_trend=stability_trend,
+        mission_adjustment=mission_adjustment,
+        advice_stats={
+            "total_applications": len(applications),
+            "applicable": len(applicable),
+            "followed": followed_count,
+            "violated": violated_count,
+            "follow_ratio": f"{followed_count}/{len(applicable)}"
+        },
+        confidence=confidence
+    )
+
+
+def _compute_mission_adjustment(mission_validations: List[Dict]) -> float:
+    """
+    Compute learning velocity adjustment from mission validation scores.
+    
+    P1.7: avg(last 3 validation scores) * 0.2
+    
+    Returns adjustment value (0 to 0.2)
+    """
+    if not mission_validations:
+        return 0.0
+    
+    scores = [m.get("validation_score", 0) for m in mission_validations[:3]]
+    if not scores:
+        return 0.0
+    
+    avg_score = sum(scores) / len(scores)
+    return avg_score * 0.2
         velocity=velocity,
         learner_type=learner_type,
         weighted_follow_rate=weighted_follow_rate,
