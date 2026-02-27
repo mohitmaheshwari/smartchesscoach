@@ -563,6 +563,171 @@ async def get_current_user(request: Request) -> User:
     # No valid authentication
     raise HTTPException(status_code=401, detail="Not authenticated")
 
+# ==================== COACH MEMORY HELPERS ====================
+
+async def compute_recurring_pattern_context(
+    db, 
+    user_id: str, 
+    current_game_id: str,
+    stockfish_eval: list,
+    blunders: list
+) -> dict:
+    """
+    Compute recurring pattern context for the coach memory.
+    
+    Returns information like:
+    - "This is the 3rd game this week with threat blindness"
+    - "You've had this pattern 5 times in the last 10 games"
+    - Whether this pattern is improving or worsening
+    
+    This is what makes the coach feel like it REMEMBERS.
+    """
+    from datetime import timedelta
+    from collections import Counter
+    
+    # Determine the primary pattern in THIS game
+    current_pattern = None
+    pattern_context = {
+        "has_recurring": False,
+        "pattern_name": None,
+        "occurrence_count_week": 0,
+        "occurrence_count_month": 0,
+        "trend": "stable",  # improving, worsening, stable
+        "coach_memory_line": None,  # The actual text to show
+        "games_with_pattern": [],
+    }
+    
+    # Classify the mistakes in this game
+    game_patterns = []
+    for m in stockfish_eval:
+        if m.get("evaluation") in ["blunder", "mistake"]:
+            cp_loss = m.get("cp_loss", 0)
+            eval_before = m.get("eval_before", 0)
+            
+            if cp_loss >= 150:
+                if eval_before > 1.0:  # Was winning
+                    game_patterns.append("blunder_when_winning")
+                elif eval_before < -1.0:  # Was losing
+                    game_patterns.append("blunder_when_losing")
+                else:
+                    game_patterns.append("blunder_in_equal_position")
+    
+    # Also check for threat blindness from blunders
+    for b in blunders:
+        cat = b.get("mistake_category", "")
+        if "ignored_opponent" in cat or "forcing" in cat.lower():
+            game_patterns.append("threat_blindness")
+    
+    if not game_patterns:
+        return pattern_context
+    
+    # Find the dominant pattern in this game
+    pattern_counts = Counter(game_patterns)
+    current_pattern, _ = pattern_counts.most_common(1)[0]
+    pattern_context["pattern_name"] = current_pattern
+    
+    # Now check historical data - how often has this pattern appeared?
+    now = datetime.now(timezone.utc)
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+    
+    # Get all recent analyses
+    recent_analyses = await db.game_analyses.find(
+        {
+            "user_id": user_id,
+            "game_id": {"$ne": current_game_id}  # Exclude current game
+        },
+        {"game_id": 1, "stockfish_analysis": 1, "blunders": 1, "created_at": 1, "analyzed_at": 1}
+    ).sort("created_at", -1).limit(50).to_list(50)
+    
+    week_count = 0
+    month_count = 0
+    games_with_pattern = []
+    
+    for a in recent_analyses:
+        # Check if this game has the same pattern
+        sf = a.get("stockfish_analysis", {})
+        game_blunders = a.get("blunders", [])
+        game_date = a.get("analyzed_at") or a.get("created_at")
+        
+        has_pattern = False
+        for m in sf.get("move_evaluations", []):
+            if m.get("evaluation") in ["blunder", "mistake"]:
+                cp_loss = m.get("cp_loss", 0)
+                eval_before = m.get("eval_before", 0)
+                
+                if current_pattern == "blunder_when_winning" and eval_before > 1.0 and cp_loss >= 150:
+                    has_pattern = True
+                    break
+                elif current_pattern == "blunder_when_losing" and eval_before < -1.0 and cp_loss >= 150:
+                    has_pattern = True
+                    break
+                elif current_pattern == "blunder_in_equal_position" and abs(eval_before) <= 1.0 and cp_loss >= 150:
+                    has_pattern = True
+                    break
+        
+        # Check for threat blindness
+        if current_pattern == "threat_blindness":
+            for b in game_blunders:
+                cat = b.get("mistake_category", "")
+                if "ignored_opponent" in cat or "forcing" in cat.lower():
+                    has_pattern = True
+                    break
+        
+        if has_pattern:
+            games_with_pattern.append(a.get("game_id"))
+            
+            # Check if within time windows
+            if game_date:
+                if isinstance(game_date, str):
+                    try:
+                        game_date = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
+                    except:
+                        game_date = None
+                
+                if game_date:
+                    if game_date > week_ago:
+                        week_count += 1
+                    if game_date > month_ago:
+                        month_count += 1
+    
+    pattern_context["occurrence_count_week"] = week_count
+    pattern_context["occurrence_count_month"] = month_count
+    pattern_context["games_with_pattern"] = games_with_pattern[:5]  # Last 5 game IDs
+    
+    # Determine if this is a recurring pattern (3+ times in a week)
+    if week_count >= 2:
+        pattern_context["has_recurring"] = True
+        
+        # Compute trend (compare last 2 weeks)
+        # Simplified: if week_count is higher than usual, it's worsening
+        if week_count >= 4:
+            pattern_context["trend"] = "worsening"
+        elif week_count <= 1 and month_count >= 4:
+            pattern_context["trend"] = "improving"
+    
+    # Generate the coach memory line
+    pattern_labels = {
+        "blunder_when_winning": "losing focus when ahead",
+        "blunder_when_losing": "panicking when behind",
+        "blunder_in_equal_position": "missing threats in balanced positions",
+        "threat_blindness": "missing opponent threats",
+    }
+    
+    pattern_label = pattern_labels.get(current_pattern, current_pattern.replace("_", " "))
+    
+    if week_count >= 3:
+        pattern_context["coach_memory_line"] = f"This is familiar. You've had {week_count} games this week with {pattern_label}."
+    elif week_count >= 1:
+        pattern_context["coach_memory_line"] = f"I've seen this before. {pattern_label.capitalize()} appeared {week_count + 1} times recently."
+    elif month_count >= 3:
+        pattern_context["coach_memory_line"] = f"This pattern has come up {month_count} times this month."
+    else:
+        pattern_context["coach_memory_line"] = None
+    
+    return pattern_context
+
+
 # ==================== AUTH ROUTES ====================
 
 # Google OAuth Configuration
