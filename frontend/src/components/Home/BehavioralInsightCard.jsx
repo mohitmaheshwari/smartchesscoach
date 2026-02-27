@@ -86,7 +86,17 @@ const BehavioralInsightCard = ({ gameId, lastGame }) => {
     return null;
   }
 
-  const { headline, rich_insight, scorecard, next_mission, confidence_label } = report;
+  const { 
+    headline, 
+    rich_insight, 
+    scorecard, 
+    next_mission, 
+    confidence_label,
+    root_cause,
+    root_cause_label,
+    stagnation,
+    stagnation_info,
+  } = report;
 
   // Get label colors
   const getLabelColor = (label) => {
