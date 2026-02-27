@@ -1,354 +1,636 @@
-# Chess Coach - Comprehensive Application Documentation
+# Chess Coach - Comprehensive Technical & Strategic Document
 
-## Overview
-A full-featured adaptive chess coaching application that analyzes games, identifies cognitive weaknesses, and provides personalized behavioral training.
+## Executive Summary
 
-**Philosophy:** Transform from analytics dashboard to behavioral shaping coach. Users should instantly understand "what I'm fixing and how to think differently."
+**Chess Coach** is an AI-powered chess improvement platform built on a fundamentally different philosophy than existing tools. While competitors focus on **WHAT went wrong** (you blundered on move 25), Chess Coach focuses on **WHY it went wrong** (you stopped calculating when you felt winning) and **HOW to fix the thinking pattern** (not the specific position).
 
----
+### Core Philosophy: "Recovery-First" Coaching
 
-## Tech Stack
-- **Frontend:** React 18 (port 3000)
-- **Backend:** FastAPI/Python (port 8001)
-- **Database:** MongoDB
-- **Analysis Engine:** Stockfish 16 (depth 18)
-- **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
-- **Chess Libraries:** 
-  - Backend: `python-chess`
-  - Frontend: `chessground` (Lichess board), `react-chessboard`, `chess.js`
+Traditional chess apps treat mistakes as positions to memorize. Chess Coach treats mistakes as **cognitive patterns** to understand and rewire.
 
 ---
 
-## Pages & Features
+## Competitive Landscape Analysis
 
-### 1. Landing Page (`/`)
-- Marketing page with "Start Training Free" CTA
-- "Dev Login" button for testing
-- Google OAuth integration
+| Feature | Chess Coach | DecodeChess | Aimchess | SenseiChess | Chessvision.ai |
+|---------|-------------|-------------|----------|-------------|----------------|
+| **Price** | TBD | $15/mo | $9.99/mo | Free | Free (scanning) |
+| **Core Focus** | Cognitive patterns | Move explanations | Weakness training | Game explanations | Diagram scanning |
+| **Training Source** | YOUR blunders | Generic | YOUR games | Generic puzzles | N/A |
+| **WHY Analysis** | Deep (18+ gap types) | Basic | No | Basic | No |
+| **Behavioral Coaching** | Yes (psychological) | No | No | No | No |
+| **Reflection System** | Yes (active recall) | No | No | No | No |
+| **Player Identity** | Dynamic profile | No | Basic stats | No | No |
+| **Mission System** | Gamified habits | No | Daily puzzles | No | No |
+| **Post-Game Flow** | Reflection → Training | Analysis only | Analysis only | Analysis only | N/A |
 
-### 2. Onboarding (`/onboarding`)
-- **Step 1:** Link Chess.com/Lichess account (mandatory)
-- **Step 2:** Skill calibration (FIDE rating, self-rating, focus intent)
-- Validates accounts against Chess.com/Lichess APIs
-- Auto-imports and analyzes recent games
+### What Competitors Do Well
+- **DecodeChess**: Excellent at explaining WHY a move is good (Idea-Problem-Solution)
+- **Aimchess**: Good training exercises, nice UI, personalized puzzles
+- **SenseiChess**: Clean interface, good explanations, free
+- **Chessvision.ai**: Best-in-class diagram scanning technology
 
-### 3. Dashboard (`/dashboard`)
-- Welcome message with user's name
-- Stats cards: Total Games, Analyzed, Blunders, Best Moves
-- Recent games list with ratings and results
-- Focus Areas panel showing primary weakness
-- "View Journey" CTA to cognitive journey page
-- Auto-sync timer for new games
-
-### 4. Lab - Game Analysis (`/game/:gameId`)
-- **Full game replay** with move-by-move navigation
-- **Coach Mode / Engine Mode toggle:**
-  - Coach Mode: Shows only human-improvable errors
-  - Engine Mode: Shows all engine disagreements
-- **Move arrows:** Orange arrow shows current move being analyzed
-- **Tabs:**
-  - Summary: Game overview, brilliant moves
-  - Strategy: Opening, key moments
-  - Milestones: Learning moments with "What Can I Learn" explanations
-- **Focus Mode Banner:** Shows active training focus
-- **Micro-Protocol Card:** 3-step behavioral checklist
-- **"From Journey" Banner:** Context when navigating from Journey page
-- **Deep-link support:** `/lab/game/:gameId?move=X&src=journey`
-
-### 5. Training (`/training`)
-**Two main sections via tabs:**
-
-#### A. Puzzles Tab
-- Puzzles from YOUR games (not random positions)
-- Interactive solving with Stockfish validation
-- **Puzzle Rating System:**
-  - Elo-based rating (starts at 1200)
-  - 6 levels: Beginner → Master
-  - Streak tracking
-  - Achievements system
-- **Source filter:** All Puzzles, My Games Only, Community Puzzles
-- Shows solve rate, difficulty, and source attribution
-
-#### B. Opening Trainer Tab
-- **Your Repertoire:** Openings from your games with mastery levels
-- **Opening Library:** 6 curated openings (Italian, Sicilian, Caro-Kann, etc.)
-- **Community Comparison:** Compare accuracy to players at your rating
-- **Trick Library:** 18 traps with 3 practice modes:
-  - Execution Mode: Find the winning move
-  - Avoidance Mode: Find safe defensive move
-  - Recognition Mode: Spot if trap exists
-
-### 6. Reflect (`/reflect`)
-- **Time-sensitive reflection** on recent games
-- Shows critical moments (blunders/mistakes) with urgency indicators
-- **Interactive board** to show your thinking
-- **Contextual Quick-Tags:** Position-aware options like "I wanted to attack the knight on c6"
-- **Awareness Gap Detection:** LLM compares your thought vs actual position
-- **View modes:** Your Move (red arrow), Better Move (green arrow), Both
-- Red badge in nav shows games needing reflection
-
-### 7. Journey - Cognitive Evolution (`/journey`)
-**3-Tab Structure:**
-
-#### Tab A: Now (Snapshot)
-- Decision Stability band (Stable/Moderate/Unstable/Volatile)
-- Main issue (top weakness)
-- When ahead behavior (risk band)
-- Weakest phase
-- "Do this next" directive
-
-#### Tab B: Journey (Then vs Now)
-- Voice headline with badge for major improvements
-- 4 stat rows: Accuracy, Blunders/Game, Mistakes/Game, Win Rate
-- 4 cognitive rows: Decision Stability, Primary Driver, Advantage Risk, Weakest Phase
-- Shows deltas only when meaningful changes detected
-
-#### Tab C: Trend (5 vs 5)
-- Rolling trend analysis
-- Up to 2 meaningful shifts
-- Top issues with evidence links
-- Links to Lab page at specific positions
-
-### 8. Progress (`/progress`)
-- Weakness tracking over time
-- Pattern frequency analysis
-- TSI (Thinking Stability Index) trend chart
-
-### 9. Settings (`/settings`)
-- Profile settings
-- Linked accounts management
-- Notification preferences
+### Where They All Fall Short
+1. **No cognitive diagnosis** - They say "you missed Nxf7" not "you stopped calculating when ahead"
+2. **No behavioral patterns** - They don't track "relaxes when winning" across games
+3. **No reflection loop** - No active recall of what you were thinking
+4. **Generic training** - Puzzles are from databases, not your actual mistakes
+5. **No psychological coaching** - No "overconfidence" or "panic pattern" detection
 
 ---
 
-## Core Backend Services
+## System Architecture
 
-### 1. Game Analysis Pipeline
 ```
-Import → Parse PGN → Stockfish Analysis → Mistake Classification → Cognitive Categorization → Store
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CHESS COACH ARCHITECTURE                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐        │
+│  │   GAME IMPORT   │───▶│  STOCKFISH +    │───▶│  COGNITIVE GAP  │        │
+│  │  Chess.com/     │    │  AI ANALYSIS    │    │    ANALYZER     │        │
+│  │  Lichess API    │    │  (Depth 18)     │    │  (18 Gap Types) │        │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘        │
+│           │                      │                      │                  │
+│           ▼                      ▼                      ▼                  │
+│  ┌─────────────────────────────────────────────────────────────────┐      │
+│  │                    PLAYER PROFILE ENGINE                         │      │
+│  │  - Decision Stability (stable/mixed/volatile)                    │      │
+│  │  - Primary Leak (threat_blindness, calculation_depth, etc.)      │      │
+│  │  - Behavioral Patterns (relaxes when winning, impulsive, etc.)   │      │
+│  │  - Phase Weakness (opening/middlegame/endgame)                   │      │
+│  │  - Rating Ceiling Model (stable vs peak rating)                  │      │
+│  └─────────────────────────────────────────────────────────────────┘      │
+│           │                      │                      │                  │
+│           ▼                      ▼                      ▼                  │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐        │
+│  │   REFLECTION    │    │    TRAINING     │    │    JOURNEY      │        │
+│  │    ENGINE       │    │    PUZZLES      │    │   INTELLIGENCE  │        │
+│  │  (What were you │    │  (From YOUR     │    │  (Progress over │        │
+│  │   thinking?)    │    │   blunders)     │    │      time)      │        │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Mistake Classification (`mistake_classifier.py`)
-Categories:
-- `missed_forcing_move` - Missed check/capture/threat
-- `ignored_opponent_forcing` - Didn't respond to threat
-- `structural_misjudgment` - Bad pawn structure decision
-- `critical_moment_drift` - Lost focus at key moment
-- `advantage_mismanagement` - Threw away winning position
-- `phantom_threat` - Defended non-existent threat
+---
 
-### 3. TSI (Thinking Stability Index)
-- Score 0-100 measuring decision consistency
-- Weighted rolling window (recent games weighted 3x)
-- Bands: 85-100 Stable, 70-84 Moderate, 55-69 Frequent lapses, <55 Volatile
+## Core Differentiating Systems
 
-### 4. Journey Engine (`journey_engine.py`)
-- `StatInterpretationEngine`: Threshold-based signal detection
-- `CoachVoiceGenerator`: Deterministic Indian-English text generation
-- Reuses `baseline_service.py` for weakness detection
+### 1. Cognitive Gap Analyzer (UNIQUE)
 
-### 5. Reflect Service (`reflect_service.py`)
-- Contextual tag generation based on position analysis
-- Awareness gap detection
-- Check detection to prevent absurd suggestions
+**What it does**: Determines the PRECISE cognitive error, not just the chess mistake.
 
-### 6. Training Profile Service (`training_profile_service.py`)
-- 4-layer cost scoring: Stability, Conversion, Structure, Precision
-- Pattern weight management
-- Phase-filtered example positions
+**18 Cognitive Gap Types:**
+
+| Category | Gap Type | Description | Training Focus |
+|----------|----------|-------------|----------------|
+| **Calculation** | `calculation_depth` | Saw idea, didn't calculate far enough | "Calculate one move deeper" |
+| **Calculation** | `calculation_error` | Made arithmetic mistake in line | Pattern recognition drills |
+| **Awareness** | `threat_blindness` | Didn't see opponent's threat | "What can opponent do?" |
+| **Awareness** | `hanging_piece_blindness` | Left piece undefended | Safety scan protocol |
+| **Awareness** | `check_blindness` | Didn't see a check | CCT checklist |
+| **Tactical** | `missed_fork` | Missed fork opportunity | Fork pattern training |
+| **Tactical** | `missed_pin` | Missed pin opportunity | Pin pattern training |
+| **Tactical** | `back_rank_blindness` | Missed back rank threat | Back rank awareness |
+| **Positional** | `positional_misread` | Wrong assessment of needs | Positional evaluation |
+| **Positional** | `wrong_plan` | Correct calc, wrong idea | Strategic thinking |
+| **Defensive** | `defensive_lapse` | Forgot defense while attacking | Prophylaxis training |
+| **Defensive** | `king_safety_neglect` | Ignored king safety | King safety protocols |
+| **Psychological** | `overconfidence` | Assumed opponent would miss | "What's their best reply?" |
+| **Psychological** | `desperation` | Hope chess when losing | Resilience training |
+| **Time** | `time_pressure` | Rushed due to clock | Time management |
+| **Time** | `rushed_move` | Moved too fast (not clock) | Discipline training |
+| **Pattern** | `pattern_unfamiliarity` | Didn't recognize standard pattern | Pattern library |
+
+**Pseudo-code:**
+```python
+def analyze_cognitive_gap(position, user_move, best_move, user_reflection):
+    """
+    Determine WHY the user made this mistake, not just WHAT was wrong.
+    """
+    facts = extract_board_facts(position)
+    
+    # Check for hanging pieces
+    if facts.user_piece_left_hanging:
+        if user_reflection.confidence == "very_sure":
+            return CognitiveGap.CONFIDENCE_GAP  # Felt sure but piece was hanging
+        else:
+            return CognitiveGap.HANGING_PIECE_BLINDNESS
+    
+    # Check for missed threats
+    if facts.opponent_had_forcing_move and not user_saw_threat:
+        return CognitiveGap.THREAT_BLINDNESS
+    
+    # Check for calculation issues
+    if user_saw_tactic but missed_response:
+        return CognitiveGap.CALCULATION_DEPTH
+    
+    # Check for time pressure
+    if move_time < 5_seconds and facts.complex_position:
+        return CognitiveGap.TIME_PRESSURE
+    
+    # Check for psychological patterns
+    if facts.user_was_winning and facts.accuracy_dropped:
+        return CognitiveGap.OVERCONFIDENCE
+```
+
+### 2. Reflection Engine (UNIQUE)
+
+**What it does**: Captures what the user was THINKING during the mistake (active recall).
+
+**Why it matters**: You can't fix thinking patterns you don't understand. Other apps analyze positions; we analyze minds.
+
+**Reflection Flow:**
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                        REFLECTION FLOW                                │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   STEP 1: Position Display                                           │
+│   ┌─────────────────────────────────────────────────────────┐       │
+│   │  [Chess Board]  You played Nxf7 - What were you thinking? │       │
+│   └─────────────────────────────────────────────────────────┘       │
+│                              │                                        │
+│                              ▼                                        │
+│   STEP 2: Intent Capture                                             │
+│   ┌─────────────────────────────────────────────────────────┐       │
+│   │  What was your plan?                                      │       │
+│   │  [ ] I saw a tactic                                       │       │
+│   │  [ ] I wanted to attack                                   │       │
+│   │  [ ] I was defending                                      │       │
+│   │  [ ] I wasn't sure, made a guess                          │       │
+│   └─────────────────────────────────────────────────────────┘       │
+│                              │                                        │
+│                              ▼                                        │
+│   STEP 3: Confidence Rating                                          │
+│   ┌─────────────────────────────────────────────────────────┐       │
+│   │  How sure were you this was the best move?               │       │
+│   │  [Very Sure] [Somewhat] [Unsure] [Guessing]              │       │
+│   └─────────────────────────────────────────────────────────┘       │
+│                              │                                        │
+│                              ▼                                        │
+│   STEP 4: Gap Diagnosis (shown to user)                              │
+│   ┌─────────────────────────────────────────────────────────┐       │
+│   │  "You were very sure, but there was a forcing reply     │       │
+│   │   you missed. This is a CONFIDENCE GAP - a common       │       │
+│   │   pattern where certainty outpaces threat scanning."    │       │
+│   └─────────────────────────────────────────────────────────┘       │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 3. Player Identity Engine (UNIQUE)
+
+**What it does**: Creates a dynamic, interpretive profile of the player's chess psychology.
+
+**Identity Dimensions:**
+
+| Dimension | Possible Values | What It Means |
+|-----------|-----------------|---------------|
+| **Decision Stability** | Stable, Mixed, Volatile | How consistent is accuracy game-to-game |
+| **Primary Leak** | 18 cognitive gap types | The #1 recurring issue |
+| **Risk Profile** | Low, Medium, High | Tendency toward risky play |
+| **Phase Weakness** | Opening, Middlegame, Endgame | Where most mistakes happen |
+| **Behavioral Pattern** | "Relaxes when winning", "Impulsive attacker", etc. | Psychological tendencies |
+
+**Sample Identity Card:**
+```
+┌──────────────────────────────────────────────────────────┐
+│  PLAYER IDENTITY: Mohit                                   │
+├──────────────────────────────────────────────────────────┤
+│  Decision Type: INCONSISTENT BUT CAPABLE                 │
+│  "Your performance fluctuates between sessions."         │
+│                                                          │
+│  Primary Leak: THREAT BLINDNESS                          │
+│  "Your errors often come from not seeing what your       │
+│   opponent wants to do. The threat was there, but        │
+│   you didn't check."                                     │
+│                                                          │
+│  Behavioral Pattern: RELAXES WHEN WINNING                │
+│  "You lose focus immediately after gaining advantage.    │
+│   56% of your blunders happen in + positions."           │
+│                                                          │
+│  Rating Gap: 150 ELO                                     │
+│  "Fixing threat blindness alone could recover ~72        │
+│   rating points based on your game data."                │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 4. Recovery-First Training (UNIQUE)
+
+**What it does**: Training puzzles come from YOUR actual blunders, not generic databases.
+
+**Training Flow:**
+```
+Traditional App:                    Chess Coach:
+┌─────────────────┐                ┌─────────────────┐
+│ Generic puzzle  │                │ Your game from  │
+│ from database   │                │ yesterday       │
+└────────┬────────┘                └────────┬────────┘
+         │                                  │
+         ▼                                  ▼
+┌─────────────────┐                ┌─────────────────┐
+│ "Find the best  │                │ "You played     │
+│  move"          │                │  Nxf7 here.     │
+│                 │                │  Why was it     │
+│                 │                │  bad?"          │
+└────────┬────────┘                └────────┬────────┘
+         │                                  │
+         ▼                                  ▼
+┌─────────────────┐                ┌─────────────────┐
+│ "Correct! The   │                │ "Show Why Bad"  │
+│  answer was     │                │ [Animates the   │
+│  Qxh7+"         │                │  opponent's     │
+│                 │                │  refutation]    │
+└─────────────────┘                └────────┬────────┘
+                                            │
+                                            ▼
+                                   ┌─────────────────┐
+                                   │ "This was a     │
+                                   │  THREAT         │
+                                   │  BLINDNESS gap. │
+                                   │  Let's train    │
+                                   │  that pattern." │
+                                   └─────────────────┘
+```
+
+### 5. Rich Coach Audit (UNIQUE)
+
+**What it does**: Combines ALL user data to provide deep, personalized game analysis.
+
+**Data Sources Combined:**
+1. **Stockfish Analysis** - What happened tactically
+2. **Cognitive Gap History** - User's thinking patterns from reflections
+3. **Pattern Recurrence** - Recurring mistakes over time
+4. **Skill Trends** - How user is progressing
+5. **Historical Baseline** - How this game compares to typical performance
+6. **Opening Repertoire** - User's opening choices and success rates
+7. **Time Management** - Clock usage patterns
+
+**Output Example:**
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  COACH AUDIT: Game vs kurapikagon00                              │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  PERFORMANCE vs YOUR BASELINE:                                   │
+│  • Accuracy: 74.8% (above your 68% average) ↑                   │
+│  • Blunders: 1 (below your 1.9 average) ↑                       │
+│  • This was a CLEAN GAME for you                                │
+│                                                                  │
+│  RECURRING PATTERN ALERT:                                        │
+│  "You missed an opponent threat again - this is the 3rd         │
+│   time this week. Before EVERY move, ask: 'What does my         │
+│   opponent want to do?'"                                        │
+│                                                                  │
+│  WHAT'S IMPROVING:                                               │
+│  • Opening accuracy is up 12% from last month                   │
+│  • You're hanging fewer pieces (down from 2.1 to 0.8/game)      │
+│                                                                  │
+│  NEXT GAME PLAN:                                                 │
+│  1. Before each move, scan opponent's threats                   │
+│  2. When ahead by material, SIMPLIFY - don't attack             │
+│  3. Take 10 extra seconds on moves 15-25 (your danger zone)     │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Key API Endpoints
-
-### Authentication
-- `GET /api/auth/google/login` - Google OAuth initiation
-- `GET /api/auth/google/callback` - OAuth callback
-- `GET /api/auth/dev-login` - Dev login for testing
-- `GET /api/auth/me` - Get current user
-
-### Games
-- `GET /api/games` - List user's games
-- `GET /api/games/:id` - Get specific game
-- `POST /api/import-games` - Import from Chess.com/Lichess
-- `POST /api/analyze-game` - Trigger analysis
-
-### Training
-- `GET /api/training/puzzles` - Get puzzles from user's mistakes
-- `POST /api/training/puzzle/validate` - Validate puzzle answer
-- `GET /api/training/puzzle-progress` - Puzzle rating and stats
-- `GET /api/training/openings/stats` - User's opening statistics
-- `GET /api/training/tricks` - Trick library
-- `POST /api/training/tricks/validate-avoidance` - Validate avoidance mode
-- `POST /api/training/tricks/validate-recognition` - Validate recognition mode
-
-### Reflect
-- `GET /api/reflect/pending` - Games needing reflection
-- `GET /api/reflect/game/:id/moments` - Critical moments
-- `POST /api/reflect/submit` - Submit reflection
-- `POST /api/reflect/moment/contextual-tags` - Get position-aware tags
-
-### Journey
-- `GET /api/journey/evolution` - 3-tab journey data
-- `GET /api/journey/linked-accounts` - Linked Chess.com/Lichess
-- `POST /api/journey/link-account` - Link new account
-- `POST /api/journey/unlink-account` - Unlink account
-- `POST /api/journey/sync-now` - Manual sync trigger
-
-### Cognitive Analysis
-- `GET /api/cognitive/patterns` - TSI and patterns
-- `GET /api/cognitive/trend` - TSI over time
-- `GET /api/cognitive/tsi` - Current TSI score
-- `GET /api/cognitive/blunder-context` - Position distribution
-
-### Lab
-- `GET /api/lab/:gameId` - Full lab data for game
-- `POST /api/explain-mistake` - LLM explanation for mistake
-
-### Evaluation (Stockfish)
-- `GET /api/eval/position?fen=...` - Position analysis
-- `GET /api/eval/best-move?fen=...` - Best move
-- `POST /api/eval/move` - Analyze specific move
-
----
-
-## Database Collections
+## Data Models
 
 ### Core Collections
-- `users` - User profiles, linked accounts, settings
-- `games` - Imported games with PGN
-- `game_analyses` - Stockfish analysis results per game
-- `user_thoughts` - "What were you thinking?" gold data
 
-### Training Collections
-- `training_profiles` - User's training focus and phase
-- `puzzle_attempts` - Puzzle solving history
-- `puzzle_ratings` - Elo-based puzzle ratings
-- `reflection_impacts` - How reflections affected training
-- `trap_attempts` - Trick library practice attempts
+```javascript
+// player_profiles - Dynamic player psychology
+{
+  user_id: "user_123",
+  
+  // Identity dimensions
+  decision_stability: "mixed",      // stable | mixed | volatile
+  primary_leak: "threat_blindness", // Cognitive gap type
+  behavioral_patterns: [
+    { pattern: "relaxes_when_winning", occurrence_pct: 56 }
+  ],
+  
+  // Weakness tracking with decay
+  top_weaknesses: [
+    {
+      category: "tactical",
+      subcategory: "one_move_blunder",
+      occurrence_count: 100,
+      decayed_score: 85.2,  // Time-decayed relevance
+      last_occurrence: ISODate()
+    }
+  ],
+  
+  // Progress tracking
+  games_analyzed_count: 135,
+  total_blunders: 193,
+  improvement_trend: "improving",  // improving | stuck | declining
+  
+  // Coaching preferences (learned)
+  learning_style: "concise",
+  coaching_tone: "direct"
+}
 
-### Coaching Collections
-- `focus_plans` - Deterministic coaching plans
-- `coaching_sessions` - Active coaching sessions
-- `mistake_cards` - Spaced repetition cards
+// cognitive_gap_history - What users were thinking
+{
+  user_id: "user_123",
+  game_id: "game_456",
+  move_number: 25,
+  
+  // The mistake
+  position_fen: "rnbqkb1r/...",
+  user_move: "Nxf7",
+  best_move: "Qd2",
+  cp_loss: 345,
+  
+  // User's reflection
+  intent: "saw_tactic",
+  confidence: "very_sure",
+  time_spent: 45,  // seconds
+  
+  // Diagnosed gap
+  gap_type: "threat_blindness",
+  evidence: "Opponent had Bxf2+ winning exchange",
+  coaching_focus: "Opponent threat awareness"
+}
 
----
-
-## Key Features Summary
-
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Game Import | ✅ | Chess.com & Lichess integration |
-| Stockfish Analysis | ✅ | Depth 18 with caching |
-| Move Arrows | ✅ | Visual indicators on boards |
-| TSI Scoring | ✅ | Thinking Stability Index |
-| Puzzle Trainer | ✅ | From your mistakes + community |
-| Opening Trainer | ✅ | Your repertoire + curated openings |
-| Trick Library | ✅ | 18 traps, 3 practice modes |
-| Reflect System | ✅ | Time-sensitive with contextual tags |
-| Journey 3-Tab | ✅ | Now/Journey/Trend views |
-| Account Linking | ✅ | Single account per platform |
-| Coach/Engine Mode | ✅ | Toggle human-improvable vs all errors |
-| LLM Explanations | ✅ | GPT-4o-mini with verification layer |
-
----
-
-## Known Issues / Technical Debt
-
-1. **Stuck Analysis Screen** - 45-second timeout workaround in place, root cause not diagnosed
-2. **LLM Hallucination Risk** - Light guardrail in place, may need strengthening
-3. **Old Training.jsx** - Contains 3-step wizard code not currently routed
-
----
-
-## Current Status
-
-**Phase:** Validation - All new feature development PAUSED
-
-**Next Action:** Observe 3-5 real users to validate:
-- Emotional fairness of feedback
-- Behavioral awareness of patterns
-- Improvement speed on focus areas
-
----
-
-## Credentials for Testing
-
-- **Dev Login:** Click "Dev Login" on landing page
-- **Test User:** Mohit (bhutramohit@gmail.com)
-- **Linked Account:** Chess.com - killerknightroyalrook (1200-1400 rating)
-
----
-
-## File Structure
-
-```
-/app
-├── backend/
-│   ├── server.py                    # Main FastAPI app (8500+ lines)
-│   ├── services/
-│   │   ├── baseline_service.py      # Weakness detection
-│   │   ├── journey_engine.py        # 3-tab journey logic
-│   │   ├── reflect_service.py       # Reflect page logic
-│   │   ├── training_profile_service.py  # Training engine
-│   │   ├── mistake_classifier.py    # Cognitive categorization
-│   │   ├── mistake_explanation_service.py  # LLM explanations
-│   │   ├── interactive_training_service.py  # Puzzle validation
-│   │   ├── opening_trainer_service.py  # Opening trainer
-│   │   ├── trick_library_service.py # Trick library
-│   │   ├── puzzle_progression_service.py  # Elo ratings
-│   │   ├── position_analysis_service.py  # Position analysis
-│   │   └── chess_verification_layer.py  # Unified verification
-│   └── tests/
-│       └── *.py                     # Test files
-├── frontend/
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── Lab.jsx              # Game analysis (118KB)
-│   │   │   ├── TrainingNew.jsx      # Puzzles & Openings
-│   │   │   ├── Reflect.jsx          # Reflection page
-│   │   │   ├── JourneyCognitive.jsx # Journey 3-tab
-│   │   │   ├── Onboarding.jsx
-│   │   │   └── Landing.jsx
-│   │   └── components/
-│   │       ├── CoachBoard.jsx       # Reusable chess board
-│   │       ├── LichessBoard.jsx     # Chessground wrapper
-│   │       ├── OpeningTrainer.jsx   # Opening trainer UI
-│   │       └── Layout.jsx           # App layout with nav
-│   └── package.json
-└── memory/
-    └── PRD.md                       # Product requirements
+// reflection_sessions - Active recall data
+{
+  user_id: "user_123",
+  game_id: "game_456",
+  
+  moments_reflected: [
+    {
+      move_number: 25,
+      user_response: {...},
+      gap_diagnosed: "threat_blindness",
+      aligned: false  // Did user's perception match reality?
+    }
+  ],
+  
+  session_insights: {
+    confidence_calibration: "overconfident",  // User thought they knew but didn't
+    primary_issue: "threat_awareness"
+  }
+}
 ```
 
 ---
 
-## Integration Points
+## Unique Algorithms
 
-1. **Chess.com API** - Game import, account validation
-2. **Lichess API** - Game import, opening explorer
-3. **Stockfish** - Position analysis (via python-chess)
-4. **OpenAI GPT-4o-mini** - Mistake explanations, awareness gaps
-5. **Emergent LLM Key** - Universal API key for LLM services
+### 1. Awareness Gap Detection
+
+```python
+# Deterministic rules for detecting perception-reality mismatch
+GAP_RULES = [
+    {
+        "rule_id": "confidence_gap_forcing",
+        "conditions": {
+            "confidence": ["very_sure"],
+            "facts": ["opponent_has_forcing_move", "user_ignored_forcing"]
+        },
+        "gap_type": "CONFIDENCE_GAP",
+        "headline": "You were very sure, but there was a forcing reply you missed."
+    },
+    {
+        "rule_id": "panic_pattern",
+        "conditions": {
+            "confidence": ["guessing"],
+            "facts": ["time_pressure_detected"]
+        },
+        "gap_type": "PANIC_PATTERN",
+        "headline": "This looks like a time-pressure decision, not a calculation miss."
+    },
+    # ... 20+ more rules
+]
+```
+
+### 2. Rating Ceiling Model
+
+```python
+def compute_rating_ceiling(analyses):
+    """
+    Estimate player's 'true' rating if they fixed their primary leak.
+    
+    Model: Your peak performance represents your skill ceiling.
+    Your average performance shows consistency.
+    The gap between them is fixable through pattern correction.
+    """
+    accuracies = [a.accuracy for a in analyses]
+    
+    stable_rating = percentile(accuracies, 25)  # Consistent floor
+    peak_rating = percentile(accuracies, 90)    # What you CAN do
+    
+    gap = peak_rating - stable_rating
+    
+    # Estimate rating points recoverable
+    recoverable_elo = gap * ACCURACY_TO_ELO_MULTIPLIER
+    
+    return {
+        "stable_rating": stable_rating,
+        "peak_rating": peak_rating,
+        "rating_gap": gap,
+        "recoverable_elo": recoverable_elo,
+        "primary_blocker": identify_primary_leak(analyses)
+    }
+```
+
+### 3. Behavioral Pattern Detection
+
+```python
+BEHAVIORAL_PATTERNS = {
+    "relaxes_when_winning": {
+        "triggers": ["blunder_when_ahead", "failed_conversion"],
+        "message": "You lose focus immediately after gaining advantage.",
+        "short": "Relaxes when winning",
+        "fix": "When ahead, play like you're still equal. Stay alert."
+    },
+    "attacks_before_checking_threats": {
+        "triggers": ["hanging_piece", "ignored_threat", "walked_into_fork"],
+        "message": "You attack before checking opponent threats.",
+        "short": "Impulsive attacker",
+        "fix": "Before each move, ask: What can my opponent do to me?"
+    },
+    # ... 15+ more patterns
+}
+
+def detect_behavioral_patterns(user_mistakes):
+    """
+    Aggregate mistake types into human-readable behavioral patterns.
+    """
+    pattern_counts = defaultdict(int)
+    
+    for mistake in user_mistakes:
+        for pattern, config in BEHAVIORAL_PATTERNS.items():
+            if mistake.type in config["triggers"]:
+                pattern_counts[pattern] += 1
+    
+    # Return top patterns with occurrence %
+    total = len(user_mistakes)
+    return [
+        {
+            "pattern": p,
+            "occurrence_pct": (count / total) * 100,
+            **BEHAVIORAL_PATTERNS[p]
+        }
+        for p, count in sorted(pattern_counts.items(), key=lambda x: -x[1])
+    ]
+```
 
 ---
 
-## What Makes This App Unique
+## MOAT Analysis
 
-1. **Behavioral Focus** - Not just analytics, but cognitive pattern identification
-2. **Your Mistakes** - Puzzles come from YOUR games, not random positions
-3. **Deterministic Coaching** - Rule-based, no LLM randomness in core logic
-4. **Indian-English Tone** - Plain, direct, supportive language
-5. **Time-Sensitive Reflection** - Captures thoughts while memory is fresh
-6. **TSI Scoring** - Novel metric for decision consistency
-7. **Coach Mode** - Filters out "engine preferences", shows human-improvable errors only
+### Potential MOATs
+
+| MOAT Type | Description | Defensibility | Your Position |
+|-----------|-------------|---------------|---------------|
+| **Data Network Effect** | More users → more cognitive patterns → better diagnosis | HIGH | ★★☆☆☆ (early) |
+| **Reflection IP** | Proprietary taxonomy of 18+ cognitive gap types | MEDIUM | ★★★★☆ (unique) |
+| **Behavioral Psychology** | Chess + psychology integration | MEDIUM-HIGH | ★★★★☆ (unique) |
+| **Recovery-First Training** | Training from YOUR mistakes | MEDIUM | ★★★☆☆ (replicable) |
+| **User Habit Lock-in** | Daily reflection ritual | HIGH | ★★☆☆☆ (needs time) |
+
+### Recommended MOAT Strategy
+
+#### Primary MOAT: "Cognitive Chess Intelligence"
+
+**Thesis**: No competitor diagnoses WHY players make mistakes at the cognitive level. You don't just have better analysis - you have a fundamentally different MODEL of chess improvement.
+
+**Defensibility Layers**:
+1. **Taxonomy** - 18+ cognitive gap types, proprietary classification
+2. **Reflection Data** - Only you have what users were THINKING during mistakes
+3. **Behavioral Patterns** - Psychological chess profiles (unique data asset)
+4. **Correlation Engine** - Links between gap types, improvement rates, training effectiveness
+
+#### Secondary MOAT: "Recovery-First Training Paradigm"
+
+**Thesis**: Training should start from YOUR failures, not generic positions. This creates emotional resonance and better retention.
+
+**Defensibility**:
+1. **UX Innovation** - "Show Why Bad" animation of your blunder + punishment
+2. **Puzzle Generation** - Automated from user's actual games
+3. **Feedback Loop** - Training → Games → Analysis → Training (closed loop)
 
 ---
 
-## Recent Bug Fixes (Feb 23, 2026)
+## Competitive Positioning Statement
 
-1. **Move Arrows** - Fixed arrow format for react-chessboard (`[[from, to, color]]`)
-2. **Account Linking** - Added validation to prevent importing from wrong accounts
-3. **Onboarding Loop** - Fixed field name inconsistency (`chess_com_username` vs `chesscom_username`)
-4. **Contextual Tags** - Fixed "I saw X was undefended" when user clearly missed it
-5. **Check Detection** - Don't suggest "I didn't notice" for pieces giving check
+> **Chess Coach doesn't teach you chess moves. It teaches you how YOUR mind makes chess decisions - and how to upgrade your thinking patterns.**
+
+### Tagline Options
+- "Fix your thinking, not just your moves"
+- "Chess coaching for your brain, not just the board"
+- "The chess coach that knows WHY you blunder"
+- "Recovery-first chess improvement"
+
+---
+
+## Technical Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 18 + TailwindCSS + Shadcn/UI |
+| **Backend** | FastAPI (Python 3.11) |
+| **Database** | MongoDB |
+| **Chess Engine** | Stockfish 16 (NNUE, Depth 18) |
+| **AI** | GPT-4o-mini (via Emergent LLM Key) |
+| **Chess APIs** | Chess.com API, Lichess API |
+| **Auth** | Google OAuth (Emergent-managed) |
+
+---
+
+## Feature Roadmap
+
+### Phase 1: Core Loop (COMPLETE)
+- [x] Game import from Chess.com/Lichess
+- [x] Stockfish + AI analysis
+- [x] Cognitive gap detection
+- [x] Reflection engine
+- [x] Player identity profile
+- [x] Recovery-first training
+
+### Phase 2: Engagement (IN PROGRESS)
+- [x] Mission system (gamified habits)
+- [x] Rich coach audit
+- [x] Journey intelligence page
+- [ ] Focus lock mode
+- [ ] Social sharing
+
+### Phase 3: Network Effects (FUTURE)
+- [ ] Community patterns library
+- [ ] Anonymized gap benchmarks
+- [ ] Opening recommendation engine
+- [ ] Coach marketplace integration
+
+---
+
+## Key Files Reference
+
+| File | Purpose |
+|------|---------|
+| `cognitive_gap_service.py` | 18 cognitive gap types, detection logic |
+| `reflect_service.py` | Reflection engine, active recall |
+| `player_identity_engine.py` | Dynamic player psychology profile |
+| `journey_intelligence_service.py` | 8-section journey page engine |
+| `blunder_intelligence_service.py` | Behavioral pattern detection |
+| `rich_coach_audit_service.py` | Comprehensive game audit |
+| `focus_mastery_service.py` | Pattern mastery tracking |
+| `awareness_gap_rules.py` | Deterministic gap detection rules |
+| `training_profile_service.py` | Training recommendations |
+| `home_intelligence_service.py` | Home page personalization |
+
+---
+
+## Appendix: Cognitive Gap Taxonomy
+
+### Category: Calculation Errors
+| Gap | Definition | Detection Signal | Training |
+|-----|------------|------------------|----------|
+| `calculation_depth` | Didn't calculate far enough | Missed move 2-3 in best line | "Calculate one deeper" |
+| `calculation_error` | Wrong arithmetic in line | Miscounted material | Pattern drills |
+
+### Category: Awareness Errors
+| Gap | Definition | Detection Signal | Training |
+|-----|------------|------------------|----------|
+| `threat_blindness` | Didn't see opponent's threat | Forcing move ignored | "What can opponent do?" |
+| `hanging_piece_blindness` | Left piece undefended | Piece attacked with no defender | Safety scan |
+| `check_blindness` | Didn't see a check | Check available but not seen | CCT checklist |
+
+### Category: Tactical Errors
+| Gap | Definition | Detection Signal | Training |
+|-----|------------|------------------|----------|
+| `missed_fork` | Missed fork opportunity | Fork was available | Fork patterns |
+| `missed_pin` | Missed pin opportunity | Pin was available | Pin patterns |
+| `missed_skewer` | Missed skewer opportunity | Skewer was available | Skewer patterns |
+| `back_rank_blindness` | Missed back rank threat | Back rank mate available | Back rank drills |
+
+### Category: Positional Errors
+| Gap | Definition | Detection Signal | Training |
+|-----|------------|------------------|----------|
+| `positional_misread` | Wrong position assessment | Chose wrong plan | Position evaluation |
+| `wrong_plan` | Correct calc, wrong idea | Strategic error | Planning exercises |
+| `premature_action` | Acted before ready | Development incomplete | Development rules |
+
+### Category: Psychological Errors
+| Gap | Definition | Detection Signal | Training |
+|-----|------------|------------------|----------|
+| `overconfidence` | Assumed opponent would miss | High confidence + miss | "What's their best reply?" |
+| `desperation` | Hope chess when losing | Low eval + risky move | Resilience training |
+
+### Category: Time Errors
+| Gap | Definition | Detection Signal | Training |
+|-----|------------|------------------|----------|
+| `time_pressure` | Rushed due to clock | Low clock + mistake | Time management |
+| `rushed_move` | Moved too fast | Fast move + mistake | Discipline training |
+
+---
+
+*Document Version: 1.0*  
+*Last Updated: February 27, 2026*  
+*For MOAT Analysis and Strategic Planning*
