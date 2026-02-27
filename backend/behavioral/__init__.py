@@ -12,6 +12,8 @@ Modules:
 - scoring_engine: Feature to score conversion
 - advice_engine: Coach advice rule evaluation
 - learning_velocity: Learning speed calculation
+- difficulty_policy: Adaptive mission difficulty (P1.6)
+- mission_templates: Difficulty-scaled mission params (P1.6)
 """
 
 from .feature_extractor import (
@@ -68,6 +70,20 @@ from .learning_velocity import (
     archive_lowest_severity_resolved,
 )
 
+from .difficulty_policy import (
+    DifficultyResult,
+    choose_difficulty,
+    get_difficulty_cap,
+    update_difficulty_decay,
+)
+
+from .mission_templates import (
+    MISSION_PARAMS,
+    get_mission_params,
+    get_available_mission_types,
+    get_difficulty_description,
+)
+
 __all__ = [
     # Feature extraction
     "BehaviorFeatures",
@@ -114,4 +130,16 @@ __all__ = [
     "get_consecutive_follows",
     "get_active_advice_count",
     "archive_lowest_severity_resolved",
+    
+    # Difficulty Policy (P1.6)
+    "DifficultyResult",
+    "choose_difficulty",
+    "get_difficulty_cap",
+    "update_difficulty_decay",
+    
+    # Mission Templates (P1.6)
+    "MISSION_PARAMS",
+    "get_mission_params",
+    "get_available_mission_types",
+    "get_difficulty_description",
 ]
