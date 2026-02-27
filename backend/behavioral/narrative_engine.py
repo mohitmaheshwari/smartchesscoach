@@ -349,7 +349,8 @@ def _build_rich_insight(
     scorecard: Dict,
     learner_type: str = None,
     advice_stats: Dict = None,
-    tone: str = "GUIDING"
+    tone: str = "GUIDING",
+    mission_result: Dict = None  # P1.7
 ) -> str:
     """
     Build the 2-3 sentence rich insight with real numbers.
