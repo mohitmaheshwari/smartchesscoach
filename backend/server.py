@@ -6722,12 +6722,20 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     
     analyses = await db.game_analyses.find(
         {"user_id": user.user_id},
-        {"_id": 0}
-    ).to_list(100)
+        {"_id": 0, "blunders": 1, "mistakes": 1, "best_moves": 1, "stockfish_analysis": 1}
+    ).to_list(500)
     
-    total_blunders = sum(a.get('blunders', 0) for a in analyses)
-    total_mistakes = sum(a.get('mistakes', 0) for a in analyses)
-    total_best_moves = sum(a.get('best_moves', 0) for a in analyses)
+    # Sum stats - check both top-level fields and stockfish_analysis (prefer stockfish_analysis)
+    total_blunders = 0
+    total_mistakes = 0
+    total_best_moves = 0
+    
+    for a in analyses:
+        sf = a.get('stockfish_analysis', {})
+        # Prefer Stockfish analysis if available, otherwise use top-level
+        total_blunders += sf.get('blunders', 0) or a.get('blunders', 0)
+        total_mistakes += sf.get('mistakes', 0) or a.get('mistakes', 0)
+        total_best_moves += sf.get('best_moves', 0) or a.get('best_moves', 0)
     
     # Build response with profile data
     response = {
