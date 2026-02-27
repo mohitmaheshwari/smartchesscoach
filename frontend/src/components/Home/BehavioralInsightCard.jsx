@@ -305,4 +305,14 @@ const formatLearnerType = (type) => {
   }
 };
 
+// Helper functions for P1.6
+const getDifficultyColor = (difficulty) => {
+  switch (difficulty) {
+    case "EASY": return "border-emerald-500/50 text-emerald-400";
+    case "STANDARD": return "border-blue-500/50 text-blue-400";
+    case "HARD": return "border-orange-500/50 text-orange-400";
+    default: return "border-muted text-muted-foreground";
+  }
+};
+
 export default BehavioralInsightCard;
