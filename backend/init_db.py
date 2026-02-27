@@ -129,6 +129,22 @@ async def init_database():
     await db.reflection_results.create_index("game_id")
     print("  ✓ reflection_results indexes")
     
+    # P1.5: Coach Advice indexes
+    await db.coach_advice.create_index("advice_id", unique=True)
+    await db.coach_advice.create_index("user_id")
+    await db.coach_advice.create_index([("user_id", 1), ("status", 1)])
+    await db.coach_advice.create_index([("user_id", 1), ("rule_code", 1)])
+    print("  ✓ coach_advice indexes")
+    
+    # P1.5: Advice Applications indexes
+    await db.advice_applications.create_index("application_id", unique=True)
+    await db.advice_applications.create_index("user_id")
+    await db.advice_applications.create_index("advice_id")
+    await db.advice_applications.create_index("game_id")
+    await db.advice_applications.create_index([("user_id", 1), ("evaluated_at", -1)])
+    await db.advice_applications.create_index([("advice_id", 1), ("game_id", 1)], unique=True)
+    print("  ✓ advice_applications indexes")
+    
     # Cognitive Gap Intelligence indexes
     await db.cognitive_gap_history.create_index("user_id")
     await db.cognitive_gap_history.create_index([("user_id", 1), ("gap_type", 1)])
