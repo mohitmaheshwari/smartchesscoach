@@ -12,6 +12,8 @@ Modules orchestrated:
 - scoring_engine: Convert features to scores
 - advice_engine: Evaluate coach advice compliance (P1.5)
 - learning_velocity: Calculate improvement speed (P1.5)
+- difficulty_policy: Adaptive mission difficulty (P1.6)
+- mission_templates: Difficulty-scaled mission params (P1.6)
 """
 
 import logging
@@ -19,16 +21,26 @@ import uuid
 from typing import Dict, Optional, List
 from datetime import datetime, timezone
 
+from config import ENGINE_VERSION
+
 logger = logging.getLogger(__name__)
 
 
 async def generate_behavioral_report(
     db,
     user_id: str,
-    game_id: str
+    game_id: str,
+    historical_mode: bool = False
 ) -> Dict:
     """
     Main entry point: Generate a complete behavioral report for a game.
+    
+    Args:
+        db: Database connection
+        user_id: User ID
+        game_id: Game ID
+        historical_mode: If True, does NOT mutate advice lifecycle (no auto-create, no auto-resolve)
+                        Used for historical re-analysis jobs.
     
     Returns:
         BehavioralReport dict with:
@@ -44,6 +56,8 @@ async def generate_behavioral_report(
         - learner_type: FAST_ADAPTER | STEADY | TRYING_BUT_STUCK | NOT_APPLYING (P1.5)
         - coach_compliance_score: 0-100 (P1.5)
         - active_advice_count: Number of active advice (P1.5)
+        - difficulty: Mission difficulty level (P1.6)
+        - engine_version: Engine version used for analysis (P1.6)
     """
     from behavioral import (
         extract_behavior_features,
@@ -62,6 +76,8 @@ async def generate_behavioral_report(
         resolve_advice,
         get_active_advice_count,
     )
+    from behavioral.difficulty_policy import choose_difficulty
+    from behavioral.mission_templates import get_mission_params
     
     # 1. Load game data
     game = await db.games.find_one({"game_id": game_id, "user_id": user_id})
