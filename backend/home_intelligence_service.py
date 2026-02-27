@@ -412,20 +412,21 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     # Last game summary
     last_game_summary = None
     if last_game:
-        result = last_game.get("result", "unknown")
         sf_data = last_game.get("stockfish_analysis", {})
         blunders = sf_data.get("blunders", 0) or last_game.get("blunders", 0)
         mistakes = sf_data.get("mistakes", 0) or last_game.get("mistakes", 0)
         analyzed_at = last_game.get("analyzed_at")
         
-        # Get opponent name from games collection (more reliable than game_analyses)
+        # Get game details (result, opponent) from games collection
         game_doc = await db.games.find_one(
             {"game_id": last_game.get("game_id")},
-            {"opponent_name": 1, "white_player": 1, "black_player": 1, "user_color": 1}
+            {"opponent_name": 1, "white_player": 1, "black_player": 1, "user_color": 1, "result": 1}
         )
         
+        result = "unknown"
         opponent = "Unknown"
         if game_doc:
+            result = game_doc.get("result", "unknown")
             opponent = game_doc.get("opponent_name")
             if not opponent:
                 # Fallback: derive from white/black players
