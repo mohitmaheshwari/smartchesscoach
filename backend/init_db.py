@@ -161,6 +161,16 @@ async def init_database():
     await db.behavioral_reports.create_index("engine_version")
     print("  ✓ behavioral_reports indexes")
     
+    # P1.7: Mission History indexes
+    await db.mission_history.create_index("mission_id", unique=True)
+    await db.mission_history.create_index("user_id")
+    await db.mission_history.create_index("created_at")
+    await db.mission_history.create_index("mission_type")
+    await db.mission_history.create_index([("user_id", 1), ("status", 1)])
+    await db.mission_history.create_index([("user_id", 1), ("created_at", -1)])
+    await db.mission_history.create_index([("user_id", 1), ("completed_at", -1)])
+    print("  ✓ mission_history indexes")
+    
     # Cognitive Gap Intelligence indexes
     await db.cognitive_gap_history.create_index("user_id")
     await db.cognitive_gap_history.create_index([("user_id", 1), ("gap_type", 1)])
