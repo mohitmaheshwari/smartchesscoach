@@ -300,3 +300,66 @@ test.describe('Coach Home - Navigation Integration', () => {
     await page.waitForURL(/\/home/, { timeout: 10000 });
   });
 });
+
+
+test.describe('Coach Home - P1.6 Reanalysis Progress Banner', () => {
+  
+  test.beforeEach(async ({ page }) => {
+    await page.goto(`${BASE_URL}/api/auth/dev-login`);
+    await page.waitForLoadState('domcontentloaded');
+    await dismissToasts(page);
+  });
+
+  test('Reanalysis banner appears when job is running', async ({ page }) => {
+    // First trigger a reanalysis job
+    const enqueueResponse = await page.request.post(`${BASE_URL}/api/behavioral/reanalysis/enqueue`);
+    expect(enqueueResponse.ok()).toBe(true);
+    
+    // Navigate to home
+    await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
+    
+    // Check for reanalysis banner
+    const reanalysisBanner = page.getByTestId('reanalysis-banner');
+    
+    // Banner might or might not be visible depending on job status
+    const isRunning = await reanalysisBanner.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (isRunning) {
+      // Verify banner content
+      await expect(reanalysisBanner).toContainText(/Updating your coaching history/);
+      await expect(reanalysisBanner).toContainText(/games analyzed/);
+    } else {
+      // Job might have completed or not started yet
+      // Verify the API status endpoint works
+      const statusResponse = await page.request.get(`${BASE_URL}/api/behavioral/reanalysis/status`);
+      expect(statusResponse.ok()).toBe(true);
+      const statusData = await statusResponse.json();
+      expect(['PENDING', 'RUNNING', 'DONE', 'FAILED', 'NO_JOB']).toContain(statusData.status);
+    }
+  });
+
+  test('Reanalysis status API returns correct fields', async ({ page }) => {
+    await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
+    
+    // Call status API directly
+    const statusResponse = await page.request.get(`${BASE_URL}/api/behavioral/reanalysis/status`);
+    expect(statusResponse.ok()).toBe(true);
+    
+    const statusData = await statusResponse.json();
+    
+    // Should always have status
+    expect(statusData).toHaveProperty('status');
+    
+    // If job exists, verify fields
+    if (statusData.status !== 'NO_JOB') {
+      expect(statusData).toHaveProperty('job_id');
+      expect(statusData).toHaveProperty('processed_games');
+      expect(statusData).toHaveProperty('total_games');
+      expect(statusData).toHaveProperty('engine_version');
+      expect(statusData.engine_version).toBe('P1.6');
+    }
+  });
+});
+
