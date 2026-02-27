@@ -171,20 +171,6 @@ def _compute_mission_adjustment(mission_validations: List[Dict]) -> float:
     
     avg_score = sum(scores) / len(scores)
     return avg_score * 0.2
-        velocity=velocity,
-        learner_type=learner_type,
-        weighted_follow_rate=weighted_follow_rate,
-        improvement_trend=improvement_trend,
-        stability_trend=stability_trend,
-        advice_stats={
-            "total_applications": len(applications),
-            "applicable": len(applicable),
-            "followed": followed_count,
-            "violated": violated_count,
-            "follow_ratio": f"{followed_count}/{len(applicable)}"
-        },
-        confidence=confidence
-    )
 
 
 def _compute_weighted_follow_rate(applicable: List[Dict]) -> float:
