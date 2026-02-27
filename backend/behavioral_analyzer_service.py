@@ -21,7 +21,7 @@ import uuid
 from typing import Dict, Optional, List
 from datetime import datetime, timezone
 
-from config import ENGINE_VERSION
+from engine_config import ENGINE_VERSION
 
 logger = logging.getLogger(__name__)
 
