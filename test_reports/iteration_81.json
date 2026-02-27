@@ -1,0 +1,72 @@
+{
+  "summary": "P1.5 Coach Memory & Learning Velocity System tests completed. Backend (18/18 passed): learning_velocity, learner_type, coach_compliance_score, active_advice_count fields, advice_stats with applicable/followed/violated counts, scorecard with coach_compliance and learning_velocity dimensions, learner type to label mapping, mission prioritization structure. Frontend (8/8 passed): BehavioralInsightCard displays root cause badge, scorecard chips, headline/rich_insight, confidence badge, Review Game navigation, and Coach Memory row conditional display (row only shows when advice_stats.applicable > 0).",
+  "mode": "generate",
+  "baseline_commit": "28f0d07041760de0d39485aa47cfd1785b3f1ba7",
+  "head_commit": "02bf5229facd0c01ff317ce9221e68945a1a4ed4",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 2,
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_coach_memory_velocity.py"
+  ],
+  "specs_updated": [
+    "/app/tests/e2e/behavioral-insight.spec.ts"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_coach_memory_velocity.py",
+    "/app/backend/tests/test_behavioral_analysis_api.py",
+    "/app/tests/e2e/behavioral-insight.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_coach_memory_velocity.py",
+    "/app/tests/e2e/behavioral-insight.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "N/A - Used dev login with existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P1.5 Coach Memory & Learning Velocity System fully tested. The API endpoints /api/behavioral/last-report and /api/behavioral/analyze/{game_id} return P1.5 fields: learning_velocity (0-1), learner_type (FAST_ADAPTER|STEADY|TRYING_BUT_STUCK|NOT_APPLYING), coach_compliance_score (0-100), active_advice_count, advice_stats (applicable/followed/violated), advice_results. Coach Memory row in BehavioralInsightCard only displays when advice_stats.applicable > 0. Currently demo user has no active advice so row is hidden. Auto-advice creation triggers when leak_tag appears 3+ times in last 5 games.",
+  "features_tested": {
+    "backend": [
+      "/api/behavioral/last-report returns learning_velocity (0-1 float)",
+      "/api/behavioral/last-report returns learner_type (FAST_ADAPTER|STEADY|TRYING_BUT_STUCK|NOT_APPLYING)",
+      "/api/behavioral/last-report returns coach_compliance_score (0-100 int)",
+      "/api/behavioral/last-report returns active_advice_count (int)",
+      "/api/behavioral/last-report returns advice_stats with applicable/followed/violated counts",
+      "/api/behavioral/last-report returns advice_results array",
+      "/api/behavioral/analyze/{game_id} returns same P1.5 fields",
+      "Scorecard includes coach_compliance dimension with score/label/why",
+      "Scorecard includes learning_velocity dimension with score/label/why",
+      "Learner type maps to correct velocity label (FAST_ADAPTER->Excellent, STEADY->Good, etc)",
+      "Mission structure supports ADVICE_ENFORCEMENT type",
+      "Fields match between last-report and analyze endpoints"
+    ],
+    "frontend": [
+      "BehavioralInsightCard displays on /home page",
+      "Root cause badge shown with icon and color",
+      "Scorecard chips show Plan Discipline, Decision Stability, Pattern Persistence",
+      "Headline and rich insight text displayed",
+      "Confidence badge or Stagnation badge shown",
+      "Review This Game button navigates to /game/{gameId}",
+      "Coach Memory row conditionally displays (only when advice_stats.applicable > 0)",
+      "Coach compliance and learning velocity NOT shown as chips (by design - filtered out)"
+    ]
+  }
+}
