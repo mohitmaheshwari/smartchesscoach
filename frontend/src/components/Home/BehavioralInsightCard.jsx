@@ -156,7 +156,7 @@ const BehavioralInsightCard = ({ gameId, lastGame }) => {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl border bg-card p-5 space-y-4"
+      className={`rounded-xl border bg-card p-5 space-y-4 ${stagnation ? 'border-red-500/50' : ''}`}
       data-testid="behavioral-insight-card"
     >
       {/* Header with brain icon */}
@@ -165,16 +165,32 @@ const BehavioralInsightCard = ({ gameId, lastGame }) => {
         <span className="text-sm font-medium text-muted-foreground">
           Last Game • Coach Analysis
         </span>
-        {confidence_label && (
+        {stagnation && (
+          <Badge variant="destructive" className="text-xs ml-auto" data-testid="stagnation-badge">
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Stuck Loop
+          </Badge>
+        )}
+        {!stagnation && confidence_label && (
           <Badge variant="outline" className="text-xs ml-auto">
             {confidence_label} confidence
           </Badge>
         )}
       </div>
 
+      {/* Root Cause Badge (P1 Feature) */}
+      {root_cause && root_cause_label && (
+        <div className="flex items-center gap-2" data-testid="root-cause-section">
+          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${getRootCauseColor(root_cause)}`}>
+            {getRootCauseIcon(root_cause)}
+            <span>Root Cause: {root_cause_label}</span>
+          </div>
+        </div>
+      )}
+
       {/* Headline - The main insight */}
       <div className="space-y-2">
-        <h3 className="text-lg font-semibold leading-tight">
+        <h3 className={`text-lg font-semibold leading-tight ${stagnation ? 'text-red-400' : ''}`}>
           {headline}
         </h3>
         
