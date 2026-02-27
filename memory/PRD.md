@@ -10,11 +10,87 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - **Analysis Engine:** Stockfish with intelligent caching
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
 - **Opening Data:** Lichess Opening Explorer API (statistics only)
-- **Engine Version:** P1.6 (defined in `/app/backend/engine_config.py`)
+- **Engine Version:** P1.7 (defined in `/app/backend/engine_config.py`)
 
 ---
 
 ## Latest Updates (Feb 27, 2026)
+
+### P1.7 Mission Completion & Feedback Loop ✅ COMPLETE (Feb 27, 2026)
+
+**User Request:** Close the coaching loop by tracking mission completion and measuring actual behavioral change.
+
+**The Final Piece:** Now the system can say: "You completed the Time Control Drill. In your next game, tilt reduced by 22%. Keep this focus." — That is real coaching.
+
+**Features Implemented:**
+
+1. **Mission History Collection**
+   ```json
+   {
+     "mission_id": "uuid",
+     "user_id": "uuid",
+     "game_id_context": "optional",
+     "mission_type": "TIME_DECISION_DRILL",
+     "difficulty": "STANDARD",
+     "status": "STARTED | COMPLETED | FAILED | ABANDONED",
+     "engine_validation_score": 0.72,
+     "validation_games_used": ["game1", "game2", "game3"],
+     "user_self_rating": 4
+   }
+   ```
+
+2. **Mission Validation Engine** (`/app/backend/behavioral/mission_validation.py`)
+   - **VALIDATION_WINDOW_GAMES = 3** (not just next game — too noisy)
+   - **Applicability check**: Only validates when scenario actually occurs
+   - Mission-specific validators:
+     - TIME_DECISION_DRILL → tilt_index, collapse_move timing
+     - ADVICE_ENFORCEMENT → was advice followed in applicable games?
+     - CANDIDATE_MOVE_DRILL → calculation errors reduced?
+   - Returns: `{ applicable, score, confidence, validation_games_used, metrics, reason }`
+
+3. **Mission Lifecycle Service** (`/app/backend/behavioral/mission_lifecycle.py`)
+   - `start_mission()`: Create STARTED entry when mission shown
+   - `complete_mission()`: Trigger validation, update status
+   - `check_abandoned_missions()`: 48h timeout → ABANDONED
+   - Validation confidence gates:
+     - Score >= 0.6 → allow success narrative
+     - Score <= 0.3 → allow failure narrative
+     - Between → neutral (no confident reference)
+
+4. **Difficulty Decay Integration (Validated)**
+   - Old: "2 HARD failures → downgrade"
+   - New: "2 HARD **validated failures** (score < 0.4) → downgrade"
+   - Prevents false positives
+
+5. **Learning Velocity Adjustment (Smoothed)**
+   ```python
+   mission_adjustment = avg(last3_validation_scores) * 0.2
+   velocity = 0.8 * previous_velocity + 0.2 * (base_velocity + mission_adjustment)
+   ```
+   - Prevents oscillations
+
+6. **Narrative Engine Integration**
+   - References mission results with confidence gating
+   - Success: "Your time pressure drill worked — composure improved."
+   - Failure: "We're not seeing change from the last drill yet."
+
+**API Endpoints:**
+- `POST /api/behavioral/mission/start`: Start tracking a mission
+- `POST /api/behavioral/mission/complete`: Complete & validate
+- `GET /api/behavioral/mission/active`: Get STARTED missions
+- `GET /api/behavioral/mission/history`: Get mission history
+- `GET /api/behavioral/mission/last-result`: Get last result for narrative
+
+**Files Created:**
+- `/app/backend/behavioral/mission_validation.py`
+- `/app/backend/behavioral/mission_lifecycle.py`
+- `/app/backend/tests/test_mission_lifecycle_p17.py`
+
+**Test Report:** `/app/test_reports/iteration_83.json`
+- Backend: 100% (19/19 tests)
+- Regression: 19 passed, 0 failed
+
+---
 
 ### P1.6 Historical Re-Analysis + Adaptive Difficulty ✅ COMPLETE (Feb 27, 2026)
 
