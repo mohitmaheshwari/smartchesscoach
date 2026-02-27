@@ -248,22 +248,23 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
         total_mistakes = profile.get("total_mistakes", 0) + mistakes
         total_best_moves = profile.get("total_best_moves", 0) + best_moves
         
-        # Extract weaknesses from move evaluations
+        # Extract weaknesses from move evaluations (only actual blunders)
         identified_weaknesses = []
         for m in move_evaluations:
-            if m.get("evaluation") in ["blunder", "mistake"]:
-                # Classify the weakness type
-                cp_loss = m.get("cp_loss", 0)
-                if cp_loss >= 150 and cp_loss <= 600:
-                    identified_weaknesses.append({
-                        "category": "tactical",
-                        "subcategory": "one_move_blunder"
-                    })
-                elif cp_loss > 600:
-                    identified_weaknesses.append({
-                        "category": "tactical", 
-                        "subcategory": "complex_tactical_miss"
-                    })
+            eval_type = m.get("evaluation")
+            cp_loss = m.get("cp_loss", 0)
+            
+            # Only count actual blunders as one-move blunders (not mistakes or inaccuracies)
+            if eval_type == "blunder" and 150 <= cp_loss <= 600:
+                identified_weaknesses.append({
+                    "category": "tactical",
+                    "subcategory": "one_move_blunder"
+                })
+            elif eval_type == "blunder" and cp_loss > 600:
+                identified_weaknesses.append({
+                    "category": "tactical", 
+                    "subcategory": "complex_tactical_miss"
+                })
         
         # Update weakness tracking
         current_weaknesses = profile.get("top_weaknesses", [])
