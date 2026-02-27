@@ -7,6 +7,7 @@ Rules:
 - ALWAYS produce: 1 Progress Signal, 1 Core Problem, 1 Root Cause, 1 Historical Anchor
 - NEVER use vague words like "often", "frequently", "consistent pattern"
 - MUST include real numbers: "4 of your last 6 games", "3 of last 5 mistakes"
+- P1.5: Tone adjusts based on learner_type (FAST_ADAPTER, STEADY, TRYING_BUT_STUCK, NOT_APPLYING)
 
 This replaces generic AI-speak with precise coaching language.
 """
@@ -19,10 +20,20 @@ def build_behavioral_narrative(
     features,
     scorecard: Dict,
     history_games: List[Dict],
-    stagnation: bool = False
+    stagnation: bool = False,
+    learner_type: str = None,
+    advice_stats: Dict = None
 ) -> Tuple[str, str]:
     """
     Build headline and rich insight with precise, data-backed language.
+    
+    Args:
+        features: BehaviorFeatures
+        scorecard: Dict of ScoreItems
+        history_games: Recent game analyses
+        stagnation: Whether stuck in same loop
+        learner_type: FAST_ADAPTER | STEADY | TRYING_BUT_STUCK | NOT_APPLYING (P1.5)
+        advice_stats: {"followed": X, "applicable": Y} (P1.5)
     
     Returns:
         (headline, rich_insight)
@@ -39,16 +50,48 @@ def build_behavioral_narrative(
     # 4. Compute historical anchor (real numbers)
     historical_anchor = _compute_historical_anchor(features, history_games, core_problem)
     
-    # 5. Build headline
-    headline = _build_headline(progress_signal, core_problem, root_cause, stagnation)
+    # 5. Determine tone based on learner_type (P1.5)
+    tone = _determine_tone(learner_type, stagnation)
     
-    # 6. Build rich insight
+    # 6. Build headline with compliance awareness
+    headline = _build_headline(
+        progress_signal, core_problem, root_cause, stagnation,
+        learner_type=learner_type, advice_stats=advice_stats, tone=tone
+    )
+    
+    # 7. Build rich insight with compliance info
     rich_insight = _build_rich_insight(
         progress_signal, core_problem, root_cause, 
-        historical_anchor, features, scorecard
+        historical_anchor, features, scorecard,
+        learner_type=learner_type, advice_stats=advice_stats, tone=tone
     )
     
     return headline, rich_insight
+
+
+def _determine_tone(learner_type: str, stagnation: bool) -> str:
+    """
+    Determine narrative tone based on learner type and stagnation.
+    
+    Tones:
+    - ENCOURAGING: For FAST_ADAPTER
+    - GUIDING: For STEADY or TRYING_BUT_STUCK
+    - DIRECT: For NOT_APPLYING or stagnation
+    """
+    if stagnation:
+        return "DIRECT"
+    
+    if not learner_type:
+        return "GUIDING"
+    
+    tone_map = {
+        "FAST_ADAPTER": "ENCOURAGING",
+        "STEADY": "GUIDING",
+        "TRYING_BUT_STUCK": "GUIDING",
+        "NOT_APPLYING": "DIRECT"
+    }
+    
+    return tone_map.get(learner_type, "GUIDING")
 
 
 def _detect_progress_signal(features, scorecard: Dict) -> Optional[str]:
