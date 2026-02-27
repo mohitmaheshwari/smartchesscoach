@@ -22,7 +22,8 @@ def build_behavioral_narrative(
     history_games: List[Dict],
     stagnation: bool = False,
     learner_type: str = None,
-    advice_stats: Dict = None
+    advice_stats: Dict = None,
+    last_mission_result: Dict = None  # P1.7: Last mission validation result
 ) -> Tuple[str, str]:
     """
     Build headline and rich insight with precise, data-backed language.
@@ -34,6 +35,7 @@ def build_behavioral_narrative(
         stagnation: Whether stuck in same loop
         learner_type: FAST_ADAPTER | STEADY | TRYING_BUT_STUCK | NOT_APPLYING (P1.5)
         advice_stats: {"followed": X, "applicable": Y} (P1.5)
+        last_mission_result: Last mission validation for reference (P1.7)
     
     Returns:
         (headline, rich_insight)
@@ -56,14 +58,16 @@ def build_behavioral_narrative(
     # 6. Build headline with compliance awareness
     headline = _build_headline(
         progress_signal, core_problem, root_cause, stagnation,
-        learner_type=learner_type, advice_stats=advice_stats, tone=tone
+        learner_type=learner_type, advice_stats=advice_stats, tone=tone,
+        mission_result=last_mission_result
     )
     
-    # 7. Build rich insight with compliance info
+    # 7. Build rich insight with compliance info and mission reference
     rich_insight = _build_rich_insight(
         progress_signal, core_problem, root_cause, 
         historical_anchor, features, scorecard,
-        learner_type=learner_type, advice_stats=advice_stats, tone=tone
+        learner_type=learner_type, advice_stats=advice_stats, tone=tone,
+        mission_result=last_mission_result
     )
     
     return headline, rich_insight
