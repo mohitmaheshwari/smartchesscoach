@@ -7,6 +7,7 @@ Rules:
 - Mission must directly match root cause
 - Instruction must be specific with move numbers
 - Maximum 1 mission per game
+- P1.6: Mission difficulty adapts to learner profile
 """
 
 from typing import Dict, Optional
@@ -33,7 +34,8 @@ def choose_mission(
     features,
     scorecard: Dict,
     game_id: str,
-    root_cause: str
+    root_cause: str,
+    difficulty: str = "STANDARD"
 ) -> Mission:
     """
     Choose ONE mission that directly matches the root cause.
@@ -43,31 +45,33 @@ def choose_mission(
     - OVERCONFIDENCE → CONVERSION_DISCIPLINE_DRILL
     - CALCULATION_GAP → CANDIDATE_MOVE_DRILL
     - DEFENSIVE_STRESS → DEFENSIVE_RESILIENCE_DRILL
+    
+    P1.6: difficulty parameter (EASY/STANDARD/HARD) affects instructions
     """
     
     # Root cause based mission selection
     if root_cause == "TIME_TRIGGERED":
-        return _time_decision_drill(features, game_id)
+        return _time_decision_drill(features, game_id, difficulty)
     
     elif root_cause == "OVERCONFIDENCE":
-        return _conversion_discipline_drill(features, game_id)
+        return _conversion_discipline_drill(features, game_id, difficulty)
     
     elif root_cause == "CALCULATION_GAP":
-        return _candidate_move_drill(features, game_id)
+        return _candidate_move_drill(features, game_id, difficulty)
     
     elif root_cause == "DEFENSIVE_STRESS":
-        return _defensive_resilience_drill(features, game_id)
+        return _defensive_resilience_drill(features, game_id, difficulty)
     
     # Fallback based on scorecard
     if _get_label(scorecard, "decision_stability") in ["Concern", "Mixed"]:
         if features.collapse_move:
-            return _stability_drill(features, game_id)
+            return _stability_drill(features, game_id, difficulty)
     
     if _get_label(scorecard, "plan_discipline") in ["Concern", "Mixed"]:
-        return _opening_discipline_drill(features, game_id)
+        return _opening_discipline_drill(features, game_id, difficulty)
     
     # Default: tactical drill
-    return _tactical_fuel_drill(features, game_id)
+    return _tactical_fuel_drill(features, game_id, difficulty)
 
 
 def _get_label(scorecard: Dict, key: str) -> str:
