@@ -145,6 +145,22 @@ async def init_database():
     await db.advice_applications.create_index([("advice_id", 1), ("game_id", 1)], unique=True)
     print("  ✓ advice_applications indexes")
     
+    # P1.6: Reanalysis Jobs indexes
+    await db.reanalysis_jobs.create_index("job_id", unique=True)
+    await db.reanalysis_jobs.create_index("user_id")
+    await db.reanalysis_jobs.create_index("idempotency_key", unique=True)
+    await db.reanalysis_jobs.create_index([("user_id", 1), ("status", 1)])
+    await db.reanalysis_jobs.create_index("created_at")
+    print("  ✓ reanalysis_jobs indexes")
+    
+    # P1.6: Behavioral Reports cache indexes
+    await db.behavioral_reports.create_index([("user_id", 1), ("game_id", 1)], unique=True)
+    await db.behavioral_reports.create_index("user_id")
+    await db.behavioral_reports.create_index("game_id")
+    await db.behavioral_reports.create_index([("user_id", 1), ("computed_at", -1)])
+    await db.behavioral_reports.create_index("engine_version")
+    print("  ✓ behavioral_reports indexes")
+    
     # Cognitive Gap Intelligence indexes
     await db.cognitive_gap_history.create_index("user_id")
     await db.cognitive_gap_history.create_index([("user_id", 1), ("gap_type", 1)])
