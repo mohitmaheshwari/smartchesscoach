@@ -13,6 +13,10 @@ import { waitForAppReady, dismissToasts } from '../fixtures/helpers';
  * Tests P1.5 Coach Memory features:
  * - Coach Memory row (when advice_stats.applicable > 0)
  * - Learning velocity and learner type display
+ * 
+ * Tests P1.6 Adaptive Difficulty features:
+ * - Difficulty badge on mission (EASY/STANDARD/HARD)
+ * - API returns difficulty and engine_version fields
  */
 
 const BASE_URL = 'https://player-behavior-lab.preview.emergentagent.com';
