@@ -254,6 +254,28 @@ const PostLossRecovery = ({ user }) => {
                 {headline || "Let's fix this moment."}
               </h1>
               
+              {/* COACH MEMORY: Recurring Pattern Alert */}
+              {recurring_pattern?.coach_memory_line && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30"
+                >
+                  <div className="flex items-start gap-2">
+                    <Brain className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-amber-200">
+                      {recurring_pattern.coach_memory_line}
+                    </p>
+                  </div>
+                  {recurring_pattern.trend === "worsening" && (
+                    <p className="text-xs text-amber-500/70 mt-1 ml-6">
+                      This needs focused attention.
+                    </p>
+                  )}
+                </motion.div>
+              )}
+              
               {/* Main Issue Card */}
               <div className="p-4 rounded-xl bg-secondary/50 border border-border">
                 <div className="flex items-start gap-3">
