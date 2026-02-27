@@ -118,6 +118,7 @@ async def generate_behavioral_report(
     main_problem = _detect_main_problem(features, scorecard)
     
     # ==================== P1.5: ADVICE EVALUATION PIPELINE ====================
+    # CRITICAL: historical_mode=True prevents advice lifecycle mutations
     
     # 8. Load active advice
     active_advice = await db.coach_advice.find(
@@ -127,17 +128,22 @@ async def generate_behavioral_report(
     # 9. Evaluate all advice against this game
     advice_results = AdviceEngine.evaluate_all(active_advice, features, history)
     
-    # 10. Persist advice applications
+    # 10. Persist advice applications (upsert to avoid duplicates)
+    # Note: This is safe in historical_mode - it only records evaluations
     await _persist_advice_applications(db, user_id, game_id, advice_results)
     
-    # 11. Check for advice resolution (followed 4 consecutive times)
-    for advice in active_advice:
-        if await check_advice_resolution(db, advice["advice_id"]):
-            await resolve_advice(db, advice["advice_id"])
-            logger.info(f"Resolved advice {advice['advice_id']} for user {user_id}")
-    
-    # 12. Auto-create advice for persistent leak patterns
-    await _auto_create_advice(db, user_id, features, active_advice)
+    # 11-12: ONLY if NOT historical_mode - advice lifecycle mutations
+    if not historical_mode:
+        # 11. Check for advice resolution (followed 4 consecutive times)
+        for advice in active_advice:
+            if await check_advice_resolution(db, advice["advice_id"]):
+                await resolve_advice(db, advice["advice_id"])
+                logger.info(f"Resolved advice {advice['advice_id']} for user {user_id}")
+        
+        # 12. Auto-create advice for persistent leak patterns
+        await _auto_create_advice(db, user_id, features, active_advice)
+    else:
+        logger.debug(f"Historical mode: skipping advice lifecycle mutations for game {game_id}")
     
     # 13. Load advice applications for learning velocity (last 10 games)
     applications = await db.advice_applications.find(
