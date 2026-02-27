@@ -267,7 +267,7 @@ def _build_headline(
         
         if learner_type == "FAST_ADAPTER" and applicable > 0:
             if followed == applicable:
-                return f"You're applying coaching advice consistently — improvement is visible."
+                return "You're applying coaching advice consistently — improvement is visible."
             elif followed > 0:
                 return f"You applied {followed}/{applicable} advice — keep this up."
         
