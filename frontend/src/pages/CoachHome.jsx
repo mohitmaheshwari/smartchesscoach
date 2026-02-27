@@ -30,6 +30,7 @@ import {
   RecommendedDrillCard,
   ActiveAdviceCard,
 } from "@/components/Home";
+import BehavioralInsightCard from "@/components/Home/BehavioralInsightCard";
 import {
   AlertTriangle,
   ChevronRight,
