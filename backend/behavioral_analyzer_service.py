@@ -150,8 +150,11 @@ async def generate_behavioral_report(
         {"user_id": user_id}
     ).sort("evaluated_at", -1).limit(50).to_list(50)
     
-    # 14. Compute learning velocity
+    # 14. Compute learning velocity (initial)
     velocity_result = compute_learning_velocity(applications, features.leak_trends)
+    
+    # 14.5 Get user profile for velocity smoothing and difficulty
+    user_profile = await db.users.find_one({"user_id": user_id}) or {}
     
     # 15. Update coach_compliance score in scorecard
     scorecard["coach_compliance"].score = compute_compliance_score(applications)
