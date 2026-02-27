@@ -4594,6 +4594,8 @@ async def get_post_loss_recovery(game_id: str, user: User = Depends(get_current_
     """
     Get post-loss recovery screen data.
     Shows after a loss to convert pain into training.
+    
+    ENHANCED: Now includes recurring pattern context ("This is the Xth time...")
     """
     # Get the game
     game = await db.games.find_one({"game_id": game_id, "user_id": user.user_id})
@@ -4617,6 +4619,12 @@ async def get_post_loss_recovery(game_id: str, user: User = Depends(get_current_
     main_issue = "Critical position focus"
     critical_moment = None
     main_category = None
+    
+    # ===== COMPUTE RECURRING PATTERN CONTEXT =====
+    # This is the "coach memory" - how many times has this pattern appeared?
+    recurring_pattern = await compute_recurring_pattern_context(
+        db, user.user_id, game_id, stockfish_eval, blunders
+    )
     
     # Find the most critical blunder
     if blunders:
