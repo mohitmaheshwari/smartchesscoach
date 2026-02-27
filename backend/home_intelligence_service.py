@@ -452,6 +452,28 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
             "is_new": is_new,
             "analyzed_at": analyzed_at.isoformat() if analyzed_at else None,
         }
+        
+        # Add recurring pattern context to last game
+        # Check if any issues in this game match recurring patterns
+        if recurring_patterns and last_game_issues:
+            recurring_names = [p.get("name") for p in recurring_patterns]
+            for issue in last_game_issues[:3]:
+                issue_category = issue.get("category", "")
+                # Match patterns like "blunder_when_winning" -> "Losing focus when ahead"
+                if "winning" in issue_category.lower() and any("winning" in r.lower() or "ahead" in r.lower() for r in recurring_names):
+                    last_game_summary["recurring_match"] = {
+                        "is_recurring": True,
+                        "pattern": "losing focus when ahead",
+                        "times_this_week": recurring_patterns[0].get("count", 0),
+                    }
+                    break
+                elif "threat" in issue_category.lower() and any("threat" in r.lower() for r in recurring_names):
+                    last_game_summary["recurring_match"] = {
+                        "is_recurring": True,
+                        "pattern": "missing opponent threats",
+                        "times_this_week": recurring_patterns[0].get("count", 0),
+                    }
+                    break
     
     # Recommended drill
     drill_map = {
