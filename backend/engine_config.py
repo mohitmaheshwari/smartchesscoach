@@ -8,9 +8,10 @@ History:
 - P1.0: Initial behavioral analysis (Feb 26, 2026)
 - P1.5: Coach Memory & Learning Velocity (Feb 27, 2026)
 - P1.6: Historical Re-Analysis + Adaptive Difficulty (Feb 27, 2026)
+- P1.7: Mission Completion & Feedback Loop (Feb 27, 2026)
 """
 
-ENGINE_VERSION = "P1.6"
+ENGINE_VERSION = "P1.7"
 
 # Configuration for reanalysis jobs
 REANALYSIS_CONFIG = {
