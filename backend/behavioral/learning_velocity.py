@@ -8,10 +8,14 @@ Formula (weighted):
         sum(severity_weight for FOLLOWED and applicable) /
         sum(severity_weight for applicable)
     
-    velocity = 
+    base_velocity = 
         0.5 * weighted_follow_rate +
         0.3 * improvement_trend +
         0.2 * stability_trend
+    
+    P1.7 Addition (smoothed):
+        mission_adjustment = avg(last 3 mission validation scores) * 0.2
+        velocity = 0.8 * previous_velocity + 0.2 * (base_velocity + mission_adjustment)
 
 Learner Types:
     >= 0.75: FAST_ADAPTER
@@ -33,6 +37,7 @@ class LearningVelocityResult:
     weighted_follow_rate: float
     improvement_trend: float
     stability_trend: float
+    mission_adjustment: float  # P1.7: Mission validation contribution
     advice_stats: Dict
     confidence: float  # How reliable is this calculation
     
@@ -43,6 +48,7 @@ class LearningVelocityResult:
             "weighted_follow_rate": round(self.weighted_follow_rate, 2),
             "improvement_trend": round(self.improvement_trend, 2),
             "stability_trend": round(self.stability_trend, 2),
+            "mission_adjustment": round(self.mission_adjustment, 2),
             "advice_stats": self.advice_stats,
             "confidence": round(self.confidence, 2)
         }
@@ -51,7 +57,9 @@ class LearningVelocityResult:
 def compute_learning_velocity(
     applications: List[Dict],
     leak_trends: Dict,
-    games_count: int = 10
+    games_count: int = 10,
+    previous_velocity: float = None,
+    mission_validations: List[Dict] = None
 ) -> LearningVelocityResult:
     """
     Compute learning velocity from advice applications.
