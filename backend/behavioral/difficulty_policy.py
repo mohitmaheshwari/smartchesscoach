@@ -55,7 +55,7 @@ def choose_difficulty(
     Returns:
         DifficultyResult with difficulty level and reasoning
     """
-    from config import DIFFICULTY_CONFIG
+    from engine_config import DIFFICULTY_CONFIG
     
     # Check for difficulty decay (2+ consecutive HARD failures)
     if consecutive_hard_failures >= 2:
@@ -158,7 +158,7 @@ def _count_recent_collapses(recent_games: List[Dict]) -> int:
     
     This is more meaningful than just "loss" — we care about HOW they lost.
     """
-    from config import DIFFICULTY_CONFIG
+    from engine_config import DIFFICULTY_CONFIG
     
     collapse_count = 0
     tilt_threshold = DIFFICULTY_CONFIG.get("collapse_tilt_threshold", 0.6)
