@@ -177,18 +177,7 @@ async def generate_behavioral_report(
         advice_stats=velocity_result.advice_stats
     )
     
-    # 19. Choose mission - priority: violated high-severity advice > root cause > generic
-    root_cause = features.root_cause or "CALCULATION_GAP"
-    violated_advice = [r for r in advice_results if r.get("outcome") == "VIOLATED"]
-    
-    if violated_advice:
-        # Sort by severity (highest first)
-        violated_advice.sort(key=lambda x: x.get("severity_weight", 0), reverse=True)
-        mission = _build_advice_enforcement_mission(violated_advice[0], game_id)
-    else:
-        mission = choose_mission(features, scorecard, game_id, root_cause)
-    
-    # 20. Compute confidence
+    # 19. Compute confidence
     confidence = _compute_confidence(
         history_count=len(history),
         has_clock=features.has_clock_data,
@@ -196,21 +185,65 @@ async def generate_behavioral_report(
         has_advice_data=len(applications) > 0
     )
     
-    # 21. Store report for stagnation tracking
+    # ==================== P1.6: ADAPTIVE DIFFICULTY ====================
+    
+    # 20. Load recent behavioral reports for collapse detection
+    recent_reports = await db.behavioral_reports.find(
+        {"user_id": user_id}
+    ).sort("computed_at", -1).limit(3).to_list(3)
+    
+    # 21. Get user's difficulty profile
+    user_profile = await db.users.find_one({"user_id": user_id}) or {}
+    consecutive_hard_failures = user_profile.get("consecutive_hard_failures", 0)
+    
+    # 22. Choose difficulty based on learner_type, stagnation, confidence, recent collapses
+    difficulty_result = choose_difficulty(
+        learner_type=velocity_result.learner_type,
+        stagnation=is_stagnated,
+        confidence=confidence,
+        recent_games=recent_reports,
+        consecutive_hard_failures=consecutive_hard_failures
+    )
+    
+    # 23. Choose mission - priority: violated high-severity advice > root cause > generic
+    root_cause = features.root_cause or "CALCULATION_GAP"
+    violated_advice = [r for r in advice_results if r.get("outcome") == "VIOLATED"]
+    
+    if violated_advice:
+        # Sort by severity (highest first)
+        violated_advice.sort(key=lambda x: x.get("severity_weight", 0), reverse=True)
+        mission = _build_advice_enforcement_mission(
+            violated_advice[0], game_id, difficulty_result.difficulty
+        )
+    else:
+        mission = choose_mission(
+            features, scorecard, game_id, root_cause, 
+            difficulty=difficulty_result.difficulty
+        )
+    
+    # Apply difficulty-specific parameters to mission
+    mission_params = get_mission_params(
+        mission.type if hasattr(mission, 'type') else mission.get("type", ""),
+        difficulty_result.difficulty
+    )
+    
+    # ==================== END P1.6 ====================
+    
+    # 24. Store report for stagnation tracking
     await store_behavioral_report(
         db, user_id, game_id, main_problem, root_cause, headline
     )
     
-    # 22. Get current active advice count
+    # 25. Get current active advice count
     active_count = await get_active_advice_count(db, user_id)
     
-    # 23. Build final report
+    # 26. Build final report
     return {
         "game_id": game_id,
         "headline": headline,
         "rich_insight": rich_insight,
         "scorecard": {k: v.to_dict() for k, v in scorecard.items()},
-        "next_mission": mission.to_dict() if hasattr(mission, 'to_dict') else mission,
+        "next_mission": _enrich_mission_with_difficulty(mission, mission_params, difficulty_result),
         "root_cause": root_cause,
         "root_cause_label": get_root_cause_label(root_cause),
         "main_problem": main_problem,
@@ -225,6 +258,12 @@ async def generate_behavioral_report(
         "active_advice_count": active_count,
         "advice_results": advice_results,
         "advice_stats": velocity_result.advice_stats,
+        # P1.6 additions
+        "difficulty": difficulty_result.difficulty,
+        "difficulty_reason": difficulty_result.reason,
+        "difficulty_guardrail": difficulty_result.guardrail_triggered,
+        "engine_version": ENGINE_VERSION,
+        "historical_mode": historical_mode,
         # Debug info
         "evidence": features.evidence,
         "contextual_patterns": features.contextual_patterns,
