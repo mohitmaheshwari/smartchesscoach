@@ -64,6 +64,38 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ---
 
+### Data Auto-Update System ✅ FIXED (Feb 27, 2026)
+
+**User Issue:** "The data is not updating, for example in one of the recent analyzed games, I did one move blunder, but it still shows 39, why things are not getting updated?"
+
+**Root Causes Identified:**
+1. **Game Sync Service:** Field name inconsistency (`chesscom_username` vs `chess_com_username`)
+2. **Sync Timestamp Bug:** `last_game_sync` was updated on every sync even with 0 games
+3. **Analysis Worker:** Didn't update player profiles after analysis completion
+4. **Dashboard Stats:** Used incorrect source for analyzed games count
+5. **Dashboard Stats:** Blunder/mistake counts read from wrong fields in game_analyses
+
+**Solutions Implemented:**
+1. **Game Sync:** Now checks both `chesscom_username` and `chess_com_username` field names
+2. **Timestamp:** Only updates `last_game_sync` when games are actually imported
+3. **Analysis Worker:** Added `update_player_profile_sync()` function to update stats after each analysis
+4. **Dashboard Stats:** Uses `game_analyses.count_documents()` as source of truth
+5. **Dashboard Stats:** Reads from `stockfish_analysis.blunders` (correct location)
+6. **Added `/api/profile/recalculate`:** Manual endpoint to refresh stale profile data
+
+**Files Modified:**
+- `/app/backend/journey_service.py` - Fixed field names and timestamp logic
+- `/app/backend/analysis_worker.py` - Added profile update after analysis
+- `/app/backend/server.py` - Fixed dashboard stats queries, added recalculate endpoint
+
+**Result:** Dashboard now shows accurate real-time stats:
+- ANALYZED: 135 (was 78)
+- BLUNDERS: 193 (was 31)
+- BEST MOVES: 1470 (was 159)
+- ONE-MOVE BLUNDERS: 100 (was 39)
+
+---
+
 ### Training Page: Proper One-Move Blunders ✅ COMPLETE (Feb 26, 2026)
 
 **Problem Solved:** Dashboard showed "39 One-Move Blunders" but Training page was showing AI commentary mistakes, not actual Stockfish-detected tactical blunders.
