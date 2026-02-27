@@ -6717,8 +6717,9 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
             game["analysis_status"] = "not_analyzed"
             not_analyzed_list.append(game)  # Add to not_analyzed list
     
-    # Update analyzed_games count to reflect actual valid analyses
-    analyzed_games = len(analyzed_list)
+    # Note: analyzed_games was already set correctly using game_analyses.count_documents()
+    # The analyzed_list here only contains games from the recent 100 games query
+    # which may not include all historically analyzed games
     
     # Build recent_games for backward compatibility (top 10 of all games)
     recent_games = all_games[:10]
