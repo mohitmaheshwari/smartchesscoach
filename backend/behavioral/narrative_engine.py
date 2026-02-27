@@ -323,13 +323,17 @@ def _build_rich_insight(
     root_cause: str,
     historical_anchor: Dict,
     features,
-    scorecard: Dict
+    scorecard: Dict,
+    learner_type: str = None,
+    advice_stats: Dict = None,
+    tone: str = "GUIDING"
 ) -> str:
     """
     Build the 2-3 sentence rich insight with real numbers.
     
     NEVER use: "consistent pattern", "recent games", "often", "frequently"
     ALWAYS use: "4 of your last 6 games", "3 of last 5 mistakes"
+    P1.5: Include advice compliance info
     """
     parts = []
     
@@ -343,10 +347,23 @@ def _build_rich_insight(
         else:
             parts.append(progress_signal)
     
+    # P1.5: Add advice compliance context
+    if advice_stats and advice_stats.get("applicable", 0) > 0:
+        followed = advice_stats.get("followed", 0)
+        applicable = advice_stats.get("applicable", 0)
+        
+        if learner_type == "FAST_ADAPTER" and followed == applicable:
+            parts.append(f"You applied all {applicable} active advice points.")
+        elif learner_type == "NOT_APPLYING" and followed < applicable:
+            violated = applicable - followed
+            parts.append(f"However, {violated} of {applicable} active advice were not applied.")
+        elif learner_type == "TRYING_BUT_STUCK":
+            parts.append("The ideas are there, but consistency is still building.")
+    
     # Add problem-specific insight with NUMBERS
     if core_problem == "DECISION_STABILITY":
         if features.collapse_move:
-            parts.append(f"However, tactical errors occurred after move {features.collapse_move}.")
+            parts.append(f"Tactical errors occurred after move {features.collapse_move}.")
         
         # Add root cause context
         root_cause_text = get_root_cause_description(root_cause)
