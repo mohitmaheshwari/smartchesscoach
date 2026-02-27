@@ -13,7 +13,76 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ---
 
-## Latest Updates (Feb 26, 2026)
+## Latest Updates (Feb 27, 2026)
+
+### P1 Behavioral Intelligence Upgrade ✅ COMPLETE (Feb 27, 2026)
+
+**User Request:** Major upgrade to the behavioral analysis engine with:
+- Contextual trigger detection (root cause analysis)
+- Narrative stitching with historical anchors (real numbers)
+- Mission precision matching
+- Stagnation detection (firmer tone for repeated problems)
+
+**Features Implemented:**
+
+1. **Root Cause Detection** (`context_enricher.py`)
+   - TIME_TRIGGERED: Errors mostly when clock < 30 seconds
+   - OVERCONFIDENCE: Errors mostly when winning
+   - CALCULATION_GAP: Errors in equal positions requiring deeper calculation
+   - DEFENSIVE_STRESS: Errors when defending worse positions
+
+2. **Narrative Stitching** (`narrative_engine.py`)
+   - Every insight includes: Progress Signal + Core Problem + Root Cause + Historical Anchor
+   - Uses REAL NUMBERS: "This happened in 4 of your last 6 games" (not vague "often")
+   - Deterministic generation (no LLM)
+
+3. **Mission Precision Matching** (`mission_picker.py`)
+   - TIME_TRIGGERED → TIME_DECISION_DRILL
+   - OVERCONFIDENCE → CONVERSION_DISCIPLINE_DRILL
+   - CALCULATION_GAP → CANDIDATE_MOVE_DRILL
+   - DEFENSIVE_STRESS → DEFENSIVE_RESILIENCE_DRILL
+
+4. **Stagnation Detection** (`stagnation_detector.py`)
+   - Tracks main_problem across games
+   - 3+ consecutive games with same problem = stagnation
+   - Stagnation triggers firm tone: "We are stuck in the same loop"
+
+**API Response Enhancement:**
+```json
+{
+  "headline": "Your opening discipline is improving — but the same pattern keeps appearing.",
+  "rich_insight": "You followed your development plan cleanly this game. The errors happen while defending slightly worse positions. This happened in 4 of your last 6 games.",
+  "root_cause": "DEFENSIVE_STRESS",
+  "root_cause_label": "Defensive Stress",
+  "stagnation": false,
+  "stagnation_info": { "is_stagnated": false, "consecutive_games": 0 },
+  "scorecard": { ... },
+  "next_mission": {
+    "type": "DEFENSIVE_RESILIENCE_DRILL",
+    "title": "Defensive Resilience (5 min)",
+    "instruction": "Replay the position at move 13. Find the most solid defensive move, not the most aggressive one."
+  }
+}
+```
+
+**Frontend Enhancement (`BehavioralInsightCard.jsx`):**
+- Root cause badge with icon and color
+- Stagnation styling (red border, "Stuck Loop" badge, red headline)
+- Mission CTA that directly addresses root cause
+
+**Files Created/Modified:**
+- `/app/backend/behavioral/` (complete modular package)
+- `/app/backend/behavioral_analyzer_service.py` (thin orchestrator)
+- `/app/frontend/src/components/Home/BehavioralInsightCard.jsx`
+
+**Test Report:** `/app/test_reports/iteration_80.json`
+- Backend: 100% (16/16 tests)
+- Frontend: 100% (5/5 tests)
+- Regression: 21 passed, 0 failed
+
+---
+
+## Previous Updates (Feb 26, 2026)
 
 ### "Show Why It's Bad" Feature ✅ VERIFIED (Feb 26, 2026)
 
