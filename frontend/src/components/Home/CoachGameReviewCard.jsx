@@ -2,6 +2,8 @@
  * CoachGameReviewCard
  * Shows when a new game has been analyzed - prompts for review
  * Only displayed when last_game.is_new is true
+ * 
+ * ENHANCED: Now shows recurring pattern memory ("This is familiar...")
  */
 
 import { motion } from "framer-motion";
@@ -11,7 +13,8 @@ import {
   ChevronRight, 
   AlertTriangle,
   CheckCircle2,
-  Minus
+  Minus,
+  Brain
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -20,7 +23,7 @@ const CoachGameReviewCard = ({ lastGame, auditData }) => {
   
   if (!lastGame) return null;
   
-  const { game_id, result, opponent, blunders, mistakes } = lastGame;
+  const { game_id, result, opponent, blunders, mistakes, recurring_match } = lastGame;
   
   // Determine outcome color
   const resultColors = {
@@ -43,6 +46,9 @@ const CoachGameReviewCard = ({ lastGame, auditData }) => {
   // Quality assessment
   const hasIssues = blunders > 0 || mistakes >= 2;
   const isClean = blunders === 0 && mistakes <= 1;
+  
+  // Recurring pattern context
+  const hasRecurring = recurring_match?.is_recurring;
   
   return (
     <motion.div
@@ -90,6 +96,19 @@ const CoachGameReviewCard = ({ lastGame, auditData }) => {
             </span>
           </div>
         </div>
+        
+        {/* COACH MEMORY: Recurring Pattern Alert */}
+        {hasRecurring && (
+          <div className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <Brain className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-amber-200">
+              This is familiar. {recurring_match.pattern.charAt(0).toUpperCase() + recurring_match.pattern.slice(1)} again.
+              {recurring_match.times_this_week > 2 && (
+                <span className="text-amber-400/80"> ({recurring_match.times_this_week}x this week)</span>
+              )}
+            </p>
+          </div>
+        )}
         
         {/* Coach Message */}
         <div className={`p-3 rounded-lg ${
