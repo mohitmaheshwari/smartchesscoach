@@ -4175,6 +4175,160 @@ async def get_reanalysis_job_status(user: User = Depends(get_current_user)):
     return status
 
 
+# ==================== MISSION LIFECYCLE ROUTES (P1.7) ====================
+
+class BehavioralMissionStartRequest(BaseModel):
+    """Request to start tracking a behavioral mission"""
+    mission_type: str
+    difficulty: str = "STANDARD"
+    game_id_context: Optional[str] = None
+    root_cause: Optional[str] = None
+    payload: Dict = {}
+
+class BehavioralMissionCompleteRequest(BaseModel):
+    """Request to complete a behavioral mission"""
+    mission_id: str
+    user_self_rating: Optional[int] = None  # 1-5
+
+
+@api_router.post("/behavioral/mission/start")
+async def start_behavioral_mission(
+    request: BehavioralMissionStartRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Start tracking a behavioral mission.
+    Called when mission is shown to user.
+    
+    Creates a STARTED entry in mission_history.
+    """
+    from behavioral.mission_lifecycle import start_mission
+    
+    mission_data = {
+        "type": request.mission_type,
+        "difficulty": request.difficulty,
+        "payload": request.payload,
+    }
+    
+    record = await start_mission(
+        db,
+        user.user_id,
+        mission_data,
+        game_id_context=request.game_id_context,
+        root_cause=request.root_cause
+    )
+    
+    return {
+        "mission_id": record.mission_id,
+        "status": record.status,
+        "message": "Mission tracking started"
+    }
+
+
+@api_router.post("/behavioral/mission/complete")
+async def complete_behavioral_mission(
+    request: BehavioralMissionCompleteRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Mark a behavioral mission as complete and trigger validation.
+    
+    Validation happens against NEXT APPLICABLE GAMES (not just next game).
+    If no applicable games yet, mission stays STARTED.
+    
+    Returns validation result including:
+    - status: COMPLETED | STARTED | FAILED
+    - validation: score, applicability, games used
+    - difficulty_decay_triggered: bool
+    """
+    from behavioral.mission_lifecycle import complete_mission
+    
+    result = await complete_mission(
+        db,
+        user.user_id,
+        request.mission_id,
+        user_self_rating=request.user_self_rating
+    )
+    
+    return result
+
+
+@api_router.get("/behavioral/mission/active")
+async def get_active_missions(user: User = Depends(get_current_user)):
+    """
+    Get user's active (STARTED) missions.
+    Also checks for abandoned missions (48h timeout).
+    """
+    from behavioral.mission_lifecycle import check_abandoned_missions
+    
+    # Check for abandoned missions first
+    await check_abandoned_missions(db, user.user_id)
+    
+    # Get active missions
+    active = await db.mission_history.find({
+        "user_id": user.user_id,
+        "status": "STARTED"
+    }).sort("created_at", -1).limit(5).to_list(5)
+    
+    return {
+        "active_missions": [{
+            "mission_id": m.get("mission_id"),
+            "mission_type": m.get("mission_type"),
+            "difficulty": m.get("difficulty"),
+            "created_at": m.get("created_at"),
+            "root_cause_context": m.get("root_cause_context")
+        } for m in active],
+        "count": len(active)
+    }
+
+
+@api_router.get("/behavioral/mission/history")
+async def get_mission_history(
+    limit: int = 10,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get user's mission history with validation results.
+    """
+    missions = await db.mission_history.find({
+        "user_id": user.user_id
+    }).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "missions": [{
+            "mission_id": m.get("mission_id"),
+            "mission_type": m.get("mission_type"),
+            "difficulty": m.get("difficulty"),
+            "status": m.get("status"),
+            "validation_score": m.get("engine_validation_score"),
+            "validation_reason": m.get("validation_reason"),
+            "created_at": m.get("created_at"),
+            "completed_at": m.get("completed_at"),
+            "user_self_rating": m.get("user_self_rating")
+        } for m in missions],
+        "count": len(missions)
+    }
+
+
+@api_router.get("/behavioral/mission/last-result")
+async def get_last_mission_result_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get the last completed/failed mission result.
+    Used by narrative engine to reference recent mission outcomes.
+    """
+    from behavioral.mission_lifecycle import get_last_mission_result
+    
+    result = await get_last_mission_result(db, user.user_id)
+    
+    if not result:
+        return {"has_result": False}
+    
+    return {
+        "has_result": True,
+        **result
+    }
+
+
 # ==================== MISSION ENGINE ROUTES ====================
 
 class MissionStepRequest(BaseModel):
