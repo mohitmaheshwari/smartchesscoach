@@ -82,27 +82,50 @@ def _get_label(scorecard: Dict, key: str) -> str:
     return item.get('label', '')
 
 
-def _time_decision_drill(features, game_id: str) -> Mission:
+def _get_difficulty_suffix(difficulty: str) -> str:
+    """Get instruction suffix based on difficulty"""
+    suffixes = {
+        "EASY": "Take your time.",
+        "STANDARD": "",
+        "HARD": "Challenge: do this in half the normal time."
+    }
+    return suffixes.get(difficulty, "")
+
+
+def _time_decision_drill(features, game_id: str, difficulty: str = "STANDARD") -> Mission:
     """
     For TIME_TRIGGERED root cause.
     Train calm decision-making under time pressure.
     """
     move_no = features.collapse_move or features.first_blunder_move or 20
     
+    # Difficulty-scaled parameters
+    time_limits = {"EASY": 30, "STANDARD": 20, "HARD": 15}
+    candidate_counts = {"EASY": 2, "STANDARD": 3, "HARD": 3}
+    
+    time_limit = time_limits.get(difficulty, 20)
+    candidates = candidate_counts.get(difficulty, 3)
+    suffix = _get_difficulty_suffix(difficulty)
+    
+    instruction = f"Replay the position at move {move_no}. Set {time_limit} seconds. Choose {candidates} candidate moves. Pick the safest one."
+    if suffix:
+        instruction = f"{instruction} {suffix}"
+    
     return Mission(
         type="TIME_DECISION_DRILL",
         title="Time Pressure Drill (5 min)",
-        instruction=f"Replay the position at move {move_no}. Set 20 seconds. Choose 3 candidate moves. Pick the safest one.",
+        instruction=instruction,
         payload={
             "game_id": game_id,
             "move_no": move_no,
-            "time_limit": 20,
-            "focus": "time_management"
+            "time_limit": time_limit,
+            "focus": "time_management",
+            "difficulty": difficulty
         }
     )
 
 
-def _conversion_discipline_drill(features, game_id: str) -> Mission:
+def _conversion_discipline_drill(features, game_id: str, difficulty: str = "STANDARD") -> Mission:
     """
     For OVERCONFIDENCE root cause.
     Train careful play when winning.
