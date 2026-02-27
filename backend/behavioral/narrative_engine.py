@@ -248,7 +248,8 @@ def _build_headline(
     stagnation: bool,
     learner_type: str = None,
     advice_stats: Dict = None,
-    tone: str = "GUIDING"
+    tone: str = "GUIDING",
+    mission_result: Dict = None  # P1.7
 ) -> str:
     """
     Build the main headline.
@@ -258,11 +259,29 @@ def _build_headline(
     - If progress + problem, acknowledge both
     - Be specific about root cause
     - P1.5: Adjust tone based on learner_type
+    - P1.7: Reference mission results if confident
     """
     
     # Stagnation override
     if stagnation:
         return "We are stuck in the same loop — this won't fix itself."
+    
+    # P1.7: Mission result headlines (confidence gated)
+    if mission_result:
+        can_success = mission_result.get("can_reference_success", False)
+        can_failure = mission_result.get("can_reference_failure", False)
+        
+        if can_success:
+            mission_type = mission_result.get("mission_type", "")
+            if mission_type == "TIME_DECISION_DRILL":
+                return "Your time pressure drill worked — composure improved."
+            elif mission_type == "CANDIDATE_MOVE_DRILL":
+                return "The calculation drill showed results — fewer tactical errors."
+            elif mission_type == "ADVICE_ENFORCEMENT":
+                return "You applied the coaching advice — the habit is forming."
+        
+        if can_failure:
+            return "We're not seeing change from the last drill yet."
     
     # P1.5: Compliance-aware headlines
     if learner_type and advice_stats:
