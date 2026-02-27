@@ -204,57 +204,83 @@ def _defensive_resilience_drill(features, game_id: str, difficulty: str = "STAND
             break
     
     move_no = defense_move or features.collapse_move or 20
+    suffix = _get_difficulty_suffix(difficulty)
+    
+    instruction = f"Replay the position at move {move_no}. Find the most solid defensive move, not the most aggressive one. Hold the position."
+    if suffix:
+        instruction = f"{instruction} {suffix}"
     
     return Mission(
         type="DEFENSIVE_RESILIENCE_DRILL",
         title="Defensive Resilience (5 min)",
-        instruction=f"Replay the position at move {move_no}. Find the most solid defensive move, not the most aggressive one. Hold the position.",
+        instruction=instruction,
         payload={
             "game_id": game_id,
             "move_no": move_no,
-            "focus": "defense"
+            "focus": "defense",
+            "difficulty": difficulty
         }
     )
 
 
-def _stability_drill(features, game_id: str) -> Mission:
+def _stability_drill(features, game_id: str, difficulty: str = "STANDARD") -> Mission:
     """Generic stability drill"""
     move_no = features.collapse_move or 20
+    suffix = _get_difficulty_suffix(difficulty)
+    
+    instruction = f"Replay the position at move {move_no}. Take 30 seconds. Find 3 candidate moves. Pick the safest one."
+    if suffix:
+        instruction = f"{instruction} {suffix}"
     
     return Mission(
         type="STABILITY_DRILL",
         title="Decision Stability Drill (5 min)",
-        instruction=f"Replay the position at move {move_no}. Take 30 seconds. Find 3 candidate moves. Pick the safest one.",
+        instruction=instruction,
         payload={
             "game_id": game_id,
             "move_no": move_no,
-            "focus": "stability"
+            "focus": "stability",
+            "difficulty": difficulty
         }
     )
 
 
-def _opening_discipline_drill(features, game_id: str) -> Mission:
+def _opening_discipline_drill(features, game_id: str, difficulty: str = "STANDARD") -> Mission:
     """Opening discipline drill"""
+    suffix = _get_difficulty_suffix(difficulty)
+    
+    instruction = "Look at your first 10 moves. Find ONE move where you broke development rules. What should you have played?"
+    if suffix:
+        instruction = f"{instruction} {suffix}"
+    
     return Mission(
         type="OPENING_DISCIPLINE",
         title="Opening Review (3 min)",
-        instruction="Look at your first 10 moves. Find ONE move where you broke development rules. What should you have played?",
+        instruction=instruction,
         payload={
             "game_id": game_id,
             "moves_range": [1, 10],
-            "focus": "opening"
+            "focus": "opening",
+            "difficulty": difficulty
         }
     )
 
 
-def _tactical_fuel_drill(features, game_id: str) -> Mission:
+def _tactical_fuel_drill(features, game_id: str, difficulty: str = "STANDARD") -> Mission:
     """Default tactical drill"""
+    suffix = _get_difficulty_suffix(difficulty)
+    
+    instruction = "Solve 3 positions from your biggest errors in this game."
+    if suffix:
+        instruction = f"{instruction} {suffix}"
+    
     return Mission(
         type="TACTICAL_FUEL",
         title="Fix Your Mistakes (5 min)",
-        instruction="Solve 3 positions from your biggest errors in this game.",
+        instruction=instruction,
         payload={
             "game_id": game_id,
-            "focus": "tactics"
+            "focus": "tactics",
+            "difficulty": difficulty
         }
     )
