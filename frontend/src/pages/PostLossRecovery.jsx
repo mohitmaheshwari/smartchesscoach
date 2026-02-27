@@ -15,6 +15,7 @@ import {
   FlaskConical,
   Target,
   Play,
+  Brain,
 } from "lucide-react";
 
 /**
