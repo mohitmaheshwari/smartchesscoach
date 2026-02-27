@@ -251,7 +251,19 @@ const BehavioralInsightCard = ({ gameId, lastGame }) => {
               <Target className={`w-4 h-4 ${next_mission.type === 'ADVICE_ENFORCEMENT' ? 'text-red-400' : 'text-primary'}`} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">{next_mission.title}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">{next_mission.title}</p>
+                {/* P1.6: Difficulty badge */}
+                {next_mission.difficulty && (
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${getDifficultyColor(next_mission.difficulty)}`}
+                    data-testid="mission-difficulty-badge"
+                  >
+                    {next_mission.difficulty}
+                  </Badge>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground line-clamp-2">
                 {next_mission.instruction}
               </p>
