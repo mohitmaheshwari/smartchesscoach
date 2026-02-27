@@ -174,6 +174,7 @@ const PostLossRecovery = ({ user }) => {
     critical_moment,
     opponent_name,
     user_color,
+    recurring_pattern,  // Coach memory context
   } = recoveryData;
 
   return (
