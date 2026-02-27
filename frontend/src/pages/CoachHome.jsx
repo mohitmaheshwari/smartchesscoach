@@ -193,14 +193,17 @@ const CoachHome = ({ user }) => {
           </motion.div>
         )}
 
-        {/* Section 4: Post-Game Review (only for new games) */}
-        {hasNewGame && (
+        {/* Section 4: Post-Game Review - BEHAVIORAL INSIGHTS (not just blunder count) */}
+        {homeData?.last_game?.game_id && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <CoachGameReviewCard lastGame={homeData.last_game} />
+            <BehavioralInsightCard 
+              gameId={homeData.last_game.game_id} 
+              lastGame={homeData.last_game}
+            />
           </motion.div>
         )}
 
