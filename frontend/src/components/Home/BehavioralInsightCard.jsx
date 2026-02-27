@@ -6,7 +6,9 @@
  * Displays:
  * - Headline (one sentence coach insight)
  * - Rich insight (2-3 sentences with history context)
+ * - Root cause badge (TIME_TRIGGERED, OVERCONFIDENCE, etc.) [P1]
  * - Scorecard chips (Plan Discipline, Decision Stability, etc.)
+ * - Stagnation styling when stuck in same loop [P1]
  * - One mission CTA
  */
 
@@ -24,6 +26,11 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle2,
+  RefreshCw,
+  Timer,
+  Trophy,
+  Calculator,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
