@@ -357,8 +357,20 @@ def _build_rich_insight(
     NEVER use: "consistent pattern", "recent games", "often", "frequently"
     ALWAYS use: "4 of your last 6 games", "3 of last 5 mistakes"
     P1.5: Include advice compliance info
+    P1.7: Reference mission results (confidence gated)
     """
     parts = []
+    
+    # P1.7: Add mission result reference first (if confident)
+    if mission_result:
+        can_success = mission_result.get("can_reference_success", False)
+        can_failure = mission_result.get("can_reference_failure", False)
+        reason = mission_result.get("validation_reason", "")
+        
+        if can_success:
+            parts.append(f"{reason}")
+        elif can_failure:
+            parts.append(reason)
     
     # Add progress if exists
     if progress_signal:
