@@ -6570,7 +6570,10 @@ async def send_push_notification(user_id: str, title: str, body: str, data: dict
 async def get_dashboard_stats(user: User = Depends(get_current_user)):
     """Get dashboard statistics including player profile for the current user"""
     total_games = await db.games.count_documents({"user_id": user.user_id})
-    analyzed_games = await db.games.count_documents({"user_id": user.user_id, "is_analyzed": True})
+    
+    # Use game_analyses count as the source of truth for analyzed games
+    # (more accurate than games.is_analyzed which can get out of sync)
+    analyzed_games = await db.game_analyses.count_documents({"user_id": user.user_id})
     
     # Count games in queue
     queued_games = await db.analysis_queue.count_documents({
