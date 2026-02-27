@@ -364,6 +364,17 @@ def process_job(db, job):
             }}
         )
         
+        # Update player profile with new stats
+        update_player_profile_sync(
+            db, 
+            user_id, 
+            game_id,
+            blunders,
+            mistakes,
+            best_moves,
+            move_evaluations
+        )
+        
         logger.info(f"Successfully analyzed game {game_id} (accuracy: {sf_stats.get('accuracy', 0)}%)")
         return True
         
