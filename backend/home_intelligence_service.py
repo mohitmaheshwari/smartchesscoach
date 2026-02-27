@@ -325,11 +325,12 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     missed_tactics_games = 0
     
     for a in analyses:
-        total_blunders += a.get("blunders", 0)
-        total_mistakes += a.get("mistakes", 0)
+        # Read blunders/mistakes from stockfish_analysis (correct location)
+        sf = a.get("stockfish_analysis", {})
+        total_blunders += sf.get("blunders", 0) or a.get("blunders", 0)
+        total_mistakes += sf.get("mistakes", 0) or a.get("mistakes", 0)
         
         # Check for time trouble markers
-        sf = a.get("stockfish_analysis", {})
         moves = sf.get("move_evaluations", [])
         
         # Time trouble: mistakes in last 10 moves
