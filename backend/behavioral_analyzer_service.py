@@ -2,7 +2,6 @@
 Behavioral Analyzer Service - Orchestrator
 
 This is the thin orchestrator that ties together all behavioral modules.
-Maximum 150 lines.
 
 Modules orchestrated:
 - feature_extractor: Extract raw behavioral features
@@ -11,10 +10,13 @@ Modules orchestrated:
 - mission_picker: Select root-cause matched mission
 - stagnation_detector: Detect stuck-in-loop patterns
 - scoring_engine: Convert features to scores
+- advice_engine: Evaluate coach advice compliance (P1.5)
+- learning_velocity: Calculate improvement speed (P1.5)
 """
 
 import logging
-from typing import Dict, Optional
+import uuid
+from typing import Dict, Optional, List
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -33,11 +35,15 @@ async def generate_behavioral_report(
         - headline: One-sentence coach insight
         - rich_insight: 2-3 sentences with numbers
         - scorecard: 5 behavioral dimensions
-        - next_mission: Root-cause matched action
+        - next_mission: Root-cause matched action (or advice enforcement)
         - root_cause: TIME_TRIGGERED | OVERCONFIDENCE | CALCULATION_GAP | DEFENSIVE_STRESS
         - main_problem: Core problem type
         - stagnation: True if stuck in same loop
         - confidence: 0-1 reliability score
+        - learning_velocity: 0-1 improvement speed (P1.5)
+        - learner_type: FAST_ADAPTER | STEADY | TRYING_BUT_STUCK | NOT_APPLYING (P1.5)
+        - coach_compliance_score: 0-100 (P1.5)
+        - active_advice_count: Number of active advice (P1.5)
     """
     from behavioral import (
         extract_behavior_features,
@@ -48,6 +54,13 @@ async def generate_behavioral_report(
         detect_stagnation,
         store_behavioral_report,
         get_root_cause_label,
+        AdviceEngine,
+        LEAK_TO_RULE,
+        compute_learning_velocity,
+        compute_compliance_score,
+        check_advice_resolution,
+        resolve_advice,
+        get_active_advice_count,
     )
     
     # 1. Load game data
@@ -88,38 +101,94 @@ async def generate_behavioral_report(
     # 7. Detect main problem
     main_problem = _detect_main_problem(features, scorecard)
     
-    # 8. Check for stagnation
+    # ==================== P1.5: ADVICE EVALUATION PIPELINE ====================
+    
+    # 8. Load active advice
+    active_advice = await db.coach_advice.find(
+        {"user_id": user_id, "status": "ACTIVE"}
+    ).to_list(10)
+    
+    # 9. Evaluate all advice against this game
+    advice_results = AdviceEngine.evaluate_all(active_advice, features, history)
+    
+    # 10. Persist advice applications
+    await _persist_advice_applications(db, user_id, game_id, advice_results)
+    
+    # 11. Check for advice resolution (followed 4 consecutive times)
+    for advice in active_advice:
+        if await check_advice_resolution(db, advice["advice_id"]):
+            await resolve_advice(db, advice["advice_id"])
+            logger.info(f"Resolved advice {advice['advice_id']} for user {user_id}")
+    
+    # 12. Auto-create advice for persistent leak patterns
+    await _auto_create_advice(db, user_id, features, active_advice)
+    
+    # 13. Load advice applications for learning velocity (last 10 games)
+    applications = await db.advice_applications.find(
+        {"user_id": user_id}
+    ).sort("evaluated_at", -1).limit(50).to_list(50)
+    
+    # 14. Compute learning velocity
+    velocity_result = compute_learning_velocity(applications, features.leak_trends)
+    
+    # 15. Update coach_compliance score in scorecard
+    scorecard["coach_compliance"].score = compute_compliance_score(applications)
+    scorecard["coach_compliance"].label = _get_compliance_label(scorecard["coach_compliance"].score)
+    scorecard["coach_compliance"].why = _get_compliance_why(velocity_result)
+    
+    # 16. Update learning_velocity score in scorecard
+    scorecard["learning_velocity"].score = int(velocity_result.velocity * 100)
+    scorecard["learning_velocity"].label = _get_velocity_label(velocity_result.learner_type)
+    scorecard["learning_velocity"].why = f"{velocity_result.learner_type.replace('_', ' ').title()}"
+    
+    # ==================== END P1.5 ====================
+    
+    # 17. Check for stagnation
     stagnation_info = await detect_stagnation(db, user_id, main_problem)
     is_stagnated = stagnation_info.get("is_stagnated", False)
     
-    # 9. Generate narrative (headline + rich insight)
+    # 18. Generate narrative (headline + rich insight) - now with compliance awareness
     headline, rich_insight = build_behavioral_narrative(
-        features, scorecard, history, stagnation=is_stagnated
+        features, scorecard, history, 
+        stagnation=is_stagnated,
+        learner_type=velocity_result.learner_type,
+        advice_stats=velocity_result.advice_stats
     )
     
-    # 10. Choose mission
+    # 19. Choose mission - priority: violated high-severity advice > root cause > generic
     root_cause = features.root_cause or "CALCULATION_GAP"
-    mission = choose_mission(features, scorecard, game_id, root_cause)
+    violated_advice = [r for r in advice_results if r.get("outcome") == "VIOLATED"]
     
-    # 11. Compute confidence
+    if violated_advice:
+        # Sort by severity (highest first)
+        violated_advice.sort(key=lambda x: x.get("severity_weight", 0), reverse=True)
+        mission = _build_advice_enforcement_mission(violated_advice[0], game_id)
+    else:
+        mission = choose_mission(features, scorecard, game_id, root_cause)
+    
+    # 20. Compute confidence
     confidence = _compute_confidence(
         history_count=len(history),
         has_clock=features.has_clock_data,
-        has_reflection=reflection is not None
+        has_reflection=reflection is not None,
+        has_advice_data=len(applications) > 0
     )
     
-    # 12. Store report for stagnation tracking
+    # 21. Store report for stagnation tracking
     await store_behavioral_report(
         db, user_id, game_id, main_problem, root_cause, headline
     )
     
-    # 13. Build final report
+    # 22. Get current active advice count
+    active_count = await get_active_advice_count(db, user_id)
+    
+    # 23. Build final report
     return {
         "game_id": game_id,
         "headline": headline,
         "rich_insight": rich_insight,
         "scorecard": {k: v.to_dict() for k, v in scorecard.items()},
-        "next_mission": mission.to_dict(),
+        "next_mission": mission.to_dict() if hasattr(mission, 'to_dict') else mission,
         "root_cause": root_cause,
         "root_cause_label": get_root_cause_label(root_cause),
         "main_problem": main_problem,
@@ -127,6 +196,14 @@ async def generate_behavioral_report(
         "stagnation_info": stagnation_info,
         "confidence": round(confidence, 2),
         "confidence_label": _get_confidence_label(confidence),
+        # P1.5 additions
+        "learning_velocity": velocity_result.velocity,
+        "learner_type": velocity_result.learner_type,
+        "coach_compliance_score": scorecard["coach_compliance"].score,
+        "active_advice_count": active_count,
+        "advice_results": advice_results,
+        "advice_stats": velocity_result.advice_stats,
+        # Debug info
         "evidence": features.evidence,
         "contextual_patterns": features.contextual_patterns,
         "debug": {
@@ -139,6 +216,81 @@ async def generate_behavioral_report(
             "leak_tags": features.leak_tags_last_game,
         }
     }
+
+
+async def _persist_advice_applications(
+    db,
+    user_id: str,
+    game_id: str,
+    advice_results: List[Dict]
+) -> None:
+    """Persist advice evaluation results to DB"""
+    for result in advice_results:
+        application = {
+            "application_id": str(uuid.uuid4()),
+            "advice_id": result.get("advice_id"),
+            "user_id": user_id,
+            "game_id": game_id,
+            "evaluated_at": datetime.now(timezone.utc).isoformat(),
+            "outcome": result.get("outcome"),
+            "applicable": result.get("applicable", False),
+            "evidence": result.get("evidence", {}),
+            "severity_weight": result.get("severity_weight", 3),
+        }
+        
+        # Upsert to avoid duplicates
+        await db.advice_applications.update_one(
+            {"advice_id": result.get("advice_id"), "game_id": game_id},
+            {"$set": application},
+            upsert=True
+        )
+
+
+async def _auto_create_advice(
+    db,
+    user_id: str,
+    features,
+    active_advice: List[Dict]
+) -> None:
+    """Auto-create advice for persistent leak patterns"""
+    from behavioral import AdviceEngine, LEAK_TO_RULE
+    
+    # Check each leak tag
+    for leak_tag, rule_code in LEAK_TO_RULE.items():
+        if AdviceEngine.should_create_advice(rule_code, features.leak_trends, active_advice):
+            advice = AdviceEngine.create_advice_for_leak(user_id, rule_code)
+            await db.coach_advice.insert_one(advice)
+            logger.info(f"Auto-created advice {rule_code} for user {user_id}")
+
+
+def _build_advice_enforcement_mission(violated_advice: Dict, game_id: str) -> Dict:
+    """Build a mission specifically to enforce violated advice"""
+    from behavioral import Mission
+    
+    rule_code = violated_advice.get("rule_code", "")
+    text = violated_advice.get("text", "")
+    
+    # Custom mission text based on rule
+    instruction_map = {
+        "OPENING_REPEAT_PIECE": "Your only goal next game: avoid moving the same piece twice in the opening.",
+        "TIME_PANIC": "Your only goal next game: under 30 seconds, pause and pick the safest move.",
+        "HANGING_PIECE": "Your only goal next game: before every move, scan for hanging pieces.",
+        "EARLY_QUEEN": "Your only goal next game: develop knights and bishops before the queen.",
+        "OPENING_WANDER": "Your only goal next game: stick to your opening plan for 10 moves.",
+        "CONVERSION_ISSUE": "Your only goal next game: when ahead, simplify and don't overpress.",
+    }
+    
+    return Mission(
+        type="ADVICE_ENFORCEMENT",
+        title="Fix This First",
+        instruction=instruction_map.get(rule_code, f"Focus on: {text}"),
+        payload={
+            "game_id": game_id,
+            "advice_id": violated_advice.get("advice_id"),
+            "rule_code": rule_code,
+            "focus": "advice_enforcement"
+        }
+    )
 
 
 def _detect_main_problem(features, scorecard: Dict) -> str:
@@ -160,13 +312,20 @@ def _detect_main_problem(features, scorecard: Dict) -> str:
     return "NONE"
 
 
-def _compute_confidence(history_count: int, has_clock: bool, has_reflection: bool) -> float:
+def _compute_confidence(
+    history_count: int, 
+    has_clock: bool, 
+    has_reflection: bool,
+    has_advice_data: bool = False
+) -> float:
     """Compute confidence score"""
-    confidence = 0.3
-    confidence += min(history_count / 20, 0.4)
+    confidence = 0.25
+    confidence += min(history_count / 20, 0.35)
     if has_clock:
         confidence += 0.2
     if has_reflection:
+        confidence += 0.1
+    if has_advice_data:
         confidence += 0.1
     return min(1.0, confidence)
 
@@ -178,3 +337,42 @@ def _get_confidence_label(confidence: float) -> str:
     elif confidence >= 0.45:
         return "Medium"
     return "Low"
+
+
+def _get_compliance_label(score: int) -> str:
+    """Get compliance label from score"""
+    if score >= 80:
+        return "Excellent"
+    elif score >= 65:
+        return "Good"
+    elif score >= 45:
+        return "Mixed"
+    return "Concern"
+
+
+def _get_velocity_label(learner_type: str) -> str:
+    """Get label for velocity based on learner type"""
+    labels = {
+        "FAST_ADAPTER": "Excellent",
+        "STEADY": "Good",
+        "TRYING_BUT_STUCK": "Mixed",
+        "NOT_APPLYING": "Concern"
+    }
+    return labels.get(learner_type, "Mixed")
+
+
+def _get_compliance_why(velocity_result) -> str:
+    """Get explanation for compliance score"""
+    stats = velocity_result.advice_stats
+    if stats.get("applicable", 0) == 0:
+        return "No advice to evaluate yet"
+    
+    followed = stats.get("followed", 0)
+    applicable = stats.get("applicable", 0)
+    
+    if followed == applicable:
+        return f"Applied {followed}/{applicable} advice"
+    elif followed > applicable / 2:
+        return f"Applied {followed}/{applicable} advice"
+    else:
+        return f"Only {followed}/{applicable} advice applied"
