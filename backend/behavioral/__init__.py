@@ -14,6 +14,8 @@ Modules:
 - learning_velocity: Learning speed calculation
 - difficulty_policy: Adaptive mission difficulty (P1.6)
 - mission_templates: Difficulty-scaled mission params (P1.6)
+- mission_validation: Validate mission effectiveness (P1.7)
+- mission_lifecycle: Mission lifecycle management (P1.7)
 """
 
 from .feature_extractor import (
