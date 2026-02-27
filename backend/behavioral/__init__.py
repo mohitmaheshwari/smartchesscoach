@@ -10,6 +10,8 @@ Modules:
 - mission_picker: Root cause matched missions
 - stagnation_detector: Stuck-in-loop detection
 - scoring_engine: Feature to score conversion
+- advice_engine: Coach advice rule evaluation
+- learning_velocity: Learning speed calculation
 """
 
 from .feature_extractor import (
@@ -46,6 +48,26 @@ from .stagnation_detector import (
     store_behavioral_report,
 )
 
+from .advice_engine import (
+    AdviceRule,
+    AdviceResult,
+    AdviceEngine,
+    ADVICE_RULES,
+    ADVICE_TEMPLATES,
+    LEAK_TO_RULE,
+)
+
+from .learning_velocity import (
+    LearningVelocityResult,
+    compute_learning_velocity,
+    compute_compliance_score,
+    check_advice_resolution,
+    resolve_advice,
+    get_consecutive_follows,
+    get_active_advice_count,
+    archive_lowest_severity_resolved,
+)
+
 __all__ = [
     # Feature extraction
     "BehaviorFeatures",
@@ -74,4 +96,22 @@ __all__ = [
     # Stagnation
     "detect_stagnation",
     "store_behavioral_report",
+    
+    # Advice Engine
+    "AdviceRule",
+    "AdviceResult",
+    "AdviceEngine",
+    "ADVICE_RULES",
+    "ADVICE_TEMPLATES",
+    "LEAK_TO_RULE",
+    
+    # Learning Velocity
+    "LearningVelocityResult",
+    "compute_learning_velocity",
+    "compute_compliance_score",
+    "check_advice_resolution",
+    "resolve_advice",
+    "get_consecutive_follows",
+    "get_active_advice_count",
+    "archive_lowest_severity_resolved",
 ]
