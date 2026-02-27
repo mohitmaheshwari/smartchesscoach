@@ -15,6 +15,107 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Feb 27, 2026)
 
+### P1.5 Coach Memory & Learning Velocity System ✅ COMPLETE (Feb 27, 2026)
+
+**User Request:** Build a persistent coaching relationship that tracks if the player is listening to the coach and improving over time.
+
+**Core Concept:** Convert behavioral analysis into **accountability engine** - not just logging advice, but measuring compliance.
+
+**Features Implemented:**
+
+1. **Database Schema** (MongoDB Collections)
+   - `coach_advice`: advice_id, user_id, text, category, rule_code, rule_params, severity, status
+   - `advice_applications`: advice_id, user_id, game_id, outcome (FOLLOWED/VIOLATED/NA), applicable (bool), evidence, severity_weight
+   - Indexes for efficient querying by user_id, game_id, advice_id
+
+2. **Advice Rule Engine** (`/app/backend/behavioral/advice_engine.py`)
+   - Registry pattern with 6 core rules:
+     - `OPENING_REPEAT_PIECE`: Don't move same piece twice in opening
+     - `TIME_PANIC`: Under time pressure, choose safest move
+     - `HANGING_PIECE`: Check for hanging pieces before every move
+     - `EARLY_QUEEN`: Develop minor pieces before queen
+     - `OPENING_WANDER`: Stick to opening plan
+     - `CONVERSION_ISSUE`: When ahead, don't overpress
+   - Each rule returns: `{ outcome, applicable, evidence, severity_weight }`
+   - Applicability check prevents fake follow_rate
+
+3. **Learning Velocity Calculator** (`/app/backend/behavioral/learning_velocity.py`)
+   - Weighted formula:
+     ```
+     weighted_follow_rate = sum(severity_weight for FOLLOWED and applicable) / sum(severity_weight for applicable)
+     velocity = 0.5 * weighted_follow_rate + 0.3 * improvement_trend + 0.2 * stability_trend
+     ```
+   - Learner Types:
+     - >= 0.75: FAST_ADAPTER (applying advice consistently)
+     - >= 0.55: STEADY (making progress)
+     - >= 0.35: TRYING_BUT_STUCK (ideas there, execution breaks)
+     - < 0.35: NOT_APPLYING (advice not being used)
+
+4. **Advice Lifecycle Logic**
+   - Max 3 active advice at once
+   - Auto-create advice when `leak_tag` appears 3+ times in last 5 games
+   - Auto-archive advice when followed 4 consecutive applicable games
+
+5. **Compliance-Aware Narrative** (updated `narrative_engine.py`)
+   - Tone adjusts based on learner_type:
+     - FAST_ADAPTER → ENCOURAGING: "You're applying coaching advice consistently — improvement is visible."
+     - STEADY/TRYING_BUT_STUCK → GUIDING: "You're attempting the right ideas, but execution still breaks under pressure."
+     - NOT_APPLYING → DIRECT: "2 of your 3 active advice were violated again."
+
+6. **Mission Override Priority**
+   - Violated high-severity advice → ADVICE_ENFORCEMENT mission
+   - Example: "Your only goal next game: avoid moving the same piece twice in the opening."
+   - Order: Violated high-severity advice > Root cause > Generic drill
+
+**API Response Enhancement:**
+```json
+{
+  "learning_velocity": 0.63,
+  "learner_type": "STEADY",
+  "coach_compliance_score": 72,
+  "active_advice_count": 3,
+  "advice_stats": {
+    "total_applications": 15,
+    "applicable": 12,
+    "followed": 9,
+    "violated": 3,
+    "follow_ratio": "9/12"
+  },
+  "advice_results": [
+    { "rule_code": "TIME_PANIC", "outcome": "FOLLOWED", "applicable": true, "severity_weight": 4 },
+    { "rule_code": "HANGING_PIECE", "outcome": "VIOLATED", "applicable": true, "severity_weight": 4 }
+  ],
+  "scorecard": {
+    "coach_compliance": { "score": 72, "label": "Good", "why": "Applied 9/12 advice" },
+    "learning_velocity": { "score": 63, "label": "Good", "why": "Steady" }
+  }
+}
+```
+
+**Frontend Enhancement (`BehavioralInsightCard.jsx`):**
+- Coach Memory row: "Advice Applied: 2/3 | Learning Style: Steady Learner"
+- Color-coded (green/amber/red based on follow ratio)
+- Only shows when advice_stats.applicable > 0
+
+**Files Created:**
+- `/app/backend/behavioral/advice_engine.py`
+- `/app/backend/behavioral/learning_velocity.py`
+- `/app/backend/tests/test_coach_memory_velocity.py`
+
+**Files Modified:**
+- `/app/backend/behavioral/__init__.py`
+- `/app/backend/behavioral/narrative_engine.py`
+- `/app/backend/behavioral_analyzer_service.py`
+- `/app/backend/init_db.py` (added indexes)
+- `/app/frontend/src/components/Home/BehavioralInsightCard.jsx`
+
+**Test Report:** `/app/test_reports/iteration_81.json`
+- Backend: 100% (18/18 tests)
+- Frontend: 100% (8/8 tests)
+- Regression: 26 passed, 0 failed
+
+---
+
 ### P1 Behavioral Intelligence Upgrade ✅ COMPLETE (Feb 27, 2026)
 
 **User Request:** Major upgrade to the behavioral analysis engine with:
