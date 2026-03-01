@@ -2333,6 +2333,20 @@ const LearningMomentItem = ({ mistake, onClick, userColor, gameId, focusModule, 
                 </Button>
               )}
               
+              {/* Show Punishment - Opponent's best response to your bad move */}
+              {mistake.pv_after_played && mistake.pv_after_played.length > 0 && mistake.fen_before && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 text-xs gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  onClick={() => onShowPunishment(mistake.fen_before, mistake.move, mistake.pv_after_played)}
+                  data-testid={`show-punishment-${mistake.move_number}`}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Show why it's bad (opponent's response)
+                </Button>
+              )}
+              
               {/* "What were you thinking?" - Gold Data Collection */}
               <div className="mt-3 pt-2 border-t border-border/30" data-testid={`thought-section-${mistake.move_number}`}>
                 {thoughtSaved ? (
