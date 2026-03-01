@@ -401,6 +401,59 @@ const Lab = ({ user }) => {
     toast.success(`Playing ${fullLine.length} move variation...`);
   };
   
+  // Show punishment - displays the user's bad move followed by opponent's best response with arrow
+  // This helps users understand WHY their move was bad
+  const showPunishment = (fenBefore, userMove, pvAfterPlayed) => {
+    if (!fenBefore || !userMove) {
+      toast.error("Position data not available");
+      return;
+    }
+    
+    // First, play the user's bad move to get to the position after
+    const fenAfterUserMove = getFenAfterMove(fenBefore, userMove);
+    if (!fenAfterUserMove) {
+      toast.error("Could not reconstruct position");
+      return;
+    }
+    
+    // Show the position after user's move
+    setPositionObject(fenToPositionObject(fenAfterUserMove));
+    
+    // Build arrows:
+    // 1. User's bad move (orange/red)
+    const userArrow = sanToArrow(userMove, fenBefore, "rgb(239,68,68)"); // Red for user's mistake
+    
+    // 2. Opponent's best punishing response (dark red/crimson)
+    const punishingMove = pvAfterPlayed && pvAfterPlayed[0];
+    const punishArrow = punishingMove ? sanToArrow(punishingMove, fenAfterUserMove, "rgb(185,28,28)") : null;
+    
+    // Set arrows - show both user's move and opponent's punishment
+    const arrows = [];
+    if (userArrow) arrows.push(userArrow);
+    if (punishArrow) arrows.push(punishArrow);
+    setCustomArrows(arrows);
+    
+    // Show highlight for the punishment move
+    if (punishArrow) {
+      setLastMoveSquares({
+        [punishArrow[0]]: { backgroundColor: "rgba(220,38,38,0.4)" },
+        [punishArrow[1]]: { backgroundColor: "rgba(220,38,38,0.4)" }
+      });
+    }
+    
+    // If there's a continuation, offer to play the full punishment line
+    if (pvAfterPlayed && pvAfterPlayed.length > 1) {
+      toast.success(
+        `After ${userMove}, opponent plays ${punishingMove}! Click "Play variation" to see the full continuation.`,
+        { duration: 5000 }
+      );
+    } else if (punishingMove) {
+      toast.success(`After ${userMove}, opponent punishes with ${punishingMove}!`);
+    } else {
+      toast.info(`Showing position after ${userMove}`);
+    }
+  };
+  
   // Exit variation mode and return to game
   const exitVariation = () => {
     setVariationMode(false);
