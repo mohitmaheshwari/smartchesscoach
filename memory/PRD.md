@@ -10,11 +10,59 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - **Analysis Engine:** Stockfish with intelligent caching
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
 - **Opening Data:** Lichess Opening Explorer API (statistics only)
-- **Engine Version:** P1.7 (defined in `/app/backend/engine_config.py`)
+- **Engine Version:** P2.0 (defined in `/app/backend/engine_config.py`)
 
 ---
 
 ## Latest Updates (Mar 1, 2026)
+
+### P2 Play With Coach - Step 1: Bare Session Infrastructure ✅ COMPLETE (Mar 1, 2026)
+
+**User Request:** Build a "Play With Coach" training mode where users play full games against a pedagogical coach engine.
+
+**Step 1 Focus:** Minimal end-to-end game loop before any intelligence features.
+- start → move → coach move → end → summary
+- No interception, no CPR, no identity, no behavior tracking yet
+
+**Implementation:**
+
+1. **Backend Module** (`/app/backend/coach_play/`):
+   - `coach_game_session.py`: Session management, move validation, game state
+   - `coach_opponent.py`: Stockfish-based opponent (depth 12, 0.5s time limit)
+   
+2. **Database Collection** (`coach_sessions`):
+   - session_id, user_id, status, user_color
+   - fen_history[], move_history[], current_fen
+   - time_control, user_time_remaining, coach_time_remaining, increment
+   - result, termination_reason, timestamps
+   - Placeholders: coach_interventions[], behavior_events[], cpr_before/after
+
+3. **API Endpoints:**
+   - `POST /api/coach/play/start` - Create new session
+   - `POST /api/coach/play/move` - Make move, get coach response
+   - `GET /api/coach/play/state/{session_id}` - Current state
+   - `POST /api/coach/play/end` - End session (resign/abandon)
+   - `GET /api/coach/play/active` - User's active sessions
+   - `GET /api/coach/play/history` - User's completed sessions
+
+4. **Frontend** (`/app/frontend/src/pages/CoachPlay.jsx`):
+   - Setup page: Color selection, time control (3+2, 10+5, 15+10)
+   - Game interface: Interactive board, move history, turn indicator
+   - Controls: Flip board, Resign, New Game
+   - Route: `/play-with-coach`
+
+**Test Report:** `/app/test_reports/iteration_85.json`
+- Backend: 100% (19/19 passed)
+- Frontend: 100% (8/8 passed)
+- Specs created: `/app/backend/tests/test_coach_play_api.py`, `/app/tests/e2e/coach-play.spec.ts`
+
+**Next Steps (User-Defined Build Order):**
+- Step 2: Pre-Move Guardian (highest priority intelligence)
+- Step 3: Live Behavior Extraction
+- Step 4: CPR Engine
+- Step 5: Identity Engine
+
+---
 
 ### Show Opponent's Punishment in Game Review ✅ COMPLETE (Mar 1, 2026)
 
