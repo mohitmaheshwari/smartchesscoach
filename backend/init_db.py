@@ -171,6 +171,15 @@ async def init_database():
     await db.mission_history.create_index([("user_id", 1), ("completed_at", -1)])
     print("  ✓ mission_history indexes")
     
+    # P2: Coach Sessions indexes (Play With Coach)
+    await db.coach_sessions.create_index("session_id", unique=True)
+    await db.coach_sessions.create_index("user_id")
+    await db.coach_sessions.create_index("status")
+    await db.coach_sessions.create_index([("user_id", 1), ("status", 1)])
+    await db.coach_sessions.create_index([("user_id", 1), ("created_at", -1)])
+    await db.coach_sessions.create_index("created_at")
+    print("  ✓ coach_sessions indexes (P2)")
+    
     # Cognitive Gap Intelligence indexes
     await db.cognitive_gap_history.create_index("user_id")
     await db.cognitive_gap_history.create_index([("user_id", 1), ("gap_type", 1)])
