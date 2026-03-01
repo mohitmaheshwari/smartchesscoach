@@ -15,7 +15,7 @@ test.describe('Coach Play Setup Page', () => {
   });
 
   test('should display setup page with color and time selection', async ({ page }) => {
-    await page.goto('/coach-play', { waitUntil: 'domcontentloaded' });
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('coach-play-setup')).toBeVisible();
     
     // Check color selection buttons
@@ -33,7 +33,7 @@ test.describe('Coach Play Setup Page', () => {
   });
 
   test('should allow color selection', async ({ page }) => {
-    await page.goto('/coach-play', { waitUntil: 'domcontentloaded' });
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('coach-play-setup')).toBeVisible();
     
     // Default is white (has default variant)
@@ -50,7 +50,7 @@ test.describe('Coach Play Setup Page', () => {
   });
 
   test('should allow time control selection', async ({ page }) => {
-    await page.goto('/coach-play', { waitUntil: 'domcontentloaded' });
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('coach-play-setup')).toBeVisible();
     
     // Click 3+2
@@ -70,7 +70,7 @@ test.describe('Coach Play Game Flow', () => {
   });
 
   test('should start game as white and show game interface', async ({ page }) => {
-    await page.goto('/coach-play', { waitUntil: 'domcontentloaded' });
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('coach-play-setup')).toBeVisible();
     
     // Select white and 15+10
@@ -100,7 +100,7 @@ test.describe('Coach Play Game Flow', () => {
   });
 
   test('should start game as black and coach makes first move', async ({ page }) => {
-    await page.goto('/coach-play', { waitUntil: 'domcontentloaded' });
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('coach-play-setup')).toBeVisible();
     
     // Select black
@@ -121,7 +121,7 @@ test.describe('Coach Play Game Flow', () => {
   });
 
   test('should resign game and show summary', async ({ page }) => {
-    await page.goto('/coach-play', { waitUntil: 'domcontentloaded' });
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     
     // Start a game
     await page.getByTestId('select-white').click();
@@ -146,7 +146,7 @@ test.describe('Coach Play Game Flow', () => {
   });
 
   test('should start new game after resignation', async ({ page }) => {
-    await page.goto('/coach-play', { waitUntil: 'domcontentloaded' });
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     
     // Start and resign
     await page.getByTestId('select-white').click();
@@ -172,7 +172,7 @@ test.describe('Coach Play Move Making', () => {
     await devLogin(page);
     
     // Start a game as white
-    await page.goto('/coach-play', { waitUntil: 'domcontentloaded' });
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await page.getByTestId('select-white').click();
     await page.getByTestId('start-game-btn').click();
     await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 10000 });
@@ -228,7 +228,7 @@ test.describe('Coach Play Navigation', () => {
   });
 
   test('should navigate back to home from setup', async ({ page }) => {
-    await page.goto('/coach-play', { waitUntil: 'domcontentloaded' });
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('coach-play-setup')).toBeVisible();
     
     // Click back button
@@ -239,7 +239,7 @@ test.describe('Coach Play Navigation', () => {
   });
 
   test('should have flip board functionality', async ({ page }) => {
-    await page.goto('/coach-play', { waitUntil: 'domcontentloaded' });
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await page.getByTestId('start-game-btn').click();
     await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 10000 });
     
