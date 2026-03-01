@@ -16,6 +16,60 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Mar 1, 2026)
 
+### P2.1 Adaptive Difficulty & Evaluation Bar ✅ COMPLETE (Mar 1, 2026)
+
+**User Request:** "Should we see the evaluation bar and can you tell me at what rating Stockfish is playing?"
+
+**Features Implemented:**
+
+1. **Adaptive Stockfish Skill Level** (`/app/backend/coach_play/coach_opponent.py`)
+   - `rating_to_skill_level()` function maps user rating to Stockfish skill level (0-20):
+     - <800 → skill 0 (~800 Elo)
+     - 800-999 → skill 3
+     - 1000-1199 → skill 5 (~1200 Elo)
+     - 1200-1399 → skill 8
+     - 1400-1599 → skill 10 (~1600 Elo)
+     - 1600-1799 → skill 12
+     - 1800-1999 → skill 15 (~2000 Elo)
+     - 2000-2199 → skill 17
+     - 2200+ → skill 20 (full strength)
+   - User's rating fetched from `player_profiles` on session start
+   - `coach_skill_level` and `user_rating` stored in session
+
+2. **Real-time Evaluation Bar** (`/app/frontend/src/pages/CoachPlay.jsx`)
+   - `EvalBar` component displays position evaluation visually
+   - Evaluation returned from `/api/coach/play/start`, `/move`, and `/state` endpoints
+   - `CoachOpponent.get_evaluation()` returns (score, mate_in) tuple
+   - Score from white's perspective, capped at ±10
+   - Mate-in displayed as "M{n}" notation
+   - Gradient bar with white/black portions based on evaluation
+   - Green/red trend indicators showing if user is winning/losing
+
+3. **Coach Level Badge**
+   - "Level X" badge displayed in coach info bar
+   - Shows the Stockfish skill level being used
+
+**API Response Enhancement:**
+```json
+{
+  "session": {..., "user_rating": 1200, "coach_skill_level": 8},
+  "evaluation": {"score": 0.38, "mate_in": null}
+}
+```
+
+**Test Report:** `/app/test_reports/iteration_88.json`
+- Backend: 100% (22/22 passed)
+- Frontend: 100% (22/22 passed)
+- Regression: 44 passed, 0 failed
+
+**Files Modified:**
+- `/app/backend/coach_play/coach_game_session.py` - Added evaluation to responses
+- `/app/backend/coach_play/coach_opponent.py` - Added `get_evaluation()` method
+- `/app/backend/server.py` - Enhanced `/start` endpoint with evaluation
+- `/app/frontend/src/pages/CoachPlay.jsx` - Added EvalBar component
+
+---
+
 ### P2 Play With Coach - Steps 3, 4, 5: Intelligence Stack ✅ COMPLETE (Mar 1, 2026)
 
 **Step 3: Live Behavior Extraction** (`/app/backend/coach_play/live_behavior_extractor.py`)
