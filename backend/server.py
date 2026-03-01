@@ -11578,6 +11578,109 @@ async def get_coach_play_history(
     }
 
 
+@api_router.get("/coach/play/identity")
+async def get_player_identity(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get user's cognitive identity profile (Step 5).
+    
+    Identity is built from behavioral patterns across multiple sessions.
+    Requires minimum 3 sessions for meaningful identity.
+    
+    Returns:
+    - identity_label: e.g., "The Calculator", "The Warrior"
+    - identity_description: Narrative description
+    - trait_snapshot: Current trait values
+    - confidence: How confident we are (0-1)
+    - narrative_timeline: Recent session narratives
+    """
+    identity = await db.player_identity.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    if not identity:
+        return {
+            "has_identity": False,
+            "message": "Play more games with coach to build your identity profile.",
+            "sessions_needed": 3
+        }
+    
+    return {
+        "has_identity": True,
+        "identity": identity
+    }
+
+
+@api_router.get("/coach/play/cpr/history")
+async def get_cpr_history(
+    user: User = Depends(get_current_user),
+    limit: int = 10
+):
+    """
+    Get user's CPR (Cognitive Performance Rating) history.
+    
+    Returns CPR scores from recent sessions.
+    """
+    sessions = await db.coach_sessions.find(
+        {
+            "user_id": user.user_id,
+            "cpr_after": {"$exists": True, "$ne": None}
+        },
+        {"_id": 0, "session_id": 1, "cpr_after": 1, "created_at": 1, "result": 1}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    cpr_scores = [s.get("cpr_after") for s in sessions if s.get("cpr_after")]
+    
+    return {
+        "history": sessions,
+        "average_cpr": sum(cpr_scores) / len(cpr_scores) if cpr_scores else None,
+        "sessions_count": len(sessions)
+    }
+
+
+@api_router.get("/coach/play/behaviors/{session_id}")
+async def get_session_behaviors(
+    session_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get behavioral events from a specific session.
+    
+    Returns detailed behavior analysis for review.
+    """
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    behavior_events = session_doc.get("behavior_events", [])
+    
+    # Categorize events
+    positive = [e for e in behavior_events if e.get("behavior_type") in [
+        "calculated_sacrifice", "positional_patience", "tactical_alertness",
+        "threat_addressed", "accurate_under_pressure"
+    ]]
+    negative = [e for e in behavior_events if e.get("behavior_type") in [
+        "impulse_move", "threat_ignored", "panic_defense",
+        "rapid_streak", "time_pressure_mistake", "repeated_mistake"
+    ]]
+    
+    return {
+        "session_id": session_id,
+        "total_events": len(behavior_events),
+        "positive_behaviors": len(positive),
+        "negative_behaviors": len(negative),
+        "events": behavior_events,
+        "summary": {
+            "positive": positive,
+            "negative": negative
+        }
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
