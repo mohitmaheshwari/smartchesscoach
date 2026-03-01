@@ -494,6 +494,10 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     )
     recommended_drill["type"] = active_advice.get("drill_type", "threat_detection")
     
+    # Get games needing reflection (last 3 days, max 5 games)
+    from reflect_service import get_games_needing_reflection
+    games_needing_reflection = await get_games_needing_reflection(db, user_id, limit=5)
+    
     return {
         "has_data": True,
         "games_analyzed": total_games,
@@ -501,6 +505,7 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         "focus_capacity": focus_capacity,
         "active_advice": active_advice,
         "last_game": last_game_summary,
+        "games_needing_reflection": games_needing_reflection,  # NEW: List of games to reflect on
         "recommended_drill": recommended_drill,
         "recurring_patterns": recurring_patterns[:3],
         "stats": {
