@@ -242,6 +242,11 @@ const CoachPlay = ({ user }) => {
       if (data.remaining_interventions !== undefined) {
         setRemainingInterventions(data.remaining_interventions);
       }
+      
+      // Update evaluation for eval bar
+      if (data.evaluation) {
+        setEvaluation(data.evaluation);
+      }
 
       // Check if game is over
       if (data.game_over) {
