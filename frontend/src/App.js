@@ -226,6 +226,11 @@ function AppRouter() {
           {({ user }) => <MissionRunner user={user} />}
         </ProtectedRoute>
       } />
+      <Route path="/play-with-coach" element={
+        <ProtectedRoute>
+          {({ user }) => <CoachPlay user={user} />}
+        </ProtectedRoute>
+      } />
       <Route path="/recover/:gameId" element={
         <ProtectedRoute>
           {({ user }) => <PostLossRecovery user={user} />}
