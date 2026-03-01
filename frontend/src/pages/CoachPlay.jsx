@@ -86,6 +86,8 @@ const CoachPlay = ({ user }) => {
   const [gameOver, setGameOver] = useState(false);
   const [gameResult, setGameResult] = useState(null);
   const [summary, setSummary] = useState(null);
+  const [cprResult, setCprResult] = useState(null);
+  const [playerIdentity, setPlayerIdentity] = useState(null);
 
   // Check for active session on mount
   useEffect(() => {
