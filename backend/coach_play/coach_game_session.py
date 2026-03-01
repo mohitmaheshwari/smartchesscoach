@@ -422,12 +422,12 @@ async def _make_coach_move(
     """
     Coach makes a move using Stockfish.
     
-    For Step 1, coach just plays the strongest move.
-    Later phases will add pedagogical opponent logic.
+    Uses skill level matched to user's rating.
     """
     from .coach_opponent import CoachOpponent
     
-    opponent = CoachOpponent()
+    # Create opponent with user's rating for difficulty matching
+    opponent = CoachOpponent(user_rating=session.user_rating)
     coach_move = await opponent.get_move(session.current_fen)
     
     if not coach_move:
