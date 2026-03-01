@@ -642,6 +642,7 @@ const CoachPlay = ({ user }) => {
                 </Button>
               )}
             </div>
+            </div>
           </div>
         </div>
 
