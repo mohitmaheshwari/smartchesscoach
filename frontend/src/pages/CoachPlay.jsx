@@ -37,6 +37,99 @@ import {
   TrendingDown
 } from "lucide-react";
 
+/**
+ * EvalBar - Visual evaluation bar showing position advantage
+ * 
+ * Props:
+ * - evaluation: { score: number, mate_in: number|null }
+ *   - score: Centipawn evaluation from white's perspective (-10 to +10)
+ *   - mate_in: Number of moves to mate (positive=white wins, negative=black wins)
+ * - userColor: "white" | "black" - which color the user is playing
+ * - gameOver: boolean - if the game has ended
+ */
+const EvalBar = ({ evaluation, userColor, gameOver }) => {
+  const { score, mate_in } = evaluation || { score: 0, mate_in: null };
+  
+  // Calculate percentage for the bar (50% = equal, >50% = white advantage)
+  // Score is capped at ±10, map to 5-95% range for visual clarity
+  const getBarPercentage = () => {
+    if (mate_in !== null) {
+      return mate_in > 0 ? 95 : 5; // Forced mate
+    }
+    // Map score from [-10, 10] to [5, 95]
+    const clamped = Math.max(-10, Math.min(10, score));
+    return 50 + (clamped * 4.5);
+  };
+  
+  const whitePercent = getBarPercentage();
+  const blackPercent = 100 - whitePercent;
+  
+  // Determine display text
+  const getEvalText = () => {
+    if (mate_in !== null) {
+      return `M${Math.abs(mate_in)}`;
+    }
+    if (score === 0) return "0.0";
+    const sign = score > 0 ? "+" : "";
+    return `${sign}${score.toFixed(1)}`;
+  };
+  
+  // Determine who is winning and if it's the user
+  const isWhiteWinning = score > 0.3 || mate_in > 0;
+  const isBlackWinning = score < -0.3 || (mate_in !== null && mate_in < 0);
+  const userWinning = (userColor === "white" && isWhiteWinning) || 
+                      (userColor === "black" && isBlackWinning);
+  const opponentWinning = (userColor === "white" && isBlackWinning) || 
+                          (userColor === "black" && isWhiteWinning);
+  
+  return (
+    <div 
+      className="w-6 h-full min-h-[400px] flex flex-col rounded-lg overflow-hidden relative"
+      data-testid="eval-bar"
+      title={`Evaluation: ${getEvalText()}`}
+    >
+      {/* Black portion (top) */}
+      <div 
+        className="bg-gray-800 transition-all duration-300 ease-out"
+        style={{ height: `${blackPercent}%` }}
+      />
+      
+      {/* White portion (bottom) */}
+      <div 
+        className="bg-gray-100 transition-all duration-300 ease-out flex-1"
+        style={{ height: `${whitePercent}%` }}
+      />
+      
+      {/* Eval text overlay */}
+      <div 
+        className={`absolute left-1/2 transform -translate-x-1/2 px-1 py-0.5 rounded text-xs font-bold ${
+          isWhiteWinning 
+            ? "top-auto bottom-1 bg-gray-100 text-gray-900" 
+            : isBlackWinning
+              ? "top-1 bottom-auto bg-gray-800 text-gray-100"
+              : "top-1/2 -translate-y-1/2 bg-gray-500 text-white"
+        }`}
+        data-testid="eval-text"
+      >
+        {getEvalText()}
+      </div>
+      
+      {/* Advantage indicator icons */}
+      {!gameOver && (userWinning || opponentWinning) && (
+        <div className={`absolute left-1/2 transform -translate-x-1/2 ${
+          userWinning ? "bottom-8" : "top-8"
+        }`}>
+          {userWinning ? (
+            <TrendingUp className="w-3 h-3 text-green-500" />
+          ) : (
+            <TrendingDown className="w-3 h-3 text-red-500" />
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
   const boardRef = useRef(null);
