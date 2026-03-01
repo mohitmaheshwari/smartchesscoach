@@ -29,7 +29,10 @@ import {
   Swords,
   Brain,
   CheckCircle2,
-  XCircle
+  XCircle,
+  AlertTriangle,
+  ShieldAlert,
+  Lightbulb
 } from "lucide-react";
 
 // Convert FEN to position object for react-chessboard
