@@ -1984,6 +1984,7 @@ const Lab = ({ user }) => {
                               goToMove(targetIdx);
                             }}
                             onPlayVariation={playVariation}
+                            onShowPunishment={showPunishment}
                           />
                         ))
                       ) : (
