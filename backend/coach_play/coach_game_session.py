@@ -72,6 +72,10 @@ class CoachGameSession:
     cpr_before: Optional[float] = None
     cpr_after: Optional[float] = None
     
+    # Guardian state (Step 2)
+    remaining_interventions: int = 3  # How many times guardian can interrupt
+    guardian_overrides: List[Dict] = field(default_factory=list)  # Moves user made despite warnings
+    
     def to_dict(self) -> Dict:
         """Convert to dictionary for MongoDB storage"""
         data = asdict(self)
