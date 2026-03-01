@@ -14,7 +14,43 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ---
 
-## Latest Updates (Feb 27, 2026)
+## Latest Updates (Mar 1, 2026)
+
+### Show Opponent's Punishment in Game Review ✅ COMPLETE (Mar 1, 2026)
+
+**User Request:** "When a user makes a wrong move in game review, show the opponent's best punishing move with an arrow."
+
+**Feature:** Added "Show why it's bad (opponent's response)" button in the Lab page Learning Moments section that visually demonstrates why a move was bad by showing the opponent's best response.
+
+**Implementation:**
+1. **Helper Functions** (`Lab.jsx`):
+   - `sanToArrow()`: Converts SAN notation to arrow coordinates
+   - `getFenAfterMove()`: Gets position FEN after a move is played
+   
+2. **`showPunishment()` Function:**
+   - Plays the user's bad move to get to the position after
+   - Displays **two arrows**: 
+     - Red arrow: User's bad move
+     - Dark red arrow: Opponent's best punishing response
+   - Highlights punishment squares
+   - Shows toast notification: "After {move}, opponent punishes with {response}!"
+
+3. **UI Button:**
+   - Red styled button with AlertTriangle icon
+   - Text: "Show why it's bad (opponent's response)"
+   - Only appears when `pv_after_played` data is available
+   - `data-testid="show-punishment-{move_number}"`
+
+**Files Modified:**
+- `/app/frontend/src/pages/Lab.jsx`
+
+**Test Report:** `/app/test_reports/iteration_84.json`
+- Frontend: 100% (5/5 passed)
+- Spec created: `/app/tests/e2e/lab-punishment.spec.ts`
+
+---
+
+## Previous Updates (Feb 27, 2026)
 
 ### P1.7 Mission Completion & Feedback Loop ✅ COMPLETE (Feb 27, 2026)
 
