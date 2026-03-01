@@ -102,7 +102,7 @@ test.describe('Coach Play Game Flow', () => {
     await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
     
     // Check game elements
-    await expect(page.getByText('Coach')).toBeVisible();
+    await expect(page.getByText('Coach', { exact: true })).toBeVisible();
     await expect(page.getByText('You')).toBeVisible();
     
     // Check resign button
@@ -179,7 +179,7 @@ test.describe('Coach Play Game Interface', () => {
   });
 
   test('should show Your turn indicator', async ({ page }) => {
-    await expect(page.getByText('Your turn')).toBeVisible();
+    await expect(page.getByText('Your turn', { exact: true })).toBeVisible();
   });
 
   test('should have flip board button', async ({ page }) => {
