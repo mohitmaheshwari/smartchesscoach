@@ -157,6 +157,11 @@ const CoachPlay = ({ user }) => {
       setGameStarted(true);
       setMoveStartTime(Date.now());
       
+      // Set initial evaluation
+      if (data.evaluation) {
+        setEvaluation(data.evaluation);
+      }
+      
       // If playing black, coach already made first move
       if (selectedColor === "black" && data.session.move_history?.length > 0) {
         const coachMove = data.session.move_history[0];
