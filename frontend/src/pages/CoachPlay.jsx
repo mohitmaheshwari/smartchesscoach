@@ -233,7 +233,6 @@ const CoachPlay = ({ user }) => {
         setGameOver(true);
         setGameResult(data.result);
         setCurrentFen(data.session.current_fen);
-        setPosition(fenToPositionObject(data.session.current_fen));
         
         if (data.result === "win") {
           toast.success("You won! Great game!");
@@ -248,7 +247,6 @@ const CoachPlay = ({ user }) => {
       // Update with coach's response
       if (data.coach_move) {
         setCurrentFen(data.session.current_fen);
-        setPosition(fenToPositionObject(data.session.current_fen));
         highlightMove(data.coach_move.uci);
         
         if (data.game_over) {
@@ -275,7 +273,6 @@ const CoachPlay = ({ user }) => {
     const { moveSan, timeSpent, riskType, chess } = pendingMove;
     
     // Update board
-    setPosition(fenToPositionObject(chess.fen()));
     setCurrentFen(chess.fen());
     setIsPlayerTurn(false);
     
@@ -288,7 +285,7 @@ const CoachPlay = ({ user }) => {
     
     if (!success) {
       // Revert
-      setPosition(fenToPositionObject(currentFen));
+      setCurrentFen(currentFen);
       setIsPlayerTurn(true);
     }
   };
