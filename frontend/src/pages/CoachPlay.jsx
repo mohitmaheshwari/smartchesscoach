@@ -107,6 +107,11 @@ const CoachPlay = ({ user }) => {
         setGameStarted(true);
         setGameOver(data.game_over);
         
+        // Set evaluation for eval bar
+        if (data.evaluation) {
+          setEvaluation(data.evaluation);
+        }
+        
         // Highlight last move
         if (data.session.move_history?.length > 0) {
           const lastMoveData = data.session.move_history[data.session.move_history.length - 1];
