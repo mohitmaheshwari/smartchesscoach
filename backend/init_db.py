@@ -180,6 +180,12 @@ async def init_database():
     await db.coach_sessions.create_index("created_at")
     print("  ✓ coach_sessions indexes (P2)")
     
+    # P2: Player Identity indexes
+    await db.player_identity.create_index("user_id", unique=True)
+    await db.player_identity.create_index("identity_label")
+    await db.player_identity.create_index("last_updated")
+    print("  ✓ player_identity indexes (P2)")
+    
     # Cognitive Gap Intelligence indexes
     await db.cognitive_gap_history.create_index("user_id")
     await db.cognitive_gap_history.create_index([("user_id", 1), ("gap_type", 1)])
