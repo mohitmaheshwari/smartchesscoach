@@ -65,6 +65,9 @@ const CoachPlay = ({ user }) => {
   const [summary, setSummary] = useState(null);
   const [cprResult, setCprResult] = useState(null);
   const [playerIdentity, setPlayerIdentity] = useState(null);
+  
+  // Evaluation state for eval bar
+  const [evaluation, setEvaluation] = useState({ score: 0.0, mate_in: null });
 
   // Check for active session on mount
   useEffect(() => {
