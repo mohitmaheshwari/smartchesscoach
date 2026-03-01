@@ -550,55 +550,66 @@ const CoachPlay = ({ user }) => {
   return (
     <Layout user={user}>
       <div className="h-[calc(100vh-80px)] flex" data-testid="coach-play-game">
-        {/* Left: Board */}
+        {/* Left: Board + Eval Bar */}
         <div className="flex-1 flex flex-col items-center justify-center p-4">
-          <div className="w-full max-w-[560px]">
-            {/* Coach info bar */}
-            <div className="flex items-center justify-between mb-3 p-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-primary" />
-                <span className="font-medium">Coach</span>
-              </div>
-              <Badge variant="outline">
-                <Clock className="w-3 h-3 mr-1" />
-                {Math.floor((session?.coach_time_remaining || 900) / 60)}:
-                {String(Math.floor((session?.coach_time_remaining || 900) % 60)).padStart(2, "0")}
-              </Badge>
-            </div>
-
-            {/* Chessboard - Using Lichess Board */}
-            <div className="rounded-lg overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
-              <LichessBoard
-                ref={boardRef}
-                fen={currentFen}
-                orientation={boardOrientation}
-                lastMove={lastMove}
-                onMove={(moveData) => {
-                  if (isPlayerTurn && !gameOver && moveData) {
-                    makeMove(moveData.from, moveData.to);
-                  }
-                }}
-                interactive={isPlayerTurn && !gameOver}
-                viewOnly={!isPlayerTurn || gameOver}
-                showDests={true}
-              />
-            </div>
-
-            {/* Player info bar */}
-            <div className="flex items-center justify-between mt-3 p-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2">
-                <div className={`w-4 h-4 rounded-full ${selectedColor === "white" ? "bg-white border" : "bg-gray-900"}`} />
-                <span className="font-medium">You</span>
-                {isPlayerTurn && !gameOver && (
-                  <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
-                    Your turn
+          <div className="w-full max-w-[600px] flex gap-3">
+            {/* Eval Bar */}
+            <EvalBar 
+              evaluation={evaluation} 
+              userColor={selectedColor}
+              gameOver={gameOver}
+            />
+            
+            <div className="flex-1 max-w-[560px]">
+              {/* Coach info bar */}
+              <div className="flex items-center justify-between mb-3 p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-primary" />
+                  <span className="font-medium">Coach</span>
+                  <Badge variant="secondary" className="text-xs">
+                    Level {session?.coach_skill_level || 8}
                   </Badge>
-                )}
+                </div>
+                <Badge variant="outline">
+                  <Clock className="w-3 h-3 mr-1" />
+                  {Math.floor((session?.coach_time_remaining || 900) / 60)}:
+                  {String(Math.floor((session?.coach_time_remaining || 900) % 60)).padStart(2, "0")}
+                </Badge>
               </div>
-              <Badge variant="outline">
-                <Clock className="w-3 h-3 mr-1" />
-                {Math.floor((session?.user_time_remaining || 900) / 60)}:
-                {String(Math.floor((session?.user_time_remaining || 900) % 60)).padStart(2, "0")}
+
+              {/* Chessboard - Using Lichess Board */}
+              <div className="rounded-lg overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
+                <LichessBoard
+                  ref={boardRef}
+                  fen={currentFen}
+                  orientation={boardOrientation}
+                  lastMove={lastMove}
+                  onMove={(moveData) => {
+                    if (isPlayerTurn && !gameOver && moveData) {
+                      makeMove(moveData.from, moveData.to);
+                    }
+                  }}
+                  interactive={isPlayerTurn && !gameOver}
+                  viewOnly={!isPlayerTurn || gameOver}
+                  showDests={true}
+                />
+              </div>
+
+              {/* Player info bar */}
+              <div className="flex items-center justify-between mt-3 p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <div className={`w-4 h-4 rounded-full ${selectedColor === "white" ? "bg-white border" : "bg-gray-900"}`} />
+                  <span className="font-medium">You</span>
+                  {isPlayerTurn && !gameOver && (
+                    <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
+                      Your turn
+                    </Badge>
+                  )}
+                </div>
+                <Badge variant="outline">
+                  <Clock className="w-3 h-3 mr-1" />
+                  {Math.floor((session?.user_time_remaining || 900) / 60)}:
+                  {String(Math.floor((session?.user_time_remaining || 900) % 60)).padStart(2, "0")}
               </Badge>
             </div>
 
