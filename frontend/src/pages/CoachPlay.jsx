@@ -32,7 +32,9 @@ import {
   XCircle,
   AlertTriangle,
   ShieldAlert,
-  Lightbulb
+  Lightbulb,
+  TrendingUp,
+  TrendingDown
 } from "lucide-react";
 
 const CoachPlay = ({ user }) => {
