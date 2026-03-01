@@ -11195,6 +11195,251 @@ async def get_blunder_context(user: User = Depends(get_current_user)):
     }
 
 
+# =============================================================================
+# PLAY WITH COACH API - P2 Feature
+# =============================================================================
+
+@api_router.post("/coach/play/start")
+async def start_play_with_coach(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Start a new Play With Coach session.
+    
+    Body:
+    - user_color: "white" or "black" (default: "white")
+    - time_control: Time format like "15+10" (default: "15+10" rapid)
+    
+    Returns:
+    - session_id: Unique session ID
+    - session: Full session state
+    - current_fen: Current board position
+    - is_player_turn: Whether it's the player's turn
+    """
+    from coach_play import start_coach_session
+    
+    user_color = request.get("user_color", "white")
+    time_control = request.get("time_control", "15+10")
+    
+    # Validate user_color
+    if user_color not in ["white", "black"]:
+        raise HTTPException(status_code=400, detail="user_color must be 'white' or 'black'")
+    
+    try:
+        session = await start_coach_session(
+            db=db,
+            user_id=user.user_id,
+            user_color=user_color,
+            time_control=time_control
+        )
+        
+        return {
+            "success": True,
+            "session_id": session.session_id,
+            "session": session.to_dict(),
+            "current_fen": session.current_fen,
+            "is_player_turn": user_color == "white",  # White moves first
+            "message": f"Game started! You are playing {user_color}."
+        }
+    except Exception as e:
+        logger.error(f"Error starting coach session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/coach/play/move")
+async def make_coach_play_move(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Make a move in the Play With Coach session.
+    
+    Body:
+    - session_id: Session ID
+    - move: Move in SAN notation (e.g., "e4", "Nf3", "O-O")
+    - time_spent: Time spent on this move in seconds (optional)
+    
+    Returns:
+    - success: bool
+    - session: Updated session state
+    - coach_move: Coach's response move
+    - game_over: Whether the game has ended
+    - result: Game result if over
+    """
+    from coach_play import make_player_move
+    
+    session_id = request.get("session_id")
+    move = request.get("move")
+    time_spent = request.get("time_spent", 0.0)
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not move:
+        raise HTTPException(status_code=400, detail="move is required")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    try:
+        result = await make_player_move(
+            db=db,
+            session_id=session_id,
+            move_san=move,
+            time_spent=time_spent
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Move failed"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error making move: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/coach/play/state/{session_id}")
+async def get_coach_play_state(
+    session_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get current state of a Play With Coach session.
+    
+    Returns:
+    - session: Full session state
+    - current_fen: Current board position
+    - is_player_turn: Whether it's the player's turn
+    - legal_moves: List of legal moves in SAN notation
+    - move_count: Number of moves played
+    - game_over: Whether the game has ended
+    """
+    from coach_play import get_session_state
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    state = await get_session_state(db, session_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return state
+
+
+@api_router.post("/coach/play/end")
+async def end_coach_play_session(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    End a Play With Coach session (resign, abort).
+    
+    Body:
+    - session_id: Session ID
+    - reason: Reason for ending ("resigned", "abandoned")
+    
+    Returns:
+    - success: bool
+    - session: Final session state
+    - summary: Game summary
+    """
+    from coach_play import end_coach_session
+    
+    session_id = request.get("session_id")
+    reason = request.get("reason", "resigned")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    try:
+        result = await end_coach_session(
+            db=db,
+            session_id=session_id,
+            reason=reason
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "End failed"))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error ending session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/coach/play/active")
+async def get_active_coach_sessions(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get user's active Play With Coach sessions.
+    
+    Returns list of active sessions (usually just one).
+    """
+    sessions = await db.coach_sessions.find(
+        {"user_id": user.user_id, "status": "active"},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(5).to_list(5)
+    
+    return {
+        "active_sessions": sessions,
+        "count": len(sessions)
+    }
+
+
+@api_router.get("/coach/play/history")
+async def get_coach_play_history(
+    user: User = Depends(get_current_user),
+    limit: int = 10
+):
+    """
+    Get user's Play With Coach history.
+    
+    Returns completed and resigned sessions.
+    """
+    sessions = await db.coach_sessions.find(
+        {
+            "user_id": user.user_id,
+            "status": {"$in": ["completed", "resigned", "abandoned"]}
+        },
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # Add summary stats
+    wins = sum(1 for s in sessions if s.get("result") == "win")
+    losses = sum(1 for s in sessions if s.get("result") == "loss")
+    draws = sum(1 for s in sessions if s.get("result") == "draw")
+    
+    return {
+        "sessions": sessions,
+        "stats": {
+            "total": len(sessions),
+            "wins": wins,
+            "losses": losses,
+            "draws": draws
+        }
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
