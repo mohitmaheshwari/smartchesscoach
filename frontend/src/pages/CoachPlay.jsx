@@ -335,7 +335,6 @@ const CoachPlay = ({ user }) => {
     }
 
     // No intervention needed - proceed with move
-    setPosition(fenToPositionObject(chess.fen()));
     setCurrentFen(chess.fen());
     setIsPlayerTurn(false);
     highlightMove(moveObj.from + moveObj.to);
@@ -344,7 +343,7 @@ const CoachPlay = ({ user }) => {
     
     if (!success) {
       // Revert
-      setPosition(fenToPositionObject(currentFen));
+      setCurrentFen(currentFen);
       setIsPlayerTurn(true);
       return false;
     }
