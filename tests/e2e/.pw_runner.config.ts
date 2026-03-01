@@ -11,7 +11,7 @@ export default defineConfig({
     ['json', { outputFile: '/root/.emergent/automation_output/20260301_153729/results.json' }],
   ],
   use: {
-    baseURL: 'https://coach-play-beta.preview.emergentagent.com',
+    baseURL: 'https://eval-bar-coach.preview.emergentagent.com',
     screenshot: 'only-on-failure',
     trace: 'off',
     headless: true,

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'https://coach-play-beta.preview.emergentagent.com';
+const BASE_URL = 'https://eval-bar-coach.preview.emergentagent.com';
 
 test.describe('Cognitive Gap Analysis Feature', () => {
   
