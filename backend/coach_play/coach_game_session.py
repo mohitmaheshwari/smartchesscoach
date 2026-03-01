@@ -209,6 +209,22 @@ async def make_player_move(
     board.push(move)
     new_fen = board.fen()
     
+    # Extract behaviors for this move (Step 3)
+    from .live_behavior_extractor import extract_behaviors_from_move
+    
+    behavior_events = extract_behaviors_from_move(
+        fen_before=fen_before,
+        move_san=move_san,
+        fen_after=new_fen,
+        time_spent=time_spent,
+        time_remaining=session.user_time_remaining,
+        move_quality="accurate",  # Simplified - would need engine eval for real classification
+        session_behavior_history=session.behavior_events
+    )
+    
+    # Add new behavior events to session
+    session.behavior_events.extend(behavior_events)
+    
     session.move_history.append({
         "move": move_san,
         "uci": move.uci(),
@@ -216,7 +232,8 @@ async def make_player_move(
         "fen_before": fen_before,
         "fen_after": new_fen,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "time_spent": time_spent
+        "time_spent": time_spent,
+        "behavior_events": behavior_events  # Attach behaviors to move
     })
     session.fen_history.append(new_fen)
     session.current_fen = new_fen
