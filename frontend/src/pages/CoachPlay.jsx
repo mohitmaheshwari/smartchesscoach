@@ -35,33 +35,9 @@ import {
   Lightbulb
 } from "lucide-react";
 
-// Convert FEN to position object for react-chessboard
-const fenToPositionObject = (fen) => {
-  const position = {};
-  const parts = fen.split(" ");
-  const rows = parts[0].split("/");
-
-  for (let row = 0; row < 8; row++) {
-    let col = 0;
-    for (const char of rows[row]) {
-      if (char >= "1" && char <= "8") {
-        col += parseInt(char);
-      } else {
-        const file = String.fromCharCode(97 + col);
-        const rank = 8 - row;
-        const square = file + rank;
-        const color = char === char.toUpperCase() ? "w" : "b";
-        const piece = char.toUpperCase();
-        position[square] = color + piece;
-        col++;
-      }
-    }
-  }
-  return position;
-};
-
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
+  const boardRef = useRef(null);
   
   // Session state
   const [session, setSession] = useState(null);
@@ -69,10 +45,9 @@ const CoachPlay = ({ user }) => {
   const [gameStarted, setGameStarted] = useState(false);
   
   // Board state
-  const [position, setPosition] = useState({});
   const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   const [boardOrientation, setBoardOrientation] = useState("white");
-  const [lastMoveSquares, setLastMoveSquares] = useState({});
+  const [lastMove, setLastMove] = useState(null);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
   
   // Game settings
