@@ -305,6 +305,8 @@ async def get_session_state(
     session_id: str
 ) -> Optional[Dict]:
     """Get current state of a session"""
+    from .coach_opponent import CoachOpponent
+    
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
         return None
@@ -317,13 +319,21 @@ async def get_session_state(
     is_player_turn = (is_white_turn and session.user_color == "white") or \
                      (not is_white_turn and session.user_color == "black")
     
+    # Get position evaluation for the eval bar
+    opponent = CoachOpponent(user_rating=session.user_rating)
+    eval_score, mate_in = await opponent.get_evaluation(session.current_fen)
+    
     return {
         "session": session.to_dict(),
         "current_fen": session.current_fen,
         "is_player_turn": is_player_turn,
         "legal_moves": [board.san(m) for m in board.legal_moves],
         "move_count": len(session.move_history),
-        "game_over": session.status != SessionStatus.ACTIVE
+        "game_over": session.status != SessionStatus.ACTIVE,
+        "evaluation": {
+            "score": eval_score,  # From white's perspective
+            "mate_in": mate_in    # None or number of moves to mate
+        }
     }
 
 
