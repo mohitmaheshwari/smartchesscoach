@@ -148,7 +148,6 @@ const CoachPlay = ({ user }) => {
       const data = await response.json();
       setSession(data.session);
       setCurrentFen(data.current_fen);
-      setPosition(fenToPositionObject(data.current_fen));
       setBoardOrientation(selectedColor);
       setIsPlayerTurn(data.is_player_turn);
       setGameStarted(true);
@@ -157,7 +156,9 @@ const CoachPlay = ({ user }) => {
       // If playing black, coach already made first move
       if (selectedColor === "black" && data.session.move_history?.length > 0) {
         const coachMove = data.session.move_history[0];
-        highlightMove(coachMove.uci);
+        if (coachMove.uci) {
+          setLastMove([coachMove.uci.slice(0, 2), coachMove.uci.slice(2, 4)]);
+        }
       }
       
       toast.success(data.message);
@@ -172,10 +173,7 @@ const CoachPlay = ({ user }) => {
     if (!uci || uci.length < 4) return;
     const from = uci.slice(0, 2);
     const to = uci.slice(2, 4);
-    setLastMoveSquares({
-      [from]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
-      [to]: { backgroundColor: "rgba(255, 255, 0, 0.4)" }
-    });
+    setLastMove([from, to]);
   };
 
   // Guardian intervention state
