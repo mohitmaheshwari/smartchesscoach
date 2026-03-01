@@ -133,6 +133,18 @@ async def start_coach_session(
             base_time = float(parts[0]) * 60  # Convert minutes to seconds
             increment = float(parts[1])
     
+    # Get user's rating from player_profiles
+    from .coach_opponent import rating_to_skill_level
+    user_rating = 1200  # Default
+    player_profile = await db.player_profiles.find_one({"user_id": user_id})
+    if player_profile:
+        # Use their highest rating from any platform
+        lichess_rating = player_profile.get("lichess_stats", {}).get("rating", 0)
+        chesscom_rating = player_profile.get("chesscom_stats", {}).get("rating", 0)
+        user_rating = max(lichess_rating, chesscom_rating, 1200)
+    
+    skill_level = rating_to_skill_level(user_rating)
+    
     session = CoachGameSession(
         session_id=str(uuid.uuid4()),
         user_id=user_id,
@@ -143,7 +155,9 @@ async def start_coach_session(
         coach_time_remaining=base_time,
         increment=increment,
         fen_history=["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"],
-        current_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        current_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        user_rating=user_rating,
+        coach_skill_level=skill_level
     )
     
     # Save to database
