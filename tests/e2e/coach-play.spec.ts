@@ -190,3 +190,117 @@ test.describe('Coach Play Game Interface', () => {
     await expect(page.getByTestId('coach-play-game')).toBeVisible();
   });
 });
+
+test.describe('Coach Play Steps 3-5: CPR and Identity Display', () => {
+  test.beforeEach(async ({ page }) => {
+    await devLogin(page);
+    await cleanupActiveSessions(page);
+  });
+
+  test('should display CPR score and interpretation on game end', async ({ page }) => {
+    // Navigate and start game
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    // Resign to end the game
+    await page.getByTestId('resign-btn').click({ force: true });
+    
+    // Wait for game to end
+    await expect(page.getByText('Defeat')).toBeVisible({ timeout: 10000 });
+    
+    // CPR score should be displayed
+    await expect(page.getByText('Cognitive Performance Rating')).toBeVisible({ timeout: 5000 });
+    
+    // Should have a CPR score badge (number between 0-100)
+    const cprSection = page.locator('[class*="bg-primary"]').filter({ hasText: 'Cognitive Performance Rating' });
+    await expect(cprSection).toBeVisible();
+  });
+
+  test('should display player identity on game end', async ({ page }) => {
+    // Navigate and start game
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    // Resign to end the game
+    await page.getByTestId('resign-btn').click({ force: true });
+    
+    // Wait for game to end
+    await expect(page.getByText('Defeat')).toBeVisible({ timeout: 10000 });
+    
+    // Identity should be displayed (one of the valid identity labels)
+    const validIdentityLabels = [
+      'The Calculator', 'The Warrior', 'The Strategist', 'The Risk-Taker',
+      'The Fortress', 'The Phoenix', 'The Improviser', 'The Perfectionist', 'The Learner'
+    ];
+    
+    // Check for any of the identity labels
+    let identityFound = false;
+    for (const label of validIdentityLabels) {
+      if (await page.getByText(label).isVisible({ timeout: 1000 }).catch(() => false)) {
+        identityFound = true;
+        break;
+      }
+    }
+    expect(identityFound).toBe(true);
+  });
+
+  test('should show CPR interpretation text', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    await page.getByTestId('resign-btn').click({ force: true });
+    await expect(page.getByText('Defeat')).toBeVisible({ timeout: 10000 });
+    
+    // Should have CPR interpretation (one of the valid interpretations)
+    const interpretations = [
+      'Elite cognitive control',
+      'Strong mental game',
+      'Developing well',
+      'Room for improvement',
+      'Significant issues'
+    ];
+    
+    let interpretationFound = false;
+    for (const interp of interpretations) {
+      if (await page.getByText(interp, { exact: false }).isVisible({ timeout: 500 }).catch(() => false)) {
+        interpretationFound = true;
+        break;
+      }
+    }
+    expect(interpretationFound).toBe(true);
+  });
+
+  test('should show sessions_analyzed count for identity', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    await page.getByTestId('resign-btn').click({ force: true });
+    await expect(page.getByText('Defeat')).toBeVisible({ timeout: 10000 });
+    
+    // Should show session count text
+    await expect(page.getByText(/Based on \d+ session/)).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should show guardian status with interventions remaining', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    // Guardian status should be visible
+    await expect(page.getByText(/Guardian active/)).toBeVisible();
+    await expect(page.getByText(/intervention/)).toBeVisible();
+    
+    // Cleanup
+    await page.getByTestId('resign-btn').click({ force: true });
+  });
+});
+
