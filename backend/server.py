@@ -11216,8 +11216,10 @@ async def start_play_with_coach(
     - session: Full session state
     - current_fen: Current board position
     - is_player_turn: Whether it's the player's turn
+    - evaluation: Position evaluation for eval bar
     """
     from coach_play import start_coach_session
+    from coach_play.coach_opponent import CoachOpponent
     
     user_color = request.get("user_color", "white")
     time_control = request.get("time_control", "15+10")
@@ -11234,13 +11236,21 @@ async def start_play_with_coach(
             time_control=time_control
         )
         
+        # Get initial evaluation
+        opponent = CoachOpponent(user_rating=session.user_rating)
+        eval_score, mate_in = await opponent.get_evaluation(session.current_fen)
+        
         return {
             "success": True,
             "session_id": session.session_id,
             "session": session.to_dict(),
             "current_fen": session.current_fen,
             "is_player_turn": user_color == "white",  # White moves first
-            "message": f"Game started! You are playing {user_color}."
+            "message": f"Game started! You are playing {user_color}.",
+            "evaluation": {
+                "score": eval_score,
+                "mate_in": mate_in
+            }
         }
     except Exception as e:
         logger.error(f"Error starting coach session: {e}")
