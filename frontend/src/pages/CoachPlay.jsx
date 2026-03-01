@@ -692,6 +692,59 @@ const CoachPlay = ({ user }) => {
                     </div>
                   </div>
                 )}
+                
+                {/* CPR Score */}
+                {cprResult && (
+                  <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        <Brain className="w-4 h-4 text-primary" />
+                        Cognitive Performance Rating
+                      </span>
+                      <Badge className={`${
+                        cprResult.overall_cpr >= 75 ? "bg-green-500/20 text-green-400" :
+                        cprResult.overall_cpr >= 60 ? "bg-yellow-500/20 text-yellow-400" :
+                        "bg-red-500/20 text-red-400"
+                      }`}>
+                        {cprResult.overall_cpr?.toFixed(1)}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {cprResult.interpretation}
+                    </p>
+                    {cprResult.recommendations?.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border/50">
+                        <p className="text-xs font-medium mb-1">Recommendations:</p>
+                        <ul className="text-xs text-muted-foreground space-y-1">
+                          {cprResult.recommendations.slice(0, 2).map((rec, i) => (
+                            <li key={i} className="flex gap-2">
+                              <Lightbulb className="w-3 h-3 text-primary flex-shrink-0 mt-0.5" />
+                              {rec}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Player Identity */}
+                {playerIdentity && (
+                  <div className="mt-3 p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium">{playerIdentity.identity_label}</span>
+                      {playerIdentity.confidence < 0.3 && (
+                        <Badge variant="outline" className="text-xs">Forming</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {playerIdentity.identity_description}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Based on {playerIdentity.sessions_analyzed} session{playerIdentity.sessions_analyzed !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (
