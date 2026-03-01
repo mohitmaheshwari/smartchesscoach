@@ -103,7 +103,7 @@ test.describe('Coach Play Game Flow', () => {
     
     // Check game elements
     await expect(page.getByText('Coach', { exact: true })).toBeVisible();
-    await expect(page.getByText('You')).toBeVisible();
+    await expect(page.getByText('You', { exact: true })).toBeVisible();
     
     // Check resign button
     await expect(page.getByTestId('resign-btn')).toBeVisible();
