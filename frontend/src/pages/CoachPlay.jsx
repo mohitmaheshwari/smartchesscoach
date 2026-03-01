@@ -382,42 +382,6 @@ const CoachPlay = ({ user }) => {
 
     return true;
   }, [session, currentFen, isPlayerTurn, gameOver, moveStartTime]);
-        if (data.result === "win") {
-          toast.success("You won! Great game!");
-        } else if (data.result === "loss") {
-          toast.info(`Game over: ${data.termination_reason}`);
-        } else {
-          toast.info(`Draw: ${data.termination_reason}`);
-        }
-        return true;
-      }
-
-      // Update with coach's response
-      if (data.coach_move) {
-        setCurrentFen(data.session.current_fen);
-        setPosition(fenToPositionObject(data.session.current_fen));
-        highlightMove(data.coach_move.uci);
-        
-        // Check if game ended after coach move
-        if (data.game_over) {
-          setGameOver(true);
-          setGameResult(data.result);
-        } else {
-          setIsPlayerTurn(true);
-          setMoveStartTime(Date.now());
-        }
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Move error:", error);
-      // Revert
-      setPosition(fenToPositionObject(currentFen));
-      setIsPlayerTurn(true);
-      toast.error("Connection error. Please try again.");
-      return false;
-    }
-  }, [session, currentFen, isPlayerTurn, gameOver, moveStartTime]);
 
   const resignGame = async () => {
     if (!session) return;
