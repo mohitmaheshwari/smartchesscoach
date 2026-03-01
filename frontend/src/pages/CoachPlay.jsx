@@ -294,14 +294,16 @@ const CoachPlay = ({ user }) => {
   const cancelRiskyMove = () => {
     // Reset the board to the position before the attempted move
     if (pendingMove?.originalFen) {
-      // Force board to reset by updating FEN to the original position
       const originalFen = pendingMove.originalFen;
-      setCurrentFen(""); // Force re-render by clearing first
-      setTimeout(() => {
-        setCurrentFen(originalFen);
-        setLastMove(null); // Clear last move highlight
-        setIsPlayerTurn(true);
-      }, 50);
+      // Directly set the FEN - LichessBoard will update
+      setCurrentFen(originalFen);
+      setLastMove(null); // Clear last move highlight
+      setIsPlayerTurn(true);
+      
+      // Force LichessBoard to re-render by using ref if needed
+      if (boardRef.current?.setPosition) {
+        boardRef.current.setPosition(originalFen);
+      }
     }
     
     setGuardianIntervention(null);
