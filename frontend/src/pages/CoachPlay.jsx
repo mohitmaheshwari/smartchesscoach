@@ -293,19 +293,20 @@ const CoachPlay = ({ user }) => {
   // Handle user canceling a risky move
   const cancelRiskyMove = () => {
     // Reset the board to the position before the attempted move
-    // The LichessBoard has already visually made the move, so we need to reset it
-    if (pendingMove?.moveObj) {
+    if (pendingMove?.originalFen) {
       // Force board to reset by updating FEN to the original position
-      const originalFen = currentFen;
-      setCurrentFen(""); // Force re-render
+      const originalFen = pendingMove.originalFen;
+      setCurrentFen(""); // Force re-render by clearing first
       setTimeout(() => {
         setCurrentFen(originalFen);
+        setLastMove(null); // Clear last move highlight
         setIsPlayerTurn(true);
-      }, 10);
+      }, 50);
     }
     
     setGuardianIntervention(null);
     setPendingMove(null);
+    toast.info("Move cancelled. Choose a different move.");
   };
 
   const makeMove = useCallback(async (sourceSquare, targetSquare, piece) => {
