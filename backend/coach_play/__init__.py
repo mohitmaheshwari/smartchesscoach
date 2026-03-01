@@ -4,8 +4,8 @@ Coach Play Module - P2 Feature
 Play With Coach: A training mode where users play full games against a pedagogical coach.
 
 Build Order (per user spec):
-1. Bare Session Infrastructure - playable game loop
-2. Pre-Move Guardian - intercept blunders before they happen  
+1. Bare Session Infrastructure - playable game loop ✅
+2. Pre-Move Guardian - intercept blunders before they happen ✅
 3. Live Behavior Extraction - detect impulse, panic, threat ignored
 4. CPR Engine - Cognitive Performance Rating
 5. Identity Engine - Player identity narrative
@@ -23,11 +23,26 @@ from .coach_game_session import (
 
 from .coach_opponent import CoachOpponent
 
+from .pre_move_guardian import (
+    PreMoveGuardian,
+    evaluate_move_for_guardian,
+    RiskLevel,
+    RiskType,
+    InterventionType,
+    GuardianResult
+)
+
 __all__ = [
     'CoachGameSession',
     'start_coach_session', 
     'make_player_move',
     'get_session_state',
     'end_coach_session',
-    'CoachOpponent'
+    'CoachOpponent',
+    'PreMoveGuardian',
+    'evaluate_move_for_guardian',
+    'RiskLevel',
+    'RiskType',
+    'InterventionType',
+    'GuardianResult'
 ]
