@@ -22,6 +22,7 @@ import Reflect from "@/pages/Reflect";
 import Onboarding from "@/pages/Onboarding";
 import MissionRunner from "@/pages/MissionRunner";
 import PostLossRecovery from "@/pages/PostLossRecovery";
+import CoachPlay from "@/pages/CoachPlay";
 
 // Components
 import { Toaster } from "@/components/ui/sonner";
