@@ -14,12 +14,12 @@ export async function devLogin(page: Page) {
 
 export async function dismissToasts(page: Page) {
   await page.addLocatorHandler(
-    page.locator('[data-sonner-toast], .Toastify__toast, [role="status"].toast, .MuiSnackbar-root'),
+    page.locator('[data-sonner-toast]').first(),
     async () => {
-      const close = page.locator('[data-sonner-toast] [data-close], [data-sonner-toast] button[aria-label="Close"], .Toastify__close-button, .MuiSnackbar-root button');
-      await close.first().click({ timeout: 2000 }).catch(() => {});
+      const close = page.locator('[data-sonner-toast] [data-close], [data-sonner-toast] button[aria-label="Close"]').first();
+      await close.click({ timeout: 2000 }).catch(() => {});
     },
-    { times: 10, noWaitAfter: true }
+    { times: 20, noWaitAfter: true }
   );
 }
 
