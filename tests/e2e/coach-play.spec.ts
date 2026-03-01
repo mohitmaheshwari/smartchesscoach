@@ -1,7 +1,8 @@
 /**
- * Coach Play E2E Tests - P2 Play With Coach Step 1
+ * Coach Play E2E Tests - P2 Play With Coach Steps 1-5
  * 
  * Tests the full game loop: setup → start → move → coach move → end → summary
+ * Plus: Behavior extraction, CPR display, and Identity display
  */
 import { test, expect, Page } from '@playwright/test';
 
