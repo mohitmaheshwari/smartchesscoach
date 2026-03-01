@@ -530,18 +530,26 @@ const CoachPlay = ({ user }) => {
               </Badge>
             </div>
 
-            {/* Chessboard */}
-            <Chessboard
-              position={position}
-              onPieceDrop={makeMove}
-              boardOrientation={boardOrientation}
-              customSquareStyles={lastMoveSquares}
-              arePiecesDraggable={isPlayerTurn && !gameOver}
-              customBoardStyle={{
-                borderRadius: "8px",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.3)"
-              }}
-            />
+            {/* Chessboard - Using Lichess Board */}
+            <div className="rounded-lg overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
+              <LichessBoard
+                ref={boardRef}
+                fen={currentFen}
+                orientation={boardOrientation}
+                lastMove={lastMove}
+                onMove={(from, to) => {
+                  if (isPlayerTurn && !gameOver) {
+                    makeMove(from, to);
+                  }
+                }}
+                viewOnly={!isPlayerTurn || gameOver}
+                movable={{
+                  free: false,
+                  color: isPlayerTurn && !gameOver ? selectedColor : undefined,
+                  showDests: true
+                }}
+              />
+            </div>
 
             {/* Player info bar */}
             <div className="flex items-center justify-between mt-3 p-3 rounded-lg bg-muted/50">
