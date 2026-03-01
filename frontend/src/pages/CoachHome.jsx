@@ -278,7 +278,17 @@ const CoachHome = ({ user }) => {
             </div>
             <div className="space-y-2">
               {homeData.games_needing_reflection.slice(0, 3).map((game, index) => {
-                const timeSince = game.analyzed_at ? getTimeSince(game.analyzed_at) : "";
+                // Format time since - use hours_ago from API
+                let timeSince = "";
+                if (game.hours_ago !== undefined) {
+                  const hours = Math.floor(game.hours_ago);
+                  const days = Math.floor(hours / 24);
+                  if (days > 0) timeSince = `${days}d ago`;
+                  else if (hours > 0) timeSince = `${hours}h ago`;
+                  else timeSince = "Just now";
+                } else if (game.analyzed_at) {
+                  timeSince = getTimeSince(game.analyzed_at);
+                }
                 return (
                   <div
                     key={game.game_id || index}
