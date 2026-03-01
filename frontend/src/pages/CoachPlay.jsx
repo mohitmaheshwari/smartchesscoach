@@ -537,9 +537,9 @@ const CoachPlay = ({ user }) => {
                 fen={currentFen}
                 orientation={boardOrientation}
                 lastMove={lastMove}
-                onMove={(from, to) => {
-                  if (isPlayerTurn && !gameOver) {
-                    makeMove(from, to);
+                onMove={(moveData) => {
+                  if (isPlayerTurn && !gameOver && moveData) {
+                    makeMove(moveData.from, moveData.to);
                   }
                 }}
                 interactive={isPlayerTurn && !gameOver}
