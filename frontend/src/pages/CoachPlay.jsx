@@ -96,7 +96,6 @@ const CoachPlay = ({ user }) => {
         const data = await response.json();
         setSession(data.session);
         setCurrentFen(data.current_fen);
-        setPosition(fenToPositionObject(data.current_fen));
         setBoardOrientation(data.session.user_color);
         setSelectedColor(data.session.user_color);
         setIsPlayerTurn(data.is_player_turn);
@@ -105,14 +104,9 @@ const CoachPlay = ({ user }) => {
         
         // Highlight last move
         if (data.session.move_history?.length > 0) {
-          const lastMove = data.session.move_history[data.session.move_history.length - 1];
-          if (lastMove.uci) {
-            const from = lastMove.uci.slice(0, 2);
-            const to = lastMove.uci.slice(2, 4);
-            setLastMoveSquares({
-              [from]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
-              [to]: { backgroundColor: "rgba(255, 255, 0, 0.4)" }
-            });
+          const lastMoveData = data.session.move_history[data.session.move_history.length - 1];
+          if (lastMoveData.uci) {
+            setLastMove([lastMoveData.uci.slice(0, 2), lastMoveData.uci.slice(2, 4)]);
           }
         }
         
