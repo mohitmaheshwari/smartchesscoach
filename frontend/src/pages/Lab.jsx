@@ -59,6 +59,34 @@ import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+// Convert SAN move to arrow coordinates [from, to, color]
+// Used to show arrows for punishing moves
+const sanToArrow = (san, fen, color = "rgb(220,38,38)") => {
+  if (!san || !fen) return null;
+  try {
+    const chess = new Chess(fen);
+    const move = chess.move(san);
+    if (move) {
+      return [move.from, move.to, color];
+    }
+  } catch (e) {
+    console.error("Error converting SAN to arrow:", e);
+  }
+  return null;
+};
+
+// Get FEN after a move is played
+const getFenAfterMove = (fen, san) => {
+  if (!fen || !san) return null;
+  try {
+    const chess = new Chess(fen);
+    chess.move(san);
+    return chess.fen();
+  } catch (e) {
+    return null;
+  }
+};
+
 // Convert FEN to position object for react-chessboard
 const fenToPositionObject = (fen) => {
   const position = {};
