@@ -16,6 +16,43 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Mar 1, 2026)
 
+### P2 Play With Coach - Step 2: Pre-Move Guardian ✅ COMPLETE (Mar 1, 2026)
+
+**User Requirement:** Intercept blunders BEFORE they happen. Fast (<100ms), deterministic, no LLM.
+
+**Implementation:**
+
+1. **Backend Module** (`/app/backend/coach_play/pre_move_guardian.py`):
+   - `PreMoveGuardian` class with lightweight risk heuristics
+   - Risk detection: hanging_piece, ignore_threat, material_loss, tactical_blunder, king_safety
+   - Typical response time: <1ms (well under 100ms target)
+   
+2. **Risk Levels & Intervention Types:**
+   - CRITICAL → BLOCK (must acknowledge)
+   - HIGH → WARN (recommended to reconsider)
+   - MEDIUM → SUGGEST (hint)
+   - LOW/NONE → No intervention
+
+3. **API Endpoints:**
+   - `POST /api/coach/play/evaluate` - Evaluate move before making it
+   - `POST /api/coach/play/move/confirm` - Confirm risky move after warning
+
+4. **Session State:**
+   - `remaining_interventions`: Starts at 3, decrements on override
+   - `guardian_overrides[]`: Tracks moves user made despite warnings
+
+5. **Frontend (`CoachPlay.jsx`):**
+   - Guardian status indicator: "Guardian active: X interventions remaining"
+   - Intervention modal with risk message, explanation, alternative moves
+   - "Choose Different Move" and "Play Anyway" buttons
+
+**Test Report:** `/app/test_reports/iteration_86.json`
+- Backend: 100% (36/36 passed)
+- Frontend: 100% (16/16 passed)
+- Specs: `/app/backend/tests/test_guardian_api.py`, `/app/tests/e2e/guardian.spec.ts`
+
+---
+
 ### P2 Play With Coach - Step 1: Bare Session Infrastructure ✅ COMPLETE (Mar 1, 2026)
 
 **User Request:** Build a "Play With Coach" training mode where users play full games against a pedagogical coach engine.
