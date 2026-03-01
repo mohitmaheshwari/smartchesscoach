@@ -95,7 +95,7 @@ class CoachOpponent:
             legal_moves = list(board.legal_moves)
             if legal_moves:
                 return board.san(legal_moves[0])
-        except:
+        except Exception:
             pass
         return None
 
