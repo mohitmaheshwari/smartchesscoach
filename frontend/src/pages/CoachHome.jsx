@@ -237,6 +237,39 @@ const CoachHome = ({ user }) => {
           </motion.div>
         )}
 
+        {/* Section 3.5: Play with Coach - Training Mode */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.17 }}
+          className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 p-4 cursor-pointer hover:border-primary/50 transition-colors"
+          onClick={() => navigate("/play-with-coach")}
+          data-testid="play-with-coach-card"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-primary/20">
+                <Swords className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-base flex items-center gap-2">
+                  Play with Coach
+                  <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">
+                    NEW
+                  </Badge>
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Train against an intelligent opponent with real-time guidance
+                </p>
+              </div>
+            </div>
+            <Button size="sm" className="gap-2">
+              <Play className="w-4 h-4" />
+              Start
+            </Button>
+          </div>
+        </motion.div>
+
         {/* Section 4: Post-Game Review - BEHAVIORAL INSIGHTS (not just blunder count) */}
         {homeData?.last_game?.game_id && (
           <motion.div
