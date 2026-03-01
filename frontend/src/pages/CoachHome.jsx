@@ -39,6 +39,9 @@ import {
   Loader2,
   Import,
   TrendingUp,
+  Brain,
+  BookOpen,
+  Sparkles,
   Gamepad2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
