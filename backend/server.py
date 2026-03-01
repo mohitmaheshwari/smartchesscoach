@@ -11304,6 +11304,144 @@ async def make_coach_play_move(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.post("/coach/play/evaluate")
+async def evaluate_coach_play_move(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Evaluate a move BEFORE making it - Pre-Move Guardian.
+    
+    This is the key differentiator: Stop bad moves before they happen.
+    Returns intervention info if the move is risky.
+    
+    Body:
+    - session_id: Session ID
+    - move: Move in SAN notation to evaluate
+    
+    Returns:
+    - should_intervene: Whether to show warning to user
+    - intervention_type: "block", "warn", "suggest", or "none"
+    - risk_level: "critical", "high", "medium", "low", "none"
+    - risk_type: Type of risk (hanging_piece, ignore_threat, etc.)
+    - message: Short warning message
+    - explanation: Detailed explanation
+    - alternative_moves: Better moves to suggest
+    - remaining_interventions: How many warnings left this game
+    """
+    from coach_play import evaluate_move_for_guardian
+    
+    session_id = request.get("session_id")
+    move = request.get("move")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not move:
+        raise HTTPException(status_code=400, detail="move is required")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    if session_doc.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Session not active")
+    
+    # Evaluate the move with guardian
+    result = evaluate_move_for_guardian(
+        fen=session_doc.get("current_fen"),
+        move_san=move,
+        user_color=session_doc.get("user_color"),
+        remaining_interventions=session_doc.get("remaining_interventions", 3)
+    )
+    
+    result["remaining_interventions"] = session_doc.get("remaining_interventions", 3)
+    
+    return result
+
+
+@api_router.post("/coach/play/move/confirm")
+async def confirm_risky_move(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Confirm a risky move after user acknowledges the warning.
+    
+    This is called after evaluate returns should_intervene=True
+    and the user explicitly confirms they want to make the move anyway.
+    
+    Body:
+    - session_id: Session ID
+    - move: Move in SAN notation
+    - time_spent: Time spent on move (seconds)
+    - risk_acknowledged: Risk type that was acknowledged
+    
+    Returns:
+    Same as /coach/play/move but also:
+    - intervention_consumed: Whether an intervention was used
+    """
+    from coach_play import make_player_move
+    
+    session_id = request.get("session_id")
+    move = request.get("move")
+    time_spent = request.get("time_spent", 0.0)
+    risk_acknowledged = request.get("risk_acknowledged", "")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not move:
+        raise HTTPException(status_code=400, detail="move is required")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    # Record that user overrode the warning
+    if risk_acknowledged:
+        override_record = {
+            "move": move,
+            "risk_type": risk_acknowledged,
+            "fen": session_doc.get("current_fen"),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Update session to record override and decrement interventions
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {
+                "$push": {"guardian_overrides": override_record},
+                "$inc": {"remaining_interventions": -1}
+            }
+        )
+    
+    # Now make the move
+    try:
+        result = await make_player_move(
+            db=db,
+            session_id=session_id,
+            move_san=move,
+            time_spent=time_spent
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Move failed"))
+        
+        result["intervention_consumed"] = bool(risk_acknowledged)
+        result["remaining_interventions"] = max(0, session_doc.get("remaining_interventions", 3) - (1 if risk_acknowledged else 0))
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error confirming move: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.get("/coach/play/state/{session_id}")
 async def get_coach_play_state(
     session_id: str,
