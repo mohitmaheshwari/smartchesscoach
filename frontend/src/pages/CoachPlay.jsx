@@ -726,13 +726,112 @@ const CoachPlay = ({ user }) => {
             </div>
           </div>
 
-          {/* Future: Intervention panel will go here */}
-          <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground">
-            <Brain className="w-3 h-3 inline mr-1" />
-            Future: Real-time coaching interventions will appear here
+          {/* Guardian Status */}
+          <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs">
+            <ShieldAlert className="w-3 h-3 inline mr-1 text-primary" />
+            <span className="text-muted-foreground">
+              Guardian active: {remainingInterventions} intervention{remainingInterventions !== 1 ? "s" : ""} remaining
+            </span>
           </div>
         </div>
       </div>
+
+      {/* Guardian Intervention Modal */}
+      {guardianIntervention && pendingMove && (
+        <div 
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          data-testid="guardian-intervention-modal"
+        >
+          <Card className={`max-w-md w-full border-2 ${
+            guardianIntervention.risk_level === "critical" ? "border-red-500" :
+            guardianIntervention.risk_level === "high" ? "border-orange-500" :
+            "border-yellow-500"
+          }`}>
+            <CardHeader className={`pb-3 ${
+              guardianIntervention.risk_level === "critical" ? "bg-red-500/10" :
+              guardianIntervention.risk_level === "high" ? "bg-orange-500/10" :
+              "bg-yellow-500/10"
+            }`}>
+              <div className="flex items-center gap-3">
+                <AlertTriangle className={`w-8 h-8 ${
+                  guardianIntervention.risk_level === "critical" ? "text-red-500" :
+                  guardianIntervention.risk_level === "high" ? "text-orange-500" :
+                  "text-yellow-500"
+                }`} />
+                <div>
+                  <CardTitle className="text-lg">
+                    {guardianIntervention.intervention_type === "block" ? "Wait!" : "Think Again"}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Coach Guardian detected a potential mistake
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              {/* Warning Message */}
+              <div className="text-base font-medium">
+                {guardianIntervention.message}
+              </div>
+              
+              {/* Explanation */}
+              <p className="text-sm text-muted-foreground">
+                {guardianIntervention.explanation}
+              </p>
+              
+              {/* Alternative Moves */}
+              {guardianIntervention.alternative_moves?.length > 0 && (
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2 mb-2 text-sm font-medium">
+                    <Lightbulb className="w-4 h-4 text-primary" />
+                    Better alternatives:
+                  </div>
+                  <div className="flex gap-2">
+                    {guardianIntervention.alternative_moves.map((move, i) => (
+                      <Badge key={i} variant="outline" className="font-mono">
+                        {move}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Pending Move */}
+              <div className="text-sm text-muted-foreground">
+                Your move: <span className="font-mono font-medium text-foreground">{pendingMove.moveSan}</span>
+              </div>
+              
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={cancelRiskyMove}
+                  data-testid="guardian-cancel-btn"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Choose Different Move
+                </Button>
+                <Button
+                  variant={guardianIntervention.risk_level === "critical" ? "destructive" : "default"}
+                  className="flex-1"
+                  onClick={confirmRiskyMove}
+                  data-testid="guardian-confirm-btn"
+                >
+                  Play Anyway
+                </Button>
+              </div>
+              
+              {/* Interventions remaining */}
+              <p className="text-xs text-center text-muted-foreground pt-2">
+                {remainingInterventions > 1 
+                  ? `${remainingInterventions - 1} intervention${remainingInterventions - 1 !== 1 ? "s" : ""} remaining after this`
+                  : "This is your last intervention warning"}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </Layout>
   );
 };
