@@ -317,14 +317,19 @@ async def end_coach_session(
     """
     End a session (resign, abort, etc.)
     
+    Computes CPR (Step 4) and updates Identity (Step 5) on session end.
+    
     Args:
         db: MongoDB database
         session_id: Session ID
         reason: Reason for ending (resigned, abandoned, timeout)
     
     Returns:
-        Dict with session summary
+        Dict with session summary, CPR, and identity
     """
+    from .cpr_engine import compute_session_cpr
+    from .identity_engine import update_player_identity
+    
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
         return {"success": False, "error": "Session not found"}
@@ -340,15 +345,55 @@ async def end_coach_session(
     session.termination_reason = reason
     session.ended_at = datetime.now(timezone.utc)
     
-    await _save_session(db, session)
-    
-    # Generate summary
+    # Generate basic summary
     summary = _generate_session_summary(session)
+    
+    # Compute CPR (Step 4)
+    player_moves = [m for m in session.move_history if m.get("by") == "player"]
+    avg_time = sum(m.get("time_spent", 0) for m in player_moves) / len(player_moves) if player_moves else 10.0
+    
+    session_stats = {
+        "move_count": len(player_moves),
+        "accuracy": 70.0,  # Default - would need engine analysis for real value
+        "avg_time_per_move": avg_time,
+        "time_control_base": session.user_time_remaining + sum(m.get("time_spent", 0) for m in player_moves),
+        "blunders": 0,
+        "mistakes": 0,
+        "guardian_overrides": len(session.guardian_overrides)
+    }
+    
+    cpr_result = compute_session_cpr(session.behavior_events, session_stats)
+    session.cpr_after = cpr_result["overall_cpr"]
+    
+    # Update player identity (Step 5)
+    existing_identity = await db.player_identity.find_one({"user_id": session.user_id})
+    identity_dict = existing_identity if existing_identity else None
+    if identity_dict:
+        identity_dict.pop("_id", None)
+    
+    updated_identity = update_player_identity(
+        user_id=session.user_id,
+        existing_identity=identity_dict,
+        behavior_events=session.behavior_events,
+        session_result=session.result.value,
+        cpr_score=cpr_result["overall_cpr"]
+    )
+    
+    # Save updated identity
+    await db.player_identity.replace_one(
+        {"user_id": session.user_id},
+        updated_identity,
+        upsert=True
+    )
+    
+    await _save_session(db, session)
     
     return {
         "success": True,
         "session": session.to_dict(),
-        "summary": summary
+        "summary": summary,
+        "cpr": cpr_result,
+        "identity": updated_identity
     }
 
 
