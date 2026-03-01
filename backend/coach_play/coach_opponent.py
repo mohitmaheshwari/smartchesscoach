@@ -178,29 +178,6 @@ class CoachOpponent:
             print(f"Eval error: {e}")
             return (0.0, None)
     
-    def _get_move_sync(self, fen: str) -> Optional[str]:
-        """Synchronous Stockfish call"""
-        board = chess.Board(fen)
-        
-        if board.is_game_over():
-            return None
-        
-        try:
-            with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
-                # Use time limit for speed
-                result = engine.play(
-                    board,
-                    chess.engine.Limit(time=self.time_limit, depth=self.depth)
-                )
-                
-                if result.move:
-                    return board.san(result.move)
-                return None
-                
-        except Exception as e:
-            print(f"Stockfish error: {e}")
-            return self._get_fallback_move(fen)
-    
     def _get_fallback_move(self, fen: str) -> Optional[str]:
         """Fallback: return first legal move"""
         try:
