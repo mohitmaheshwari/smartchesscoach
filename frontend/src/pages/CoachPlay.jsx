@@ -542,12 +542,9 @@ const CoachPlay = ({ user }) => {
                     makeMove(from, to);
                   }
                 }}
+                interactive={isPlayerTurn && !gameOver}
                 viewOnly={!isPlayerTurn || gameOver}
-                movable={{
-                  free: false,
-                  color: isPlayerTurn && !gameOver ? selectedColor : undefined,
-                  showDests: true
-                }}
+                showDests={true}
               />
             </div>
 
