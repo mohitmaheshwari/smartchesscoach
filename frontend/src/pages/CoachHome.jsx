@@ -293,7 +293,7 @@ const CoachHome = ({ user }) => {
                         'bg-muted-foreground'
                       }`} />
                       <span className="text-sm">
-                        {game.result === 'win' ? 'Won' : game.result === 'loss' ? 'Lost' : 'Drew'} vs {game.opponent || 'Opponent'}
+                        {game.result === 'win' ? 'Won' : game.result === 'loss' ? 'Lost' : 'Drew'} vs {game.opponent_name || game.opponent || 'Opponent'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
