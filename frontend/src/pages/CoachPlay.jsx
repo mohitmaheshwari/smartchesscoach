@@ -334,13 +334,15 @@ const CoachPlay = ({ user }) => {
     
     if (guardianResult?.should_intervene) {
       // Show intervention modal - don't make the move yet
+      // Store the original FEN so we can reset if user cancels
       setGuardianIntervention(guardianResult);
       setPendingMove({
         moveSan: moveObj.san,
         moveObj: moveObj,
         timeSpent: timeSpent,
         riskType: guardianResult.risk_type,
-        chess: chess
+        chess: chess,
+        originalFen: currentFen  // Store original position to reset if cancelled
       });
       return false; // Don't complete the move yet
     }
