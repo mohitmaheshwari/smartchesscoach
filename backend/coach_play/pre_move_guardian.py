@@ -308,7 +308,6 @@ class PreMoveGuardian:
         
         # Check if the move addresses any threat
         move_from = move.from_square
-        move_to = move.to_square
         
         # Get highest value threat
         highest_threat = max(threatened_pieces, key=lambda x: x["value"])
