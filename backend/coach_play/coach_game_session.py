@@ -76,6 +76,10 @@ class CoachGameSession:
     remaining_interventions: int = 3  # How many times guardian can interrupt
     guardian_overrides: List[Dict] = field(default_factory=list)  # Moves user made despite warnings
     
+    # Coach difficulty (based on user rating)
+    user_rating: int = 1200  # User's rating for difficulty matching
+    coach_skill_level: int = 5  # Stockfish skill level (0-20)
+    
     def to_dict(self) -> Dict:
         """Convert to dictionary for MongoDB storage"""
         data = asdict(self)
