@@ -198,6 +198,136 @@ const CoachPlay = ({ user }) => {
     });
   };
 
+  // Guardian intervention state
+  const [guardianIntervention, setGuardianIntervention] = useState(null);
+  const [pendingMove, setPendingMove] = useState(null);
+  const [remainingInterventions, setRemainingInterventions] = useState(3);
+
+  // Evaluate move with guardian before making it
+  const evaluateMove = async (moveSan) => {
+    try {
+      const response = await fetch(`${API}/coach/play/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          session_id: session.session_id,
+          move: moveSan
+        })
+      });
+
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (error) {
+      console.error("Guardian evaluation error:", error);
+    }
+    return null;
+  };
+
+  // Execute the move (called after guardian check passes or user confirms)
+  const executeMove = async (moveSan, timeSpent, isOverride = false, riskType = null) => {
+    const endpoint = isOverride ? `${API}/coach/play/move/confirm` : `${API}/coach/play/move`;
+    
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          session_id: session.session_id,
+          move: moveSan,
+          time_spent: timeSpent,
+          ...(isOverride && { risk_acknowledged: riskType })
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        toast.error(error.detail || "Invalid move");
+        return false;
+      }
+
+      const data = await response.json();
+      setSession(data.session);
+      
+      // Update remaining interventions
+      if (data.remaining_interventions !== undefined) {
+        setRemainingInterventions(data.remaining_interventions);
+      }
+
+      // Check if game is over
+      if (data.game_over) {
+        setGameOver(true);
+        setGameResult(data.result);
+        setCurrentFen(data.session.current_fen);
+        setPosition(fenToPositionObject(data.session.current_fen));
+        
+        if (data.result === "win") {
+          toast.success("You won! Great game!");
+        } else if (data.result === "loss") {
+          toast.info(`Game over: ${data.termination_reason}`);
+        } else {
+          toast.info(`Draw: ${data.termination_reason}`);
+        }
+        return true;
+      }
+
+      // Update with coach's response
+      if (data.coach_move) {
+        setCurrentFen(data.session.current_fen);
+        setPosition(fenToPositionObject(data.session.current_fen));
+        highlightMove(data.coach_move.uci);
+        
+        if (data.game_over) {
+          setGameOver(true);
+          setGameResult(data.result);
+        } else {
+          setIsPlayerTurn(true);
+          setMoveStartTime(Date.now());
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Move error:", error);
+      toast.error("Connection error. Please try again.");
+      return false;
+    }
+  };
+
+  // Handle user confirming a risky move
+  const confirmRiskyMove = async () => {
+    if (!pendingMove) return;
+    
+    const { moveSan, timeSpent, riskType, chess } = pendingMove;
+    
+    // Update board
+    setPosition(fenToPositionObject(chess.fen()));
+    setCurrentFen(chess.fen());
+    setIsPlayerTurn(false);
+    
+    // Clear intervention state
+    setGuardianIntervention(null);
+    setPendingMove(null);
+    
+    // Execute with override
+    const success = await executeMove(moveSan, timeSpent, true, riskType);
+    
+    if (!success) {
+      // Revert
+      setPosition(fenToPositionObject(currentFen));
+      setIsPlayerTurn(true);
+    }
+  };
+
+  // Handle user canceling a risky move
+  const cancelRiskyMove = () => {
+    setGuardianIntervention(null);
+    setPendingMove(null);
+    // Board already shows current position, no need to revert
+  };
+
   const makeMove = useCallback(async (sourceSquare, targetSquare, piece) => {
     if (!session || !isPlayerTurn || gameOver) return false;
 
@@ -208,7 +338,7 @@ const CoachPlay = ({ user }) => {
       moveObj = chess.move({
         from: sourceSquare,
         to: targetSquare,
-        promotion: piece?.[1]?.toLowerCase() === "p" ? "q" : undefined // Auto-promote to queen
+        promotion: piece?.[1]?.toLowerCase() === "p" ? "q" : undefined
       });
     } catch {
       return false;
@@ -219,45 +349,39 @@ const CoachPlay = ({ user }) => {
     // Calculate time spent
     const timeSpent = moveStartTime ? (Date.now() - moveStartTime) / 1000 : 0;
 
-    // Update board optimistically
+    // GUARDIAN CHECK: Evaluate move before making it
+    const guardianResult = await evaluateMove(moveObj.san);
+    
+    if (guardianResult?.should_intervene) {
+      // Show intervention modal - don't make the move yet
+      setGuardianIntervention(guardianResult);
+      setPendingMove({
+        moveSan: moveObj.san,
+        moveObj: moveObj,
+        timeSpent: timeSpent,
+        riskType: guardianResult.risk_type,
+        chess: chess
+      });
+      return false; // Don't complete the move yet
+    }
+
+    // No intervention needed - proceed with move
     setPosition(fenToPositionObject(chess.fen()));
     setCurrentFen(chess.fen());
     setIsPlayerTurn(false);
     highlightMove(moveObj.from + moveObj.to);
 
-    // Send move to server
-    try {
-      const response = await fetch(`${API}/coach/play/move`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          session_id: session.session_id,
-          move: moveObj.san,
-          time_spent: timeSpent
-        })
-      });
+    const success = await executeMove(moveObj.san, timeSpent);
+    
+    if (!success) {
+      // Revert
+      setPosition(fenToPositionObject(currentFen));
+      setIsPlayerTurn(true);
+      return false;
+    }
 
-      if (!response.ok) {
-        const error = await response.json();
-        // Revert on error
-        setPosition(fenToPositionObject(currentFen));
-        setIsPlayerTurn(true);
-        toast.error(error.detail || "Invalid move");
-        return false;
-      }
-
-      const data = await response.json();
-      setSession(data.session);
-
-      // Check if game is over
-      if (data.game_over) {
-        setGameOver(true);
-        setGameResult(data.result);
-        setCurrentFen(data.session.current_fen);
-        setPosition(fenToPositionObject(data.session.current_fen));
-        
-        // Show result
+    return true;
+  }, [session, currentFen, isPlayerTurn, gameOver, moveStartTime]);
         if (data.result === "win") {
           toast.success("You won! Great game!");
         } else if (data.result === "loss") {
