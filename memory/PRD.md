@@ -16,6 +16,39 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ## Latest Updates (Mar 1, 2026)
 
+### P2 Play With Coach - Steps 3, 4, 5: Intelligence Stack ✅ COMPLETE (Mar 1, 2026)
+
+**Step 3: Live Behavior Extraction** (`/app/backend/coach_play/live_behavior_extractor.py`)
+- Detects behavioral patterns during gameplay in real-time
+- **Negative behaviors:** impulse_move, threat_ignored, panic_defense, rapid_streak, time_pressure_mistake
+- **Positive behaviors:** calculated_sacrifice, positional_patience, tactical_alertness, threat_addressed, accurate_under_pressure
+- Events stored in `session.behavior_events` for each move
+
+**Step 4: CPR Engine** (`/app/backend/coach_play/cpr_engine.py`)
+- Computes Cognitive Performance Rating (0-100 scale)
+- **Components:** decision_quality, time_management, threat_awareness, emotional_control, focus_consistency
+- Returns: overall_cpr, interpretation, recommendations
+- Stored in `session.cpr_after` on session end
+
+**Step 5: Identity Engine** (`/app/backend/coach_play/identity_engine.py`)
+- Builds player identity from behavioral patterns across sessions
+- **Traits:** aggression, calculation, consistency, resilience, risk_tolerance
+- **Identity labels:** The Calculator, The Warrior, The Strategist, The Risk-Taker, The Fortress, The Phoenix, The Improviser, The Perfectionist
+- Confidence increases with more sessions (min 3 for meaningful identity)
+- Stored in `player_identity` collection
+
+**New API Endpoints:**
+- `GET /api/coach/play/identity` - Player's cognitive identity
+- `GET /api/coach/play/cpr/history` - CPR history with average
+- `GET /api/coach/play/behaviors/{session_id}` - Session behavior events
+
+**Test Report:** `/app/test_reports/iteration_87.json`
+- Backend: 100% (16/16 passed)
+- Frontend: 100% (13/13 passed)
+- Regression: 29/29 passed
+
+---
+
 ### P2 Play With Coach - Step 2: Pre-Move Guardian ✅ COMPLETE (Mar 1, 2026)
 
 **User Requirement:** Intercept blunders BEFORE they happen. Fast (<100ms), deterministic, no LLM.
