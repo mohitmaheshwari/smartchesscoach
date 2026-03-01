@@ -426,10 +426,14 @@ const CoachPlay = ({ user }) => {
     setGameOver(false);
     setGameResult(null);
     setSummary(null);
+    setCprResult(null);
+    setPlayerIdentity(null);
     setCurrentFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     setPosition(fenToPositionObject("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
     setLastMoveSquares({});
     setIsPlayerTurn(true);
+    setGuardianIntervention(null);
+    setPendingMove(null);
   };
 
   // Pre-game setup screen
