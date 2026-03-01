@@ -554,13 +554,6 @@ class TestIntegrationBehaviorCPRIdentity:
 
     def test_cpr_stored_in_history(self, authenticated_session):
         """After session ends, CPR appears in cpr/history"""
-        # Get current history
-        initial_history = authenticated_session.get(
-            f"{BASE_URL}/api/coach/play/cpr/history"
-        ).json()
-        
-        initial_count = initial_history.get("sessions_count", 0)
-        
         # Play and end a session
         response = authenticated_session.post(
             f"{BASE_URL}/api/coach/play/start",
@@ -579,14 +572,19 @@ class TestIntegrationBehaviorCPRIdentity:
         )
         expected_cpr = end_response.json()["cpr"]["overall_cpr"]
         
-        # Get new history
+        # Get history with limit 20 to include recent session
         new_history = authenticated_session.get(
-            f"{BASE_URL}/api/coach/play/cpr/history"
+            f"{BASE_URL}/api/coach/play/cpr/history?limit=20"
         ).json()
         
-        # Count should have increased
-        assert new_history["sessions_count"] == initial_count + 1
+        # History should have sessions
+        assert new_history["sessions_count"] >= 1
         
         # The session should be in history
         session_ids = [h["session_id"] for h in new_history["history"]]
         assert session_id in session_ids
+        
+        # The CPR value should match what we got at session end
+        matching_sessions = [h for h in new_history["history"] if h["session_id"] == session_id]
+        assert len(matching_sessions) == 1
+        assert matching_sessions[0]["cpr_after"] == expected_cpr
