@@ -273,7 +273,8 @@ async def make_player_move(
             "session": session.to_dict(),
             "game_over": True,
             "result": result.value,
-            "termination_reason": reason
+            "termination_reason": reason,
+            "evaluation": {"score": 0.0, "mate_in": None}  # Game over, eval not meaningful
         }
     
     # Coach responds
@@ -290,13 +291,24 @@ async def make_player_move(
     
     await _save_session(db, session)
     
+    # Get evaluation for the eval bar
+    from .coach_opponent import CoachOpponent
+    eval_score, mate_in = 0.0, None
+    if not game_over:
+        opponent = CoachOpponent(user_rating=session.user_rating)
+        eval_score, mate_in = await opponent.get_evaluation(session.current_fen)
+    
     return {
         "success": True,
         "session": session.to_dict(),
         "coach_move": session.move_history[-1] if session.move_history and session.move_history[-1]["by"] == "coach" else None,
         "game_over": game_over,
         "result": result.value if game_over else None,
-        "termination_reason": reason if game_over else None
+        "termination_reason": reason if game_over else None,
+        "evaluation": {
+            "score": eval_score,
+            "mate_in": mate_in
+        }
     }
 
 
