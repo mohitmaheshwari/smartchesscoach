@@ -234,6 +234,74 @@ const CoachHome = ({ user }) => {
           </motion.div>
         )}
 
+        {/* Section 4.5: Games Needing Reflection (max 5, from last 3 days) */}
+        {homeData?.games_needing_reflection?.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22 }}
+            className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4"
+            data-testid="games-needing-reflection"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-amber-400" />
+                <span className="font-medium text-amber-200">Games to Reflect On</span>
+                <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-xs">
+                  {homeData.games_needing_reflection.length}
+                </Badge>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/reflect")}
+                className="text-amber-400 hover:text-amber-300 h-7 text-xs"
+              >
+                View All
+                <ChevronRight className="w-3 h-3 ml-1" />
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {homeData.games_needing_reflection.slice(0, 3).map((game, index) => {
+                const timeSince = game.analyzed_at ? getTimeSince(game.analyzed_at) : "";
+                return (
+                  <div
+                    key={game.game_id || index}
+                    className="flex items-center justify-between p-2 rounded-lg bg-background/50 hover:bg-background/80 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/reflect?game=${game.game_id}`)}
+                    data-testid={`reflect-game-${index}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${
+                        game.result === 'win' ? 'bg-emerald-500' :
+                        game.result === 'loss' ? 'bg-red-500' :
+                        'bg-muted-foreground'
+                      }`} />
+                      <span className="text-sm">
+                        {game.result === 'win' ? 'Won' : game.result === 'loss' ? 'Lost' : 'Drew'} vs {game.opponent || 'Opponent'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {game.critical_moments_count > 0 && (
+                        <span className="text-amber-400">
+                          {game.critical_moments_count} moment{game.critical_moments_count !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {timeSince && <span>{timeSince}</span>}
+                      <ChevronRight className="w-3 h-3" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {homeData.games_needing_reflection.length > 3 && (
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                +{homeData.games_needing_reflection.length - 3} more game{homeData.games_needing_reflection.length - 3 !== 1 ? 's' : ''}
+              </p>
+            )}
+          </motion.div>
+        )}
+
         {/* Section 5: Recommended Drill */}
         {hasData && homeData.recommended_drill && (
           <motion.div
