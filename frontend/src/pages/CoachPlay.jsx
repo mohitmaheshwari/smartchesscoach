@@ -407,6 +407,8 @@ const CoachPlay = ({ user }) => {
         setGameOver(true);
         setGameResult("loss");
         setSummary(data.summary);
+        setCprResult(data.cpr);
+        setPlayerIdentity(data.identity);
         toast.info("You resigned. Better luck next time!");
       }
     } catch (error) {
