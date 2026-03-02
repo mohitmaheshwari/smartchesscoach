@@ -373,6 +373,7 @@ class DeepSessionService:
         """
         import uuid
         from coach_state_service import CoachStateService
+        from coach_analytics_service import get_analytics_service
         
         coach_service = CoachStateService(self.db)
         coach_state = await coach_service.get_coach_state(user_id)
@@ -394,6 +395,19 @@ class DeepSessionService:
         )
         
         await self.db.deep_sessions.insert_one(session.to_dict())
+        
+        # Log analytics event
+        analytics = get_analytics_service(self.db)
+        games_since = await self._count_games_since_last_session(user_id, coach_state)
+        await analytics.log_deep_session_triggered(
+            user_id=user_id,
+            session_id=session.session_id,
+            theme=session.theme,
+            trigger_reason=trigger.value,
+            games_since_last=games_since,
+            theme_confidence=coach_state.theme_confidence
+        )
+        
         return session
     
     async def _build_summary_snapshot(self, user_id: str, coach_state) -> Dict:
