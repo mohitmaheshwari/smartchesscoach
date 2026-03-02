@@ -7,7 +7,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-mentor-35.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-coach-mentor.preview.emergentagent.com')
 
 # Sample test positions with different mistake types
 SAMPLE_MISTAKES = {

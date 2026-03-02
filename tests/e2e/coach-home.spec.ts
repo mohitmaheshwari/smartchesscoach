@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://chess-mentor-35.preview.emergentagent.com';
+const BASE_URL = 'https://chess-coach-mentor.preview.emergentagent.com';
 
 test.describe('Coach Home - UX Overhaul', () => {
   
