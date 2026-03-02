@@ -25,14 +25,13 @@ class TestInCheckNoWarnings:
 
     def test_in_check_no_intervention(self):
         """When in check, guardian should return no intervention"""
-        # Position: White king is in check from black queen
-        # FEN: White king on e1, Black queen on e8 giving check
-        # Black rook on a8, Black king on g8
-        # User (white) plays Kd2 (only legal move scenario)
-        fen = "r3q1k1/pppppppp/8/8/8/8/PPPP1PPP/R3K2R w KQ - 0 1"  # White to move, king in check from queen
+        # Position: White king on e1 is in check from black queen on e8
+        # White has to move king or block - no other warnings should appear
+        # FEN with white in check: king e1, black queen e8 (giving check), black king h8
+        fen = "4q2k/8/8/8/8/8/8/4K3 w - - 0 1"  # White to move, king in check from queen on e8
         
         guardian = PreMoveGuardian()
-        result = guardian.evaluate_move(fen, "Kd2", "white")
+        result = guardian.evaluate_move(fen, "Kd1", "white")  # Legal move escaping check
         
         assert result.should_intervene is False
         assert result.intervention_type == InterventionType.NONE
