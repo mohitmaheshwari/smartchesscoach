@@ -65,6 +65,8 @@ def create_seeded_games_with_knight_fork_and_king_safety():
     """
     return [
         # KNIGHT_FORK game - seeded 3 days ago
+        # Position after: 1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6 4.Ng5 d5 5.exd5
+        # Nxf7 forks king and queen!
         {
             "game_id": "seeded_game_fork_001",
             "user_id": "test_user",
@@ -73,14 +75,13 @@ def create_seeded_games_with_knight_fork_and_king_safety():
             "stockfish_analysis": {
                 "move_evaluations": [
                     {
-                        "move_number": 15,
+                        "move_number": 6,
                         "move": "Bd3",  # Bad move - missed fork
-                        "best_move": "Nc7",  # Knight fork on king and rook!
+                        "best_move": "Nxf7",  # Knight fork on king and queen!
                         "evaluation": "blunder",
-                        "cp_loss": 500,
+                        "cp_loss": 700,
                         "eval_before": 0.5,
-                        # Position where Nc7+ forks king on e8 and rook on a8
-                        "fen_before": "r3k2r/ppppqppp/2n5/4N3/2B1P3/8/PPPP1PPP/R1BQK2R w KQkq - 0 12"
+                        "fen_before": "r1bqkb1r/ppp2ppp/2n2n2/3pN3/2B5/8/PPPP1PPP/RNBQK2R w KQkq - 0 6"
                     }
                 ]
             }
@@ -94,18 +95,19 @@ def create_seeded_games_with_knight_fork_and_king_safety():
             "stockfish_analysis": {
                 "move_evaluations": [
                     {
-                        "move_number": 22,
+                        "move_number": 8,
                         "move": "Be2",  # Bad move - missed fork
-                        "best_move": "Nd5",  # Knight fork!
+                        "best_move": "Nxf7",  # Same pattern - knight fork
                         "evaluation": "mistake",
-                        "cp_loss": 350,
+                        "cp_loss": 550,
                         "eval_before": 1.2,
-                        "fen_before": "r1bq1rk1/ppp2ppp/2np1n2/4p1B1/2B1P3/3P1N2/PPP2PPP/R2QK2R w KQ - 0 10"
+                        "fen_before": "r1bqkb1r/ppp2ppp/2n2n2/3pN3/2B5/8/PPPP1PPP/RNBQK2R w KQkq - 0 6"
                     }
                 ]
             }
         },
         # KING_SAFETY_NEGLECT game - seeded 5 days ago
+        # King on e1, should castle, but played pawn push
         {
             "game_id": "seeded_game_king_001",
             "user_id": "test_user",
@@ -114,14 +116,14 @@ def create_seeded_games_with_knight_fork_and_king_safety():
             "stockfish_analysis": {
                 "move_evaluations": [
                     {
-                        "move_number": 12,
+                        "move_number": 8,
                         "move": "a3",  # Pawn push instead of castling
                         "best_move": "O-O",  # Should have castled!
                         "evaluation": "blunder",
                         "cp_loss": 450,
                         "eval_before": 0.3,
-                        # King on e1, exposed, should castle
-                        "fen_before": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"
+                        # King on e1 (d4 file), no castle, exposed
+                        "fen_before": "r1bq1rk1/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQ - 4 6"
                     }
                 ]
             }
@@ -135,13 +137,13 @@ def create_seeded_games_with_knight_fork_and_king_safety():
             "stockfish_analysis": {
                 "move_evaluations": [
                     {
-                        "move_number": 18,
+                        "move_number": 6,
                         "move": "Qd2",
-                        "best_move": "Nf6",  # Knight fork
+                        "best_move": "Nxf7",  # Knight fork again
                         "evaluation": "blunder",
-                        "cp_loss": 400,
+                        "cp_loss": 600,
                         "eval_before": 0.8,
-                        "fen_before": "r3k2r/ppppqppp/2n5/4N3/2B1P3/8/PPPP1PPP/R1BQK2R w KQkq - 0 12"
+                        "fen_before": "r1bqkb1r/ppp2ppp/2n2n2/3pN3/2B5/8/PPPP1PPP/RNBQK2R w KQkq - 0 6"
                     }
                 ]
             }
