@@ -89,7 +89,7 @@ class CoachGameSession:
         """Convert to dictionary for MongoDB storage"""
         data = asdict(self)
         data['status'] = self.status.value
-        data['result'] = self.result.value
+        data['result'] = self.result.value if self.result else None
         data['created_at'] = self.created_at.isoformat()
         if self.last_move_at:
             data['last_move_at'] = self.last_move_at.isoformat()
