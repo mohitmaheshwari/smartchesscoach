@@ -670,8 +670,10 @@ class DeepSessionService:
         - Marks session as completed
         - Updates CoachState with new micro rule
         - Sets next_deep_session_due_at
+        - Logs analytics event
         """
         from coach_state_service import CoachStateService
+        from coach_analytics_service import get_analytics_service
         
         session = await self.get_session(session_id)
         if not session:
@@ -680,6 +682,9 @@ class DeepSessionService:
         # Get commitment content for the micro rule
         commitment = self._get_commitment_content(session)
         micro_rule = commitment["micro_rule"]
+        
+        # Calculate session duration
+        duration_seconds = int((datetime.now(timezone.utc) - session.created_at).total_seconds())
         
         # Mark session complete
         session.completed = True
@@ -706,6 +711,17 @@ class DeepSessionService:
                 coach_state.micro_rules = coach_state.micro_rules[:3]  # Keep max 3
             
             await coach_service.update_coach_state(coach_state)
+        
+        # Log analytics event
+        analytics = get_analytics_service(self.db)
+        await analytics.log_deep_session_completed(
+            user_id=session.user_id,
+            session_id=session.session_id,
+            theme=session.theme,
+            duration_seconds=duration_seconds,
+            reflection_answer=session.reflection_answer,
+            micro_rule_assigned=micro_rule
+        )
         
         return session
     
