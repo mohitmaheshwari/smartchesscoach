@@ -524,13 +524,16 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                     "move": m.move_san,
                     "move_uci": m.move_uci,
                     "fen_before": m.fen_before,
+                    "fen_after": m.fen_after,
                     "evaluation": m.classification,
                     "cp_loss": m.cp_loss,
                     "eval_before": m.eval_before,
                     "eval_after": m.eval_after,
+                    "eval_swing": m.eval_swing,
                     "best_move": m.best_move_san,
                     "best_move_uci": m.best_move_uci,
                     "is_best": m.cp_loss <= CP_THRESHOLDS["excellent"],
+                    "is_turning_point": m.is_turning_point,
                     "mate_info": {
                         "before": m.mate_in_before,
                         "after": m.mate_in_after
