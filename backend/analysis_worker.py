@@ -544,6 +544,7 @@ def run_worker():
     logger.info(f"Stockfish depth: {STOCKFISH_DEPTH}")
     logger.info(f"Poll interval: {POLL_INTERVAL}s")
     logger.info(f"Job timeout: {JOB_TIMEOUT_MINUTES} minutes")
+    logger.info(f"Max retries: {MAX_RETRIES}")
     
     # Set up signal handlers for graceful shutdown
     signal.signal(signal.SIGTERM, signal_handler)
@@ -567,15 +568,27 @@ def run_worker():
     cleanup_stuck_jobs(db)
     
     jobs_processed = 0
+    jobs_failed = 0
     last_cleanup = time.time()
-    CLEANUP_INTERVAL = 300  # Run cleanup every 5 minutes
+    last_stats_log = time.time()
+    CLEANUP_INTERVAL = 60  # Run cleanup every minute (reduced from 5 minutes)
+    STATS_LOG_INTERVAL = 300  # Log stats every 5 minutes
     
     while not shutdown_requested:
         try:
-            # Periodically clean up stuck jobs
-            if time.time() - last_cleanup > CLEANUP_INTERVAL:
+            current_time = time.time()
+            
+            # Periodically clean up stuck jobs (more frequently now)
+            if current_time - last_cleanup > CLEANUP_INTERVAL:
                 cleanup_stuck_jobs(db)
-                last_cleanup = time.time()
+                last_cleanup = current_time
+            
+            # Log stats periodically
+            if current_time - last_stats_log > STATS_LOG_INTERVAL:
+                pending_count = db.analysis_queue.count_documents({"status": "pending"})
+                processing_count = db.analysis_queue.count_documents({"status": "processing"})
+                logger.info(f"[STATS] Processed: {jobs_processed}, Failed: {jobs_failed}, Pending: {pending_count}, Processing: {processing_count}")
+                last_stats_log = current_time
             
             # Try to claim a job
             job = claim_next_job(db)
@@ -585,18 +598,19 @@ def run_worker():
                 jobs_processed += 1
                 
                 if success:
-                    logger.info(f"Job completed. Total processed: {jobs_processed}")
+                    logger.info(f"[COMPLETE] Job done. Total processed: {jobs_processed}")
                 else:
-                    logger.warning(f"Job failed. Total processed: {jobs_processed}")
+                    jobs_failed += 1
+                    logger.warning(f"[FAILED] Job failed. Total processed: {jobs_processed}, failed: {jobs_failed}")
             else:
                 # No jobs available, wait before polling again
                 time.sleep(POLL_INTERVAL)
                 
         except Exception as e:
-            logger.exception(f"Worker error: {e}")
+            logger.exception(f"[WORKER ERROR] Unexpected error in main loop: {e}")
             time.sleep(POLL_INTERVAL)
     
-    logger.info(f"Worker shutting down. Total jobs processed: {jobs_processed}")
+    logger.info(f"Worker shutting down. Total jobs processed: {jobs_processed}, failed: {jobs_failed}")
 
 
 if __name__ == "__main__":
