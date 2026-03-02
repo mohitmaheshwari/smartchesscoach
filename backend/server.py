@@ -11681,14 +11681,12 @@ async def coach_chat_message(
     """
     Send a message to the coach and get a response.
     
-    This is for the chat sidebar where user can ask questions anytime.
-    
-    Body:
-    - session_id: Session ID
-    - message: User's message to the coach
-    
     Returns:
-    - response: Coach's response message
+    - response: Coach's text response
+    - suggestion_arrow: UCI coords for arrow if suggesting a move (e.g., "e2e4")
+    - move_quality: Quality of analyzed move
+    - best_move: The best move if different from played
+    - missed_tactic: Type of tactic missed (fork, pin, etc.)
     """
     from coach_play.coach_commentary import generate_response_to_user
     
@@ -11708,7 +11706,7 @@ async def coach_chat_message(
         raise HTTPException(status_code=403, detail="Not your session")
     
     try:
-        response = await generate_response_to_user(
+        result = await generate_response_to_user(
             user_message=message,
             current_fen=session_doc.get("current_fen"),
             move_history=session_doc.get("move_history", []),
@@ -11718,7 +11716,11 @@ async def coach_chat_message(
         
         return {
             "success": True,
-            "response": response
+            "response": result.get("response", ""),
+            "suggestion_arrow": result.get("suggestion_arrow"),
+            "move_quality": result.get("move_quality"),
+            "best_move": result.get("best_move"),
+            "missed_tactic": result.get("missed_tactic")
         }
         
     except Exception as e:
