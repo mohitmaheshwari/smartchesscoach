@@ -29,6 +29,7 @@ import sys
 import time
 import signal
 import logging
+import traceback
 from datetime import datetime, timezone, timedelta
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -42,10 +43,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from stockfish_service import analyze_game_with_stockfish
 from config import STOCKFISH_DEPTH
 
-# Configure logging
+# Configure logging with more detail
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s:%(lineno)d] %(message)s'
 )
 logger = logging.getLogger('analysis_worker')
 
