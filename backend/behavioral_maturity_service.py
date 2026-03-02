@@ -631,6 +631,13 @@ class BehavioralMaturityService:
         
         Should be called after every 5 analyzed games.
         """
+        # Get current state for comparison
+        current_state = await self.db.coach_states.find_one({"user_id": user_id})
+        old_level = current_state.get("behavioral_maturity_level", "Novice") if current_state else "Novice"
+        old_tone = current_state.get("coach_tone_mode", "ExplainMore") if current_state else "ExplainMore"
+        old_velocity = current_state.get("improvement_velocity", 0.0) if current_state else 0.0
+        
+        # Calculate new maturity
         maturity, metrics = await self.calculate_maturity(user_id)
         tone_mode = MATURITY_TONE_MAP.get(maturity, CoachToneMode.BALANCED)
         
@@ -653,13 +660,63 @@ class BehavioralMaturityService:
             upsert=True
         )
         
+        # Log analytics events for transitions
+        from coach_analytics_service import get_analytics_service
+        analytics = get_analytics_service(self.db)
+        
+        # Log maturity transition if changed
+        if maturity.value != old_level:
+            reason = self._get_transition_reason(metrics, old_level, maturity.value)
+            await analytics.log_maturity_transition(
+                user_id=user_id,
+                old_level=old_level,
+                new_level=maturity.value,
+                old_tone=old_tone,
+                new_tone=tone_mode.value,
+                metrics=metrics.to_dict(),
+                reason=reason
+            )
+        
+        # Log velocity change if significant (> 0.1 delta)
+        if abs(velocity - old_velocity) > 0.1:
+            learner_type = self._get_learner_type(velocity)
+            await analytics.log_velocity_change(
+                user_id=user_id,
+                old_velocity=old_velocity,
+                new_velocity=velocity,
+                learner_type=learner_type
+            )
+        
         return {
             "maturity_level": maturity.value,
             "tone_mode": tone_mode.value,
             "theme_resistance": round(resistance, 2),
             "improvement_velocity": round(velocity, 2),
-            "metrics": metrics.to_dict()
+            "metrics": metrics.to_dict(),
+            "transitioned": maturity.value != old_level
         }
+    
+    def _get_transition_reason(self, metrics: MaturityMetrics, old_level: str, new_level: str) -> str:
+        """Generate a human-readable reason for maturity transition"""
+        if new_level == "Advanced":
+            return f"Consistent improvement ({metrics.theme_improvement_delta:.0%}) with stable performance"
+        elif new_level == "Disciplined":
+            return f"Improvement velocity up ({metrics.theme_improvement_delta:.0%}), fewer repeated issues"
+        elif new_level == "Developing":
+            return "Making progress, applying corrections more consistently"
+        else:  # Novice
+            return f"Issues recurring ({metrics.repeated_issue_frequency:.0%}), need more foundational work"
+    
+    def _get_learner_type(self, velocity: float) -> str:
+        """Get learner type label from velocity"""
+        if velocity >= 0.75:
+            return "FAST_ADAPTER"
+        elif velocity >= 0.55:
+            return "STEADY"
+        elif velocity >= 0.35:
+            return "TRYING_BUT_STUCK"
+        else:
+            return "NOT_APPLYING"
 
 
 # ============================================================================
