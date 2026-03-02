@@ -813,5 +813,5 @@ Be encouraging and educational."""
             model="gpt-4o-mini"
         )
         return response.strip()
-    except Exception as e:
+    except Exception:
         return "Let me think about that position... What do you notice about the center and piece activity?"
