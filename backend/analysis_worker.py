@@ -517,18 +517,21 @@ def process_job(db, job):
 
 def mark_job_failed(db, game_id, error_message):
     """Mark a job as failed and update retry count"""
+    logger.warning(f"[FAIL] Marking job {game_id} as failed: {error_message[:100]}")
+    
     db.analysis_queue.update_one(
         {"game_id": game_id},
         {
             "$set": {
                 "status": "failed",
-                "error": error_message,
+                "error": error_message[:500],  # Limit error message length
                 "failed_at": datetime.now(timezone.utc)
             },
             "$inc": {"retry_count": 1}
         }
     )
     
+    # IMPORTANT: Update game status so frontend doesn't show "processing" forever
     db.games.update_one(
         {"game_id": game_id},
         {"$set": {"analysis_status": "failed"}}
