@@ -11265,6 +11265,9 @@ async def make_coach_play_move(
     """
     Make a move in the Play With Coach session.
     
+    Now includes adaptive coaching - coach speaks when there's something
+    meaningful to say (good moves, mistakes, teaching moments).
+    
     Body:
     - session_id: Session ID
     - move: Move in SAN notation (e.g., "e4", "Nf3", "O-O")
@@ -11276,8 +11279,12 @@ async def make_coach_play_move(
     - coach_move: Coach's response move
     - game_over: Whether the game has ended
     - result: Game result if over
+    - coach_message: Optional coaching message (only when triggered)
+    - coach_trigger: Type of trigger (encouragement, teaching, etc.)
     """
     from coach_play import make_player_move
+    from coach_play.coach_commentary import get_quick_analysis, generate_coach_chat_message
+    from coach_play.coaching_triggers import should_coach_speak
     
     session_id = request.get("session_id")
     move = request.get("move")
@@ -11295,6 +11302,11 @@ async def make_coach_play_move(
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
     
+    # Store FEN before move for analysis
+    fen_before = session_doc.get("current_fen")
+    user_rating = session_doc.get("user_rating", 1200)
+    user_color = session_doc.get("user_color", "white")
+    
     try:
         result = await make_player_move(
             db=db,
@@ -11305,6 +11317,56 @@ async def make_coach_play_move(
         
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error", "Move failed"))
+        
+        # Get FEN after move for analysis
+        fen_after = result.get("session", {}).get("current_fen", "")
+        move_history = result.get("session", {}).get("move_history", [])
+        move_number = (len([m for m in move_history if m.get("by") == "player"]))
+        
+        # Analyze move to check if coach should speak
+        coach_message = None
+        coach_trigger = None
+        
+        try:
+            # Quick analysis (no LLM)
+            analysis = await get_quick_analysis(
+                fen_before=fen_before,
+                move_san=move,
+                fen_after=fen_after,
+                user_color=user_color,
+                move_number=move_number
+            )
+            
+            # Check if coach should speak
+            trigger = should_coach_speak(
+                user_rating=user_rating,
+                move_san=move,
+                eval_before=analysis["eval_before"],
+                eval_after=analysis["eval_after"],
+                is_best_move=analysis["is_best_move"],
+                is_candidate=analysis["is_candidate"],
+                best_move_san=analysis["best_move"],
+                phase=analysis["phase"],
+                move_number=move_number,
+                opening_name=analysis.get("opening_name")
+            )
+            
+            if trigger.should_speak:
+                # Generate coach message
+                coach_message = await generate_coach_chat_message(
+                    trigger_type=trigger.trigger_type.value,
+                    context=trigger.context,
+                    user_rating=user_rating,
+                    user_color=user_color
+                )
+                coach_trigger = trigger.trigger_type.value
+                
+        except Exception as e:
+            logger.warning(f"Coach analysis failed (non-blocking): {e}")
+        
+        # Add coach message to response
+        result["coach_message"] = coach_message
+        result["coach_trigger"] = coach_trigger
         
         return result
     except HTTPException:
