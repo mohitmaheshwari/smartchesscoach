@@ -195,6 +195,78 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - ✅ Deep sessions can shorten as discipline improves
 - ✅ User can feel "coach expects more from me now"
 
+### Analytics & Observability Layer ✅ COMPLETE (Mar 2, 2026)
+
+**User Request:** "Add analytics logging around theme switches, deep session triggers, maturity transitions. You need observability."
+
+**Implemented:**
+
+1. **Coach Analytics Service** (`/app/backend/coach_analytics_service.py`):
+   ```python
+   AnalyticsEventType:
+     - THEME_SWITCH
+     - DEEP_SESSION_TRIGGERED
+     - DEEP_SESSION_COMPLETED
+     - DEEP_SESSION_ABANDONED
+     - MATURITY_TRANSITION
+     - GAME_COACH_SUMMARY_GENERATED
+     - RESISTANCE_INCREASE
+     - VELOCITY_CHANGE
+   ```
+
+2. **Events Logged:**
+   - Theme switches: old/new theme, reason, confidence delta, games on old theme
+   - Deep sessions: trigger reason, games since last, duration, completion status
+   - Maturity transitions: old/new level, metrics, direction (upgrade/downgrade)
+   - Velocity changes: old/new velocity, learner type
+
+3. **API Endpoints:**
+   - `GET /api/coach/analytics/summary` - Event counts and trends
+   - `GET /api/coach/analytics/theme-history` - Theme switch history
+   - `GET /api/coach/analytics/maturity-progression` - Full progression timeline
+
+4. **Integration Points:**
+   - BehavioralMaturityService: logs maturity transitions and velocity changes
+   - DeepSessionService: logs session triggered/completed events
+   - CoachStateService: logs game coach summary generation
+
+### Analysis Worker Bug Fix ✅ COMPLETE (Mar 2, 2026)
+
+**Issue:** "Stuck Analysis Screen" - recurring bug where analysis gets stuck in processing state.
+
+**Fix Implemented:**
+
+1. **Reduced Job Timeout:** 5 minutes (was 10)
+2. **More Frequent Cleanup:** Every 60 seconds (was 300)
+3. **Enhanced Logging:** Detailed [START], [STOCKFISH], [VALIDATION], [SUCCESS]/[FAIL] markers
+4. **Heartbeat Mechanism:** Jobs update heartbeat every 30 seconds
+5. **Better Error Tracking:**
+   - Worker ID tracked per job
+   - Reset reason logged when stuck jobs are recovered
+   - Error messages truncated to prevent DB bloat
+
+### Test Data Seeding ✅ COMPLETE (Mar 2, 2026)
+
+**Created:** `/app/backend/seed_test_data.py`
+
+**Three Behavioral Archetypes:**
+1. **Novice Nina** (`test_novice_nina`):
+   - Maturity: Novice, Tone: ExplainMore
+   - 15 games, 80% theme issues, high repetition
+   - ELO: 1200, Velocity: -0.1
+
+2. **Steady Sam** (`test_steady_sam`):
+   - Maturity: Developing, Tone: Balanced
+   - 20 games, 40% theme issues
+   - ELO: 1500, Velocity: 0.3
+
+3. **Disciplined Dana** (`test_disciplined_dana`):
+   - Maturity: Disciplined, Tone: ChallengeMore
+   - 25 games, 20% theme issues
+   - ELO: 1800, Velocity: 0.7
+
+**Usage:** `python seed_test_data.py` or `python seed_test_data.py --cleanup`
+
 ---
 
 
