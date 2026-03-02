@@ -4215,6 +4215,81 @@ async def get_theme_stats_endpoint(user: User = Depends(get_current_user)):
     }
 
 
+# ==================== BEHAVIORAL MATURITY ROUTES ====================
+
+@api_router.get("/coach/maturity")
+async def get_behavioral_maturity(user: User = Depends(get_current_user)):
+    """
+    Get user's behavioral maturity level and tone configuration.
+    
+    This determines how the coach speaks:
+    - Novice: More explanation, fewer questions
+    - Developing: Balanced
+    - Disciplined: Ask more, explain less
+    - Advanced: Mostly discovery questions
+    """
+    from behavioral_maturity_service import BehavioralMaturityService, BehavioralMaturity, TONE_CONFIGS
+    
+    service = BehavioralMaturityService(db)
+    maturity, metrics = await service.calculate_maturity(user.user_id)
+    tone_config = service.get_tone_config(maturity)
+    
+    return {
+        "maturity_level": maturity.value,
+        "tone_config": tone_config.to_dict(),
+        "metrics": metrics.to_dict(),
+        "description": {
+            "Novice": "More explanation, clear step-by-step teaching",
+            "Developing": "Balanced coaching with some discovery questions",
+            "Disciplined": "Challenge-focused, asking more than telling",
+            "Advanced": "Mostly discovery, rare lectures"
+        }.get(maturity.value, "")
+    }
+
+
+@api_router.post("/coach/maturity/update")
+async def update_behavioral_maturity(user: User = Depends(get_current_user)):
+    """
+    Update user's behavioral maturity in CoachState.
+    
+    Should be called after every 5 analyzed games.
+    """
+    from behavioral_maturity_service import BehavioralMaturityService
+    
+    service = BehavioralMaturityService(db)
+    result = await service.update_coach_state_maturity(user.user_id)
+    
+    return {
+        "success": True,
+        **result
+    }
+
+
+@api_router.get("/coach/maturity/adapt-message")
+async def get_adapted_message(
+    issue_type: str,
+    emotion: str = "",
+    explanation: str = "",
+    user: User = Depends(get_current_user)
+):
+    """
+    Get a coaching message adapted to user's maturity level.
+    
+    Same content, different framing based on maturity.
+    """
+    from behavioral_maturity_service import BehavioralMaturityService, BehavioralMaturity
+    
+    service = BehavioralMaturityService(db)
+    maturity, _ = await service.calculate_maturity(user.user_id)
+    
+    adapted = service.adapt_message(issue_type, maturity, emotion, explanation)
+    
+    return {
+        "maturity_level": maturity.value,
+        "adapted_message": adapted
+    }
+
+
 # ==================== DEEP COACHING SESSION ROUTES ====================
 
 @api_router.get("/coach/deep-session/check")
