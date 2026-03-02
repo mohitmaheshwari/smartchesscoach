@@ -217,6 +217,21 @@ const CoachHome = ({ user }) => {
           </motion.div>
         )}
 
+        {/* Improvement Message - Shows after deep session if user improved */}
+        {improvementMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 py-2 px-4 rounded-lg bg-green-500/10 border border-green-500/30 text-sm"
+          >
+            <TrendingUp className="w-4 h-4 text-green-400" />
+            <span className="text-green-300">{improvementMessage}</span>
+          </motion.div>
+        )}
+
+        {/* Deep Session Banner - Shows when coaching review is due */}
+        <DeepSessionBanner onStartSession={() => setShowDeepSession(true)} />
+
         {/* Section 1: Development Phase Banner */}
         {hasData && (
           <DevelopmentPhaseBanner phase={homeData.development_phase} />
