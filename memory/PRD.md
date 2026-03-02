@@ -68,6 +68,80 @@ Build a full-featured chess coaching application that analyzes games, identifies
    - ✅ Low effort: User can consume micro coaching in <30 seconds
 
 **Tone:** Indian mentor - calm, direct, respectful, lightly emotional
+
+### Step 2: Deep Coaching Session ✅ COMPLETE (Mar 2, 2026)
+
+**User Request:** "Simulate a real coaching class periodically. Not after every game."
+
+**Implemented:**
+
+1. **DeepSession Data Model** (`/app/backend/deep_session_service.py`)
+   ```python
+   DeepSession:
+     - session_id: uuid
+     - user_id: str
+     - theme: str (from CoachState.active_theme)
+     - triggered_by: scheduled | game_threshold | no_improvement | regression | manual
+     - games_considered: int
+     - reflection_answer: str (user's choice)
+     - summary_snapshot: Dict (pattern data)
+     - assignment_type: puzzles | replay_moments | threat_scan_drill
+     - micro_rule_assigned: str
+     - completed: bool
+     - current_step: 1-6
+   ```
+
+2. **Trigger Rules:**
+   - `now >= next_deep_session_due_at` (weekly)
+   - `games_since_last >= 8` (game threshold)
+   - `theme_confidence > 0.7 AND no improvement in 6 games`
+   - `regression > 40%` (severe)
+   - Minimum 7 days between sessions (unless regression)
+
+3. **6-Step Flow:**
+   - **Step 1: Pattern Summary** - "Let's review your recent games" + theme + observations + trend
+   - **Step 2: Guided Reflection** - Multiple choice question (no essay box)
+   - **Step 3: Mirror Back** - Response using selected answer ("That makes sense...")
+   - **Step 4: Structured Teaching** - Principle + Rule + Position example
+   - **Step 5: Assignment** - 5 puzzles OR replay moments OR threat scan drill
+   - **Step 6: Commitment Anchor** - One micro rule for next games
+
+4. **Theme-Specific Content:**
+   - ThreatVerification: "When you attack, what feels most important?"
+   - CalculationDepth: "When you see a promising move, how do you decide?"
+   - ConversionDiscipline: "When winning, what's your approach?"
+   - PieceSafety: "Before moving, what do you check?"
+
+5. **UI Components:**
+   - `DeepSessionBanner` - Shows when review is due
+   - `DeepSessionModal` - 6-step modal flow
+   - Progress bar + step indicators
+
+6. **API Endpoints:**
+   - `GET /api/coach/deep-session/check` - Check if trigger conditions met
+   - `POST /api/coach/deep-session/start` - Start new session
+   - `GET /api/coach/deep-session/{id}` - Get session state
+   - `POST /api/coach/deep-session/{id}/reflection` - Submit reflection answer
+   - `POST /api/coach/deep-session/{id}/advance` - Move to next step
+   - `POST /api/coach/deep-session/{id}/complete` - Finish session
+   - `GET /api/coach/deep-session/improvement-check` - Check post-session improvement
+
+7. **CoachState Updates on Completion:**
+   - `last_deep_session_at` = now
+   - `next_deep_session_due_at` = now + 7 days
+   - `micro_rules[0]` = new commitment rule
+
+**Acceptance Criteria Met:**
+- ✅ Different feel from micro coaching (structured 6-step flow)
+- ✅ Clear beginning → middle → assignment
+- ✅ 3-4 minutes max (tap-based, no essays)
+- ✅ Reinforces same theme (no switching during session)
+- ✅ Updates CoachState cleanly
+- ✅ No open-ended AI chat
+
+---
+
+
 - Emotion targets moment, not person ("You rushed", not "You are careless")
 
 ---
