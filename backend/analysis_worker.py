@@ -362,42 +362,58 @@ def process_job(db, job):
     """
     game_id = job.get("game_id")
     user_id = job.get("user_id")
+    retry_count = job.get("retry_count", 0)
     
-    logger.info(f"Processing game {game_id} for user {user_id}")
+    logger.info(f"[START] Processing game {game_id} for user {user_id} (attempt {retry_count + 1}/{MAX_RETRIES})")
     
     try:
         # Get the game data
         game = db.games.find_one({"game_id": game_id})
         
         if not game:
-            logger.error(f"Game {game_id} not found in database")
+            logger.error(f"[ERROR] Game {game_id} not found in database")
             mark_job_failed(db, game_id, "Game not found")
             return False
         
         pgn = game.get("pgn")
         if not pgn:
-            logger.error(f"Game {game_id} has no PGN data")
+            logger.error(f"[ERROR] Game {game_id} has no PGN data")
             mark_job_failed(db, game_id, "No PGN data")
             return False
         
         user_color = game.get("user_color", "white")
         
-        # Run Stockfish analysis (this is the slow part!)
-        logger.info(f"Starting Stockfish analysis (depth={STOCKFISH_DEPTH})...")
-        start_time = time.time()
-        
-        stockfish_result = analyze_game_with_stockfish(
-            pgn,
-            user_color=user_color,
-            depth=STOCKFISH_DEPTH
+        # Update game status to show it's being processed
+        db.games.update_one(
+            {"game_id": game_id},
+            {"$set": {"analysis_status": "processing"}}
         )
         
+        # Run Stockfish analysis (this is the slow part!)
+        logger.info(f"[STOCKFISH] Starting analysis for {game_id} (depth={STOCKFISH_DEPTH})...")
+        start_time = time.time()
+        
+        try:
+            stockfish_result = analyze_game_with_stockfish(
+                pgn,
+                user_color=user_color,
+                depth=STOCKFISH_DEPTH
+            )
+        except Exception as sf_error:
+            logger.error(f"[STOCKFISH ERROR] {game_id}: {sf_error}")
+            logger.error(traceback.format_exc())
+            mark_job_failed(db, game_id, f"Stockfish error: {str(sf_error)[:200]}")
+            return False
+        
         elapsed = time.time() - start_time
-        logger.info(f"Stockfish analysis completed in {elapsed:.1f}s")
+        logger.info(f"[STOCKFISH] Completed for {game_id} in {elapsed:.1f}s")
+        
+        # Update heartbeat after long operation
+        update_job_heartbeat(db, game_id)
         
         if not stockfish_result or not stockfish_result.get("success"):
             error_msg = stockfish_result.get("error", "Unknown error") if stockfish_result else "Analysis returned None"
-            logger.error(f"Stockfish analysis failed: {error_msg}")
+            logger.error(f"[VALIDATION] Stockfish analysis failed for {game_id}: {error_msg}")
             mark_job_failed(db, game_id, error_msg)
             return False
         
@@ -406,10 +422,6 @@ def process_job(db, job):
         move_evaluations = stockfish_result.get("moves", [])
         
         # VALIDATION: Ensure analysis is complete and valid
-        # A valid analysis must have:
-        # 1. At least some move evaluations
-        # 2. A non-zero accuracy (unless it's genuinely 0% which is extremely rare)
-        # 3. Total moves analyzed > 0
         accuracy = sf_stats.get("accuracy", 0)
         total_moves = len(move_evaluations)
         blunders = sf_stats.get("blunders", 0)
@@ -429,14 +441,13 @@ def process_job(db, job):
             validation_error = "Analysis returned all zeros - likely incomplete"
         
         if not is_valid_analysis:
-            logger.error(f"Analysis validation failed for {game_id}: {validation_error}")
+            logger.error(f"[VALIDATION] Failed for {game_id}: {validation_error}")
             mark_job_failed(db, game_id, validation_error)
             return False
         
-        logger.info(f"Analysis validated: {total_moves} moves, {accuracy}% accuracy")
+        logger.info(f"[VALIDATION] Passed for {game_id}: {total_moves} moves, {accuracy}% accuracy, {blunders} blunders")
         
         # Create/update analysis record
-        # Use $set for the main data but ensure created_at is only set on insert
         analysis_doc = {
             "game_id": game_id,
             "user_id": user_id,
@@ -452,7 +463,7 @@ def process_job(db, job):
             },
             "analysis_depth": STOCKFISH_DEPTH,
             "analyzed_at": datetime.now(timezone.utc),
-            "created_at": datetime.now(timezone.utc),  # Always update to latest analysis time
+            "created_at": datetime.now(timezone.utc),
             "analysis_duration_seconds": elapsed,
             "worker_id": WORKER_ID
         }
@@ -495,12 +506,12 @@ def process_job(db, job):
             move_evaluations
         )
         
-        logger.info(f"Successfully analyzed game {game_id} (accuracy: {sf_stats.get('accuracy', 0)}%)")
+        logger.info(f"[SUCCESS] Analyzed game {game_id} (accuracy: {accuracy}%, duration: {elapsed:.1f}s)")
         return True
         
     except Exception as e:
-        logger.exception(f"Error processing game {game_id}: {e}")
-        mark_job_failed(db, game_id, str(e))
+        logger.exception(f"[EXCEPTION] Error processing game {game_id}: {e}")
+        mark_job_failed(db, game_id, str(e)[:500])
         return False
 
 
