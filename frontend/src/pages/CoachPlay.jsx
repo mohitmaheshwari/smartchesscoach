@@ -392,18 +392,15 @@ const CoachPlay = ({ user }) => {
         }
       }
       
-      // Trigger reflection modal - ask user WHY they played this move
-      // Find the index of the user's move (it's the second-to-last if coach responded)
-      const moveHistory = data.session.move_history || [];
-      const userMoveIndex = data.coach_move 
-        ? moveHistory.length - 2  // Coach responded, user's move is second-to-last
-        : moveHistory.length - 1; // No coach response yet, user's move is last
-      
-      if (userMoveIndex >= 0 && moveHistory[userMoveIndex]?.by === "player") {
-        setReflectionMoveIndex(userMoveIndex);
-        setReflectionInput("");
-        setCoachFeedback(null);
-        setShowReflectionModal(true);
+      // Add coach message to chat if triggered
+      if (data.coach_message) {
+        setChatMessages(prev => [...prev, {
+          type: "coach",
+          message: data.coach_message,
+          trigger: data.coach_trigger,
+          move: moveSan,
+          timestamp: Date.now()
+        }]);
       }
 
       return true;
@@ -414,53 +411,46 @@ const CoachPlay = ({ user }) => {
     }
   };
   
-  // Submit reflection and get coach feedback
-  const submitReflection = async () => {
-    if (!reflectionInput.trim() || reflectionMoveIndex === null) return;
+  // Send chat message to coach
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || !session) return;
     
-    setIsGettingFeedback(true);
+    const userMessage = chatInput.trim();
+    setChatInput("");
+    
+    // Add user message to chat
+    setChatMessages(prev => [...prev, {
+      type: "user",
+      message: userMessage,
+      timestamp: Date.now()
+    }]);
+    
+    setIsSendingChat(true);
     
     try {
-      const response = await fetch(`${API}/coach/play/reflect`, {
+      const response = await fetch(`${API}/coach/play/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           session_id: session.session_id,
-          move_index: reflectionMoveIndex,
-          user_reasoning: reflectionInput.trim()
+          message: userMessage
         })
       });
       
       if (response.ok) {
-        const feedback = await response.json();
-        setCoachFeedback(feedback);
-        
-        // Add to conversation history
-        setCoachConversation(prev => [...prev, {
-          move: feedback.move,
-          moveIndex: reflectionMoveIndex,
-          userReasoning: reflectionInput.trim(),
-          feedback: feedback
+        const data = await response.json();
+        setChatMessages(prev => [...prev, {
+          type: "coach",
+          message: data.response,
+          timestamp: Date.now()
         }]);
-      } else {
-        const error = await response.json();
-        toast.error(error.detail || "Failed to get coach feedback");
       }
     } catch (error) {
-      console.error("Reflection error:", error);
-      toast.error("Failed to get coach feedback");
+      console.error("Chat error:", error);
     } finally {
-      setIsGettingFeedback(false);
+      setIsSendingChat(false);
     }
-  };
-  
-  // Close reflection modal
-  const closeReflection = () => {
-    setShowReflectionModal(false);
-    setReflectionMoveIndex(null);
-    setReflectionInput("");
-    setCoachFeedback(null);
   };
 
   // Handle user confirming a risky move
