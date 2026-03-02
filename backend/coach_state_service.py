@@ -648,6 +648,18 @@ async def generate_game_coach_summary(
     # Save summary
     await service.save_game_coach_summary(summary)
     
+    # Log analytics event
+    from coach_analytics_service import get_analytics_service
+    analytics = get_analytics_service(db)
+    await analytics.log_game_coach_summary(
+        user_id=user_id,
+        game_id=game_id,
+        primary_issue=primary_issue.value,
+        confidence=confidence.value,
+        ties_to_theme=ties_to_theme,
+        current_theme=coach_state.active_theme.value if coach_state else "Unknown"
+    )
+    
     # Update coach state
     if coach_state:
         coach_state.last_micro_coach_game_id = game_id
