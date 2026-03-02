@@ -14,7 +14,54 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ---
 
-## Latest Updates (Mar 1, 2026)
+## Latest Updates (Mar 2, 2026)
+
+### P2.2 Adaptive Chat-Based Coaching ✅ COMPLETE (Mar 2, 2026)
+
+**User Request:** "Coach should not ask reflection on every move, only on critical moves based on user's rating. Have a chat sidebar instead of popup."
+
+**Major Changes:**
+
+1. **Removed Popup Modal** - Replaced with continuous Chat Panel sidebar
+2. **Adaptive Coaching Triggers** (`/app/backend/coach_play/coaching_triggers.py`)
+   - Coach speaks only on teachable moments, not every move
+   - Thresholds based on user rating:
+     - <1200: Blunders (>3 pawns), hanging pieces, missed mate
+     - 1200-1600: Mistakes (>1.5 pawns), obvious tactics missed
+     - 1600-2000: Inaccuracies (>0.5 pawns), 2-3 move tactics
+     - 2000+: Strategic errors, deep tactics
+   - Encouragement on good/best moves (random 20-30% chance to avoid spam)
+   - Opening guidance at moves 3 and 6
+
+3. **Chat Panel UI** (`/app/frontend/src/pages/CoachPlay.jsx`)
+   - Welcome message: "Let's play! I'll give you feedback on interesting moves."
+   - User can ask questions anytime via text input
+   - Coach responses appear in chat thread
+   - Move history collapsed at bottom
+   - Guardian status visible
+
+4. **New API Endpoints:**
+   - `POST /api/coach/play/chat` - Send message to coach, get response
+   - Enhanced `/api/coach/play/move` - Returns optional `coach_message` and `coach_trigger`
+
+5. **Coach Message Generation** (`/app/backend/coach_play/coach_commentary.py`)
+   - `generate_coach_chat_message()` - LLM-powered contextual feedback
+   - `generate_response_to_user()` - Responds to user questions
+   - `get_quick_analysis()` - Fast Stockfish analysis for trigger evaluation
+
+**Example Coach Interactions:**
+- User plays e4: (No message - good move, not triggered)
+- User plays Nf3: "Good move!" (20% chance encouragement)
+- User blunders: "Oops! Qd1 was much stronger here. Let's see what happens..."
+- User asks "What's the plan?": "Focus on controlling the center and developing your pieces..."
+
+**Files Created/Modified:**
+- `/app/backend/coach_play/coaching_triggers.py` (NEW)
+- `/app/backend/coach_play/coach_commentary.py` (Enhanced)
+- `/app/backend/server.py` (New chat endpoint, enhanced move endpoint)
+- `/app/frontend/src/pages/CoachPlay.jsx` (Chat panel replacing popup)
+
+---
 
 ### P2.1 Adaptive Difficulty & Evaluation Bar ✅ COMPLETE (Mar 1, 2026)
 
