@@ -79,6 +79,8 @@ const CoachHome = ({ user }) => {
   const [starting, setStarting] = useState(false);
   const [reanalysisStatus, setReanalysisStatus] = useState(null);
   const [coachState, setCoachState] = useState(null);
+  const [showDeepSession, setShowDeepSession] = useState(false);
+  const [improvementMessage, setImprovementMessage] = useState(null);
 
   useEffect(() => {
     fetchAllData();
