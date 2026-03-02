@@ -133,6 +133,71 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 **Acceptance Criteria Met:**
 - ✅ Different feel from micro coaching (structured 6-step flow)
+
+### Step 3: Behavioral Maturity Layer ✅ COMPLETE (Mar 2, 2026)
+
+**User Request:** "Make coaching adapt based on user experience level, pattern recurrence, responsiveness to corrections, improvement velocity. Not rating. Behavior maturity."
+
+**Implemented:**
+
+1. **CoachState Extended Fields:**
+   ```python
+   behavioral_maturity_level: "Novice" | "Developing" | "Disciplined" | "Advanced"
+   coach_tone_mode: "ExplainMore" | "Balanced" | "ChallengeMore"
+   theme_resistance_score: 0.0  # Persistence despite coaching
+   improvement_velocity: 0.0  # How fast improving
+   ```
+
+2. **Maturity Calculation** (`/app/backend/behavioral_maturity_service.py`):
+   - Based on: theme_improvement_delta, repeated_issue_frequency, CPR stability, deep_session_completion_rate
+   - NOT based on rating/ELO
+   - Smoothing over 10 games to prevent rapid changes
+   - Min 10 games before major level change
+
+3. **Maturity Levels & Tone:**
+
+   | Level | Emotion | Length | Questions | Explanation |
+   |-------|---------|--------|-----------|-------------|
+   | Novice | Direct & firm | 4 lines | No | Detailed |
+   | Developing | Calm | 3 lines | Optional | Moderate |
+   | Disciplined | Observational | 2 lines | Yes | Brief |
+   | Advanced | Minimal | 2 lines | Yes | Minimal |
+
+4. **Tone Templates** - Same mistake, different framing:
+   - Novice: "Before attacking, you must check opponent forcing moves. You skipped this step."
+   - Developing: "You attacked quickly here. What forcing moves did you check?"
+   - Disciplined: "You paused longer this time. That's progress. Now refine the scan."
+   - Advanced: "Would this attack survive their best defensive resource?"
+
+5. **Theme Resistance Score:**
+   - Tracks persistence of issues despite coaching
+   - High score = increase firmness, repeat rule explicitly
+   - "We are not moving ahead until this stabilizes."
+
+6. **Deep Session Adaptation:**
+   - Novice: All 6 screens, full explanation
+   - Developing: All 6, shorter explanation
+   - Disciplined: Skip detailed teaching (5 screens)
+   - Advanced: Shorter session (4 screens)
+
+7. **UI Integration:**
+   - Progress page shows "Coach Style: Novice" badge
+   - Description: "More explanation, clear step-by-step teaching"
+
+8. **API Endpoints:**
+   - `GET /api/coach/maturity` - Get maturity level + tone config
+   - `POST /api/coach/maturity/update` - Recalculate maturity
+   - `GET /api/coach/maturity/adapt-message` - Get adapted message
+
+**Acceptance Criteria Met:**
+- ✅ Two users with identical mistake produce different coaching tone
+- ✅ Same user over time experiences tone shift
+- ✅ Deep sessions can shorten as discipline improves
+- ✅ User can feel "coach expects more from me now"
+
+---
+
+
 - ✅ Clear beginning → middle → assignment
 - ✅ 3-4 minutes max (tap-based, no essays)
 - ✅ Reinforces same theme (no switching during session)
