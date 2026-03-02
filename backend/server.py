@@ -11265,8 +11265,11 @@ async def make_coach_play_move(
     """
     Make a move in the Play With Coach session.
     
-    Move processing is FAST - coach analysis happens in background.
-    Frontend polls /coach/play/messages for coach commentary.
+    Flow:
+    1. User's move is validated and recorded (FAST)
+    2. Returns immediately - coach will respond async
+    3. Background: Analyze → Generate message → Make coach move
+    4. Frontend polls for messages and coach move
     
     Body:
     - session_id: Session ID
@@ -11275,13 +11278,14 @@ async def make_coach_play_move(
     
     Returns:
     - success: bool
-    - session: Updated session state
-    - coach_move: Coach's response move
-    - game_over: Whether the game has ended
-    - result: Game result if over
+    - user_move_recorded: True if move was valid
+    - current_fen: Position after user's move
+    - awaiting_coach: True (coach will respond async)
     """
     import asyncio
-    from coach_play import make_player_move
+    from coach_play.coach_game_session import CoachGameSession, SessionStatus
+    import chess
+    from datetime import datetime, timezone
     
     session_id = request.get("session_id")
     move = request.get("move")
@@ -11292,89 +11296,132 @@ async def make_coach_play_move(
     if not move:
         raise HTTPException(status_code=400, detail="move is required")
     
-    # Verify session belongs to user
+    # Get session
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
         raise HTTPException(status_code=404, detail="Session not found")
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
     
-    # Store context for background task
+    # Store context
     fen_before = session_doc.get("current_fen")
     user_rating = session_doc.get("user_rating", 1200)
     user_color = session_doc.get("user_color", "white")
     
+    # Validate and record user's move ONLY (fast)
     try:
-        # Make the move - this is fast
-        result = await make_player_move(
-            db=db,
-            session_id=session_id,
-            move_san=move,
-            time_spent=time_spent
+        board = chess.Board(fen_before)
+        chess_move = board.parse_san(move)
+        
+        # Record user's move
+        board.push(chess_move)
+        fen_after_user = board.fen()
+        
+        move_history = session_doc.get("move_history", [])
+        move_number = len([m for m in move_history if m.get("by") == "player"]) + 1
+        
+        # Add user's move to history
+        move_history.append({
+            "move": move,
+            "uci": chess_move.uci(),
+            "by": "player",
+            "fen_before": fen_before,
+            "fen_after": fen_after_user,
+            "time_spent": time_spent,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
+        # Update session with user's move (coach move pending)
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {
+                "current_fen": fen_after_user,
+                "move_history": move_history,
+                "coach_move_pending": True
+            }}
         )
         
-        if not result.get("success"):
-            raise HTTPException(status_code=400, detail=result.get("error", "Move failed"))
+        # Check if game is over after user's move
+        game_over = board.is_game_over()
+        result = None
+        if game_over:
+            if board.is_checkmate():
+                result = "win"  # User checkmated opponent
+            elif board.is_stalemate() or board.is_insufficient_material():
+                result = "draw"
         
-        # Get move info for background analysis
-        fen_after = result.get("session", {}).get("current_fen", "")
-        move_history = result.get("session", {}).get("move_history", [])
-        move_number = len([m for m in move_history if m.get("by") == "player"])
-        
-        # Fire-and-forget: Analyze move in background
+        # Fire background task: analyze → message → coach move
         asyncio.create_task(
-            _analyze_move_background(
+            _process_move_and_respond(
                 session_id=session_id,
-                move_san=move,
+                user_move=move,
                 fen_before=fen_before,
-                fen_after=fen_after,
+                fen_after_user=fen_after_user,
                 user_rating=user_rating,
                 user_color=user_color,
-                move_number=move_number
+                move_number=move_number,
+                game_over=game_over
             )
         )
         
-        # Return immediately - no waiting for analysis
-        return result
+        return {
+            "success": True,
+            "user_move_recorded": True,
+            "move": move,
+            "current_fen": fen_after_user,
+            "awaiting_coach": not game_over,
+            "game_over": game_over,
+            "result": result
+        }
         
-    except HTTPException:
-        raise
+    except chess.InvalidMoveError:
+        raise HTTPException(status_code=400, detail="Invalid move")
+    except chess.AmbiguousMoveError:
+        raise HTTPException(status_code=400, detail="Ambiguous move - please be more specific")
     except Exception as e:
-        logger.error(f"Error making move: {e}")
+        logger.error(f"Error processing move: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _analyze_move_background(
+async def _process_move_and_respond(
     session_id: str,
-    move_san: str,
+    user_move: str,
     fen_before: str,
-    fen_after: str,
+    fen_after_user: str,
     user_rating: int,
     user_color: str,
-    move_number: int
+    move_number: int,
+    game_over: bool
 ):
     """
-    Background task to analyze move and generate coach message.
-    Stores message in coach_messages collection for frontend to poll.
+    Background task: Analyze user's move, generate message, then make coach's move.
+    
+    Order:
+    1. Analyze user's move with Stockfish
+    2. Generate coach message if triggered
+    3. Make coach's responding move
+    4. Store everything for frontend to poll
     """
     from coach_play.coach_commentary import get_quick_analysis, generate_coach_chat_message
     from coach_play.coaching_triggers import should_coach_speak
+    from coach_play.coach_opponent import CoachOpponent
     from datetime import datetime, timezone
+    import chess
     
     try:
-        # Quick analysis with Stockfish
+        # Step 1: Quick analysis of user's move
         analysis = await get_quick_analysis(
             fen_before=fen_before,
-            move_san=move_san,
-            fen_after=fen_after,
+            move_san=user_move,
+            fen_after=fen_after_user,
             user_color=user_color,
             move_number=move_number
         )
         
-        # Check if coach should speak
+        # Step 2: Check if coach should comment
         trigger = should_coach_speak(
             user_rating=user_rating,
-            move_san=move_san,
+            move_san=user_move,
             eval_before=analysis["eval_before"],
             eval_after=analysis["eval_after"],
             is_best_move=analysis["is_best_move"],
@@ -11385,8 +11432,8 @@ async def _analyze_move_background(
             opening_name=analysis.get("opening_name")
         )
         
+        # Step 3: Generate and store message if triggered
         if trigger.should_speak:
-            # Generate coach message (uses LLM)
             coach_message = await generate_coach_chat_message(
                 trigger_type=trigger.trigger_type.value,
                 context=trigger.context,
@@ -11394,20 +11441,94 @@ async def _analyze_move_background(
                 user_color=user_color
             )
             
-            # Store message for frontend to fetch
             await db.coach_messages.insert_one({
                 "session_id": session_id,
                 "type": "coach",
                 "message": coach_message,
                 "trigger": trigger.trigger_type.value,
-                "move": move_san,
+                "move": user_move,
                 "move_number": move_number,
                 "created_at": datetime.now(timezone.utc),
                 "read": False
             })
+        
+        # Step 4: Make coach's responding move (if game not over)
+        if not game_over:
+            session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+            if session_doc:
+                board = chess.Board(fen_after_user)
+                
+                # Get coach's move
+                opponent = CoachOpponent(user_rating=user_rating)
+                coach_move = await opponent.get_move(fen_after_user)
+                
+                if coach_move:
+                    chess_move = board.parse_san(coach_move)
+                    board.push(chess_move)
+                    fen_after_coach = board.fen()
+                    
+                    # Update move history
+                    move_history = session_doc.get("move_history", [])
+                    move_history.append({
+                        "move": coach_move,
+                        "uci": chess_move.uci(),
+                        "by": "coach",
+                        "fen_before": fen_after_user,
+                        "fen_after": fen_after_coach,
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    })
+                    
+                    # Check if game over after coach move
+                    coach_game_over = board.is_game_over()
+                    coach_result = None
+                    status = "active"
+                    if coach_game_over:
+                        status = "completed"
+                        if board.is_checkmate():
+                            coach_result = "loss"  # Coach checkmated user
+                        else:
+                            coach_result = "draw"
+                    
+                    # Get new evaluation
+                    eval_score, mate_in = await opponent.get_evaluation(fen_after_coach)
+                    
+                    # Update session
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id},
+                        {"$set": {
+                            "current_fen": fen_after_coach,
+                            "move_history": move_history,
+                            "coach_move_pending": False,
+                            "last_coach_move": {
+                                "move": coach_move,
+                                "uci": chess_move.uci(),
+                                "timestamp": datetime.now(timezone.utc).isoformat()
+                            },
+                            "status": status,
+                            "result": coach_result,
+                            "evaluation": {"score": eval_score, "mate_in": mate_in}
+                        }}
+                    )
+                else:
+                    # No valid move (shouldn't happen)
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id},
+                        {"$set": {"coach_move_pending": False}}
+                    )
+        else:
+            # Game was over after user's move
+            await db.coach_sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {"coach_move_pending": False}}
+            )
             
     except Exception as e:
-        logger.warning(f"Background coach analysis failed: {e}")
+        logger.error(f"Background move processing failed: {e}")
+        # Mark as no longer pending even on error
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"coach_move_pending": False}}
+        )
 
 
 @api_router.get("/coach/play/messages/{session_id}")
