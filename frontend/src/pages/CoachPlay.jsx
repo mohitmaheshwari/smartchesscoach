@@ -813,136 +813,155 @@ const CoachPlay = ({ user }) => {
           </div>
         </div>
 
-        {/* Right: Game Info Panel */}
-        <div className="w-[350px] border-l border-border p-4 flex flex-col">
-          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <Swords className="w-5 h-5" />
-            Game Info
-          </h2>
-
-          {/* Game status */}
-          {gameOver ? (
-            <Card className={`mb-4 ${gameResult === "win" ? "border-green-500/30" : gameResult === "loss" ? "border-red-500/30" : "border-yellow-500/30"}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  {gameResult === "win" ? (
-                    <>
-                      <Trophy className="w-8 h-8 text-green-500" />
-                      <div>
-                        <p className="font-bold text-green-500">Victory!</p>
-                        <p className="text-sm text-muted-foreground">Great game!</p>
-                      </div>
-                    </>
-                  ) : gameResult === "loss" ? (
-                    <>
-                      <XCircle className="w-8 h-8 text-red-500" />
-                      <div>
-                        <p className="font-bold text-red-500">Defeat</p>
-                        <p className="text-sm text-muted-foreground">
-                          {session?.termination_reason || "Keep practicing!"}
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-8 h-8 text-yellow-500" />
-                      <div>
-                        <p className="font-bold text-yellow-500">Draw</p>
-                        <p className="text-sm text-muted-foreground">
-                          {session?.termination_reason}
-                        </p>
-                      </div>
-                    </>
-                  )}
+        {/* Right: Coach Chat Panel */}
+        <div className="w-[380px] border-l border-border flex flex-col h-full" data-testid="coach-chat-panel">
+          {/* Header */}
+          <div className="p-4 border-b border-border">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Brain className="w-5 h-5 text-primary" />
+              Coach Chat
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ask questions anytime. Coach speaks on teachable moments.
+            </p>
+          </div>
+          
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3" data-testid="chat-messages">
+            {/* Welcome message */}
+            {chatMessages.length === 0 && !gameOver && (
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <div className="flex items-start gap-2">
+                  <Brain className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-medium text-primary">Let's play!</p>
+                    <p className="text-muted-foreground mt-1">
+                      I'll give you feedback on interesting moves. Feel free to ask me anything!
+                    </p>
+                  </div>
                 </div>
-                
-                {summary && (
-                  <div className="space-y-2 text-sm border-t pt-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Moves</span>
-                      <span className="font-medium">{summary.total_moves}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Avg Time/Move</span>
-                      <span className="font-medium">{summary.avg_time_per_move}s</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Duration</span>
-                      <span className="font-medium">
-                        {Math.floor(summary.duration_seconds / 60)}m {Math.floor(summary.duration_seconds % 60)}s
-                      </span>
-                    </div>
-                  </div>
-                )}
-                
-                {/* CPR Score */}
-                {cprResult && (
-                  <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/30">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium flex items-center gap-2">
-                        <Brain className="w-4 h-4 text-primary" />
-                        Cognitive Performance Rating
-                      </span>
-                      <Badge className={`${
-                        cprResult.overall_cpr >= 75 ? "bg-green-500/20 text-green-400" :
-                        cprResult.overall_cpr >= 60 ? "bg-yellow-500/20 text-yellow-400" :
-                        "bg-red-500/20 text-red-400"
-                      }`}>
-                        {cprResult.overall_cpr?.toFixed(1)}
+              </div>
+            )}
+            
+            {/* Chat history */}
+            {chatMessages.map((msg, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-lg ${
+                  msg.type === "coach"
+                    ? "bg-primary/10 border border-primary/20"
+                    : "bg-muted/50 ml-6"
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  {msg.type === "coach" ? (
+                    <Brain className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <MessageCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  )}
+                  <div className="text-sm flex-1">
+                    {msg.type === "coach" && msg.trigger && (
+                      <Badge variant="outline" className="text-xs mb-1 capitalize">
+                        {msg.trigger === "encouragement" ? "👏" : 
+                         msg.trigger === "warning" ? "⚠️" : 
+                         msg.trigger === "teaching" ? "💡" : "💬"} {msg.trigger}
                       </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {cprResult.interpretation}
-                    </p>
-                    {cprResult.recommendations?.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-border/50">
-                        <p className="text-xs font-medium mb-1">Recommendations:</p>
-                        <ul className="text-xs text-muted-foreground space-y-1">
-                          {cprResult.recommendations.slice(0, 2).map((rec, i) => (
-                            <li key={i} className="flex gap-2">
-                              <Lightbulb className="w-3 h-3 text-primary flex-shrink-0 mt-0.5" />
-                              {rec}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
                     )}
-                  </div>
-                )}
-                
-                {/* Player Identity */}
-                {playerIdentity && (
-                  <div className="mt-3 p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium">{playerIdentity.identity_label}</span>
-                      {playerIdentity.confidence < 0.3 && (
-                        <Badge variant="outline" className="text-xs">Forming</Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {playerIdentity.identity_description}
+                    {msg.type === "coach" && msg.move && (
+                      <span className="text-xs text-muted-foreground block">
+                        After {msg.move}:
+                      </span>
+                    )}
+                    <p className={msg.type === "coach" ? "" : "text-muted-foreground"}>
+                      {msg.message}
                     </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {/* Loading indicator */}
+            {isSendingChat && (
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                  <span className="text-sm text-muted-foreground">Coach is thinking...</span>
+                </div>
+              </div>
+            )}
+            
+            <div ref={chatEndRef} />
+          </div>
+          
+          {/* Game over summary */}
+          {gameOver && (
+            <div className="p-4 border-t border-border">
+              <Card className={`${
+                gameResult === "win" ? "border-green-500/30 bg-green-500/5" :
+                gameResult === "loss" ? "border-red-500/30 bg-red-500/5" :
+                "border-yellow-500/30 bg-yellow-500/5"
+              }`}>
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2">
+                    {gameResult === "win" ? (
+                      <Trophy className="w-5 h-5 text-green-500" />
+                    ) : gameResult === "loss" ? (
+                      <XCircle className="w-5 h-5 text-red-500" />
+                    ) : (
+                      <CheckCircle2 className="w-5 h-5 text-yellow-500" />
+                    )}
+                    <span className="font-medium capitalize">{gameResult || "Draw"}</span>
+                  </div>
+                  {summary && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Based on {playerIdentity.sessions_analyzed} session{playerIdentity.sessions_analyzed !== 1 ? "s" : ""}
+                      {summary.total_moves} moves • {Math.floor(summary.duration_seconds / 60)}m
                     </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="mb-4">
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">
-                  {isPlayerTurn ? "Your turn to move" : "Coach is thinking..."}
-                </p>
-              </CardContent>
-            </Card>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           )}
-
-          {/* Move History */}
-          <div className="flex-1 overflow-hidden">
-            <h3 className="text-sm font-medium mb-2">Move History</h3>
-            <div className="bg-muted/30 rounded-lg p-3 h-[300px] overflow-y-auto font-mono text-sm">
+          
+          {/* Chat Input */}
+          {!gameOver && (
+            <div className="p-4 border-t border-border">
+              <div className="flex gap-2">
+                <Textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Ask the coach anything..."
+                  className="min-h-[60px] max-h-[100px] resize-none"
+                  data-testid="chat-input"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && chatInput.trim()) {
+                      e.preventDefault();
+                      sendChatMessage();
+                    }
+                  }}
+                />
+                <Button
+                  size="icon"
+                  onClick={sendChatMessage}
+                  disabled={!chatInput.trim() || isSendingChat}
+                  data-testid="send-chat-btn"
+                >
+                  {isSendingChat ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {/* Move History (collapsed) */}
+          <details className="border-t border-border">
+            <summary className="p-3 text-sm cursor-pointer hover:bg-muted/50 flex items-center gap-2">
+              <Swords className="w-4 h-4" />
+              Move History ({session?.move_history?.length || 0} moves)
+            </summary>
+            <div className="px-3 pb-3 max-h-[150px] overflow-y-auto font-mono text-xs">
               {session?.move_history?.length > 0 ? (
                 <div className="space-y-1">
                   {Array.from({ length: Math.ceil(session.move_history.length / 2) }).map((_, i) => {
@@ -950,7 +969,7 @@ const CoachPlay = ({ user }) => {
                     const blackMove = session.move_history[i * 2 + 1];
                     return (
                       <div key={i} className="flex gap-2">
-                        <span className="text-muted-foreground w-6">{i + 1}.</span>
+                        <span className="text-muted-foreground w-5">{i + 1}.</span>
                         <span className={whiteMove?.by === "player" ? "text-primary" : ""}>
                           {whiteMove?.move || ""}
                         </span>
@@ -962,18 +981,16 @@ const CoachPlay = ({ user }) => {
                   })}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-4">
-                  No moves yet
-                </p>
+                <p className="text-muted-foreground text-center py-2">No moves yet</p>
               )}
             </div>
-          </div>
-
+          </details>
+          
           {/* Guardian Status */}
-          <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs">
+          <div className="p-3 border-t border-border text-xs">
             <ShieldAlert className="w-3 h-3 inline mr-1 text-primary" />
             <span className="text-muted-foreground">
-              Guardian active: {remainingInterventions} intervention{remainingInterventions !== 1 ? "s" : ""} remaining
+              Guardian: {remainingInterventions} intervention{remainingInterventions !== 1 ? "s" : ""} remaining
             </span>
           </div>
         </div>
