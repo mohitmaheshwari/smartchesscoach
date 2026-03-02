@@ -776,42 +776,136 @@ async def generate_response_to_user(
     """
     Generate coach response to user's message in chat.
     
-    User might ask questions like:
-    - "What should I do here?"
-    - "Why was that bad?"
-    - "What's the plan?"
+    IMPORTANT: Actually analyze the position and moves, don't give generic advice!
+    
+    User might ask:
+    - "Was my last move bad?" → Analyze the actual last move
+    - "What should I do here?" → Analyze position and suggest ideas
+    - "Why was that bad?" → Explain what went wrong
     """
     import sys
     sys.path.insert(0, '/app/backend')
     from llm_service import call_llm
     
     coach = CoachCommentary()
+    msg_lower = user_message.lower()
+    
+    # Detect if user is asking about their last move
+    asking_about_last_move = any(phrase in msg_lower for phrase in [
+        "last move", "my move", "was that", "was it", "that move",
+        "what i played", "good move", "bad move", "mistake", "blunder"
+    ])
+    
+    # Find user's last move
+    user_moves = [m for m in move_history if m.get("by") == "player"]
+    last_user_move = user_moves[-1] if user_moves else None
+    
+    # If asking about last move, actually analyze it!
+    move_analysis_context = ""
+    if asking_about_last_move and last_user_move:
+        fen_before = last_user_move.get("fen_before", "")
+        fen_after = last_user_move.get("fen_after", "")
+        move_san = last_user_move.get("move", "")
+        
+        if fen_before and fen_after and move_san:
+            # Actually analyze the move
+            move_analysis = await coach.analyze_move(fen_before, move_san, fen_after)
+            
+            # Build concrete analysis
+            quality = move_analysis.quality.value
+            eval_before = move_analysis.eval_before
+            eval_after = move_analysis.eval_after
+            eval_change = eval_after - eval_before
+            best_move = move_analysis.best_move_san
+            was_best = move_analysis.is_best_move
+            was_candidate = move_analysis.is_candidate
+            
+            if was_best:
+                move_analysis_context = f"""
+MOVE ANALYSIS (CONCRETE DATA):
+- Move played: {move_san}
+- Quality: BEST MOVE! Excellent choice.
+- Evaluation: {eval_before:+.2f} → {eval_after:+.2f} (no change, optimal)
+- This WAS the best move in the position."""
+            elif was_candidate:
+                move_analysis_context = f"""
+MOVE ANALYSIS (CONCRETE DATA):
+- Move played: {move_san}
+- Quality: GOOD - This was one of the top moves
+- Evaluation: {eval_before:+.2f} → {eval_after:+.2f} ({eval_change:+.2f})
+- Best move was: {best_move}
+- But {move_san} is perfectly playable."""
+            else:
+                # Not a top move - explain why
+                if quality == "blunder":
+                    move_analysis_context = f"""
+MOVE ANALYSIS (CONCRETE DATA):
+- Move played: {move_san}
+- Quality: BLUNDER - This was a serious mistake
+- Evaluation dropped: {eval_before:+.2f} → {eval_after:+.2f} ({eval_change:+.2f})
+- Much better was: {best_move}
+- This lost significant advantage."""
+                elif quality == "mistake":
+                    move_analysis_context = f"""
+MOVE ANALYSIS (CONCRETE DATA):
+- Move played: {move_san}
+- Quality: MISTAKE - Not the best choice
+- Evaluation: {eval_before:+.2f} → {eval_after:+.2f} ({eval_change:+.2f})
+- Better was: {best_move}"""
+                elif quality == "inaccuracy":
+                    move_analysis_context = f"""
+MOVE ANALYSIS (CONCRETE DATA):
+- Move played: {move_san}
+- Quality: SLIGHT INACCURACY
+- Evaluation: {eval_before:+.2f} → {eval_after:+.2f} ({eval_change:+.2f})
+- More precise was: {best_move}
+- But your move is still reasonable."""
+                else:
+                    move_analysis_context = f"""
+MOVE ANALYSIS (CONCRETE DATA):
+- Move played: {move_san}
+- Quality: {quality.upper()}
+- Evaluation: {eval_before:+.2f} → {eval_after:+.2f}
+- Best move was: {best_move}"""
     
     # Get current position analysis
     position = await coach.analyze_position(current_fen)
     
     # Build context for LLM
     recent_moves = move_history[-6:] if move_history else []
-    moves_str = ", ".join([f"{m.get('move', '')}" for m in recent_moves])
+    moves_str = " ".join([f"{i//2+1}.{m.get('move','')}" if m.get('by')=='player' else m.get('move','') 
+                          for i, m in enumerate(recent_moves)])
     
     prompt = f"""You are a chess coach in a training game. The student ({user_color}, rated {user_rating}) asks:
 "{user_message}"
 
-Current position evaluation: {position.evaluation:+.2f}
-Game phase: {position.phase}
-Recent moves: {moves_str}
-Position features: {', '.join(position.key_features[:3])}
+CURRENT POSITION:
+- Evaluation: {position.evaluation:+.2f} (positive = {user_color} is better)
+- Phase: {position.phase}
+- Recent moves: {moves_str}
+- Key features: {', '.join(position.key_features[:3]) if position.key_features else 'standard position'}
+{move_analysis_context}
 
-Give a helpful, concise response (2-3 sentences max). 
-Don't give exact moves unless they ask specifically - guide their thinking instead.
-Be encouraging and educational."""
+INSTRUCTIONS:
+1. If they asked about their last move, give SPECIFIC feedback based on the MOVE ANALYSIS above
+2. Reference the actual move name, the evaluation numbers, and what was better
+3. Be concrete, not generic - use the actual data!
+4. Keep response to 2-3 sentences
+5. Be encouraging but honest
+
+Example good response: "Your Bc4 was a solid developing move! The eval stayed at +0.3. You're setting up nicely for the Italian Game."
+Example bad response: "Think about your piece activity..." (TOO GENERIC!)"""
     
     try:
         response = await call_llm(
-            system_message="You are a friendly chess coach. Be helpful but don't give all the answers - guide thinking.",
+            system_message="You are a chess coach who gives SPECIFIC, CONCRETE feedback based on actual position analysis. Never give generic advice when you have real data.",
             user_message=prompt,
             model="gpt-4o-mini"
         )
         return response.strip()
     except Exception:
-        return "Let me think about that position... What do you notice about the center and piece activity?"
+        # Fallback with actual data if we have it
+        if move_analysis_context and last_user_move:
+            move_san = last_user_move.get("move", "your move")
+            return f"Your move {move_san} was analyzed. Let me check the position..."
+        return "Let me analyze that for you..."
