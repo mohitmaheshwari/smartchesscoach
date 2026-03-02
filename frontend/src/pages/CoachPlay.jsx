@@ -177,11 +177,55 @@ const CoachPlay = ({ user }) => {
   const [chatInput, setChatInput] = useState("");
   const [isSendingChat, setIsSendingChat] = useState(false);
   const chatEndRef = useRef(null);
+  const pollIntervalRef = useRef(null);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
+
+  // Poll for coach messages when game is active
+  useEffect(() => {
+    if (session && gameStarted && !gameOver) {
+      // Start polling for coach messages
+      pollIntervalRef.current = setInterval(pollCoachMessages, 2000);
+      return () => {
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+        }
+      };
+    }
+  }, [session?.session_id, gameStarted, gameOver]);
+
+  // Poll for new coach messages
+  const pollCoachMessages = async () => {
+    if (!session?.session_id) return;
+    
+    try {
+      const response = await fetch(`${API}/coach/play/messages/${session.session_id}`, {
+        credentials: "include"
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.messages && data.messages.length > 0) {
+          // Add new messages to chat
+          setChatMessages(prev => [
+            ...prev,
+            ...data.messages.map(msg => ({
+              type: msg.type,
+              message: msg.message,
+              trigger: msg.trigger,
+              move: msg.move,
+              timestamp: Date.now()
+            }))
+          ]);
+        }
+      }
+    } catch (error) {
+      // Silent fail - polling is background task
+    }
+  };
 
   // Check for active session on mount
   useEffect(() => {
