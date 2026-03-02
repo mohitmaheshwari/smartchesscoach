@@ -158,6 +158,22 @@ class PreMoveGuardian:
                 processing_time_ms=(time.time() - start_time) * 1000
             )
         
+        # CRITICAL: If we're in check, the user MUST address it
+        # Don't warn about anything else - they have no choice
+        if board.is_check():
+            processing_time = (time.time() - start_time) * 1000
+            return GuardianResult(
+                should_intervene=False,
+                intervention_type=InterventionType.NONE,
+                risk_level=RiskLevel.NONE,
+                risk_type=None,
+                message="",
+                explanation="",
+                alternative_moves=[],
+                details={"in_check": True, "note": "User is in check, must address it"},
+                processing_time_ms=processing_time
+            )
+        
         # Run all risk detectors
         risks = []
         
