@@ -11679,16 +11679,21 @@ async def coach_chat_message(
     user: User = Depends(get_current_user)
 ):
     """
-    Send a message to the coach and get a response.
+    Send a message to the coach and get a PERSONALIZED response.
+    
+    Unlike chess.com, our coach:
+    - Knows your past games and mistakes
+    - References similar situations from your history
+    - Gives plan-based advice, not just engine moves
     
     Returns:
-    - response: Coach's text response
-    - suggestion_arrow: UCI coords for arrow if suggesting a move (e.g., "e2e4")
-    - move_quality: Quality of analyzed move
-    - best_move: The best move if different from played
-    - missed_tactic: Type of tactic missed (fork, pin, etc.)
+    - response: Personalized coaching response
+    - suggestion_arrow: UCI coords for arrow if suggesting a move
+    - position_plan: Strategic plan for the position
+    - personal_insight: Reference to past games/patterns
     """
-    from coach_play.coach_commentary import generate_response_to_user
+    from coach_play.coach_commentary import generate_response_to_user, CoachCommentary
+    from coach_play.personalized_coach import get_personalized_coaching
     
     session_id = request.get("session_id")
     message = request.get("message", "").strip()
@@ -11706,12 +11711,39 @@ async def coach_chat_message(
         raise HTTPException(status_code=403, detail="Not your session")
     
     try:
+        current_fen = session_doc.get("current_fen")
+        move_history = session_doc.get("move_history", [])
+        user_color = session_doc.get("user_color", "white")
+        user_rating = session_doc.get("user_rating", 1200)
+        
+        # Get the last move for context
+        user_moves = [m for m in move_history if m.get("by") == "player"]
+        last_move = user_moves[-1].get("move", "") if user_moves else ""
+        
+        # Determine phase
+        coach = CoachCommentary()
+        position = await coach.analyze_position(current_fen)
+        phase = position.phase
+        
+        # Get personalized context from user's history
+        personal_data = await get_personalized_coaching(
+            db=db,
+            user_id=user.user_id,
+            current_fen=current_fen,
+            last_move=last_move,
+            phase=phase,
+            user_color=user_color
+        )
+        
+        # Generate response with personalization
         result = await generate_response_to_user(
             user_message=message,
-            current_fen=session_doc.get("current_fen"),
-            move_history=session_doc.get("move_history", []),
-            user_color=session_doc.get("user_color", "white"),
-            user_rating=session_doc.get("user_rating", 1200)
+            current_fen=current_fen,
+            move_history=move_history,
+            user_color=user_color,
+            user_rating=user_rating,
+            personal_context=personal_data.get("personal_context"),
+            position_plan=personal_data.get("position_plan")
         )
         
         return {
@@ -11720,7 +11752,9 @@ async def coach_chat_message(
             "suggestion_arrow": result.get("suggestion_arrow"),
             "move_quality": result.get("move_quality"),
             "best_move": result.get("best_move"),
-            "missed_tactic": result.get("missed_tactic")
+            "missed_tactic": result.get("missed_tactic"),
+            "position_plan": personal_data.get("position_plan"),
+            "personal_insight": personal_data.get("personal_context", {}).get("similar_mistake")
         }
         
     except Exception as e:
