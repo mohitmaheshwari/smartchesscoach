@@ -172,13 +172,16 @@ const CoachPlay = ({ user }) => {
   // Evaluation state for eval bar
   const [evaluation, setEvaluation] = useState({ score: 0.0, mate_in: null });
   
-  // Reflection/Coaching state
-  const [showReflectionModal, setShowReflectionModal] = useState(false);
-  const [reflectionMoveIndex, setReflectionMoveIndex] = useState(null);
-  const [reflectionInput, setReflectionInput] = useState("");
-  const [isGettingFeedback, setIsGettingFeedback] = useState(false);
-  const [coachFeedback, setCoachFeedback] = useState(null);
-  const [coachConversation, setCoachConversation] = useState([]); // History of coach interactions
+  // Chat state (replaces popup modal)
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isSendingChat, setIsSendingChat] = useState(false);
+  const chatEndRef = useRef(null);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
 
   // Check for active session on mount
   useEffect(() => {
