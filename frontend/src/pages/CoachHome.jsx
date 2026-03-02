@@ -31,8 +31,10 @@ import {
   ActiveAdviceCard,
   LastGameCoachCard,
   CoachFocusCard,
+  DeepSessionBanner,
 } from "@/components/Home";
 import BehavioralInsightCard from "@/components/Home/BehavioralInsightCard";
+import DeepSessionModal from "@/components/DeepSessionModal";
 import {
   AlertTriangle,
   ChevronRight,
