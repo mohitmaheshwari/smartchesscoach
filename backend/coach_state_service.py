@@ -538,39 +538,40 @@ async def generate_game_coach_summary(
     game_id: str,
     user_id: str,
     game_analysis: Dict,
-    coach_state: Optional[CoachState]
+    coach_state: Optional[CoachState],
+    game_result: str = None,
+    user_color: str = "white"
 ) -> GameCoachSummary:
     """
     Generate GameCoachSummary after game analysis completes.
     
-    This is called after Stockfish analysis + pattern computation.
+    Uses coach_moment_selector to pick the most coaching-relevant moment,
+    not just the highest cp_loss.
     
     Inputs:
     - game_analysis: from game_analyses collection
     - coach_state: user's current CoachState
+    - game_result: "1-0", "0-1", "1/2-1/2"
+    - user_color: "white" or "black"
     
     Output:
     - GameCoachSummary ready for Home page display
     """
+    from coach_moment_selector import select_teaching_moment
+    
     service = CoachStateService(db)
     
     # Extract analysis data
     sf_analysis = game_analysis.get("stockfish_analysis", {})
     move_evals = sf_analysis.get("move_evaluations", [])
-    cognitive_gaps = game_analysis.get("cognitive_gaps", [])
     
-    # Find the primary moment (worst mistake)
-    worst_move = None
-    worst_loss = 0
+    # =========================================================================
+    # NEW: Use Coach Moment Selector instead of highest cp_loss
+    # =========================================================================
+    selection_result = select_teaching_moment(move_evals, user_color, game_result)
     
-    for m in move_evals:
-        cp_loss = m.get("cp_loss", 0)
-        if cp_loss > worst_loss:
-            worst_loss = cp_loss
-            worst_move = m
-    
-    if not worst_move:
-        # No significant mistakes - use a default
+    if not selection_result:
+        # No critical moves - use a default
         primary_moment = PrimaryMoment(
             move_number=1,
             fen=game_analysis.get("initial_fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"),
@@ -578,24 +579,44 @@ async def generate_game_coach_summary(
         )
         primary_issue = PrimaryIssue.MISSED_TACTIC
         confidence = Confidence.LOW
+        selected_move = None
+        selection_reason = "no_critical_moves"
     else:
-        move_num = worst_move.get("move_number", 1)
-        fen = worst_move.get("fen_before", "")
-        eval_label = worst_move.get("evaluation", "mistake")
+        selected_move = selection_result.get("selected_move", {})
+        move_num = selected_move.get("move_number", 1)
+        fen = selected_move.get("fen_before", "")
+        eval_label = selected_move.get("evaluation", "mistake")
+        cp_loss = selected_move.get("cp_loss", 0)
+        selection_reason = selection_result.get("selection_reason", "tactical_error")
+        
+        # Create label based on selection reason
+        if selection_reason == "pattern_event":
+            pattern_freq = selected_move.get("pattern_frequency", 0)
+            label = f"Move {move_num} - Pattern ({pattern_freq}x)"
+        elif selection_reason == "turning_point":
+            label = f"Move {move_num} - Turning Point"
+        elif selection_reason == "missed_mate":
+            label = f"Move {move_num} - Missed Mate"
+        else:
+            label = f"Move {move_num} - {eval_label.title()}"
         
         primary_moment = PrimaryMoment(
             move_number=move_num,
             fen=fen,
-            label=f"Move {move_num} - {eval_label.title()}"
+            label=label
         )
         
-        # Determine primary issue from cognitive gaps or move context
-        primary_issue = _determine_primary_issue(worst_move, cognitive_gaps, game_analysis)
+        # Determine primary issue from cognitive gap or selection reason
+        cognitive_gap = selected_move.get("cognitive_gap")
+        primary_issue = _map_gap_to_issue(cognitive_gap, selection_reason)
         
-        # Confidence based on eval loss magnitude
-        if worst_loss >= 300:
+        # Confidence based on CRS score and context
+        crs_score = selection_result.get("selection_score", 0)
+        position_ctx = selected_move.get("position_context", {})
+        
+        if crs_score >= 200 or position_ctx.get("result_flipped"):
             confidence = Confidence.HIGH
-        elif worst_loss >= 150:
+        elif crs_score >= 100 or cp_loss >= 150:
             confidence = Confidence.MEDIUM
         else:
             confidence = Confidence.LOW
@@ -605,8 +626,8 @@ async def generate_game_coach_summary(
     emotion_lines = EMOTION_MIRRORS.get(primary_issue, ["That was a tough moment."])
     emotion_mirror = service.get_non_repetitive_line(emotion_lines, recent_sentences)
     
-    # Generate coach explain line
-    coach_explain = _generate_coach_explain(worst_move, primary_issue, game_analysis)
+    # Generate coach explain line (using new selection data)
+    coach_explain = _generate_coach_explain_v2(selected_move, primary_issue, selection_reason)
     
     # Check if ties to active theme
     ties_to_theme = False
@@ -619,16 +640,17 @@ async def generate_game_coach_summary(
             theme_line = f"This connects to your current focus: {coach_state.active_theme.value.replace('_', ' ')}."
     
     # Determine CTA
-    if worst_move and worst_loss >= 150:
+    if selected_move:
+        move_num = selected_move.get("move_number", 1)
         cta_type = "review_moment"
-        cta_text = "Review Critical Moment"
-        cta_target = f"/game/{game_id}?move={worst_move.get('move_number', 1)}"
+        cta_text = "Review This Moment"
+        cta_target = f"/game/{game_id}?move={move_num}"
     else:
-        cta_type = "review_moment"
+        cta_type = "review_game"
         cta_text = "Review Game"
         cta_target = f"/game/{game_id}"
     
-    # Create summary
+    # Create summary with selection metadata
     summary = GameCoachSummary(
         game_id=game_id,
         user_id=user_id,
@@ -644,6 +666,15 @@ async def generate_game_coach_summary(
         cta_text=cta_text,
         cta_target=cta_target
     )
+    
+    # Store selection metadata for debugging
+    summary_dict = summary.to_dict()
+    summary_dict["selection_metadata"] = {
+        "selection_reason": selection_reason,
+        "selection_score": selection_result.get("selection_score") if selection_result else 0,
+        "selection_factors": selection_result.get("selection_factors", []) if selection_result else [],
+        "runner_up_count": len(selection_result.get("runner_up_moves", [])) if selection_result else 0
+    }
     
     # Save summary
     await service.save_game_coach_summary(summary)
@@ -674,6 +705,113 @@ async def generate_game_coach_summary(
         await service.update_coach_state(coach_state)
     
     return summary
+
+
+def _map_gap_to_issue(cognitive_gap: Optional[str], selection_reason: str) -> PrimaryIssue:
+    """Map cognitive gap to primary issue enum"""
+    if not cognitive_gap:
+        # Fall back to selection reason
+        if selection_reason == "missed_mate":
+            return PrimaryIssue.MISSED_TACTIC
+        elif selection_reason == "turning_point":
+            return PrimaryIssue.POSITIONAL_DRIFT
+        elif selection_reason == "pattern_event":
+            return PrimaryIssue.THREAT_SCAN_FAILURE
+        return PrimaryIssue.MISSED_TACTIC
+    
+    # Map cognitive gap types to primary issues
+    gap_to_issue = {
+        "THREAT_BLINDNESS": PrimaryIssue.THREAT_SCAN_FAILURE,
+        "threat_blindness": PrimaryIssue.THREAT_SCAN_FAILURE,
+        "HANGING_PIECE_BLINDNESS": PrimaryIssue.PIECE_LEFT_UNDEFENDED,
+        "hanging_piece_blindness": PrimaryIssue.PIECE_LEFT_UNDEFENDED,
+        "TACTICAL_OVERSIGHT": PrimaryIssue.MISSED_TACTIC,
+        "tactical_oversight": PrimaryIssue.MISSED_TACTIC,
+        "CALCULATION_DEPTH": PrimaryIssue.STOPPED_CALCULATION_EARLY,
+        "calculation_depth": PrimaryIssue.STOPPED_CALCULATION_EARLY,
+        "POSITIONAL_MISREAD": PrimaryIssue.POSITIONAL_DRIFT,
+        "positional_misread": PrimaryIssue.POSITIONAL_DRIFT,
+        "PREMATURE_ACTION": PrimaryIssue.RUSHED_WHEN_AHEAD,
+        "premature_action": PrimaryIssue.RUSHED_WHEN_AHEAD,
+        "DEFENSIVE_LAPSE": PrimaryIssue.DEFENSIVE_LAPSE,
+        "defensive_lapse": PrimaryIssue.DEFENSIVE_LAPSE,
+    }
+    
+    return gap_to_issue.get(cognitive_gap, PrimaryIssue.MISSED_TACTIC)
+
+
+def _generate_coach_explain_v2(
+    selected_move: Optional[Dict],
+    primary_issue: PrimaryIssue,
+    selection_reason: str
+) -> str:
+    """
+    Generate contextual coach explanation using selection data.
+    
+    Uses PV lines, position context, and selection reason
+    for more realistic explanations.
+    """
+    if not selected_move:
+        return "Review your game to identify areas for improvement."
+    
+    position_ctx = selected_move.get("position_context", {})
+    pv_played = selected_move.get("pv_after_played", [])
+    pv_best = selected_move.get("pv_after_best", [])
+    threat = selected_move.get("threat")
+    best_move = selected_move.get("best_move")
+    gap_evidence = selected_move.get("gap_evidence", "")
+    coaching_focus = selected_move.get("coaching_focus", "")
+    cp_loss = selected_move.get("cp_loss", 0)
+    
+    lines = []
+    
+    # Different explanation structure by selection reason
+    if selection_reason == "pattern_event":
+        pattern_freq = selected_move.get("pattern_frequency", 0)
+        lines.append(f"This is the {_ordinal(pattern_freq)} time this pattern appeared.")
+        if coaching_focus:
+            lines.append(coaching_focus)
+    
+    elif selection_reason == "turning_point":
+        state_before = position_ctx.get("state_before", "")
+        state_after = position_ctx.get("state_after", "")
+        if state_before and state_after:
+            lines.append(f"You were {state_before} but became {state_after} after this move.")
+        else:
+            lines.append("This was a turning point in the game.")
+    
+    elif selection_reason == "missed_mate":
+        if pv_best and len(pv_best) >= 2:
+            short_line = " ".join(pv_best[:3])
+            lines.append(f"There was a forced mate: {short_line}...")
+        else:
+            lines.append("You missed a forced mating sequence.")
+        lines.append("In winning positions, check for forcing sequences.")
+    
+    else:  # tactical_error or default
+        if threat:
+            lines.append(f"After your move, opponent had {threat}.")
+        if best_move and cp_loss >= 100:
+            lines.append(f"Consider {best_move} instead.")
+    
+    # Add coaching focus if not already included
+    if coaching_focus and coaching_focus not in lines:
+        lines.append(coaching_focus)
+    
+    # Ensure we have at least one line
+    if not lines:
+        lines.append("Review this moment carefully.")
+    
+    return " ".join(lines[:3])  # Max 3 sentences
+
+
+def _ordinal(n: int) -> str:
+    """Convert number to ordinal (1st, 2nd, 3rd, etc.)"""
+    if 11 <= n % 100 <= 13:
+        suffix = 'th'
+    else:
+        suffix = ['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]
+    return f"{n}{suffix}"
 
 
 def _determine_primary_issue(worst_move: Dict, cognitive_gaps: List, game_analysis: Dict) -> PrimaryIssue:
