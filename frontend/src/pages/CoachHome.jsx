@@ -29,6 +29,8 @@ import {
   CoachGameReviewCard,
   RecommendedDrillCard,
   ActiveAdviceCard,
+  LastGameCoachCard,
+  CoachFocusCard,
 } from "@/components/Home";
 import BehavioralInsightCard from "@/components/Home/BehavioralInsightCard";
 import {
