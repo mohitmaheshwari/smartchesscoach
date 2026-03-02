@@ -52,22 +52,31 @@ const TREND_CONFIG = {
 const CoachFocusCard = () => {
   const [loading, setLoading] = useState(true);
   const [themeStats, setThemeStats] = useState(null);
+  const [maturity, setMaturity] = useState(null);
 
   useEffect(() => {
-    fetchThemeStats();
+    fetchData();
   }, []);
 
-  const fetchThemeStats = async () => {
+  const fetchData = async () => {
     try {
-      const res = await fetch(`${API}/coach/theme-stats`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
+      const [themeRes, maturityRes] = await Promise.all([
+        fetch(`${API}/coach/theme-stats`, { credentials: "include" }),
+        fetch(`${API}/coach/maturity`, { credentials: "include" }).catch(() => null)
+      ]);
+      
+      if (themeRes.ok) {
+        const data = await themeRes.json();
         if (data.has_theme) {
           setThemeStats(data);
         }
       }
+      
+      if (maturityRes?.ok) {
+        setMaturity(await maturityRes.json());
+      }
     } catch (err) {
-      console.error("Error fetching theme stats:", err);
+      console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
     }
