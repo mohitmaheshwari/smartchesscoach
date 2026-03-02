@@ -293,17 +293,18 @@ Respond with ONLY the JSON, no other text."""
     async def _call_llm(self, prompt: str) -> str:
         """Call the LLM to generate feedback."""
         try:
-            from emergentintegrations.llm.chat import chat, Message, Model
+            from emergentintegrations.llm.chat import LlmChat, UserMessage
             
             emergent_api_key = os.environ.get("EMERGENT_LLM_KEY", "")
             
-            response = await chat(
+            llm = LlmChat(
                 api_key=emergent_api_key,
-                model=Model.OPENAI_GPT4O_MINI,
-                messages=[
-                    Message(role="user", content=prompt)
-                ]
+                model="openai/gpt-4o-mini"
             )
+            
+            response = await llm.chat([
+                UserMessage(content=prompt)
+            ])
             
             return response.content
             
