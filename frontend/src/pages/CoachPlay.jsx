@@ -959,12 +959,16 @@ const CoachPlay = ({ user }) => {
                 className={`p-3 rounded-lg ${
                   msg.type === "coach"
                     ? "bg-primary/10 border border-primary/20"
+                    : msg.type === "thinking"
+                    ? "bg-primary/5 border border-primary/10 animate-pulse"
                     : "bg-muted/50 ml-6"
                 }`}
               >
                 <div className="flex items-start gap-2">
                   {msg.type === "coach" ? (
                     <Brain className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  ) : msg.type === "thinking" ? (
+                    <Loader2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0 animate-spin" />
                   ) : (
                     <MessageCircle className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                   )}
@@ -981,7 +985,11 @@ const CoachPlay = ({ user }) => {
                         After {msg.move}:
                       </span>
                     )}
-                    <p className={msg.type === "coach" ? "" : "text-muted-foreground"}>
+                    <p className={
+                      msg.type === "coach" ? "" : 
+                      msg.type === "thinking" ? "text-primary italic" :
+                      "text-muted-foreground"
+                    }>
                       {msg.message}
                     </p>
                   </div>
