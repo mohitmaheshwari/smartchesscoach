@@ -751,6 +751,9 @@ async def generate_game_coach_summary(
     # Get max CRS score for positive coaching threshold check
     max_crs_score = selection_result.get("selection_score", 0) if selection_result else 0
     
+    # Get blunders count from analysis
+    blunders_count = sf_analysis.get("blunders", 0)
+    
     narrative_result = generate_coaching_narrative(
         selected_move=selected_move or {},
         selection_reason=selection_reason,
@@ -759,7 +762,8 @@ async def generate_game_coach_summary(
         active_theme=active_theme,
         recent_sentences=recent_sentences,
         max_crs_score=max_crs_score,
-        good_game_streak=good_game_streak
+        good_game_streak=good_game_streak,
+        blunders_count=blunders_count
     )
     
     # Extract narrative components

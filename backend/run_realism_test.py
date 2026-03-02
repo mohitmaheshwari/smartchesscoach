@@ -76,11 +76,13 @@ def process_game(game_num: int, game: dict, coach_state: CoachState):
         selected_move = {}
         selection_reason = "no_critical_moves"
         max_crs = 0
+        position_ctx = {}
         
         if selection:
             selected_move = selection.get("selected_move", {})
             selection_reason = selection.get("selection_reason", "tactical_error")
             max_crs = selection.get("selection_score", 0)
+            position_ctx = selected_move.get("position_context", {})
             
             print(f"\n  Selected Move: #{selected_move.get('move_number', 'N/A')}")
             print(f"  Selection Reason: {selection_reason}")
@@ -89,10 +91,7 @@ def process_game(game_num: int, game: dict, coach_state: CoachState):
         else:
             print(f"\n  No critical moves - POSITIVE COACHING path")
         
-        # Get position context
-        position_ctx = selected_move.get("position_context", {}) if selected_move else {}
-        
-        # Generate narrative using the engine
+        # Generate narrative using the engine (NOW WITH BLUNDERS COUNT)
         narrative_result = generate_coaching_narrative(
             selected_move=selected_move,
             selection_reason=selection_reason,
@@ -101,7 +100,8 @@ def process_game(game_num: int, game: dict, coach_state: CoachState):
             active_theme=coach_state.active_theme.value if coach_state else None,
             recent_sentences=coach_state.recent_coach_sentences if coach_state else [],
             max_crs_score=max_crs,
-            good_game_streak=coach_state.good_game_streak if coach_state else 0
+            good_game_streak=coach_state.good_game_streak if coach_state else 0,
+            blunders_count=blunders  # NEW: Pass blunders count
         )
         
         # Display coach output

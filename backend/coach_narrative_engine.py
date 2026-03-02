@@ -43,11 +43,14 @@ class ToneProfile(str, Enum):
 
 # Threshold for triggering positive coaching (max CRS below this = good game)
 # Higher maturity = higher standards
+# NOTE: Positive coaching triggers when:
+#   - max_CRS < threshold AND no result_flipped AND no advantage_lost AND blunders == 0
+# This means "no meaningful learning interruption occurred"
 POSITIVE_CRS_THRESHOLD = {
-    "Novice": 80,
-    "Developing": 50,
-    "Disciplined": 30,
-    "Advanced": 20
+    "Novice": 150,      # More forgiving - novice games naturally have small issues
+    "Developing": 100,  # Moderate
+    "Disciplined": 60,  # Higher standard
+    "Advanced": 40      # Very high standard
 }
 
 
@@ -345,7 +348,8 @@ class CoachNarrativeEngine:
         active_theme: str = None,
         game_result: str = None,
         max_crs_score: float = None,
-        good_game_streak: int = 0
+        good_game_streak: int = 0,
+        blunders_count: int = 0
     ) -> Tuple[NarrativeComponents, str, float]:
         """
         Generate structured coaching narrative.
@@ -359,15 +363,31 @@ class CoachNarrativeEngine:
             game_result: Game outcome
             max_crs_score: Maximum CRS score in the game (for positive coaching trigger)
             good_game_streak: Number of consecutive good games
+            blunders_count: Number of blunders in the game
             
         Returns:
             (NarrativeComponents, narrative_strategy, explanation_confidence)
         """
         # Check if this should be positive coaching
-        threshold = POSITIVE_CRS_THRESHOLD.get(maturity_level, 50)
+        # Positive coaching = "no meaningful learning interruption occurred"
+        threshold = POSITIVE_CRS_THRESHOLD.get(maturity_level, 100)
+        
+        # Conditions for positive coaching:
+        # 1. No critical moves OR max CRS below threshold
+        # 2. No result-flipping moments
+        # 3. No advantage lost
+        # 4. No blunders
+        no_critical = selection_reason == "no_critical_moves"
+        low_crs = max_crs_score is not None and max_crs_score < threshold
+        no_result_flip = not position_context.get("result_flipped", False)
+        no_advantage_lost = not position_context.get("advantage_lost", False)
+        no_blunders = blunders_count == 0
+        
         is_positive = (
-            selection_reason == "no_critical_moves" or
-            (max_crs_score is not None and max_crs_score < threshold)
+            (no_critical or low_crs) and
+            no_result_flip and
+            no_advantage_lost and
+            no_blunders
         )
         
         if is_positive:
@@ -593,9 +613,23 @@ class CoachNarrativeEngine:
         return self._select_non_repetitive(templates)
     
     def _select_non_repetitive(self, templates: List[str]) -> str:
-        """Select a template that hasn't been used recently"""
-        # Filter out recently used sentences
-        available = [t for t in templates if t not in self.recent_sentences]
+        """Select a template that hasn't been used recently using similarity matching"""
+        # Filter using similarity matching (not exact string)
+        available = []
+        for t in templates:
+            is_similar = False
+            for recent in self.recent_sentences:
+                # Check if first 20 chars match (pattern similarity)
+                if len(t) >= 20 and len(recent) >= 20:
+                    if t[:20].lower() == recent[:20].lower():
+                        is_similar = True
+                        break
+                # Also check exact match
+                if t == recent:
+                    is_similar = True
+                    break
+            if not is_similar:
+                available.append(t)
         
         if not available:
             available = templates  # Fall back if all used
@@ -702,13 +736,22 @@ class ToneRenderer:
         # Rule (always included)
         lines.append(components.rule_line)
         
-        # Theme reinforcement
+        # Theme reinforcement (skip if already said recently - check in caller)
         if components.theme_reinforcement_line:
             lines.append(components.theme_reinforcement_line)
         
-        # Add encouragement for novice
+        # Add encouragement for novice (VARIED - not static)
         if config["add_encouragement"]:
-            lines.append("This gets easier with practice.")
+            encouragements = [
+                "This gets easier with practice.",
+                "Keep working on this pattern.",
+                "You're building good habits.",
+                "Stay patient with yourself.",
+                "Progress comes with repetition.",
+            ]
+            # Don't add if any encouragement was recently used
+            # This is handled by the caller tracking recent_sentences
+            lines.append(random.choice(encouragements))
         
         # Filter empty lines
         lines = [l for l in lines if l and l.strip()]
@@ -728,7 +771,8 @@ def generate_coaching_narrative(
     active_theme: str = None,
     recent_sentences: List[str] = None,
     max_crs_score: float = None,
-    good_game_streak: int = 0
+    good_game_streak: int = 0,
+    blunders_count: int = 0
 ) -> Dict:
     """
     Generate complete coaching narrative with tone adjustment.
@@ -742,6 +786,7 @@ def generate_coaching_narrative(
         recent_sentences: Recently used sentences (for anti-repetition)
         max_crs_score: Maximum CRS in game (for positive coaching trigger)
         good_game_streak: Consecutive good games count
+        blunders_count: Number of blunders in the game
     
     Returns:
         {
@@ -761,7 +806,8 @@ def generate_coaching_narrative(
         maturity_level=maturity_level,
         active_theme=active_theme,
         max_crs_score=max_crs_score,
-        good_game_streak=good_game_streak
+        good_game_streak=good_game_streak,
+        blunders_count=blunders_count
     )
     
     renderer = ToneRenderer()
