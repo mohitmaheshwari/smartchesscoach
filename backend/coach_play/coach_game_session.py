@@ -58,7 +58,7 @@ class CoachGameSession:
     increment: float = 10.0
     
     # Result
-    result: GameResult = GameResult.ONGOING
+    result: Optional[GameResult] = None
     termination_reason: str = ""
     
     # Timestamps
