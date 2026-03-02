@@ -211,6 +211,20 @@ def get_database():
     return client[db_name]
 
 
+def update_job_heartbeat(db, game_id):
+    """Update job heartbeat to indicate worker is still alive"""
+    global last_heartbeat
+    current_time = time.time()
+    
+    if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
+        db.analysis_queue.update_one(
+            {"game_id": game_id, "status": "processing"},
+            {"$set": {"last_heartbeat": datetime.now(timezone.utc)}}
+        )
+        last_heartbeat = current_time
+        logger.debug(f"Updated heartbeat for {game_id}")
+
+
 def claim_next_job(db):
     """
     Atomically claim the next pending job from the queue.
