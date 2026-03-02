@@ -171,6 +171,14 @@ const CoachPlay = ({ user }) => {
   
   // Evaluation state for eval bar
   const [evaluation, setEvaluation] = useState({ score: 0.0, mate_in: null });
+  
+  // Reflection/Coaching state
+  const [showReflectionModal, setShowReflectionModal] = useState(false);
+  const [reflectionMoveIndex, setReflectionMoveIndex] = useState(null);
+  const [reflectionInput, setReflectionInput] = useState("");
+  const [isGettingFeedback, setIsGettingFeedback] = useState(false);
+  const [coachFeedback, setCoachFeedback] = useState(null);
+  const [coachConversation, setCoachConversation] = useState([]); // History of coach interactions
 
   // Check for active session on mount
   useEffect(() => {
