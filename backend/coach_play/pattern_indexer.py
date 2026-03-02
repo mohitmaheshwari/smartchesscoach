@@ -164,14 +164,14 @@ class PatternIndexer:
         best_move = move_eval.get("best_move", "")
         played_move = move_eval.get("move", "")
         
+        # Check for fork patterns FIRST (most specific tactical pattern)
+        if self._detects_fork_pattern(board, best_move):
+            return CognitiveGap.MISSED_FORK, "knight_fork"
+        
         # Check for king safety issues
         if self._is_king_exposed(board):
             if cp_loss >= self.KING_SAFETY_THRESHOLD:
                 return CognitiveGap.KING_SAFETY_NEGLECT, "king_safety"
-        
-        # Check for fork patterns
-        if self._detects_fork_pattern(board, best_move):
-            return CognitiveGap.MISSED_FORK, "knight_fork"
         
         # Check for hanging piece
         color = board.turn
