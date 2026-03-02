@@ -350,19 +350,27 @@ def interpret_game_analysis(
     Returns:
         (enriched_moves, summary)
     """
+    from position_context_service import enrich_moves_with_context
+    
     interpreter = AnalysisInterpreter(db)
     interpreted = interpreter.interpret_moves(move_evaluations, user_color)
     summary = interpreter.get_interpretation_summary(interpreted)
     
     # Convert back to dict format for storage
     enriched_moves = []
-    for m in interpreted:
+    for i, m in enumerate(interpreted):
+        # Get original move data for fields we don't have in InterpretedMove
+        orig = move_evaluations[i] if i < len(move_evaluations) else {}
+        
         enriched = {
             "move_number": m.move_number,
+            "move": orig.get("move", ""),
             "move_uci": m.move_uci,
             "fen_before": m.fen_before,
             "fen_after": m.fen_after,
             "cp_loss": m.cp_loss,
+            "eval_before": orig.get("eval_before", 0),
+            "eval_after": orig.get("eval_after", 0),
             "eval_swing": m.eval_swing,
             "is_turning_point": m.is_turning_point,
             "evaluation": m.evaluation,
@@ -371,8 +379,19 @@ def interpret_game_analysis(
             "critical_reason": m.critical_reason,
             "gap_confidence": m.gap_confidence,
             "gap_evidence": m.gap_evidence,
-            "coaching_focus": m.coaching_focus
+            "coaching_focus": m.coaching_focus,
+            # Preserve original fields
+            "best_move": orig.get("best_move"),
+            "best_move_uci": orig.get("best_move_uci"),
+            "is_best": orig.get("is_best", False),
+            "mate_info": orig.get("mate_info"),
+            "pv_after_played": orig.get("pv_after_played", []),
+            "pv_after_best": orig.get("pv_after_best", []),
+            "threat": orig.get("threat")
         }
         enriched_moves.append(enriched)
+    
+    # Add position context to all moves
+    enriched_moves = enrich_moves_with_context(enriched_moves, user_color)
     
     return enriched_moves, summary
