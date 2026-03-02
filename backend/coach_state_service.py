@@ -764,12 +764,40 @@ async def generate_game_coach_summary(
     active_theme = coach_state.active_theme.value if coach_state else None
     position_ctx = selected_move.get("position_context", {}) if selected_move else {}
     good_game_streak = coach_state.good_game_streak if coach_state else 0
+    games_on_theme = coach_state.games_on_theme if coach_state else 0
     
     # Get max CRS score for positive coaching threshold check
     max_crs_score = selection_result.get("selection_score", 0) if selection_result else 0
     
     # Get blunders count from analysis
     blunders_count = sf_analysis.get("blunders", 0)
+    
+    # Fetch memory context for memory-aware narrative (Step 5)
+    # This influences PHRASING only, not analysis
+    from coach_memory_service import get_memory_service
+    memory_service = get_memory_service(db)
+    
+    # Derive lesson key early so we can check cooldowns
+    import lesson_resolver
+    cognitive_gap = selected_move.get("cognitive_gap") if selected_move else None
+    crs_score = selection_result.get("selection_score", 0) if selection_result else 0
+    is_positive = selection_reason in ("positive_coaching", "no_critical_moves") or (
+        max_crs_score < 100 and blunders_count == 0
+    )
+    lesson_resolution = lesson_resolver.resolve(
+        cognitive_gap=cognitive_gap,
+        selection_reason=selection_reason,
+        crs_score=crs_score,
+        is_positive_game=is_positive
+    )
+    
+    # Build memory context for narrative engine
+    memory_context = await memory_service.build_context(
+        user_id=user_id,
+        current_lesson_key=lesson_resolution.lesson_key,
+        current_streak=good_game_streak
+    )
+    memory_context_dict = memory_context.to_dict() if memory_context else None
     
     narrative_result = generate_coaching_narrative(
         selected_move=selected_move or {},
@@ -780,7 +808,9 @@ async def generate_game_coach_summary(
         recent_sentences=recent_sentences,
         max_crs_score=max_crs_score,
         good_game_streak=good_game_streak,
-        blunders_count=blunders_count
+        blunders_count=blunders_count,
+        memory_context=memory_context_dict,
+        games_on_theme=games_on_theme
     )
     
     # Extract narrative components
@@ -818,19 +848,8 @@ async def generate_game_coach_summary(
         cta_text = "Review Game"
         cta_target = f"/game/{game_id}"
     
-    # Resolve lesson using lesson_resolver (replaces old lesson_key_mapping)
-    # This is the SINGLE SOURCE OF TRUTH for lesson identification
-    import lesson_resolver
-    cognitive_gap = selected_move.get("cognitive_gap") if selected_move else None
-    crs_score = selection_result.get("selection_score", 0) if selection_result else 0
-    is_positive = narrative_strategy == "positive_coaching"
-    
-    lesson_resolution = lesson_resolver.resolve(
-        cognitive_gap=cognitive_gap,
-        selection_reason=selection_reason,
-        crs_score=crs_score,
-        is_positive_game=is_positive
-    )
+    # lesson_resolution was already computed above for memory context
+    # Reuse it here (don't resolve twice)
     
     # Create summary with full narrative structure
     summary = GameCoachSummary(

@@ -328,6 +328,166 @@ STREAK_ACKNOWLEDGMENT = [
 ]
 
 
+# =============================================================================
+# MEMORY-AWARE NARRATIVE MODIFICATIONS (Step 5)
+# =============================================================================
+# Memory influences phrasing in 4 CONTROLLED ways ONLY:
+# 1. Lesson cooldown phrasing
+# 2. Pattern trend phrasing
+# 3. Milestone acknowledgment
+# 4. Theme evolution phrasing
+
+# Cooldown modifications - when lesson was recently taught
+COOLDOWN_RULE_MODIFICATIONS = [
+    "You've seen this idea recently — apply it more consistently.",
+    "We've covered this. Now it's about execution.",
+    "This is familiar territory. Focus on applying it.",
+    "You know the principle — it's practice time now.",
+]
+
+# Pattern trend modifications for break/teaching lines
+PATTERN_TREND_MODIFIERS = {
+    "improving": [
+        "This mistake is appearing less often now.",
+        "This pattern is improving in your games.",
+        "You're making progress on this.",
+    ],
+    "persistent": [
+        "This continues to appear.",
+        "This pattern persists in your games.",
+        "We keep seeing this.",
+    ],
+    "recurring": [
+        "This is recurring more frequently.",
+        "This is appearing more often recently.",
+        "This pattern is intensifying.",
+    ],
+    "stable": []  # No modification for stable patterns
+}
+
+# Milestone acknowledgments (rare, earned)
+MILESTONE_CELEBRATIONS = {
+    "first_clean_game": [
+        "This was a clean game. That's a milestone.",
+        "First game without major errors — that matters.",
+    ],
+    "first_three_streak": [
+        "That's three stable games in a row.",
+        "Three games without breakdown — real progress.",
+    ],
+    "first_five_streak": [
+        "Five games of discipline. That's rare.",
+        "Five-game streak shows real control.",
+    ],
+    "lesson_mastery": [
+        "This pattern hasn't appeared in 10 games — you've internalized it.",
+        "You've moved past this lesson. It's becoming instinct.",
+    ],
+}
+
+# Theme evolution phrasing based on games on theme
+THEME_EVOLUTION_PHRASES = {
+    "early": "We're focusing on {theme}.",
+    "mid": "You've been working on {theme}.",
+    "late": "{theme} is becoming more natural for you.",
+    "mastery": "You applied {theme} instinctively.",
+}
+
+
+def apply_memory_modifications(
+    components: 'NarrativeComponents',
+    memory_context: Optional[Dict] = None,
+    games_on_theme: int = 0,
+    active_theme: str = None
+) -> Tuple['NarrativeComponents', int]:
+    """
+    Apply memory-based modifications to narrative components.
+    
+    GUARDRAILS:
+    - Max 2 memory-based modifications per explanation
+    - Milestone suppression if mentioned < 2 games ago
+    - Memory influences PHRASING only, not analysis
+    
+    Args:
+        components: Original narrative components
+        memory_context: MemoryContext.to_dict() or None
+        games_on_theme: How many games on current theme
+        active_theme: Current theme name
+        
+    Returns:
+        (modified_components, modification_count)
+    """
+    if not memory_context:
+        return components, 0
+    
+    modification_count = 0
+    MAX_MODIFICATIONS = 2
+    
+    # Work with mutable copies
+    rule_line = components.rule_line
+    teaching_line = components.teaching_line
+    theme_line = components.theme_reinforcement_line
+    
+    # 1. Lesson cooldown phrasing
+    if (memory_context.get("is_lesson_on_cooldown") and 
+        modification_count < MAX_MODIFICATIONS):
+        # Replace rule line with cooldown-aware version
+        rule_line = random.choice(COOLDOWN_RULE_MODIFICATIONS)
+        modification_count += 1
+    
+    # 2. Pattern trend phrasing
+    pattern_trend = memory_context.get("lesson_trend", "stable")
+    if (pattern_trend != "stable" and 
+        pattern_trend in PATTERN_TREND_MODIFIERS and
+        PATTERN_TREND_MODIFIERS[pattern_trend] and
+        modification_count < MAX_MODIFICATIONS):
+        # Add trend modifier to teaching line
+        trend_phrase = random.choice(PATTERN_TREND_MODIFIERS[pattern_trend])
+        teaching_line = f"{trend_phrase} {teaching_line}"
+        modification_count += 1
+    
+    # 3. Milestone acknowledgment (rare)
+    active_milestone = memory_context.get("active_milestone")
+    if (active_milestone and 
+        active_milestone in MILESTONE_CELEBRATIONS and
+        modification_count < MAX_MODIFICATIONS):
+        # Add milestone to teaching line
+        celebration = random.choice(MILESTONE_CELEBRATIONS[active_milestone])
+        teaching_line = f"{teaching_line} {celebration}"
+        modification_count += 1
+    
+    # 4. Theme evolution phrasing
+    if (active_theme and 
+        theme_line and
+        modification_count < MAX_MODIFICATIONS):
+        # Determine evolution stage
+        if games_on_theme < 5:
+            stage = "early"
+        elif games_on_theme < 15:
+            stage = "mid"
+        elif games_on_theme < 30:
+            stage = "late"
+        else:
+            stage = "mastery"
+        
+        # Apply stage-appropriate theme phrasing
+        theme_display = active_theme.replace("_", " ").lower()
+        theme_line = THEME_EVOLUTION_PHRASES[stage].format(theme=theme_display)
+        modification_count += 1
+    
+    # Create modified components
+    modified = NarrativeComponents(
+        intent_mirror_line=components.intent_mirror_line,
+        thinking_break_line=components.thinking_break_line,
+        position_consequence_line=components.position_consequence_line,
+        teaching_line=teaching_line,
+        rule_line=rule_line,
+        theme_reinforcement_line=theme_line
+    )
+    
+    return modified, modification_count
+
+
 class CoachNarrativeEngine:
     """
     Generates structured coaching explanations.
@@ -772,10 +932,12 @@ def generate_coaching_narrative(
     recent_sentences: List[str] = None,
     max_crs_score: float = None,
     good_game_streak: int = 0,
-    blunders_count: int = 0
+    blunders_count: int = 0,
+    memory_context: Dict = None,
+    games_on_theme: int = 0
 ) -> Dict:
     """
-    Generate complete coaching narrative with tone adjustment.
+    Generate complete coaching narrative with tone adjustment and memory awareness.
     
     Args:
         selected_move: Critical move data
@@ -787,6 +949,8 @@ def generate_coaching_narrative(
         max_crs_score: Maximum CRS in game (for positive coaching trigger)
         good_game_streak: Consecutive good games count
         blunders_count: Number of blunders in the game
+        memory_context: MemoryContext.to_dict() for memory-aware modifications (Step 5)
+        games_on_theme: How many games on current theme (for theme evolution phrasing)
     
     Returns:
         {
@@ -794,7 +958,8 @@ def generate_coaching_narrative(
             "narrative_strategy": "...",
             "explanation_confidence": 0.85,
             "assembled_text": "...",
-            "tone_profile_used": "..."
+            "tone_profile_used": "...",
+            "memory_modifications_applied": int
         }
     """
     engine = CoachNarrativeEngine(recent_sentences or [])
@@ -810,6 +975,19 @@ def generate_coaching_narrative(
         blunders_count=blunders_count
     )
     
+    # Apply memory modifications (Step 5: Memory Continuity)
+    # This influences PHRASING only, not analysis
+    modifications_count = 0
+    if memory_context:
+        components, modifications_count = apply_memory_modifications(
+            components=components,
+            memory_context=memory_context,
+            games_on_theme=games_on_theme,
+            active_theme=active_theme
+        )
+        if modifications_count > 0:
+            logger.debug(f"Applied {modifications_count} memory modifications to narrative")
+    
     renderer = ToneRenderer()
     assembled = renderer.render(components, maturity_level)
     
@@ -818,5 +996,6 @@ def generate_coaching_narrative(
         "narrative_strategy": strategy,
         "explanation_confidence": confidence,
         "assembled_text": assembled,
-        "tone_profile_used": maturity_level
+        "tone_profile_used": maturity_level,
+        "memory_modifications_applied": modifications_count
     }

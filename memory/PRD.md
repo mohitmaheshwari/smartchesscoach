@@ -254,14 +254,47 @@ Build a full-featured chess coaching application that analyzes games, identifies
    - Returns: cooldown status, pattern trend, recent lessons, milestones
    - Never exposes raw DB structure
 
-**Phase 3 - Narrative Integration:** 🔜 NEXT
+**Phase 3 - Narrative Integration:** ✅ COMPLETE
 
-- Inject memory context into `coach_narrative_engine`
-- Make explanations memory-aware:
-  - "This is improving"
-  - "We've seen this before"
-  - "You've been working on..."
-  - Milestone celebrations
+Memory-aware narrative modifications implemented with 4 controlled influence paths:
+
+1. **Lesson Cooldown Phrasing:**
+   - "You've seen this idea recently — apply it more consistently."
+   - "We've covered this. Now it's about execution."
+
+2. **Pattern Trend Phrasing:**
+   - Improving: "This mistake is appearing less often now."
+   - Persistent: "This continues to appear."
+   - Recurring: "This is increasing recently."
+
+3. **Milestone Acknowledgment:**
+   - "This was a clean game. That's a milestone."
+   - "Three games of discipline — real progress."
+
+4. **Theme Evolution Phrasing:**
+   - Early: "We're focusing on threat verification."
+   - Mid: "You've been working on threat verification."
+   - Late: "Threat verification is becoming more natural."
+   - Mastery: "You applied threat verification instinctively."
+
+**Guardrails:**
+- Max 2 memory modifications per explanation
+- Memory influences PHRASING only, not analysis
+- Intent, Break, Consequence lines NEVER modified
+- Milestones feel earned (suppressed if < 2 games ago)
+
+**Debug Endpoint Added:**
+- `GET /api/coach/memory-summary` - Development-only endpoint showing what narrative engine sees
+
+**Files Modified:**
+- `/app/backend/coach_narrative_engine.py` - Added `apply_memory_modifications()`
+- `/app/backend/coach_state_service.py` - Memory context passed to narrative engine
+- `/app/backend/server.py` - Added `/api/coach/memory-summary` endpoint
+
+**Tests Created:**
+- `/app/backend/tests/test_memory_narrative_modifications.py` - 18 tests
+
+**Test Status:** 60/60 tests passing (26 lesson_resolver + 16 memory_service + 18 narrative_modifications)
 
 **Files Created:**
 - `/app/backend/lesson_resolver.py` - Canonical lesson resolution

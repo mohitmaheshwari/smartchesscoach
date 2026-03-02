@@ -4126,6 +4126,104 @@ async def get_last_game_summary_endpoint(user: User = Depends(get_current_user))
     }
 
 
+@api_router.get("/coach/memory-summary")
+async def get_memory_summary_endpoint(user: User = Depends(get_current_user)):
+    """
+    Debug endpoint: Get summarized memory context for a user.
+    
+    Returns what the narrative engine sees (abstracted context),
+    NOT raw memory tables. Development use only.
+    
+    Output:
+    - active_lessons: Recent lesson keys
+    - lessons_on_cooldown: Lessons that shouldn't repeat yet
+    - pattern_trends: How each pattern is trending
+    - milestone_pending: Any milestone ready to mention
+    - training_phase: Early/Mid/Late/Mastery for current theme
+    """
+    from coach_memory_service import get_memory_service
+    from coach_state_service import CoachStateService
+    import lesson_resolver
+    
+    memory_service = get_memory_service(db)
+    coach_service = CoachStateService(db)
+    
+    # Get current coach state for streak
+    coach_state = await coach_service.get_coach_state(user.user_id)
+    current_streak = coach_state.good_game_streak if coach_state else 0
+    
+    # Get raw memory for additional processing
+    memory = await memory_service.get_memory_state(user.user_id)
+    
+    if not memory:
+        return {
+            "has_memory": False,
+            "message": "No coaching memory yet. Analyze some games first."
+        }
+    
+    # Build context (what narrative engine would see)
+    # Use a placeholder lesson key for context building
+    context = await memory_service.build_context(
+        user_id=user.user_id,
+        current_lesson_key="verify_opponent_threats",  # Placeholder
+        current_streak=current_streak
+    )
+    
+    # Extract lessons on cooldown
+    lesson_memory = memory.get("lesson_memory", [])
+    lessons_on_cooldown = []
+    unique_lessons = set(e.get("lesson_key") for e in lesson_memory)
+    
+    for lesson_key in unique_lessons:
+        cooldown = lesson_resolver.get_lesson_cooldown(lesson_key)
+        is_cooldown, games_until = memory_service.is_on_cooldown(lesson_key, lesson_memory, cooldown)
+        if is_cooldown:
+            lessons_on_cooldown.append({
+                "lesson_key": lesson_key,
+                "games_until_available": games_until
+            })
+    
+    # Extract pattern trends
+    pattern_progress = memory.get("pattern_progress", {})
+    pattern_trends = {}
+    for key, prog in pattern_progress.items():
+        pattern_trends[key] = {
+            "occurrence_count": prog.get("occurrence_count", 0),
+            "trend": prog.get("trend", "stable"),
+            "games_since_last": prog.get("games_since_last", 0)
+        }
+    
+    # Determine training phase for current theme
+    games_on_theme = coach_state.games_on_theme if coach_state else 0
+    if games_on_theme < 5:
+        training_phase = "early"
+    elif games_on_theme < 15:
+        training_phase = "mid"
+    elif games_on_theme < 30:
+        training_phase = "late"
+    else:
+        training_phase = "mastery"
+    
+    # Get milestones
+    milestones = memory.get("milestones", [])
+    milestone_types = [m.get("milestone_type") for m in milestones]
+    
+    return {
+        "has_memory": True,
+        "total_games_analyzed": memory.get("total_games_analyzed", 0),
+        "active_lessons": context.recent_lessons[-5:],
+        "lessons_on_cooldown": lessons_on_cooldown,
+        "pattern_trends": pattern_trends,
+        "most_frequent_lesson": context.most_frequent_lesson,
+        "current_streak": current_streak,
+        "training_phase": training_phase,
+        "games_on_theme": games_on_theme,
+        "milestones_achieved": milestone_types,
+        "active_milestone": context.active_milestone,
+        "milestone_message": context.milestone_message
+    }
+
+
 @api_router.get("/coach/game-summary/{game_id}")
 async def get_game_summary_endpoint(game_id: str, user: User = Depends(get_current_user)):
     """Get GameCoachSummary for a specific game"""
