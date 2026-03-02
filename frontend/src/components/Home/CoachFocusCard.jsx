@@ -174,6 +174,29 @@ const CoachFocusCard = () => {
         <p className="text-xs text-muted-foreground text-center">
           {themeStats.games_on_theme} games played on this focus
         </p>
+
+        {/* Maturity Level - Shows coaching style */}
+        {maturity && (
+          <div className="pt-2 border-t border-border/50">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Coach Style:</span>
+              <Badge 
+                variant="outline" 
+                className={`text-xs ${
+                  maturity.maturity_level === "Advanced" ? "border-green-500/50 text-green-400" :
+                  maturity.maturity_level === "Disciplined" ? "border-blue-500/50 text-blue-400" :
+                  maturity.maturity_level === "Developing" ? "border-amber-500/50 text-amber-400" :
+                  "border-slate-500/50 text-slate-400"
+                }`}
+              >
+                {maturity.maturity_level}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {maturity.description}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
