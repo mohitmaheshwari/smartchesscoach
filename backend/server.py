@@ -11314,6 +11314,94 @@ async def make_coach_play_move(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.post("/coach/play/reflect")
+async def get_coach_reflection_feedback(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get Socratic coaching feedback after a move.
+    
+    This is the heart of the interactive coaching system.
+    User explains WHY they played a move, coach compares to reality.
+    
+    Body:
+    - session_id: Session ID
+    - move_index: Index of the move to reflect on (from move_history)
+    - user_reasoning: User's explanation for why they played the move
+    
+    Returns:
+    - main_message: Primary coaching feedback
+    - reasoning_feedback: Response to user's stated reasoning
+    - position_insight: What was actually important
+    - improvement_tip: What to look for next time (if applicable)
+    - move_quality: "brilliant", "great", "good", "okay", "inaccuracy", "mistake", "blunder"
+    - encouragement: Whether the response is encouraging
+    - opening_name: Opening name if in opening phase
+    - was_best_move: Whether user found the best move
+    """
+    from coach_play.coach_commentary import get_coach_feedback
+    
+    session_id = request.get("session_id")
+    move_index = request.get("move_index")
+    user_reasoning = request.get("user_reasoning", "")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if move_index is None:
+        raise HTTPException(status_code=400, detail="move_index is required")
+    if not user_reasoning:
+        raise HTTPException(status_code=400, detail="user_reasoning is required - tell the coach why you played this move!")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    # Get the move from history
+    move_history = session_doc.get("move_history", [])
+    if move_index < 0 or move_index >= len(move_history):
+        raise HTTPException(status_code=400, detail="Invalid move_index")
+    
+    move_data = move_history[move_index]
+    
+    # Only allow reflection on user's own moves
+    if move_data.get("by") != "player":
+        raise HTTPException(status_code=400, detail="Can only reflect on your own moves")
+    
+    # Get position info
+    fen_before = move_data.get("fen_before")
+    move_san = move_data.get("move")
+    fen_after = move_data.get("fen_after")
+    
+    # Calculate move number (accounting for both players)
+    move_number = (move_index // 2) + 1
+    
+    try:
+        # Get coach feedback using the Socratic commentary system
+        feedback = await get_coach_feedback(
+            fen_before=fen_before,
+            move_san=move_san,
+            fen_after=fen_after,
+            user_reasoning=user_reasoning,
+            user_color=session_doc.get("user_color", "white"),
+            move_number=move_number
+        )
+        
+        return {
+            "success": True,
+            "move": move_san,
+            "move_index": move_index,
+            **feedback
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting coach feedback: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.post("/coach/play/evaluate")
 async def evaluate_coach_play_move(
     request: Dict = Body(...),
