@@ -54,10 +54,12 @@ logger = logging.getLogger('analysis_worker')
 POLL_INTERVAL = 2  # Seconds between queue checks
 MAX_RETRIES = 3    # Max retries for failed analysis
 WORKER_ID = f"worker-{os.getpid()}"
-JOB_TIMEOUT_MINUTES = 10  # Timeout for stuck jobs
+JOB_TIMEOUT_MINUTES = 5  # Reduced timeout for stuck jobs (was 10)
+HEARTBEAT_INTERVAL = 30  # Seconds between heartbeat updates
 
 # Graceful shutdown flag
 shutdown_requested = False
+last_heartbeat = time.time()
 
 
 def signal_handler(signum, frame):
