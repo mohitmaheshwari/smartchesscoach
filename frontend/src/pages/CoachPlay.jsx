@@ -549,11 +549,30 @@ const CoachPlay = ({ user }) => {
       
       if (response.ok) {
         const data = await response.json();
+        
+        // Add coach response to chat
         setChatMessages(prev => [...prev, {
           type: "coach",
           message: data.response,
+          suggestion_arrow: data.suggestion_arrow,
+          best_move: data.best_move,
+          missed_tactic: data.missed_tactic,
           timestamp: Date.now()
         }]);
+        
+        // Show suggestion arrow on board if available
+        if (data.suggestion_arrow && boardRef.current) {
+          const from = data.suggestion_arrow.slice(0, 2);
+          const to = data.suggestion_arrow.slice(2, 4);
+          boardRef.current.drawArrows([[from, to, "green"]]);
+          
+          // Clear arrow after 8 seconds
+          setTimeout(() => {
+            if (boardRef.current) {
+              boardRef.current.clearArrows();
+            }
+          }, 8000);
+        }
       }
     } catch (error) {
       console.error("Chat error:", error);
