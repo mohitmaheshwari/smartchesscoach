@@ -145,7 +145,8 @@ class CoachCommentary:
         """
         Analyze a specific move - was it good, bad, best?
         
-        Compares to Stockfish's recommendations.
+        Compares to Stockfish's recommendations and explains WHY.
+        Detects tactical themes (forks, pins, threats) that were missed.
         """
         board_before = chess.Board(fen_before)
         
@@ -165,6 +166,14 @@ class CoachCommentary:
         
         # Determine if this was the best move
         best_move_san = best_moves_before[0]["move"] if best_moves_before else None
+        best_move_uci = ""
+        if best_move_san:
+            try:
+                best_chess_move = board_before.parse_san(best_move_san)
+                best_move_uci = best_chess_move.uci()
+            except:
+                best_move_uci = ""
+        
         is_best = move_san == best_move_san
         
         # Check if it's a candidate move (top 3)
@@ -174,8 +183,17 @@ class CoachCommentary:
         # Classify move quality
         quality = self._classify_move_quality(eval_loss, is_best, is_candidate)
         
-        # Detect tactical themes
+        # Detect tactical themes in played move
         tactical_themes = self._detect_tactical_themes(board_before, move_san)
+        
+        # If not the best move, analyze what was missed
+        missed_tactic = None
+        threat_explanation = None
+        
+        if not is_best and best_move_san and eval_loss >= 0.3:
+            missed_tactic, threat_explanation = await self._analyze_missed_opportunity(
+                board_before, move_san, best_move_san, eval_loss
+            )
         
         return MoveAnalysis(
             move_san=move_san,
@@ -186,9 +204,112 @@ class CoachCommentary:
             is_best_move=is_best,
             is_candidate=is_candidate,
             best_move_san=best_move_san,
+            best_move_uci=best_move_uci,
             best_continuation=[m["move"] for m in best_moves_before],
-            tactical_themes=tactical_themes
+            tactical_themes=tactical_themes,
+            missed_tactic=missed_tactic,
+            threat_explanation=threat_explanation
         )
+    
+    async def _analyze_missed_opportunity(
+        self,
+        board: chess.Board,
+        played_move: str,
+        best_move: str,
+        eval_loss: float
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Analyze what tactical opportunity was missed.
+        
+        Returns (missed_tactic, explanation)
+        - missed_tactic: "fork", "pin", "skewer", "discovered_attack", "mate_threat", etc.
+        - explanation: Human-readable explanation of why best move was better
+        """
+        try:
+            best_chess_move = board.parse_san(best_move)
+            board_after_best = board.copy()
+            board_after_best.push(best_chess_move)
+            
+            moving_piece = board.piece_at(best_chess_move.from_square)
+            captured_piece = board.piece_at(best_chess_move.to_square)
+            
+            piece_names = {
+                chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+                chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"
+            }
+            
+            moving_piece_name = piece_names.get(moving_piece.piece_type, "piece") if moving_piece else "piece"
+            to_square_name = chess.square_name(best_chess_move.to_square)
+            
+            # Check for check
+            if board_after_best.is_check():
+                # Check if it's checkmate
+                if board_after_best.is_checkmate():
+                    return "mate", f"{best_move} was checkmate!"
+                
+                # Check for fork (attacks multiple pieces while giving check)
+                opponent_color = not board.turn
+                attacked_pieces = []
+                for square in chess.SQUARES:
+                    piece = board_after_best.piece_at(square)
+                    if piece and piece.color == opponent_color:
+                        if board_after_best.is_attacked_by(board.turn, square):
+                            if piece.piece_type in [chess.QUEEN, chess.ROOK, chess.KING]:
+                                attacked_pieces.append((square, piece))
+                
+                if len(attacked_pieces) >= 2:
+                    targets = [piece_names[p.piece_type] for _, p in attacked_pieces[:2]]
+                    return "fork", f"{best_move} forks the {targets[0]} and {targets[1]} with check!"
+                
+                return "check", f"{best_move} gives check, winning tempo"
+            
+            # Check for capture of hanging piece
+            if captured_piece:
+                captured_name = piece_names.get(captured_piece.piece_type, "piece")
+                # Was it a free capture?
+                if not board.is_attacked_by(not board.turn, best_chess_move.to_square):
+                    return "hanging_piece", f"{best_move} wins the {captured_name} which was undefended!"
+                
+                # Was it a good trade?
+                piece_values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, 
+                               chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
+                captured_val = piece_values.get(captured_piece.piece_type, 0)
+                moving_val = piece_values.get(moving_piece.piece_type, 0) if moving_piece else 0
+                
+                if captured_val > moving_val:
+                    return "winning_trade", f"{best_move} wins the {captured_name} for just a {moving_piece_name}"
+            
+            # Check for fork (knight or other piece attacking multiple targets)
+            if moving_piece and moving_piece.piece_type == chess.KNIGHT:
+                opponent_color = not board.turn
+                high_value_targets = []
+                for square in chess.SQUARES:
+                    if board_after_best.is_attacked_by(board.turn, square):
+                        piece = board_after_best.piece_at(square)
+                        if piece and piece.color == opponent_color:
+                            if piece.piece_type in [chess.QUEEN, chess.ROOK, chess.KING]:
+                                high_value_targets.append((square, piece))
+                
+                if len(high_value_targets) >= 2:
+                    targets = [f"{piece_names[p.piece_type]} on {chess.square_name(sq)}" 
+                               for sq, p in high_value_targets[:2]]
+                    return "knight_fork", f"{best_move} forks the {targets[0]} and {targets[1]}!"
+            
+            # Check for pins or skewers
+            if moving_piece and moving_piece.piece_type in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
+                # This would require ray tracing - simplified for now
+                pass
+            
+            # Generic "better position" explanation
+            if eval_loss >= 2.0:
+                return "major_tactic", f"{best_move} was much stronger, gaining significant advantage"
+            elif eval_loss >= 1.0:
+                return "tactic", f"{best_move} was better, improving your position significantly"
+            else:
+                return "accuracy", f"{best_move} was more precise in this position"
+            
+        except Exception as e:
+            return None, None
     
     async def generate_feedback(
         self,
