@@ -80,6 +80,11 @@ class CoachGameSession:
     user_rating: int = 1200  # User's rating for difficulty matching
     coach_skill_level: int = 5  # Stockfish skill level (0-20)
     
+    # Async coaching state
+    coach_move_pending: bool = False  # Whether coach is still thinking
+    last_coach_move: Optional[Dict] = None  # Last move made by coach
+    evaluation: Optional[Dict] = None  # Current position evaluation
+    
     def to_dict(self) -> Dict:
         """Convert to dictionary for MongoDB storage"""
         data = asdict(self)
