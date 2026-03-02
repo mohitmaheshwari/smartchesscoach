@@ -4290,6 +4290,56 @@ async def get_adapted_message(
     }
 
 
+
+# ==================== COACH ANALYTICS ROUTES ====================
+
+@api_router.get("/coach/analytics/summary")
+async def get_coach_analytics_summary(
+    days: int = 30,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get analytics summary for the user's coaching journey.
+    
+    Returns event counts, latest transitions, and trends.
+    """
+    from coach_analytics_service import get_analytics_service
+    
+    analytics = get_analytics_service(db)
+    summary = await analytics.get_user_analytics_summary(user.user_id, days)
+    return summary
+
+
+@api_router.get("/coach/analytics/theme-history")
+async def get_theme_switch_history(
+    limit: int = 10,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get theme switch history for the user.
+    """
+    from coach_analytics_service import get_analytics_service
+    
+    analytics = get_analytics_service(db)
+    history = await analytics.get_theme_switch_history(user.user_id, limit)
+    return {"theme_switches": history}
+
+
+@api_router.get("/coach/analytics/maturity-progression")
+async def get_maturity_progression(user: User = Depends(get_current_user)):
+    """
+    Get full maturity progression history.
+    
+    Shows the user's journey from Novice -> Developing -> Disciplined -> Advanced
+    """
+    from coach_analytics_service import get_analytics_service
+    
+    analytics = get_analytics_service(db)
+    progression = await analytics.get_maturity_progression(user.user_id)
+    return {"progression": progression}
+
+
+
 # ==================== DEEP COACHING SESSION ROUTES ====================
 
 @api_router.get("/coach/deep-session/check")
