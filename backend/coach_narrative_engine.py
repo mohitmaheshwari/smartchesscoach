@@ -30,6 +30,7 @@ class NarrativeStrategy(str, Enum):
     TURNING_POINT_COACHING = "turning_point_coaching"
     TACTICAL_COACHING = "tactical_coaching"
     MATE_ALERT = "mate_alert"
+    POSITIVE_COACHING = "positive_coaching"  # Good game - reinforce discipline
 
 
 class ToneProfile(str, Enum):
@@ -38,6 +39,16 @@ class ToneProfile(str, Enum):
     DEVELOPING = "Developing"   # Balanced
     DISCIPLINED = "Disciplined" # Shorter, direct, challenging
     ADVANCED = "Advanced"       # Minimal, assumes understanding
+
+
+# Threshold for triggering positive coaching (max CRS below this = good game)
+# Higher maturity = higher standards
+POSITIVE_CRS_THRESHOLD = {
+    "Novice": 80,
+    "Developing": 50,
+    "Disciplined": 30,
+    "Advanced": 20
+}
 
 
 @dataclass
@@ -232,6 +243,87 @@ THEME_REINFORCEMENT = {
     "PositionalPatience": "This relates to your work on positional play.",
 }
 
+# =============================================================================
+# POSITIVE COACHING TEMPLATES
+# =============================================================================
+
+# Validation lines - what went right
+VALIDATION_TEMPLATES = {
+    "ThreatVerification": [
+        "Your threat scanning was disciplined this game.",
+        "You consistently checked opponent possibilities.",
+        "No simple tactics got through.",
+    ],
+    "CalculationDepth": [
+        "Your calculation was thorough today.",
+        "You didn't stop sequences early.",
+        "The depth of your thinking showed.",
+    ],
+    "ConversionDiscipline": [
+        "You simplified correctly when ahead.",
+        "No unnecessary risks when winning.",
+        "You converted advantages cleanly.",
+    ],
+    "PieceSafety": [
+        "Your pieces stayed coordinated throughout.",
+        "Nothing was left hanging.",
+        "Piece placement was secure.",
+    ],
+    "default": [
+        "You played with discipline today.",
+        "No major thinking errors appeared.",
+        "The game showed good control.",
+    ]
+}
+
+# Stability insight - position stayed controlled
+STABILITY_TEMPLATES = [
+    "Even when the position became sharp, you stayed composed.",
+    "The evaluation stayed stable throughout.",
+    "You didn't give opponent free chances.",
+    "Pressure was maintained without overextending.",
+    "The position never became uncomfortable.",
+]
+
+# Positive teaching - reinforce good habits
+POSITIVE_TEACHING = {
+    "ThreatVerification": [
+        "This is exactly how to avoid unnecessary losses.",
+        "Consistent checking pays off over time.",
+        "Keep this awareness in every game.",
+    ],
+    "CalculationDepth": [
+        "Deep thinking prevents accidents.",
+        "This patience will serve you well.",
+        "Thoroughness becomes habit with practice.",
+    ],
+    "ConversionDiscipline": [
+        "Winning games is about not losing them.",
+        "This restraint separates improving players.",
+        "Converting cleanly is a skill.",
+    ],
+    "default": [
+        "This is the discipline that leads to rating gains.",
+        "Consistent play beats occasional brilliance.",
+        "Keep this approach in future games.",
+    ]
+}
+
+# Positive intent mirrors
+POSITIVE_INTENT = [
+    "You approached this game with patience.",
+    "Your mindset was solid from the start.",
+    "The game showed careful thinking.",
+    "You played within your abilities.",
+]
+
+# Streak acknowledgment (when good_game_streak >= 2)
+STREAK_ACKNOWLEDGMENT = [
+    "This is becoming a pattern.",
+    "Consistency is emerging.",
+    "Your discipline is building.",
+]
+
 
 class CoachNarrativeEngine:
     """
@@ -251,7 +343,9 @@ class CoachNarrativeEngine:
         position_context: Dict,
         maturity_level: str,
         active_theme: str = None,
-        game_result: str = None
+        game_result: str = None,
+        max_crs_score: float = None,
+        good_game_streak: int = 0
     ) -> Tuple[NarrativeComponents, str, float]:
         """
         Generate structured coaching narrative.
@@ -263,11 +357,27 @@ class CoachNarrativeEngine:
             maturity_level: User's behavioral maturity (Novice, Developing, etc.)
             active_theme: Current coaching theme
             game_result: Game outcome
+            max_crs_score: Maximum CRS score in the game (for positive coaching trigger)
+            good_game_streak: Number of consecutive good games
             
         Returns:
             (NarrativeComponents, narrative_strategy, explanation_confidence)
         """
-        # Determine narrative strategy
+        # Check if this should be positive coaching
+        threshold = POSITIVE_CRS_THRESHOLD.get(maturity_level, 50)
+        is_positive = (
+            selection_reason == "no_critical_moves" or
+            (max_crs_score is not None and max_crs_score < threshold)
+        )
+        
+        if is_positive:
+            return self._generate_positive_narrative(
+                active_theme=active_theme,
+                maturity_level=maturity_level,
+                good_game_streak=good_game_streak
+            )
+        
+        # Standard corrective coaching
         strategy = self._determine_strategy(selection_reason)
         
         # Generate each component
@@ -295,6 +405,64 @@ class CoachNarrativeEngine:
         )
         
         return components, strategy.value, confidence
+    
+    def _generate_positive_narrative(
+        self,
+        active_theme: str = None,
+        maturity_level: str = "Developing",
+        good_game_streak: int = 0
+    ) -> Tuple[NarrativeComponents, str, float]:
+        """
+        Generate positive coaching narrative for good games.
+        
+        Structure:
+        - Intent: Acknowledge good approach
+        - Validation: What went right (theme-specific)
+        - Stability: Position control observation
+        - Teaching: Reinforce good habits
+        - Rule: Anchor for continuation
+        - Theme tie: Connect to focus
+        """
+        # Intent - acknowledge good approach
+        intent = self._select_non_repetitive(POSITIVE_INTENT)
+        
+        # Validation - theme-specific what went right
+        theme_key = active_theme if active_theme in VALIDATION_TEMPLATES else "default"
+        validation = self._select_non_repetitive(VALIDATION_TEMPLATES[theme_key])
+        
+        # Stability insight
+        stability = self._select_non_repetitive(STABILITY_TEMPLATES)
+        
+        # Teaching - reinforce good habits
+        teaching_key = active_theme if active_theme in POSITIVE_TEACHING else "default"
+        teaching = self._select_non_repetitive(POSITIVE_TEACHING[teaching_key])
+        
+        # Rule - continuation anchor
+        rule = "Keep this discipline in your next games."
+        
+        # Theme reinforcement with positive framing
+        theme_line = None
+        if active_theme:
+            theme_line = f"This aligns with your focus: {active_theme.replace('_', ' ')}."
+        
+        # Add streak acknowledgment if applicable
+        if good_game_streak >= 2:
+            streak_line = self._select_non_repetitive(STREAK_ACKNOWLEDGMENT)
+            teaching = f"{teaching} {streak_line}"
+        
+        components = NarrativeComponents(
+            intent_mirror_line=intent,
+            thinking_break_line=validation,  # Repurposed for validation
+            position_consequence_line=stability,  # Repurposed for stability
+            teaching_line=teaching,
+            rule_line=rule,
+            theme_reinforcement_line=theme_line
+        )
+        
+        # High confidence for positive coaching
+        confidence = 0.9
+        
+        return components, NarrativeStrategy.POSITIVE_COACHING.value, confidence
     
     def _determine_strategy(self, selection_reason: str) -> NarrativeStrategy:
         """Map selection reason to narrative strategy"""
@@ -558,10 +726,22 @@ def generate_coaching_narrative(
     position_context: Dict,
     maturity_level: str = "Developing",
     active_theme: str = None,
-    recent_sentences: List[str] = None
+    recent_sentences: List[str] = None,
+    max_crs_score: float = None,
+    good_game_streak: int = 0
 ) -> Dict:
     """
     Generate complete coaching narrative with tone adjustment.
+    
+    Args:
+        selected_move: Critical move data
+        selection_reason: Why selected (pattern_event, tactical_error, no_critical_moves, etc.)
+        position_context: Position state before/after
+        maturity_level: User's behavioral maturity
+        active_theme: Current coaching theme
+        recent_sentences: Recently used sentences (for anti-repetition)
+        max_crs_score: Maximum CRS in game (for positive coaching trigger)
+        good_game_streak: Consecutive good games count
     
     Returns:
         {
@@ -579,7 +759,9 @@ def generate_coaching_narrative(
         selection_reason=selection_reason,
         position_context=position_context,
         maturity_level=maturity_level,
-        active_theme=active_theme
+        active_theme=active_theme,
+        max_crs_score=max_crs_score,
+        good_game_streak=good_game_streak
     )
     
     renderer = ToneRenderer()

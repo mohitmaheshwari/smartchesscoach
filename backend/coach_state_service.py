@@ -223,6 +223,8 @@ class CoachState:
     coach_tone_mode: str = "ExplainMore"  # ExplainMore | Balanced | ChallengeMore
     theme_resistance_score: float = 0.0
     improvement_velocity: float = 0.0
+    # Positive coaching tracking
+    good_game_streak: int = 0  # Consecutive games without critical errors
     
     def to_dict(self) -> Dict:
         return {
@@ -242,7 +244,8 @@ class CoachState:
             "behavioral_maturity_level": self.behavioral_maturity_level,
             "coach_tone_mode": self.coach_tone_mode,
             "theme_resistance_score": round(self.theme_resistance_score, 2),
-            "improvement_velocity": round(self.improvement_velocity, 2)
+            "improvement_velocity": round(self.improvement_velocity, 2),
+            "good_game_streak": self.good_game_streak
         }
     
     @classmethod
@@ -264,7 +267,8 @@ class CoachState:
             behavioral_maturity_level=data.get("behavioral_maturity_level", "Novice"),
             coach_tone_mode=data.get("coach_tone_mode", "ExplainMore"),
             theme_resistance_score=data.get("theme_resistance_score", 0.0),
-            improvement_velocity=data.get("improvement_velocity", 0.0)
+            improvement_velocity=data.get("improvement_velocity", 0.0),
+            good_game_streak=data.get("good_game_streak", 0)
         )
 
 
@@ -742,6 +746,10 @@ async def generate_game_coach_summary(
     maturity_level = coach_state.behavioral_maturity_level if coach_state else "Developing"
     active_theme = coach_state.active_theme.value if coach_state else None
     position_ctx = selected_move.get("position_context", {}) if selected_move else {}
+    good_game_streak = coach_state.good_game_streak if coach_state else 0
+    
+    # Get max CRS score for positive coaching threshold check
+    max_crs_score = selection_result.get("selection_score", 0) if selection_result else 0
     
     narrative_result = generate_coaching_narrative(
         selected_move=selected_move or {},
@@ -749,7 +757,9 @@ async def generate_game_coach_summary(
         position_context=position_ctx,
         maturity_level=maturity_level,
         active_theme=active_theme,
-        recent_sentences=recent_sentences
+        recent_sentences=recent_sentences,
+        max_crs_score=max_crs_score,
+        good_game_streak=good_game_streak
     )
     
     # Extract narrative components
@@ -760,6 +770,10 @@ async def generate_game_coach_summary(
     
     # Use assembled text as coach_explain_line for backward compatibility
     coach_explain = assembled_text if assembled_text else _generate_coach_explain_v2(selected_move, primary_issue, selection_reason)
+    
+    # Update emotion mirror for positive coaching
+    if narrative_strategy == "positive_coaching":
+        emotion_mirror = "Well played this game."
     
     # Check if ties to active theme
     ties_to_theme = False
@@ -835,6 +849,12 @@ async def generate_game_coach_summary(
         coach_state.games_on_theme += 1
         coach_state.recent_coach_sentences.append(emotion_mirror)
         coach_state.recent_coach_sentences = coach_state.recent_coach_sentences[-10:]
+        
+        # Update good game streak
+        if narrative_strategy == "positive_coaching":
+            coach_state.good_game_streak += 1
+        else:
+            coach_state.good_game_streak = 0  # Reset on corrective coaching
         
         # Update improvement delta
         stats = await service.get_theme_improvement_stats(user_id, coach_state.active_theme)
