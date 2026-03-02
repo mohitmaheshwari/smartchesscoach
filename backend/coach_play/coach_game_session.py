@@ -96,7 +96,11 @@ class CoachGameSession:
     def from_dict(cls, data: Dict) -> 'CoachGameSession':
         """Create from MongoDB document"""
         data['status'] = SessionStatus(data['status'])
-        data['result'] = GameResult(data['result'])
+        # Handle None result (game in progress)
+        if data.get('result') is not None:
+            data['result'] = GameResult(data['result'])
+        else:
+            data['result'] = None
         data['created_at'] = datetime.fromisoformat(data['created_at']) if isinstance(data['created_at'], str) else data['created_at']
         if data.get('last_move_at'):
             data['last_move_at'] = datetime.fromisoformat(data['last_move_at']) if isinstance(data['last_move_at'], str) else data['last_move_at']
