@@ -370,6 +370,19 @@ const CoachPlay = ({ user }) => {
     return null;
   };
 
+  // Fun thinking messages for coach
+  const THINKING_MESSAGES = [
+    "Coach is studying your move...",
+    "Hmm, interesting choice...",
+    "Let me think about that...",
+    "Analyzing the position...",
+    "Coach is pondering...",
+    "Considering the options...",
+  ];
+  
+  const [coachThinking, setCoachThinking] = useState(false);
+  const [thinkingMessage, setThinkingMessage] = useState("");
+
   // Execute the move (called after guardian check passes or user confirms)
   const executeMove = async (moveSan, timeSpent, isOverride = false, riskType = null) => {
     const endpoint = isOverride ? `${API}/coach/play/move/confirm` : `${API}/coach/play/move`;
@@ -394,49 +407,36 @@ const CoachPlay = ({ user }) => {
       }
 
       const data = await response.json();
-      setSession(data.session);
       
-      // Update remaining interventions
-      if (data.remaining_interventions !== undefined) {
-        setRemainingInterventions(data.remaining_interventions);
-      }
+      // Update board with user's move immediately
+      setCurrentFen(data.current_fen);
+      setIsPlayerTurn(false);
       
-      // Update evaluation for eval bar
-      if (data.evaluation) {
-        setEvaluation(data.evaluation);
-      }
-
-      // Check if game is over
+      // Check if game is over after user's move
       if (data.game_over) {
         setGameOver(true);
         setGameResult(data.result);
-        setCurrentFen(data.session.current_fen);
-        
         if (data.result === "win") {
           toast.success("You won! Great game!");
-        } else if (data.result === "loss") {
-          toast.info(`Game over: ${data.termination_reason}`);
-        } else {
-          toast.info(`Draw: ${data.termination_reason}`);
         }
         return true;
       }
-
-      // Update with coach's response
-      if (data.coach_move) {
-        setCurrentFen(data.session.current_fen);
-        highlightMove(data.coach_move.uci);
-        
-        if (data.game_over) {
-          setGameOver(true);
-          setGameResult(data.result);
-        } else {
-          setIsPlayerTurn(true);
-          setMoveStartTime(Date.now());
-        }
-      }
       
-      // Coach messages now arrive via polling - no need to handle here
+      // Show coach thinking state
+      if (data.awaiting_coach) {
+        setCoachThinking(true);
+        setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
+        
+        // Add thinking message to chat
+        setChatMessages(prev => [...prev, {
+          type: "thinking",
+          message: THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)],
+          timestamp: Date.now()
+        }]);
+        
+        // Poll for coach's response
+        pollForCoachResponse();
+      }
 
       return true;
     } catch (error) {
@@ -444,6 +444,80 @@ const CoachPlay = ({ user }) => {
       toast.error("Connection error. Please try again.");
       return false;
     }
+  };
+  
+  // Poll for coach's move and messages
+  const pollForCoachResponse = async () => {
+    const maxAttempts = 30;  // 30 seconds max
+    let attempts = 0;
+    
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
+        setCoachThinking(false);
+        toast.error("Coach took too long to respond");
+        return;
+      }
+      
+      attempts++;
+      
+      try {
+        // Get latest session state
+        const response = await fetch(`${API}/coach/play/state/${session.session_id}`, {
+          credentials: "include"
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Check if coach has moved
+          if (!data.session.coach_move_pending) {
+            // Remove thinking message from chat
+            setChatMessages(prev => prev.filter(m => m.type !== "thinking"));
+            
+            // Update board
+            setSession(data.session);
+            setCurrentFen(data.current_fen);
+            
+            // Update evaluation
+            if (data.evaluation) {
+              setEvaluation(data.evaluation);
+            }
+            
+            // Highlight coach's last move
+            const lastMove = data.session.last_coach_move;
+            if (lastMove?.uci) {
+              highlightMove(lastMove.uci);
+            }
+            
+            // Check if game over
+            if (data.game_over || data.session.status === "completed") {
+              setGameOver(true);
+              setGameResult(data.session.result);
+              if (data.session.result === "loss") {
+                toast.info("Coach wins! Keep practicing!");
+              } else if (data.session.result === "draw") {
+                toast.info("It's a draw!");
+              }
+            } else {
+              setIsPlayerTurn(true);
+              setMoveStartTime(Date.now());
+            }
+            
+            setCoachThinking(false);
+            return;
+          }
+        }
+        
+        // Keep polling
+        setTimeout(poll, 1000);
+        
+      } catch (error) {
+        console.error("Poll error:", error);
+        setTimeout(poll, 1000);
+      }
+    };
+    
+    poll();
   };
   
   // Send chat message to coach
