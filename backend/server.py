@@ -11402,6 +11402,59 @@ async def get_coach_reflection_feedback(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.post("/coach/play/chat")
+async def coach_chat_message(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Send a message to the coach and get a response.
+    
+    This is for the chat sidebar where user can ask questions anytime.
+    
+    Body:
+    - session_id: Session ID
+    - message: User's message to the coach
+    
+    Returns:
+    - response: Coach's response message
+    """
+    from coach_play.coach_commentary import generate_response_to_user
+    
+    session_id = request.get("session_id")
+    message = request.get("message", "").strip()
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not message:
+        raise HTTPException(status_code=400, detail="message is required")
+    
+    # Get session
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    try:
+        response = await generate_response_to_user(
+            user_message=message,
+            current_fen=session_doc.get("current_fen"),
+            move_history=session_doc.get("move_history", []),
+            user_color=session_doc.get("user_color", "white"),
+            user_rating=session_doc.get("user_rating", 1200)
+        )
+        
+        return {
+            "success": True,
+            "response": response
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in coach chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.post("/coach/play/evaluate")
 async def evaluate_coach_play_move(
     request: Dict = Body(...),
