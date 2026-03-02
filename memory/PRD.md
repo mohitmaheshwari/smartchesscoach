@@ -15,6 +15,64 @@ Build a full-featured chess coaching application that analyzes games, identifies
 ---
 
 
+
+### Step 0 & 1: CoachState - Single Source of Truth ✅ COMPLETE (Mar 2, 2026)
+
+**User Request:** "Make sure every page speaks the same 'coach storyline', so the product stops feeling fragmented."
+
+**Implemented:**
+
+1. **CoachState** (`/app/backend/coach_state_service.py`) - Persistent per-user object
+   ```python
+   CoachState:
+     - active_theme: "ThreatVerification" | "CalculationDepth" | etc.
+     - theme_started_at: datetime
+     - theme_confidence: 0-1
+     - theme_reason: "Starting focus based on common improvement areas"
+     - micro_rules: ["Before YOUR move, check what THEY are threatening", ...]
+     - recent_coach_sentences: [last 10 lines for anti-repetition]
+     - games_on_theme: int
+     - theme_improvement_delta: {trend, before, after}
+   ```
+
+2. **GameCoachSummary** - Generated after each game analysis
+   ```python
+   GameCoachSummary:
+     - confidence: Low/Medium/High
+     - primary_moment: {move_number, fen, label}
+     - primary_issue: ThreatScanFailure | RushedWhenAhead | etc.
+     - emotion_mirror_line: "You rushed here."
+     - coach_explain_line: positional + contextual
+     - ties_to_active_theme: bool
+     - theme_reinforcement_line: "This connects to your current focus: X."
+     - cta_type + cta_text + cta_target (ONE action only)
+   ```
+
+3. **UI Integration:**
+   - **Home page**: Shows "Your Focus Stage" + "Last Game • Coach Analysis" card
+   - **Train page**: Shows "Your Focus Area" banner at top
+   - **Progress page**: Shows "Coach Focus This Week" block with micro-rules and improvement delta
+
+4. **API Endpoints:**
+   - `GET /api/coach/state` - Get user's CoachState
+   - `GET /api/coach/last-game-summary` - Get latest GameCoachSummary
+   - `GET /api/coach/game-summary/{game_id}` - Get summary for specific game
+   - `POST /api/coach/generate-summary/{game_id}` - Trigger summary generation
+   - `GET /api/coach/theme-stats` - Get improvement stats for active theme
+
+5. **Acceptance Criteria Met:**
+   - ✅ Consistency: Home/Train/Progress all show same active_theme
+   - ✅ Non-generic coaching: Last Game card references moment, behavior label, theme link
+   - ✅ One action: Every micro coach output has exactly one CTA
+   - ✅ Anti-repetition: recent_coach_sentences stores last 10 lines
+   - ✅ Low effort: User can consume micro coaching in <30 seconds
+
+**Tone:** Indian mentor - calm, direct, respectful, lightly emotional
+- Emotion targets moment, not person ("You rushed", not "You are careless")
+
+---
+
+
 ### P2.3 Deterministic Pattern Retrieval ✅ COMPLETE (Mar 2, 2026)
 
 **User Request:** "The personalization test must verify deterministic pattern retrieval before LLM phrasing. We test the memory engine, not the wording."
