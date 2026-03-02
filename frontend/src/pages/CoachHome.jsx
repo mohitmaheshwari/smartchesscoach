@@ -75,6 +75,7 @@ const CoachHome = ({ user }) => {
   const [freshLoss, setFreshLoss] = useState(null);
   const [starting, setStarting] = useState(false);
   const [reanalysisStatus, setReanalysisStatus] = useState(null);
+  const [coachState, setCoachState] = useState(null);
 
   useEffect(() => {
     fetchAllData();
@@ -85,11 +86,12 @@ const CoachHome = ({ user }) => {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [homeRes, missionRes, lossRes, reanalysisRes] = await Promise.all([
+      const [homeRes, missionRes, lossRes, reanalysisRes, coachStateRes] = await Promise.all([
         fetch(`${API}/coach/home-intelligence`, { credentials: "include" }),
         fetch(`${API}/missions/today`, { credentials: "include" }),
         fetch(`${API}/coach/fresh-loss`, { credentials: "include" }).catch(() => null),
         fetch(`${API}/behavioral/reanalysis/status`, { credentials: "include" }).catch(() => null),
+        fetch(`${API}/coach/state`, { credentials: "include" }).catch(() => null),
       ]);
       
       if (homeRes.ok) {
@@ -112,6 +114,10 @@ const CoachHome = ({ user }) => {
         if (statusData?.status === "RUNNING") {
           setReanalysisStatus(statusData);
         }
+      }
+      
+      if (coachStateRes?.ok) {
+        setCoachState(await coachStateRes.json());
       }
     } catch (err) {
       console.error("Error fetching home data:", err);
