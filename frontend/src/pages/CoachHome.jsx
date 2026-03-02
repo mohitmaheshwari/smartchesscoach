@@ -91,12 +91,13 @@ const CoachHome = ({ user }) => {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [homeRes, missionRes, lossRes, reanalysisRes, coachStateRes] = await Promise.all([
+      const [homeRes, missionRes, lossRes, reanalysisRes, coachStateRes, improvementRes] = await Promise.all([
         fetch(`${API}/coach/home-intelligence`, { credentials: "include" }),
         fetch(`${API}/missions/today`, { credentials: "include" }),
         fetch(`${API}/coach/fresh-loss`, { credentials: "include" }).catch(() => null),
         fetch(`${API}/behavioral/reanalysis/status`, { credentials: "include" }).catch(() => null),
         fetch(`${API}/coach/state`, { credentials: "include" }).catch(() => null),
+        fetch(`${API}/coach/deep-session/improvement-check`, { credentials: "include" }).catch(() => null),
       ]);
       
       if (homeRes.ok) {
@@ -123,6 +124,13 @@ const CoachHome = ({ user }) => {
       
       if (coachStateRes?.ok) {
         setCoachState(await coachStateRes.json());
+      }
+      
+      if (improvementRes?.ok) {
+        const impData = await improvementRes.json();
+        if (impData?.show_improvement) {
+          setImprovementMessage(impData.message);
+        }
       }
     } catch (err) {
       console.error("Error fetching home data:", err);
