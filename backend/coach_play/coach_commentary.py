@@ -723,7 +723,7 @@ Keep it under 20 words. Be conversational, not formal."""
                 model="gpt-4o-mini"
             )
             return response.strip()
-        except:
+        except Exception:
             return f"We're in the {opening_name}. Solid choice!"
     
     # Warning/Teaching - use LLM for explanation
