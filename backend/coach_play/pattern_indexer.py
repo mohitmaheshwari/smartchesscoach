@@ -436,3 +436,329 @@ Game ID: {match.past_game_id}, Move: {match.past_move_number}
         "confidence": match.confidence,
         "injection_context": injection
     }
+
+
+# =============================================================================
+# CROSS-GAME PATTERN INDEX
+# =============================================================================
+# This is the STRUCTURAL layer that makes personalization deterministic.
+# NOT about language - about DATA RETRIEVAL.
+
+@dataclass
+class PatternFrequency:
+    """Cross-game pattern frequency analysis"""
+    motif: CognitiveGap
+    total_occurrences: int
+    recent_occurrences: int  # Last 5 games
+    games_with_pattern: List[str]  # Game IDs
+    first_seen: datetime
+    last_seen: datetime
+    trend: str  # "improving", "worsening", "stable"
+    trend_confidence: float
+
+
+@dataclass  
+class CrossGameIndex:
+    """Complete cross-game pattern index for a user"""
+    user_id: str
+    total_games_analyzed: int
+    pattern_frequencies: Dict[str, PatternFrequency]
+    dominant_weakness: Optional[CognitiveGap]
+    improving_patterns: List[CognitiveGap]
+    worsening_patterns: List[CognitiveGap]
+
+
+class CrossGamePatternIndex:
+    """
+    Cross-Game Pattern Index - The STRUCTURAL personalization layer.
+    
+    This answers:
+    - "This is your 3rd missed fork in 5 games" (frequency)
+    - "This pattern is getting worse" (trend)
+    - "Your main weakness is threat blindness" (dominant)
+    
+    NOT LLM-based. Deterministic data retrieval.
+    """
+    
+    def __init__(self, db, user_id: str):
+        self.db = db
+        self.user_id = user_id
+        self._index: Optional[CrossGameIndex] = None
+        self._pattern_list: List[IndexedPattern] = []
+    
+    async def build_cross_game_index(self, max_games: int = 50) -> CrossGameIndex:
+        """
+        Build complete cross-game pattern index.
+        
+        Returns structured analysis of ALL patterns across games.
+        """
+        # First build the pattern list
+        indexer = PatternIndexer(self.db, self.user_id)
+        await indexer.build_index(max_games)
+        self._pattern_list = indexer._pattern_index
+        
+        # Count pattern frequencies
+        pattern_counts: Dict[CognitiveGap, List[IndexedPattern]] = {}
+        for p in self._pattern_list:
+            if p.motif not in pattern_counts:
+                pattern_counts[p.motif] = []
+            pattern_counts[p.motif].append(p)
+        
+        # Build frequency analysis for each motif
+        pattern_frequencies: Dict[str, PatternFrequency] = {}
+        
+        now = datetime.now(timezone.utc)
+        recent_cutoff = now - timedelta(days=14)  # Last 2 weeks
+        
+        for motif, patterns in pattern_counts.items():
+            # Sort by date
+            patterns.sort(key=lambda x: x.date)
+            
+            # Count recent vs total
+            recent = [p for p in patterns if p.date.replace(tzinfo=timezone.utc) > recent_cutoff]
+            older = [p for p in patterns if p.date.replace(tzinfo=timezone.utc) <= recent_cutoff]
+            
+            # Calculate trend
+            trend, trend_confidence = self._calculate_trend(older, recent)
+            
+            pattern_frequencies[motif.value] = PatternFrequency(
+                motif=motif,
+                total_occurrences=len(patterns),
+                recent_occurrences=len(recent),
+                games_with_pattern=[p.game_id for p in patterns],
+                first_seen=patterns[0].date if patterns else now,
+                last_seen=patterns[-1].date if patterns else now,
+                trend=trend,
+                trend_confidence=trend_confidence
+            )
+        
+        # Identify dominant weakness (most frequent pattern)
+        dominant = None
+        max_count = 0
+        for motif, freq in pattern_frequencies.items():
+            if freq.total_occurrences > max_count:
+                max_count = freq.total_occurrences
+                dominant = freq.motif
+        
+        # Identify trends
+        improving = [f.motif for f in pattern_frequencies.values() if f.trend == "improving"]
+        worsening = [f.motif for f in pattern_frequencies.values() if f.trend == "worsening"]
+        
+        # Count unique games
+        unique_games = set(p.game_id for p in self._pattern_list)
+        
+        self._index = CrossGameIndex(
+            user_id=self.user_id,
+            total_games_analyzed=len(unique_games),
+            pattern_frequencies=pattern_frequencies,
+            dominant_weakness=dominant,
+            improving_patterns=improving,
+            worsening_patterns=worsening
+        )
+        
+        return self._index
+    
+    def _calculate_trend(
+        self, 
+        older_patterns: List[IndexedPattern], 
+        recent_patterns: List[IndexedPattern]
+    ) -> Tuple[str, float]:
+        """
+        Calculate trend: is this pattern improving, worsening, or stable?
+        
+        Returns (trend, confidence)
+        """
+        older_count = len(older_patterns)
+        recent_count = len(recent_patterns)
+        
+        # Need data for meaningful trend
+        if older_count == 0 and recent_count == 0:
+            return "stable", 0.0
+        
+        if older_count == 0:
+            # New pattern - can't determine trend yet
+            return "new", 0.3
+        
+        if recent_count == 0:
+            # Pattern hasn't appeared recently - improving!
+            return "improving", 0.7
+        
+        # Calculate rate change
+        # Normalize by expected rate (assume older period = 2 weeks)
+        older_rate = older_count / 14  # per day
+        recent_rate = recent_count / 14  # per day
+        
+        if recent_rate > older_rate * 1.5:
+            return "worsening", min(0.9, 0.5 + (recent_rate / older_rate - 1) * 0.3)
+        elif recent_rate < older_rate * 0.5:
+            return "improving", min(0.9, 0.5 + (1 - recent_rate / older_rate) * 0.3)
+        else:
+            return "stable", 0.6
+    
+    async def get_pattern_frequency(self, motif: CognitiveGap) -> Optional[PatternFrequency]:
+        """Get frequency data for a specific motif."""
+        if not self._index:
+            await self.build_cross_game_index()
+        
+        return self._index.pattern_frequencies.get(motif.value)
+    
+    async def get_pattern_context_for_coaching(
+        self, 
+        current_motif: CognitiveGap,
+        current_game_id: str = None
+    ) -> Dict[str, Any]:
+        """
+        Get COMPLETE pattern context for coaching.
+        
+        This is the MASTER function that returns everything needed:
+        - Frequency: "This is your 3rd missed fork"
+        - Trend: "This pattern is getting worse"
+        - Similar game: "Remember your game against X?"
+        - Injection context: Ready for LLM
+        """
+        if not self._index:
+            await self.build_cross_game_index()
+        
+        result = {
+            "has_pattern": False,
+            "frequency": None,
+            "trend": None,
+            "similar_game": None,
+            "injection_context": None
+        }
+        
+        freq = self._index.pattern_frequencies.get(current_motif.value)
+        if not freq:
+            return result
+        
+        result["has_pattern"] = True
+        result["frequency"] = {
+            "total": freq.total_occurrences,
+            "recent": freq.recent_occurrences,
+            "message": self._format_frequency_message(freq)
+        }
+        result["trend"] = {
+            "direction": freq.trend,
+            "confidence": freq.trend_confidence,
+            "message": self._format_trend_message(freq)
+        }
+        
+        # Get similar game (most recent with same motif, excluding current)
+        similar_games = [
+            p for p in self._pattern_list 
+            if p.motif == current_motif and p.game_id != current_game_id
+        ]
+        
+        if similar_games:
+            similar_games.sort(key=lambda x: x.date, reverse=True)
+            most_recent = similar_games[0]
+            
+            days_ago = (datetime.now(timezone.utc) - most_recent.date.replace(tzinfo=timezone.utc)).days
+            when = self._format_when(days_ago)
+            
+            result["similar_game"] = {
+                "game_id": most_recent.game_id,
+                "move_number": most_recent.move_number,
+                "opponent": most_recent.opponent,
+                "when": when,
+                "what_happened": most_recent.what_happened
+            }
+        
+        # Build complete injection context
+        result["injection_context"] = self._build_injection_context(
+            current_motif, freq, result.get("similar_game")
+        )
+        
+        return result
+    
+    def _format_frequency_message(self, freq: PatternFrequency) -> str:
+        """Format frequency for human consumption."""
+        if freq.recent_occurrences == 0:
+            return f"You've had this pattern {freq.total_occurrences} times total, but not recently."
+        
+        total = freq.total_occurrences
+        recent = freq.recent_occurrences
+        
+        if recent == 1:
+            return f"This is only the 2nd time you've made this mistake recently."
+        else:
+            return f"This is your {recent + 1}th time making this mistake in recent games ({total} total)."
+    
+    def _format_trend_message(self, freq: PatternFrequency) -> str:
+        """Format trend for human consumption."""
+        if freq.trend == "improving":
+            return "Good news: this pattern is becoming less frequent."
+        elif freq.trend == "worsening":
+            return "Warning: this pattern is becoming more frequent."
+        elif freq.trend == "new":
+            return "This is a new pattern in your games."
+        else:
+            return "This pattern has been stable."
+    
+    def _format_when(self, days_ago: int) -> str:
+        """Format days ago to human string."""
+        if days_ago == 0:
+            return "earlier today"
+        elif days_ago == 1:
+            return "yesterday"
+        elif days_ago < 7:
+            return f"{days_ago} days ago"
+        elif days_ago < 30:
+            return f"{days_ago // 7} weeks ago"
+        else:
+            return f"{days_ago // 30} months ago"
+    
+    def _build_injection_context(
+        self, 
+        motif: CognitiveGap, 
+        freq: PatternFrequency,
+        similar_game: Optional[Dict]
+    ) -> str:
+        """Build complete injection context for LLM."""
+        
+        lines = ["PERSONAL PATTERN HISTORY (You MUST reference this!):"]
+        
+        # Frequency
+        lines.append(f"- Pattern: {motif.value}")
+        lines.append(f"- Frequency: {freq.total_occurrences} total, {freq.recent_occurrences} in last 2 weeks")
+        lines.append(f"- Trend: {freq.trend.upper()}")
+        
+        # Similar game reference
+        if similar_game:
+            lines.append(f"- Last occurrence: Game against {similar_game['opponent']} {similar_game['when']}")
+            lines.append(f"- What happened: {similar_game['what_happened']}")
+            lines.append(f">>> SAY: 'Remember your game against {similar_game['opponent']}? This is the same pattern.'")
+        
+        # Frequency-aware instruction
+        if freq.recent_occurrences >= 3:
+            lines.append(f">>> EMPHASIZE: 'This is your {freq.recent_occurrences + 1}th time. We need to break this habit.'")
+        
+        # Trend-aware instruction
+        if freq.trend == "worsening":
+            lines.append(">>> TONE: Be direct. This pattern is getting worse.")
+        elif freq.trend == "improving":
+            lines.append(">>> TONE: Acknowledge progress. This pattern is less frequent than before.")
+        
+        return "\n".join(lines)
+
+
+async def get_full_pattern_context(
+    db,
+    user_id: str,
+    current_motif: CognitiveGap,
+    current_game_id: str = None
+) -> Dict[str, Any]:
+    """
+    Master function: Get COMPLETE pattern context for personalized coaching.
+    
+    This combines:
+    - Pattern frequency (how often this happens)
+    - Trend analysis (improving/worsening)
+    - Similar game retrieval (exact game ID)
+    - LLM injection context
+    
+    Use this for the richest personalization.
+    """
+    index = CrossGamePatternIndex(db, user_id)
+    return await index.get_pattern_context_for_coaching(current_motif, current_game_id)
+
