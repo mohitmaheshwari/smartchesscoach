@@ -195,6 +195,87 @@ Build a full-featured chess coaching application that analyzes games, identifies
 - ✅ Deep sessions can shorten as discipline improves
 - ✅ User can feel "coach expects more from me now"
 
+
+### Step 5: Memory Continuity Layer 🔄 IN PROGRESS (Mar 2, 2026)
+
+**User Request:** "Enable the coach to remember past interactions, lessons, and themes to provide continuous, evolving feedback that references the player's history."
+
+**Phase 1 - lesson_key Integration: ✅ COMPLETE**
+
+1. **Lesson Resolver** (`/app/backend/lesson_resolver.py`) - NEW
+   - Single source of truth for lesson identification
+   - Deterministic: same cognitive_gap + selection_reason → same lesson_key
+   - Produces: lesson_key, lesson_category, lesson_intensity
+   - Philosophy: ONE lesson per game (never multiple)
+   
+   ```python
+   LessonResolution:
+     - lesson_key: str           # "verify_opponent_threats"
+     - lesson_category: str      # "threat_awareness", "calculation", etc.
+     - lesson_intensity: float   # 0.0-1.0
+     - description: str
+     - cooldown_games: int
+   ```
+
+2. **GameCoachSummary Extended:**
+   ```python
+   GameCoachSummary:
+     - lesson_key: str           # Canonical identifier
+     - lesson_category: str      # Broader grouping
+     - lesson_intensity: float   # How critical
+   ```
+
+3. **Lesson Audit Log:**
+   - Analytics event `LESSON_ASSIGNED` tracks: game_id, lesson_key, strategy, intensity, crs_score
+   - Enables threshold tuning and memory debugging
+
+**Phase 2 - Memory Service: ✅ COMPLETE**
+
+1. **Coach Memory Service** (`/app/backend/coach_memory_service.py`) - NEW
+   - Isolated service (no narrative code inside)
+   - Manages: memory update, memory summarization, cooldown logic, milestone detection
+   
+2. **Memory Tiers:**
+   - **Active Memory (rolling 20 games):**
+     - `lesson_memory`: Recent lessons for cooldown tracking
+     - `pattern_progress`: How specific patterns are trending
+   - **Identity Memory (lifetime):**
+     - `theme_history`: Major themes worked on
+     - `milestones`: First clean game, first streak, etc.
+
+3. **Milestone Types:**
+   - `FIRST_CLEAN_GAME`: First game with positive coaching
+   - `FIRST_THREE_STREAK`: Three games clean
+   - `FIRST_FIVE_STREAK`: Five games clean
+   - `LESSON_MASTERY`: Lesson not triggered for 10+ games
+
+4. **Memory Context Abstraction** (`build_context()`):
+   - Narrative engine reads ONLY from this
+   - Returns: cooldown status, pattern trend, recent lessons, milestones
+   - Never exposes raw DB structure
+
+**Phase 3 - Narrative Integration:** 🔜 NEXT
+
+- Inject memory context into `coach_narrative_engine`
+- Make explanations memory-aware:
+  - "This is improving"
+  - "We've seen this before"
+  - "You've been working on..."
+  - Milestone celebrations
+
+**Files Created:**
+- `/app/backend/lesson_resolver.py` - Canonical lesson resolution
+- `/app/backend/coach_memory_service.py` - Memory management
+- `/app/backend/tests/test_lesson_resolver.py` - 26 tests
+- `/app/backend/tests/test_coach_memory_service.py` - 16 tests
+
+**Files Modified:**
+- `/app/backend/coach_state_service.py` - Integrated lesson_resolver and memory updates
+- `/app/backend/coach_analytics_service.py` - Added LESSON_ASSIGNED event
+
+**Test Status:** 42/42 tests passing
+
+
 ### Analytics & Observability Layer ✅ COMPLETE (Mar 2, 2026)
 
 **User Request:** "Add analytics logging around theme switches, deep session triggers, maturity transitions. You need observability."

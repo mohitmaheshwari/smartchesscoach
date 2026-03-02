@@ -20,6 +20,9 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import random
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CoachTheme(str, Enum):
@@ -392,6 +395,12 @@ class GameCoachSummary:
     emotion_mirror_line: str  # "You rushed here."
     coach_explain_line: str   # Positional + contextual
     
+    # Canonical lesson fields for memory tracking
+    # These are DETERMINISTIC - derived from cognitive_gap + selection_reason
+    lesson_key: str = ""           # e.g., "verify_opponent_threats"
+    lesson_category: str = ""      # e.g., "threat_awareness", "calculation"
+    lesson_intensity: float = 0.0  # 0.0-1.0, how critical this lesson is
+    
     # NEW: Structured narrative components
     narrative_components: Optional[NarrativeComponents] = None
     narrative_strategy: Optional[str] = None  # PATTERN_COACHING, TACTICAL_COACHING, etc.
@@ -422,6 +431,10 @@ class GameCoachSummary:
             "primary_issue": self.primary_issue.value,
             "emotion_mirror_line": self.emotion_mirror_line,
             "coach_explain_line": self.coach_explain_line,
+            # Canonical lesson fields for memory tracking
+            "lesson_key": self.lesson_key,
+            "lesson_category": self.lesson_category,
+            "lesson_intensity": round(self.lesson_intensity, 2),
             # NEW structured fields
             "narrative_components": self.narrative_components.to_dict() if self.narrative_components else None,
             "narrative_strategy": self.narrative_strategy,
@@ -454,6 +467,10 @@ class GameCoachSummary:
             primary_issue=PrimaryIssue(data["primary_issue"]),
             emotion_mirror_line=data.get("emotion_mirror_line", ""),
             coach_explain_line=data.get("coach_explain_line", ""),
+            # Lesson fields
+            lesson_key=data.get("lesson_key", ""),
+            lesson_category=data.get("lesson_category", ""),
+            lesson_intensity=data.get("lesson_intensity", 0.0),
             # NEW fields
             narrative_components=narrative_components,
             narrative_strategy=data.get("narrative_strategy"),
@@ -801,6 +818,20 @@ async def generate_game_coach_summary(
         cta_text = "Review Game"
         cta_target = f"/game/{game_id}"
     
+    # Resolve lesson using lesson_resolver (replaces old lesson_key_mapping)
+    # This is the SINGLE SOURCE OF TRUTH for lesson identification
+    import lesson_resolver
+    cognitive_gap = selected_move.get("cognitive_gap") if selected_move else None
+    crs_score = selection_result.get("selection_score", 0) if selection_result else 0
+    is_positive = narrative_strategy == "positive_coaching"
+    
+    lesson_resolution = lesson_resolver.resolve(
+        cognitive_gap=cognitive_gap,
+        selection_reason=selection_reason,
+        crs_score=crs_score,
+        is_positive_game=is_positive
+    )
+    
     # Create summary with full narrative structure
     summary = GameCoachSummary(
         game_id=game_id,
@@ -810,7 +841,11 @@ async def generate_game_coach_summary(
         primary_issue=primary_issue,
         emotion_mirror_line=emotion_mirror,
         coach_explain_line=coach_explain,
-        # NEW: Structured narrative
+        # Canonical lesson fields (from lesson_resolver)
+        lesson_key=lesson_resolution.lesson_key,
+        lesson_category=lesson_resolution.lesson_category,
+        lesson_intensity=lesson_resolution.lesson_intensity,
+        # Structured narrative
         narrative_components=narrative_components,
         narrative_strategy=narrative_strategy,
         tone_profile_used=maturity_level,
@@ -835,7 +870,7 @@ async def generate_game_coach_summary(
     # Save summary
     await service.save_game_coach_summary(summary)
     
-    # Log analytics event
+    # Log analytics event for summary
     from coach_analytics_service import get_analytics_service
     analytics = get_analytics_service(db)
     await analytics.log_game_coach_summary(
@@ -846,6 +881,37 @@ async def generate_game_coach_summary(
         ties_to_theme=ties_to_theme,
         current_theme=coach_state.active_theme.value if coach_state else "Unknown"
     )
+    
+    # Log lesson assignment audit trail (for memory tuning later)
+    await analytics.log_lesson_assigned(
+        user_id=user_id,
+        game_id=game_id,
+        lesson_key=lesson_resolution.lesson_key,
+        lesson_category=lesson_resolution.lesson_category,
+        lesson_intensity=lesson_resolution.lesson_intensity,
+        narrative_strategy=narrative_strategy,
+        selection_reason=selection_reason,
+        crs_score=crs_score
+    )
+    
+    # Update coach memory (Step 5: Memory Continuity Layer)
+    from coach_memory_service import get_memory_service
+    memory_service = get_memory_service(db)
+    current_streak = coach_state.good_game_streak if coach_state else 0
+    
+    memory_updates = await memory_service.update_memory_after_game(
+        user_id=user_id,
+        game_id=game_id,
+        lesson_key=lesson_resolution.lesson_key,
+        lesson_category=lesson_resolution.lesson_category,
+        lesson_intensity=lesson_resolution.lesson_intensity,
+        is_positive_game=(narrative_strategy == "positive_coaching"),
+        current_streak=current_streak + (1 if narrative_strategy == "positive_coaching" else 0)
+    )
+    
+    # Log milestone if achieved
+    if memory_updates.get("new_milestone"):
+        logger.info(f"[MEMORY] User {user_id} achieved milestone: {memory_updates['new_milestone'].get('milestone_type')}")
     
     # Update coach state
     if coach_state:

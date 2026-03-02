@@ -29,6 +29,7 @@ class AnalyticsEventType(str, Enum):
     GAME_COACH_SUMMARY_GENERATED = "game_coach_summary_generated"
     RESISTANCE_INCREASE = "resistance_increase"
     VELOCITY_CHANGE = "velocity_change"
+    LESSON_ASSIGNED = "lesson_assigned"  # New: tracks lesson assignments for memory
 
 
 class CoachAnalyticsService:
@@ -307,6 +308,49 @@ class CoachAnalyticsService:
         return await self.log_event(
             user_id=user_id,
             event_type=AnalyticsEventType.VELOCITY_CHANGE,
+            event_data=event_data
+        )
+    
+    async def log_lesson_assigned(
+        self,
+        user_id: str,
+        game_id: str,
+        lesson_key: str,
+        lesson_category: str,
+        lesson_intensity: float,
+        narrative_strategy: str,
+        selection_reason: str,
+        crs_score: float
+    ) -> str:
+        """
+        Log when a lesson is assigned to a game.
+        
+        This creates an audit trail for tuning thresholds and debugging
+        memory behavior later.
+        
+        Args:
+            user_id: The user this lesson is for
+            game_id: The game this lesson came from
+            lesson_key: Canonical lesson identifier
+            lesson_category: Lesson category (threat_awareness, calculation, etc.)
+            lesson_intensity: 0.0-1.0 intensity score
+            narrative_strategy: Which coaching strategy was used
+            selection_reason: Why this moment was selected (pattern_event, etc.)
+            crs_score: CRS score of the selected moment
+        """
+        event_data = {
+            "game_id": game_id,
+            "lesson_key": lesson_key,
+            "lesson_category": lesson_category,
+            "lesson_intensity": round(lesson_intensity, 2),
+            "narrative_strategy": narrative_strategy,
+            "selection_reason": selection_reason,
+            "crs_score": round(crs_score, 1)
+        }
+        
+        return await self.log_event(
+            user_id=user_id,
+            event_type=AnalyticsEventType.LESSON_ASSIGNED,
             event_data=event_data
         )
     
