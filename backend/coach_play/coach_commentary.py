@@ -650,3 +650,168 @@ async def get_coach_feedback(
         "eval_before": position_analysis.evaluation,
         "eval_after": move_analysis.eval_after
     }
+
+
+
+async def get_quick_analysis(
+    fen_before: str,
+    move_san: str,
+    fen_after: str,
+    user_color: str,
+    move_number: int
+) -> Dict[str, Any]:
+    """
+    Quick analysis without LLM - for trigger evaluation.
+    
+    Returns position and move analysis without generating feedback.
+    """
+    coach = CoachCommentary()
+    
+    # Analyze position and move
+    position_analysis = await coach.analyze_position(fen_before)
+    move_analysis = await coach.analyze_move(fen_before, move_san, fen_after)
+    
+    return {
+        "eval_before": position_analysis.evaluation,
+        "eval_after": move_analysis.eval_after,
+        "is_best_move": move_analysis.is_best_move,
+        "is_candidate": move_analysis.is_candidate,
+        "best_move": move_analysis.best_move_san,
+        "move_quality": move_analysis.quality.value,
+        "phase": position_analysis.phase,
+        "opening_name": position_analysis.opening_name,
+        "key_features": position_analysis.key_features
+    }
+
+
+async def generate_coach_chat_message(
+    trigger_type: str,
+    context: Dict,
+    user_rating: int,
+    user_color: str
+) -> str:
+    """
+    Generate a natural chat message from the coach.
+    
+    Based on trigger type, generates appropriate message.
+    Uses LLM for complex messages, templates for simple ones.
+    """
+    import sys
+    sys.path.insert(0, '/app/backend')
+    from llm_service import call_llm
+    
+    # Simple encouragement - use templates
+    if trigger_type == "encouragement":
+        from .coaching_triggers import CoachingTriggers
+        triggers = CoachingTriggers(user_rating)
+        return triggers.get_encouragement_phrase(
+            context.get("message_type", "good_move"),
+            context.get("streak", 0)
+        )
+    
+    # Opening guidance - use LLM
+    if trigger_type == "opening":
+        opening_name = context.get("opening_name", "this opening")
+        prompt = f"""You are a chess coach. The student just entered the {opening_name}. 
+Give a brief, friendly one-sentence comment about this opening (what it's known for, typical plans).
+Keep it under 20 words. Be conversational, not formal."""
+        
+        try:
+            response = await call_llm(
+                system_message="You are a friendly chess coach giving brief tips.",
+                user_message=prompt,
+                model="gpt-4o-mini"
+            )
+            return response.strip()
+        except:
+            return f"We're in the {opening_name}. Solid choice!"
+    
+    # Warning/Teaching - use LLM for explanation
+    if trigger_type in ["warning", "teaching", "reflection"]:
+        move = context.get("move", "")
+        eval_loss = context.get("eval_loss", 0)
+        best_move = context.get("best_move", "")
+        severity = context.get("severity", "inaccuracy")
+        
+        # Build appropriate prompt based on severity
+        if severity == "blunder":
+            prompt = f"""You are a chess coach. The student played {move} which was a blunder (lost {eval_loss:.1f} pawns of advantage).
+The best move was {best_move}. 
+Give a brief, encouraging but educational response (2 sentences max). 
+Don't be harsh - explain what was missed kindly. Start with acknowledging the move, then explain briefly."""
+        elif severity == "mistake":
+            prompt = f"""You are a chess coach. The student played {move} which was a mistake. 
+Better was {best_move}. 
+Give a brief comment (1-2 sentences) about what to look for. Be friendly and constructive."""
+        else:  # inaccuracy
+            prompt = f"""You are a chess coach. The student played {move}, a slight inaccuracy. 
+{best_move} was more precise.
+Give a very brief friendly hint (1 sentence). Don't be critical."""
+        
+        try:
+            response = await call_llm(
+                system_message="You are a warm, encouraging chess coach. Keep responses brief and friendly.",
+                user_message=prompt,
+                model="gpt-4o-mini"
+            )
+            return response.strip()
+        except:
+            if severity == "blunder":
+                return f"Oops! {best_move} was much stronger here. Let's see what happens..."
+            elif severity == "mistake":
+                return f"Hmm, {best_move} would have been better. Keep fighting!"
+            else:
+                return f"Interesting choice! {best_move} was slightly more accurate."
+    
+    return ""
+
+
+async def generate_response_to_user(
+    user_message: str,
+    current_fen: str,
+    move_history: list,
+    user_color: str,
+    user_rating: int
+) -> str:
+    """
+    Generate coach response to user's message in chat.
+    
+    User might ask questions like:
+    - "What should I do here?"
+    - "Why was that bad?"
+    - "What's the plan?"
+    """
+    import sys
+    sys.path.insert(0, '/app/backend')
+    from llm_service import call_llm
+    
+    coach = CoachCommentary()
+    
+    # Get current position analysis
+    position = await coach.analyze_position(current_fen)
+    
+    # Build context for LLM
+    recent_moves = move_history[-6:] if move_history else []
+    moves_str = ", ".join([f"{m.get('move', '')}" for m in recent_moves])
+    
+    prompt = f"""You are a chess coach in a training game. The student ({user_color}, rated {user_rating}) asks:
+"{user_message}"
+
+Current position evaluation: {position.evaluation:+.2f}
+Game phase: {position.phase}
+Recent moves: {moves_str}
+Position features: {', '.join(position.key_features[:3])}
+
+Give a helpful, concise response (2-3 sentences max). 
+Don't give exact moves unless they ask specifically - guide their thinking instead.
+Be encouraging and educational."""
+    
+    try:
+        response = await call_llm(
+            system_message="You are a friendly chess coach. Be helpful but don't give all the answers - guide thinking.",
+            user_message=prompt,
+            model="gpt-4o-mini"
+        )
+        return response.strip()
+    except Exception as e:
+        return "Let me think about that position... What do you notice about the center and piece activity?"
