@@ -14,6 +14,65 @@ Build a full-featured chess coaching application that analyzes games, identifies
 
 ---
 
+
+### P2.3 Deterministic Pattern Retrieval ✅ COMPLETE (Mar 2, 2026)
+
+**User Request:** "The personalization test must verify deterministic pattern retrieval before LLM phrasing. We test the memory engine, not the wording."
+
+**Core Problem Solved:** Previous personalization was shallow - it matched "same piece type in same phase". Now we have **structured, deterministic pattern recall** using `CognitiveGap` motifs.
+
+**Key Changes:**
+
+1. **Pattern Indexer** (`/app/backend/coach_play/pattern_indexer.py`) - NEW
+   - Builds index from user's game history by structured motifs
+   - Motifs from `CognitiveGap` enum: `MISSED_FORK`, `KING_SAFETY_NEGLECT`, `THREAT_BLINDNESS`, etc.
+   - EXACT game ID retrieval (not fuzzy text matching)
+   - Deterministic: same input → same output
+
+2. **Pattern Detection:**
+   - Fork patterns (knight forks with 2+ high-value targets)
+   - King safety (exposed king, no castle, broken pawn shield)
+   - Hanging pieces (undefended attacked pieces)
+   - Threat blindness (missed opponent threats)
+   - Back rank weakness
+
+3. **Test Verification:**
+   - `test_exact_motif_retrieval()` - Verifies correct past game ID returned
+   - `test_no_match_for_absent_motif()` - No hallucinated matches
+   - `test_llm_injection_payload()` - Injection context formatted correctly
+   - `test_excludes_current_game()` - No self-matching
+
+4. **API Enhancement:**
+   - `POST /api/coach/play/chat` now returns `pattern_match` field for verification:
+   ```json
+   {
+     "pattern_match": {
+       "matched": true,
+       "past_game_id": "game_123",
+       "motif": "missed_fork",
+       "opponent": "Magnus123",
+       "when": "3 days ago"
+     }
+   }
+   ```
+
+**What This Enables:**
+- Coach can say: "Remember your game against Magnus123? This is the same pattern."
+- Verification: Check `pattern_match.past_game_id` to confirm correct retrieval
+- No LLM hallucination - pattern matching is deterministic
+
+**Files Created:**
+- `/app/backend/coach_play/pattern_indexer.py` - Core pattern indexer
+- `/app/backend/tests/test_pattern_indexer.py` - 9 tests (100% pass)
+
+**Files Modified:**
+- `/app/backend/coach_play/personalized_coach.py` - Integrated pattern indexer
+- `/app/backend/server.py` - Added pattern_match to chat endpoint
+
+**Test Report:** 9/9 tests passing
+
+---
+
 ## Latest Updates (Mar 2, 2026)
 
 ### P2.2 Adaptive Chat-Based Coaching ✅ COMPLETE (Mar 2, 2026)
