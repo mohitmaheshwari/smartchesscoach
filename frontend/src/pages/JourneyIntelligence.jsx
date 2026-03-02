@@ -129,6 +129,9 @@ const JourneyIntelligence = () => {
             animate={{ opacity: 1 }}
             className="space-y-6"
           >
+            {/* SECTION 0: Coach Focus This Week - FROM CoachState */}
+            <CoachFocusCard />
+
             {/* SECTION 1: Player Identity (New Rich Component) */}
             <PlayerIdentityCard identity={identity} />
 
