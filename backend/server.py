@@ -4073,6 +4073,148 @@ async def get_home_intelligence_endpoint(user: User = Depends(get_current_user))
     return data
 
 
+# ==================== COACH STATE - SINGLE SOURCE OF TRUTH ====================
+
+@api_router.get("/coach/state")
+async def get_coach_state_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get user's CoachState - the SPINE of the coaching system.
+    
+    Every page should read from this to maintain consistency:
+    - Home: shows active_theme, micro_rules
+    - Train: prioritizes drills for active_theme
+    - Progress: shows theme improvement delta
+    """
+    from coach_state_service import CoachStateService, CoachTheme
+    
+    service = CoachStateService(db)
+    state = await service.get_coach_state(user.user_id)
+    
+    if not state:
+        # Initialize with default theme
+        state = await service.initialize_coach_state(user.user_id)
+    
+    return state.to_dict()
+
+
+@api_router.get("/coach/last-game-summary")
+async def get_last_game_summary_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get GameCoachSummary for the most recent analyzed game.
+    
+    This is what the Home page "Last Game • Coach Analysis" card renders from.
+    
+    Returns in order:
+    1. confidence (Low/Medium/High)
+    2. primary_issue (root cause label)
+    3. emotion_mirror_line ("You rushed here.")
+    4. coach_explain_line (positional + contextual)
+    5. theme_reinforcement_line (if ties to active theme)
+    6. cta_type + cta_text + cta_target (one action)
+    """
+    from coach_state_service import CoachStateService
+    
+    service = CoachStateService(db)
+    summary = await service.get_latest_game_coach_summary(user.user_id)
+    
+    if not summary:
+        return {"has_summary": False}
+    
+    return {
+        "has_summary": True,
+        **summary.to_dict()
+    }
+
+
+@api_router.get("/coach/game-summary/{game_id}")
+async def get_game_summary_endpoint(game_id: str, user: User = Depends(get_current_user)):
+    """Get GameCoachSummary for a specific game"""
+    from coach_state_service import CoachStateService
+    
+    service = CoachStateService(db)
+    summary = await service.get_game_coach_summary(game_id)
+    
+    if not summary:
+        return {"has_summary": False, "game_id": game_id}
+    
+    if summary.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your game")
+    
+    return {
+        "has_summary": True,
+        **summary.to_dict()
+    }
+
+
+@api_router.post("/coach/generate-summary/{game_id}")
+async def generate_game_summary_endpoint(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Manually trigger GameCoachSummary generation for a game.
+    
+    Normally this happens automatically after analysis completes.
+    """
+    from coach_state_service import CoachStateService, generate_game_coach_summary
+    
+    # Get game analysis
+    analysis = await db.game_analyses.find_one({
+        "game_id": game_id,
+        "user_id": user.user_id
+    })
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Game analysis not found")
+    
+    # Get current coach state
+    service = CoachStateService(db)
+    state = await service.get_coach_state(user.user_id)
+    
+    if not state:
+        state = await service.initialize_coach_state(user.user_id)
+    
+    # Generate summary
+    summary = await generate_game_coach_summary(
+        db=db,
+        game_id=game_id,
+        user_id=user.user_id,
+        game_analysis=analysis,
+        coach_state=state
+    )
+    
+    return summary.to_dict()
+
+
+@api_router.get("/coach/theme-stats")
+async def get_theme_stats_endpoint(user: User = Depends(get_current_user)):
+    """
+    Get improvement statistics for user's active theme.
+    
+    For Progress page "Coach Focus This Week" block:
+    - theme name
+    - micro rules
+    - improvement trend (mistakes before vs after)
+    """
+    from coach_state_service import CoachStateService
+    
+    service = CoachStateService(db)
+    state = await service.get_coach_state(user.user_id)
+    
+    if not state:
+        return {"has_theme": False}
+    
+    stats = await service.get_theme_improvement_stats(user.user_id, state.active_theme)
+    
+    return {
+        "has_theme": True,
+        "active_theme": state.active_theme.value,
+        "theme_display": state.active_theme.value.replace("_", " "),
+        "theme_reason": state.theme_reason,
+        "micro_rules": state.micro_rules,
+        "games_on_theme": state.games_on_theme,
+        "days_on_theme": (datetime.now(timezone.utc) - state.theme_started_at).days,
+        "improvement_stats": stats
+    }
+
+
 # ==================== BEHAVIORAL ANALYSIS ROUTES ====================
 
 @api_router.get("/behavioral/analyze/{game_id}")
