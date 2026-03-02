@@ -117,6 +117,7 @@ const Training = ({ user }) => {
   const [profile, setProfile] = useState(null);
   const [dataDrivenFocus, setDataDrivenFocus] = useState(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [coachState, setCoachState] = useState(null);
 
   // Step navigation (3 steps now)
   const [currentStep, setCurrentStep] = useState(0);
@@ -174,9 +175,10 @@ const Training = ({ user }) => {
           ? `${API}/training/data-driven?focus=${encodeURIComponent(focusFromUrl)}`
           : `${API}/training/data-driven`;
         
-        const [profileRes, focusRes] = await Promise.all([
+        const [profileRes, focusRes, coachStateRes] = await Promise.all([
           fetch(`${API}/training/profile`, { credentials: "include" }),
-          fetch(focusUrl, { credentials: "include" })
+          fetch(focusUrl, { credentials: "include" }),
+          fetch(`${API}/coach/state`, { credentials: "include" }).catch(() => null)
         ]);
         
         if (profileRes.ok) {
@@ -187,6 +189,10 @@ const Training = ({ user }) => {
         if (focusRes.ok) {
           const focusData = await focusRes.json();
           setDataDrivenFocus(focusData);
+        }
+        
+        if (coachStateRes?.ok) {
+          setCoachState(await coachStateRes.json());
         }
       } catch (err) {
         console.error("Error fetching training data:", err);
