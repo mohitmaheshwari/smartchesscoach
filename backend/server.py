@@ -4215,6 +4215,182 @@ async def get_theme_stats_endpoint(user: User = Depends(get_current_user)):
     }
 
 
+# ==================== DEEP COACHING SESSION ROUTES ====================
+
+@api_router.get("/coach/deep-session/check")
+async def check_deep_session_trigger(user: User = Depends(get_current_user)):
+    """
+    Check if a deep coaching session should be triggered.
+    
+    Returns:
+    - should_trigger: bool
+    - reason: why (scheduled/game_threshold/regression/etc)
+    - message: banner text for UI
+    """
+    from deep_session_service import DeepSessionService
+    
+    service = DeepSessionService(db)
+    result = await service.should_trigger_deep_session(user.user_id)
+    return result
+
+
+@api_router.post("/coach/deep-session/start")
+async def start_deep_session(
+    request: Dict = Body(default={}),
+    user: User = Depends(get_current_user)
+):
+    """
+    Start a new deep coaching session.
+    
+    Optional body: { "trigger": "manual" }
+    """
+    from deep_session_service import DeepSessionService, DeepSessionTrigger
+    
+    trigger_str = request.get("trigger", "manual")
+    try:
+        trigger = DeepSessionTrigger(trigger_str)
+    except:
+        trigger = DeepSessionTrigger.MANUAL
+    
+    service = DeepSessionService(db)
+    session = await service.start_session(user.user_id, trigger)
+    
+    # Return session with step 1 content
+    content = service.get_step_content(session, 1)
+    
+    return {
+        "session_id": session.session_id,
+        "current_step": session.current_step,
+        "total_steps": 6,
+        "content": content
+    }
+
+
+@api_router.get("/coach/deep-session/{session_id}")
+async def get_deep_session(session_id: str, user: User = Depends(get_current_user)):
+    """Get current deep session state and content"""
+    from deep_session_service import DeepSessionService
+    
+    service = DeepSessionService(db)
+    session = await service.get_session(session_id)
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    content = service.get_step_content(session, session.current_step)
+    
+    return {
+        "session_id": session.session_id,
+        "current_step": session.current_step,
+        "total_steps": 6,
+        "completed": session.completed,
+        "theme": session.theme,
+        "content": content
+    }
+
+
+@api_router.post("/coach/deep-session/{session_id}/reflection")
+async def submit_deep_session_reflection(
+    session_id: str,
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Submit reflection answer (step 2 → step 3).
+    
+    Body: { "answer": "momentum" }
+    """
+    from deep_session_service import DeepSessionService
+    
+    answer = request.get("answer")
+    if not answer:
+        raise HTTPException(status_code=400, detail="answer required")
+    
+    service = DeepSessionService(db)
+    session = await service.get_session(session_id)
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    session = await service.submit_reflection(session_id, answer)
+    content = service.get_step_content(session, session.current_step)
+    
+    return {
+        "session_id": session.session_id,
+        "current_step": session.current_step,
+        "content": content
+    }
+
+
+@api_router.post("/coach/deep-session/{session_id}/advance")
+async def advance_deep_session(session_id: str, user: User = Depends(get_current_user)):
+    """Advance to next step"""
+    from deep_session_service import DeepSessionService
+    
+    service = DeepSessionService(db)
+    session = await service.get_session(session_id)
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    session = await service.advance_step(session_id)
+    content = service.get_step_content(session, session.current_step)
+    
+    return {
+        "session_id": session.session_id,
+        "current_step": session.current_step,
+        "content": content
+    }
+
+
+@api_router.post("/coach/deep-session/{session_id}/complete")
+async def complete_deep_session(session_id: str, user: User = Depends(get_current_user)):
+    """
+    Complete the deep session.
+    
+    Updates CoachState with new micro rule and schedules next session.
+    """
+    from deep_session_service import DeepSessionService
+    
+    service = DeepSessionService(db)
+    session = await service.get_session(session_id)
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    session = await service.complete_session(session_id)
+    
+    return {
+        "success": True,
+        "session_id": session.session_id,
+        "completed": True,
+        "micro_rule_assigned": session.micro_rule_assigned,
+        "next_session_due": session.completed_at + timedelta(days=7) if session.completed_at else None
+    }
+
+
+@api_router.get("/coach/deep-session/improvement-check")
+async def check_post_session_improvement(user: User = Depends(get_current_user)):
+    """
+    Check if user improved after completing a deep session.
+    
+    Returns message for Home page if improvement detected:
+    "You handled threat verification better in your last game."
+    """
+    from deep_session_service import check_post_session_improvement as check_improvement
+    
+    result = await check_improvement(db, user.user_id)
+    return result or {"show_improvement": False}
+
+
 # ==================== BEHAVIORAL ANALYSIS ROUTES ====================
 
 @api_router.get("/behavioral/analyze/{game_id}")
