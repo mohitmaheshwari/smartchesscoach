@@ -217,8 +217,8 @@ class TestCoachAnalytics:
         assert res.status_code == 200, f"Failed to get theme switches: {res.text}"
         
         data = res.json()
-        # API returns object with 'history' key
-        assert "history" in data or isinstance(data, list), "Response should have history"
+        # API returns object with 'theme_switches' key
+        assert "theme_switches" in data or "history" in data or isinstance(data, list), "Response should have theme_switches"
     
     def test_get_maturity_progression(self):
         """Test getting maturity progression history"""
