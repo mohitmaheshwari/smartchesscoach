@@ -1343,6 +1343,24 @@ const Training = ({ user }) => {
     <Layout user={user}>
       <div className="min-h-screen py-8 px-4">
         <div className="max-w-2xl mx-auto">
+          {/* Coach Focus Banner - Your Focus Area */}
+          {coachState?.active_theme && (
+            <div className="mb-6 p-3 rounded-xl border border-primary/30 bg-primary/5">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Your Focus Area:</span>
+                <span className="text-sm text-primary font-semibold">
+                  {coachState.active_theme?.replace(/([A-Z])/g, ' $1').trim()}
+                </span>
+              </div>
+              {coachState.micro_rules?.[0] && (
+                <p className="text-xs text-muted-foreground mt-1 ml-6">
+                  {coachState.micro_rules[0]}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-sm font-medium text-muted-foreground">Training</h2>
