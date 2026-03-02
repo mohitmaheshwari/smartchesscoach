@@ -151,6 +151,9 @@ def cleanup_stuck_jobs(db):
         game_id = job.get("game_id")
         started_at = job.get("started_at")
         retry_count = job.get("retry_count", 0)
+        worker_id = job.get("worker_id", "unknown")
+        
+        logger.warning(f"Found stuck job: {game_id} (worker: {worker_id}, started: {started_at}, retries: {retry_count})")
         
         if retry_count >= MAX_RETRIES:
             # Mark as permanently failed
@@ -168,7 +171,7 @@ def cleanup_stuck_jobs(db):
                 {"game_id": game_id},
                 {"$set": {"analysis_status": "failed"}}
             )
-            logger.warning(f"Job {game_id} permanently failed after {MAX_RETRIES} retries")
+            logger.error(f"Job {game_id} permanently failed after {MAX_RETRIES} retries")
         else:
             # Reset to pending for retry
             db.analysis_queue.update_one(
@@ -177,10 +180,16 @@ def cleanup_stuck_jobs(db):
                     "$set": {
                         "status": "pending",
                         "started_at": None,
-                        "worker_id": None
+                        "worker_id": None,
+                        "last_reset_at": datetime.now(timezone.utc),
+                        "reset_reason": f"Timeout after {JOB_TIMEOUT_MINUTES} min (attempt {retry_count + 1})"
                     },
                     "$inc": {"retry_count": 1}
                 }
+            )
+            db.games.update_one(
+                {"game_id": game_id},
+                {"$set": {"analysis_status": "queued"}}
             )
             logger.info(f"Reset stuck job {game_id} for retry (attempt {retry_count + 1}/{MAX_RETRIES})")
         
