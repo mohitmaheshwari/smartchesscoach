@@ -499,11 +499,14 @@ def process_job(db, job):
                 "avg_cp_loss": sf_stats.get("avg_cp_loss", 0),
                 "move_evaluations": move_evaluations
             },
+            # NEW: Behavioral interpretation summary
+            "interpretation": interpretation_summary if interpretation_summary else {},
             "analysis_depth": STOCKFISH_DEPTH,
             "analyzed_at": datetime.now(timezone.utc),
             "created_at": datetime.now(timezone.utc),
             "analysis_duration_seconds": elapsed,
-            "worker_id": WORKER_ID
+            "worker_id": WORKER_ID,
+            "engine_version": "P2.3"  # Track version for future migrations
         }
         
         # Upsert analysis (update if exists, insert if not)
