@@ -295,7 +295,7 @@ Respond with ONLY the JSON, no other text."""
         try:
             from emergentintegrations.llm.chat import chat, Message, Model
             
-            emergent_api_key = os.environ.get("EMERGENT_API_KEY", "")
+            emergent_api_key = os.environ.get("EMERGENT_LLM_KEY", "")
             
             response = await chat(
                 api_key=emergent_api_key,
