@@ -447,6 +447,44 @@ def process_job(db, job):
         
         logger.info(f"[VALIDATION] Passed for {game_id}: {total_moves} moves, {accuracy}% accuracy, {blunders} blunders")
         
+        # =========================================================================
+        # PHASE 2: BEHAVIORAL INTERPRETATION (NEW)
+        # Run AFTER Stockfish to identify coaching-relevant patterns
+        # =========================================================================
+        logger.info(f"[INTERPRET] Starting behavioral interpretation for {game_id}...")
+        
+        try:
+            from analysis_interpreter import interpret_game_analysis
+            
+            enriched_moves, interpretation_summary = interpret_game_analysis(
+                move_evaluations,
+                user_color=user_color
+            )
+            
+            # Merge interpretation back into move evaluations
+            for i, move in enumerate(move_evaluations):
+                if i < len(enriched_moves):
+                    enriched = enriched_moves[i]
+                    move["cognitive_gap"] = enriched.get("cognitive_gap")
+                    move["is_critical"] = enriched.get("is_critical", False)
+                    move["critical_reason"] = enriched.get("critical_reason")
+                    move["gap_confidence"] = enriched.get("gap_confidence", 0)
+                    move["gap_evidence"] = enriched.get("gap_evidence", "")
+                    move["coaching_focus"] = enriched.get("coaching_focus", "")
+            
+            critical_count = interpretation_summary.get("critical_moves", 0)
+            primary_issue = interpretation_summary.get("primary_issue", "none")
+            
+            logger.info(f"[INTERPRET] Completed: {critical_count} critical moves, primary issue: {primary_issue}")
+            
+        except Exception as interp_error:
+            # Non-fatal - continue without interpretation
+            logger.warning(f"[INTERPRET] Failed (non-fatal): {interp_error}")
+            interpretation_summary = {}
+        
+        # Update heartbeat after interpretation
+        update_job_heartbeat(db, game_id)
+        
         # Create/update analysis record
         analysis_doc = {
             "game_id": game_id,
