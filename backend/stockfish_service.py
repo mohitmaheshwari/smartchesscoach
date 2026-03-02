@@ -447,6 +447,26 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         threat_after_played = engine.get_threat(played_board, depth=12)
                     
                     board.push(move)
+                    fen_after = board.fen()  # Store position after move
+                    
+                    # Detect turning point (eval swing >= 120 cp)
+                    eval_swing = abs(current_eval - prev_eval)
+                    is_turning_point = eval_swing >= 120 and not is_bad_move
+                    
+                    # If turning point but not already computed PV, compute now
+                    if is_turning_point and not pv_after_played:
+                        board.pop()
+                        # Get PV after best move
+                        best_board = board.copy()
+                        best_board.push(best_move)
+                        pv_after_best = engine.get_principal_variation(best_board, depth=12, pv_length=4)
+                        
+                        # Get PV after played move
+                        played_board = board.copy()
+                        played_board.push(move)
+                        pv_after_played = engine.get_principal_variation(played_board, depth=12, pv_length=4)
+                        
+                        board.push(move)
                     
                     move_eval = MoveEvaluation(
                         move_number=(move_number + 1) // 2,
@@ -466,7 +486,10 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         mate_in_after=current_mate,
                         pv_after_played=pv_after_played,
                         pv_after_best=pv_after_best,
-                        threat_after_played=threat_after_played
+                        threat_after_played=threat_after_played,
+                        fen_after=fen_after,
+                        is_turning_point=is_turning_point,
+                        eval_swing=eval_swing
                     )
                     moves_analysis.append(move_eval)
                 
