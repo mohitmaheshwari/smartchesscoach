@@ -245,7 +245,25 @@ const CoachHome = ({ user }) => {
           </motion.div>
         )}
 
-        {/* Section 3.5: Play with Coach - Training Mode */}
+        {/* Section 3.5: Your Focus Stage Banner */}
+        {coachState?.active_theme && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.16 }}
+            className="rounded-xl border border-primary/20 bg-primary/5 p-3"
+          >
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium">Your Focus Stage:</span>
+              <span className="text-sm text-primary font-semibold">
+                {coachState.active_theme?.replace(/([A-Z])/g, ' $1').trim()}
+              </span>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Section 3.6: Play with Coach - Training Mode */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -278,17 +296,14 @@ const CoachHome = ({ user }) => {
           </div>
         </motion.div>
 
-        {/* Section 4: Post-Game Review - BEHAVIORAL INSIGHTS (not just blunder count) */}
+        {/* Section 4: Last Game • Coach Analysis - FROM GameCoachSummary */}
         {homeData?.last_game?.game_id && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <BehavioralInsightCard 
-              gameId={homeData.last_game.game_id} 
-              lastGame={homeData.last_game}
-            />
+            <LastGameCoachCard gameId={homeData.last_game.game_id} />
           </motion.div>
         )}
 
