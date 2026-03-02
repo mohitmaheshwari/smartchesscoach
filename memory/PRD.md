@@ -296,6 +296,30 @@ Memory-aware narrative modifications implemented with 4 controlled influence pat
 
 **Test Status:** 60/60 tests passing (26 lesson_resolver + 16 memory_service + 18 narrative_modifications)
 
+### 6-Game Realism Test Results (Mar 2, 2026)
+**Overall Score: 4.02/5** ✅ PASS
+
+| Category | Score |
+|----------|-------|
+| Felt Understood | 3.4 |
+| Memory Naturalness | 4.6 |
+| Emotional Timing | 4.2 |
+| Non-Repetition | 3.8 |
+| Coaching Authority | 4.1 |
+
+**Key Achievements:**
+- Memory illusion is working ("You've seen this idea recently")
+- Milestone moments feel earned ("This was a clean game. That's a milestone")
+- Emotional trajectory matches game outcomes
+
+**Identified Gap:** Intent recognition still generic ("This move had a clear intent" vs "You wanted to attack the kingside")
+
+### P0 Fixes Applied (Post-Realism Test)
+
+1. **Fix 1: Milestone Bug** - `clean_game = blunders == 0` strictly enforced (tightened threshold to CRS < 80)
+2. **Fix 2: Pattern Direction Labels** - Polarity-aware modifiers (positive patterns: "stability building" vs negative: "appearing more often")
+3. **Fix 3: Teaching Line Pool Expansion** - Each lesson category now has 5-7 variants for semantic variety
+
 **Files Created:**
 - `/app/backend/lesson_resolver.py` - Canonical lesson resolution
 - `/app/backend/coach_memory_service.py` - Memory management

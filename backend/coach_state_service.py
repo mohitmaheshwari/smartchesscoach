@@ -781,8 +781,12 @@ async def generate_game_coach_summary(
     import lesson_resolver
     cognitive_gap = selected_move.get("cognitive_gap") if selected_move else None
     crs_score = selection_result.get("selection_score", 0) if selection_result else 0
-    is_positive = selection_reason in ("positive_coaching", "no_critical_moves") or (
-        max_crs_score < 100 and blunders_count == 0
+    
+    # Fix 1: clean_game = blunders == 0 STRICTLY
+    # No inference allowed - only positive when there are zero blunders
+    is_positive = (
+        selection_reason in ("positive_coaching", "no_critical_moves") or
+        (blunders_count == 0 and max_crs_score < 80)  # Tightened threshold
     )
     lesson_resolution = lesson_resolver.resolve(
         cognitive_gap=cognitive_gap,

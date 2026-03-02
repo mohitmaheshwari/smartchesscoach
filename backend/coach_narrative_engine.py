@@ -166,71 +166,102 @@ CONSEQUENCE_TEMPLATES = {
     ]
 }
 
-# Teaching templates - underlying principle
+# Teaching templates - underlying principle (Fix 3: Expanded to 5-7 variants)
 TEACHING_TEMPLATES = {
     "threat_verification": [
         "Always verify opponent threats before committing.",
         "Forcing moves must be checked first.",
         "Defense comes before attack.",
+        "The opponent's possibilities were underestimated.",
+        "Their counterplay wasn't factored in.",
+        "Every move should ask: What can they do now?",
     ],
     "calculation": [
         "Calculate one move deeper than feels necessary.",
         "Complete the sequence before moving.",
         "Check the opponent's best reply.",
+        "The forcing line wasn't calculated to completion.",
+        "This required calculating until the position settled.",
+        "Deeper calculation would have revealed the issue.",
     ],
     "conversion": [
         "When ahead, simplify carefully.",
         "Winning positions require patience.",
         "Don't attack when consolidation wins.",
+        "The position called for consolidation, not action.",
+        "In better positions, reduce complexity first.",
+        "The advantage needed protection, not expansion.",
     ],
     "defense": [
         "Hold the position before counterattacking.",
         "Defensive moves can be the strongest.",
         "Patience in defense often pays off.",
+        "Defense creates attacking opportunities.",
+        "Solid defense frustrates aggressive opponents.",
     ],
     "mate_awareness": [
         "In winning positions, check for forcing finishes.",
         "Mate patterns should be scanned actively.",
         "When attacking, calculate to the end.",
+        "The winning combination was available.",
+        "Forcing sequences lead to mates when ahead.",
     ],
     "default": [
         "Slow down at critical moments.",
         "Double-check before committing.",
         "The position deserved more attention.",
+        "This moment required more careful thinking.",
+        "Critical positions need extra time.",
+        "The situation called for deeper thought.",
     ]
 }
 
-# Rule templates - actionable takeaway
+# Rule templates - actionable takeaway (Fix 3: Expanded to 5-7 variants)
 RULE_TEMPLATES = {
     "threat_scan": [
         "Before YOUR move, check what THEY can do.",
         "Scan checks-captures-threats before committing.",
         "Ask: What's their best reply?",
+        "Always consider opponent's forcing moves first.",
+        "Check their active pieces before moving yours.",
+        "Anticipate their response before you act.",
     ],
     "calculation_depth": [
         "Calculate one move further than usual.",
         "Ask: Then what? after every move.",
         "Don't stop until the position is quiet.",
+        "Extend calculation through forcing sequences.",
+        "Keep calculating until no forcing moves remain.",
+        "Push through the uncomfortable depth.",
     ],
     "piece_safety": [
         "Check if the piece is safe on its new square.",
         "Count attackers vs defenders before moving.",
         "Undefended pieces cause problems.",
+        "Every piece needs a defender or escape square.",
+        "Loose pieces invite tactics.",
+        "Verify piece safety before and after each move.",
     ],
     "conversion": [
         "When winning, trade pieces not pawns.",
         "Simplify when ahead materially.",
         "No need to attack — just maintain.",
+        "Reduce complexity when you're better.",
+        "Protect your advantage before expanding it.",
     ],
     "patience": [
         "Improve your worst piece first.",
         "Don't rush when the position is unclear.",
         "Small improvements beat forcing moves.",
+        "Patience prevents premature action.",
+        "When unsure, strengthen your position.",
     ],
     "default": [
         "Take more time on critical decisions.",
         "Verify before executing.",
         "Slow down at turning points.",
+        "Critical moments deserve extra attention.",
+        "Don't rush the important decisions.",
     ]
 }
 
@@ -346,7 +377,9 @@ COOLDOWN_RULE_MODIFICATIONS = [
 ]
 
 # Pattern trend modifications for break/teaching lines
+# NOTE: These are polarity-aware based on the type of pattern
 PATTERN_TREND_MODIFIERS = {
+    # For NEGATIVE patterns (mistakes) - these mean pattern is recurring badly
     "improving": [
         "This mistake is appearing less often now.",
         "This pattern is improving in your games.",
@@ -358,11 +391,31 @@ PATTERN_TREND_MODIFIERS = {
         "We keep seeing this.",
     ],
     "recurring": [
-        "This is recurring more frequently.",
         "This is appearing more often recently.",
-        "This pattern is intensifying.",
+        "This pattern needs attention.",
+        "This is recurring more frequently.",
     ],
     "stable": []  # No modification for stable patterns
+}
+
+# For POSITIVE patterns (good habits) - these track discipline
+POSITIVE_TREND_MODIFIERS = {
+    "improving": [
+        "This discipline is becoming natural.",
+        "This good habit is settling in.",
+        "Your consistency here is growing.",
+    ],
+    "persistent": [
+        "This stability continues.",
+        "Your discipline here is holding.",
+        "This solid pattern persists.",
+    ],
+    "recurring": [
+        "This stability is building.",
+        "Your focus here is intensifying.",
+        "This positive pattern is strengthening.",
+    ],
+    "stable": []
 }
 
 # Milestone acknowledgments (rare, earned)
@@ -398,7 +451,8 @@ def apply_memory_modifications(
     components: 'NarrativeComponents',
     memory_context: Optional[Dict] = None,
     games_on_theme: int = 0,
-    active_theme: str = None
+    active_theme: str = None,
+    is_positive_coaching: bool = False
 ) -> Tuple['NarrativeComponents', int]:
     """
     Apply memory-based modifications to narrative components.
@@ -413,6 +467,7 @@ def apply_memory_modifications(
         memory_context: MemoryContext.to_dict() or None
         games_on_theme: How many games on current theme
         active_theme: Current theme name
+        is_positive_coaching: Whether this is positive (clean game) or corrective coaching
         
     Returns:
         (modified_components, modification_count)
@@ -435,16 +490,20 @@ def apply_memory_modifications(
         rule_line = random.choice(COOLDOWN_RULE_MODIFICATIONS)
         modification_count += 1
     
-    # 2. Pattern trend phrasing
+    # 2. Pattern trend phrasing (polarity-aware)
+    # Fix 2: Use different modifiers for positive vs negative patterns
     pattern_trend = memory_context.get("lesson_trend", "stable")
-    if (pattern_trend != "stable" and 
-        pattern_trend in PATTERN_TREND_MODIFIERS and
-        PATTERN_TREND_MODIFIERS[pattern_trend] and
-        modification_count < MAX_MODIFICATIONS):
-        # Add trend modifier to teaching line
-        trend_phrase = random.choice(PATTERN_TREND_MODIFIERS[pattern_trend])
-        teaching_line = f"{trend_phrase} {teaching_line}"
-        modification_count += 1
+    if pattern_trend != "stable" and modification_count < MAX_MODIFICATIONS:
+        # Select correct modifier set based on coaching type
+        if is_positive_coaching:
+            modifiers = POSITIVE_TREND_MODIFIERS.get(pattern_trend, [])
+        else:
+            modifiers = PATTERN_TREND_MODIFIERS.get(pattern_trend, [])
+        
+        if modifiers:
+            trend_phrase = random.choice(modifiers)
+            teaching_line = f"{trend_phrase} {teaching_line}"
+            modification_count += 1
     
     # 3. Milestone acknowledgment (rare)
     active_milestone = memory_context.get("active_milestone")
@@ -978,12 +1037,14 @@ def generate_coaching_narrative(
     # Apply memory modifications (Step 5: Memory Continuity)
     # This influences PHRASING only, not analysis
     modifications_count = 0
+    is_positive = strategy == "positive_coaching"
     if memory_context:
         components, modifications_count = apply_memory_modifications(
             components=components,
             memory_context=memory_context,
             games_on_theme=games_on_theme,
-            active_theme=active_theme
+            active_theme=active_theme,
+            is_positive_coaching=is_positive
         )
         if modifications_count > 0:
             logger.debug(f"Applied {modifications_count} memory modifications to narrative")
