@@ -291,22 +291,20 @@ Respond with ONLY the JSON, no other text."""
         return prompt
     
     async def _call_llm(self, prompt: str) -> str:
-        """Call the LLM to generate feedback."""
+        """Call the LLM to generate feedback using the app's LLM service."""
         try:
-            from emergentintegrations.llm.chat import LlmChat, UserMessage
+            # Use the app's centralized LLM service
+            import sys
+            sys.path.insert(0, '/app/backend')
+            from llm_service import call_llm
             
-            emergent_api_key = os.environ.get("EMERGENT_LLM_KEY", "")
-            
-            llm = LlmChat(
-                api_key=emergent_api_key,
-                model="openai/gpt-4o-mini"
+            response = await call_llm(
+                system_message="You are a helpful chess coach providing Socratic feedback.",
+                user_message=prompt,
+                model="gpt-4o-mini"
             )
             
-            response = await llm.chat([
-                UserMessage(content=prompt)
-            ])
-            
-            return response.content
+            return response
             
         except Exception as e:
             print(f"LLM call failed: {e}")
