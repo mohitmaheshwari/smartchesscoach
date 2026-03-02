@@ -11265,8 +11265,8 @@ async def make_coach_play_move(
     """
     Make a move in the Play With Coach session.
     
-    Now includes adaptive coaching - coach speaks when there's something
-    meaningful to say (good moves, mistakes, teaching moments).
+    Move processing is FAST - coach analysis happens in background.
+    Frontend polls /coach/play/messages for coach commentary.
     
     Body:
     - session_id: Session ID
@@ -11279,12 +11279,9 @@ async def make_coach_play_move(
     - coach_move: Coach's response move
     - game_over: Whether the game has ended
     - result: Game result if over
-    - coach_message: Optional coaching message (only when triggered)
-    - coach_trigger: Type of trigger (encouragement, teaching, etc.)
     """
+    import asyncio
     from coach_play import make_player_move
-    from coach_play.coach_commentary import get_quick_analysis, generate_coach_chat_message
-    from coach_play.coaching_triggers import should_coach_speak
     
     session_id = request.get("session_id")
     move = request.get("move")
@@ -11302,12 +11299,13 @@ async def make_coach_play_move(
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
     
-    # Store FEN before move for analysis
+    # Store context for background task
     fen_before = session_doc.get("current_fen")
     user_rating = session_doc.get("user_rating", 1200)
     user_color = session_doc.get("user_color", "white")
     
     try:
+        # Make the move - this is fast
         result = await make_player_move(
             db=db,
             session_id=session_id,
@@ -11318,62 +11316,152 @@ async def make_coach_play_move(
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error", "Move failed"))
         
-        # Get FEN after move for analysis
+        # Get move info for background analysis
         fen_after = result.get("session", {}).get("current_fen", "")
         move_history = result.get("session", {}).get("move_history", [])
-        move_number = (len([m for m in move_history if m.get("by") == "player"]))
+        move_number = len([m for m in move_history if m.get("by") == "player"])
         
-        # Analyze move to check if coach should speak
-        coach_message = None
-        coach_trigger = None
-        
-        try:
-            # Quick analysis (no LLM)
-            analysis = await get_quick_analysis(
-                fen_before=fen_before,
+        # Fire-and-forget: Analyze move in background
+        asyncio.create_task(
+            _analyze_move_background(
+                session_id=session_id,
                 move_san=move,
+                fen_before=fen_before,
                 fen_after=fen_after,
+                user_rating=user_rating,
                 user_color=user_color,
                 move_number=move_number
             )
-            
-            # Check if coach should speak
-            trigger = should_coach_speak(
-                user_rating=user_rating,
-                move_san=move,
-                eval_before=analysis["eval_before"],
-                eval_after=analysis["eval_after"],
-                is_best_move=analysis["is_best_move"],
-                is_candidate=analysis["is_candidate"],
-                best_move_san=analysis["best_move"],
-                phase=analysis["phase"],
-                move_number=move_number,
-                opening_name=analysis.get("opening_name")
-            )
-            
-            if trigger.should_speak:
-                # Generate coach message
-                coach_message = await generate_coach_chat_message(
-                    trigger_type=trigger.trigger_type.value,
-                    context=trigger.context,
-                    user_rating=user_rating,
-                    user_color=user_color
-                )
-                coach_trigger = trigger.trigger_type.value
-                
-        except Exception as e:
-            logger.warning(f"Coach analysis failed (non-blocking): {e}")
+        )
         
-        # Add coach message to response
-        result["coach_message"] = coach_message
-        result["coach_trigger"] = coach_trigger
-        
+        # Return immediately - no waiting for analysis
         return result
+        
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error making move: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _analyze_move_background(
+    session_id: str,
+    move_san: str,
+    fen_before: str,
+    fen_after: str,
+    user_rating: int,
+    user_color: str,
+    move_number: int
+):
+    """
+    Background task to analyze move and generate coach message.
+    Stores message in coach_messages collection for frontend to poll.
+    """
+    from coach_play.coach_commentary import get_quick_analysis, generate_coach_chat_message
+    from coach_play.coaching_triggers import should_coach_speak
+    from datetime import datetime, timezone
+    
+    try:
+        # Quick analysis with Stockfish
+        analysis = await get_quick_analysis(
+            fen_before=fen_before,
+            move_san=move_san,
+            fen_after=fen_after,
+            user_color=user_color,
+            move_number=move_number
+        )
+        
+        # Check if coach should speak
+        trigger = should_coach_speak(
+            user_rating=user_rating,
+            move_san=move_san,
+            eval_before=analysis["eval_before"],
+            eval_after=analysis["eval_after"],
+            is_best_move=analysis["is_best_move"],
+            is_candidate=analysis["is_candidate"],
+            best_move_san=analysis["best_move"],
+            phase=analysis["phase"],
+            move_number=move_number,
+            opening_name=analysis.get("opening_name")
+        )
+        
+        if trigger.should_speak:
+            # Generate coach message (uses LLM)
+            coach_message = await generate_coach_chat_message(
+                trigger_type=trigger.trigger_type.value,
+                context=trigger.context,
+                user_rating=user_rating,
+                user_color=user_color
+            )
+            
+            # Store message for frontend to fetch
+            await db.coach_messages.insert_one({
+                "session_id": session_id,
+                "type": "coach",
+                "message": coach_message,
+                "trigger": trigger.trigger_type.value,
+                "move": move_san,
+                "move_number": move_number,
+                "created_at": datetime.now(timezone.utc),
+                "read": False
+            })
+            
+    except Exception as e:
+        logger.warning(f"Background coach analysis failed: {e}")
+
+
+@api_router.get("/coach/play/messages/{session_id}")
+async def get_coach_messages(
+    session_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Poll for new coach messages.
+    Frontend calls this periodically to get coach commentary.
+    
+    Returns unread messages and marks them as read.
+    """
+    from datetime import datetime, timezone
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    # Get unread messages
+    cursor = db.coach_messages.find({
+        "session_id": session_id,
+        "read": False
+    }).sort("created_at", 1)
+    
+    messages = []
+    message_ids = []
+    
+    async for msg in cursor:
+        messages.append({
+            "type": msg.get("type", "coach"),
+            "message": msg.get("message", ""),
+            "trigger": msg.get("trigger"),
+            "move": msg.get("move"),
+            "move_number": msg.get("move_number"),
+            "timestamp": msg.get("created_at").isoformat() if msg.get("created_at") else None
+        })
+        message_ids.append(msg["_id"])
+    
+    # Mark as read
+    if message_ids:
+        await db.coach_messages.update_many(
+            {"_id": {"$in": message_ids}},
+            {"$set": {"read": True}}
+        )
+    
+    return {
+        "success": True,
+        "messages": messages,
+        "count": len(messages)
+    }
 
 
 @api_router.post("/coach/play/reflect")
