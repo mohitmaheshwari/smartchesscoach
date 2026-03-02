@@ -410,6 +410,17 @@ class DeepSessionService:
         
         return session
     
+    async def _count_games_since_last_session(self, user_id: str, coach_state) -> int:
+        """Count games since the last deep session"""
+        if not coach_state.last_deep_session_at:
+            # No previous session - count all games
+            return await self.db.games.count_documents({"user_id": user_id})
+        
+        return await self.db.games.count_documents({
+            "user_id": user_id,
+            "played_at": {"$gt": coach_state.last_deep_session_at}
+        })
+    
     async def _build_summary_snapshot(self, user_id: str, coach_state) -> Dict:
         """Build the pattern summary for Screen 1"""
         from coach_state_service import CoachStateService
