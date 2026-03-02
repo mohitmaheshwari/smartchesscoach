@@ -11683,7 +11683,7 @@ async def coach_chat_message(
     
     Unlike chess.com, our coach:
     - Knows your past games and mistakes
-    - References similar situations from your history
+    - References similar situations from your history (DETERMINISTIC retrieval)
     - Gives plan-based advice, not just engine moves
     
     Returns:
@@ -11691,6 +11691,7 @@ async def coach_chat_message(
     - suggestion_arrow: UCI coords for arrow if suggesting a move
     - position_plan: Strategic plan for the position
     - personal_insight: Reference to past games/patterns
+    - pattern_match: DETERMINISTIC pattern retrieval result (for verification)
     """
     from coach_play.coach_commentary import generate_response_to_user, CoachCommentary
     from coach_play.personalized_coach import get_personalized_coaching
@@ -11718,7 +11719,27 @@ async def coach_chat_message(
         
         # Get the last move for context
         user_moves = [m for m in move_history if m.get("by") == "player"]
-        last_move = user_moves[-1].get("move", "") if user_moves else ""
+        last_user_move = user_moves[-1] if user_moves else None
+        last_move = last_user_move.get("move", "") if last_user_move else ""
+        
+        # Build move_analysis for deterministic pattern matching
+        move_analysis = None
+        if last_user_move and last_user_move.get("fen_before"):
+            # Analyze the last move to detect potential pattern
+            coach = CoachCommentary()
+            try:
+                analysis = await coach.analyze_move(
+                    last_user_move.get("fen_before"),
+                    last_user_move.get("move"),
+                    last_user_move.get("fen_after", current_fen)
+                )
+                move_analysis = {
+                    "cp_loss": int(analysis.eval_loss * 100),
+                    "best_move": analysis.best_move_san,
+                    "quality": analysis.quality.value
+                }
+            except:
+                pass
         
         # Determine phase
         coach = CoachCommentary()
@@ -11726,13 +11747,15 @@ async def coach_chat_message(
         phase = position.phase
         
         # Get personalized context from user's history
+        # NOW INCLUDES DETERMINISTIC PATTERN RETRIEVAL
         personal_data = await get_personalized_coaching(
             db=db,
             user_id=user.user_id,
             current_fen=current_fen,
             last_move=last_move,
             phase=phase,
-            user_color=user_color
+            user_color=user_color,
+            move_analysis=move_analysis  # Pass for pattern matching
         )
         
         # Generate response with personalization
@@ -11754,7 +11777,9 @@ async def coach_chat_message(
             "best_move": result.get("best_move"),
             "missed_tactic": result.get("missed_tactic"),
             "position_plan": personal_data.get("position_plan"),
-            "personal_insight": personal_data.get("personal_context", {}).get("similar_mistake")
+            "personal_insight": personal_data.get("personal_context", {}).get("similar_mistake"),
+            # VERIFICATION: Expose pattern match for testing
+            "pattern_match": personal_data.get("pattern_match")
         }
         
     except Exception as e:
