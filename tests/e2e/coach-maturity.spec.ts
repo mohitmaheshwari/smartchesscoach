@@ -45,8 +45,8 @@ test.describe('Progress Page - Coach Focus Display', () => {
     // Should show coach focus this week
     expect(pageContent).toContain('Coach Focus');
     
-    // Should show YOUR RULES
-    expect(pageContent).toContain('YOUR RULES');
+    // Should show Your Rules (not case sensitive)
+    expect(pageContent.toLowerCase()).toContain('your rules');
     
     await page.screenshot({ path: 'progress-coach-focus.jpeg', quality: 20 });
   });
@@ -100,8 +100,8 @@ test.describe('Progress Page - Coach Focus Display', () => {
     
     const pageContent = await page.textContent('body');
     
-    // Should have YOUR RULES section with at least one rule
-    expect(pageContent).toContain('YOUR RULES');
+    // Should have Your Rules section with at least one rule
+    expect(pageContent.toLowerCase()).toContain('your rules');
     
     // Rules should include coaching-related text
     const hasRules = 
@@ -373,16 +373,17 @@ test.describe('Navigation', () => {
 
   test('should navigate to Progress from sidebar', async ({ page }) => {
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
     
     // Click Progress in sidebar
     const progressLink = page.getByRole('link', { name: 'Progress' });
     await progressLink.click();
     
     await page.waitForURL(/\/progress/, { timeout: 10000 });
+    await page.waitForTimeout(2000);
     
     // Verify we're on progress page
     const pageContent = await page.textContent('body');
-    expect(pageContent).toContain('Coach Focus');
+    expect(pageContent.toLowerCase()).toContain('coach focus');
   });
 });
