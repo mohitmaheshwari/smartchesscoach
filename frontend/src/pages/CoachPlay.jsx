@@ -436,16 +436,7 @@ const CoachPlay = ({ user }) => {
         }
       }
       
-      // Add coach message to chat if triggered
-      if (data.coach_message) {
-        setChatMessages(prev => [...prev, {
-          type: "coach",
-          message: data.coach_message,
-          trigger: data.coach_trigger,
-          move: moveSan,
-          timestamp: Date.now()
-        }]);
-      }
+      // Coach messages now arrive via polling - no need to handle here
 
       return true;
     } catch (error) {
