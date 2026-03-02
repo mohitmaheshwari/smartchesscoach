@@ -456,6 +456,16 @@ const CoachHome = ({ user }) => {
           </Button>
         </motion.div>
       </div>
+
+      {/* Deep Session Modal */}
+      <DeepSessionModal
+        isOpen={showDeepSession}
+        onClose={() => setShowDeepSession(false)}
+        onComplete={() => {
+          setShowDeepSession(false);
+          fetchAllData();  // Refresh data after session
+        }}
+      />
     </Layout>
   );
 };
