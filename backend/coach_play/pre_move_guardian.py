@@ -248,25 +248,89 @@ class PreMoveGuardian:
     ) -> Optional[Dict]:
         """
         Detect if the move leaves a piece hanging (undefended and attackable).
+        
+        IMPORTANT: If the move is a capture that wins material, we should NOT
+        warn about the moving piece being "hanging" - that's expected and fine.
+        Example: Bishop takes Rook, Bishop is now "hanging" but you're up 2 points.
         """
+        our_color = board.turn
+        
+        # Check if this is a capture
+        is_capture = board.is_capture(move)
+        captured_piece = board.piece_at(move.to_square) if is_capture else None
+        moving_piece = board.piece_at(move.from_square)
+        
+        if not moving_piece:
+            return None
+        
+        # Calculate net material if this is a capture and piece gets recaptured
+        moving_value = PIECE_VALUES[moving_piece.piece_type]
+        captured_value = PIECE_VALUES[captured_piece.piece_type] if captured_piece else 0
+        
         # Make the move temporarily
         board_copy = board.copy()
         board_copy.push(move)
         
-        # Check all of our pieces after the move
-        our_color = board.turn
+        # If the user is giving check, don't warn about hanging pieces
+        # (forcing moves are often justified even if they leave pieces hanging)
+        if board_copy.is_check():
+            return None
         
+        # Check the piece that just moved - is it hanging?
+        if board_copy.is_attacked_by(not our_color, move.to_square):
+            if not board_copy.is_attacked_by(our_color, move.to_square):
+                # The moving piece is now hanging
+                # But if it captured something valuable, the "hanging" is fine
+                net_trade = captured_value - moving_value
+                
+                if net_trade >= 0:
+                    # We captured equal or better material, so being "hanging" is okay
+                    # Example: Bishop takes Rook = +2, worth it even if bishop hangs
+                    return None
+                
+                # If we captured something but are losing on the trade, warn
+                if is_capture and net_trade < -1:
+                    moving_name = PIECE_NAMES[moving_piece.piece_type]
+                    captured_name = PIECE_NAMES[captured_piece.piece_type]
+                    
+                    level = RiskLevel.HIGH if net_trade <= -2 else RiskLevel.MEDIUM
+                    
+                    return {
+                        "type": RiskType.MATERIAL_LOSS,
+                        "level": level,
+                        "message": f"Bad trade! Your {moving_name} can be recaptured.",
+                        "explanation": f"After taking the {captured_name}, your {moving_name} is hanging. Net loss: {abs(net_trade)} points.",
+                        "details": {
+                            "hanging_square": chess.square_name(move.to_square),
+                            "piece": moving_name,
+                            "value": moving_value,
+                            "captured_value": captured_value,
+                            "net_trade": net_trade
+                        }
+                    }
+        
+        # Check all OTHER pieces (not the one that just moved)
         for square in chess.SQUARES:
+            if square == move.to_square:
+                continue  # Already handled above
+            
             piece = board_copy.piece_at(square)
             if piece and piece.color == our_color:
                 # Skip pawns (usually not critical)
                 if piece.piece_type == chess.PAWN:
                     continue
                 
-                # Is this piece attacked?
-                if board_copy.is_attacked_by(not our_color, square):
-                    # Is it defended?
-                    if not board_copy.is_attacked_by(our_color, square):
+                # Was this piece defended before the move but is now hanging?
+                was_defended = board.is_attacked_by(our_color, square)
+                was_attacked = board.is_attacked_by(not our_color, square)
+                
+                is_now_defended = board_copy.is_attacked_by(our_color, square)
+                is_now_attacked = board_copy.is_attacked_by(not our_color, square)
+                
+                # Only warn if the move CAUSED the piece to become hanging
+                # (was defended or not attacked before, is now hanging)
+                if is_now_attacked and not is_now_defended:
+                    if was_defended or not was_attacked:
                         piece_value = PIECE_VALUES[piece.piece_type]
                         piece_name = PIECE_NAMES[piece.piece_type]
                         
@@ -281,8 +345,8 @@ class PreMoveGuardian:
                         return {
                             "type": RiskType.HANGING_PIECE,
                             "level": level,
-                            "message": f"Your {piece_name} on {chess.square_name(square)} will be hanging!",
-                            "explanation": f"After this move, your {piece_name} is attacked but not defended. Opponent can capture it for free.",
+                            "message": f"This move leaves your {piece_name} on {chess.square_name(square)} hanging!",
+                            "explanation": f"After this move, your {piece_name} becomes undefended and can be captured.",
                             "details": {
                                 "hanging_square": chess.square_name(square),
                                 "piece": piece_name,
