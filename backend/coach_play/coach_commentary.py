@@ -755,7 +755,7 @@ Give a very brief friendly hint (1 sentence). Don't be critical."""
                 model="gpt-4o-mini"
             )
             return response.strip()
-        except:
+        except Exception:
             if severity == "blunder":
                 return f"Oops! {best_move} was much stronger here. Let's see what happens..."
             elif severity == "mistake":
