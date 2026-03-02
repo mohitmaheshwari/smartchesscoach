@@ -421,22 +421,83 @@ async def get_personalized_coaching(
     current_fen: str,
     last_move: str,
     phase: str,
-    user_color: str
+    user_color: str,
+    move_analysis: Dict = None
 ) -> Dict[str, Any]:
     """
     Main entry point for personalized coaching.
     
-    Returns:
-    - personal_context: Similar past mistakes, tendencies, warnings
-    - position_plan: Human-understandable strategic plan
-    """
-    coach = PersonalizedCoach(db, user_id)
+    NOW USES DETERMINISTIC PATTERN INDEXER:
+    - Retrieves exact game IDs from past mistakes
+    - Matches by structured motif (CognitiveGap enum)
+    - Returns injection context for LLM
     
-    # Get personal context (past mistakes, tendencies)
-    personal_context = await coach.get_personal_context(current_fen, last_move, phase)
+    Returns:
+    - personal_context: Similar past mistakes (with game ID for verification)
+    - position_plan: Human-understandable strategic plan
+    - pattern_match: Deterministic pattern retrieval result
+    """
+    from .pattern_indexer import PatternIndexer, get_pattern_retrieval
+    import sys
+    sys.path.insert(0, '/app/backend')
+    from cognitive_gap_service import CognitiveGap
+    
+    coach = PersonalizedCoach(db, user_id)
     
     # Get position plan (human strategic guidance)
     position_plan = coach.get_position_plan(current_fen, phase, user_color)
+    
+    # DETERMINISTIC PATTERN RETRIEVAL
+    # If we have move analysis, detect current motif
+    pattern_match_result = None
+    deterministic_context = None
+    
+    if move_analysis:
+        cp_loss = move_analysis.get("cp_loss", 0)
+        best_move = move_analysis.get("best_move", "")
+        
+        # Only search patterns if this was a mistake/blunder
+        if cp_loss >= 100:
+            indexer = PatternIndexer(db, user_id)
+            current_motif = indexer.detect_current_motif(current_fen, cp_loss, best_move)
+            
+            if current_motif != CognitiveGap.UNCLEAR:
+                pattern_match_result = await get_pattern_retrieval(
+                    db=db,
+                    user_id=user_id,
+                    current_fen=current_fen,
+                    current_motif=current_motif,
+                    current_game_id=None  # No current game context in chat
+                )
+                
+                if pattern_match_result.get("matched"):
+                    deterministic_context = {
+                        "found": True,
+                        "past_game_id": pattern_match_result.get("past_game_id"),
+                        "motif": pattern_match_result.get("motif"),
+                        "opponent": pattern_match_result.get("opponent"),
+                        "when": pattern_match_result.get("when"),
+                        "what_happened": pattern_match_result.get("what_happened"),
+                        "injection_context": pattern_match_result.get("injection_context")
+                    }
+    
+    # Also get legacy personal context (tendencies, warnings)
+    legacy_context = await coach.get_personal_context(current_fen, last_move, phase)
+    
+    # Merge: deterministic takes priority
+    personal_context = legacy_context.copy()
+    if deterministic_context and deterministic_context.get("found"):
+        personal_context["similar_mistake"] = {
+            "found": True,
+            "opponent": deterministic_context.get("opponent"),
+            "when": deterministic_context.get("when"),
+            "what_happened": deterministic_context.get("what_happened"),
+            "lesson": f"This is the same pattern ({deterministic_context.get('motif')}) - focus on avoiding it",
+            # VERIFICATION DATA
+            "_game_id": deterministic_context.get("past_game_id"),
+            "_motif": deterministic_context.get("motif"),
+            "_injection": deterministic_context.get("injection_context")
+        }
     
     return {
         "personal_context": personal_context,
@@ -445,5 +506,6 @@ async def get_personalized_coaching(
             "specific_goals": position_plan.specific_goals,
             "things_to_avoid": position_plan.things_to_avoid,
             "piece_placement": position_plan.piece_placement
-        }
+        },
+        "pattern_match": pattern_match_result  # For verification/testing
     }
