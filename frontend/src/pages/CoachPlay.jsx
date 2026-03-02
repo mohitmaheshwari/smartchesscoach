@@ -388,6 +388,20 @@ const CoachPlay = ({ user }) => {
           setMoveStartTime(Date.now());
         }
       }
+      
+      // Trigger reflection modal - ask user WHY they played this move
+      // Find the index of the user's move (it's the second-to-last if coach responded)
+      const moveHistory = data.session.move_history || [];
+      const userMoveIndex = data.coach_move 
+        ? moveHistory.length - 2  // Coach responded, user's move is second-to-last
+        : moveHistory.length - 1; // No coach response yet, user's move is last
+      
+      if (userMoveIndex >= 0 && moveHistory[userMoveIndex]?.by === "player") {
+        setReflectionMoveIndex(userMoveIndex);
+        setReflectionInput("");
+        setCoachFeedback(null);
+        setShowReflectionModal(true);
+      }
 
       return true;
     } catch (error) {
@@ -395,6 +409,55 @@ const CoachPlay = ({ user }) => {
       toast.error("Connection error. Please try again.");
       return false;
     }
+  };
+  
+  // Submit reflection and get coach feedback
+  const submitReflection = async () => {
+    if (!reflectionInput.trim() || reflectionMoveIndex === null) return;
+    
+    setIsGettingFeedback(true);
+    
+    try {
+      const response = await fetch(`${API}/coach/play/reflect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          session_id: session.session_id,
+          move_index: reflectionMoveIndex,
+          user_reasoning: reflectionInput.trim()
+        })
+      });
+      
+      if (response.ok) {
+        const feedback = await response.json();
+        setCoachFeedback(feedback);
+        
+        // Add to conversation history
+        setCoachConversation(prev => [...prev, {
+          move: feedback.move,
+          moveIndex: reflectionMoveIndex,
+          userReasoning: reflectionInput.trim(),
+          feedback: feedback
+        }]);
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to get coach feedback");
+      }
+    } catch (error) {
+      console.error("Reflection error:", error);
+      toast.error("Failed to get coach feedback");
+    } finally {
+      setIsGettingFeedback(false);
+    }
+  };
+  
+  // Close reflection modal
+  const closeReflection = () => {
+    setShowReflectionModal(false);
+    setReflectionMoveIndex(null);
+    setReflectionInput("");
+    setCoachFeedback(null);
   };
 
   // Handle user confirming a risky move
