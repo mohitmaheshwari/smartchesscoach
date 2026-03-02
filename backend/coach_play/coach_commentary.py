@@ -896,16 +896,16 @@ async def generate_response_to_user(
     move_history: list,
     user_color: str,
     user_rating: int
-) -> str:
+) -> Dict[str, Any]:
     """
     Generate coach response to user's message in chat.
     
-    IMPORTANT: Actually analyze the position and moves, don't give generic advice!
+    Returns dict with:
+    - response: The text response
+    - suggestion_arrow: UCI coords for arrow (e.g., "e2e4") if suggesting a move
+    - move_quality: Quality of analyzed move if applicable
     
-    User might ask:
-    - "Was my last move bad?" → Analyze the actual last move
-    - "What should I do here?" → Analyze position and suggest ideas
-    - "Why was that bad?" → Explain what went wrong
+    IMPORTANT: Actually analyze the position and moves, don't give generic advice!
     """
     import sys
     sys.path.insert(0, '/app/backend')
@@ -913,6 +913,15 @@ async def generate_response_to_user(
     
     coach = CoachCommentary()
     msg_lower = user_message.lower()
+    
+    # Result structure
+    result = {
+        "response": "",
+        "suggestion_arrow": None,
+        "move_quality": None,
+        "best_move": None,
+        "missed_tactic": None
+    }
     
     # Detect if user is asking about their last move
     asking_about_last_move = any(phrase in msg_lower for phrase in [
@@ -926,6 +935,8 @@ async def generate_response_to_user(
     
     # If asking about last move, actually analyze it!
     move_analysis_context = ""
+    tactic_explanation = ""
+    
     if asking_about_last_move and last_user_move:
         fen_before = last_user_move.get("fen_before", "")
         fen_after = last_user_move.get("fen_after", "")
@@ -934,6 +945,15 @@ async def generate_response_to_user(
         if fen_before and fen_after and move_san:
             # Actually analyze the move
             move_analysis = await coach.analyze_move(fen_before, move_san, fen_after)
+            
+            # Store for result
+            result["move_quality"] = move_analysis.quality.value
+            result["best_move"] = move_analysis.best_move_san
+            result["missed_tactic"] = move_analysis.missed_tactic
+            
+            # If not best move, provide arrow for the better move
+            if not move_analysis.is_best_move and move_analysis.best_move_uci:
+                result["suggestion_arrow"] = move_analysis.best_move_uci
             
             # Build concrete analysis
             quality = move_analysis.quality.value
@@ -944,12 +964,16 @@ async def generate_response_to_user(
             was_best = move_analysis.is_best_move
             was_candidate = move_analysis.is_candidate
             
+            # Add tactical explanation if available
+            if move_analysis.threat_explanation:
+                tactic_explanation = f"\nTACTICAL EXPLANATION: {move_analysis.threat_explanation}"
+            
             if was_best:
                 move_analysis_context = f"""
 MOVE ANALYSIS (CONCRETE DATA):
 - Move played: {move_san}
 - Quality: BEST MOVE! Excellent choice.
-- Evaluation: {eval_before:+.2f} → {eval_after:+.2f} (no change, optimal)
+- Evaluation: {eval_before:+.2f} → {eval_after:+.2f}
 - This WAS the best move in the position."""
             elif was_candidate:
                 move_analysis_context = f"""
@@ -960,37 +984,35 @@ MOVE ANALYSIS (CONCRETE DATA):
 - Best move was: {best_move}
 - But {move_san} is perfectly playable."""
             else:
-                # Not a top move - explain why
+                # Not a top move - include tactical explanation
                 if quality == "blunder":
                     move_analysis_context = f"""
 MOVE ANALYSIS (CONCRETE DATA):
 - Move played: {move_san}
 - Quality: BLUNDER - This was a serious mistake
 - Evaluation dropped: {eval_before:+.2f} → {eval_after:+.2f} ({eval_change:+.2f})
-- Much better was: {best_move}
-- This lost significant advantage."""
+- Much better was: {best_move}{tactic_explanation}"""
                 elif quality == "mistake":
                     move_analysis_context = f"""
 MOVE ANALYSIS (CONCRETE DATA):
 - Move played: {move_san}
 - Quality: MISTAKE - Not the best choice
 - Evaluation: {eval_before:+.2f} → {eval_after:+.2f} ({eval_change:+.2f})
-- Better was: {best_move}"""
+- Better was: {best_move}{tactic_explanation}"""
                 elif quality == "inaccuracy":
                     move_analysis_context = f"""
 MOVE ANALYSIS (CONCRETE DATA):
 - Move played: {move_san}
 - Quality: SLIGHT INACCURACY
 - Evaluation: {eval_before:+.2f} → {eval_after:+.2f} ({eval_change:+.2f})
-- More precise was: {best_move}
-- But your move is still reasonable."""
+- More precise was: {best_move}{tactic_explanation}"""
                 else:
                     move_analysis_context = f"""
 MOVE ANALYSIS (CONCRETE DATA):
 - Move played: {move_san}
 - Quality: {quality.upper()}
 - Evaluation: {eval_before:+.2f} → {eval_after:+.2f}
-- Best move was: {best_move}"""
+- Best move was: {best_move}{tactic_explanation}"""
     
     # Get current position analysis
     position = await coach.analyze_position(current_fen)
@@ -1013,23 +1035,31 @@ CURRENT POSITION:
 INSTRUCTIONS:
 1. If they asked about their last move, give SPECIFIC feedback based on the MOVE ANALYSIS above
 2. Reference the actual move name, the evaluation numbers, and what was better
-3. Be concrete, not generic - use the actual data!
-4. Keep response to 2-3 sentences
-5. Be encouraging but honest
+3. If there was a TACTICAL EXPLANATION, include it - explain the fork/pin/threat in plain language
+4. Be concrete, not generic - use the actual data!
+5. Keep response to 2-3 sentences
+6. Be encouraging but honest
+7. If the best move involved a tactic (fork, pin, etc), explain it clearly
 
-Example good response: "Your Bc4 was a solid developing move! The eval stayed at +0.3. You're setting up nicely for the Italian Game."
+Example good response: "Your Qg4 was okay, but Nf6 was stronger - it forks the king and rook, winning the exchange!"
 Example bad response: "Think about your piece activity..." (TOO GENERIC!)"""
     
     try:
         response = await call_llm(
-            system_message="You are a chess coach who gives SPECIFIC, CONCRETE feedback based on actual position analysis. Never give generic advice when you have real data.",
+            system_message="You are a chess coach who gives SPECIFIC, CONCRETE feedback. When there's a tactical explanation available, explain the tactic clearly (fork, pin, etc).",
             user_message=prompt,
             model="gpt-4o-mini"
         )
-        return response.strip()
+        result["response"] = response.strip()
     except Exception:
         # Fallback with actual data if we have it
         if move_analysis_context and last_user_move:
             move_san = last_user_move.get("move", "your move")
-            return f"Your move {move_san} was analyzed. Let me check the position..."
-        return "Let me analyze that for you..."
+            if result.get("missed_tactic"):
+                result["response"] = f"Your {move_san} missed a {result['missed_tactic']}. {result.get('best_move', '')} was better."
+            else:
+                result["response"] = f"Your move {move_san} was analyzed. {result.get('best_move', '')} was the best option."
+        else:
+            result["response"] = "Let me analyze that for you..."
+    
+    return result
