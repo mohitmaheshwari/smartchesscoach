@@ -72,8 +72,11 @@ class MoveAnalysis:
     is_best_move: bool
     is_candidate: bool  # Top 3 move
     best_move_san: str
+    best_move_uci: str  # UCI format for arrow display
     best_continuation: List[str]
     tactical_themes: List[str]  # ["fork", "pin", "discovered attack"]
+    missed_tactic: Optional[str]  # Description of what was missed
+    threat_explanation: Optional[str]  # Why the best move was better
 
 
 @dataclass
