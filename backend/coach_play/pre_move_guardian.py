@@ -363,6 +363,9 @@ class PreMoveGuardian:
     ) -> Optional[Dict]:
         """
         Detect if we're ignoring an immediate threat from opponent.
+        
+        NOTE: This function is ONLY called if we're not in check 
+        (check is handled at the top of evaluate_move).
         """
         our_color = board.turn
         
@@ -372,10 +375,11 @@ class PreMoveGuardian:
             piece = board.piece_at(square)
             if piece and piece.color == our_color:
                 if board.is_attacked_by(not our_color, square):
-                    # Is it defended?
+                    # Is it defended adequately?
                     defenders = len(list(board.attackers(our_color, square)))
                     attackers = len(list(board.attackers(not our_color, square)))
                     
+                    # Only consider it a threat if undefended or underdefended
                     if attackers > defenders or (attackers > 0 and defenders == 0):
                         threatened_pieces.append({
                             "square": square,
@@ -388,22 +392,43 @@ class PreMoveGuardian:
         
         # Check if the move addresses any threat
         move_from = move.from_square
+        move_to = move.to_square
         
         # Get highest value threat
         highest_threat = max(threatened_pieces, key=lambda x: x["value"])
         
-        # Does this move:
+        # Does this move address the threat?
+        
         # 1. Move the threatened piece?
         if move_from == highest_threat["square"]:
-            return None  # Threat addressed
+            return None  # Threat addressed by moving the piece
         
-        # 2. Block the attacker?
-        # 3. Capture the attacker?
-        # (These are complex to detect, skip for now)
+        # 2. Capture the attacker?
+        # Check if we're capturing a piece that was attacking our threatened piece
+        if board.is_capture(move):
+            captured_square = move_to
+            # Was the captured piece an attacker of our threatened piece?
+            attackers_of_threat = list(board.attackers(not our_color, highest_threat["square"]))
+            if captured_square in attackers_of_threat:
+                return None  # Threat addressed by capturing attacker
         
-        # 4. Create a bigger threat? (discovered attack, etc.)
+        # 3. Block the attack? (for sliding pieces)
+        # Check if our move interposes between attacker and threatened piece
+        # This is complex, so we'll do a simple check: after the move, is the piece still threatened?
         board_after = board.copy()
         board_after.push(move)
+        
+        # Is the threatened piece still under attack after our move?
+        if not board_after.is_attacked_by(not our_color, highest_threat["square"]):
+            return None  # Threat addressed (blocked or other)
+        
+        # Is it now defended after our move?
+        defenders_after = len(list(board_after.attackers(our_color, highest_threat["square"])))
+        attackers_after = len(list(board_after.attackers(not our_color, highest_threat["square"])))
+        if defenders_after >= attackers_after:
+            return None  # Threat addressed by defending
+        
+        # 4. Create a bigger threat? (discovered attack, check, etc.)
         if board_after.is_check():
             return None  # Giving check is usually justified
         
