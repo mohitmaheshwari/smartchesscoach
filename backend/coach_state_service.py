@@ -300,26 +300,113 @@ class MicroDrill:
         }
 
 
+class NarrativeStrategy(str, Enum):
+    """Which narrative approach to use"""
+    PATTERN_COACHING = "pattern_coaching"      # Recurring behavior
+    TURNING_POINT_COACHING = "turning_point_coaching"  # Game-changing moment
+    TACTICAL_COACHING = "tactical_coaching"    # Calculation error
+    MATE_ALERT = "mate_alert"                  # Missed forced mate
+
+
+@dataclass
+class NarrativeComponents:
+    """
+    Structured coaching explanation components.
+    
+    This is the "coaching grammar" that enables:
+    - Tone adjustment without re-analysis
+    - A/B testing narrative styles
+    - Future localization
+    - B2B customization
+    
+    Flow: Intent → Break → Reality → Lesson → Rule → Reinforcement
+    """
+    # 1. Player psychology - acknowledge what they were trying to do
+    intent_mirror_line: str
+    # "You wanted to activate your pieces quickly."
+    
+    # 2. Thinking failure moment - where cognition broke
+    thinking_break_line: str
+    # "But opponent had a forcing reply you didn't check."
+    
+    # 3. Concrete board reality - what actually happens
+    position_consequence_line: str
+    # "After Qxh7+, Kf8 your attack stops immediately."
+    
+    # 4. Concept teaching - the underlying principle
+    teaching_line: str
+    # "Attacks work only after opponent threats are verified."
+    
+    # 5. Transferable rule - actionable takeaway
+    rule_line: str
+    # "Before committing, scan checks–captures–threats."
+    
+    # 6. Long-term coaching continuity
+    theme_reinforcement_line: Optional[str] = None
+    # "This connects to your current focus: Threat Verification."
+    
+    def to_dict(self) -> Dict:
+        return {
+            "intent_mirror_line": self.intent_mirror_line,
+            "thinking_break_line": self.thinking_break_line,
+            "position_consequence_line": self.position_consequence_line,
+            "teaching_line": self.teaching_line,
+            "rule_line": self.rule_line,
+            "theme_reinforcement_line": self.theme_reinforcement_line
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'NarrativeComponents':
+        return cls(
+            intent_mirror_line=data.get("intent_mirror_line", ""),
+            thinking_break_line=data.get("thinking_break_line", ""),
+            position_consequence_line=data.get("position_consequence_line", ""),
+            teaching_line=data.get("teaching_line", ""),
+            rule_line=data.get("rule_line", ""),
+            theme_reinforcement_line=data.get("theme_reinforcement_line")
+        )
+
+
 @dataclass
 class GameCoachSummary:
     """
     Generated after each game analysis.
     
     This is what the Home page "Last Game" card renders from.
+    
+    Contains BOTH:
+    - Structured components (source of truth)
+    - Assembled text (cached render)
     """
     game_id: str
     user_id: str
     confidence: Confidence
     primary_moment: PrimaryMoment
     primary_issue: PrimaryIssue
+    
+    # Legacy fields (kept for backward compatibility)
     emotion_mirror_line: str  # "You rushed here."
     coach_explain_line: str   # Positional + contextual
-    micro_drill: Optional[MicroDrill]
-    ties_to_active_theme: bool
-    theme_reinforcement_line: Optional[str]  # "This connects to your current focus: X."
-    cta_type: str  # "review_moment" | "start_drill"
-    cta_text: str
-    cta_target: str  # URL or action
+    
+    # NEW: Structured narrative components
+    narrative_components: Optional[NarrativeComponents] = None
+    narrative_strategy: Optional[str] = None  # PATTERN_COACHING, TACTICAL_COACHING, etc.
+    tone_profile_used: Optional[str] = None   # Novice, Developing, Disciplined, Advanced
+    explanation_confidence: float = 1.0       # How confident we are in this explanation
+    
+    # Selection metadata (for debugging and analytics)
+    selection_metadata: Optional[Dict] = None
+    
+    # Assembled final text (cached render)
+    assembled_summary_text: Optional[str] = None
+    
+    # Existing fields
+    micro_drill: Optional[MicroDrill] = None
+    ties_to_active_theme: bool = False
+    theme_reinforcement_line: Optional[str] = None  # "This connects to your current focus: X."
+    cta_type: str = "review_moment"  # "review_moment" | "start_drill"
+    cta_text: str = "Review This Moment"
+    cta_target: str = ""  # URL or action
     generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     
     def to_dict(self) -> Dict:
@@ -331,6 +418,14 @@ class GameCoachSummary:
             "primary_issue": self.primary_issue.value,
             "emotion_mirror_line": self.emotion_mirror_line,
             "coach_explain_line": self.coach_explain_line,
+            # NEW structured fields
+            "narrative_components": self.narrative_components.to_dict() if self.narrative_components else None,
+            "narrative_strategy": self.narrative_strategy,
+            "tone_profile_used": self.tone_profile_used,
+            "explanation_confidence": round(self.explanation_confidence, 2),
+            "selection_metadata": self.selection_metadata,
+            "assembled_summary_text": self.assembled_summary_text,
+            # Existing fields
             "micro_drill": self.micro_drill.to_dict() if self.micro_drill else None,
             "ties_to_active_theme": self.ties_to_active_theme,
             "theme_reinforcement_line": self.theme_reinforcement_line,
@@ -342,20 +437,33 @@ class GameCoachSummary:
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'GameCoachSummary':
+        # Parse narrative components if present
+        narrative_components = None
+        if data.get("narrative_components"):
+            narrative_components = NarrativeComponents.from_dict(data["narrative_components"])
+        
         return cls(
             game_id=data["game_id"],
             user_id=data["user_id"],
             confidence=Confidence(data["confidence"]),
             primary_moment=PrimaryMoment(**data["primary_moment"]),
             primary_issue=PrimaryIssue(data["primary_issue"]),
-            emotion_mirror_line=data["emotion_mirror_line"],
-            coach_explain_line=data["coach_explain_line"],
+            emotion_mirror_line=data.get("emotion_mirror_line", ""),
+            coach_explain_line=data.get("coach_explain_line", ""),
+            # NEW fields
+            narrative_components=narrative_components,
+            narrative_strategy=data.get("narrative_strategy"),
+            tone_profile_used=data.get("tone_profile_used"),
+            explanation_confidence=data.get("explanation_confidence", 1.0),
+            selection_metadata=data.get("selection_metadata"),
+            assembled_summary_text=data.get("assembled_summary_text"),
+            # Existing fields
             micro_drill=MicroDrill(**data["micro_drill"]) if data.get("micro_drill") else None,
-            ties_to_active_theme=data["ties_to_active_theme"],
+            ties_to_active_theme=data.get("ties_to_active_theme", False),
             theme_reinforcement_line=data.get("theme_reinforcement_line"),
-            cta_type=data["cta_type"],
-            cta_text=data["cta_text"],
-            cta_target=data["cta_target"],
+            cta_type=data.get("cta_type", "review_moment"),
+            cta_text=data.get("cta_text", "Review This Moment"),
+            cta_target=data.get("cta_target", ""),
             generated_at=datetime.fromisoformat(data["generated_at"]) if isinstance(data.get("generated_at"), str) else datetime.now(timezone.utc)
         )
 
@@ -626,18 +734,43 @@ async def generate_game_coach_summary(
     emotion_lines = EMOTION_MIRRORS.get(primary_issue, ["That was a tough moment."])
     emotion_mirror = service.get_non_repetitive_line(emotion_lines, recent_sentences)
     
-    # Generate coach explain line (using new selection data)
-    coach_explain = _generate_coach_explain_v2(selected_move, primary_issue, selection_reason)
+    # =========================================================================
+    # NEW: Use Narrative Engine for structured explanations
+    # =========================================================================
+    from coach_narrative_engine import generate_coaching_narrative
+    
+    maturity_level = coach_state.behavioral_maturity_level if coach_state else "Developing"
+    active_theme = coach_state.active_theme.value if coach_state else None
+    position_ctx = selected_move.get("position_context", {}) if selected_move else {}
+    
+    narrative_result = generate_coaching_narrative(
+        selected_move=selected_move or {},
+        selection_reason=selection_reason,
+        position_context=position_ctx,
+        maturity_level=maturity_level,
+        active_theme=active_theme,
+        recent_sentences=recent_sentences
+    )
+    
+    # Extract narrative components
+    narrative_components = NarrativeComponents.from_dict(narrative_result["narrative_components"])
+    narrative_strategy = narrative_result["narrative_strategy"]
+    explanation_confidence = narrative_result["explanation_confidence"]
+    assembled_text = narrative_result["assembled_text"]
+    
+    # Use assembled text as coach_explain_line for backward compatibility
+    coach_explain = assembled_text if assembled_text else _generate_coach_explain_v2(selected_move, primary_issue, selection_reason)
     
     # Check if ties to active theme
     ties_to_theme = False
-    theme_line = None
+    theme_line = narrative_components.theme_reinforcement_line
     
     if coach_state:
         theme_issues = THEME_ISSUE_MAP.get(coach_state.active_theme, [])
         if primary_issue in theme_issues:
             ties_to_theme = True
-            theme_line = f"This connects to your current focus: {coach_state.active_theme.value.replace('_', ' ')}."
+            if not theme_line:
+                theme_line = f"This connects to your current focus: {coach_state.active_theme.value.replace('_', ' ')}."
     
     # Determine CTA
     if selected_move:
@@ -650,7 +783,7 @@ async def generate_game_coach_summary(
         cta_text = "Review Game"
         cta_target = f"/game/{game_id}"
     
-    # Create summary with selection metadata
+    # Create summary with full narrative structure
     summary = GameCoachSummary(
         game_id=game_id,
         user_id=user_id,
@@ -659,22 +792,27 @@ async def generate_game_coach_summary(
         primary_issue=primary_issue,
         emotion_mirror_line=emotion_mirror,
         coach_explain_line=coach_explain,
-        micro_drill=None,  # Can be added later
+        # NEW: Structured narrative
+        narrative_components=narrative_components,
+        narrative_strategy=narrative_strategy,
+        tone_profile_used=maturity_level,
+        explanation_confidence=explanation_confidence,
+        assembled_summary_text=assembled_text,
+        # Selection metadata
+        selection_metadata={
+            "selection_reason": selection_reason,
+            "selection_score": selection_result.get("selection_score") if selection_result else 0,
+            "selection_factors": selection_result.get("selection_factors", []) if selection_result else [],
+            "runner_up_count": len(selection_result.get("runner_up_moves", [])) if selection_result else 0
+        },
+        # Rest of fields
+        micro_drill=None,
         ties_to_active_theme=ties_to_theme,
         theme_reinforcement_line=theme_line,
         cta_type=cta_type,
         cta_text=cta_text,
         cta_target=cta_target
     )
-    
-    # Store selection metadata for debugging
-    summary_dict = summary.to_dict()
-    summary_dict["selection_metadata"] = {
-        "selection_reason": selection_reason,
-        "selection_score": selection_result.get("selection_score") if selection_result else 0,
-        "selection_factors": selection_result.get("selection_factors", []) if selection_result else [],
-        "runner_up_count": len(selection_result.get("runner_up_moves", [])) if selection_result else 0
-    }
     
     # Save summary
     await service.save_game_coach_summary(summary)
