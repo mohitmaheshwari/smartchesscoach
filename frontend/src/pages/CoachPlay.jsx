@@ -2,9 +2,13 @@
  * CoachPlay.jsx - Play With Coach Feature (P2)
  * 
  * A training mode where users play full games against a pedagogical coach engine.
+ * Now with Live Socratic Coaching - the coach asks WHY you played each move!
  * 
- * Step 1: Basic playable game with session management.
- * Later phases will add: Pre-move guardian, behavior extraction, CPR, identity.
+ * Features:
+ * - Pre-move guardian: Catches blunders before they happen
+ * - Live reflection: Coach asks "Why did you play that?" after each move
+ * - Socratic feedback: Targeted coaching based on your reasoning
+ * - Eval bar: Real-time position evaluation
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -15,6 +19,7 @@ import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
 import {
@@ -34,7 +39,12 @@ import {
   ShieldAlert,
   Lightbulb,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  MessageCircle,
+  Send,
+  Sparkles,
+  ThumbsUp,
+  Target
 } from "lucide-react";
 
 /**
