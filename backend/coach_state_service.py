@@ -218,6 +218,11 @@ class CoachState:
     recent_coach_sentences: List[str] = field(default_factory=list)
     games_on_theme: int = 0
     theme_improvement_delta: Optional[Dict] = None
+    # Behavioral Maturity Layer (Step 3)
+    behavioral_maturity_level: str = "Novice"  # Novice | Developing | Disciplined | Advanced
+    coach_tone_mode: str = "ExplainMore"  # ExplainMore | Balanced | ChallengeMore
+    theme_resistance_score: float = 0.0
+    improvement_velocity: float = 0.0
     
     def to_dict(self) -> Dict:
         return {
@@ -232,7 +237,12 @@ class CoachState:
             "next_deep_session_due_at": self.next_deep_session_due_at.isoformat() if self.next_deep_session_due_at else None,
             "recent_coach_sentences": self.recent_coach_sentences[-10:],
             "games_on_theme": self.games_on_theme,
-            "theme_improvement_delta": self.theme_improvement_delta
+            "theme_improvement_delta": self.theme_improvement_delta,
+            # Behavioral Maturity
+            "behavioral_maturity_level": self.behavioral_maturity_level,
+            "coach_tone_mode": self.coach_tone_mode,
+            "theme_resistance_score": round(self.theme_resistance_score, 2),
+            "improvement_velocity": round(self.improvement_velocity, 2)
         }
     
     @classmethod
@@ -249,7 +259,12 @@ class CoachState:
             next_deep_session_due_at=datetime.fromisoformat(data["next_deep_session_due_at"]) if data.get("next_deep_session_due_at") else None,
             recent_coach_sentences=data.get("recent_coach_sentences", []),
             games_on_theme=data.get("games_on_theme", 0),
-            theme_improvement_delta=data.get("theme_improvement_delta")
+            theme_improvement_delta=data.get("theme_improvement_delta"),
+            # Behavioral Maturity
+            behavioral_maturity_level=data.get("behavioral_maturity_level", "Novice"),
+            coach_tone_mode=data.get("coach_tone_mode", "ExplainMore"),
+            theme_resistance_score=data.get("theme_resistance_score", 0.0),
+            improvement_velocity=data.get("improvement_velocity", 0.0)
         )
 
 
