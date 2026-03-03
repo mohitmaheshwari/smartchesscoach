@@ -53,7 +53,8 @@ import {
   Send,
   ListChecks,
   Square,
-  CheckSquare
+  CheckSquare,
+  Lock
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
@@ -151,6 +152,9 @@ const Lab = ({ user }) => {
   // Focus Module state (behavioral coaching)
   const [focusModule, setFocusModule] = useState(null);
   const [protocolChecks, setProtocolChecks] = useState([false, false, false]);
+  
+  // Focus Lock state (Step 9.1 - Micro Reinforcement)
+  const [focusLock, setFocusLock] = useState(null);
   
   // Re-analyze game handler
   const handleReanalyze = async () => {
@@ -274,6 +278,26 @@ const Lab = ({ user }) => {
     };
     fetchData();
   }, [gameId, navigate]);
+
+  // Fetch Focus Lock state (Step 9.1)
+  useEffect(() => {
+    const fetchFocusLock = async () => {
+      try {
+        const response = await fetch(`${API}/coach/focus-lock`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.active) {
+            setFocusLock(data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching focus lock:', error);
+      }
+    };
+    fetchFocusLock();
+  }, []);
 
   // Parse PGN and setup board
   useEffect(() => {
@@ -1043,6 +1067,24 @@ const Lab = ({ user }) => {
               </button>
             </div>
             
+            {/* Focus Lock Badge - Step 9.1 Micro Reinforcement */}
+            {focusLock && focusLock.active && (
+              <div 
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium ${
+                  (focusLock.compliance?.average || 0) >= 80 
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
+                    : (focusLock.compliance?.average || 0) >= 60 
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                      : 'bg-red-500/10 text-red-400 border border-red-500/30'
+                }`}
+                data-testid="focus-lock-badge"
+                title={`Focus Lock: ${focusLock.rule_description || 'Active'}`}
+              >
+                <Lock className="w-3 h-3" />
+                <span>Focus Lock</span>
+              </div>
+            )}
+            
             {/* Core Lesson - One sentence */}
             {coreLesson && coreLesson.pattern === "needs_detailed_analysis" ? (
               <Button 
@@ -1318,6 +1360,20 @@ const Lab = ({ user }) => {
                             Coach's Take
                           </p>
                           <p className="text-sm leading-relaxed whitespace-pre-line">{coachCommentary}</p>
+                          
+                          {/* Focus Lock Reinforcement - Step 9.1 */}
+                          {focusLock && focusLock.active && (
+                            <p className={`text-sm font-medium mt-3 ${
+                              (focusLock.compliance?.average || 0) >= 75 
+                                ? 'text-emerald-400' 
+                                : 'text-amber-400'
+                            }`}>
+                              {(focusLock.compliance?.average || 0) >= 75 
+                                ? "Good. You followed the rule." 
+                                : "You skipped the rule here."
+                              }
+                            </p>
+                          )}
                         </div>
                       )}
                       

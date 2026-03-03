@@ -30,7 +30,8 @@ import {
   MessageCircle,
   Send,
   X,
-  Zap
+  Zap,
+  Lock
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { formatTotalCpLoss, formatCpLoss } from "@/utils/evalFormatter";
@@ -65,6 +66,9 @@ const GameAnalysis = ({ user }) => {
   const [lastAskedMoveNumber, setLastAskedMoveNumber] = useState(null);  // Track which move the conversation is about
   const [coreLesson, setCoreLesson] = useState(null);  // Core lesson of the game
   const [strategicAnalysis, setStrategicAnalysis] = useState(null);  // Strategic analysis
+  
+  // Focus Lock state (Step 9.1 - Micro Reinforcement)
+  const [focusLock, setFocusLock] = useState(null);
   
   // "What were you thinking?" state for gold data collection
   const [userThoughts, setUserThoughts] = useState({});  // { [moveNumber]: { text, saved } }
@@ -140,6 +144,26 @@ const GameAnalysis = ({ user }) => {
     };
     fetchData();
   }, [gameId, navigate]);
+
+  // Fetch Focus Lock state (Step 9.1)
+  useEffect(() => {
+    const fetchFocusLock = async () => {
+      try {
+        const response = await fetch(`${API}/coach/focus-lock`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.active) {
+            setFocusLock(data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching focus lock:', error);
+      }
+    };
+    fetchFocusLock();
+  }, []);
 
   // Jump to initial move from URL parameter (e.g., ?move=28)
   useEffect(() => {
@@ -961,6 +985,24 @@ const GameAnalysis = ({ user }) => {
             {isPlaying && (
               <Button variant="outline" size="sm" onClick={stopVoice}>Stop</Button>
             )}
+            
+            {/* Focus Lock Badge - Step 9.1 Micro Reinforcement */}
+            {focusLock && focusLock.active && (
+              <div 
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
+                  (focusLock.compliance?.average || 0) >= 80 
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
+                    : (focusLock.compliance?.average || 0) >= 60 
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                      : 'bg-red-500/10 text-red-400 border border-red-500/30'
+                }`}
+                data-testid="focus-lock-badge"
+              >
+                <Lock className="w-3 h-3" />
+                <span className="hidden sm:inline">Focus Lock</span>
+              </div>
+            )}
+            
             {!analysis && (
               <Button onClick={handleAnalyze} disabled={analyzing} className="glow-primary">
                 {analyzing ? (
@@ -1292,6 +1334,20 @@ const GameAnalysis = ({ user }) => {
                           </div>
                           {summaryP1 && <p className="text-sm text-muted-foreground mb-2">{summaryP1}</p>}
                           {summaryP2 && <p className="text-sm text-muted-foreground">{summaryP2}</p>}
+                          
+                          {/* Focus Lock Reinforcement - Step 9.1 */}
+                          {focusLock && focusLock.active && analysis && (
+                            <p className={`text-sm font-medium mt-3 ${
+                              (focusLock.compliance?.average || 0) >= 75 
+                                ? 'text-emerald-400' 
+                                : 'text-amber-400'
+                            }`}>
+                              {(focusLock.compliance?.average || 0) >= 75 
+                                ? "Good. You followed the rule." 
+                                : "You skipped the rule here."
+                              }
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -83,6 +83,7 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 - ✅ Wire compliance calculation into analysis_worker
 - ✅ API endpoint: `GET/POST /api/coach/focus-lock`
 - ✅ UI: Focus Lock card on Dashboard (overrides Weekly Signal)
+- ✅ **Step 9.1: Micro Reinforcement** - Minimal badge on Lab page + one-line coach feedback
 
 ### P1 - Step 10: Identity Formation Layer
 - Long-term, identity-level feedback (e.g., "You are becoming a tactical player")
