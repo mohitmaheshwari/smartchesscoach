@@ -79,15 +79,15 @@ INTENT_QUALITY_SENTENCES = {
     ("DEVELOPING", CalibratedQuality.EXCELLENT): "Excellent development timing.",
     ("DEVELOPING", CalibratedQuality.GOOD): "Good piece development.",
     ("DEVELOPING", CalibratedQuality.REASONABLE): "Development made sense.",
-    ("DEVELOPING", CalibratedQuality.PREMATURE): "Development was okay, but something else was more urgent.",
-    ("DEVELOPING", CalibratedQuality.INCORRECT): "Development is fine, but the position demanded something forcing.",
+    ("DEVELOPING", CalibratedQuality.PREMATURE): "Development is fine, but something more urgent was available.",
+    ("DEVELOPING", CalibratedQuality.INCORRECT): "Development is okay, but the position demanded something forcing.",
     
     # IMPROVING_PIECE
     ("IMPROVING_PIECE", CalibratedQuality.EXCELLENT): "Very good piece improvement.",
     ("IMPROVING_PIECE", CalibratedQuality.GOOD): "Correct idea to improve the piece.",
     ("IMPROVING_PIECE", CalibratedQuality.REASONABLE): "Piece improvement made sense.",
-    ("IMPROVING_PIECE", CalibratedQuality.PREMATURE): "Piece improvement was okay, but something more concrete was available.",
-    ("IMPROVING_PIECE", CalibratedQuality.INCORRECT): "The position demanded action, not repositioning.",
+    ("IMPROVING_PIECE", CalibratedQuality.PREMATURE): "Improving the piece is fine, but something more concrete was available.",
+    ("IMPROVING_PIECE", CalibratedQuality.INCORRECT): "Repositioning is okay, but the position demanded action.",
     
     # PREVENTING_THREAT
     ("PREVENTING_THREAT", CalibratedQuality.EXCELLENT): "You correctly neutralized the threat.",
@@ -114,7 +114,7 @@ INTENT_QUALITY_SENTENCES = {
     ("POSITIONAL_MANEUVER", CalibratedQuality.EXCELLENT): "Very good positional understanding.",
     ("POSITIONAL_MANEUVER", CalibratedQuality.GOOD): "Correct positional idea.",
     ("POSITIONAL_MANEUVER", CalibratedQuality.REASONABLE): "The positional move made sense.",
-    ("POSITIONAL_MANEUVER", CalibratedQuality.PREMATURE): "The position demanded something forcing.",
+    ("POSITIONAL_MANEUVER", CalibratedQuality.PREMATURE): "Adjusting the position is fine, but here something forcing was available.",
     ("POSITIONAL_MANEUVER", CalibratedQuality.INCORRECT): "This wasn't the moment for quiet moves.",
 }
 
@@ -480,7 +480,7 @@ def build_coach_sentence(intent_type: str, calibrated_quality: str, pressure: st
             elif quality == CalibratedQuality.REASONABLE:
                 # Check if this is queen in opening - special case
                 if phase == "opening" and piece_type == "queen":
-                    return "The idea is aggressive, but queen out early can become a target."
+                    return "The idea is aggressive, but bringing the queen out early can make it a target."
                 return "Looking for initiative in an equal position is fine."
         
         # Defend while worse/losing - praise instinct
@@ -521,10 +521,28 @@ def build_full_intent_explanation(
     
     Before: "You had a plan here."
     After:  "You tried to start an attack. You were worse here, so looking for counterplay makes sense."
+    
+    For contrast-structure sentences (Affirm → Contrast → Correction),
+    the quality sentence is self-sufficient and replaces the intent description.
     """
     quality_sentence = build_coach_sentence(
         intent_type, calibrated_quality, pressure, phase, piece_type
     )
     
-    # Combine intent description with quality evaluation
+    # Contrast-structure sentences are self-sufficient (don't need intent prefix)
+    # These start with "Improving/Adjusting/Development is fine, but..."
+    contrast_starters = [
+        "Adjusting the position is fine",
+        "Improving the piece is fine",
+        "Improving the position is fine",
+        "Development is fine",
+        "Development is okay",
+        "Repositioning is okay",
+    ]
+    
+    for starter in contrast_starters:
+        if quality_sentence.startswith(starter):
+            return quality_sentence
+    
+    # Standard case: combine intent description with quality evaluation
     return f"{intent_description} {quality_sentence}"
