@@ -9,9 +9,12 @@ History:
 - P1.5: Coach Memory & Learning Velocity (Feb 27, 2026)
 - P1.6: Historical Re-Analysis + Adaptive Difficulty (Feb 27, 2026)
 - P1.7: Mission Completion & Feedback Loop (Feb 27, 2026)
+- P2.0: CoachState Foundation (Mar 2, 2026)
+- P2.3: Pattern Intelligence + Memory Continuity (Mar 2, 2026)
+- P2.4: Intent Recognition Layer - Step 6 Complete (Mar 3, 2026)
 """
 
-ENGINE_VERSION = "P1.7"
+ENGINE_VERSION = "P2.4"
 
 # Configuration for reanalysis jobs
 REANALYSIS_CONFIG = {

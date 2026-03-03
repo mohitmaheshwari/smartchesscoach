@@ -114,7 +114,7 @@ INTENT_QUALITY_SENTENCES = {
     ("POSITIONAL_MANEUVER", CalibratedQuality.EXCELLENT): "Very good positional understanding.",
     ("POSITIONAL_MANEUVER", CalibratedQuality.GOOD): "Correct positional idea.",
     ("POSITIONAL_MANEUVER", CalibratedQuality.REASONABLE): "The positional move made sense.",
-    ("POSITIONAL_MANEUVER", CalibratedQuality.PREMATURE): "Adjusting the position is fine, but here something forcing was available.",
+    ("POSITIONAL_MANEUVER", CalibratedQuality.PREMATURE): "Adjusting the position is fine, but here the position demanded something forcing.",
     ("POSITIONAL_MANEUVER", CalibratedQuality.INCORRECT): "This wasn't the moment for quiet moves.",
 }
 

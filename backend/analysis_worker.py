@@ -576,7 +576,7 @@ def process_job(db, job):
                     piece_type=piece_type
                 )
                 
-                # Attach to in-memory move evaluation (no DB persist yet)
+                # Attach intent fields to move evaluation (will be persisted with analysis doc)
                 move_eval["intent_type"] = intent_result.intent_type
                 move_eval["intent_confidence"] = intent_result.intent_confidence
                 move_eval["intent_quality"] = calibrated.calibrated_quality
