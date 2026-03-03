@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://socratic-chess-guide.preview.emergentagent.com';
+const BASE_URL = 'https://move-wisdom.preview.emergentagent.com';
 
 test.describe('PostLossRecoveryCard Component', () => {
   

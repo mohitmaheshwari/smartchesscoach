@@ -715,9 +715,25 @@ class CoachNarrativeEngine:
         return mapping.get(selection_reason, NarrativeStrategy.TACTICAL_COACHING)
     
     def _generate_intent(self, move: Dict, context: Dict) -> str:
-        """Generate intent mirror line"""
-        # Infer intent from position context
-        state_before = context.get("state_before", "")
+        """
+        Generate intent mirror line.
+        
+        Step 6 Enhancement: If intent_sentence is available (from intent recognition
+        and calibration), use it directly. This provides specific, calibrated
+        intent phrasing like "You tried to attack, but the timing was early."
+        
+        Otherwise, fall back to template-based generic intent mirroring.
+        """
+        # Step 6: Use calibrated intent_sentence if available
+        intent_sentence = move.get("intent_sentence")
+        if intent_sentence:
+            # The calibrated sentence already contains:
+            # - Intent type recognition (ATTACKING, DEFENDING, etc.)
+            # - Quality calibration (excellent, good, premature, etc.)
+            # - Pressure-aware phrasing (accounts for winning/losing context)
+            return intent_sentence
+        
+        # Fallback: Infer intent from position context (legacy behavior)
         eval_before = context.get("eval_before", 0)
         
         if eval_before > 150:
@@ -973,7 +989,7 @@ class ToneRenderer:
             lines.append(random.choice(encouragements))
         
         # Filter empty lines
-        lines = [l for l in lines if l and l.strip()]
+        lines = [line for line in lines if line and line.strip()]
         
         return " ".join(lines)
 

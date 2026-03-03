@@ -42,6 +42,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from stockfish_service import analyze_game_with_stockfish
 from config import STOCKFISH_DEPTH
+from analysis.intent_recognition_service import recognize_intent, get_game_phase
+from analysis.intent_quality_calibrator import calibrate_with_forcing_context, build_full_intent_explanation
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -485,6 +487,129 @@ def process_job(db, job):
         # Update heartbeat after interpretation
         update_job_heartbeat(db, game_id)
         
+        # =========================================================================
+        # PHASE 3: INTENT RECOGNITION (Step 6 - Runtime integration, no DB persist)
+        # Detects player intent and calibrates quality with human coach judgment
+        # =========================================================================
+        logger.info(f"[INTENT] Starting intent recognition for {game_id}...")
+        
+        try:
+            import chess
+            import json
+            
+            intent_enriched_count = 0
+            for i, move_eval in enumerate(move_evaluations):
+                # Only process user moves with errors (learning moments)
+                if not move_eval.get("is_user_move", False):
+                    continue
+                
+                # Skip moves without meaningful cp_loss
+                cp_loss = move_eval.get("cp_loss", 0)
+                if cp_loss < 30:  # Only process moves with some loss
+                    continue
+                
+                fen_before = move_eval.get("fen_before", "")
+                move_uci = move_eval.get("move_uci", "")
+                best_move_uci = move_eval.get("engine_best_move", "")
+                eval_before = move_eval.get("score_before", 0)
+                eval_after = move_eval.get("score_after", 0)
+                
+                # Detect game phase
+                try:
+                    board = chess.Board(fen_before)
+                    phase = get_game_phase(board)
+                    
+                    # Get piece type for special rules (e.g., queen early)
+                    move = chess.Move.from_uci(move_uci) if move_uci else None
+                    piece = board.piece_at(move.from_square) if move else None
+                    piece_type = None
+                    if piece:
+                        piece_type = {
+                            chess.PAWN: "pawn",
+                            chess.KNIGHT: "knight",
+                            chess.BISHOP: "bishop",
+                            chess.ROOK: "rook",
+                            chess.QUEEN: "queen",
+                            chess.KING: "king"
+                        }.get(piece.piece_type)
+                except (ValueError, AttributeError):
+                    phase = "middlegame"
+                    piece_type = None
+                
+                # Get opponent PV for threat detection
+                opponent_pv = None
+                if i > 0:
+                    prev_eval = move_evaluations[i - 1]
+                    opponent_pv = prev_eval.get("engine_pv", [])
+                
+                # Step 1: Recognize intent (deterministic)
+                intent_result = recognize_intent(
+                    fen_before=fen_before,
+                    move_uci=move_uci,
+                    best_move_uci=best_move_uci,
+                    eval_before=eval_before,
+                    eval_after=eval_after,
+                    player_color_str=user_color,
+                    pv_after_best=opponent_pv,
+                    cognitive_gap=move_eval.get("cognitive_gap")
+                )
+                
+                # Step 2: Calibrate quality with human coach judgment
+                calibrated = calibrate_with_forcing_context(
+                    intent_type=intent_result.intent_type,
+                    cp_loss=cp_loss,
+                    eval_before=eval_before,
+                    user_color=user_color,
+                    phase=phase,
+                    move_uci=move_uci,
+                    best_move_uci=best_move_uci,
+                    board_fen=fen_before
+                )
+                
+                # Step 3: Build full explanation sentence
+                intent_sentence = build_full_intent_explanation(
+                    intent_description=intent_result.intent_description,
+                    calibrated_quality=calibrated.calibrated_quality,
+                    intent_type=intent_result.intent_type,
+                    pressure=calibrated.pressure,
+                    phase=phase,
+                    piece_type=piece_type
+                )
+                
+                # Attach to in-memory move evaluation (no DB persist yet)
+                move_eval["intent_type"] = intent_result.intent_type
+                move_eval["intent_confidence"] = intent_result.intent_confidence
+                move_eval["intent_quality"] = calibrated.calibrated_quality
+                move_eval["intent_description"] = intent_result.intent_description
+                move_eval["intent_sentence"] = intent_sentence
+                move_eval["intent_pressure"] = calibrated.pressure
+                move_eval["intent_timing_score"] = calibrated.timing_score
+                
+                intent_enriched_count += 1
+                
+                # Log structured JSON for debugging (user's archetype testing)
+                logger.info(f"[INTENT] Move {move_eval.get('move_number', i)}: " + json.dumps({
+                    "move_uci": move_uci,
+                    "cp_loss": cp_loss,
+                    "phase": phase,
+                    "piece_type": piece_type,
+                    "intent_type": intent_result.intent_type,
+                    "calibrated_quality": calibrated.calibrated_quality,
+                    "pressure": calibrated.pressure,
+                    "timing_score": calibrated.timing_score,
+                    "intent_sentence": intent_sentence
+                }))
+            
+            logger.info(f"[INTENT] Completed: {intent_enriched_count} moves enriched with intent recognition")
+            
+        except Exception as intent_error:
+            # Non-fatal - continue without intent recognition
+            logger.warning(f"[INTENT] Failed (non-fatal): {intent_error}")
+            logger.exception("Intent recognition error details:")
+        
+        # Update heartbeat after intent recognition
+        update_job_heartbeat(db, game_id)
+        
         # Create/update analysis record
         analysis_doc = {
             "game_id": game_id,
@@ -506,7 +631,7 @@ def process_job(db, job):
             "created_at": datetime.now(timezone.utc),
             "analysis_duration_seconds": elapsed,
             "worker_id": WORKER_ID,
-            "engine_version": "P2.3"  # Track version for future migrations
+            "engine_version": "P2.4"  # Step 6: Intent Recognition Layer
         }
         
         # Upsert analysis (update if exists, insert if not)

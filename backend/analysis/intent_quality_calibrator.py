@@ -86,8 +86,8 @@ INTENT_QUALITY_SENTENCES = {
     ("IMPROVING_PIECE", CalibratedQuality.EXCELLENT): "Very good piece improvement.",
     ("IMPROVING_PIECE", CalibratedQuality.GOOD): "Correct idea to improve the piece.",
     ("IMPROVING_PIECE", CalibratedQuality.REASONABLE): "Piece improvement made sense.",
-    ("IMPROVING_PIECE", CalibratedQuality.PREMATURE): "Piece needed a better square first.",
-    ("IMPROVING_PIECE", CalibratedQuality.INCORRECT): "Position needed action, not repositioning.",
+    ("IMPROVING_PIECE", CalibratedQuality.PREMATURE): "Piece improvement was okay, but something more concrete was available.",
+    ("IMPROVING_PIECE", CalibratedQuality.INCORRECT): "The position demanded action, not repositioning.",
     
     # PREVENTING_THREAT
     ("PREVENTING_THREAT", CalibratedQuality.EXCELLENT): "You correctly neutralized the threat.",
@@ -114,7 +114,7 @@ INTENT_QUALITY_SENTENCES = {
     ("POSITIONAL_MANEUVER", CalibratedQuality.EXCELLENT): "Very good positional understanding.",
     ("POSITIONAL_MANEUVER", CalibratedQuality.GOOD): "Correct positional idea.",
     ("POSITIONAL_MANEUVER", CalibratedQuality.REASONABLE): "The positional move made sense.",
-    ("POSITIONAL_MANEUVER", CalibratedQuality.PREMATURE): "Position allowed more active play.",
+    ("POSITIONAL_MANEUVER", CalibratedQuality.PREMATURE): "The position demanded something forcing.",
     ("POSITIONAL_MANEUVER", CalibratedQuality.INCORRECT): "This wasn't the moment for quiet moves.",
 }
 
@@ -298,7 +298,8 @@ def calibrate_intent_quality(
     user_color: str,
     phase: str = "middlegame",
     best_move_is_forcing: bool = False,
-    move_is_forcing: bool = False
+    move_is_forcing: bool = False,
+    piece_type: str = None
 ) -> CalibratedIntentResult:
     """
     Calibrate intent quality using human coach judgment factors.
@@ -313,6 +314,7 @@ def calibrate_intent_quality(
         phase: "opening", "middlegame", or "endgame"
         best_move_is_forcing: Was the best move a check/capture?
         move_is_forcing: Was the played move a check/capture?
+        piece_type: Type of piece moved (for phase-sensitive rules)
     
     Returns:
         CalibratedIntentResult with human coach judgment
@@ -323,8 +325,8 @@ def calibrate_intent_quality(
     # Step 2: Classify pressure
     pressure = classify_pressure(user_eval_before)
     
-    # Step 3: Calculate timing score
-    timing = calculate_timing_score(intent_type, pressure, phase)
+    # Step 3: Calculate timing score (now includes piece_type)
+    timing = calculate_timing_score(intent_type, pressure, phase, piece_type)
     
     # Step 4: Calculate base CP score
     base = calculate_base_cp_score(cp_loss)
@@ -386,11 +388,29 @@ def calibrate_with_forcing_context(
 ) -> CalibratedIntentResult:
     """
     Enhanced calibration with board context for forcing move detection.
+    Also extracts piece type for phase-sensitive rules (e.g., queen in opening).
     """
     import chess
     
+    piece_type = None
+    best_is_forcing = False
+    played_is_forcing = False
+    
     try:
         board = chess.Board(board_fen)
+        
+        # Extract piece type for phase-sensitive rules
+        played_move = chess.Move.from_uci(move_uci)
+        piece = board.piece_at(played_move.from_square)
+        if piece:
+            piece_type = {
+                chess.PAWN: "pawn",
+                chess.KNIGHT: "knight",
+                chess.BISHOP: "bishop",
+                chess.ROOK: "rook",
+                chess.QUEEN: "queen",
+                chess.KING: "king"
+            }.get(piece.piece_type)
         
         # Detect if best move is forcing
         best_move = chess.Move.from_uci(best_move_uci)
@@ -400,14 +420,12 @@ def calibrate_with_forcing_context(
         board_copy.pop()
         
         # Detect if played move is forcing
-        played_move = chess.Move.from_uci(move_uci)
         board_copy = board.copy()
         board_copy.push(played_move)
         played_is_forcing = board_copy.is_check() or board.is_capture(played_move)
         
     except (ValueError, chess.InvalidMoveError):
-        best_is_forcing = False
-        played_is_forcing = False
+        pass
     
     return calibrate_intent_quality(
         intent_type=intent_type,
@@ -416,7 +434,8 @@ def calibrate_with_forcing_context(
         user_color=user_color,
         phase=phase,
         best_move_is_forcing=best_is_forcing,
-        move_is_forcing=played_is_forcing
+        move_is_forcing=played_is_forcing,
+        piece_type=piece_type
     )
 
 
@@ -424,7 +443,7 @@ def calibrate_with_forcing_context(
 # INTEGRATION HELPER
 # =============================================================================
 
-def build_coach_sentence(intent_type: str, calibrated_quality: str, pressure: str = None) -> str:
+def build_coach_sentence(intent_type: str, calibrated_quality: str, pressure: str = None, phase: str = None, piece_type: str = None) -> str:
     """
     Build the final coach sentence combining intent + quality + pressure context.
     
@@ -440,8 +459,8 @@ def build_coach_sentence(intent_type: str, calibrated_quality: str, pressure: st
     if pressure:
         pressure = pressure.lower()
         
-        # Attack while losing - acknowledge the courage
-        if intent_type == "ATTACKING" and pressure == "losing":
+        # Attack while losing/worse - acknowledge the courage/counterplay
+        if intent_type == "ATTACKING" and pressure in ["losing", "worse"]:
             if quality in [CalibratedQuality.GOOD, CalibratedQuality.REASONABLE]:
                 return "You were worse here, so looking for counterplay makes sense."
             elif quality == CalibratedQuality.PREMATURE:
@@ -459,6 +478,9 @@ def build_coach_sentence(intent_type: str, calibrated_quality: str, pressure: st
             if quality == CalibratedQuality.PREMATURE:
                 return "The attack idea is aggressive, but queen out early can become a target."
             elif quality == CalibratedQuality.REASONABLE:
+                # Check if this is queen in opening - special case
+                if phase == "opening" and piece_type == "queen":
+                    return "The idea is aggressive, but queen out early can become a target."
                 return "Looking for initiative in an equal position is fine."
         
         # Defend while worse/losing - praise instinct
@@ -490,7 +512,9 @@ def build_full_intent_explanation(
     intent_description: str,
     calibrated_quality: str,
     intent_type: str,
-    pressure: str = None
+    pressure: str = None,
+    phase: str = None,
+    piece_type: str = None
 ) -> str:
     """
     Build complete coach explanation: Intent + Quality-aware context.
@@ -498,7 +522,9 @@ def build_full_intent_explanation(
     Before: "You had a plan here."
     After:  "You tried to start an attack. You were worse here, so looking for counterplay makes sense."
     """
-    quality_sentence = build_coach_sentence(intent_type, calibrated_quality, pressure)
+    quality_sentence = build_coach_sentence(
+        intent_type, calibrated_quality, pressure, phase, piece_type
+    )
     
     # Combine intent description with quality evaluation
     return f"{intent_description} {quality_sentence}"
