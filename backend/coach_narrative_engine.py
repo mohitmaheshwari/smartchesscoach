@@ -7,12 +7,17 @@ using a deterministic template system with tone adjustment.
 Pipeline:
     selected_moment + context → narrative_strategy
                               → structured_components
-                              → tone_adjustment
+                              → tone_adjustment (Step 7: StyleDirective)
                               → assembled_text
 
 This is NOT an LLM generator. It's a coaching grammar system.
 
 Key principle: Store structure, render text.
+
+Step 7: Adaptive Teaching Style
+- Same truth, different delivery
+- StyleDirective controls sentence count, component visibility, tone
+- No changes to analysis or lesson selection
 """
 
 import logging
@@ -20,6 +25,20 @@ import random
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
+
+# Step 7: Import teaching style service
+from coach_state.teaching_style_service import (
+    StyleDirective,
+    get_style_directive,
+    adjust_for_trend,
+    get_component_list,
+    enforce_sentence_limit,
+    maturity_to_tier,
+    detect_trend,
+    get_palette_phrase,
+    MaturityTier,
+    StrategyType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -893,105 +912,180 @@ class CoachNarrativeEngine:
 
 class ToneRenderer:
     """
-    Adjusts narrative components based on user's maturity level.
+    Assembles narrative components based on user's maturity level.
     
-    Same components → different delivery.
+    Step 7: Now uses StyleDirective for precise control over:
+    - Sentence count (hard cap)
+    - Component visibility
+    - Encouragement inclusion
+    - Firmness tone
+    
+    Same truth → different delivery.
     """
-    
-    # Tone modifiers by maturity level
-    TONE_CONFIGS = {
-        ToneProfile.NOVICE: {
-            "include_all_lines": True,
-            "soften_break": True,
-            "expand_teaching": True,
-            "add_encouragement": True,
-        },
-        ToneProfile.DEVELOPING: {
-            "include_all_lines": True,
-            "soften_break": False,
-            "expand_teaching": False,
-            "add_encouragement": False,
-        },
-        ToneProfile.DISCIPLINED: {
-            "include_all_lines": False,  # Skip some lines
-            "soften_break": False,
-            "expand_teaching": False,
-            "add_encouragement": False,
-        },
-        ToneProfile.ADVANCED: {
-            "include_all_lines": False,
-            "soften_break": False,
-            "expand_teaching": False,
-            "add_encouragement": False,
-        }
-    }
     
     def render(
         self,
         components: NarrativeComponents,
-        maturity_level: str
+        maturity_level: str,
+        strategy: str = "PATTERN_COACHING",
+        game_id: str = "",
+        lesson_key: str = "",
+        trend: str = "stable",
+        lesson_repeated: bool = False,
     ) -> str:
         """
-        Assemble final text from components based on tone.
+        Assemble final text from components based on StyleDirective.
+        
+        Step 7: Uses StyleDirective for adaptive teaching.
         
         Args:
             components: Structured narrative components
             maturity_level: User's behavioral maturity
+            strategy: Coaching strategy (PATTERN, TACTICAL, etc.)
+            game_id: For deterministic palette selection
+            lesson_key: For palette rotation
+            trend: improving/stable/declining
+            lesson_repeated: Is this lesson repeating?
             
         Returns:
-            Assembled coaching text
+            Assembled coaching text with tier-appropriate delivery
         """
-        try:
-            profile = ToneProfile(maturity_level)
-        except ValueError:
-            profile = ToneProfile.DEVELOPING
+        # Convert to typed tier
+        tier = maturity_to_tier(maturity_level)
         
-        config = self.TONE_CONFIGS.get(profile, self.TONE_CONFIGS[ToneProfile.DEVELOPING])
+        # Map strategy string to StrategyType
+        strategy_map = {
+            "pattern_coaching": "PATTERN_COACHING",
+            "tactical_coaching": "TACTICAL_COACHING",
+            "turning_point_coaching": "TURNING_POINT_COACHING",
+            "positive_coaching": "POSITIVE_COACHING",
+            "mate_alert": "TACTICAL_COACHING",  # Treat mate as tactical
+        }
+        strategy_type = strategy_map.get(strategy.lower(), "PATTERN_COACHING")
         
+        # Get StyleDirective
+        style = get_style_directive(tier, strategy_type, game_id, lesson_key)
+        
+        # Apply trend-based strictness adjustment
+        style = adjust_for_trend(style, trend, lesson_repeated)
+        
+        # Get component list for this strategy + tier
+        component_order = get_component_list(strategy_type, tier)
+        
+        # Build lines following the component order
         lines = []
         
-        # Intent (always included)
-        lines.append(components.intent_mirror_line)
-        
-        # Break (soften for novice)
-        break_line = components.thinking_break_line
-        if config["soften_break"] and break_line:
-            break_line = break_line.replace("But ", "However, ")
-            break_line = break_line.replace("didn't", "may not have")
-        lines.append(break_line)
-        
-        # Consequence (skip for advanced if short)
-        if config["include_all_lines"] or len(components.position_consequence_line) > 30:
-            lines.append(components.position_consequence_line)
-        
-        # Teaching (expand for novice)
-        if config["include_all_lines"]:
-            lines.append(components.teaching_line)
-        
-        # Rule (always included)
-        lines.append(components.rule_line)
-        
-        # Theme reinforcement (skip if already said recently - check in caller)
-        if components.theme_reinforcement_line:
-            lines.append(components.theme_reinforcement_line)
-        
-        # Add encouragement for novice (VARIED - not static)
-        if config["add_encouragement"]:
-            encouragements = [
-                "This gets easier with practice.",
-                "Keep working on this pattern.",
-                "You're building good habits.",
-                "Stay patient with yourself.",
-                "Progress comes with repetition.",
-            ]
-            # Don't add if any encouragement was recently used
-            # This is handled by the caller tracking recent_sentences
-            lines.append(random.choice(encouragements))
+        for comp in component_order:
+            line = self._get_component_line(comp, components, style, game_id, lesson_key)
+            if line:
+                lines.append(line)
         
         # Filter empty lines
         lines = [line for line in lines if line and line.strip()]
         
+        # HARD CAP: Enforce sentence limit from StyleDirective
+        lines = enforce_sentence_limit(lines, style.max_sentences)
+        
         return " ".join(lines)
+    
+    def _get_component_line(
+        self,
+        component: str,
+        components: NarrativeComponents,
+        style: StyleDirective,
+        game_id: str,
+        lesson_key: str,
+    ) -> Optional[str]:
+        """
+        Get the line for a specific component.
+        
+        Maps component names to NarrativeComponents fields and applies styling.
+        """
+        if component == "intent":
+            if not style.include_intent:
+                return None
+            return components.intent_mirror_line
+        
+        elif component == "break_point":
+            line = components.thinking_break_line
+            if line and style.firmness == "soft":
+                line = line.replace("But ", "However, ")
+                line = line.replace("didn't", "may not have")
+            return line
+        
+        elif component == "consequence":
+            if not style.include_consequence:
+                return None
+            return components.position_consequence_line
+        
+        elif component == "pattern_reminder":
+            # Use teaching_line as pattern reminder
+            return components.teaching_line if not style.reduce_fluff else None
+        
+        elif component == "rule":
+            if not style.include_rule:
+                return None
+            return components.rule_line
+        
+        elif component == "encouragement":
+            if not style.include_encouragement:
+                return None
+            return get_palette_phrase(
+                style.wording_palette_id,
+                "encouragement",
+                hash(game_id) % 2
+            )
+        
+        elif component == "example_cue":
+            if not style.include_example_cue:
+                return None
+            return get_palette_phrase(
+                style.wording_palette_id,
+                "example_cue",
+                hash(lesson_key) % 2
+            )
+        
+        elif component == "what_changed":
+            # Use break line for "what changed" in turning point
+            return components.thinking_break_line
+        
+        elif component == "why_it_mattered":
+            return components.position_consequence_line
+        
+        elif component == "what_went_right":
+            # For positive coaching - use teaching line
+            return components.teaching_line
+        
+        elif component == "stability_insight":
+            # Use rule line for stability insight
+            return components.rule_line
+        
+        # Theme reinforcement (not in standard component lists)
+        elif component == "theme_reinforcement":
+            return components.theme_reinforcement_line
+        
+        return None
+    
+    def render_advanced_minimal(
+        self,
+        components: NarrativeComponents,
+    ) -> str:
+        """
+        Ultra-minimal rendering for Advanced tier.
+        
+        Format: "Consequence. Rule."
+        No intent, no encouragement, no fluff.
+        """
+        lines = []
+        
+        if components.position_consequence_line:
+            lines.append(components.position_consequence_line)
+        
+        if components.rule_line:
+            lines.append(components.rule_line)
+        
+        lines = [line for line in lines if line and line.strip()]
+        return " ".join(lines[:2])  # Hard cap at 2
 
 
 # =============================================================================
@@ -1009,10 +1103,16 @@ def generate_coaching_narrative(
     good_game_streak: int = 0,
     blunders_count: int = 0,
     memory_context: Dict = None,
-    games_on_theme: int = 0
+    games_on_theme: int = 0,
+    game_id: str = "",
+    lesson_key: str = "",
+    recent_accuracies: List[float] = None,
+    lesson_repeated: bool = False,
 ) -> Dict:
     """
     Generate complete coaching narrative with tone adjustment and memory awareness.
+    
+    Step 7: Now uses StyleDirective for adaptive teaching.
     
     Args:
         selected_move: Critical move data
@@ -1026,6 +1126,10 @@ def generate_coaching_narrative(
         blunders_count: Number of blunders in the game
         memory_context: MemoryContext.to_dict() for memory-aware modifications (Step 5)
         games_on_theme: How many games on current theme (for theme evolution phrasing)
+        game_id: For deterministic palette selection (Step 7)
+        lesson_key: For lesson tracking and palette rotation (Step 7)
+        recent_accuracies: Recent game accuracies for trend detection (Step 7)
+        lesson_repeated: Is this same lesson repeating? (Step 7)
     
     Returns:
         {
@@ -1034,7 +1138,8 @@ def generate_coaching_narrative(
             "explanation_confidence": 0.85,
             "assembled_text": "...",
             "tone_profile_used": "...",
-            "memory_modifications_applied": int
+            "memory_modifications_applied": int,
+            "style_directive_tier": str  # Step 7
         }
     """
     engine = CoachNarrativeEngine(recent_sentences or [])
@@ -1065,8 +1170,23 @@ def generate_coaching_narrative(
         if modifications_count > 0:
             logger.debug(f"Applied {modifications_count} memory modifications to narrative")
     
+    # Step 7: Detect trend from recent accuracies
+    trend = detect_trend(recent_accuracies or [])
+    
+    # Step 7: Render with StyleDirective
     renderer = ToneRenderer()
-    assembled = renderer.render(components, maturity_level)
+    assembled = renderer.render(
+        components=components,
+        maturity_level=maturity_level,
+        strategy=strategy,
+        game_id=game_id,
+        lesson_key=lesson_key or active_theme or "",
+        trend=trend,
+        lesson_repeated=lesson_repeated,
+    )
+    
+    # Get tier for reporting
+    tier = maturity_to_tier(maturity_level)
     
     return {
         "narrative_components": components.to_dict(),
@@ -1074,5 +1194,6 @@ def generate_coaching_narrative(
         "explanation_confidence": confidence,
         "assembled_text": assembled,
         "tone_profile_used": maturity_level,
-        "memory_modifications_applied": modifications_count
+        "memory_modifications_applied": modifications_count,
+        "style_directive_tier": tier,  # Step 7
     }

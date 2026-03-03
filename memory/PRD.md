@@ -10,7 +10,7 @@ Build a hyper-personalized, data-driven chess coaching application. The central 
 - **Analysis Engine:** Stockfish with intelligent caching
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
 - **Opening Data:** Lichess Opening Explorer API
-- **Engine Version:** P2.4 (Step 6 Complete)
+- **Engine Version:** P2.5 (Step 7 Complete)
 
 ---
 
@@ -29,41 +29,66 @@ Build a hyper-personalized, data-driven chess coaching application. The central 
 - 6-Game Realism Test: 4.02/5 PASS
 
 ### Step 6: Intent Recognition Layer ✅ COMPLETE (Mar 3, 2026)
+- Deterministic intent detection (8 types)
+- Human coach judgment calibration
+- Contrast-structure phrasing ("X is fine, but here Y")
+- 3-Game Realism Test: PASS
 
-**Final Approved Explanations:**
-| Archetype | Coach Explanation |
-|-----------|------------------|
-| Early Queen | "You tried to start an attack. The idea is aggressive, but bringing the queen out early can make it a target." |
-| Missed Tactic | "Adjusting the position is fine, but here the position demanded something forcing." |
-| Counterplay | "You tried to start an attack. You were worse here, so looking for counterplay makes sense." |
+### Step 7: Adaptive Teaching Style ✅ COMPLETE (Mar 3, 2026)
+
+**User Request:** Same truth, different delivery based on user maturity.
 
 **Components Built:**
-- `intent_recognition_service.py` - Deterministic intent detection (8 types)
-- `intent_quality_calibrator.py` - Human coach judgment calibration
-- Integration in `analysis_worker.py` - Enriches move evaluations
-- Integration in `coach_narrative_engine.py` - Consumes intent_sentence
+- `teaching_style_service.py` - StyleDirective, tier defaults, strictness switch
+- Wording palettes for deterministic phrase rotation
+- Strategy-specific component lists (PATTERN, TACTICAL, TURNING_POINT, POSITIVE)
 
-**Intent Fields Persisted (MongoDB):**
-```
-move_evaluations[].intent_type       # ATTACKING, DEFENDING, etc.
-move_evaluations[].intent_quality    # excellent, good, reasonable, premature, incorrect
-move_evaluations[].intent_sentence   # Full coach explanation
-move_evaluations[].intent_pressure   # winning, better, equal, worse, losing
-move_evaluations[].intent_confidence # Detection confidence
-move_evaluations[].intent_timing_score # Phase-aware judgment
+**Cross-Tier Outputs:**
+| Tier | Sentences | Key Features |
+|------|-----------|--------------|
+| Novice | 5 | Full explanation + encouragement + example cue |
+| Developing | 4 | Clear guidance + light firmness |
+| Disciplined | 3 | Crisp, direct, no comfort |
+| Advanced | 2 | Minimal shorthand, no intent |
+
+**Strictness Switch:**
+- declining + lesson_repeated → firmer tone
+- improving → add encouragement (Novice/Developing)
+
+**Testing:** 87/87 unit tests passing
+
+---
+
+## Key Technical Concepts
+
+### StyleDirective Schema
+```python
+@dataclass(frozen=True)
+class StyleDirective:
+    tier: MaturityTier
+    strategy: StrategyType
+    max_sentences: int
+    include_intent: bool
+    include_consequence: bool
+    include_rule: bool
+    include_encouragement: bool
+    include_example_cue: bool
+    firmness: FirmnessLevel  # soft | neutral | firm
+    reduce_fluff: bool
+    wording_palette_id: str
 ```
 
-**Testing:** 50/50 unit tests passing
+### Component Order per Strategy
+- TACTICAL_COACHING Novice: [intent, break_point, consequence, rule, encouragement]
+- TACTICAL_COACHING Advanced: [consequence, rule]
 
 ---
 
 ## Upcoming Tasks
 
-### P1 - Step 7: Adaptive Teaching Style
-- Coach style adapts to player type
-- Novice: More explanation, encouragement
-- Disciplined: Standard feedback
-- Advanced: Minimalism, sharper tone
+### P1 - Next Steps
+- User review of Step 7 tier progression
+- Real game testing with actual user data
 
 ### P2 - Future
 - UI for Memory/Intent display
@@ -72,37 +97,18 @@ move_evaluations[].intent_timing_score # Phase-aware judgment
 
 ---
 
-## Key Technical Concepts
-
-### Intent Types (8)
-- ATTACKING, DEFENDING, DEVELOPING, IMPROVING_PIECE
-- PREVENTING_THREAT, SIMPLIFYING, CREATING_THREAT, POSITIONAL_MANEUVER
-
-### Quality Calibration (Affirm → Contrast → Correction)
-- Position Pressure (winning/better/equal/worse/losing)
-- Timing Score (phase-aware)
-- Opportunity Awareness (forcing move available?)
-
-### Indian Coach Tone Rules
-- Never say "wrong move"
-- Use contrast structure: "X is fine, but here Y"
-- "Demanded" > "was available" (urgency)
-- Validate counterplay when worse
-
----
-
 ## Key Files
 
-### Intent Recognition (Step 6)
+### Step 7 - Adaptive Teaching
+- `/app/backend/coach_state/teaching_style_service.py`
+- `/app/backend/coach_state/tests/test_teaching_style_service.py`
+- `/app/backend/scripts/test_step7_cross_tier.py`
+
+### Step 6 - Intent Recognition
 - `/app/backend/analysis/intent_recognition_service.py`
 - `/app/backend/analysis/intent_quality_calibrator.py`
-- `/app/backend/scripts/test_intent_realism.py`
 
 ### Integration Points
-- `/app/backend/analysis_worker.py` - Calls intent services
-- `/app/backend/coach_narrative_engine.py` - Consumes intent_sentence
-- `/app/backend/engine_config.py` - Version P2.4
-
-### Memory (Step 5)
-- `/app/backend/coach_state/coach_memory_service.py`
-- `/app/backend/coach_state/lesson_resolver.py`
+- `/app/backend/coach_narrative_engine.py` - Uses StyleDirective
+- `/app/backend/analysis_worker.py` - Enriches with intent
+- `/app/backend/engine_config.py` - Version P2.5

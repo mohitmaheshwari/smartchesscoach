@@ -12,9 +12,10 @@ History:
 - P2.0: CoachState Foundation (Mar 2, 2026)
 - P2.3: Pattern Intelligence + Memory Continuity (Mar 2, 2026)
 - P2.4: Intent Recognition Layer - Step 6 Complete (Mar 3, 2026)
+- P2.5: Adaptive Teaching Style - Step 7 Complete (Mar 3, 2026)
 """
 
-ENGINE_VERSION = "P2.4"
+ENGINE_VERSION = "P2.5"
 
 # Configuration for reanalysis jobs
 REANALYSIS_CONFIG = {
