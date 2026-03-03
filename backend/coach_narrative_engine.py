@@ -154,7 +154,7 @@ BREAK_TEMPLATES = {
     "default": [
         "A forcing reply was missed.",
         "The opponent's response wasn't calculated.",
-        "Something concrete was available.",
+        "There was a forcing move available.",
     ]
 }
 
@@ -285,7 +285,7 @@ RULE_TEMPLATES = {
     ],
     "default": [
         "At critical moments, check forcing moves first.",
-        "Verify opponent's replies before committing.",
+        "Check opponent's forcing replies before committing.",
         "At turning points, slow down and calculate.",
         "Critical positions demand extra attention.",
         "Check forcing moves before deciding.",

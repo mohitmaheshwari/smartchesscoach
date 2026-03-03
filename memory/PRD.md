@@ -1,7 +1,7 @@
 # Chess Coaching App - Product Requirements Document
 
 ## Original Problem Statement
-Build a hyper-personalized, data-driven chess coaching application. The central goal is to create a coach that moves beyond generic engine analysis to provide Socratic-style, contextual feedback tailored to the user's individual playstyle, habits, and past mistakes. The coach should feel like a calm, direct, Indian mentor, not a simple move-suggester.
+Build a hyper-personalized, data-driven chess coaching application. The coach should feel like a calm, direct, Indian mentor - not a simple move-suggester. Moves beyond generic engine analysis to provide Socratic-style, contextual feedback tailored to the user's individual playstyle, habits, and past mistakes.
 
 ## Core Architecture
 - **Frontend:** React (port 3000)
@@ -9,7 +9,6 @@ Build a hyper-personalized, data-driven chess coaching application. The central 
 - **Database:** MongoDB
 - **Analysis Engine:** Stockfish with intelligent caching
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
-- **Opening Data:** Lichess Opening Explorer API
 - **Engine Version:** P2.5 (Step 7 Complete)
 
 ---
@@ -17,80 +16,47 @@ Build a hyper-personalized, data-driven chess coaching application. The central 
 ## Implementation Status
 
 ### Step 0-4: CoachState Foundation ✅ COMPLETE
-- CoachState for per-user coaching continuity
-- GameCoachSummary for structured game analysis
-- Deep Coaching Sessions with 6-step flow
-- Behavioral Maturity Layer with adaptive tone
-
 ### Step 5: Memory Continuity Layer ✅ COMPLETE
-- Lesson resolver for canonical lesson identification
-- Coach memory service for long-term memory
-- Memory-aware narrative modifications
-- 6-Game Realism Test: 4.02/5 PASS
-
-### Step 6: Intent Recognition Layer ✅ COMPLETE (Mar 3, 2026)
-- Deterministic intent detection (8 types)
-- Human coach judgment calibration
-- Contrast-structure phrasing ("X is fine, but here Y")
-- 3-Game Realism Test: PASS
-
+### Step 6: Intent Recognition Layer ✅ COMPLETE
 ### Step 7: Adaptive Teaching Style ✅ COMPLETE (Mar 3, 2026)
 
-**User Request:** Same truth, different delivery based on user maturity.
-
-**Components Built:**
-- `teaching_style_service.py` - StyleDirective, tier defaults, strictness switch
-- Wording palettes for deterministic phrase rotation
-- Strategy-specific component lists (PATTERN, TACTICAL, TURNING_POINT, POSITIVE)
-
-**Cross-Tier Outputs:**
-| Tier | Sentences | Key Features |
-|------|-----------|--------------|
-| Novice | 5 | Full explanation + encouragement + example cue |
-| Developing | 4 | Clear guidance + light firmness |
+**Final Cross-Tier Outputs:**
+| Tier | Sentences | Output |
+|------|-----------|--------|
+| Novice | 5 | Full explanation + encouragement |
+| Developing | 4 | Clear guidance + actionable cue |
 | Disciplined | 3 | Crisp, direct, no comfort |
-| Advanced | 2 | Minimal shorthand, no intent |
+| Advanced | 2 | Minimal shorthand |
 
-**Strictness Switch:**
-- declining + lesson_repeated → firmer tone
-- improving → add encouragement (Novice/Developing)
-
-**Testing:** 87/87 unit tests passing
+**Key Components:**
+- `teaching_style_service.py` - StyleDirective, tier defaults, strictness switch
+- Strategy-specific component lists (PATTERN, TACTICAL, TURNING_POINT, POSITIVE)
+- Lesson-key-aware cues (tactical → "Check forcing moves first")
+- Trend-based strictness adjustment
 
 ---
 
-## Key Technical Concepts
+## ChessGuru Capabilities (P2.5)
 
-### StyleDirective Schema
-```python
-@dataclass(frozen=True)
-class StyleDirective:
-    tier: MaturityTier
-    strategy: StrategyType
-    max_sentences: int
-    include_intent: bool
-    include_consequence: bool
-    include_rule: bool
-    include_encouragement: bool
-    include_example_cue: bool
-    firmness: FirmnessLevel  # soft | neutral | firm
-    reduce_fluff: bool
-    wording_palette_id: str
-```
-
-### Component Order per Strategy
-- TACTICAL_COACHING Novice: [intent, break_point, consequence, rule, encouragement]
-- TACTICAL_COACHING Advanced: [consequence, rule]
+1. **Deterministic chess truth** - No hallucination
+2. **Behavioral tagging** - Pattern recognition across games
+3. **Context-aware moment selection** - CRS scoring
+4. **Intent interpretation** - 8 intent types, quality calibration
+5. **Timing calibration** - Phase-aware judgment
+6. **Memory continuity** - Long-term coaching awareness
+7. **Adaptive teaching style** - Tier-appropriate delivery
 
 ---
 
 ## Upcoming Tasks
 
-### P1 - Next Steps
-- User review of Step 7 tier progression
-- Real game testing with actual user data
+### P0 - Step 8: Breakthrough & Plateau Detection
+- Detect stagnation blocks
+- Detect breakthrough weeks
+- Detect "confidence illusion" (high accuracy but same pattern mistake)
+- Not LLM-based - deterministic behavioral analysis
 
-### P2 - Future
+### P1 - Future
 - UI for Memory/Intent display
 - Coach Chat & Deep Session Expansions
 - B2B Features for human coaches
@@ -101,14 +67,19 @@ class StyleDirective:
 
 ### Step 7 - Adaptive Teaching
 - `/app/backend/coach_state/teaching_style_service.py`
-- `/app/backend/coach_state/tests/test_teaching_style_service.py`
-- `/app/backend/scripts/test_step7_cross_tier.py`
+- `/app/backend/coach_narrative_engine.py`
 
 ### Step 6 - Intent Recognition
 - `/app/backend/analysis/intent_recognition_service.py`
 - `/app/backend/analysis/intent_quality_calibrator.py`
 
-### Integration Points
-- `/app/backend/coach_narrative_engine.py` - Uses StyleDirective
-- `/app/backend/analysis_worker.py` - Enriches with intent
+### Core
+- `/app/backend/analysis_worker.py`
 - `/app/backend/engine_config.py` - Version P2.5
+
+---
+
+## Testing
+- 87/87 unit tests passing
+- Cross-tier realism test: PASS
+- All tier outputs validated by user
