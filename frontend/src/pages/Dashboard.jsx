@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import DailyMissionCard from "@/components/DailyMissionCard";
+import { CoachWeeklySignalCard } from "@/components/Home";
 
 // Milestone celebration banner component
 const MilestoneBanner = ({ milestone, onDismiss }) => {
@@ -336,6 +337,7 @@ const Dashboard = ({ user }) => {
   const [reanalyzing, setReanalyzing] = useState({}); // Track which games are being reanalyzed
   const [queuingAll, setQueuingAll] = useState(false); // Track batch queue status
   const [syncStatus, setSyncStatus] = useState(null); // Sync timer status
+  const [breakthroughSignal, setBreakthroughSignal] = useState(null); // Step 8: Coach Weekly Signal
   const [dismissedMilestones, setDismissedMilestones] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('dismissedMilestones') || '[]');
@@ -430,6 +432,24 @@ const Dashboard = ({ user }) => {
       }
     };
     fetchStats();
+  }, []);
+
+  // Step 8: Fetch breakthrough signal
+  useEffect(() => {
+    const fetchBreakthroughSignal = async () => {
+      try {
+        const response = await fetch(`${API}/coach/breakthrough-signal`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setBreakthroughSignal(data);
+        }
+      } catch (error) {
+        console.error('Error fetching breakthrough signal:', error);
+      }
+    };
+    fetchBreakthroughSignal();
   }, []);
 
   // Sync status timer - fetches and counts down
@@ -663,6 +683,29 @@ const Dashboard = ({ user }) => {
           </motion.div>
         ) : (
           <AnimatedList className="space-y-6">
+            {/* Step 8: Coach Weekly Signal Card - Above Daily Mission */}
+            {breakthroughSignal?.show_card && (
+              <AnimatedItem>
+                <CoachWeeklySignalCard 
+                  signal={breakthroughSignal}
+                  onCtaClick={(cta) => {
+                    // Route based on action type
+                    if (cta.action === 'DEEP_SESSION') {
+                      navigate('/deep-session');
+                    } else if (cta.action === 'FOCUS_LOCK' || cta.action === 'RECOVERY_MODE') {
+                      // For now, navigate to missions with focus theme
+                      navigate('/missions');
+                    } else if (cta.action === 'LEVEL_UP') {
+                      navigate('/training');
+                    } else {
+                      // Standard flow - stay on dashboard or navigate to games
+                      navigate('/games');
+                    }
+                  }}
+                />
+              </AnimatedItem>
+            )}
+            
             {/* Daily Mission Card - Dopamine Engine Entry Point */}
             <AnimatedItem>
               <DailyMissionCard />

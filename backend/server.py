@@ -260,6 +260,14 @@ from cognitive_gap_intelligence_service import (
     COGNITIVE_GAP_CONFIG,
 )
 
+# === BREAKTHROUGH & PLATEAU DETECTION SERVICE (Step 8) ===
+from coach_state.breakthrough_service import (
+    get_breakthrough_signal_for_user,
+    BreakthroughSignal,
+    WindowMetrics,
+    build_window_metrics,
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -12702,6 +12710,179 @@ async def get_session_behaviors(
             "positive": positive,
             "negative": negative
         }
+    }
+
+
+@api_router.get("/coach/breakthrough-signal")
+async def get_breakthrough_signal(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the user's current breakthrough/plateau signal (Step 8).
+    
+    Computes on-demand from last 20 games + memory.
+    Returns state, headline, message, and recommended action.
+    
+    Response schema:
+    {
+        "state": "PLATEAU|BREAKTHROUGH|CONFIDENCE_ILLUSION|TILT_RISK|STABLE_GROWTH|NORMAL",
+        "confidence": 0.0-1.0,
+        "headline": "string",
+        "message": "string",
+        "cta": {"label": "string", "action": "string", "payload": {}},
+        "dominant_lesson_key": "string|null",
+        "show_card": bool  # True if user has >= 10 analyzed games
+    }
+    """
+    # Get user's recent analyzed games (up to 20)
+    recent_analyses = await db.game_analyses.find(
+        {"user_id": user.user_id, "completed": True},
+        {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, 
+         "stockfish_analysis": 1, "game_coach_summary": 1, "analyzed_at": 1}
+    ).sort("analyzed_at", -1).limit(20).to_list(20)
+    
+    # Check minimum games threshold
+    if len(recent_analyses) < 10:
+        return {
+            "show_card": False,
+            "state": "NORMAL",
+            "confidence": 0.5,
+            "headline": "Keep going. Stay consistent.",
+            "message": "Play more games to unlock weekly coaching insights.",
+            "cta": {"label": "Play Next Game", "action": "STANDARD_FLOW", "payload": {}},
+            "dominant_lesson_key": None,
+            "games_needed": 10 - len(recent_analyses)
+        }
+    
+    # Build game data for signal computation
+    recent_games = []
+    lesson_keys = []
+    
+    for analysis in recent_analyses:
+        sf = analysis.get("stockfish_analysis", {})
+        summary = analysis.get("game_coach_summary", {})
+        
+        # Count blunders and mistakes from move evaluations
+        move_evals = sf.get("move_evaluations", [])
+        blunders = sum(1 for m in move_evals if m.get("is_blunder") and m.get("is_user_move"))
+        mistakes = sum(1 for m in move_evals if m.get("is_mistake") and m.get("is_user_move"))
+        
+        # Get average cp_loss
+        user_moves = [m for m in move_evals if m.get("is_user_move")]
+        avg_cp = sum(m.get("cp_loss", 0) for m in user_moves) / max(len(user_moves), 1)
+        
+        # Determine result
+        result = analysis.get("result", "draw")
+        user_color = analysis.get("user_color", "white")
+        if result == "1-0":
+            game_result = "win" if user_color == "white" else "loss"
+        elif result == "0-1":
+            game_result = "win" if user_color == "black" else "loss"
+        else:
+            game_result = "draw"
+        
+        recent_games.append({
+            "blunders": blunders,
+            "mistakes": mistakes,
+            "avg_cp_loss": avg_cp,
+            "result": game_result,
+        })
+        
+        # Get lesson key from summary
+        lesson_key = summary.get("lesson_key") or summary.get("primary_issue")
+        if lesson_key:
+            lesson_keys.append(lesson_key)
+    
+    # Get coach state for maturity tier
+    coach_state = await db.coach_states.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "behavioral_maturity": 1, "good_game_streak": 1, 
+         "recent_game_accuracies": 1, "milestones": 1}
+    )
+    
+    maturity_tier = "Developing"
+    good_game_streak = 0
+    milestone_recent = False
+    recent_accuracies = []
+    
+    if coach_state:
+        maturity = coach_state.get("behavioral_maturity", {})
+        maturity_tier = maturity.get("level", "Developing")
+        good_game_streak = coach_state.get("good_game_streak", 0)
+        recent_accuracies = coach_state.get("recent_game_accuracies", [])
+        
+        # Check for recent milestone (last 5 games)
+        milestones = coach_state.get("milestones", [])
+        if milestones:
+            recent_milestones = [m for m in milestones[-5:] if m.get("achieved")]
+            milestone_recent = len(recent_milestones) > 0
+    
+    # Detect improvement trajectory
+    improvement_trajectory = "stable"
+    if len(recent_accuracies) >= 5:
+        first_half = recent_accuracies[:len(recent_accuracies)//2]
+        second_half = recent_accuracies[len(recent_accuracies)//2:]
+        avg_first = sum(first_half) / len(first_half)
+        avg_second = sum(second_half) / len(second_half)
+        diff = (avg_second - avg_first) / max(avg_first, 1) * 100
+        if diff > 5:
+            improvement_trajectory = "improving"
+        elif diff < -5:
+            improvement_trajectory = "declining"
+    
+    # Calculate consecutive losses
+    consecutive_losses = 0
+    for g in recent_games:
+        if g["result"] == "loss":
+            consecutive_losses += 1
+        else:
+            break
+    
+    # Find dominant lesson key and intensity
+    dominant_lesson_key = None
+    dominant_lesson_intensity = 0
+    if lesson_keys:
+        from collections import Counter
+        lesson_counts = Counter(lesson_keys)
+        dominant_lesson_key, count = lesson_counts.most_common(1)[0]
+        # Intensity based on frequency
+        dominant_lesson_intensity = 1 if count < 3 else (2 if count < 5 else 3)
+    
+    # Get signal
+    signal = get_breakthrough_signal_for_user(
+        recent_games=recent_games,
+        lesson_keys=lesson_keys,
+        consecutive_losses=consecutive_losses,
+        good_game_streak=good_game_streak,
+        milestone_recent=milestone_recent,
+        dominant_lesson_key=dominant_lesson_key,
+        dominant_lesson_intensity=dominant_lesson_intensity,
+        improvement_trajectory=improvement_trajectory,
+        discipline_improving=improvement_trajectory == "improving",
+        maturity_tier=maturity_tier,
+    )
+    
+    # Build CTA with action-specific payload
+    cta_payload = {}
+    if signal.state == "PLATEAU":
+        cta_payload = {"force_theme": dominant_lesson_key}
+    elif signal.state == "CONFIDENCE_ILLUSION":
+        cta_payload = {"lock_lesson_key": dominant_lesson_key, "duration_games": 5}
+    elif signal.state == "TILT_RISK":
+        cta_payload = {"duration_games": 3, "lock_theme": True}
+    
+    return {
+        "show_card": True,
+        "state": signal.state,
+        "confidence": signal.confidence,
+        "headline": signal.headline,
+        "message": signal.coach_message,
+        "cta": {
+            "label": signal.cta,
+            "action": signal.recommended_action,
+            "payload": cta_payload
+        },
+        "dominant_lesson_key": signal.dominant_lesson_key
     }
 
 

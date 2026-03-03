@@ -9,7 +9,7 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 - **Database:** MongoDB
 - **Analysis Engine:** Stockfish
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
-- **Engine Version:** P2.6 (Step 8 Complete)
+- **Engine Version:** P2.6 (Step 8 + Integration Complete)
 
 ---
 
@@ -21,34 +21,25 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 ### Step 7: Adaptive Teaching Style ✅
 ### Step 8: Breakthrough & Plateau Detection ✅ (Mar 3, 2026)
 
-**6 States Detected:**
-| State | Trigger | Action |
-|-------|---------|--------|
-| TILT_RISK | High volatility + blunder spike | Recovery Mode |
-| BREAKTHROUGH | 30% blunder drop + 20% volatility drop | Level Up |
-| CONFIDENCE_ILLUSION | Stable CP but high lesson repeat | Focus Lock |
-| PLATEAU | 10+ games, stable trajectory, same lesson | Deep Session |
-| STABLE_GROWTH | Volatility decreasing, discipline up | Continue Path |
-| NORMAL | No special signal | Standard Flow |
+**API Endpoint:** `GET /api/coach/breakthrough-signal`
+- Returns state, headline, message, CTA
+- Computes from last 20 games
+- `show_card: false` for < 10 games
 
-**Detection Order:** TILT → BREAKTHROUGH → CONFIDENCE_ILLUSION → PLATEAU → STABLE_GROWTH → NORMAL
+**Home Page Card:** `CoachWeeklySignalCard`
+- Above Daily Mission
+- State-aware styling
+- CTA routes to relevant action
 
-**Thresholds:**
-- HIGH_VOLATILITY = 3.0
-- BREAKTHROUGH_BLUNDER_DROP = 0.30 (30%)
-- LESSON_REPEAT_HIGH = 0.50
-- BLUNDER_SPIKE = 0.40 (40%)
-
----
-
-## ChessGuru Capabilities (P2.6)
-
-1. Deterministic chess truth
-2. Behavioral tagging + Context-aware moment selection
-3. Intent interpretation + Timing calibration
-4. Memory continuity
-5. Adaptive teaching style (tier-appropriate)
-6. **Breakthrough & Plateau Detection** (phase awareness)
+**6 States:**
+| State | Headline | CTA |
+|-------|----------|-----|
+| TILT_RISK | "Rough stretch. Time to stabilize." | Recovery Mission |
+| BREAKTHROUGH | "This week was real progress!" | Advanced Drill |
+| CONFIDENCE_ILLUSION | "Looks okay — but the same pattern repeats." | Lock One Rule |
+| PLATEAU | "You're stuck in the same mistake loop." | Deep Review |
+| STABLE_GROWTH | "Consistency is improving." | Continue |
+| NORMAL | "Keep going. Stay consistent." | Play Next |
 
 ---
 
@@ -56,31 +47,28 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 
 ### Step 8 - Breakthrough Detection
 - `/app/backend/coach_state/breakthrough_service.py`
-- `/app/backend/coach_state/tests/test_breakthrough_service.py`
-
-### Step 7 - Adaptive Teaching
-- `/app/backend/coach_state/teaching_style_service.py`
-
-### Step 6 - Intent Recognition
-- `/app/backend/analysis/intent_recognition_service.py`
-- `/app/backend/analysis/intent_quality_calibrator.py`
+- `/app/backend/server.py` (endpoint: `/api/coach/breakthrough-signal`)
+- `/app/frontend/src/components/Home/CoachWeeklySignalCard.jsx`
+- `/app/frontend/src/pages/Dashboard.jsx` (card integration)
 
 ---
 
 ## Testing
 - 108/108 unit tests passing
-- 6 state detection fixtures validated
-- Tier-aware copy verified
+- Endpoint verified via curl
+- Card hides for < 10 games
 
 ---
 
 ## Next Steps
 
-### P0 - Immediate
-- Add API endpoint `GET /api/coach/breakthrough-signal`
-- Display on Home page (Coach Weekly Signal card)
+### P0 - Step 9: Focus Lock Mode
+- System enforces one rule for 5 games
+- Tracks compliance per game
+- Shows lock status in UI
+- Unlocks after successful completion
 
 ### P1 - Future
-- Step 9+ as user defines
 - UI for Memory/Intent display
+- Coach Chat expansions
 - B2B features

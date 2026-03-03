@@ -152,7 +152,7 @@ HEADLINES = {
     },
     "CONFIDENCE_ILLUSION": {
         "Novice": "You're playing okay but missing the same punch.",
-        "Developing": "Accuracy looks fine, but the pattern repeats.",
+        "Developing": "Looks okay — but the same pattern repeats.",
         "Disciplined": "Same mistake cycle despite stable accuracy.",
         "Advanced": "Pattern blind spot detected.",
     },
@@ -170,8 +170,8 @@ HEADLINES = {
     },
     "NORMAL": {
         "Novice": "Keep going — you're on the right path.",
-        "Developing": "Continue your current focus.",
-        "Disciplined": "Standard progress.",
+        "Developing": "Keep going. Stay consistent.",
+        "Disciplined": "Keep going. Stay consistent.",
         "Advanced": "Continue.",
     },
 }
