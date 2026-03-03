@@ -79,12 +79,47 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 
 ## Next Steps
 
-### P0 - Integration
-- Wire compliance calculation into analysis_worker
-- API endpoint: `GET/POST /api/coach/focus-lock`
-- UI: Focus Lock card on Dashboard
+### P0 - Step 9 Integration ✅ COMPLETED (Mar 3, 2026)
+- ✅ Wire compliance calculation into analysis_worker
+- ✅ API endpoint: `GET/POST /api/coach/focus-lock`
+- ✅ UI: Focus Lock card on Dashboard (overrides Weekly Signal)
 
-### P1 - Future
+### P1 - Step 10: Identity Formation Layer
+- Long-term, identity-level feedback (e.g., "You are becoming a tactical player")
+- Only starts after 10+ users complete full Focus Lock cycle
+- Need real compliance distributions first
+
+### P2 - Future Tasks
 - Escalation psychology tuning
 - UI for Memory/Intent display
-- B2B features
+- B2B features for human coaches
+- Analytics dashboards
+- RAG/LLM-based commentary
+
+---
+
+## API Reference (Step 9)
+
+### Focus Lock Endpoints
+```
+GET  /api/coach/focus-lock
+POST /api/coach/focus-lock/activate  {lesson_key: string, games?: number}
+POST /api/coach/focus-lock/deactivate
+```
+
+### Response: GET /api/coach/focus-lock (when active)
+```json
+{
+  "active": true,
+  "lesson_key": "FORCING_BLIND",
+  "rule_description": "Forcing moves before every decision.",
+  "state": "ACTIVE",
+  "headline": "Rule locked for 5 games.",
+  "message": "...",
+  "progress": {"completed": 2, "required": 5, "text": "2 of 5 games"},
+  "compliance": {"average": 75, "color": "yellow", "text": "..."},
+  "strict_mode": false,
+  "should_trigger_deep_session": false,
+  "failed_cycles": 0
+}
+```

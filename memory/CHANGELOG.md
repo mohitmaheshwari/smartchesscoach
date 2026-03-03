@@ -1,5 +1,50 @@
 # Chess Coach - Changelog
 
+## Mar 3, 2026
+
+### Step 9: Focus Lock Mode Integration ✅
+
+Completed the full integration of Focus Lock Mode - a behavioral enforcement layer that locks a single coaching rule for a set number of games and measures compliance.
+
+**Backend Integration:**
+- `analysis_worker.py` - Compliance calculation after each game analysis
+  - Checks for active focus lock
+  - Calculates compliance using same move_evaluations (no re-analysis)
+  - Updates lock state immediately (games_completed, compliance_score)
+  - Handles strict mode activation and deep session triggers
+
+**API Endpoints:**
+- `GET /api/coach/focus-lock` - Get current focus lock state (read-only)
+- `POST /api/coach/focus-lock/activate` - Activate focus lock with guardrails
+  - Rejects if lock already active
+  - Rejects if < 10 games analyzed
+  - Valid lesson_keys: FORCING_BLIND, STOPPED_CALCULATION_EARLY, THREAT_VERIFICATION
+- `POST /api/coach/focus-lock/deactivate` - Force-deactivate lock
+
+**Frontend:**
+- `FocusLockCard.jsx` - New component for focus lock display
+  - Shows rule description, progress bar, compliance score
+  - Different colors for ACTIVE/EXTENDED/STRICT/COMPLETED states
+  - CTA navigates to /games or /deep-session based on state
+- `Dashboard.jsx` - Updated to show FocusLockCard when lock active
+  - **Focus Lock OVERRIDES Weekly Signal card** (reinforces authority)
+
+**New Service Functions:**
+- `calculate_compliance_trend()` - Detect improving/stable/declining
+- `focus_lock_to_db()` / `focus_lock_from_db()` - DB serialization
+- `should_trigger_deep_session()` - Check if 2+ failed cycles
+
+**Data Model Updates:**
+- Added `failed_cycles` field to FocusLock dataclass
+- Strict mode rule: `if failed_cycles >= 1 and declining_trend`
+- Deep review rule: `if failed_cycles >= 2`
+
+**Tests:**
+- 29/29 unit tests passing for focus_lock_service
+- 24/24 integration tests (15 backend + 9 frontend)
+
+---
+
 ## Feb 24, 2026
 
 ### Mission Engine & Reward System - Phase 2A/2B Complete ✅
