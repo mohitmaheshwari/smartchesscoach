@@ -14,6 +14,13 @@ Added minimal Focus Lock indicators to reinforce habit formation without gamific
   - Compliant: "Good. You followed the rule."
   - Failed: "You skipped the rule here."
 
+**Internal Analytics (Silent):**
+- `focus_lock_analytics` collection tracks every cycle:
+  - lock_started_at, lesson_key, games_required/completed
+  - final_compliance, failed_cycles, strict_mode_triggered
+  - deep_session_triggered, completed_successfully, outcome
+- Outcomes: "completed" | "extended" | "failed" | "quit_mid_lock"
+
 **Design Philosophy:**
 - Minimal reinforcement, not analytics dashboards
 - User internalizes "I followed the rule" vs "I didn't"

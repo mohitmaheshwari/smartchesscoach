@@ -53,6 +53,7 @@ from coach_state.focus_lock_service import (
     focus_lock_from_db,
     focus_lock_to_db,
     should_trigger_deep_session,
+    create_cycle_log,
 )
 
 # Configure logging with more detail
@@ -881,6 +882,13 @@ def update_focus_lock_compliance(db, user_id: str, move_evaluations: list):
                 "created_at": datetime.now(timezone.utc).isoformat()
             }}}
         )
+    
+    # Step 7: Log terminal states for analytics (silent, internal)
+    if updated_lock.state in ("COMPLETED", "FAILED"):
+        cycle_log = create_cycle_log(user_id, updated_lock)
+        db.focus_lock_analytics.insert_one(cycle_log.to_dict())
+        logger.info(f"[FOCUS LOCK ANALYTICS] Logged cycle: user={user_id}, outcome={cycle_log.outcome}, "
+                    f"compliance={cycle_log.final_compliance:.2f}, strict_mode={cycle_log.strict_mode_triggered}")
     
     logger.info(f"[FOCUS LOCK] Compliance update complete for user {user_id}")
 

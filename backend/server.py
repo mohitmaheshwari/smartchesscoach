@@ -13061,13 +13061,32 @@ async def deactivate_focus_lock(
     Force-deactivate a focus lock (admin/debug use only).
     
     Sets lock state to NONE.
+    Logs as quit_mid_lock for analytics.
     """
+    # Get existing lock before deactivating (for analytics)
+    coach_state = await db.coach_states.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "focus_lock": 1}
+    )
+    
+    existing_lock = None
+    if coach_state and coach_state.get("focus_lock"):
+        existing_lock = focus_lock_from_db(coach_state.get("focus_lock"))
+    
     result = await db.coach_states.update_one(
         {"user_id": user.user_id},
         {"$set": {"focus_lock": None}}
     )
     
     if result.modified_count > 0:
+        # Log quit_mid_lock for analytics (if there was an active lock)
+        if existing_lock and existing_lock.state not in ("COMPLETED", "FAILED", "NONE"):
+            from coach_state.focus_lock_service import create_cycle_log
+            cycle_log = create_cycle_log(user.user_id, existing_lock)
+            await db.focus_lock_analytics.insert_one(cycle_log.to_dict())
+            logger.info(f"[FOCUS LOCK ANALYTICS] Logged quit: user={user.user_id}, "
+                        f"games_completed={existing_lock.games_completed}/{existing_lock.games_required}")
+        
         logger.info(f"Focus lock deactivated for user {user.user_id}")
         return {"status": "deactivated"}
     else:

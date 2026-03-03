@@ -856,3 +856,88 @@ def focus_lock_from_db(doc: Dict[str, Any]) -> Optional[FocusLock]:
 def should_trigger_deep_session(lock: FocusLock) -> bool:
     """Check if lock failure should trigger a deep session."""
     return lock.failed_cycles >= 2 or lock.state == "FAILED"
+
+
+
+# =============================================================================
+# FOCUS LOCK ANALYTICS (Internal Logging - Not User-Facing)
+# =============================================================================
+
+@dataclass
+class FocusLockCycleLog:
+    """
+    Internal analytics for Focus Lock cycles.
+    
+    Tracks:
+    - Completion rates
+    - Compliance distribution
+    - Extension frequency
+    - Strict mode triggers
+    - User quit patterns
+    """
+    user_id: str
+    lock_started_at: str
+    lesson_key: str
+    games_required: int
+    games_completed: int
+    final_compliance: float
+    failed_cycles: int
+    strict_mode_triggered: bool
+    deep_session_triggered: bool
+    completed_successfully: bool
+    lock_ended_at: str
+    outcome: str  # "completed" | "extended" | "failed" | "quit_mid_lock"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "user_id": self.user_id,
+            "lock_started_at": self.lock_started_at,
+            "lesson_key": self.lesson_key,
+            "games_required": self.games_required,
+            "games_completed": self.games_completed,
+            "final_compliance": self.final_compliance,
+            "failed_cycles": self.failed_cycles,
+            "strict_mode_triggered": self.strict_mode_triggered,
+            "deep_session_triggered": self.deep_session_triggered,
+            "completed_successfully": self.completed_successfully,
+            "lock_ended_at": self.lock_ended_at,
+            "outcome": self.outcome,
+        }
+
+
+def create_cycle_log(user_id: str, lock: FocusLock) -> FocusLockCycleLog:
+    """
+    Create a cycle log entry when a lock reaches terminal state.
+    
+    Terminal states: COMPLETED, FAILED, or deactivated mid-lock
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Determine outcome
+    if lock.state == "COMPLETED":
+        outcome = "completed"
+        completed_successfully = True
+    elif lock.state == "FAILED":
+        outcome = "failed"
+        completed_successfully = False
+    elif lock.games_completed < lock.games_required:
+        outcome = "quit_mid_lock"
+        completed_successfully = False
+    else:
+        outcome = "extended"
+        completed_successfully = False
+    
+    return FocusLockCycleLog(
+        user_id=user_id,
+        lock_started_at=lock.created_at.isoformat() if isinstance(lock.created_at, datetime) else lock.created_at,
+        lesson_key=lock.lesson_key,
+        games_required=lock.games_required,
+        games_completed=lock.games_completed,
+        final_compliance=lock.average_compliance,
+        failed_cycles=lock.failed_cycles,
+        strict_mode_triggered=lock.strict_mode,
+        deep_session_triggered=should_trigger_deep_session(lock),
+        completed_successfully=completed_successfully,
+        lock_ended_at=now,
+        outcome=outcome,
+    )
