@@ -247,10 +247,10 @@ class TestPaletteRotation:
     def test_get_palette_phrase(self):
         """Can retrieve phrases from palette."""
         phrase = get_palette_phrase("neutral_1", "encouragement", 0)
-        assert phrase == "Keep building this habit."
+        assert phrase == "Build this habit — it will save games."
         
         phrase2 = get_palette_phrase("neutral_1", "encouragement", 1)
-        assert phrase2 == "This will pay off over time."
+        assert phrase2 == "This pattern gets easier with practice."
 
 
 class TestMaturityConversion:

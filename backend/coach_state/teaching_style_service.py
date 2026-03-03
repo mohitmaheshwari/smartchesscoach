@@ -103,61 +103,87 @@ TIER_DEFAULTS: dict[MaturityTier, dict] = {
 
 # =============================================================================
 # WORDING PALETTES (Rotation Without Chaos)
+# Step 7 Fix: Sharper, more specific phrases. No generic filler.
 # =============================================================================
 
 WORDING_PALETTES = {
     "neutral_1": {
         "encouragement": [
-            "Keep building this habit.",
-            "This will pay off over time.",
+            "Build this habit — it will save games.",
+            "This pattern gets easier with practice.",
         ],
         "firm_cue": [
-            "Execute.",
-            "No excuses here.",
+            "Fix this.",
+            "No shortcuts.",
         ],
         "soft_cue": [
-            "Take a breath before committing.",
-            "Give the position one more look.",
+            "Take one more look before committing.",
+            "Pause and scan forcing moves.",
         ],
         "example_cue": [
-            "Scan checks-captures-threats first.",
-            "Look for forcing moves before committing.",
+            "Before you commit, scan checks, captures, and threats.",
+            "Check forcing moves first.",
+        ],
+        # Step 7 Fix: Lesson-key-aware tactical cues
+        "tactical_cue": [
+            "Check forcing moves first.",
+            "Scan checks, captures, threats before committing.",
+        ],
+        "positional_cue": [
+            "Ask: what does the position demand?",
+            "Match your plan to the position's needs.",
         ],
     },
     "neutral_2": {
         "encouragement": [
-            "You're developing the right instincts.",
-            "Stay patient with this process.",
+            "You're building the right instincts.",
+            "This habit compounds over time.",
         ],
         "firm_cue": [
-            "Fix this pattern.",
+            "Lock this in.",
             "This must change.",
         ],
         "soft_cue": [
-            "Slow down in these moments.",
-            "One more look before you commit.",
+            "Give the position one more look.",
+            "Slow down at critical moments.",
         ],
         "example_cue": [
-            "CCC scan before every decision.",
-            "Checks, captures, threats — in that order.",
+            "CCC: checks, captures, threats — in that order.",
+            "Always check opponent's forcing replies.",
+        ],
+        "tactical_cue": [
+            "CCC: checks, captures, threats.",
+            "Calculate forcing moves to completion.",
+        ],
+        "positional_cue": [
+            "Read the position before committing.",
+            "Structure dictates strategy.",
         ],
     },
     "neutral_3": {
         "encouragement": [
-            "Trust the process.",
             "This habit will stick.",
+            "Keep building this pattern.",
         ],
         "firm_cue": [
-            "Lock this in.",
-            "No shortcuts.",
+            "Execute.",
+            "No excuses.",
         ],
         "soft_cue": [
             "Pause and reassess.",
-            "The position deserves another look.",
+            "One more scan before moving.",
         ],
         "example_cue": [
             "Always check forcing replies first.",
             "What can opponent do to you?",
+        ],
+        "tactical_cue": [
+            "Check their forcing moves first.",
+            "Calculate until the position is quiet.",
+        ],
+        "positional_cue": [
+            "Let the position guide the plan.",
+            "Structure first, tactics second.",
         ],
     },
 }
@@ -182,6 +208,27 @@ def get_palette_phrase(palette_id: str, category: str, index: int = 0) -> str:
     if not phrases:
         return ""
     return phrases[index % len(phrases)]
+
+
+def get_lesson_aware_cue(palette_id: str, lesson_key: str, index: int = 0) -> str:
+    """
+    Get a lesson-key-aware example cue.
+    
+    Step 7 Fix: Returns specific cue based on lesson type.
+    - Tactical lessons → CCC scan, forcing moves
+    - Positional lessons → structure, position demands
+    """
+    lesson_lower = (lesson_key or "").lower()
+    
+    # Determine cue category based on lesson key
+    if any(word in lesson_lower for word in ["forcing", "tactic", "calculation", "mate", "blind"]):
+        category = "tactical_cue"
+    elif any(word in lesson_lower for word in ["position", "structure", "plan", "passive"]):
+        category = "positional_cue"
+    else:
+        category = "example_cue"
+    
+    return get_palette_phrase(palette_id, category, index)
 
 
 # =============================================================================

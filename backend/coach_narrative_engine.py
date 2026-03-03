@@ -36,6 +36,7 @@ from coach_state.teaching_style_service import (
     maturity_to_tier,
     detect_trend,
     get_palette_phrase,
+    get_lesson_aware_cue,
     MaturityTier,
     StrategyType,
 )
@@ -128,21 +129,22 @@ INTENT_TEMPLATES = {
 }
 
 # Thinking break templates - where cognition failed
+# Step 7 Fix: Removed filler phrases ("However, there was a problem", "held a surprise")
 BREAK_TEMPLATES = {
     "threat_missed": [
         "But you didn't check what they could do first.",
-        "However, their reply was not considered.",
-        "But opponent had a forcing move.",
+        "Their forcing reply was available.",
+        "Opponent had a forcing move you missed.",
     ],
     "calculation_short": [
         "But you stopped calculating one move too soon.",
         "The sequence wasn't calculated fully.",
-        "But one more move would have shown the problem.",
+        "One more move would have shown the problem.",
     ],
     "position_read": [
         "But the position required a different approach.",
-        "However, the structure changed character.",
-        "But the dynamics were different than expected.",
+        "The structure demanded something different.",
+        "The dynamics were different than expected.",
     ],
     "pattern_repeat": [
         "This is a pattern appearing in your games.",
@@ -150,13 +152,14 @@ BREAK_TEMPLATES = {
         "The same type of oversight happened recently.",
     ],
     "default": [
-        "But there was a problem.",
-        "However, something was missed.",
-        "But the position held a surprise.",
+        "A forcing reply was missed.",
+        "The opponent's response wasn't calculated.",
+        "Something concrete was available.",
     ]
 }
 
 # Consequence templates - what happened on the board
+# Step 7 Fix: Removed "after this" filler, more direct phrasing
 CONSEQUENCE_TEMPLATES = {
     "tactical": [
         "After {played}, {threat} wins material.",
@@ -164,7 +167,7 @@ CONSEQUENCE_TEMPLATES = {
         "{best} would have avoided the tactic.",
     ],
     "positional": [
-        "After this, your position became passive.",
+        "Your position became passive.",
         "The structure turned against you.",
         "Opponent gained lasting pressure.",
     ],
@@ -178,10 +181,15 @@ CONSEQUENCE_TEMPLATES = {
         "Mate in {count} was available.",
         "A winning attack was missed.",
     ],
+    "advantage_lost": [
+        "The advantage slipped away.",
+        "The winning position became unclear.",
+        "You let the advantage go.",
+    ],
     "default": [
-        "The position worsened significantly.",
+        "The position worsened.",
         "This changed the evaluation.",
-        "The game became more difficult.",
+        "The game became harder.",
     ]
 }
 
@@ -276,11 +284,11 @@ RULE_TEMPLATES = {
         "When unsure, strengthen your position.",
     ],
     "default": [
-        "Take more time on critical decisions.",
-        "Verify before executing.",
-        "Slow down at turning points.",
-        "Critical moments deserve extra attention.",
-        "Don't rush the important decisions.",
+        "At critical moments, check forcing moves first.",
+        "Verify opponent's replies before committing.",
+        "At turning points, slow down and calculate.",
+        "Critical positions demand extra attention.",
+        "Check forcing moves before deciding.",
     ]
 }
 
@@ -1009,14 +1017,20 @@ class ToneRenderer:
         elif component == "break_point":
             line = components.thinking_break_line
             if line and style.firmness == "soft":
-                line = line.replace("But ", "However, ")
+                # Soften for Novice - but don't add filler
+                line = line.replace("But you ", "You ")
                 line = line.replace("didn't", "may not have")
             return line
         
         elif component == "consequence":
             if not style.include_consequence:
                 return None
-            return components.position_consequence_line
+            # Step 7 Fix: Remove trailing "after this" for cleaner output
+            consequence = components.position_consequence_line
+            if consequence:
+                consequence = consequence.replace(" after this", "")
+                consequence = consequence.replace("After this, ", "")
+            return consequence
         
         elif component == "pattern_reminder":
             # Use teaching_line as pattern reminder
@@ -1025,7 +1039,14 @@ class ToneRenderer:
         elif component == "rule":
             if not style.include_rule:
                 return None
-            return components.rule_line
+            # Step 7 Fix: For Advanced tier with firm tone, make rule sharper
+            rule = components.rule_line
+            if style.firmness == "firm" and style.tier == "Advanced":
+                # Remove motivational verbs for Advanced
+                rule = rule.replace("Slow down at ", "At ")
+                rule = rule.replace("Take more time on ", "")
+                rule = rule.replace("Double-check ", "Check ")
+            return rule
         
         elif component == "encouragement":
             if not style.include_encouragement:
@@ -1039,9 +1060,10 @@ class ToneRenderer:
         elif component == "example_cue":
             if not style.include_example_cue:
                 return None
-            return get_palette_phrase(
+            # Step 7 Fix: Use lesson-aware cue for specificity
+            return get_lesson_aware_cue(
                 style.wording_palette_id,
-                "example_cue",
+                lesson_key,
                 hash(lesson_key) % 2
             )
         
