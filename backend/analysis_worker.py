@@ -45,6 +45,16 @@ from config import STOCKFISH_DEPTH
 from analysis.intent_recognition_service import recognize_intent, get_game_phase
 from analysis.intent_quality_calibrator import calibrate_with_forcing_context, build_full_intent_explanation
 
+# Focus Lock compliance (Step 9)
+from coach_state.focus_lock_service import (
+    calculate_compliance,
+    update_lock_after_game,
+    calculate_compliance_trend,
+    focus_lock_from_db,
+    focus_lock_to_db,
+    should_trigger_deep_session,
+)
+
 # Configure logging with more detail
 logging.basicConfig(
     level=logging.INFO,
@@ -672,6 +682,17 @@ def process_job(db, job):
             move_evaluations
         )
         
+        # =========================================================================
+        # PHASE 4: FOCUS LOCK COMPLIANCE UPDATE (Step 9)
+        # After game analysis + profile update, check for active focus lock
+        # and update compliance state immediately (no async delay)
+        # =========================================================================
+        try:
+            update_focus_lock_compliance(db, user_id, move_evaluations)
+        except Exception as lock_err:
+            # Non-fatal - log but don't fail the analysis
+            logger.warning(f"[FOCUS LOCK] Failed to update compliance: {lock_err}")
+        
         logger.info(f"[SUCCESS] Analyzed game {game_id} (accuracy: {accuracy}%, duration: {elapsed:.1f}s)")
         return True
         
@@ -777,6 +798,91 @@ def run_worker():
             time.sleep(POLL_INTERVAL)
     
     logger.info(f"Worker shutting down. Total jobs processed: {jobs_processed}, failed: {jobs_failed}")
+
+
+# =============================================================================
+# FOCUS LOCK COMPLIANCE UPDATE (Step 9)
+# =============================================================================
+
+def update_focus_lock_compliance(db, user_id: str, move_evaluations: list):
+    """
+    Update focus lock compliance after game analysis.
+    
+    Called immediately after game analysis completes.
+    Uses the same move_evaluations from Stockfish analysis (no re-analysis).
+    
+    Flow:
+    1. Check if user has an active focus lock
+    2. If active, calculate compliance for this game
+    3. Update lock state (games_completed, compliance_score)
+    4. Check for completion/extension/strict mode
+    5. Persist updated state immediately
+    """
+    # Step 1: Get user's coach_state with focus_lock
+    coach_state = db.coach_states.find_one(
+        {"user_id": user_id},
+        {"focus_lock": 1, "_id": 0}
+    )
+    
+    if not coach_state:
+        logger.debug(f"[FOCUS LOCK] No coach_state for user {user_id}")
+        return
+    
+    focus_lock_doc = coach_state.get("focus_lock")
+    if not focus_lock_doc:
+        logger.debug(f"[FOCUS LOCK] No active focus lock for user {user_id}")
+        return
+    
+    # Rebuild FocusLock from DB
+    lock = focus_lock_from_db(focus_lock_doc)
+    if not lock:
+        logger.debug(f"[FOCUS LOCK] Failed to parse focus lock for user {user_id}")
+        return
+    
+    # Check if lock is active (not completed/failed)
+    if lock.state in ("COMPLETED", "FAILED", "NONE"):
+        logger.debug(f"[FOCUS LOCK] Lock not active (state={lock.state}) for user {user_id}")
+        return
+    
+    logger.info(f"[FOCUS LOCK] Processing compliance for user {user_id}, lesson={lock.lesson_key}")
+    
+    # Step 2: Calculate compliance using the same move_evaluations
+    compliance = calculate_compliance(lock.lesson_key, move_evaluations)
+    logger.info(f"[FOCUS LOCK] Compliance result: score={compliance.compliance_score:.2f}, "
+                f"opportunities={compliance.total_opportunities}, missed={compliance.missed_count}")
+    
+    # Step 3: Determine trend from existing compliance scores
+    all_scores = lock.compliance_scores + [compliance.compliance_score]
+    trend = calculate_compliance_trend(all_scores)
+    logger.info(f"[FOCUS LOCK] Compliance trend: {trend}")
+    
+    # Step 4: Update lock state
+    updated_lock = update_lock_after_game(lock, compliance, trend)
+    logger.info(f"[FOCUS LOCK] Updated state: {updated_lock.state}, "
+                f"games={updated_lock.games_completed}/{updated_lock.games_required}, "
+                f"avg_compliance={updated_lock.average_compliance:.2f}")
+    
+    # Step 5: Persist updated state immediately
+    db.coach_states.update_one(
+        {"user_id": user_id},
+        {"$set": {"focus_lock": focus_lock_to_db(updated_lock)}}
+    )
+    
+    # Step 6: Check if we need to trigger deep session
+    if should_trigger_deep_session(updated_lock):
+        logger.info(f"[FOCUS LOCK] Triggering deep session for user {user_id} (failed_cycles={updated_lock.failed_cycles})")
+        # Set a flag for deep session trigger
+        db.coach_states.update_one(
+            {"user_id": user_id},
+            {"$set": {"pending_deep_session": {
+                "trigger": "focus_lock_failure",
+                "lesson_key": updated_lock.lesson_key,
+                "failed_cycles": updated_lock.failed_cycles,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }}}
+        )
+    
+    logger.info(f"[FOCUS LOCK] Compliance update complete for user {user_id}")
 
 
 if __name__ == "__main__":

@@ -29,10 +29,15 @@ from coach_state.focus_lock_service import (
     should_activate_lock,
     get_lock_ui_state,
     get_lock_copy,
+    focus_lock_to_db,
+    focus_lock_from_db,
+    calculate_compliance_trend,
+    should_trigger_deep_session,
     STRONG_COMPLIANCE,
     PARTIAL_COMPLIANCE,
     COMPLETION_COMPLIANCE_THRESHOLD,
 )
+from datetime import datetime, timezone
 
 
 # =============================================================================
@@ -368,6 +373,7 @@ class TestLockUIState:
             compliance_scores=[0.80, 0.75],
             strict_mode=False,
             failure_count=0,
+            failed_cycles=0,
             created_at=lock.created_at,
             updated_at=lock.updated_at,
             headline=lock.headline,
@@ -394,6 +400,7 @@ class TestLockUIState:
             compliance_scores=[0.80, 0.85, 0.90, 0.85, 0.80],
             strict_mode=False,
             failure_count=0,
+            failed_cycles=0,
             created_at=lock.created_at,
             updated_at=lock.updated_at,
             headline="Rule mastered.",
@@ -448,3 +455,122 @@ class TestComplianceDispatcher:
         
         threat_result = calculate_compliance("THREAT_VERIFICATION", moves)
         assert threat_result.lesson_key == "THREAT_VERIFICATION"
+
+
+
+class TestDBHelpers:
+    """Test DB serialization and deserialization."""
+    
+    def test_focus_lock_to_db(self):
+        """Convert FocusLock to DB document."""
+        lock = create_focus_lock("FORCING_BLIND", games=5)
+        doc = focus_lock_to_db(lock)
+        
+        assert doc["lesson_key"] == "FORCING_BLIND"
+        assert doc["state"] == "ACTIVE"
+        assert doc["games_required"] == 5
+        assert doc["games_completed"] == 0
+        assert doc["failed_cycles"] == 0
+        assert isinstance(doc["created_at"], str)
+    
+    def test_focus_lock_from_db(self):
+        """Rebuild FocusLock from DB document."""
+        doc = {
+            "lesson_key": "THREAT_VERIFICATION",
+            "state": "EXTENDED",
+            "games_required": 8,
+            "games_completed": 5,
+            "compliance_scores": [0.70, 0.65, 0.72, 0.68, 0.71],
+            "strict_mode": True,
+            "failure_count": 1,
+            "failed_cycles": 1,
+            "created_at": "2026-03-01T10:00:00+00:00",
+            "updated_at": "2026-03-02T10:00:00+00:00",
+            "headline": "Rule extended.",
+            "message": "Keep going.",
+        }
+        
+        lock = focus_lock_from_db(doc)
+        
+        assert lock.lesson_key == "THREAT_VERIFICATION"
+        assert lock.state == "EXTENDED"
+        assert lock.games_required == 8
+        assert lock.games_completed == 5
+        assert lock.failed_cycles == 1
+        assert lock.strict_mode is True
+        assert len(lock.compliance_scores) == 5
+    
+    def test_focus_lock_from_db_none(self):
+        """Return None for empty doc."""
+        assert focus_lock_from_db(None) is None
+        assert focus_lock_from_db({}) is None
+
+
+class TestComplianceTrend:
+    """Test compliance trend calculation."""
+    
+    def test_improving_trend(self):
+        """Detect improving compliance."""
+        scores = [0.60, 0.65, 0.80, 0.85]
+        trend = calculate_compliance_trend(scores)
+        assert trend == "improving"
+    
+    def test_declining_trend(self):
+        """Detect declining compliance."""
+        scores = [0.85, 0.80, 0.60, 0.55]
+        trend = calculate_compliance_trend(scores)
+        assert trend == "declining"
+    
+    def test_stable_trend(self):
+        """Detect stable compliance."""
+        scores = [0.75, 0.76, 0.74, 0.75]
+        trend = calculate_compliance_trend(scores)
+        assert trend == "stable"
+    
+    def test_single_score_stable(self):
+        """Single score returns stable."""
+        scores = [0.75]
+        trend = calculate_compliance_trend(scores)
+        assert trend == "stable"
+
+
+class TestDeepSessionTrigger:
+    """Test deep session trigger logic."""
+    
+    def test_trigger_on_failed_cycles(self):
+        """Trigger deep session after 2 failed cycles."""
+        lock = FocusLock(
+            lesson_key="FORCING_BLIND",
+            state="ACTIVE",
+            games_required=5,
+            games_completed=5,
+            compliance_scores=[0.50, 0.55, 0.52, 0.48, 0.51],
+            strict_mode=True,
+            failure_count=2,
+            failed_cycles=2,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            headline="Test",
+            message="Test",
+        )
+        
+        assert should_trigger_deep_session(lock) is True
+    
+    def test_no_trigger_on_first_cycle(self):
+        """Don't trigger deep session on first failed cycle."""
+        lock = FocusLock(
+            lesson_key="FORCING_BLIND",
+            state="EXTENDED",
+            games_required=8,
+            games_completed=5,
+            compliance_scores=[0.60, 0.65, 0.62, 0.58, 0.61],
+            strict_mode=False,
+            failure_count=1,
+            failed_cycles=1,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            headline="Test",
+            message="Test",
+        )
+        
+        assert should_trigger_deep_session(lock) is False

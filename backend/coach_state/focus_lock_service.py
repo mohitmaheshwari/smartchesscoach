@@ -93,6 +93,7 @@ class FocusLock:
     compliance_scores: List[float]
     strict_mode: bool
     failure_count: int
+    failed_cycles: int  # NEW: Track how many times lock has failed and re-extended
     created_at: datetime
     updated_at: datetime
     headline: str
@@ -128,6 +129,7 @@ class FocusLock:
             "average_compliance": round(self.average_compliance, 2),
             "strict_mode": self.strict_mode,
             "failure_count": self.failure_count,
+            "failed_cycles": self.failed_cycles,
             "headline": self.headline,
             "message": self.message,
             "progress_text": self.progress_text,
@@ -499,6 +501,7 @@ def create_focus_lock(lesson_key: str, games: int = DEFAULT_LOCK_GAMES) -> Focus
         compliance_scores=[],
         strict_mode=False,
         failure_count=0,
+        failed_cycles=0,  # NEW: Initialize failed_cycles
         created_at=now,
         updated_at=now,
         headline=headline,
@@ -520,6 +523,12 @@ def update_lock_after_game(
     - Extension logic
     - Strict mode activation
     - Exit conditions
+    
+    Strict mode rule (updated):
+    - if failed_cycles >= 1 and declining_trend: strict_mode = True
+    
+    Deep review rule:
+    - if failed_cycles >= 2: trigger deep session
     """
     # Add compliance score
     new_scores = lock.compliance_scores + [compliance.compliance_score]
@@ -532,6 +541,7 @@ def update_lock_after_game(
     # Determine new state
     new_state = lock.state
     new_failure_count = lock.failure_count
+    new_failed_cycles = lock.failed_cycles
     strict_mode = lock.strict_mode
     games_required = lock.games_required
     
@@ -544,8 +554,9 @@ def update_lock_after_game(
         else:
             # FAILED - Need to extend or escalate
             new_failure_count += 1
+            new_failed_cycles += 1  # Track failed cycle
             
-            if new_failure_count >= MAX_LOCK_FAILURES:
+            if new_failed_cycles >= MAX_LOCK_FAILURES:
                 # Failed twice - trigger deep review
                 new_state = "FAILED"
                 headline, message = get_lock_copy("FAILED", lock.lesson_key)
@@ -561,15 +572,18 @@ def update_lock_after_game(
         headline = lock.headline
         message = lock.message
     
-    # Check for strict mode activation
-    if trend == "declining" and new_state == "ACTIVE":
+    # Check for strict mode activation (updated rule)
+    # if failed_cycles >= 1 and declining_trend: strict_mode = True
+    if lock.failed_cycles >= 1 and trend == "declining" and new_state not in ("COMPLETED", "FAILED"):
         strict_mode = True
         new_state = "STRICT"
         headline, message = get_lock_copy("STRICT", lock.lesson_key)
     
-    # Also activate strict mode on second failure
-    if new_failure_count >= MAX_LOCK_FAILURES - 1 and new_state not in ("COMPLETED", "FAILED"):
+    # Also activate strict mode on declining trend during active lock
+    if trend == "declining" and new_state == "ACTIVE" and not strict_mode:
         strict_mode = True
+        new_state = "STRICT"
+        headline, message = get_lock_copy("STRICT", lock.lesson_key)
     
     return FocusLock(
         lesson_key=lock.lesson_key,
@@ -579,6 +593,7 @@ def update_lock_after_game(
         compliance_scores=new_scores,
         strict_mode=strict_mode,
         failure_count=new_failure_count,
+        failed_cycles=new_failed_cycles,
         created_at=lock.created_at,
         updated_at=now,
         headline=headline,
@@ -753,3 +768,91 @@ def get_lock_ui_state(lock: Optional[FocusLock]) -> Dict[str, Any]:
         "strict_mode": lock.strict_mode,
         "cta": "Start Next Game",
     }
+
+
+
+# =============================================================================
+# COMPLIANCE TREND CALCULATION
+# =============================================================================
+
+def calculate_compliance_trend(compliance_scores: List[float]) -> str:
+    """
+    Calculate compliance trend from recent scores.
+    
+    Returns: "improving" | "stable" | "declining"
+    """
+    if len(compliance_scores) < 2:
+        return "stable"
+    
+    # Compare last 2 scores vs previous 2 (or whatever we have)
+    recent = compliance_scores[-2:]
+    previous = compliance_scores[:-2] if len(compliance_scores) > 2 else compliance_scores[:1]
+    
+    avg_recent = sum(recent) / len(recent)
+    avg_previous = sum(previous) / len(previous) if previous else avg_recent
+    
+    diff = avg_recent - avg_previous
+    
+    if diff > 0.10:  # 10% improvement
+        return "improving"
+    elif diff < -0.10:  # 10% decline
+        return "declining"
+    else:
+        return "stable"
+
+
+# =============================================================================
+# DB SERIALIZATION HELPERS
+# =============================================================================
+
+def focus_lock_to_db(lock: FocusLock) -> Dict[str, Any]:
+    """Convert FocusLock to DB-storable dict."""
+    return {
+        "lesson_key": lock.lesson_key,
+        "state": lock.state,
+        "games_required": lock.games_required,
+        "games_completed": lock.games_completed,
+        "compliance_scores": lock.compliance_scores,
+        "strict_mode": lock.strict_mode,
+        "failure_count": lock.failure_count,
+        "failed_cycles": lock.failed_cycles,
+        "created_at": lock.created_at.isoformat(),
+        "updated_at": lock.updated_at.isoformat(),
+        "headline": lock.headline,
+        "message": lock.message,
+    }
+
+
+def focus_lock_from_db(doc: Dict[str, Any]) -> Optional[FocusLock]:
+    """Rebuild FocusLock from DB document."""
+    if not doc:
+        return None
+    
+    # Parse dates
+    created_at = doc.get("created_at")
+    updated_at = doc.get("updated_at")
+    
+    if isinstance(created_at, str):
+        created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+    if isinstance(updated_at, str):
+        updated_at = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+    
+    return FocusLock(
+        lesson_key=doc.get("lesson_key", "FORCING_BLIND"),
+        state=doc.get("state", "ACTIVE"),
+        games_required=doc.get("games_required", DEFAULT_LOCK_GAMES),
+        games_completed=doc.get("games_completed", 0),
+        compliance_scores=doc.get("compliance_scores", []),
+        strict_mode=doc.get("strict_mode", False),
+        failure_count=doc.get("failure_count", 0),
+        failed_cycles=doc.get("failed_cycles", 0),
+        created_at=created_at or datetime.now(timezone.utc),
+        updated_at=updated_at or datetime.now(timezone.utc),
+        headline=doc.get("headline", "Focus Lock Active"),
+        message=doc.get("message", ""),
+    )
+
+
+def should_trigger_deep_session(lock: FocusLock) -> bool:
+    """Check if lock failure should trigger a deep session."""
+    return lock.failed_cycles >= 2 or lock.state == "FAILED"

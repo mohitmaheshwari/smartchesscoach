@@ -268,6 +268,22 @@ from coach_state.breakthrough_service import (
     build_window_metrics,
 )
 
+# === FOCUS LOCK SERVICE (Step 9) ===
+from coach_state.focus_lock_service import (
+    create_focus_lock,
+    calculate_compliance,
+    update_lock_after_game,
+    calculate_compliance_trend,
+    focus_lock_from_db,
+    focus_lock_to_db,
+    get_lock_ui_state,
+    should_activate_lock,
+    should_trigger_deep_session,
+    FocusLock,
+    RULE_DESCRIPTIONS,
+    DEFAULT_LOCK_GAMES,
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -12735,8 +12751,9 @@ async def get_breakthrough_signal(
     }
     """
     # Get user's recent analyzed games (up to 20)
+    # Look for analyses with stockfish_analysis (indicates real analysis)
     recent_analyses = await db.game_analyses.find(
-        {"user_id": user.user_id, "completed": True},
+        {"user_id": user.user_id, "stockfish_analysis": {"$exists": True}},
         {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, 
          "stockfish_analysis": 1, "game_coach_summary": 1, "analyzed_at": 1}
     ).sort("analyzed_at", -1).limit(20).to_list(20)
@@ -12884,6 +12901,177 @@ async def get_breakthrough_signal(
         },
         "dominant_lesson_key": signal.dominant_lesson_key
     }
+
+
+# =============================================================================
+# FOCUS LOCK ENDPOINTS (Step 9)
+# =============================================================================
+
+class FocusLockActivateRequest(BaseModel):
+    """Request to activate a focus lock."""
+    lesson_key: str
+    games: int = DEFAULT_LOCK_GAMES
+
+
+@api_router.get("/coach/focus-lock")
+async def get_focus_lock(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the user's current focus lock state (Step 9).
+    
+    This is a READ-ONLY endpoint. Never computes compliance here.
+    Returns computed state from DB.
+    
+    Response schema when lock is active:
+    {
+        "active": true,
+        "lesson_key": "FORCING_BLIND",
+        "rule_description": "...",
+        "state": "ACTIVE|EXTENDED|STRICT|COMPLETED|FAILED",
+        "headline": "...",
+        "message": "...",
+        "progress": {"completed": 2, "required": 5, "text": "2 of 5 games"},
+        "compliance": {"average": 75, "color": "yellow", "text": "..."},
+        "strict_mode": false,
+        "cta": "Start Next Game",
+        "should_trigger_deep_session": false
+    }
+    
+    Response when no lock:
+    {
+        "active": false
+    }
+    """
+    # Get coach state with focus lock
+    coach_state = await db.coach_states.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "focus_lock": 1}
+    )
+    
+    if not coach_state or not coach_state.get("focus_lock"):
+        return {"active": False}
+    
+    lock = focus_lock_from_db(coach_state.get("focus_lock"))
+    if not lock:
+        return {"active": False}
+    
+    # Get UI-ready state
+    ui_state = get_lock_ui_state(lock)
+    
+    if not ui_state:
+        return {"active": False}
+    
+    # Add deep session trigger flag
+    ui_state["should_trigger_deep_session"] = should_trigger_deep_session(lock)
+    ui_state["failed_cycles"] = lock.failed_cycles
+    
+    return ui_state
+
+
+@api_router.post("/coach/focus-lock/activate")
+async def activate_focus_lock(
+    req: FocusLockActivateRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Activate a focus lock for the user (Step 9).
+    
+    Guardrails - Reject activation if:
+    - Lock already active
+    - < 10 games analyzed
+    - Breakthrough state active (BREAKTHROUGH or TILT_RISK in recovery)
+    
+    Only internal calls should hit this (triggered by breakthrough service).
+    
+    Request body:
+    {
+        "lesson_key": "FORCING_BLIND|STOPPED_CALCULATION_EARLY|THREAT_VERIFICATION",
+        "games": 5  # Optional, default 5
+    }
+    """
+    # Validate lesson_key
+    valid_keys = ("FORCING_BLIND", "STOPPED_CALCULATION_EARLY", "THREAT_VERIFICATION")
+    if req.lesson_key not in valid_keys:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid lesson_key. Must be one of: {valid_keys}"
+        )
+    
+    # Check if user has enough analyzed games
+    # Check for analyses with stockfish_analysis (indicates real analysis)
+    analyzed_count = await db.game_analyses.count_documents({
+        "user_id": user.user_id,
+        "stockfish_analysis": {"$exists": True}
+    })
+    
+    if analyzed_count < 10:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Need at least 10 analyzed games. You have {analyzed_count}."
+        )
+    
+    # Get current coach state
+    coach_state = await db.coach_states.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "focus_lock": 1}
+    )
+    
+    # Check if lock already active
+    if coach_state and coach_state.get("focus_lock"):
+        existing_lock = focus_lock_from_db(coach_state.get("focus_lock"))
+        if existing_lock and existing_lock.state not in ("COMPLETED", "FAILED", "NONE"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Focus lock already active for {existing_lock.lesson_key}. Complete current lock first."
+            )
+    
+    # Create new focus lock
+    new_lock = create_focus_lock(req.lesson_key, req.games)
+    
+    # Persist to DB (upsert coach_state if needed)
+    await db.coach_states.update_one(
+        {"user_id": user.user_id},
+        {
+            "$set": {
+                "focus_lock": focus_lock_to_db(new_lock),
+                "focus_lock_activated_at": datetime.now(timezone.utc).isoformat()
+            }
+        },
+        upsert=True
+    )
+    
+    logger.info(f"Focus lock activated for user {user.user_id}: {req.lesson_key} for {req.games} games")
+    
+    return {
+        "status": "activated",
+        "lesson_key": new_lock.lesson_key,
+        "rule_description": RULE_DESCRIPTIONS.get(new_lock.lesson_key, ""),
+        "games_required": new_lock.games_required,
+        "headline": new_lock.headline,
+        "message": new_lock.message
+    }
+
+
+@api_router.post("/coach/focus-lock/deactivate")
+async def deactivate_focus_lock(
+    user: User = Depends(get_current_user)
+):
+    """
+    Force-deactivate a focus lock (admin/debug use only).
+    
+    Sets lock state to NONE.
+    """
+    result = await db.coach_states.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"focus_lock": None}}
+    )
+    
+    if result.modified_count > 0:
+        logger.info(f"Focus lock deactivated for user {user.user_id}")
+        return {"status": "deactivated"}
+    else:
+        return {"status": "no_lock_found"}
 
 
 # Include the router in the main app

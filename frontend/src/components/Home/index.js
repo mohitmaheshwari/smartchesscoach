@@ -8,3 +8,4 @@ export { default as LastGameCoachCard } from './LastGameCoachCard';
 export { default as CoachFocusCard } from './CoachFocusCard';
 export { default as DeepSessionBanner } from './DeepSessionBanner';
 export { default as CoachWeeklySignalCard } from './CoachWeeklySignalCard';
+export { default as FocusLockCard } from './FocusLockCard';

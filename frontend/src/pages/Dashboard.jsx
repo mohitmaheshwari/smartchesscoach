@@ -44,7 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import DailyMissionCard from "@/components/DailyMissionCard";
-import { CoachWeeklySignalCard } from "@/components/Home";
+import { CoachWeeklySignalCard, FocusLockCard } from "@/components/Home";
 
 // Milestone celebration banner component
 const MilestoneBanner = ({ milestone, onDismiss }) => {
@@ -338,6 +338,7 @@ const Dashboard = ({ user }) => {
   const [queuingAll, setQueuingAll] = useState(false); // Track batch queue status
   const [syncStatus, setSyncStatus] = useState(null); // Sync timer status
   const [breakthroughSignal, setBreakthroughSignal] = useState(null); // Step 8: Coach Weekly Signal
+  const [focusLock, setFocusLock] = useState(null); // Step 9: Focus Lock
   const [dismissedMilestones, setDismissedMilestones] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('dismissedMilestones') || '[]');
@@ -450,6 +451,24 @@ const Dashboard = ({ user }) => {
       }
     };
     fetchBreakthroughSignal();
+  }, []);
+
+  // Step 9: Fetch focus lock
+  useEffect(() => {
+    const fetchFocusLock = async () => {
+      try {
+        const response = await fetch(`${API}/coach/focus-lock`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setFocusLock(data);
+        }
+      } catch (error) {
+        console.error('Error fetching focus lock:', error);
+      }
+    };
+    fetchFocusLock();
   }, []);
 
   // Sync status timer - fetches and counts down
@@ -683,27 +702,38 @@ const Dashboard = ({ user }) => {
           </motion.div>
         ) : (
           <AnimatedList className="space-y-6">
-            {/* Step 8: Coach Weekly Signal Card - Above Daily Mission */}
-            {breakthroughSignal?.show_card && (
+            {/* Step 9: Focus Lock Card - OVERRIDES Weekly Signal when active */}
+            {focusLock?.active ? (
               <AnimatedItem>
-                <CoachWeeklySignalCard 
-                  signal={breakthroughSignal}
-                  onCtaClick={(cta) => {
-                    // Route based on action type
-                    if (cta.action === 'DEEP_SESSION') {
-                      navigate('/deep-session');
-                    } else if (cta.action === 'FOCUS_LOCK' || cta.action === 'RECOVERY_MODE') {
-                      // For now, navigate to missions with focus theme
-                      navigate('/missions');
-                    } else if (cta.action === 'LEVEL_UP') {
-                      navigate('/training');
-                    } else {
-                      // Standard flow - stay on dashboard or navigate to games
-                      navigate('/games');
-                    }
-                  }}
+                <FocusLockCard 
+                  lock={focusLock}
+                  onCtaClick={() => navigate('/games')}
+                  onDeepSessionClick={() => navigate('/deep-session')}
                 />
               </AnimatedItem>
+            ) : (
+              /* Step 8: Coach Weekly Signal Card - Only shows when no Focus Lock */
+              breakthroughSignal?.show_card && (
+                <AnimatedItem>
+                  <CoachWeeklySignalCard 
+                    signal={breakthroughSignal}
+                    onCtaClick={(cta) => {
+                      // Route based on action type
+                      if (cta.action === 'DEEP_SESSION') {
+                        navigate('/deep-session');
+                      } else if (cta.action === 'FOCUS_LOCK' || cta.action === 'RECOVERY_MODE') {
+                        // For now, navigate to missions with focus theme
+                        navigate('/missions');
+                      } else if (cta.action === 'LEVEL_UP') {
+                        navigate('/training');
+                      } else {
+                        // Standard flow - stay on dashboard or navigate to games
+                        navigate('/games');
+                      }
+                    }}
+                  />
+                </AnimatedItem>
+              )
             )}
             
             {/* Daily Mission Card - Dopamine Engine Entry Point */}
