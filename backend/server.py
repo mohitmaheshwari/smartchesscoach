@@ -284,6 +284,16 @@ from coach_state.focus_lock_service import (
     DEFAULT_LOCK_GAMES,
 )
 
+# === THEORY MODULES (Step 10) ===
+from coach_state.theory_modules import (
+    ALL_MODULES,
+    get_module,
+    get_modules_for_rating,
+)
+from coach_state.module_trigger_service import (
+    get_module_injection_stats,
+)
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -13091,6 +13101,76 @@ async def deactivate_focus_lock(
         return {"status": "deactivated"}
     else:
         return {"status": "no_lock_found"}
+
+
+# =============================================================================
+# THEORY MODULE ENDPOINTS (Step 10)
+# =============================================================================
+
+@api_router.get("/coach/module/{game_id}")
+async def get_game_module(
+    game_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the theory module trigger for a specific game (Step 10).
+    
+    Returns the detected module, rule, and evidence for the Lab page.
+    
+    Response schema:
+    {
+        "triggered": true,
+        "module_key": "SIMPLIFY_WHEN_AHEAD",
+        "module_name": "Simplify When Ahead",
+        "category": "conversion",
+        "rule": "Trade pieces, reduce counterplay.",
+        "explanation": "...",
+        "evidence_move": 23,
+        "evidence_cp_loss": 388,
+        "confidence": "high"
+    }
+    """
+    # Get game analysis with module trigger
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "module_trigger": 1}
+    )
+    
+    if not analysis or not analysis.get("module_trigger"):
+        return {"triggered": False}
+    
+    return analysis.get("module_trigger")
+
+
+@api_router.get("/coach/modules/stats")
+async def get_module_stats(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get module injection statistics for the user (Step 10).
+    
+    Returns aggregate stats on which modules have been triggered.
+    """
+    injections = await db.module_injections.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    stats = get_module_injection_stats(injections)
+    return stats
+
+
+@api_router.get("/coach/modules/all")
+async def get_all_modules():
+    """
+    Get all available theory modules (Step 10).
+    
+    Returns the full list of 30 modules with their rules.
+    """
+    return {
+        "count": len(ALL_MODULES),
+        "modules": [m.to_dict() for m in ALL_MODULES.values()]
+    }
 
 
 # Include the router in the main app

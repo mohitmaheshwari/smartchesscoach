@@ -54,6 +54,15 @@ from coach_state.focus_lock_service import (
     focus_lock_to_db,
     should_trigger_deep_session,
     create_cycle_log,
+    create_focus_lock,
+)
+
+# Module Trigger Service (Step 10)
+from coach_state.module_trigger_service import (
+    detect_module_for_game,
+    check_auto_lock_condition,
+    create_injection_record,
+    get_focus_lock_lesson_for_module,
 )
 
 # Configure logging with more detail
@@ -396,6 +405,13 @@ def process_job(db, job):
         
         user_color = game.get("user_color", "white")
         
+        # Get user's rating for this game (used for module detection)
+        if user_color == "white":
+            user_rating = game.get("white_rating") or game.get("white", {}).get("rating", 1200)
+        else:
+            user_rating = game.get("black_rating") or game.get("black", {}).get("rating", 1200)
+        user_rating = int(user_rating) if user_rating else 1200
+        
         # Update game status to show it's being processed
         db.games.update_one(
             {"game_id": game_id},
@@ -694,6 +710,17 @@ def process_job(db, job):
             # Non-fatal - log but don't fail the analysis
             logger.warning(f"[FOCUS LOCK] Failed to update compliance: {lock_err}")
         
+        # =========================================================================
+        # PHASE 5: MODULE TRIGGER DETECTION (Step 10)
+        # Detect which theory module applies to this game
+        # Auto-lock if 3+ triggers with high confidence
+        # =========================================================================
+        try:
+            detect_and_inject_module(db, user_id, game_id, user_rating)
+        except Exception as module_err:
+            # Non-fatal - log but don't fail the analysis
+            logger.warning(f"[MODULE TRIGGER] Failed to detect module: {module_err}")
+        
         logger.info(f"[SUCCESS] Analyzed game {game_id} (accuracy: {accuracy}%, duration: {elapsed:.1f}s)")
         return True
         
@@ -891,6 +918,114 @@ def update_focus_lock_compliance(db, user_id: str, move_evaluations: list):
                     f"compliance={cycle_log.final_compliance:.2f}, strict_mode={cycle_log.strict_mode_triggered}")
     
     logger.info(f"[FOCUS LOCK] Compliance update complete for user {user_id}")
+
+
+# =============================================================================
+# MODULE TRIGGER DETECTION (Step 10)
+# =============================================================================
+
+def detect_and_inject_module(db, user_id: str, game_id: str, user_rating: int):
+    """
+    Detect which theory module applies to this game and inject it.
+    
+    Auto-lock if:
+    - 3+ triggers in last 10 games
+    - High confidence (≥300cp swing)
+    - No active focus lock
+    """
+    # Get the game analysis
+    analysis = db.game_analyses.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "lesson_key": 1, "core_lesson": 1, "stockfish_analysis": 1, 
+         "game_phase": 1, "dominant_lesson_key": 1}
+    )
+    
+    if not analysis:
+        logger.debug(f"[MODULE TRIGGER] No analysis found for game {game_id}")
+        return
+    
+    # Get recent injections for cooldown check
+    recent_injections = list(db.module_injections.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("injected_at", -1).limit(20))
+    
+    # Detect module
+    trigger = detect_module_for_game(analysis, user_rating, recent_injections)
+    
+    if not trigger.triggered:
+        logger.debug(f"[MODULE TRIGGER] No module triggered for game {game_id}")
+        return
+    
+    logger.info(f"[MODULE TRIGGER] Detected module {trigger.module_key} for user {user_id} "
+                f"(confidence={trigger.confidence}, cp_loss={trigger.evidence_cp_loss})")
+    
+    # Check for active focus lock
+    coach_state = db.coach_states.find_one(
+        {"user_id": user_id},
+        {"focus_lock": 1, "_id": 0}
+    )
+    
+    has_active_lock = False
+    if coach_state and coach_state.get("focus_lock"):
+        lock = focus_lock_from_db(coach_state.get("focus_lock"))
+        if lock and lock.state not in ("COMPLETED", "FAILED", "NONE"):
+            has_active_lock = True
+    
+    # Get recent triggers for auto-lock check
+    recent_triggers = list(db.module_injections.find(
+        {"user_id": user_id},
+        {"_id": 0, "module_key": 1}
+    ).sort("injected_at", -1).limit(10))
+    
+    # Check auto-lock condition
+    should_auto_lock, trigger_count = check_auto_lock_condition(
+        trigger.module_key,
+        trigger.confidence,
+        recent_triggers,
+        has_active_lock
+    )
+    
+    trigger.trigger_count_in_window = trigger_count
+    trigger.should_auto_lock = should_auto_lock
+    
+    # Create and store injection record
+    injection = create_injection_record(user_id, game_id, trigger, should_auto_lock)
+    db.module_injections.insert_one(injection.to_dict())
+    
+    # Store trigger on the game analysis for Lab page
+    db.game_analyses.update_one(
+        {"game_id": game_id},
+        {"$set": {"module_trigger": trigger.to_dict()}}
+    )
+    
+    logger.info(f"[MODULE TRIGGER] Injected module {trigger.module_key} for game {game_id}")
+    
+    # Auto-lock if conditions met
+    if should_auto_lock:
+        focus_lesson = get_focus_lock_lesson_for_module(trigger.module_key)
+        if focus_lesson:
+            new_lock = create_focus_lock(focus_lesson, games=5)
+            
+            db.coach_states.update_one(
+                {"user_id": user_id},
+                {
+                    "$set": {
+                        "focus_lock": focus_lock_to_db(new_lock),
+                        "focus_lock_activated_at": datetime.now(timezone.utc).isoformat(),
+                        "focus_lock_trigger": {
+                            "source": "auto_module_trigger",
+                            "module_key": trigger.module_key,
+                            "trigger_count": trigger_count,
+                            "game_id": game_id,
+                        }
+                    }
+                },
+                upsert=True
+            )
+            
+            logger.info(f"[MODULE TRIGGER] Auto-locked user {user_id} on {focus_lesson} "
+                        f"(triggered by {trigger.module_key}, count={trigger_count})")
 
 
 if __name__ == "__main__":

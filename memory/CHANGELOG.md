@@ -2,6 +2,49 @@
 
 ## Mar 3, 2026
 
+### Step 10: Pattern Injection Engine ✅
+
+Built the theory injection system with 30 high-leverage modules and auto-lock capability.
+
+**Theory Modules (30 Total):**
+- Category A: Tactical Awareness (8) - LPDO, Forcing Moves, Overloaded Defender, etc.
+- Category B: Conversion & Advantage (6) - Simplify When Ahead, Avoid Counterplay, etc.
+- Category C: Endgame Fundamentals (6) - Square Rule, Opposition, Rook Behind Passer, etc.
+- Category D: Positional Structure (6) - Good vs Bad Bishop, Knight Outposts, etc.
+- Category E: Opening Principles (4) - Castle Before Attacking, Fight for Center, etc.
+
+**Trigger Logic:**
+- Max 1 module per game
+- Priority: High-intensity (≥300cp), Repeated lesson, Endgame collapse
+- Rating appropriate (modules have min/max rating)
+- 10-game cooldown per module
+
+**Auto-Lock (Option C):**
+- Triggers after 3+ occurrences in 10 games
+- Only for high-confidence triggers (≥300cp)
+- Only if no active lock
+- Maps to Focus Lock lesson: FORCING_BLIND, STOPPED_CALCULATION_EARLY, THREAT_VERIFICATION
+
+**Lab Page Redesign:**
+- "If You Fix Only One Thing" - The anchor (large, bold)
+- Evidence: Move number + cp loss (clickable)
+- Rule: One line
+- ConceptCard: Theory module explanation (collapsed by default)
+- Coach's Full Take: Now secondary (collapsed)
+
+**New Files:**
+- `/app/backend/coach_state/theory_modules.py`
+- `/app/backend/coach_state/module_trigger_service.py`
+- `/app/frontend/src/components/Lab/OneThingFix.jsx`
+- `/app/frontend/src/components/Lab/ConceptCard.jsx`
+
+**API Endpoints:**
+- `GET /api/coach/module/{game_id}` - Get module trigger for game
+- `GET /api/coach/modules/stats` - User injection stats
+- `GET /api/coach/modules/all` - All 30 modules
+
+---
+
 ### Step 9.1: Micro Reinforcement ✅
 
 Added minimal Focus Lock indicators to reinforce habit formation without gamification.

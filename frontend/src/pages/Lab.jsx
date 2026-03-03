@@ -20,6 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
+import { OneThingFix, ConceptCard } from "@/components/Lab";
 import { 
   ArrowLeft, 
   Loader2, 
@@ -155,6 +156,9 @@ const Lab = ({ user }) => {
   
   // Focus Lock state (Step 9.1 - Micro Reinforcement)
   const [focusLock, setFocusLock] = useState(null);
+  
+  // Module Trigger state (Step 10 - Pattern Injection)
+  const [moduleTrigger, setModuleTrigger] = useState(null);
   
   // Re-analyze game handler
   const handleReanalyze = async () => {
@@ -298,6 +302,28 @@ const Lab = ({ user }) => {
     };
     fetchFocusLock();
   }, []);
+
+  // Fetch Module Trigger (Step 10)
+  useEffect(() => {
+    if (!gameId) return;
+    
+    const fetchModuleTrigger = async () => {
+      try {
+        const response = await fetch(`${API}/coach/module/${gameId}`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.triggered) {
+            setModuleTrigger(data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching module trigger:', error);
+      }
+    };
+    fetchModuleTrigger();
+  }, [gameId]);
 
   // Parse PGN and setup board
   useEffect(() => {
@@ -1351,19 +1377,36 @@ const Lab = ({ user }) => {
                     <ScrollArea className="h-full">
                     {/* SUMMARY TAB */}
                     <TabsContent value="summary" className="p-4 space-y-4 m-0">
-                      {/* Core Lesson */}
-                      {/* AI Coach Commentary */}
-                      {coachCommentary && (
-                        <div className="p-4 rounded-lg bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20">
-                          <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                            <Sparkles className="w-3 h-3" />
-                            Coach's Take
-                          </p>
-                          <p className="text-sm leading-relaxed whitespace-pre-line">{coachCommentary}</p>
-                          
-                          {/* Focus Lock Reinforcement - Step 9.1 */}
-                          {focusLock && focusLock.active && (
-                            <p className={`text-sm font-medium mt-3 ${
+                      
+                      {/* STEP 10: ONE THING FIX - The Anchor */}
+                      <OneThingFix 
+                        coreLesson={coreLesson}
+                        moduleTrigger={moduleTrigger}
+                        biggestSwing={biggestEvalSwing}
+                        onMoveClick={(moveNum) => {
+                          const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                          goToMove(targetIdx);
+                        }}
+                      />
+                      
+                      {/* STEP 10: CONCEPT CARD - Collapsed by default */}
+                      <ConceptCard 
+                        moduleTrigger={moduleTrigger}
+                        defaultExpanded={moduleTrigger?.confidence === 'high'}
+                      />
+                      
+                      {/* Focus Lock Status - Step 9 */}
+                      {focusLock && focusLock.active && (
+                        <div className={`p-3 rounded-lg ${
+                          (focusLock.compliance?.average || 0) >= 75 
+                            ? 'bg-emerald-500/10 border border-emerald-500/30' 
+                            : 'bg-amber-500/10 border border-amber-500/30'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                              Focus Lock Active
+                            </span>
+                            <span className={`text-sm font-medium ${
                               (focusLock.compliance?.average || 0) >= 75 
                                 ? 'text-emerald-400' 
                                 : 'text-amber-400'
@@ -1372,16 +1415,8 @@ const Lab = ({ user }) => {
                                 ? "Good. You followed the rule." 
                                 : "You skipped the rule here."
                               }
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Core Lesson */}
-                      {coreLesson && coreLesson.pattern !== "clean_game" && (
-                        <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                          <p className="text-xs text-amber-500 font-bold uppercase tracking-wider mb-2">Core Lesson</p>
-                          <p className="font-medium">{coreLesson.lesson}</p>
+                            </span>
+                          </div>
                         </div>
                       )}
                       
@@ -1396,33 +1431,18 @@ const Lab = ({ user }) => {
                         </div>
                       )}
                       
-                      {/* Biggest Eval Swing */}
-                      {biggestEvalSwing && biggestEvalSwing.cp_loss >= 100 && (
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground uppercase mb-1">Critical Moment</p>
-                          <button 
-                            className="text-left w-full"
-                            onClick={() => {
-                              const targetIdx = (biggestEvalSwing.move_number - 1) * 2 + (userColor === 'black' ? 1 : 0);
-                              goToMove(targetIdx);
-                            }}
-                          >
-                            <p className="font-mono">
-                              Move {biggestEvalSwing.move_number}: {biggestEvalSwing.move}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {formatEvalWithContext(biggestEvalSwing.eval_before / 100).text} → Lost {(biggestEvalSwing.cp_loss / 100).toFixed(1)} pawns
-                            </p>
-                          </button>
-                        </div>
-                      )}
-                      
-                      {/* Game Context */}
-                      {coreLesson && coreLesson.behavioral_fix && (
-                        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                          <p className="text-xs text-blue-500 uppercase mb-1">The Fix</p>
-                          <p className="text-sm">{coreLesson.behavioral_fix}</p>
-                        </div>
+                      {/* AI Coach Commentary - Now secondary */}
+                      {coachCommentary && (
+                        <details className="group">
+                          <summary className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+                            <Sparkles className="w-3 h-3" />
+                            Coach's Full Take
+                            <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                          </summary>
+                          <div className="mt-2 p-3 rounded-lg bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border border-indigo-500/20">
+                            <p className="text-sm leading-relaxed whitespace-pre-line">{coachCommentary}</p>
+                          </div>
+                        </details>
                       )}
                       
                       {/* Similar Games - Behavior Memory */}

@@ -9,7 +9,7 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 - **Database:** MongoDB
 - **Analysis Engine:** Stockfish
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
-- **Engine Version:** P2.7 (Step 9 Complete)
+- **Engine Version:** P2.8 (Step 10 Complete)
 
 ---
 
@@ -21,6 +21,7 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 ### Step 7: Adaptive Teaching Style ✅
 ### Step 8: Breakthrough & Plateau Detection ✅
 ### Step 9: Focus Lock Mode ✅ (Mar 3, 2026)
+### Step 10: Pattern Injection Engine ✅ (Mar 3, 2026)
 
 **Core Service:** `focus_lock_service.py`
 
@@ -45,7 +46,7 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 
 ---
 
-## ChessGuru Capabilities (P2.7)
+## ChessGuru Capabilities (P2.8)
 
 1. Deterministic chess truth
 2. Behavioral tagging + Context-aware moment selection
@@ -54,10 +55,17 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 5. Adaptive teaching style (tier-appropriate)
 6. Breakthrough & Plateau Detection (phase awareness)
 7. **Focus Lock Mode** (behavioral enforcement)
+8. **Pattern Injection Engine** (theory + auto-lock)
 
 ---
 
 ## Key Files
+
+### Step 10 - Pattern Injection
+- `/app/backend/coach_state/theory_modules.py` (30 modules)
+- `/app/backend/coach_state/module_trigger_service.py`
+- `/app/frontend/src/components/Lab/OneThingFix.jsx`
+- `/app/frontend/src/components/Lab/ConceptCard.jsx`
 
 ### Step 9 - Focus Lock
 - `/app/backend/coach_state/focus_lock_service.py`
