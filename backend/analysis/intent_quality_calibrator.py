@@ -80,7 +80,7 @@ INTENT_QUALITY_SENTENCES = {
     ("DEVELOPING", CalibratedQuality.GOOD): "Good piece development.",
     ("DEVELOPING", CalibratedQuality.REASONABLE): "Development made sense.",
     ("DEVELOPING", CalibratedQuality.PREMATURE): "Development was okay, but something else was more urgent.",
-    ("DEVELOPING", CalibratedQuality.INCORRECT): "Position required something forcing, not development.",
+    ("DEVELOPING", CalibratedQuality.INCORRECT): "Development is fine, but the position demanded something forcing.",
     
     # IMPROVING_PIECE
     ("IMPROVING_PIECE", CalibratedQuality.EXCELLENT): "Very good piece improvement.",
@@ -148,7 +148,8 @@ def classify_pressure(user_eval_before: int) -> PositionPressure:
 def calculate_timing_score(
     intent_type: str,
     pressure: PositionPressure,
-    phase: str = "middlegame"
+    phase: str = "middlegame",
+    piece_type: str = None
 ) -> int:
     """
     Calculate timing score based on intent + position context.
@@ -160,6 +161,7 @@ def calculate_timing_score(
     - Simplify while winning → EXCELLENT (+2)
     - Defend while losing → GOOD INSTINCT (+1)
     - Development in opening → GOOD (+1)
+    - Queen attack in opening → RISKY (-1) "Queen out early can become target"
     """
     score = 0
     
@@ -190,6 +192,12 @@ def calculate_timing_score(
     # G. Positional play when winning → GOOD (consolidation)
     elif intent_type in ["IMPROVING_PIECE", "POSITIONAL_MANEUVER"] and pressure == PositionPressure.WINNING:
         score += 1  # "Good technique"
+    
+    # H. QUEEN-IN-OPENING PRINCIPLE (Human Chess Culture)
+    # Queen early development should rarely be "good" - even if cp_loss is small
+    # "Idea is aggressive, but queen out early can become a target"
+    if intent_type == "ATTACKING" and phase == "opening" and piece_type == "queen":
+        score -= 1  # Push toward "reasonable" or "premature"
     
     return score
 
@@ -416,19 +424,81 @@ def calibrate_with_forcing_context(
 # INTEGRATION HELPER
 # =============================================================================
 
-def build_coach_sentence(intent_type: str, calibrated_quality: str) -> str:
+def build_coach_sentence(intent_type: str, calibrated_quality: str, pressure: str = None) -> str:
     """
-    Build the final coach sentence combining intent + quality.
+    Build the final coach sentence combining intent + quality + pressure context.
     
     Uses Indian coach tone - never says "wrong move".
+    Pressure-aware phrasing makes coach sound like it understands board situation.
     """
     try:
         quality = CalibratedQuality(calibrated_quality)
     except ValueError:
         quality = CalibratedQuality.REASONABLE
     
+    # Pressure-aware phrasing (makes coach feel observant)
+    if pressure:
+        pressure = pressure.lower()
+        
+        # Attack while losing - acknowledge the courage
+        if intent_type == "ATTACKING" and pressure == "losing":
+            if quality in [CalibratedQuality.GOOD, CalibratedQuality.REASONABLE]:
+                return "You were worse here, so looking for counterplay makes sense."
+            elif quality == CalibratedQuality.PREMATURE:
+                return "You were worse, so aggression is understandable, but timing was early."
+        
+        # Attack while winning - gently discourage
+        if intent_type == "ATTACKING" and pressure == "winning":
+            if quality == CalibratedQuality.PREMATURE:
+                return "You were better here — no need to complicate."
+            elif quality == CalibratedQuality.INCORRECT:
+                return "You were winning — the position didn't need forcing moves."
+        
+        # Attack in equal - context-dependent
+        if intent_type == "ATTACKING" and pressure == "equal":
+            if quality == CalibratedQuality.PREMATURE:
+                return "The attack idea is aggressive, but queen out early can become a target."
+            elif quality == CalibratedQuality.REASONABLE:
+                return "Looking for initiative in an equal position is fine."
+        
+        # Defend while worse/losing - praise instinct
+        if intent_type == "DEFENDING" and pressure in ["worse", "losing"]:
+            if quality in [CalibratedQuality.GOOD, CalibratedQuality.EXCELLENT]:
+                return "You correctly prioritized defense when under pressure."
+        
+        # Simplify while winning - excellent technique
+        if intent_type == "SIMPLIFYING" and pressure == "winning":
+            if quality == CalibratedQuality.EXCELLENT:
+                return "Good technique — simplify when ahead."
+            elif quality == CalibratedQuality.GOOD:
+                return "Trading when better is sensible."
+        
+        # Simplify while losing - bad decision
+        if intent_type == "SIMPLIFYING" and pressure in ["worse", "losing"]:
+            if quality == CalibratedQuality.INCORRECT:
+                return "When behind, you need complications, not simplification."
+    
+    # Fallback to standard lookup
     key = (intent_type, quality)
     return INTENT_QUALITY_SENTENCES.get(
         key,
         "The idea was reasonable here."
     )
+
+
+def build_full_intent_explanation(
+    intent_description: str,
+    calibrated_quality: str,
+    intent_type: str,
+    pressure: str = None
+) -> str:
+    """
+    Build complete coach explanation: Intent + Quality-aware context.
+    
+    Before: "You had a plan here."
+    After:  "You tried to start an attack. You were worse here, so looking for counterplay makes sense."
+    """
+    quality_sentence = build_coach_sentence(intent_type, calibrated_quality, pressure)
+    
+    # Combine intent description with quality evaluation
+    return f"{intent_description} {quality_sentence}"
