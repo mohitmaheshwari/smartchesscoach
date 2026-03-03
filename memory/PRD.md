@@ -9,7 +9,7 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 - **Database:** MongoDB
 - **Analysis Engine:** Stockfish
 - **AI Coaching:** OpenAI GPT-4o-mini (via Emergent LLM Key)
-- **Engine Version:** P2.6 (Step 8 + Integration Complete)
+- **Engine Version:** P2.7 (Step 9 Complete)
 
 ---
 
@@ -19,56 +19,72 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 ### Step 5: Memory Continuity Layer ✅
 ### Step 6: Intent Recognition Layer ✅
 ### Step 7: Adaptive Teaching Style ✅
-### Step 8: Breakthrough & Plateau Detection ✅ (Mar 3, 2026)
+### Step 8: Breakthrough & Plateau Detection ✅
+### Step 9: Focus Lock Mode ✅ (Mar 3, 2026)
 
-**API Endpoint:** `GET /api/coach/breakthrough-signal`
-- Returns state, headline, message, CTA
-- Computes from last 20 games
-- `show_card: false` for < 10 games
+**Core Service:** `focus_lock_service.py`
 
-**Home Page Card:** `CoachWeeklySignalCard`
-- Above Daily Mission
-- State-aware styling
-- CTA routes to relevant action
+**Compliance Heuristics:**
+| Lesson Key | Rule | Metric |
+|------------|------|--------|
+| FORCING_BLIND | Check forcing moves first | 1 - (missed_forcing / total_forcing_opportunities) |
+| STOPPED_CALCULATION_EARLY | Calculate deeper at critical moments | 1 - (early_stop / total_critical_moments) |
+| THREAT_VERIFICATION | Verify opponent threats | 1 - (missed_threat / total_threat_opportunities) |
 
-**6 States:**
-| State | Headline | CTA |
-|-------|----------|-----|
-| TILT_RISK | "Rough stretch. Time to stabilize." | Recovery Mission |
-| BREAKTHROUGH | "This week was real progress!" | Advanced Drill |
-| CONFIDENCE_ILLUSION | "Looks okay — but the same pattern repeats." | Lock One Rule |
-| PLATEAU | "You're stuck in the same mistake loop." | Deep Review |
-| STABLE_GROWTH | "Consistency is improving." | Continue |
-| NORMAL | "Keep going. Stay consistent." | Play Next |
+**Lock States:**
+- ACTIVE → In progress
+- EXTENDED → Compliance < 75%, first failure
+- STRICT → Declining trend or second failure
+- COMPLETED → Success (avg ≥ 75%)
+- FAILED → 2 failures → Deep Review required
+
+**Thresholds:**
+- Strong: ≥80% | Partial: 60-79% | Failed: <60%
+- Completion: 75%
+- Default games: 5 | Extension: +3
+
+---
+
+## ChessGuru Capabilities (P2.7)
+
+1. Deterministic chess truth
+2. Behavioral tagging + Context-aware moment selection
+3. Intent interpretation + Timing calibration
+4. Memory continuity
+5. Adaptive teaching style (tier-appropriate)
+6. Breakthrough & Plateau Detection (phase awareness)
+7. **Focus Lock Mode** (behavioral enforcement)
 
 ---
 
 ## Key Files
 
+### Step 9 - Focus Lock
+- `/app/backend/coach_state/focus_lock_service.py`
+- `/app/backend/coach_state/tests/test_focus_lock_service.py`
+
 ### Step 8 - Breakthrough Detection
 - `/app/backend/coach_state/breakthrough_service.py`
-- `/app/backend/server.py` (endpoint: `/api/coach/breakthrough-signal`)
-- `/app/frontend/src/components/Home/CoachWeeklySignalCard.jsx`
-- `/app/frontend/src/pages/Dashboard.jsx` (card integration)
+
+### Step 7 - Adaptive Teaching
+- `/app/backend/coach_state/teaching_style_service.py`
 
 ---
 
 ## Testing
-- 108/108 unit tests passing
-- Endpoint verified via curl
-- Card hides for < 10 games
+- 128/128 unit tests passing
+- 3 simulated lock runs validated
 
 ---
 
 ## Next Steps
 
-### P0 - Step 9: Focus Lock Mode
-- System enforces one rule for 5 games
-- Tracks compliance per game
-- Shows lock status in UI
-- Unlocks after successful completion
+### P0 - Integration
+- Wire compliance calculation into analysis_worker
+- API endpoint: `GET/POST /api/coach/focus-lock`
+- UI: Focus Lock card on Dashboard
 
 ### P1 - Future
+- Escalation psychology tuning
 - UI for Memory/Intent display
-- Coach Chat expansions
 - B2B features
