@@ -103,6 +103,17 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
   - Numbered step-by-step plan (not arrow-separated)
   - Specific mistake explanation (not vague "went poorly")
   - Clickable "Key Moment" with descriptive text
+- ✅ **Game Termination Context** (Mar 4, 2026):
+  - Header badge shows how game ended (abandoned, timeout, resigned, checkmate)
+  - Strategy tab shows notice for incomplete games
+- ✅ **Enhanced Lesson Structure** (Mar 4, 2026):
+  - Full coaching format: Concept → What happened → Better idea → Rule → Coach Insight
+  - Shows "Played: X → Better: Y" comparison
+  - Memorable coach quotes from principles library
+- ✅ **Tab Interconnection** (Mar 4, 2026):
+  - Summary → Strategy via "See Strategy" button
+  - Strategy → Milestones via "See all learning moments" link
+  - 30 theory modules in `/app/backend/coach_state/theory_modules.py`
 
 ### 🛑 OBSERVATION PHASE (Do Not Add Features)
 Wait for real user data before Step 10:

@@ -1403,15 +1403,39 @@ const Lab = ({ user }) => {
                         </div>
                       ) : (
                         <>
-                          {/* ⭐ MAIN LESSON - Most impactful moment */}
+                          {/* ⭐ MAIN LESSON - Full coaching structure */}
                           <LessonCard
                             lesson={{
                               concept: coreLesson?.lesson || moduleTrigger?.module_name || "Analyzing...",
+                              module_key: moduleTrigger?.module_key || coreLesson?.pattern,
                               move_number: biggestEvalSwing?.move_number,
                               move_san: biggestEvalSwing?.move,
-                              description: coreLesson?.pattern !== "clean_game" 
-                                ? (moduleTrigger?.explanation || coreLesson?.context)
-                                : null,
+                              your_move: biggestEvalSwing?.move,
+                              better_move: biggestEvalSwing?.best_move,
+                              description: (() => {
+                                // Build game-specific "what happened" explanation
+                                if (moduleTrigger?.explanation) return moduleTrigger.explanation;
+                                if (coreLesson?.context) return coreLesson.context;
+                                if (biggestEvalSwing) {
+                                  const cpLoss = Math.abs(biggestEvalSwing.cp_loss || 0);
+                                  if (cpLoss >= 300) return `This move lost ${(cpLoss / 100).toFixed(1)} pawns of advantage.`;
+                                  if (cpLoss >= 150) return `This inaccuracy shifted the game's balance.`;
+                                }
+                                return null;
+                              })(),
+                              better_idea: (() => {
+                                // Build "what should have happened" from best move context
+                                if (biggestEvalSwing?.best_move) {
+                                  const bestMove = biggestEvalSwing.best_move;
+                                  // Try to give context based on piece type
+                                  if (bestMove.startsWith('O-O')) return 'Castle to secure your king.';
+                                  if (bestMove.startsWith('R')) return `Activate the rook with ${bestMove}.`;
+                                  if (bestMove.startsWith('N')) return `Improve the knight with ${bestMove}.`;
+                                  if (bestMove.startsWith('B')) return `Develop the bishop with ${bestMove}.`;
+                                  return `The better continuation was ${bestMove}.`;
+                                }
+                                return null;
+                              })(),
                               rule: moduleTrigger?.rule || coreLesson?.behavioral_fix
                             }}
                             variant="main"
@@ -1419,6 +1443,7 @@ const Lab = ({ user }) => {
                               const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
                               goToMove(targetIdx);
                             }}
+                            onSeeStrategy={() => setActiveTab('strategy')}
                           />
                           
                           {/* 📘 SUPPORTING LESSONS - From other moments (max 2) */}
@@ -1668,6 +1693,17 @@ const Lab = ({ user }) => {
                                       </div>
                                     </button>
                                   )}
+                                  
+                                  {/* Link to Milestones for deeper dive */}
+                                  <button
+                                    onClick={() => setActiveTab('milestones')}
+                                    className="mt-3 flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                                    data-testid="strategy-to-milestones"
+                                  >
+                                    <Lightbulb className="w-3 h-3" />
+                                    See all learning moments in Milestones
+                                    <ChevronRight className="w-3 h-3" />
+                                  </button>
                                 </div>
                               );
                             })()}
