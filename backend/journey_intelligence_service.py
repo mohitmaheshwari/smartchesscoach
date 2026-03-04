@@ -81,6 +81,8 @@ async def compute_journey_intelligence(db, user_id: str) -> Dict:
     Compute all journey intelligence for a user.
     Returns structured data for all 8 sections.
     """
+    import logging
+    logger = logging.getLogger(__name__)
     
     # Import identity engine
     from player_identity_engine import compute_player_identity
@@ -91,10 +93,14 @@ async def compute_journey_intelligence(db, user_id: str) -> Dict:
         {"_id": 0}
     ).sort("created_at", -1).limit(100).to_list(100)
     
+    logger.info(f"[JI] User {user_id}: Found {len(games)} games")
+    
     analyses = await db.game_analyses.find(
         {"user_id": user_id},
         {"_id": 0}
     ).sort("analyzed_at", -1).limit(100).to_list(100)
+    
+    logger.info(f"[JI] User {user_id}: Found {len(analyses)} analyses")
     
     # Get cognitive gap data
     cognitive_gaps = await db.cognitive_gap_history.find(

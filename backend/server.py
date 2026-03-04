@@ -3870,6 +3870,7 @@ async def get_journey_intelligence(user: User = Depends(get_current_user)):
     """
     from journey_intelligence_service import compute_journey_intelligence
     
+    logger.info(f"Journey intelligence requested for user: {user.user_id}")
     return await compute_journey_intelligence(db, user.user_id)
 
 
