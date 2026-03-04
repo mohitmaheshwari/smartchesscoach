@@ -94,6 +94,11 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 - ✅ **Step 9.1: Micro Reinforcement** - Minimal badge on Lab page + one-line coach feedback
 - ✅ **Internal Analytics** - Silent logging to `focus_lock_analytics` collection
 
+### P0 - Step 10 UI Redesign ✅ COMPLETED (Mar 4, 2026)
+- ✅ Simplified Lab page Summary tab: Main Lesson + Supporting Lessons + Coach Notice
+- ✅ Simplified Lab page Strategy tab: 3 blocks only (Position Type, What required, What happened)
+- ✅ Created `/app/frontend/src/components/Lab/` components: LessonCard, CoachNotice, FocusLockStatus
+
 ### 🛑 OBSERVATION PHASE (Do Not Add Features)
 Wait for real user data before Step 10:
 - Need: 10+ completed locks, 5+ extended locks, 3+ strict-mode triggers, 2+ deep-sessions

@@ -1451,408 +1451,63 @@ const Lab = ({ user }) => {
                       )}
                     </TabsContent>
 
-                    {/* STRATEGY TAB */}
+                    {/* STRATEGY TAB - Simplified: 3 blocks only */}
                     <TabsContent value="strategy" className="p-4 space-y-4 m-0">
                       {strategicAnalysis?.has_strategy ? (
-                        <>
-                          {/* OPENING STRATEGY */}
-                          {strategicAnalysis.opening && (
-                            <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20">
-                              <div className="flex items-center gap-2 mb-3">
-                                <BookOpen className="w-5 h-5 text-green-500" />
-                                <p className="font-semibold">Opening: {strategicAnalysis.opening.name}</p>
-                                <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
-                                  {userColor}
-                                </span>
-                              </div>
-                              
-                              {/* Main Idea */}
-                              {strategicAnalysis.opening.main_idea && (
-                                <p className="text-sm text-green-400 font-medium mb-3">
-                                  {strategicAnalysis.opening.main_idea}
-                                </p>
-                              )}
-                              
-                              {/* The Plan */}
-                              {strategicAnalysis.opening.plan && (
-                                <div className="p-3 rounded bg-background/50 border border-border/50 mb-3">
-                                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">The Plan</p>
-                                  <p className="text-sm font-mono">{strategicAnalysis.opening.plan}</p>
-                                </div>
-                              )}
-                              
-                              {/* Your Execution */}
-                              {strategicAnalysis.opening.execution && (
-                                <div className="p-3 rounded bg-background/50 border border-red-500/20 mb-3">
-                                  <p className="text-xs text-red-400 uppercase tracking-wide mb-2">Your Execution</p>
-                                  <p className={`text-sm font-medium mb-2 ${
-                                    strategicAnalysis.opening.execution.verdict?.includes('Excellent') ? 'text-green-400' :
-                                    strategicAnalysis.opening.execution.verdict?.includes('Solid') ? 'text-yellow-400' :
-                                    'text-red-400'
-                                  }`}>
-                                    {strategicAnalysis.opening.execution.verdict}
-                                  </p>
-                                  {strategicAnalysis.opening.execution.details?.map((detail, i) => (
-                                    <p key={i} className="text-sm text-muted-foreground">{detail}</p>
-                                  ))}
-                                  
-                                  {/* Critical Deviation - Clickable */}
-                                  {strategicAnalysis.opening.execution.critical_deviation && (
-                                    <button 
-                                      className="mt-3 p-2 rounded bg-red-500/10 border border-red-500/30 w-full text-left hover:bg-red-500/20 transition-colors"
-                                      onClick={() => {
-                                        const moveNum = strategicAnalysis.opening.execution.critical_deviation.move_number;
-                                        if (moveNum) {
-                                          const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
-                                          goToMove(targetIdx);
-                                        }
-                                      }}
-                                    >
-                                      <p className="text-xs text-red-400 uppercase mb-1">Critical Deviation</p>
-                                      <p className="text-sm font-medium text-red-400">
-                                        {strategicAnalysis.opening.execution.critical_deviation.explanation}
-                                      </p>
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                              
-                              {/* Key Ideas */}
-                              {strategicAnalysis.opening.key_ideas?.length > 0 && (
-                                <div className="space-y-1.5">
-                                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Key Ideas to Remember</p>
-                                  {strategicAnalysis.opening.key_ideas.map((idea, i) => (
-                                    <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                                      <span className="text-green-500 mt-0.5">•</span>
-                                      <span>{idea}</span>
-                                    </p>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* PAWN STRUCTURE */}
-                          {strategicAnalysis.pawn_structure?.type && (
-                            <div className="p-4 rounded-lg bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20">
-                              <div className="flex items-center gap-2 mb-3">
-                                <Target className="w-5 h-5 text-yellow-500" />
-                                <p className="font-semibold">Pawn Structure: {strategicAnalysis.pawn_structure.type}</p>
-                              </div>
-                              
-                              {/* The Plan */}
-                              {strategicAnalysis.pawn_structure.your_plan && (
-                                <div className="p-3 rounded bg-background/50 border border-border/50 mb-3">
-                                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">The Plan</p>
-                                  <p className="text-sm">{strategicAnalysis.pawn_structure.your_plan}</p>
-                                </div>
-                              )}
-                              
-                              {/* Your Execution */}
-                              {strategicAnalysis.pawn_structure.execution?.details?.length > 0 && (
-                                <div className="p-3 rounded bg-background/50 border border-yellow-500/20 mb-3">
-                                  <p className="text-xs text-yellow-400 uppercase tracking-wide mb-2">Your Execution</p>
-                                  <p className={`text-sm font-medium mb-2 ${
-                                    strategicAnalysis.pawn_structure.execution.verdict?.includes('Good') ? 'text-green-400' :
-                                    strategicAnalysis.pawn_structure.execution.verdict?.includes('Partial') ? 'text-yellow-400' :
-                                    'text-red-400'
-                                  }`}>
-                                    {strategicAnalysis.pawn_structure.execution.verdict}
-                                  </p>
-                                  {strategicAnalysis.pawn_structure.execution.details?.map((detail, i) => (
-                                    <p key={i} className="text-sm text-muted-foreground">{detail}</p>
-                                  ))}
-                                  
-                                  {/* Critical Moment - Clickable */}
-                                  {strategicAnalysis.pawn_structure.execution.critical_moment && (
-                                    <button 
-                                      className="mt-3 p-2 rounded bg-red-500/10 border border-red-500/30 w-full text-left hover:bg-red-500/20 transition-colors"
-                                      onClick={() => {
-                                        const moveNum = strategicAnalysis.pawn_structure.execution.critical_moment.move_number;
-                                        if (moveNum) {
-                                          const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
-                                          goToMove(targetIdx);
-                                        }
-                                      }}
-                                    >
-                                      <p className="text-xs text-red-400 uppercase mb-1">Critical Moment</p>
-                                      <p className="text-sm text-red-400">
-                                        {strategicAnalysis.pawn_structure.execution.critical_moment.what_went_wrong}
-                                      </p>
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                              
-                              {/* Pawn Breaks */}
-                              {strategicAnalysis.pawn_structure.pawn_breaks?.length > 0 && (
-                                <div className="space-y-1 mb-2">
-                                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Pawn Breaks</p>
-                                  {strategicAnalysis.pawn_structure.pawn_breaks.map((breakMove, i) => (
-                                    <p key={i} className="text-sm text-yellow-400 font-mono">{breakMove}</p>
-                                  ))}
-                                </div>
-                              )}
-                              
-                              {/* Key Squares */}
-                              {strategicAnalysis.pawn_structure.key_squares?.length > 0 && (
-                                <div className="space-y-1">
-                                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Key Squares</p>
-                                  {strategicAnalysis.pawn_structure.key_squares.map((sq, i) => (
-                                    <p key={i} className="text-sm text-muted-foreground">{sq}</p>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* STRATEGIC THEMES */}
-                          {strategicAnalysis.strategic_themes?.length > 0 && (
-                            <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-violet-500/10 border border-purple-500/20">
-                              <div className="flex items-center gap-2 mb-3">
-                                <Brain className="w-5 h-5 text-purple-500" />
-                                <p className="font-semibold">Strategic Themes in This Game</p>
-                              </div>
-                              
-                              <div className="space-y-3">
-                                {strategicAnalysis.strategic_themes.map((theme, idx) => (
-                                  <div key={idx} className="p-3 rounded bg-background/50 border border-border/50">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      {getThemeIcon(theme.icon)}
-                                      <span className="font-medium text-sm">{theme.theme}</span>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground mb-2">{theme.description}</p>
-                                    
-                                    {/* Verdict */}
-                                    {theme.verdict && (
-                                      <p className={`text-sm font-medium mb-2 ${
-                                        theme.verdict.includes('✓') ? 'text-green-400' :
-                                        theme.verdict.includes('⚠') ? 'text-yellow-400' :
-                                        'text-red-400'
-                                      }`}>
-                                        {theme.verdict}
-                                      </p>
-                                    )}
-                                    
-                                    {/* Critical Moment - Clickable */}
-                                    {theme.critical_moment && (
-                                      <button 
-                                        className="p-2 rounded bg-red-500/10 border border-red-500/20 mb-2 w-full text-left hover:bg-red-500/20 transition-colors"
-                                        onClick={() => {
-                                          const moveNum = theme.critical_moment.move_number;
-                                          if (moveNum) {
-                                            const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
-                                            goToMove(targetIdx);
-                                          }
-                                        }}
-                                      >
-                                        <p className="text-xs text-red-400 uppercase mb-1">Move {theme.critical_moment.move_number}</p>
-                                        <p className="text-sm text-red-400">{theme.critical_moment.description}</p>
-                                        {theme.critical_moment.impact && (
-                                          <p className="text-xs text-muted-foreground mt-1">{theme.critical_moment.impact}</p>
-                                        )}
-                                      </button>
-                                    )}
-                                    
-                                    {theme.principle && <p className="text-sm">{theme.principle}</p>}
-                                    {theme.remember && (
-                                      <p className="text-xs text-purple-400 mt-2 italic">Remember: {theme.remember}</p>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* FUTURE ADVICE */}
-                          {strategicAnalysis.future_advice?.length > 0 && (
-                            <div className="p-4 rounded-lg bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
-                              <div className="flex items-center gap-2 mb-3">
-                                <Lightbulb className="w-5 h-5 text-blue-500" />
-                                <p className="font-semibold">For Future Games Like This</p>
-                              </div>
-                              
-                              <div className="space-y-3">
-                                {strategicAnalysis.future_advice.map((advice, idx) => (
-                                  <div key={idx} className="p-3 rounded bg-background/50 border border-border/50">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      {getAdviceIcon(advice.icon)}
-                                      <span className="text-xs text-muted-foreground uppercase tracking-wide">{advice.category}</span>
-                                    </div>
-                                    {advice.advice && <p className="text-sm font-medium">{advice.advice}</p>}
-                                    {advice.action && <p className="text-sm text-muted-foreground mt-1">{advice.action}</p>}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* POSITIONAL INSIGHT (ADVANCED) - RAG-Backed */}
-                          {positionalInsight?.has_insight && (
-                            <div className="mt-4">
-                              <button
-                                onClick={() => setInsightExpanded(!insightExpanded)}
-                                className="w-full p-4 rounded-lg bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 hover:border-violet-500/40 transition-colors text-left"
-                                data-testid="positional-insight-toggle"
+                        <div className="space-y-4">
+                          {/* Block 1: Position Type */}
+                          <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Position Type</p>
+                            <p className="text-sm font-medium">
+                              {strategicAnalysis.opening?.name || strategicAnalysis.pawn_structure?.type || 'Standard Position'}
+                            </p>
+                          </div>
+                          
+                          {/* Block 2: What the position required */}
+                          <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">What the position required</p>
+                            <p className="text-sm">
+                              {strategicAnalysis.opening?.plan || 
+                               strategicAnalysis.pawn_structure?.your_plan ||
+                               strategicAnalysis.opening?.main_idea ||
+                               'Solid development and piece coordination.'}
+                            </p>
+                          </div>
+                          
+                          {/* Block 3: What happened */}
+                          <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">What happened in your game</p>
+                            <p className={`text-sm ${
+                              strategicAnalysis.opening?.execution?.verdict?.includes('Excellent') ? 'text-green-400' :
+                              strategicAnalysis.opening?.execution?.verdict?.includes('Solid') ? 'text-amber-400' :
+                              'text-red-400'
+                            }`}>
+                              {strategicAnalysis.opening?.execution?.verdict || 
+                               strategicAnalysis.pawn_structure?.execution?.verdict ||
+                               'Position deviated from the plan.'}
+                            </p>
+                            {strategicAnalysis.opening?.execution?.critical_deviation && (
+                              <button 
+                                className="mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                                onClick={() => {
+                                  const moveNum = strategicAnalysis.opening.execution.critical_deviation.move_number;
+                                  if (moveNum) {
+                                    const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                                    goToMove(targetIdx);
+                                  }
+                                }}
                               >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Brain className="w-5 h-5 text-violet-500" />
-                                    <span className="font-semibold text-violet-400">Positional Insight (Advanced)</span>
-                                    <span className="text-xs px-2 py-0.5 rounded bg-violet-500/20 text-violet-400">RAG</span>
-                                  </div>
-                                  {insightExpanded ? (
-                                    <ChevronUp className="w-5 h-5 text-violet-400" />
-                                  ) : (
-                                    <ChevronDown className="w-5 h-5 text-violet-400" />
-                                  )}
-                                </div>
-                                {!insightExpanded && (
-                                  <p className="text-sm text-muted-foreground mt-2">
-                                    Deep positional coaching based on {positionalInsight.structure_insight?.structure_name || 'this structure'}
-                                  </p>
-                                )}
+                                <span>See Move {strategicAnalysis.opening.execution.critical_deviation.move_number}</span>
+                                <ChevronRight className="w-3 h-3" />
                               </button>
-                              
-                              {insightExpanded && (
-                                <div className="mt-3 space-y-4 animate-in slide-in-from-top-2 duration-200" data-testid="positional-insight-content">
-                                  {/* Structure Insight */}
-                                  {positionalInsight.structure_insight && (
-                                    <div className="p-4 rounded-lg bg-background/50 border border-violet-500/20">
-                                      <div className="flex items-center gap-2 mb-3">
-                                        <Target className="w-4 h-4 text-violet-500" />
-                                        <p className="font-semibold text-violet-400">
-                                          {positionalInsight.structure_insight.structure_name}
-                                        </p>
-                                      </div>
-                                      
-                                      {/* Strategic Summary */}
-                                      {positionalInsight.structure_insight.summary && (
-                                        <div className="p-3 rounded bg-violet-500/10 border border-violet-500/20 mb-3">
-                                          <p className="text-xs text-violet-400 uppercase tracking-wide mb-1">Your Strategic Goal</p>
-                                          <p className="text-sm font-medium">{positionalInsight.structure_insight.summary}</p>
-                                        </div>
-                                      )}
-                                      
-                                      {/* Key Plans */}
-                                      {positionalInsight.structure_insight.your_plans?.length > 0 && (
-                                        <div className="mb-3">
-                                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Key Plans</p>
-                                          <div className="space-y-1.5">
-                                            {positionalInsight.structure_insight.your_plans.map((plan, i) => (
-                                              <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                                                <span className="text-violet-500 mt-0.5">•</span>
-                                                <span>{plan}</span>
-                                              </p>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                      
-                                      {/* Key Moves */}
-                                      {positionalInsight.structure_insight.key_moves?.length > 0 && (
-                                        <div className="mb-3 p-3 rounded bg-background/50 border border-border/50">
-                                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Typical Key Moves</p>
-                                          <div className="flex flex-wrap gap-2">
-                                            {positionalInsight.structure_insight.key_moves.map((move, i) => (
-                                              <span key={i} className="px-2 py-1 rounded bg-violet-500/10 text-sm font-mono text-violet-400">
-                                                {move}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                      
-                                      {/* Amateur Errors */}
-                                      {positionalInsight.structure_insight.amateur_errors?.length > 0 && (
-                                        <div className="p-3 rounded bg-red-500/10 border border-red-500/20">
-                                          <p className="text-xs text-red-400 uppercase tracking-wide mb-2">Common Amateur Errors</p>
-                                          <div className="space-y-1.5">
-                                            {positionalInsight.structure_insight.amateur_errors.map((error, i) => (
-                                              <p key={i} className="text-sm text-red-400/80 flex items-start gap-2">
-                                                <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                                                <span>{error}</span>
-                                              </p>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                      
-                                      {/* Key Squares */}
-                                      {positionalInsight.structure_insight.key_squares?.length > 0 && (
-                                        <div className="mt-3">
-                                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Key Squares</p>
-                                          <div className="flex flex-wrap gap-2">
-                                            {positionalInsight.structure_insight.key_squares.map((sq, i) => (
-                                              <span key={i} className="px-2 py-1 rounded bg-amber-500/10 text-sm text-amber-400">
-                                                {sq}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                  
-                                  {/* Theme Insights */}
-                                  {positionalInsight.theme_insights?.length > 0 && (
-                                    <div className="p-4 rounded-lg bg-background/50 border border-violet-500/20">
-                                      <div className="flex items-center gap-2 mb-3">
-                                        <Lightbulb className="w-4 h-4 text-amber-500" />
-                                        <p className="font-semibold text-amber-400">Related Strategic Themes</p>
-                                      </div>
-                                      
-                                      <div className="space-y-3">
-                                        {positionalInsight.theme_insights.map((theme, idx) => (
-                                          <div key={idx} className="p-3 rounded bg-amber-500/10 border border-amber-500/20">
-                                            <p className="text-sm font-medium text-amber-400 mb-1">{theme.theme_name}</p>
-                                            <p className="text-sm text-muted-foreground">{theme.summary}</p>
-                                            {theme.plans?.length > 0 && (
-                                              <div className="mt-2 space-y-1">
-                                                {theme.plans.slice(0, 2).map((plan, i) => (
-                                                  <p key={i} className="text-xs text-muted-foreground flex items-start gap-2">
-                                                    <span className="text-amber-500">•</span>
-                                                    <span>{plan}</span>
-                                                  </p>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Coaching Synthesis */}
-                                  {positionalInsight.synthesis && (
-                                    <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <Star className="w-4 h-4 text-green-500" />
-                                        <p className="font-semibold text-green-400">Coach's Summary</p>
-                                      </div>
-                                      <div className="prose prose-sm prose-invert max-w-none">
-                                        {positionalInsight.synthesis.split('\n').map((line, i) => {
-                                          if (line.startsWith('**') && line.endsWith('**')) {
-                                            return <p key={i} className="font-semibold text-foreground">{line.replace(/\*\*/g, '')}</p>;
-                                          }
-                                          if (line.startsWith('- ')) {
-                                            return <p key={i} className="text-sm text-muted-foreground ml-4">{line}</p>;
-                                          }
-                                          return <p key={i} className="text-sm text-muted-foreground">{line}</p>;
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </>
+                            )}
+                          </div>
+                        </div>
                       ) : (
                         <div className="text-center py-8 text-muted-foreground">
                           <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-30" />
                           <p>Strategic analysis not available</p>
-                          <p className="text-sm mt-2 mb-4">Re-analyze this game to see opening, pawn structure, and strategic insights.</p>
+                          <p className="text-sm mt-2 mb-4">Re-analyze this game to see strategic insights.</p>
                           <Button 
                             onClick={handleReanalyze} 
                             disabled={reanalyzing}

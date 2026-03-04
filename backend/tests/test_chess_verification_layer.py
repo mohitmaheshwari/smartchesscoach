@@ -21,7 +21,7 @@ import sys
 # Add backend to path for direct imports
 sys.path.insert(0, '/app/backend')
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://habit-trainer-ai.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-coach-lab.preview.emergentagent.com')
 
 # ============================================================================
 # TEST DATA - The specific test case from main agent
