@@ -1451,56 +1451,164 @@ const Lab = ({ user }) => {
                       )}
                     </TabsContent>
 
-                    {/* STRATEGY TAB - Simplified: 3 blocks only */}
+                    {/* STRATEGY TAB - Coach-style: 3 blocks only */}
                     <TabsContent value="strategy" className="p-4 space-y-4 m-0">
                       {strategicAnalysis?.has_strategy ? (
                         <div className="space-y-4">
-                          {/* Block 1: Position Type */}
+                          {/* Block 1: Position Type - Never show "Unknown" */}
                           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
                             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Position Type</p>
                             <p className="text-sm font-medium">
-                              {strategicAnalysis.opening?.name || strategicAnalysis.pawn_structure?.type || 'Standard Position'}
+                              {(() => {
+                                const openingName = strategicAnalysis.opening?.name;
+                                const pawnType = strategicAnalysis.pawn_structure?.type;
+                                // Never show "Unknown Opening" - describe position characteristics instead
+                                if (openingName && !openingName.toLowerCase().includes('unknown')) {
+                                  return openingName;
+                                }
+                                if (pawnType && pawnType !== 'Unknown') {
+                                  return `${pawnType} position`;
+                                }
+                                // Fallback: describe based on user color and themes
+                                const themes = strategicAnalysis.strategic_themes || [];
+                                if (themes.some(t => t.theme?.includes('Defensive'))) {
+                                  return 'Irregular opening with defensive requirements';
+                                }
+                                return userColor === 'black' 
+                                  ? 'Unbalanced opening structure as Black'
+                                  : 'Dynamic opening structure as White';
+                              })()}
                             </p>
                           </div>
                           
-                          {/* Block 2: What the position required */}
+                          {/* Block 2: What the position required - Step-by-step, coach language */}
                           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">What the position required</p>
-                            <p className="text-sm">
-                              {strategicAnalysis.opening?.plan || 
-                               strategicAnalysis.pawn_structure?.your_plan ||
-                               strategicAnalysis.opening?.main_idea ||
-                               'Solid development and piece coordination.'}
-                            </p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">What this position required</p>
+                            <ol className="space-y-2 text-sm list-decimal list-inside">
+                              {(() => {
+                                // Convert arrow-separated plan to numbered steps
+                                const plan = strategicAnalysis.opening?.plan || '';
+                                const keyIdeas = strategicAnalysis.opening?.key_ideas || [];
+                                
+                                // Parse the plan into steps
+                                let steps = [];
+                                if (plan.includes('→')) {
+                                  steps = plan.split('→').map(s => s.trim()).filter(Boolean);
+                                } else if (plan) {
+                                  steps = [plan];
+                                }
+                                
+                                // Add key ideas if steps are too few
+                                if (steps.length < 3 && keyIdeas.length > 0) {
+                                  steps = [...steps, ...keyIdeas.slice(0, 4 - steps.length)];
+                                }
+                                
+                                // Ensure we have at least basic development steps
+                                if (steps.length === 0) {
+                                  steps = [
+                                    'Develop minor pieces quickly',
+                                    'Castle early to secure the king',
+                                    'Control the center',
+                                    'Connect the rooks'
+                                  ];
+                                }
+                                
+                                // Clean up and simplify language
+                                return steps.slice(0, 4).map((step, idx) => {
+                                  // Simplify verbose phrases
+                                  let cleanStep = step
+                                    .replace(/^As Black,?\s*/i, '')
+                                    .replace(/^As White,?\s*/i, '')
+                                    .replace(/Neutralize White's initiative/i, 'Neutralize opponent pressure')
+                                    .replace(/Counter center control/i, 'Challenge the center')
+                                    .replace(/Look for counterplay/i, 'Then look for counterplay');
+                                  
+                                  // Capitalize first letter
+                                  cleanStep = cleanStep.charAt(0).toUpperCase() + cleanStep.slice(1);
+                                  
+                                  return <li key={idx} className="text-muted-foreground">{cleanStep}</li>;
+                                });
+                              })()}
+                            </ol>
                           </div>
                           
-                          {/* Block 3: What happened */}
+                          {/* Block 3: What happened - Specific mistake, not vague verdict */}
                           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
                             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">What happened in your game</p>
-                            <p className={`text-sm ${
-                              strategicAnalysis.opening?.execution?.verdict?.includes('Excellent') ? 'text-green-400' :
-                              strategicAnalysis.opening?.execution?.verdict?.includes('Solid') ? 'text-amber-400' :
-                              'text-red-400'
-                            }`}>
-                              {strategicAnalysis.opening?.execution?.verdict || 
-                               strategicAnalysis.pawn_structure?.execution?.verdict ||
-                               'Position deviated from the plan.'}
-                            </p>
-                            {strategicAnalysis.opening?.execution?.critical_deviation && (
-                              <button 
-                                className="mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                                onClick={() => {
-                                  const moveNum = strategicAnalysis.opening.execution.critical_deviation.move_number;
-                                  if (moveNum) {
-                                    const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
-                                    goToMove(targetIdx);
-                                  }
-                                }}
-                              >
-                                <span>See Move {strategicAnalysis.opening.execution.critical_deviation.move_number}</span>
-                                <ChevronRight className="w-3 h-3" />
-                              </button>
-                            )}
+                            
+                            {(() => {
+                              const execution = strategicAnalysis.opening?.execution || {};
+                              const deviation = execution.critical_deviation;
+                              const details = execution.details || [];
+                              const verdict = execution.verdict || '';
+                              
+                              // Extract specific mistakes from details
+                              const mistakes = details.filter(d => d.startsWith('✗') || d.startsWith('\u2717'));
+                              const successes = details.filter(d => d.startsWith('✓') || d.startsWith('\u2713'));
+                              
+                              // Determine if opening was good or bad
+                              const wasGood = verdict.toLowerCase().includes('excellent') || 
+                                             verdict.toLowerCase().includes('solid') ||
+                                             mistakes.length === 0;
+                              
+                              return (
+                                <div className="space-y-3">
+                                  {/* Main verdict - specific, not vague */}
+                                  <p className={`text-sm ${wasGood ? 'text-green-400' : 'text-red-400'}`}>
+                                    {(() => {
+                                      if (wasGood) {
+                                        return 'You followed the opening plan well.';
+                                      }
+                                      // Build specific explanation from mistakes
+                                      if (mistakes.length > 0) {
+                                        // Parse the first mistake for a clear explanation
+                                        const firstMistake = mistakes[0]
+                                          .replace(/^[✗✓\u2717\u2713]\s*/, '')
+                                          .replace(/Did not castle in the opening.*/, 'You delayed castling, leaving your king in the center.')
+                                          .replace(/Poor development.*/, 'You didn\'t develop your pieces efficiently.');
+                                        return firstMistake;
+                                      }
+                                      if (deviation) {
+                                        return `You played ${deviation.your_move} instead of the better ${deviation.better_move}.`;
+                                      }
+                                      return 'The opening deviated from the recommended plan.';
+                                    })()}
+                                  </p>
+                                  
+                                  {/* Secondary detail if available */}
+                                  {!wasGood && successes.length > 0 && (
+                                    <p className="text-sm text-amber-400/80">
+                                      {successes[0].replace(/^[✗✓\u2717\u2713]\s*/, '')}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Key Moment - clickable, descriptive */}
+                                  {deviation && (
+                                    <button 
+                                      className="mt-2 p-2 w-full rounded bg-slate-700/30 hover:bg-slate-700/50 transition-colors text-left"
+                                      onClick={() => {
+                                        const moveNum = deviation.move_number;
+                                        if (moveNum) {
+                                          const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                                          goToMove(targetIdx);
+                                        }
+                                      }}
+                                      data-testid="strategy-key-moment"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <p className="text-xs text-amber-400 font-medium">Key Moment: Move {deviation.move_number}</p>
+                                          <p className="text-xs text-muted-foreground mt-1">
+                                            {deviation.explanation || `You played ${deviation.your_move} instead of ${deviation.better_move}`}
+                                          </p>
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                      </div>
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       ) : (

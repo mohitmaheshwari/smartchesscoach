@@ -98,6 +98,11 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 - ✅ Simplified Lab page Summary tab: Main Lesson + Supporting Lessons + Coach Notice
 - ✅ Simplified Lab page Strategy tab: 3 blocks only (Position Type, What required, What happened)
 - ✅ Created `/app/frontend/src/components/Lab/` components: LessonCard, CoachNotice, FocusLockStatus
+- ✅ **Strategy Tab Coach Language** (Mar 4, 2026):
+  - Never show "Unknown Opening" → describe position characteristics
+  - Numbered step-by-step plan (not arrow-separated)
+  - Specific mistake explanation (not vague "went poorly")
+  - Clickable "Key Moment" with descriptive text
 
 ### 🛑 OBSERVATION PHASE (Do Not Add Features)
 Wait for real user data before Step 10:
@@ -115,6 +120,12 @@ Wait for real user data before Step 10:
 - B2B features for human coaches
 - Analytics dashboards
 - RAG/LLM-based commentary
+
+### P3 - Proactive Coaching (Future Vision)
+- **Game Plan Before Play**: Show position-type specific guidance before middlegame begins
+- Example: "Your main goal here is activating the rooks"
+- Would make the coach feel proactive, not just reactive
+- Requires: Opening classification → Position-type → Suggested plan mapping
 
 ---
 
