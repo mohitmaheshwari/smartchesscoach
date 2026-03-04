@@ -280,13 +280,32 @@ GET /api/coach/modules/all
 
 ---
 
-## Lab Page Structure (Redesigned)
+## Lab Page Structure (Redesigned Step 10.1)
 
+### Summary Tab - Final Structure
+```
+SUMMARY TAB
+────────────────────────
+
+⭐ Main Lesson          ← Most impactful moment
+   Concept + Move + Rule
+
+📘 Supporting Lesson    ← Optional (max 2)
+📘 Supporting Lesson    
+
+⚠ Coach Notice          ← Pattern reminder (similar games)
+
+🔒 Focus Lock           ← If active
+
+📖 Coach Full Review    ← Collapsed by default
+```
+
+### Component Hierarchy
 ```
 Lab.jsx
 ├── Header
-│   ├── Game info
-│   ├── Coach/Engine toggle
+│   ├── Game info (opponent, result, accuracy)
+│   ├── Coach/Engine mode toggle
 │   └── Focus Lock badge (if active)
 │
 ├── Board Section
@@ -294,12 +313,26 @@ Lab.jsx
 │   └── Move list
 │
 └── Right Panel (Tabs)
-    └── Summary Tab
-        ├── OneThingFix     ← "If You Fix Only One Thing"
-        ├── ConceptCard     ← Theory module (collapsed)
-        ├── Focus Lock      ← Status (if active)
-        └── Coach's Take    ← Now secondary (collapsed)
+    ├── Summary Tab
+    │   ├── LessonCard (main)     ← ⭐ Main Lesson
+    │   ├── LessonCard (supporting) × 2
+    │   ├── CoachNotice           ← Pattern reminder
+    │   ├── FocusLockStatus       ← If active
+    │   └── Coach Full Review     ← Collapsed
+    │
+    ├── Strategy Tab
+    │   └── Opening/Phase analysis (simplified)
+    │
+    └── Milestones Tab
+        └── Brilliant moves, mistakes
 ```
+
+### New Lab Components
+| Component | Purpose |
+|-----------|---------|
+| `LessonCard` | Main/Supporting lesson display |
+| `CoachNotice` | Pattern reminder with similar games |
+| `FocusLockStatus` | Compact lock progress display |
 
 ---
 

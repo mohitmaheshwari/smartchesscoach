@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
-import { OneThingFix, ConceptCard } from "@/components/Lab";
+import { LessonCard, CoachNotice, FocusLockStatus } from "@/components/Lab";
 import { 
   ArrowLeft, 
   Loader2, 
@@ -1375,53 +1375,11 @@ const Lab = ({ user }) => {
                   
                   <div className="flex-1 min-h-0 overflow-hidden">
                     <ScrollArea className="h-full">
-                    {/* SUMMARY TAB */}
+                    {/* SUMMARY TAB - Redesigned: Max 3 lessons, clean structure */}
                     <TabsContent value="summary" className="p-4 space-y-4 m-0">
                       
-                      {/* STEP 10: ONE THING FIX - The Anchor */}
-                      <OneThingFix 
-                        coreLesson={coreLesson}
-                        moduleTrigger={moduleTrigger}
-                        biggestSwing={biggestEvalSwing}
-                        onMoveClick={(moveNum) => {
-                          const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
-                          goToMove(targetIdx);
-                        }}
-                      />
-                      
-                      {/* STEP 10: CONCEPT CARD - Collapsed by default */}
-                      <ConceptCard 
-                        moduleTrigger={moduleTrigger}
-                        defaultExpanded={moduleTrigger?.confidence === 'high'}
-                      />
-                      
-                      {/* Focus Lock Status - Step 9 */}
-                      {focusLock && focusLock.active && (
-                        <div className={`p-3 rounded-lg ${
-                          (focusLock.compliance?.average || 0) >= 75 
-                            ? 'bg-emerald-500/10 border border-emerald-500/30' 
-                            : 'bg-amber-500/10 border border-amber-500/30'
-                        }`}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                              Focus Lock Active
-                            </span>
-                            <span className={`text-sm font-medium ${
-                              (focusLock.compliance?.average || 0) >= 75 
-                                ? 'text-emerald-400' 
-                                : 'text-amber-400'
-                            }`}>
-                              {(focusLock.compliance?.average || 0) >= 75 
-                                ? "Good. You followed the rule." 
-                                : "You skipped the rule here."
-                              }
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Clean Game */}
-                      {coreLesson?.pattern === "clean_game" && (
+                      {/* Clean Game State */}
+                      {coreLesson?.pattern === "clean_game" ? (
                         <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
                           <div className="flex items-center gap-2 mb-2">
                             <CheckCircle2 className="w-5 h-5 text-green-500" />
@@ -1429,148 +1387,67 @@ const Lab = ({ user }) => {
                           </div>
                           <p className="text-sm">{coreLesson.lesson}</p>
                         </div>
+                      ) : (
+                        <>
+                          {/* ⭐ MAIN LESSON - Most impactful moment */}
+                          <LessonCard
+                            lesson={{
+                              concept: coreLesson?.lesson || moduleTrigger?.module_name || "Analyzing...",
+                              move_number: biggestEvalSwing?.move_number,
+                              move_san: biggestEvalSwing?.move,
+                              description: coreLesson?.pattern !== "clean_game" 
+                                ? (moduleTrigger?.explanation || coreLesson?.context)
+                                : null,
+                              rule: moduleTrigger?.rule || coreLesson?.behavioral_fix
+                            }}
+                            variant="main"
+                            onMoveClick={(moveNum) => {
+                              const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                              goToMove(targetIdx);
+                            }}
+                          />
+                          
+                          {/* 📘 SUPPORTING LESSONS - From other moments (max 2) */}
+                          {labData?.additional_lessons?.slice(0, 2).map((lesson, idx) => (
+                            <LessonCard
+                              key={idx}
+                              lesson={{
+                                ...lesson,
+                                index: idx + 2
+                              }}
+                              variant="supporting"
+                              onMoveClick={(moveNum) => {
+                                const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                                goToMove(targetIdx);
+                              }}
+                            />
+                          ))}
+                        </>
                       )}
                       
-                      {/* AI Coach Commentary - Now secondary */}
+                      {/* ⚠ COACH NOTICE - Pattern Reminder */}
+                      <CoachNotice
+                        pattern={coreLesson?.pattern || moduleTrigger?.module_key}
+                        similarGames={labData?.similar_games || []}
+                      />
+                      
+                      {/* 🔒 FOCUS LOCK STATUS */}
+                      <FocusLockStatus lock={focusLock} />
+                      
+                      {/* 📖 COACH FULL REVIEW - Collapsed by default */}
                       {coachCommentary && (
                         <details className="group">
-                          <summary className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+                          <summary className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground py-2">
                             <Sparkles className="w-3 h-3" />
-                            Coach's Full Take
-                            <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                            <span>Coach Full Review</span>
+                            <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform ml-auto" />
                           </summary>
-                          <div className="mt-2 p-3 rounded-lg bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border border-indigo-500/20">
-                            <p className="text-sm leading-relaxed whitespace-pre-line">{coachCommentary}</p>
+                          <div className="mt-2 p-3 rounded-lg bg-slate-800/30 border border-slate-700/30">
+                            <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
+                              {coachCommentary}
+                            </p>
                           </div>
                         </details>
-                      )}
-                      
-                      {/* Similar Games - Behavior Memory */}
-                      {labData?.similar_games?.length > 0 && (
-                        <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                          <p className="text-xs text-purple-500 uppercase mb-2 flex items-center gap-1.5">
-                            <Brain className="w-3 h-3" />
-                            Similar Pattern Detected
-                          </p>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            You've made this same mistake in other games:
-                          </p>
-                          <div className="space-y-2">
-                            {labData.similar_games.map((sg, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => navigate(`/game/${sg.game_id}`)}
-                                className="w-full text-left p-2 rounded bg-background/50 hover:bg-background/80 transition-colors flex items-center justify-between group"
-                                data-testid={`similar-game-${idx}`}
-                              >
-                                <div>
-                                  <p className="text-sm font-medium">vs {sg.opponent}</p>
-                                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">{sg.lesson}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-xs font-medium ${
-                                    sg.result === 'Won' ? 'text-green-500' : 
-                                    sg.result === 'Lost' ? 'text-red-500' : 
-                                    'text-muted-foreground'
-                                  }`}>
-                                    {sg.result}
-                                  </span>
-                                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* PATTERN INSIGHTS - Specific contextual analysis */}
-                      {labData?.pattern_context?.summary?.recurring_patterns?.length > 0 && (
-                        <div className="p-4 rounded-lg bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20" data-testid="pattern-insights-card">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Target className="w-5 h-5 text-orange-500" />
-                            <p className="font-semibold text-orange-400">Pattern Intelligence</p>
-                          </div>
-                          
-                          {/* Coach Summary */}
-                          <p className="text-sm mb-4 text-muted-foreground">
-                            {labData.pattern_context.summary.coach_summary}
-                          </p>
-                          
-                          {/* Recurring Patterns with Specific Insights */}
-                          <div className="space-y-3">
-                            {labData.pattern_context.summary.recurring_patterns.slice(0, 2).map((rp, idx) => (
-                              <div key={idx} className="p-3 rounded bg-background/50 border border-border/30">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="font-medium text-sm">{rp.label}</span>
-                                  <span className={`text-xs px-2 py-0.5 rounded ${
-                                    rp.trend === 'improving' ? 'bg-green-500/20 text-green-400' :
-                                    rp.trend === 'recurring' ? 'bg-red-500/20 text-red-400' :
-                                    'bg-gray-500/20 text-gray-400'
-                                  }`}>
-                                    {rp.trend === 'improving' ? 'Getting better' : rp.trend === 'recurring' ? 'Needs work' : 'Stable'}
-                                  </span>
-                                </div>
-                                
-                                {/* Specific Insights */}
-                                {rp.specific_insights && Object.keys(rp.specific_insights).length > 0 && (
-                                  <div className="space-y-1 mb-2">
-                                    {rp.specific_insights.rating && (
-                                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                        <TrendingUp className="w-3 h-3 text-blue-400" />
-                                        {rp.specific_insights.rating}
-                                      </p>
-                                    )}
-                                    {rp.specific_insights.opening && (
-                                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                        <BookOpen className="w-3 h-3 text-green-400" />
-                                        {rp.specific_insights.opening}
-                                      </p>
-                                    )}
-                                    {rp.specific_insights.time && (
-                                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                        <Zap className="w-3 h-3 text-yellow-400" />
-                                        {rp.specific_insights.time}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                                
-                                {/* Action Recommendation */}
-                                {rp.action && (
-                                  <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20">
-                                    <p className="text-xs font-medium text-amber-400">
-                                      Fix: {rp.action}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                          
-                          {/* Global Vulnerability Insights */}
-                          {labData.pattern_context.global_insights && (
-                            <div className="mt-4 pt-3 border-t border-border/30">
-                              <p className="text-xs text-muted-foreground uppercase mb-2">Your Vulnerability Profile</p>
-                              <div className="flex flex-wrap gap-2">
-                                {labData.pattern_context.global_insights.time_vulnerable && (
-                                  <span className="text-xs px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
-                                    Most issues in {labData.pattern_context.global_insights.time_vulnerable}
-                                  </span>
-                                )}
-                                {labData.pattern_context.global_insights.opening_triggers?.slice(0, 2).map((opening, idx) => (
-                                  <span key={idx} className="text-xs px-2 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                    Trigger: {opening}
-                                  </span>
-                                ))}
-                                {labData.pattern_context.global_insights.rating_vulnerable && (
-                                  <span className="text-xs px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/20">
-                                    {labData.pattern_context.global_insights.rating_vulnerable.pattern}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
                       )}
                     </TabsContent>
 
