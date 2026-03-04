@@ -87,20 +87,30 @@ async def compute_journey_intelligence(db, user_id: str) -> Dict:
     # Import identity engine
     from player_identity_engine import compute_player_identity
     
-    # Fetch all games and analyses
+    # Fetch analyzed games directly by joining on game_id
+    # First get all analysis game_ids
+    analysis_cursor = db.game_analyses.find(
+        {"user_id": user_id},
+        {"_id": 0, "game_id": 1}
+    )
+    analyzed_game_ids = [a["game_id"] async for a in analysis_cursor]
+    
+    logger.info(f"[JI] User {user_id}: Found {len(analyzed_game_ids)} analyses")
+    
+    # Now fetch games that have analyses
     games = await db.games.find(
-        {"user_id": user_id},
+        {"user_id": user_id, "game_id": {"$in": analyzed_game_ids}},
         {"_id": 0}
-    ).sort("created_at", -1).limit(100).to_list(100)
+    ).sort("created_at", -1).limit(200).to_list(200)
     
-    logger.info(f"[JI] User {user_id}: Found {len(games)} games")
+    logger.info(f"[JI] User {user_id}: Found {len(games)} games with analyses")
     
+    # Build analysis map for the games we have
+    game_ids = [g["game_id"] for g in games]
     analyses = await db.game_analyses.find(
-        {"user_id": user_id},
+        {"user_id": user_id, "game_id": {"$in": game_ids}},
         {"_id": 0}
-    ).sort("analyzed_at", -1).limit(100).to_list(100)
-    
-    logger.info(f"[JI] User {user_id}: Found {len(analyses)} analyses")
+    ).to_list(200)
     
     # Get cognitive gap data
     cognitive_gaps = await db.cognitive_gap_history.find(
