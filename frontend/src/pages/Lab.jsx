@@ -1451,88 +1451,96 @@ const Lab = ({ user }) => {
                       )}
                     </TabsContent>
 
-                    {/* STRATEGY TAB - Coach-style: 3 blocks only */}
+                    {/* STRATEGY TAB - Game-aware coach explanations */}
                     <TabsContent value="strategy" className="p-4 space-y-4 m-0">
                       {strategicAnalysis?.has_strategy ? (
                         <div className="space-y-4">
-                          {/* Block 1: Position Type - Never show "Unknown" */}
+                          {/* Block 1: Position Type - Practical description, not abstract categories */}
                           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
                             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Position Type</p>
                             <p className="text-sm font-medium">
                               {(() => {
                                 const openingName = strategicAnalysis.opening?.name;
                                 const pawnType = strategicAnalysis.pawn_structure?.type;
-                                // Never show "Unknown Opening" - describe position characteristics instead
+                                const themes = strategicAnalysis.strategic_themes || [];
+                                const execution = strategicAnalysis.opening?.execution || {};
+                                const details = execution.details || [];
+                                
+                                // Check for game-specific context
+                                const didCastle = !details.some(d => d.toLowerCase().includes('did not castle'));
+                                const hasDefensiveTheme = themes.some(t => t.theme?.includes('Defensive'));
+                                const pressureMoves = themes.find(t => t.theme?.includes('Defensive'))?.description?.match(/\d+/)?.[0];
+                                
+                                // Known opening - use it
                                 if (openingName && !openingName.toLowerCase().includes('unknown')) {
                                   return openingName;
                                 }
+                                
+                                // Build a game-specific description
+                                if (hasDefensiveTheme && !didCastle) {
+                                  return 'Flexible center — your king stayed in the middle while pieces became active.';
+                                }
+                                if (hasDefensiveTheme) {
+                                  return 'Unbalanced position — your opponent had the initiative early.';
+                                }
+                                if (pawnType?.toLowerCase().includes('balanced')) {
+                                  return 'Quiet central structure — neither side committed to a clear pawn break yet.';
+                                }
                                 if (pawnType && pawnType !== 'Unknown') {
-                                  return `${pawnType} position`;
+                                  return `${pawnType} — flexible pawn structure with multiple plans available.`;
                                 }
-                                // Fallback: describe based on user color and themes
-                                const themes = strategicAnalysis.strategic_themes || [];
-                                if (themes.some(t => t.theme?.includes('Defensive'))) {
-                                  return 'Irregular opening with defensive requirements';
-                                }
+                                
                                 return userColor === 'black' 
-                                  ? 'Unbalanced opening structure as Black'
-                                  : 'Dynamic opening structure as White';
+                                  ? 'Open position as Black — development speed matters here.'
+                                  : 'Dynamic center — both sides fighting for control.';
                               })()}
                             </p>
                           </div>
                           
-                          {/* Block 2: What the position required - Step-by-step, coach language */}
+                          {/* Block 2: What the position required - Game-specific plan */}
                           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
                             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">What this position required</p>
-                            <ol className="space-y-2 text-sm list-decimal list-inside">
+                            <div className="space-y-2 text-sm text-muted-foreground">
                               {(() => {
-                                // Convert arrow-separated plan to numbered steps
-                                const plan = strategicAnalysis.opening?.plan || '';
-                                const keyIdeas = strategicAnalysis.opening?.key_ideas || [];
+                                const themes = strategicAnalysis.strategic_themes || [];
+                                const execution = strategicAnalysis.opening?.execution || {};
+                                const details = execution.details || [];
                                 
-                                // Parse the plan into steps
-                                let steps = [];
-                                if (plan.includes('→')) {
-                                  steps = plan.split('→').map(s => s.trim()).filter(Boolean);
-                                } else if (plan) {
-                                  steps = [plan];
+                                // Extract game-specific context
+                                const didCastle = !details.some(d => d.toLowerCase().includes('did not castle'));
+                                const hasDefensiveTheme = themes.some(t => t.theme?.includes('Defensive'));
+                                const hasActivityTheme = themes.some(t => t.theme?.includes('Activity'));
+                                const pressureTheme = themes.find(t => t.theme?.includes('Defensive'));
+                                
+                                // Build game-aware plan
+                                const planLines = [];
+                                
+                                // Primary instruction based on what went wrong
+                                if (!didCastle && hasDefensiveTheme) {
+                                  planLines.push('Finish development and castle quickly.');
+                                  planLines.push('With active pieces on the board, king safety becomes the priority.');
+                                } else if (!didCastle) {
+                                  planLines.push('Complete development and castle early.');
+                                  planLines.push('An exposed king in the center invites tactical problems.');
+                                } else if (hasDefensiveTheme) {
+                                  planLines.push('Equalize first, then look for counterplay.');
+                                  planLines.push('When under pressure, avoid unnecessary pawn moves.');
+                                } else if (hasActivityTheme) {
+                                  planLines.push('Activate your pieces before starting an attack.');
+                                  planLines.push('The worst piece should be improved first.');
+                                } else {
+                                  planLines.push('Finish development before starting middlegame operations.');
+                                  planLines.push('Connect the rooks and control key central squares.');
                                 }
                                 
-                                // Add key ideas if steps are too few
-                                if (steps.length < 3 && keyIdeas.length > 0) {
-                                  steps = [...steps, ...keyIdeas.slice(0, 4 - steps.length)];
-                                }
-                                
-                                // Ensure we have at least basic development steps
-                                if (steps.length === 0) {
-                                  steps = [
-                                    'Develop minor pieces quickly',
-                                    'Castle early to secure the king',
-                                    'Control the center',
-                                    'Connect the rooks'
-                                  ];
-                                }
-                                
-                                // Clean up and simplify language
-                                return steps.slice(0, 4).map((step, idx) => {
-                                  // Simplify verbose phrases
-                                  let cleanStep = step
-                                    .replace(/^As Black,?\s*/i, '')
-                                    .replace(/^As White,?\s*/i, '')
-                                    .replace(/Neutralize White's initiative/i, 'Neutralize opponent pressure')
-                                    .replace(/Counter center control/i, 'Challenge the center')
-                                    .replace(/Look for counterplay/i, 'Then look for counterplay');
-                                  
-                                  // Capitalize first letter
-                                  cleanStep = cleanStep.charAt(0).toUpperCase() + cleanStep.slice(1);
-                                  
-                                  return <li key={idx} className="text-muted-foreground">{cleanStep}</li>;
-                                });
+                                return planLines.map((line, idx) => (
+                                  <p key={idx}>{line}</p>
+                                ));
                               })()}
-                            </ol>
+                            </div>
                           </div>
                           
-                          {/* Block 3: What happened - Specific mistake, not vague verdict */}
+                          {/* Block 3: What happened - Cause and consequence, not just verdict */}
                           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
                             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">What happened in your game</p>
                             
@@ -1541,48 +1549,76 @@ const Lab = ({ user }) => {
                               const deviation = execution.critical_deviation;
                               const details = execution.details || [];
                               const verdict = execution.verdict || '';
+                              const themes = strategicAnalysis.strategic_themes || [];
                               
-                              // Extract specific mistakes from details
+                              // Extract specific info from details
                               const mistakes = details.filter(d => d.startsWith('✗') || d.startsWith('\u2717'));
                               const successes = details.filter(d => d.startsWith('✓') || d.startsWith('\u2713'));
+                              
+                              // Get game-specific context from themes
+                              const defensiveTheme = themes.find(t => t.theme?.includes('Defensive'));
+                              const pressureMoves = defensiveTheme?.description?.match(/(\d+)\s*moves/)?.[1];
+                              const worstEval = defensiveTheme?.critical_moment?.eval_before;
                               
                               // Determine if opening was good or bad
                               const wasGood = verdict.toLowerCase().includes('excellent') || 
                                              verdict.toLowerCase().includes('solid') ||
                                              mistakes.length === 0;
                               
+                              // Parse success details for natural language
+                              const developmentSuccess = successes.find(s => s.toLowerCase().includes('development'));
+                              const pieceCount = developmentSuccess?.match(/(\d+)/)?.[1];
+                              
                               return (
                                 <div className="space-y-3">
-                                  {/* Main verdict - specific, not vague */}
-                                  <p className={`text-sm ${wasGood ? 'text-green-400' : 'text-red-400'}`}>
-                                    {(() => {
-                                      if (wasGood) {
-                                        return 'You followed the opening plan well.';
-                                      }
-                                      // Build specific explanation from mistakes
-                                      if (mistakes.length > 0) {
-                                        // Parse the first mistake for a clear explanation
-                                        const firstMistake = mistakes[0]
-                                          .replace(/^[✗✓\u2717\u2713]\s*/, '')
-                                          .replace(/Did not castle in the opening.*/, 'You delayed castling, leaving your king in the center.')
-                                          .replace(/Poor development.*/, 'You didn\'t develop your pieces efficiently.');
-                                        return firstMistake;
-                                      }
-                                      if (deviation) {
-                                        return `You played ${deviation.your_move} instead of the better ${deviation.better_move}.`;
-                                      }
-                                      return 'The opening deviated from the recommended plan.';
-                                    })()}
-                                  </p>
+                                  {/* Main explanation - cause AND consequence */}
+                                  <div className="space-y-2">
+                                    {wasGood ? (
+                                      <p className="text-sm text-green-400">
+                                        You followed the opening plan well and reached a playable position.
+                                      </p>
+                                    ) : (
+                                      <>
+                                        {/* First line: what you did */}
+                                        <p className="text-sm text-muted-foreground">
+                                          {(() => {
+                                            // Build specific explanation
+                                            const didntCastle = mistakes.some(m => m.toLowerCase().includes('castle'));
+                                            const hadGoodDev = pieceCount && parseInt(pieceCount) >= 3;
+                                            
+                                            if (didntCastle && hadGoodDev) {
+                                              return `You developed ${pieceCount} pieces well, but your king remained in the center.`;
+                                            }
+                                            if (didntCastle) {
+                                              return 'You delayed castling while the position was opening up.';
+                                            }
+                                            if (deviation) {
+                                              return `You played ${deviation.your_move} instead of the more accurate ${deviation.better_move}.`;
+                                            }
+                                            return 'The opening deviated from the recommended plan.';
+                                          })()}
+                                        </p>
+                                        
+                                        {/* Second line: consequence */}
+                                        <p className="text-sm text-red-400">
+                                          {(() => {
+                                            if (pressureMoves) {
+                                              return `This allowed your opponent to keep pressure for ${pressureMoves} moves.`;
+                                            }
+                                            if (worstEval && worstEval < -50) {
+                                              return 'This gave your opponent a comfortable advantage.';
+                                            }
+                                            if (deviation?.cp_loss > 200) {
+                                              return 'This was a significant inaccuracy that shifted the balance.';
+                                            }
+                                            return 'This made your position harder to play.';
+                                          })()}
+                                        </p>
+                                      </>
+                                    )}
+                                  </div>
                                   
-                                  {/* Secondary detail if available */}
-                                  {!wasGood && successes.length > 0 && (
-                                    <p className="text-sm text-amber-400/80">
-                                      {successes[0].replace(/^[✗✓\u2717\u2713]\s*/, '')}
-                                    </p>
-                                  )}
-                                  
-                                  {/* Key Moment - clickable, descriptive */}
+                                  {/* Key Moment - clickable with context */}
                                   {deviation && (
                                     <button 
                                       className="mt-2 p-2 w-full rounded bg-slate-700/30 hover:bg-slate-700/50 transition-colors text-left"
