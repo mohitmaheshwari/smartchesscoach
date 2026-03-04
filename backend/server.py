@@ -1720,6 +1720,14 @@ async def get_game(game_id: str, user: User = Depends(get_current_user)):
         termination_text = "Draw - insufficient material"
     elif termination == "draw_agreed":
         termination_text = "Draw by agreement"
+    elif "abandoned" in termination.lower():
+        termination_text = "Opponent abandoned" if user_won else "Game abandoned (disconnection)"
+    elif "time" in termination.lower():
+        termination_text = "You lost on time" if not user_won else "Opponent lost on time"
+    elif "resign" in termination.lower():
+        termination_text = "You resigned" if not user_won else "Opponent resigned"
+    elif "checkmate" in termination.lower():
+        termination_text = "You got checkmated" if not user_won else "You checkmated opponent"
     
     game["termination_text"] = termination_text
     

@@ -1036,6 +1036,20 @@ const Lab = ({ user }) => {
                      result.includes("0-1") ? (userColor === "black" ? "WIN" : "LOSS") :
                      "DRAW"}
                   </Badge>
+                  {/* Termination badge - shows how game ended */}
+                  {game?.termination_text && (
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs ${
+                        game.termination_text.toLowerCase().includes('abandoned') || 
+                        game.termination_text.toLowerCase().includes('disconnection')
+                          ? 'border-amber-500/50 text-amber-400'
+                          : 'border-slate-500/50 text-slate-400'
+                      }`}
+                    >
+                      {game.termination_text}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   You played {userColor} • {accuracy ? `${accuracy}% accuracy` : ''}
@@ -1455,6 +1469,18 @@ const Lab = ({ user }) => {
                     <TabsContent value="strategy" className="p-4 space-y-4 m-0">
                       {strategicAnalysis?.has_strategy ? (
                         <div className="space-y-4">
+                          {/* Abandoned game notice - coach acknowledges incomplete game */}
+                          {(game?.termination?.toLowerCase().includes('abandoned') || 
+                            game?.termination_text?.toLowerCase().includes('abandoned') ||
+                            game?.termination_text?.toLowerCase().includes('disconnection')) && (
+                            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                              <p className="text-sm text-amber-400">
+                                This game ended by disconnection, so the final position doesn't tell the whole story. 
+                                Focus on the opening decisions instead.
+                              </p>
+                            </div>
+                          )}
+                          
                           {/* Block 1: Position Type - Practical description, not abstract categories */}
                           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
                             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Position Type</p>
