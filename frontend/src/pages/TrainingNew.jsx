@@ -453,7 +453,7 @@ const Training = ({ user }) => {
       setBoardFen(START_FEN);
       setBoardOrientation("white");
     }
-  }, [displayPuzzle?.puzzle_id, currentPuzzleIndex]);
+  }, [displayPuzzle?.puzzle_id, currentPuzzleIndex, puzzles.length]);
   
   // Reset puzzle index when filter changes
   useEffect(() => {
