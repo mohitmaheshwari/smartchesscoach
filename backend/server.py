@@ -3392,8 +3392,19 @@ async def submit_reflection_v1(data: ReflectSessionSubmitRequest, user: User = D
         "cp_loss": data.cp_loss,
     }
     
-    # Store reflection
+    # Store reflection in reflection_sessions collection
     await db.reflection_sessions.insert_one(reflection_doc)
+    
+    # ALSO store in reflections collection for moment filtering
+    # This ensures get_game_moments filters out already reflected moments
+    await db.reflections.insert_one({
+        "user_id": user.user_id,
+        "game_id": data.game_id,
+        "move_number": data.move_number,
+        "moment_fen": data.fen,
+        "reflection_id": reflection_id,
+        "created_at": now.isoformat()
+    })
     
     # Get reward message
     # Determine which reward type based on reflection quality

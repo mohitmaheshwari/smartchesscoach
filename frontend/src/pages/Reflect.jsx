@@ -578,13 +578,24 @@ const Reflect = ({ user }) => {
       
       const data = await res.json();
       
+      // Refetch moments to get updated list (filters out the just-reflected moment)
+      const updatedMoments = await fetchGameMoments(currentGame.game_id);
+      
       if (data.awareness_gap) {
         setAwarenessGap(data.awareness_gap);
         setShowingGap(true);
-      } else {
-        // Move to next moment
-        moveToNextMoment();
+      } else if (updatedMoments.length === 0) {
+        // No more moments - game complete
+        toast.success("Game reflection complete!");
+        if (currentGameIndex < gamesNeedingReflection.length - 1) {
+          setCurrentGameIndex(prev => prev + 1);
+        } else {
+          toast.success("All reflections done!");
+          fetchGamesNeedingReflection();
+        }
       }
+      // If there are still moments, fetchGameMoments already set them with index 0
+      
     } catch (err) {
       toast.error("Failed to save reflection");
     } finally {
@@ -592,10 +603,24 @@ const Reflect = ({ user }) => {
     }
   };
   
-  const acknowledgeGap = () => {
+  const acknowledgeGap = async () => {
     setShowingGap(false);
     setAwarenessGap(null);
-    moveToNextMoment();
+    
+    // Refetch moments to get updated list
+    const updatedMoments = await fetchGameMoments(currentGame.game_id);
+    
+    if (updatedMoments.length === 0) {
+      // No more moments - game complete
+      toast.success("Game reflection complete!");
+      if (currentGameIndex < gamesNeedingReflection.length - 1) {
+        setCurrentGameIndex(prev => prev + 1);
+      } else {
+        toast.success("All reflections done!");
+        fetchGamesNeedingReflection();
+      }
+    }
+    // If there are still moments, fetchGameMoments already set them
   };
   
   const moveToNextMoment = async () => {
