@@ -1,0 +1,50 @@
+{
+  "summary": "Lab Page Coaching Features - All tests passing. Verified: coaching intro connects to user's recurring patterns (27x missed threats), encouragement section displays actionable advice, Milestones tab shows 'Where It Went Wrong' FIRST for loss games, home-intelligence API integration for pattern fetching.",
+  "mode": "generate",
+  "baseline_commit": "1cc6f57f82ce1e5d2b5286a63093b0eeb3fbfacb",
+  "head_commit": "f61e5d5d547de5bef05c926630d2b0156656fab7",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 2,
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/tests/e2e/lab-coaching-features.spec.ts",
+    "/app/backend/tests/test_lab_coaching_api.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/lab-coaching-features.spec.ts",
+    "/app/backend/tests/test_lab_coaching_api.py",
+    "/app/test_reports/pytest/lab_coaching_tests.xml"
+  ],
+  "action_items": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (11/11 tests passed)"
+  },
+  "seed_data_creation": "Used existing test game 42932bfa-24e8-4aff-9068-0b476cb6f4fc (vs Rayne1019, user lost as black)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Lab page coaching features verified. Test game is 42932bfa-24e8-4aff-9068-0b476cb6f4fc (loss as black). Key features: 1) Coaching intro at top connects to recurring patterns with specific count (27x missed threats), 2) Encouragement section at bottom with actionable advice, 3) Milestones tab shows 'Where It Went Wrong' FIRST for losses (not 'Brilliant Moves'), 4) home-intelligence API correctly returns specific_patterns.pattern_count and pattern_description. Route for Lab page is /lab/game/:gameId (note: /lab/:gameId redirects to blank page).",
+  "features_verified": {
+    "coaching_intro_at_top": "Shows 'Tough game. But here's the thing — this is the same pattern we've seen before. You've you missed opponent's threats 27 times recently. Let's fix this once and for all.' - WORKING",
+    "recurring_pattern_count": "Displays '27 times' from specific_patterns.pattern_count - WORKING",
+    "encouragement_at_bottom": "Shows 'One habit change: after every move, scan for hanging pieces. Do this for 10 games and watch your wins climb.' - WORKING",
+    "milestones_loss_ordering": "'Where It Went Wrong' section appears FIRST in Milestones tab for loss games - WORKING",
+    "what_worked_after_learning": "'What Worked' section appears AFTER learning moments for loss games - WORKING (may not appear if no brilliant moves)",
+    "home_intelligence_integration": "Lab page fetches user patterns from /api/coach/home-intelligence on mount - WORKING"
+  }
+}

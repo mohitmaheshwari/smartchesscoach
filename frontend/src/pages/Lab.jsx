@@ -160,6 +160,9 @@ const Lab = ({ user }) => {
   // Module Trigger state (Step 10 - Pattern Injection)
   const [moduleTrigger, setModuleTrigger] = useState(null);
   
+  // User's recurring patterns from home-intelligence (for coaching connection)
+  const [userPatterns, setUserPatterns] = useState(null);
+  
   // Re-analyze game handler
   const handleReanalyze = async () => {
     setReanalyzing(true);
@@ -301,6 +304,26 @@ const Lab = ({ user }) => {
       }
     };
     fetchFocusLock();
+  }, []);
+
+  // Fetch user's recurring patterns for coaching connection
+  useEffect(() => {
+    const fetchUserPatterns = async () => {
+      try {
+        const response = await fetch(`${API}/coach/home-intelligence`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.specific_patterns?.has_pattern) {
+            setUserPatterns(data.specific_patterns);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user patterns:', error);
+      }
+    };
+    fetchUserPatterns();
   }, []);
 
   // Fetch Module Trigger (Step 10)
@@ -823,40 +846,85 @@ const Lab = ({ user }) => {
     groups.great_moves = groups.great_moves.slice(0, 5);
     groups.learning_moments.sort((a, b) => a.move_number - b.move_number);
     
-    // Build final array with proper ordering: brilliant first, then great, then learning
+    // Build final array - ORDER DEPENDS ON GAME RESULT
+    // For losses: Learning Moments first (what went wrong matters most)
+    // For wins: Brilliant moves first (celebrate, but still show issues)
     const result = [];
     
-    if (groups.brilliant_moves.length > 0) {
-      result.push({
-        type: 'brilliant_moves',
-        label: "Brilliant Moves",
-        icon: "sparkles",
-        count: groups.brilliant_moves.length,
-        items: groups.brilliant_moves,
-        positive: true
-      });
-    }
+    // Determine if it's a loss
+    const gameResult = game?.result || "";
+    const isLoss = (gameResult === "0-1" && userColor === "white") || 
+                   (gameResult === "1-0" && userColor === "black");
     
-    if (groups.great_moves.length > 0) {
-      result.push({
-        type: 'great_moves', 
-        label: "Great Decisions",
-        icon: "star",
-        count: groups.great_moves.length,
-        items: groups.great_moves,
-        positive: true
-      });
-    }
-    
-    if (groups.learning_moments.length > 0) {
-      result.push({
-        type: 'learning_moments',
-        label: "Learning Moments",
-        icon: "lightbulb",
-        count: groups.learning_moments.length,
-        items: groups.learning_moments.sort((a, b) => a.coachingPriority - b.coachingPriority), // Sort by coaching priority
-        positive: false
-      });
+    if (isLoss) {
+      // LOSS: Show learning moments first (what went wrong)
+      if (groups.learning_moments.length > 0) {
+        result.push({
+          type: 'learning_moments',
+          label: "Where It Went Wrong",
+          icon: "lightbulb",
+          count: groups.learning_moments.length,
+          items: groups.learning_moments.sort((a, b) => a.coachingPriority - b.coachingPriority),
+          positive: false
+        });
+      }
+      
+      // Then show what went well (silver linings)
+      if (groups.brilliant_moves.length > 0) {
+        result.push({
+          type: 'brilliant_moves',
+          label: "What Worked",
+          icon: "sparkles",
+          count: groups.brilliant_moves.length,
+          items: groups.brilliant_moves,
+          positive: true
+        });
+      }
+      
+      if (groups.great_moves.length > 0) {
+        result.push({
+          type: 'great_moves', 
+          label: "Good Decisions",
+          icon: "star",
+          count: groups.great_moves.length,
+          items: groups.great_moves,
+          positive: true
+        });
+      }
+    } else {
+      // WIN/DRAW: Show brilliant moves first (celebrate)
+      if (groups.brilliant_moves.length > 0) {
+        result.push({
+          type: 'brilliant_moves',
+          label: "Brilliant Moves",
+          icon: "sparkles",
+          count: groups.brilliant_moves.length,
+          items: groups.brilliant_moves,
+          positive: true
+        });
+      }
+      
+      if (groups.great_moves.length > 0) {
+        result.push({
+          type: 'great_moves', 
+          label: "Great Decisions",
+          icon: "star",
+          count: groups.great_moves.length,
+          items: groups.great_moves,
+          positive: true
+        });
+      }
+      
+      if (groups.learning_moments.length > 0) {
+        result.push({
+          type: 'learning_moments',
+          label: "Room for Improvement",
+          icon: "lightbulb",
+          count: groups.learning_moments.length,
+          items: groups.learning_moments.sort((a, b) => a.coachingPriority - b.coachingPriority),
+          positive: false
+        });
+      }
     }
     
     // In Engine Mode, also show engine preferences
@@ -873,7 +941,7 @@ const Lab = ({ user }) => {
     }
     
     return result;
-  }, [moveEvaluations, userColor]);
+  }, [moveEvaluations, userColor, game?.result]);
   
   // Filter milestones based on mode
   const displayedMilestones = useMemo(() => {
@@ -1393,6 +1461,41 @@ const Lab = ({ user }) => {
                     {/* SUMMARY TAB - Redesigned: Max 3 lessons, clean structure */}
                     <TabsContent value="summary" className="p-4 space-y-4 m-0">
                       
+                      {/* 💬 COACHING INTRO - Personal, conversational opener */}
+                      {result && (
+                        <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30" data-testid="coaching-intro">
+                          <p className="text-sm leading-relaxed">
+                            {(() => {
+                              const isLoss = result === "0-1" && userColor === "white" || result === "1-0" && userColor === "black";
+                              const isWin = result === "1-0" && userColor === "white" || result === "0-1" && userColor === "black";
+                              const blunderCount = labData?.blunders || analysis?.stockfish_analysis?.blunders || 0;
+                              const mainLesson = coreLesson?.lesson || "";
+                              
+                              // Check if this game's issue matches user's recurring pattern
+                              const matchesRecurringPattern = userPatterns?.has_pattern && 
+                                (mainLesson.toLowerCase().includes("undefended") || 
+                                 mainLesson.toLowerCase().includes("threat") ||
+                                 userPatterns.dominant_pattern === "missed_threat");
+                              
+                              if (isLoss && blunderCount >= 2) {
+                                return matchesRecurringPattern 
+                                  ? `Tough game. But here's the thing — this is the same pattern we've seen before. You've ${userPatterns.pattern_description.toLowerCase()} ${userPatterns.pattern_count} times recently. Let's fix this once and for all.`
+                                  : `Tough loss. ${blunderCount} key moments went wrong, but there's a clear pattern here. Let's understand exactly what happened.`;
+                              } else if (isLoss) {
+                                return matchesRecurringPattern
+                                  ? `Close game, but the same issue showed up again. You've ${userPatterns.pattern_description.toLowerCase()} ${userPatterns.pattern_count} times this week. Today we break that cycle.`
+                                  : "Close game. One moment changed everything. Let's see what we can learn from it.";
+                              } else if (isWin && blunderCount > 0) {
+                                return `Good win, but you got away with ${blunderCount === 1 ? "one" : "a few"} shaky moment${blunderCount !== 1 ? "s" : ""}. Let's make sure these don't cost you next time.`;
+                              } else if (isWin) {
+                                return "Solid game. Let's see what made this one work so you can repeat it.";
+                              }
+                              return "Let's break down what happened in this game.";
+                            })()}
+                          </p>
+                        </div>
+                      )}
+                      
                       {/* Clean Game State */}
                       {coreLesson?.pattern === "clean_game" ? (
                         <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
@@ -1499,6 +1602,33 @@ const Lab = ({ user }) => {
                       
                       {/* 🔒 FOCUS LOCK STATUS */}
                       <FocusLockStatus lock={focusLock} />
+                      
+                      {/* 💪 ENCOURAGEMENT - End on a positive note */}
+                      {coreLesson?.pattern !== "clean_game" && (
+                        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20" data-testid="encouragement">
+                          <p className="text-sm text-primary/90">
+                            {(() => {
+                              const isLoss = result === "0-1" && userColor === "white" || result === "1-0" && userColor === "black";
+                              const mainLesson = coreLesson?.behavioral_fix || coreLesson?.lesson || "";
+                              
+                              // Specific, actionable encouragement
+                              if (mainLesson.toLowerCase().includes("safe") || mainLesson.toLowerCase().includes("piece")) {
+                                return "One habit change: after every move, scan for hanging pieces. Do this for 10 games and watch your wins climb.";
+                              }
+                              if (mainLesson.toLowerCase().includes("threat") || mainLesson.toLowerCase().includes("opponent")) {
+                                return "Before your next game, try this: pause 3 seconds before each move and ask 'what can they do to me?' That's it.";
+                              }
+                              if (mainLesson.toLowerCase().includes("castle") || mainLesson.toLowerCase().includes("king")) {
+                                return "Your next game goal: castle by move 10. That simple rule will save you from many problems.";
+                              }
+                              if (isLoss) {
+                                return "Fix this ONE pattern and you'll start winning games like this. You've got this.";
+                              }
+                              return "Small improvements compound. Keep playing, keep learning.";
+                            })()}
+                          </p>
+                        </div>
+                      )}
                       
                       {/* 📖 COACH FULL REVIEW - Collapsed by default */}
                       {coachCommentary && (
