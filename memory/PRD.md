@@ -192,22 +192,30 @@ Integrated teaching engine with Lab game analysis:
 **Goal:** Transform from "playing an engine" to "learning from an Indian coach mentor"
 
 **Completed:**
-- Created `opening_plans.py` - Database of 20 common openings with:
-  - Main ideas/plans in plain language
-  - Key squares to highlight
-  - Typical mistakes at club level
-  - Teaching moments for specific moves
-- Created `lichess_explorer.py` - Integration with Lichess Opening Explorer API
-- Added `/api/coach/play/feedback` endpoint for beta user feedback collection
-- Added `/api/coach/play/opening-plan` endpoint to get current opening plan
-- Added feedback button ("Not helpful") on each coach message with modal
-- Added opening teaching in background processing (coach explains its moves)
+- ✅ Created `opening_plans.py` - Database of 20 common openings with plans, teaching moments, key squares
+- ✅ Created `lichess_explorer.py` - Integration with Lichess Opening Explorer API
+- ✅ Created `question_system.py` - Question generation, fuzzy response understanding, consequence detection
+- ✅ Added `/api/coach/play/feedback` endpoint for beta user feedback collection
+- ✅ Added `/api/coach/play/opening-plan` endpoint to get current opening plan
+- ✅ Added feedback button ("Not helpful") on each coach message with modal
+- ✅ Added opening teaching in background processing (coach explains its moves)
+- ✅ Added proactive teaching for good moves (praise + "why is this good?")
+- ✅ Added long-term consequence detection (blocked bishop, lost castling)
+- ✅ Added question options UI (clickable buttons to answer)
+- ✅ Added pattern-matched response understanding (no LLM for simple intents)
 
-**Remaining V1 Tasks:**
-1. Proactive teaching on USER's moves (not just mistakes)
-2. Ask questions about user's understanding ("Do you see what I'm planning?")
-3. Understand fuzzy user input ("what should I do?" → contextual response)
-4. Long-term consequence detection (blocked bishop, weak squares)
+**What the coach now does:**
+1. **Opening Teaching** - Explains moves in first 12 moves, names opening, describes plans
+2. **Asks Questions** - "What do you think I'm planning?" with clickable answer options
+3. **Praises Good Moves** - "Good move! Why do you think this is strong?"
+4. **Warns About Consequences** - "That pawn restricts your bishop" (only verifiable facts)
+5. **Understands Fuzzy Input** - "idk", "help", "what should I do?" → contextual responses
+6. **Collects Feedback** - Beta users can flag unhelpful messages
+
+**Remaining for V1:**
+1. Test with a fresh game to verify opening teaching flow
+2. Tune question frequency (not too many!)
+3. Add more opening plans based on user feedback
 
 ### P2 - Step 10: Identity Formation Layer
 - Long-term, identity-level feedback (e.g., "You are becoming a tactical player")

@@ -930,6 +930,31 @@ async def generate_response_to_user(
         "missed_tactic": None
     }
     
+    # === FAST PATH: Use pattern matching first (no LLM needed) ===
+    try:
+        from coach_engine.question_system import ResponseUnderstanding, generate_response_to_answer
+        from coach_engine.opening_plans import get_opening_by_moves
+        
+        intent, confidence = ResponseUnderstanding.understand(user_message)
+        
+        # Get opening context
+        all_moves = [m.get("move", "") for m in move_history]
+        opening = get_opening_by_moves(all_moves)
+        
+        # For simple intents, use pattern-matched response (faster, no hallucination)
+        if intent in ["confused", "affirmative", "negative", "asking_plan"] and confidence >= 0.7:
+            response = generate_response_to_answer(
+                user_message=user_message,
+                question=None,  # No pending question in this context
+                opening=opening,
+                board=None
+            )
+            result["response"] = response
+            return result
+    except Exception as e:
+        # Fall through to LLM-based response
+        pass
+    
     # Detect question types
     asking_about_last_move = any(phrase in msg_lower for phrase in [
         "last move", "my move", "was that", "was it", "that move",

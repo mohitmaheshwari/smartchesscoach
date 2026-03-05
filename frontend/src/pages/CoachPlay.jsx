@@ -556,16 +556,18 @@ const CoachPlay = ({ user }) => {
   };
   
   // Send chat message to coach
-  const sendChatMessage = async () => {
-    if (!chatInput.trim() || !session) return;
+  const sendChatMessage = async (directMessage = null) => {
+    const messageToSend = directMessage || chatInput.trim();
+    if (!messageToSend || !session) return;
     
-    const userMessage = chatInput.trim();
-    setChatInput("");
+    if (!directMessage) {
+      setChatInput("");
+    }
     
     // Add user message to chat
     setChatMessages(prev => [...prev, {
       type: "user",
-      message: userMessage,
+      message: messageToSend,
       timestamp: Date.now()
     }]);
     
@@ -578,7 +580,7 @@ const CoachPlay = ({ user }) => {
         credentials: "include",
         body: JSON.stringify({
           session_id: session.session_id,
-          message: userMessage
+          message: messageToSend
         })
       });
       
@@ -1122,6 +1124,21 @@ const CoachPlay = ({ user }) => {
                     }>
                       {msg.message}
                     </p>
+                    {/* Question options for coach questions */}
+                    {msg.type === "coach" && msg.question && msg.question.options && (
+                      <div className="mt-3 space-y-2">
+                        {msg.question.options.map((option, optIdx) => (
+                          <button
+                            key={optIdx}
+                            onClick={() => sendChatMessage(option)}
+                            className="w-full text-left p-2 rounded-lg bg-muted/30 hover:bg-muted/50 text-sm transition-colors border border-transparent hover:border-primary/30"
+                            data-testid={`question-option-${i}-${optIdx}`}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {/* Feedback button for coach messages */}
                     {msg.type === "coach" && msg.id && (
                       <div className="mt-2 flex items-center gap-2">

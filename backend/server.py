@@ -12102,6 +12102,60 @@ async def _process_move_and_respond(
                     "is_factual_fallback": True,  # Mark as simple factual message
                 })
         
+        # Step 3.5: Proactive teaching for GOOD moves and consequence detection
+        # Even if trigger didn't fire, we can praise good moves or warn about consequences
+        if not trigger.should_speak:
+            try:
+                from coach_engine.question_system import (
+                    generate_move_praise_question,
+                    detect_long_term_consequences
+                )
+                import chess
+                
+                board = chess.Board(fen_after_user)
+                
+                # Check if it was a best/candidate move - praise it!
+                if analysis.get("is_best_move") and move_number >= 4:
+                    question = generate_move_praise_question(user_move, is_best=True)
+                    await db.coach_messages.insert_one({
+                        "session_id": session_id,
+                        "type": "coach",
+                        "message": question.text,
+                        "trigger": "praise",
+                        "move": user_move,
+                        "move_number": move_number,
+                        "created_at": datetime.now(timezone.utc),
+                        "read": False,
+                        "is_praise": True,
+                        "question": question.to_dict() if question.options else None,
+                    })
+                
+                # Check for long-term consequences (pawn structure, castling rights)
+                elif move_number >= 6:
+                    board_before = chess.Board(fen_before)
+                    chess_move = board_before.parse_san(user_move)
+                    board_before.push(chess_move)
+                    
+                    user_chess_color = chess.WHITE if user_color == "white" else chess.BLACK
+                    consequence = detect_long_term_consequences(
+                        board_before, user_chess_color, chess_move
+                    )
+                    
+                    if consequence:
+                        await db.coach_messages.insert_one({
+                            "session_id": session_id,
+                            "type": "coach",
+                            "message": consequence,
+                            "trigger": "consequence",
+                            "move": user_move,
+                            "move_number": move_number,
+                            "created_at": datetime.now(timezone.utc),
+                            "read": False,
+                            "is_consequence_warning": True,
+                        })
+            except Exception as e:
+                logger.warning(f"Proactive teaching failed: {e}")
+        
         # Step 4: Make coach's responding move (if game not over)
         if not game_over:
             session_doc = await db.coach_sessions.find_one({"session_id": session_id})
@@ -12178,6 +12232,14 @@ async def _process_move_and_respond(
                                 else:
                                     msg_text = None
                                 
+                                # Generate a question for early moves
+                                question_data = None
+                                if coach_move_number in [2, 4, 6] and opening:
+                                    from coach_engine.question_system import generate_opening_plan_question
+                                    question = generate_opening_plan_question(opening, coach_move_number)
+                                    question_data = question.to_dict()
+                                    msg_text = f"I played {coach_move}. {question.text}"
+                                
                                 if msg_text:
                                     await db.coach_messages.insert_one({
                                         "session_id": session_id,
@@ -12190,6 +12252,8 @@ async def _process_move_and_respond(
                                         "read": False,
                                         "is_opening_teaching": True,
                                         "opening_name": opening_name,
+                                        "question": question_data,
+                                        "expects_response": question_data is not None,
                                     })
                         except Exception as e:
                             logger.warning(f"Opening teaching generation failed: {e}")
