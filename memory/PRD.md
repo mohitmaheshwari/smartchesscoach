@@ -188,6 +188,27 @@ Integrated teaching engine with Lab game analysis:
 **Issue 4:** Hide "0 → 0" metrics in `JourneyIntelligence.jsx` and `CoachFocusCard.jsx`.
 **Issue 5:** Added HelpCircle tooltips for rating metrics on `/progress` page.
 
+### P1 - Play with Coach Enhancements 🟡 IN PROGRESS (Mar 5, 2026)
+**Goal:** Transform from "playing an engine" to "learning from an Indian coach mentor"
+
+**Completed:**
+- Created `opening_plans.py` - Database of 20 common openings with:
+  - Main ideas/plans in plain language
+  - Key squares to highlight
+  - Typical mistakes at club level
+  - Teaching moments for specific moves
+- Created `lichess_explorer.py` - Integration with Lichess Opening Explorer API
+- Added `/api/coach/play/feedback` endpoint for beta user feedback collection
+- Added `/api/coach/play/opening-plan` endpoint to get current opening plan
+- Added feedback button ("Not helpful") on each coach message with modal
+- Added opening teaching in background processing (coach explains its moves)
+
+**Remaining V1 Tasks:**
+1. Proactive teaching on USER's moves (not just mistakes)
+2. Ask questions about user's understanding ("Do you see what I'm planning?")
+3. Understand fuzzy user input ("what should I do?" → contextual response)
+4. Long-term consequence detection (blocked bishop, weak squares)
+
 ### P2 - Step 10: Identity Formation Layer
 - Long-term, identity-level feedback (e.g., "You are becoming a tactical player")
 - Only starts after 10+ users complete full Focus Lock cycle

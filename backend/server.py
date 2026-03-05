@@ -12142,6 +12142,58 @@ async def _process_move_and_respond(
                     # Get new evaluation
                     eval_score, mate_in = await opponent.get_evaluation(fen_after_coach)
                     
+                    # === OPENING TEACHING: Explain coach's move in opening phase ===
+                    coach_move_number = len(move_history) // 2
+                    if coach_move_number <= 12 and not coach_game_over:
+                        try:
+                            from coach_engine.opening_plans import get_opening_by_moves, get_teaching_for_move
+                            from coach_engine.lichess_explorer import get_opening_name
+                            
+                            # Get all moves for opening detection
+                            all_moves = [m.get("move", "") for m in move_history]
+                            opening = get_opening_by_moves(all_moves)
+                            
+                            # Generate teaching message for coach's move
+                            teaching_msg = None
+                            if opening:
+                                teaching_msg = get_teaching_for_move(opening, coach_move)
+                            
+                            # If we have teaching, or it's an early move, explain the plan
+                            if teaching_msg or coach_move_number <= 5:
+                                # Get opening name from Lichess if we don't have one
+                                opening_name = opening.name if opening else ""
+                                if not opening_name:
+                                    try:
+                                        opening_name = await get_opening_name(fen_after_coach)
+                                    except:
+                                        pass
+                                
+                                # Create coach message explaining the move
+                                if teaching_msg:
+                                    msg_text = f"I played {coach_move}. {teaching_msg}"
+                                elif opening_name:
+                                    msg_text = f"I played {coach_move}. This is part of the {opening_name}. What do you think I'm planning?"
+                                elif coach_move_number <= 3:
+                                    msg_text = f"I played {coach_move}. Notice how this develops my pieces toward the center."
+                                else:
+                                    msg_text = None
+                                
+                                if msg_text:
+                                    await db.coach_messages.insert_one({
+                                        "session_id": session_id,
+                                        "type": "coach",
+                                        "message": msg_text,
+                                        "trigger": "opening_teaching",
+                                        "move": coach_move,
+                                        "move_number": coach_move_number,
+                                        "created_at": datetime.now(timezone.utc),
+                                        "read": False,
+                                        "is_opening_teaching": True,
+                                        "opening_name": opening_name,
+                                    })
+                        except Exception as e:
+                            logger.warning(f"Opening teaching generation failed: {e}")
+                    
                     # Update session
                     await db.coach_sessions.update_one(
                         {"session_id": session_id},
@@ -12812,6 +12864,158 @@ async def get_session_behaviors(
             "negative": negative
         }
     }
+
+
+
+@api_router.post("/coach/play/feedback")
+async def submit_coach_feedback(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Submit feedback on a coach message (for beta users).
+    
+    Body:
+    - session_id: The game session ID
+    - message_id: The coach message ID
+    - feedback_type: "confusing" | "wrong" | "obvious" | "not_relevant" | "other"
+    - comment: Optional user comment
+    
+    Returns:
+    - success: True if feedback was recorded
+    """
+    session_id = request.get("session_id")
+    message_id = request.get("message_id")
+    feedback_type = request.get("feedback_type", "other")
+    comment = request.get("comment", "")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not message_id:
+        raise HTTPException(status_code=400, detail="message_id is required")
+    
+    # Validate feedback_type
+    valid_types = ["confusing", "wrong", "obvious", "not_relevant", "helpful", "other"]
+    if feedback_type not in valid_types:
+        feedback_type = "other"
+    
+    # Get session to verify ownership and get context
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    # Get the message for context
+    message_doc = await db.coach_messages.find_one({"_id": message_id})
+    message_context = {}
+    if message_doc:
+        message_context = {
+            "message": message_doc.get("message", ""),
+            "trigger": message_doc.get("trigger", ""),
+            "move": message_doc.get("move", ""),
+            "rule_id": message_doc.get("rule_id", ""),
+            "is_wisdom_based": message_doc.get("is_wisdom_based", False),
+        }
+    
+    # Store feedback
+    from datetime import datetime, timezone
+    await db.coach_feedback.insert_one({
+        "user_id": user.user_id,
+        "session_id": session_id,
+        "message_id": message_id,
+        "feedback_type": feedback_type,
+        "comment": comment,
+        "current_fen": session_doc.get("current_fen", ""),
+        "message_context": message_context,
+        "user_rating": session_doc.get("user_rating", 1200),
+        "created_at": datetime.now(timezone.utc),
+    })
+    
+    logger.info(f"Coach feedback recorded: type={feedback_type}, session={session_id}, message={message_id}")
+    
+    return {
+        "success": True,
+        "message": "Thank you for your feedback! It helps us improve the coach."
+    }
+
+
+@api_router.get("/coach/play/opening-plan")
+async def get_opening_plan(
+    session_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the current opening plan for a game session.
+    
+    Returns opening name, main ideas, and teaching points.
+    """
+    from coach_engine.opening_plans import get_opening_by_moves, OPENING_PLANS
+    from coach_engine.lichess_explorer import get_opening_name
+    
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    # Get moves from history
+    move_history = session_doc.get("move_history", [])
+    moves = [m.get("move", "") for m in move_history if m.get("move")]
+    
+    # Try to identify opening from our database
+    opening = get_opening_by_moves(moves)
+    
+    # Also check Lichess for opening name
+    current_fen = session_doc.get("current_fen", "")
+    lichess_name = ""
+    try:
+        lichess_name = await get_opening_name(current_fen)
+    except:
+        pass
+    
+    if opening:
+        return {
+            "success": True,
+            "opening_name": opening.name,
+            "lichess_name": lichess_name,
+            "main_ideas": opening.main_ideas,
+            "key_squares": opening.key_squares,
+            "typical_mistakes": opening.typical_mistakes,
+            "simple_explanation": opening.simple_explanation,
+            "eco_codes": opening.eco_codes,
+        }
+    elif lichess_name:
+        return {
+            "success": True,
+            "opening_name": lichess_name,
+            "lichess_name": lichess_name,
+            "main_ideas": [
+                "Develop your knights and bishops",
+                "Control the center",
+                "Castle to protect your king"
+            ],
+            "key_squares": [],
+            "typical_mistakes": [],
+            "simple_explanation": f"This is the {lichess_name}. Focus on development and king safety.",
+            "eco_codes": [],
+        }
+    else:
+        return {
+            "success": True,
+            "opening_name": None,
+            "lichess_name": None,
+            "main_ideas": [
+                "Develop your pieces",
+                "Control the center",
+                "Keep your king safe"
+            ],
+            "key_squares": [],
+            "typical_mistakes": [],
+            "simple_explanation": "Focus on basic opening principles.",
+            "eco_codes": [],
+        }
+
 
 
 @api_router.get("/coach/breakthrough-signal")

@@ -44,7 +44,9 @@ import {
   Send,
   Sparkles,
   ThumbsUp,
-  Target
+  ThumbsDown,
+  Target,
+  X
 } from "lucide-react";
 
 /**
@@ -176,6 +178,9 @@ const CoachPlay = ({ user }) => {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState(null);
+  const [feedbackType, setFeedbackType] = useState("");
+  const [feedbackComment, setFeedbackComment] = useState("");
   const chatEndRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
@@ -341,6 +346,36 @@ const CoachPlay = ({ user }) => {
     const from = uci.slice(0, 2);
     const to = uci.slice(2, 4);
     setLastMove([from, to]);
+  };
+
+  // Submit feedback on coach message
+  const submitFeedback = async () => {
+    if (!feedbackMessage || !feedbackType) return;
+    
+    try {
+      const response = await fetch(`${API}/coach/play/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          session_id: session?.session_id,
+          message_id: feedbackMessage.id,
+          feedback_type: feedbackType,
+          comment: feedbackComment
+        })
+      });
+      
+      if (response.ok) {
+        toast.success("Thanks for your feedback!");
+      }
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+    }
+    
+    // Reset feedback state
+    setFeedbackMessage(null);
+    setFeedbackType("");
+    setFeedbackComment("");
   };
 
   // Guardian intervention state
@@ -954,6 +989,82 @@ const CoachPlay = ({ user }) => {
             </p>
           </div>
           
+          {/* Feedback Modal */}
+          {feedbackMessage && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <Card className="w-full max-w-sm">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">What was wrong?</CardTitle>
+                    <button 
+                      onClick={() => setFeedbackMessage(null)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground line-clamp-2">
+                    "{feedbackMessage.message}"
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {[
+                      { value: "confusing", label: "Confusing / Hard to understand" },
+                      { value: "wrong", label: "Wrong / Incorrect advice" },
+                      { value: "obvious", label: "Too obvious / I knew this" },
+                      { value: "not_relevant", label: "Not relevant to my plan" },
+                    ].map(option => (
+                      <label 
+                        key={option.value}
+                        className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
+                          feedbackType === option.value 
+                            ? "bg-primary/10 border border-primary/30" 
+                            : "hover:bg-muted/50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="feedback"
+                          value={option.value}
+                          checked={feedbackType === option.value}
+                          onChange={(e) => setFeedbackType(e.target.value)}
+                          className="sr-only"
+                        />
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          feedbackType === option.value 
+                            ? "border-primary bg-primary" 
+                            : "border-muted-foreground"
+                        }`}>
+                          {feedbackType === option.value && (
+                            <div className="w-2 h-2 rounded-full bg-background" />
+                          )}
+                        </div>
+                        <span className="text-sm">{option.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  
+                  <Textarea
+                    placeholder="Tell us more (optional)..."
+                    value={feedbackComment}
+                    onChange={(e) => setFeedbackComment(e.target.value)}
+                    className="h-20 text-sm"
+                  />
+                  
+                  <Button 
+                    onClick={submitFeedback}
+                    disabled={!feedbackType}
+                    className="w-full"
+                  >
+                    Submit Feedback
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
           {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3" data-testid="chat-messages">
             {/* Welcome message */}
@@ -1011,6 +1122,19 @@ const CoachPlay = ({ user }) => {
                     }>
                       {msg.message}
                     </p>
+                    {/* Feedback button for coach messages */}
+                    {msg.type === "coach" && msg.id && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          onClick={() => setFeedbackMessage(msg)}
+                          className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
+                          data-testid={`feedback-btn-${i}`}
+                        >
+                          <ThumbsDown className="w-3 h-3" />
+                          Not helpful
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
