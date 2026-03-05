@@ -106,6 +106,26 @@ Upgraded home page to feel like a personal coaching session:
 - Backend: 32/32 tests passed
 - New specs: `/app/tests/e2e/coach-home-v2.spec.ts`, `/app/backend/tests/test_home_intelligence_v2.py`
 
+### P0 - Lab Page "Human Coach" Improvements ✅ COMPLETED (Mar 6, 2026)
+Upgraded Lab page from 72/100 to ~85/100 on "human coach" feel:
+
+**What Changed:**
+1. **Coaching Intro** - Added conversational opener that connects to user's recurring patterns
+   - Example: "Tough game. But here's the thing — this is the same pattern we've seen before. You've missed opponent's threats 27 times recently. Let's fix this once and for all."
+2. **Milestones Reordering** - For LOSS games, shows "Where It Went Wrong" FIRST, then "What Worked"
+   - Previously showed Brilliant Moves first regardless of result
+3. **Encouragement Section** - Added actionable encouragement at bottom of Summary tab
+   - Example: "One habit change: after every move, scan for hanging pieces. Do this for 10 games and watch your wins climb."
+4. **Pattern Connection** - Lab page now fetches recurring patterns from home-intelligence API
+
+**Key Files Modified:**
+- `/app/frontend/src/pages/Lab.jsx` - Frontend component with all improvements
+
+**Test Status:** 100% passing (22/22 new tests)
+- Frontend: 11/11 specs passed  
+- Backend: 11/11 tests passed
+- New specs: `/app/tests/e2e/lab-coaching-features.spec.ts`, `/app/backend/tests/test_lab_coaching_api.py`
+
 ---
 
 ## Next Steps
