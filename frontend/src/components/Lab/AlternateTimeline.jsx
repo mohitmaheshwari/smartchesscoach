@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, GitBranch, Play, ArrowRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, GitBranch, Play, ArrowRight, Swords } from 'lucide-react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 
@@ -19,7 +19,8 @@ const AlternateTimeline = ({
   pvAfterBest,      // Array of moves after best move (e.g., ["Rd5", "Rad8", ...])
   cpLoss,           // How much was lost
   userColor = 'white',
-  onPlayMove        // Callback when user wants to see a position
+  onPlayMove,       // Callback when user wants to see a position
+  onPractice        // Callback to start practice mode from this position
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(-1); // -1 = show initial position
@@ -147,16 +148,30 @@ const AlternateTimeline = ({
               </p>
               
               {/* Play through button */}
-              <button
-                onClick={() => {
-                  // Cycle through the timeline
-                  setPreviewIndex(prev => prev >= timeline.length - 1 ? -1 : prev + 1);
-                }}
-                className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
-              >
-                <Play className="w-3 h-3" />
-                {previewIndex < 0 ? 'Play through' : 'Next move'}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    // Cycle through the timeline
+                    setPreviewIndex(prev => prev >= timeline.length - 1 ? -1 : prev + 1);
+                  }}
+                  className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  <Play className="w-3 h-3" />
+                  {previewIndex < 0 ? 'Play through' : 'Next move'}
+                </button>
+                
+                {/* Practice this variation button */}
+                {onPractice && (
+                  <button
+                    onClick={() => onPractice(fen, betterMove)}
+                    className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                    data-testid="practice-variation-btn"
+                  >
+                    <Swords className="w-3 h-3" />
+                    Practice this
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           

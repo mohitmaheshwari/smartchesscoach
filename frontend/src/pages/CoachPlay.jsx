@@ -174,6 +174,10 @@ const CoachPlay = ({ user }) => {
   // Evaluation state for eval bar
   const [evaluation, setEvaluation] = useState({ score: 0.0, mate_in: null });
   
+  // Practice mode state (from Lab alternate timeline)
+  const [practiceMode, setPracticeMode] = useState(false);
+  const [practicePosition, setPracticePosition] = useState(null);
+  
   // Chat state (replaces popup modal)
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
@@ -238,6 +242,26 @@ const CoachPlay = ({ user }) => {
     checkActiveSession();
   }, []);
 
+  // Check for practice mode from Lab alternate timeline
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'practice') {
+      const practiceData = sessionStorage.getItem('practice_position');
+      if (practiceData) {
+        try {
+          const data = JSON.parse(practiceData);
+          setPracticeMode(true);
+          setPracticePosition(data);
+          setSelectedColor(data.userColor || 'white');
+          // Clear sessionStorage after reading
+          sessionStorage.removeItem('practice_position');
+        } catch (e) {
+          console.error('Error parsing practice position:', e);
+        }
+      }
+    }
+  }, []);
+
   const checkActiveSession = async () => {
     try {
       const response = await fetch(`${API}/coach/play/active`, {
@@ -298,14 +322,24 @@ const CoachPlay = ({ user }) => {
   const startGame = async () => {
     setLoading(true);
     try {
+      // Build request body
+      const requestBody = {
+        user_color: selectedColor,
+        time_control: timeControl
+      };
+      
+      // If in practice mode, use custom starting position
+      if (practiceMode && practicePosition?.fen) {
+        requestBody.starting_fen = practicePosition.fen;
+        requestBody.practice_mode = true;
+        requestBody.source_game_id = practicePosition.gameId;
+      }
+      
       const response = await fetch(`${API}/coach/play/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          user_color: selectedColor,
-          time_control: timeControl
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -831,14 +865,33 @@ const CoachPlay = ({ user }) => {
                   <Swords className="w-8 h-8 text-primary" />
                 </div>
                 <div>
-                  <CardTitle className="text-2xl">Play With Coach</CardTitle>
+                  <CardTitle className="text-2xl">
+                    {practiceMode ? "Practice Position" : "Play With Coach"}
+                  </CardTitle>
                   <p className="text-muted-foreground">
-                    Train against an intelligent opponent
+                    {practiceMode 
+                      ? "Play from a position in your game and see how it could have gone differently"
+                      : "Train against an intelligent opponent"
+                    }
                   </p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Practice Mode Indicator */}
+              {practiceMode && practicePosition && (
+                <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20" data-testid="practice-mode-indicator">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="w-4 h-4 text-emerald-400" />
+                    <span className="font-medium text-emerald-400">Practice Mode</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    You'll start from the position where you made a mistake. 
+                    Try playing differently and see if you can win!
+                  </p>
+                </div>
+              )}
+              
               {/* Color Selection */}
               <div>
                 <label className="text-sm font-medium mb-3 block">
@@ -850,6 +903,7 @@ const CoachPlay = ({ user }) => {
                     onClick={() => setSelectedColor("white")}
                     className="flex-1"
                     data-testid="select-white"
+                    disabled={practiceMode}
                   >
                     <div className="w-6 h-6 rounded-full bg-white border mr-2" />
                     White
@@ -859,11 +913,17 @@ const CoachPlay = ({ user }) => {
                     onClick={() => setSelectedColor("black")}
                     className="flex-1"
                     data-testid="select-black"
+                    disabled={practiceMode}
                   >
                     <div className="w-6 h-6 rounded-full bg-gray-900 border mr-2" />
                     Black
                   </Button>
                 </div>
+                {practiceMode && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Color is set based on your original game position.
+                  </p>
+                )}
               </div>
 
               {/* Time Control */}
@@ -898,6 +958,11 @@ const CoachPlay = ({ user }) => {
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Starting...
+                  </>
+                ) : practiceMode ? (
+                  <>
+                    <Target className="w-5 h-5 mr-2" />
+                    Start Practice
                   </>
                 ) : (
                   <>
@@ -1169,7 +1234,13 @@ const CoachPlay = ({ user }) => {
                 key={i}
                 className={`p-3 rounded-lg ${
                   msg.type === "coach"
-                    ? "bg-primary/10 border border-primary/20"
+                    ? msg.trigger === "warning" 
+                      ? "bg-red-500/10 border border-red-500/20"
+                      : msg.trigger === "teaching"
+                      ? "bg-amber-500/10 border border-amber-500/20"
+                      : msg.trigger === "encouragement"
+                      ? "bg-green-500/10 border border-green-500/20"
+                      : "bg-primary/10 border border-primary/20"
                     : msg.type === "thinking"
                     ? "bg-primary/5 border border-primary/10 animate-pulse"
                     : "bg-muted/50 ml-6"
@@ -1177,7 +1248,12 @@ const CoachPlay = ({ user }) => {
               >
                 <div className="flex items-start gap-2">
                   {msg.type === "coach" ? (
-                    <Brain className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <Brain className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                      msg.trigger === "warning" ? "text-red-400" :
+                      msg.trigger === "teaching" ? "text-amber-400" :
+                      msg.trigger === "encouragement" ? "text-green-400" :
+                      "text-primary"
+                    }`} />
                   ) : msg.type === "thinking" ? (
                     <Loader2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0 animate-spin" />
                   ) : (
@@ -1185,7 +1261,12 @@ const CoachPlay = ({ user }) => {
                   )}
                   <div className="text-sm flex-1">
                     {msg.type === "coach" && msg.trigger && (
-                      <Badge variant="outline" className="text-xs mb-1 capitalize">
+                      <Badge variant="outline" className={`text-xs mb-1 capitalize ${
+                        msg.trigger === "warning" ? "border-red-500/30 text-red-400" :
+                        msg.trigger === "teaching" ? "border-amber-500/30 text-amber-400" :
+                        msg.trigger === "encouragement" ? "border-green-500/30 text-green-400" :
+                        ""
+                      }`}>
                         {msg.trigger === "encouragement" ? "👏" : 
                          msg.trigger === "warning" ? "⚠️" : 
                          msg.trigger === "teaching" ? "💡" : "💬"} {msg.trigger}
@@ -1203,6 +1284,27 @@ const CoachPlay = ({ user }) => {
                     }>
                       {msg.message}
                     </p>
+                    
+                    {/* Quick Action Buttons for Socratic Coaching */}
+                    {msg.type === "coach" && msg.trigger === "teaching" && !msg.question && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          onClick={() => sendChatMessage("Why was that bad?")}
+                          className="text-xs px-2 py-1 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                          data-testid={`why-btn-${i}`}
+                        >
+                          Why?
+                        </button>
+                        <button
+                          onClick={() => sendChatMessage("What should I have done?")}
+                          className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                          data-testid={`what-btn-${i}`}
+                        >
+                          What instead?
+                        </button>
+                      </div>
+                    )}
+                    
                     {/* Question options for coach questions */}
                     {msg.type === "coach" && msg.question && msg.question.options && (
                       <div className="mt-3 space-y-2">
@@ -1210,9 +1312,12 @@ const CoachPlay = ({ user }) => {
                           <button
                             key={optIdx}
                             onClick={() => sendChatMessage(option)}
-                            className="w-full text-left p-2 rounded-lg bg-muted/30 hover:bg-muted/50 text-sm transition-colors border border-transparent hover:border-primary/30"
+                            className="w-full text-left p-2 rounded-lg bg-muted/30 hover:bg-muted/50 text-sm transition-colors border border-transparent hover:border-primary/30 flex items-center gap-2"
                             data-testid={`question-option-${i}-${optIdx}`}
                           >
+                            <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center flex-shrink-0">
+                              {String.fromCharCode(65 + optIdx)}
+                            </span>
                             {option}
                           </button>
                         ))}

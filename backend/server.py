@@ -11813,6 +11813,9 @@ async def start_play_with_coach(
     Body:
     - user_color: "white" or "black" (default: "white")
     - time_control: Time format like "15+10" (default: "15+10" rapid)
+    - starting_fen: Custom starting position (optional, for practice mode)
+    - practice_mode: Whether this is practice mode (optional)
+    - source_game_id: Game ID this practice is from (optional)
     
     Returns:
     - session_id: Unique session ID
@@ -11826,6 +11829,9 @@ async def start_play_with_coach(
     
     user_color = request.get("user_color", "white")
     time_control = request.get("time_control", "15+10")
+    starting_fen = request.get("starting_fen", None)
+    practice_mode = request.get("practice_mode", False)
+    source_game_id = request.get("source_game_id", None)
     
     # Validate user_color
     if user_color not in ["white", "black"]:
@@ -11836,24 +11842,37 @@ async def start_play_with_coach(
             db=db,
             user_id=user.user_id,
             user_color=user_color,
-            time_control=time_control
+            time_control=time_control,
+            starting_fen=starting_fen,
+            practice_mode=practice_mode,
+            source_game_id=source_game_id
         )
         
         # Get initial evaluation
         opponent = CoachOpponent(user_rating=session.user_rating)
         eval_score, mate_in = await opponent.get_evaluation(session.current_fen)
         
+        # Determine whose turn it is based on FEN
+        fen_parts = session.current_fen.split(' ')
+        to_move = fen_parts[1] if len(fen_parts) > 1 else 'w'
+        is_player_turn = (to_move == 'w' and user_color == 'white') or (to_move == 'b' and user_color == 'black')
+        
+        message = f"Game started! You are playing {user_color}."
+        if practice_mode:
+            message = f"Practice mode! Playing from a position in your game. You are {user_color}."
+        
         return {
             "success": True,
             "session_id": session.session_id,
             "session": session.to_dict(),
             "current_fen": session.current_fen,
-            "is_player_turn": user_color == "white",  # White moves first
-            "message": f"Game started! You are playing {user_color}.",
+            "is_player_turn": is_player_turn,
+            "message": message,
             "evaluation": {
                 "score": eval_score,
                 "mate_in": mate_in
-            }
+            },
+            "practice_mode": practice_mode
         }
     except Exception as e:
         logger.error(f"Error starting coach session: {e}")

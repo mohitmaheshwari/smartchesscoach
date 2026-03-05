@@ -1,0 +1,85 @@
+{
+  "summary": "Tested new Practice Mode from Lab Alternate Timeline, CoachPlay chat UI, and related features. Backend API tests all passing. Frontend tests updated and all passing.",
+  "mode": "generate",
+  "baseline_commit": "f61a4c7bd91f803a22134656516dd9cd03dd7fab",
+  "head_commit": "a09203283559254fc6c6a7dc11fdccdad6e40adb",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/coach/play/start",
+        "issue": "Accepts invalid FEN strings without validation error - falls back to default position"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Lab.jsx",
+        "issue": "Practice this button navigates to wrong route: /coach?mode=practice instead of /play-with-coach?mode=practice",
+        "selector": "data-testid='practice-variation-btn'",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 4,
+    "passed": 43,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/tests/e2e/practice-mode.spec.ts",
+    "/app/backend/tests/test_practice_mode.py"
+  ],
+  "specs_updated": [
+    "/app/tests/e2e/coach-play.spec.ts"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/practice-mode.spec.ts",
+    "/app/tests/e2e/alternate-timeline.spec.ts",
+    "/app/tests/e2e/coach-play.spec.ts",
+    "/app/backend/tests/test_practice_mode.py",
+    "/app/test_reports/pytest/practice_mode_results.xml"
+  ],
+  "action_items": [
+    "FIX: In Lab.jsx line 1573, change navigate('/coach?mode=practice') to navigate('/play-with-coach?mode=practice') - currently Practice button navigates to Training page instead of CoachPlay"
+  ],
+  "updated_files": [
+    "/app/tests/e2e/practice-mode.spec.ts",
+    "/app/tests/e2e/coach-play.spec.ts",
+    "/app/backend/tests/test_practice_mode.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "Used existing test game 42932bfa-24e8-4aff-9068-0b476cb6f4fc with pv_after_best data",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Practice mode from Lab Alternate Timeline is implemented but has route bug. Backend accepts starting_fen and practice_mode params correctly. CoachPlay chat panel works with color-coded messages. UI shows 'Loss' instead of 'Defeat' after resignation. Guardian status shows correctly. Test game 42932bfa-24e8-4aff-9068-0b476cb6f4fc has pv_after_best data for alternate timeline tests.",
+  "features_tested": {
+    "backend": [
+      "POST /api/coach/play/start with starting_fen and practice_mode params",
+      "GET /api/coach/play/messages/{session_id} - coach messages endpoint",
+      "POST /api/coach/play/chat - send chat message to coach",
+      "GET /api/lab/{game_id} - includes pv_after_best data",
+      "GET /api/training/puzzles - puzzle loading",
+      "GET /api/reflect/pending - games needing reflection",
+      "GET /api/reflect/v1/profile - reflection profile"
+    ],
+    "frontend": [
+      "Lab AlternateTimeline shows 'Practice this' button when expanded",
+      "CoachPlay setup page with color and time selection",
+      "CoachPlay game interface with eval bar and chat panel",
+      "CoachPlay shows 'Loss' summary after resignation",
+      "CoachPlay Guardian status shows interventions remaining",
+      "Training page loads with puzzles",
+      "Reflect page loads correctly"
+    ]
+  },
+  "rca_of_issue": "The 'Practice this' button in AlternateTimeline navigates to '/coach?mode=practice' but the CoachPlay route is '/play-with-coach'. The /coach route leads to Training page. Fix: update Lab.jsx line 1573 to use correct route."
+}

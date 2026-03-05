@@ -1559,6 +1559,19 @@ const Lab = ({ user }) => {
                               pvAfterBest={biggestEvalSwing.pv_after_best}
                               cpLoss={biggestEvalSwing.cp_loss}
                               userColor={userColor}
+                              onPractice={(practiceFen, firstMove) => {
+                                // Navigate to coach play with this position
+                                // Store position in sessionStorage for CoachPlay to pick up
+                                const practiceData = {
+                                  fen: practiceFen,
+                                  firstMove: firstMove,
+                                  userColor: userColor,
+                                  source: 'alternate_timeline',
+                                  gameId: gameId
+                                };
+                                sessionStorage.setItem('practice_position', JSON.stringify(practiceData));
+                                navigate('/coach?mode=practice');
+                              }}
                             />
                           )}
                           

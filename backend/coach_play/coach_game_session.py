@@ -120,7 +120,10 @@ async def start_coach_session(
     db: AsyncIOMotorDatabase,
     user_id: str,
     user_color: str = "white",
-    time_control: str = "15+10"
+    time_control: str = "15+10",
+    starting_fen: str = None,
+    practice_mode: bool = False,
+    source_game_id: str = None
 ) -> CoachGameSession:
     """
     Start a new Play With Coach session.
@@ -130,6 +133,9 @@ async def start_coach_session(
         user_id: User's ID
         user_color: "white" or "black"
         time_control: Time format (default 15+10 rapid)
+        starting_fen: Custom starting position (optional, for practice mode)
+        practice_mode: Whether this is practice mode
+        source_game_id: Game ID this practice is from
     
     Returns:
         New CoachGameSession
@@ -154,6 +160,9 @@ async def start_coach_session(
     
     skill_level = rating_to_skill_level(user_rating)
     
+    # Use custom starting position or default
+    initial_fen = starting_fen if starting_fen else "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    
     session = CoachGameSession(
         session_id=str(uuid.uuid4()),
         user_id=user_id,
@@ -163,17 +172,30 @@ async def start_coach_session(
         user_time_remaining=base_time,
         coach_time_remaining=base_time,
         increment=increment,
-        fen_history=["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"],
-        current_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        fen_history=[initial_fen],
+        current_fen=initial_fen,
         user_rating=user_rating,
         coach_skill_level=skill_level
     )
     
-    # Save to database
-    await db.coach_sessions.insert_one(session.to_dict())
+    # Add practice mode metadata
+    if practice_mode:
+        session_dict = session.to_dict()
+        session_dict['practice_mode'] = True
+        session_dict['source_game_id'] = source_game_id
+        await db.coach_sessions.insert_one(session_dict)
+    else:
+        # Save to database
+        await db.coach_sessions.insert_one(session.to_dict())
     
-    # If user is black, coach (white) plays first
-    if user_color == "black":
+    # Determine whose turn based on FEN
+    fen_parts = initial_fen.split(' ')
+    to_move = fen_parts[1] if len(fen_parts) > 1 else 'w'
+    coach_color = "black" if user_color == "white" else "white"
+    coach_to_move = (to_move == 'w' and coach_color == "white") or (to_move == 'b' and coach_color == "black")
+    
+    # If it's coach's turn, coach plays first
+    if coach_to_move:
         session = await _make_coach_move(db, session)
     
     return session

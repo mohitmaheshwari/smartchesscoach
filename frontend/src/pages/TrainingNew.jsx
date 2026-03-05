@@ -434,13 +434,17 @@ const Training = ({ user }) => {
   // Update board when puzzle changes
   useEffect(() => {
     if (displayPuzzle && displayPuzzle.fen && isValidFen(displayPuzzle.fen)) {
-      // Force board key change to ensure re-render
-      setBoardKey(prev => prev + 1);
+      // First update the FEN and orientation
       setBoardFen(displayPuzzle.fen);
       setBoardOrientation(displayPuzzle.user_color || "white");
       setPuzzleState("thinking");
       setUserAnswer(null);
       setFeedback(null);
+      // Then force board key change to ensure re-render with new FEN
+      // Use setTimeout to ensure state is updated before key change triggers re-render
+      setTimeout(() => {
+        setBoardKey(prev => prev + 1);
+      }, 0);
     } else if (displayPuzzle) {
       // Puzzle exists but FEN is invalid - log and skip
       console.warn("Puzzle has invalid FEN:", displayPuzzle.puzzle_id, displayPuzzle.fen);
