@@ -140,6 +140,44 @@ Added the final feature to reach ~95/100 on "human coach" feel:
 **Test Status:** 100% passing (21/21 new tests)
 - New spec: `/app/tests/e2e/alternate-timeline.spec.ts`
 
+### Enhancement - "Practice this variation" Button ✅ COMPLETED (Mar 6, 2026)
+Added ability to practice from alternate timeline positions:
+
+**What Changed:**
+- `/app/frontend/src/components/Lab/AlternateTimeline.jsx` - Added "Practice this" button
+- `/app/frontend/src/pages/Lab.jsx` - Wired up onPractice callback with sessionStorage
+- `/app/frontend/src/pages/CoachPlay.jsx` - Added practice mode handling and UI
+- `/app/backend/coach_play/coach_game_session.py` - Added starting_fen and practice_mode params
+- `/app/backend/server.py` - Updated /api/coach/play/start endpoint
+
+**Features:**
+- Clicking "Practice this" in Lab navigates to /play-with-coach?mode=practice
+- Practice mode indicator shows on setup page
+- Starts game from the alternate timeline position
+- Color is locked based on original game position
+
+### P1 - Puzzle Display Bug ✅ FIXED (Mar 6, 2026)
+Fixed potential timing issue in TrainingNew.jsx where board might render with stale FEN:
+- Reordered state updates: set FEN/orientation first, then trigger key change
+- Added setTimeout(0) to ensure state is updated before re-render
+
+### P2 - Reflect Page ✅ VERIFIED (Mar 6, 2026)
+Verified that the stuck loop fix from previous session is working:
+- Page shows "Moment 1 of 4" progress
+- Moments load correctly with reflection questions
+- User verification confirms functionality
+
+### Phase 2 P1 - Play with Coach UI/UX ✅ ENHANCED (Mar 6, 2026)
+Enhanced CoachPlay chat panel:
+1. **Color-coded messages** based on trigger type:
+   - Warning (red) for risky moves
+   - Teaching (amber) for lessons
+   - Encouragement (green) for good play
+2. **Quick action buttons** for teaching messages:
+   - "Why?" button
+   - "What instead?" button
+3. **Improved response options** with letter indicators (A, B, C)
+
 ---
 
 ## Next Steps

@@ -1570,7 +1570,7 @@ const Lab = ({ user }) => {
                                   gameId: gameId
                                 };
                                 sessionStorage.setItem('practice_position', JSON.stringify(practiceData));
-                                navigate('/coach?mode=practice');
+                                navigate('/play-with-coach?mode=practice');
                               }}
                             />
                           )}
