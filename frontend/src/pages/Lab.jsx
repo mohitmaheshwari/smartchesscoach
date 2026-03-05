@@ -1498,25 +1498,26 @@ const Lab = ({ user }) => {
                             {(() => {
                               const isLoss = result === "0-1" && userColor === "white" || result === "1-0" && userColor === "black";
                               const isWin = result === "1-0" && userColor === "white" || result === "0-1" && userColor === "black";
-                              const blunderCount = labData?.blunders || analysis?.stockfish_analysis?.blunders || 0;
-                              const mistakeCount = labData?.mistakes || analysis?.stockfish_analysis?.mistakes || 0;
-                              const mainLesson = coreLesson?.lesson || "";
+                              const blunderCount = labData?.blunders || 0;
                               
-                              // Get the biggest blunder from this game for context
-                              const biggestBlunder = biggestEvalSwing;
-                              const wasCheckmate = biggestBlunder?.cp_loss >= 9000 || 
-                                                   game?.termination?.toLowerCase().includes('checkmate');
+                              // USE THE ACTUAL BIGGEST_BLUNDER DATA FROM BACKEND
+                              const biggestBlunder = labData?.biggest_blunder;
+                              const threat = biggestBlunder?.threat;
+                              const isCheckmateLevel = biggestBlunder?.is_checkmate_level;
+                              const cpLoss = Math.abs(biggestBlunder?.cp_loss || 0);
                               
                               // Be specific about THIS game first
-                              if (isLoss && wasCheckmate && blunderCount === 1) {
-                                // Single blunder leading to checkmate - be specific
-                                const threat = biggestBlunder?.threat;
-                                if (threat) {
-                                  return `This game came down to one move. You missed ${threat} — and that was checkmate. Let's make sure you never miss this pattern again.`;
-                                }
+                              if (isLoss && isCheckmateLevel && threat) {
+                                // Checkmate with specific threat - be very specific
+                                return `This game came down to one move. You missed ${threat} — and that was checkmate. Let's make sure you never miss this pattern again.`;
+                              } else if (isLoss && isCheckmateLevel) {
+                                // Checkmate but no specific threat data
                                 return "This game came down to one critical moment. One missed threat, and it was over. Let's understand exactly what happened.";
+                              } else if (isLoss && blunderCount === 1 && threat) {
+                                // Single blunder with threat
+                                return `Close game. One moment changed everything — you missed ${threat}. Let's make sure you see this next time.`;
                               } else if (isLoss && blunderCount === 1) {
-                                // Single blunder but not checkmate
+                                // Single blunder, no threat data
                                 return "Close game. One moment changed everything. Let's see what we can learn from it.";
                               } else if (isLoss && blunderCount >= 2) {
                                 return `Tough loss. ${blunderCount} key moments went wrong. Let's understand the pattern.`;

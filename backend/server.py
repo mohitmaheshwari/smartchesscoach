@@ -10629,6 +10629,33 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
         }
     }
     
+    # ADD: Biggest blunder with SPECIFIC threat info
+    # This is the critical data that should drive coaching messages
+    sf_analysis = analysis.get("stockfish_analysis", {})
+    move_evals = sf_analysis.get("move_evaluations", [])
+    
+    biggest_blunder = None
+    for m in move_evals:
+        cp_loss = abs(m.get("cp_loss", 0))
+        if cp_loss >= 100:  # At least 1 pawn loss
+            if biggest_blunder is None or cp_loss > abs(biggest_blunder.get("cp_loss", 0)):
+                biggest_blunder = {
+                    "move_number": m.get("move_number"),
+                    "move": m.get("move"),
+                    "best_move": m.get("best_move"),
+                    "cp_loss": m.get("cp_loss"),
+                    "threat": m.get("threat"),  # THE SPECIFIC THREAT
+                    "fen_before": m.get("fen_before"),
+                    "eval_before": m.get("eval_before"),
+                    "eval_after": m.get("eval_after"),
+                    "pv_after_best": m.get("pv_after_best", [])[:4],
+                    "is_checkmate_level": cp_loss >= 9000  # 99+ pawns = checkmate
+                }
+    
+    lab_data["biggest_blunder"] = biggest_blunder
+    lab_data["blunders"] = sf_analysis.get("blunders", 0)
+    lab_data["mistakes"] = sf_analysis.get("mistakes", 0)
+    
     return lab_data
 
 
