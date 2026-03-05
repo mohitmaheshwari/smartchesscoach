@@ -1025,7 +1025,9 @@ def _generate_coach_explain_v2(
     # Different explanation structure by selection reason
     if selection_reason == "pattern_event":
         pattern_freq = selected_move.get("pattern_frequency", 0)
-        lines.append(f"This is the {_ordinal(pattern_freq)} time this pattern appeared.")
+        if pattern_freq >= 2:
+            lines.append(f"This type of moment has happened {pattern_freq} times now.")
+            lines.append("A pattern is forming — this is what to work on.")
         if coaching_focus:
             lines.append(coaching_focus)
     
@@ -1038,22 +1040,25 @@ def _generate_coach_explain_v2(
             lines.append("This was a turning point in the game.")
     
     elif selection_reason == "missed_mate":
-        if pv_best and len(pv_best) >= 2:
-            short_line = " ".join(pv_best[:3])
-            lines.append(f"There was a forced mate: {short_line}...")
-        else:
-            lines.append("You missed a forced mating sequence.")
-        lines.append("In winning positions, check for forcing sequences.")
+        lines.append("There was a forced checkmate available.")
+        lines.append("Build the habit: in winning positions, pause and check ALL checks and captures.")
     
     else:  # tactical_error or default
-        if threat:
-            lines.append(f"After your move, opponent had {threat}.")
-        if best_move and cp_loss >= 100:
-            lines.append(f"Consider {best_move} instead.")
+        # HABIT-FOCUSED, not engine-like
+        if cp_loss >= 300:
+            lines.append("This was a critical moment that needed more time.")
+            lines.append("Build the habit: when the position feels tense, STOP and ask 'what can they take?'")
+        elif cp_loss >= 100:
+            lines.append("You moved a bit too quickly here.")
+            lines.append("Before committing, check what your opponent's best response would be.")
+        else:
+            lines.append("A small slip, but these add up over time.")
     
-    # Add coaching focus if not already included
-    if coaching_focus and coaching_focus not in lines:
-        lines.append(coaching_focus)
+    # Add coaching focus if present and helpful
+    if coaching_focus and coaching_focus not in " ".join(lines):
+        # Only add if it's habit-focused, not a specific move
+        if not any(x in coaching_focus.lower() for x in ['wins', 'takes', 'captures', 'check']):
+            lines.append(coaching_focus)
     
     # Ensure we have at least one line
     if not lines:

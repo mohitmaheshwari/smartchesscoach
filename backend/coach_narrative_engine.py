@@ -158,13 +158,13 @@ BREAK_TEMPLATES = {
     ]
 }
 
-# Consequence templates - what happened on the board
-# Step 7 Fix: Removed "after this" filler, more direct phrasing
+# Consequence templates - HABIT-FOCUSED, not engine-like
+# Avoid specific moves like "Bxb6 wins" - instead focus on what to CHECK
 CONSEQUENCE_TEMPLATES = {
     "tactical": [
-        "After {played}, {threat} wins material.",
-        "Following {played}, opponent has {threat}.",
-        "{best} would have avoided the tactic.",
+        "There was a forcing move you missed.",
+        "The position had hidden tactics.",
+        "A combination was available.",
     ],
     "positional": [
         "Your position became passive.",
@@ -177,19 +177,19 @@ CONSEQUENCE_TEMPLATES = {
         "Opponent took over the game.",
     ],
     "mate": [
-        "There was a forced mate: {line}.",
-        "Mate in {count} was available.",
-        "A winning attack was missed.",
+        "There was a forced checkmate.",
+        "A winning attack was available.",
+        "The king was vulnerable.",
     ],
     "advantage_lost": [
         "The advantage slipped away.",
         "The winning position became unclear.",
-        "You let the advantage go.",
+        "The position needed more care.",
     ],
     "default": [
-        "The position worsened.",
-        "This changed the evaluation.",
-        "The game became harder.",
+        "The position needed extra attention.",
+        "This was a critical moment.",
+        "More time was needed here.",
     ]
 }
 
@@ -807,20 +807,13 @@ class CoachNarrativeEngine:
         pv_best = move.get("pv_after_best", [])
         
         if strategy == NarrativeStrategy.MATE_ALERT:
-            # Mate consequence
-            if pv_best and len(pv_best) >= 2:
-                line = " ".join(pv_best[:3])
-                return f"After {line}, it was mate."
-            return "A forced mate was available."
+            # Mate consequence - NO engine lines, just habit-focused
+            return "A forced checkmate was available. Build the habit: check ALL captures in winning positions."
         
         if threat:
-            # Tactical consequence with threat
-            template = random.choice(CONSEQUENCE_TEMPLATES["tactical"])
-            return template.format(
-                played=played_move or "the move",
-                threat=threat,
-                best=best_move or "another move"
-            )
+            # Tactical consequence - habit-focused, not engine-like
+            templates = CONSEQUENCE_TEMPLATES["tactical"]
+            return self._select_non_repetitive(templates)
         
         if context.get("result_flipped"):
             return "This changed the game completely."
