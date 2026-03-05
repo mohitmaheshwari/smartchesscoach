@@ -12,7 +12,7 @@ import pytest
 import uuid
 import time
 
-BASE_URL = "https://chess-coach-lab.preview.emergentagent.com"
+BASE_URL = "https://chess-coach-debug.preview.emergentagent.com"
 
 
 class TestGuardianEvaluate:

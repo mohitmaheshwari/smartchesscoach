@@ -51,6 +51,7 @@ class PrimaryIssue(str, Enum):
     ENDGAME_TECHNIQUE_FAILURE = "EndgameTechniqueFailure"
     PREMATURE_ATTACK = "PrematureAttack"
     DEFENSIVE_LAPSE = "DefensiveLapse"
+    POSITIONAL_DRIFT = "PositionalDrift"  # Added missing enum value
 
 
 class Confidence(str, Enum):
@@ -706,8 +707,9 @@ async def generate_game_coach_summary(
             fen=game_analysis.get("initial_fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"),
             label="No critical mistakes found"
         )
-        primary_issue = PrimaryIssue.MISSED_TACTIC
-        confidence = Confidence.LOW
+        # For clean games: HIGH confidence (we're sure it was good), no issue
+        primary_issue = None  # No issue for clean game
+        confidence = Confidence.HIGH  # High confidence in the positive assessment
         selected_move = None
         selection_reason = "no_critical_moves"
     else:
@@ -752,7 +754,11 @@ async def generate_game_coach_summary(
     
     # Generate emotion mirror line
     recent_sentences = coach_state.recent_coach_sentences if coach_state else []
-    emotion_lines = EMOTION_MIRRORS.get(primary_issue, ["That was a tough moment."])
+    # For clean games (no primary_issue), use positive emotion lines
+    if primary_issue is None:
+        emotion_lines = ["Well played!", "Solid game!", "Nice discipline!"]
+    else:
+        emotion_lines = EMOTION_MIRRORS.get(primary_issue, ["That was a tough moment."])
     emotion_mirror = service.get_non_repetitive_line(emotion_lines, recent_sentences)
     
     # =========================================================================

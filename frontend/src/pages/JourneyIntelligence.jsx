@@ -37,7 +37,14 @@ import {
   Layers,
   BookOpen,
   Activity,
+  HelpCircle,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const JourneyIntelligence = () => {
   const navigate = useNavigate();
@@ -168,7 +175,14 @@ const JourneyIntelligence = () => {
                     <p className="text-sm text-muted-foreground">{growth_delta.message}</p>
                   ) : (
                     <div className="space-y-3">
-                      {growth_delta.metrics.map((metric, idx) => (
+                      {growth_delta.metrics
+                        .filter(metric => {
+                          // Filter out metrics where both values are 0 or empty
+                          const prevNum = parseFloat(String(metric.previous).replace(/[^0-9.-]/g, '')) || 0;
+                          const recentNum = parseFloat(String(metric.recent).replace(/[^0-9.-]/g, '')) || 0;
+                          return prevNum !== 0 || recentNum !== 0 || metric.delta !== 0;
+                        })
+                        .map((metric, idx) => (
                         <div key={idx} className="flex items-center justify-between">
                           <span className="text-sm">{metric.name}</span>
                           <div className="flex items-center gap-3">
@@ -202,20 +216,43 @@ const JourneyIntelligence = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="p-3 rounded-lg bg-muted/30">
-                      <p className="text-2xl font-bold">{rating_ceiling.stable_rating}</p>
-                      <p className="text-xs text-muted-foreground">Stable Level</p>
+                  <TooltipProvider>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="p-3 rounded-lg bg-muted/30">
+                        <p className="text-2xl font-bold">{rating_ceiling.stable_rating}</p>
+                        <Tooltip>
+                          <TooltipTrigger className="text-xs text-muted-foreground flex items-center justify-center gap-1 cursor-help">
+                            Stable Level <HelpCircle className="w-3 h-3" />
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[200px]">
+                            <p className="text-xs">Your average performance rating across all analyzed games. Updates after each game analysis.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                        <p className="text-2xl font-bold text-emerald-500">{rating_ceiling.peak_rating}</p>
+                        <Tooltip>
+                          <TooltipTrigger className="text-xs text-muted-foreground flex items-center justify-center gap-1 cursor-help">
+                            Demonstrated Peak <HelpCircle className="w-3 h-3" />
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[200px]">
+                            <p className="text-xs">Your highest estimated performance based on your best games. Shows what you're capable of on a good day.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                        <p className="text-2xl font-bold text-amber-500">+{rating_ceiling.performance_gap}</p>
+                        <Tooltip>
+                          <TooltipTrigger className="text-xs text-muted-foreground flex items-center justify-center gap-1 cursor-help">
+                            Performance Gap <HelpCircle className="w-3 h-3" />
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[200px]">
+                            <p className="text-xs">The difference between your peak and stable level. A smaller gap means more consistent play.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
-                    <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                      <p className="text-2xl font-bold text-emerald-500">{rating_ceiling.peak_rating}</p>
-                      <p className="text-xs text-muted-foreground">Demonstrated Peak</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                      <p className="text-2xl font-bold text-amber-500">+{rating_ceiling.performance_gap}</p>
-                      <p className="text-xs text-muted-foreground">Performance Gap</p>
-                    </div>
-                  </div>
+                  </TooltipProvider>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {rating_ceiling.explanation}
                   </p>

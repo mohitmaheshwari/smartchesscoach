@@ -65,11 +65,14 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
             }
         },
         # Only get games with critical moments that need reflection
+        # Check both top-level and stockfish_analysis for blunders/mistakes
         {
             "$match": {
                 "$or": [
                     {"analysis.blunders": {"$gt": 0}},
-                    {"analysis.mistakes": {"$gt": 0}}
+                    {"analysis.mistakes": {"$gt": 0}},
+                    {"analysis.stockfish_analysis.blunders": {"$gt": 0}},
+                    {"analysis.stockfish_analysis.mistakes": {"$gt": 0}}
                 ]
             }
         },
@@ -92,8 +95,9 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
                 "platform": 1,
                 "date_played": 1,
                 "analysis": {
-                    "blunders": "$analysis.blunders",
-                    "mistakes": "$analysis.mistakes",
+                    # Use stockfish_analysis values as primary, fall back to top-level
+                    "blunders": {"$ifNull": ["$analysis.stockfish_analysis.blunders", "$analysis.blunders"]},
+                    "mistakes": {"$ifNull": ["$analysis.stockfish_analysis.mistakes", "$analysis.mistakes"]},
                     "accuracy": {"$ifNull": ["$analysis.stockfish_analysis.accuracy", "$analysis.accuracy"]},
                     "created_at": "$analysis.created_at"
                 },
@@ -163,7 +167,8 @@ async def get_games_needing_reflection(db, user_id: str, limit: int = 5) -> List
             "blunders": game.get("analysis", {}).get("blunders", 0),
             "mistakes": game.get("analysis", {}).get("mistakes", 0),
             "hours_ago": round(hours_ago, 1),
-            "reflected_moments": game.get("reflected_moments", 0)
+            "reflected_moments": game.get("reflected_moments", 0),
+            "critical_moments_count": game.get("qualifying_moments", 0)
         })
     
     return result
@@ -226,50 +231,96 @@ async def get_game_moments(db, user_id: str, game_id: str) -> List[Dict]:
     MIDDLEGAME_MIN_CP_LOSS = 50  # Minimum cp loss to consider for reflection
     
     moment_idx = 0
-    for comment in commentary:
-        eval_type = comment.get("evaluation", "")
-        
-        # Only include blunders and mistakes (skip inaccuracies - too minor)
-        if eval_type not in ["blunder", "mistake"]:
-            continue
+    
+    # First try commentary, then fallback to move_evaluations directly
+    if commentary:
+        for comment in commentary:
+            eval_type = comment.get("evaluation", "")
             
-        move_num = comment.get("move_number", 0)
-        sf_data = sf_map.get(move_num, {})
-        cp_loss = sf_data.get("cp_loss", 0)
-        
-        # Skip opening moves unless they're major blunders
-        if move_num <= OPENING_PHASE_END:
-            if cp_loss < OPENING_BLUNDER_THRESHOLD:
-                logger.debug(f"Skipping move {move_num} - opening phase with only {cp_loss}cp loss")
+            # Only include blunders and mistakes (skip inaccuracies - too minor)
+            if eval_type not in ["blunder", "mistake"]:
                 continue
-        
-        # Skip moves with very small cp loss (theoretical preferences, not mistakes)
-        if cp_loss < MIDDLEGAME_MIN_CP_LOSS:
-            logger.debug(f"Skipping move {move_num} - cp loss {cp_loss} below threshold")
-            continue
-        
-        # Get FEN position before the move
-        fen = sf_data.get("fen_before", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-        
-        # Check if this moment was already reflected (by move_number OR FEN)
-        is_already_reflected = move_num in reflected_move_numbers or fen in reflected_fens
-        
-        moments.append({
-            "moment_index": moment_idx,
-            "move_number": move_num,
-            "type": eval_type,
-            "fen": fen,
-            "user_move": comment.get("move", ""),
-            "best_move": sf_data.get("best_move", ""),
-            "eval_before": sf_data.get("eval_before", 0),
-            "eval_after": sf_data.get("eval_after", 0),
-            "eval_change": (sf_data.get("eval_after", 0) - sf_data.get("eval_before", 0)) / 100,
-            "cp_loss": cp_loss,
-            "threat_line": sf_data.get("threat"),
-            "feedback": comment.get("feedback", ""),
-            "already_reflected": is_already_reflected
-        })
-        moment_idx += 1
+                
+            move_num = comment.get("move_number", 0)
+            sf_data = sf_map.get(move_num, {})
+            cp_loss = sf_data.get("cp_loss", 0)
+            
+            # Skip opening moves unless they're major blunders
+            if move_num <= OPENING_PHASE_END:
+                if cp_loss < OPENING_BLUNDER_THRESHOLD:
+                    logger.debug(f"Skipping move {move_num} - opening phase with only {cp_loss}cp loss")
+                    continue
+            
+            # Skip moves with very small cp loss (theoretical preferences, not mistakes)
+            if cp_loss < MIDDLEGAME_MIN_CP_LOSS:
+                logger.debug(f"Skipping move {move_num} - cp loss {cp_loss} below threshold")
+                continue
+            
+            # Get FEN position before the move
+            fen = sf_data.get("fen_before", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+            
+            # Check if this moment was already reflected (by move_number OR FEN)
+            is_already_reflected = move_num in reflected_move_numbers or fen in reflected_fens
+            
+            moments.append({
+                "moment_index": moment_idx,
+                "move_number": move_num,
+                "type": eval_type,
+                "fen": fen,
+                "user_move": comment.get("move", ""),
+                "best_move": sf_data.get("best_move", ""),
+                "eval_before": sf_data.get("eval_before", 0),
+                "eval_after": sf_data.get("eval_after", 0),
+                "eval_change": (sf_data.get("eval_after", 0) - sf_data.get("eval_before", 0)) / 100,
+                "cp_loss": cp_loss,
+                "threat_line": sf_data.get("threat"),
+                "feedback": comment.get("feedback", ""),
+                "already_reflected": is_already_reflected
+            })
+            moment_idx += 1
+    else:
+        # FALLBACK: Use move_evaluations directly when commentary is empty
+        for sf_data in move_evals:
+            move_quality = sf_data.get("move_quality", "")
+            cp_loss = sf_data.get("cp_loss", 0)
+            
+            # Only include blunders and mistakes
+            if move_quality not in ["blunder", "mistake"]:
+                continue
+            
+            move_num = sf_data.get("move_number", 0)
+            
+            # Skip opening moves unless they're major blunders
+            if move_num <= OPENING_PHASE_END:
+                if cp_loss < OPENING_BLUNDER_THRESHOLD:
+                    continue
+            
+            # Skip moves with very small cp loss
+            if cp_loss < MIDDLEGAME_MIN_CP_LOSS:
+                continue
+            
+            # Get FEN position before the move
+            fen = sf_data.get("fen_before", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+            
+            # Check if this moment was already reflected
+            is_already_reflected = move_num in reflected_move_numbers or fen in reflected_fens
+            
+            moments.append({
+                "moment_index": moment_idx,
+                "move_number": move_num,
+                "type": move_quality,
+                "fen": fen,
+                "user_move": sf_data.get("move", ""),
+                "best_move": sf_data.get("best_move", ""),
+                "eval_before": sf_data.get("eval_before", 0),
+                "eval_after": sf_data.get("eval_after", 0),
+                "eval_change": (sf_data.get("eval_after", 0) - sf_data.get("eval_before", 0)) / 100,
+                "cp_loss": cp_loss,
+                "threat_line": sf_data.get("threat"),
+                "feedback": "",
+                "already_reflected": is_already_reflected
+            })
+            moment_idx += 1
     
     # Filter out already reflected moments
     moments = [m for m in moments if not m["already_reflected"]]

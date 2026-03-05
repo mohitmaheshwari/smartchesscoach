@@ -11,7 +11,7 @@ import { devLogin, dismissToasts, hideEmergentBadge } from '../fixtures/helpers'
  * - CTA buttons work
  */
 
-const BASE_URL = process.env.BASE_URL || 'https://chess-coach-lab.preview.emergentagent.com';
+const BASE_URL = process.env.BASE_URL || 'https://chess-coach-debug.preview.emergentagent.com';
 
 test.describe('Focus Lock Dashboard Integration', () => {
   test.beforeEach(async ({ page }) => {

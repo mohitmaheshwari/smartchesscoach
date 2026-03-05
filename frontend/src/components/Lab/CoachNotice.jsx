@@ -29,7 +29,7 @@ const CoachNotice = ({ pattern, similarGames = [] }) => {
                 key={i}
                 className="text-xs px-2 py-0.5 rounded bg-slate-700/50 text-slate-300"
               >
-                vs {game.opponent || 'Unknown'}
+                vs {game.opponent_name || game.opponent || game.white || game.black || 'Opponent'}
               </span>
             ))}
           </div>

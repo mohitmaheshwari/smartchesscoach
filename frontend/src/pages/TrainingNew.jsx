@@ -178,7 +178,7 @@ const Training = ({ user }) => {
           const userPuzzles = (data.puzzles || []).map(p => ({
             ...p,
             source: "my_game",
-            source_label: `vs ${p.opponent_name || "Unknown"}`,
+            source_label: `vs ${p.opponent_name || p.opponent || p.white || p.black || "Opponent"}`,
             source_detail: p.game_date ? new Date(p.game_date).toLocaleDateString() : null
           }));
           allPuzzles = [...allPuzzles, ...userPuzzles];
@@ -304,11 +304,26 @@ const Training = ({ user }) => {
               
               // These puzzles already have the correct structure from the backend
               // Don't show the correct move - let user find it!
-              const blunderPuzzles = (blunderData.puzzles || []).map((p) => ({
-                ...p,
-                source_label: `Move ${p.move_number}`,
-                source_detail: `Lost ${p.cp_loss} centipawns - find the better move`,
-              }));
+              const blunderPuzzles = (blunderData.puzzles || []).map((p) => {
+                // Convert centipawns to human-readable format
+                const cpLoss = p.cp_loss || 0;
+                let lossText;
+                if (cpLoss >= 400) {
+                  lossText = "Blunder - critical mistake";
+                } else if (cpLoss >= 200) {
+                  lossText = "Serious mistake - find the better move";
+                } else if (cpLoss >= 100) {
+                  lossText = "Mistake - there was a better option";
+                } else {
+                  lossText = "Inaccuracy - small improvement possible";
+                }
+                
+                return {
+                  ...p,
+                  source_label: `Move ${p.move_number}`,
+                  source_detail: lossText,
+                };
+              });
               
               // Add blunder puzzles to the front of the puzzle list
               if (blunderPuzzles.length > 0) {
@@ -418,7 +433,7 @@ const Training = ({ user }) => {
   
   // Update board when puzzle changes
   useEffect(() => {
-    if (displayPuzzle && displayPuzzle.fen) {
+    if (displayPuzzle && displayPuzzle.fen && isValidFen(displayPuzzle.fen)) {
       // Force board key change to ensure re-render
       setBoardKey(prev => prev + 1);
       setBoardFen(displayPuzzle.fen);
@@ -426,6 +441,13 @@ const Training = ({ user }) => {
       setPuzzleState("thinking");
       setUserAnswer(null);
       setFeedback(null);
+    } else if (displayPuzzle) {
+      // Puzzle exists but FEN is invalid - log and skip
+      console.warn("Puzzle has invalid FEN:", displayPuzzle.puzzle_id, displayPuzzle.fen);
+      // Try to move to next puzzle if this one has invalid FEN
+      if (hasMoreFilteredPuzzles) {
+        setCurrentPuzzleIndex(prev => prev + 1);
+      }
     } else {
       // Reset to starting position if no puzzle
       setBoardFen(START_FEN);

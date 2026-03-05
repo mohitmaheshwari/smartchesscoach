@@ -152,8 +152,8 @@ const CoachFocusCard = () => {
           ))}
         </div>
 
-        {/* Improvement Trend */}
-        {gamesAnalyzed >= 4 && (
+        {/* Improvement Trend - Only show if there's actual data */}
+        {gamesAnalyzed >= 4 && (mistakesBefore > 0 || mistakesAfter > 0) && (
           <div className={`flex items-center justify-between p-3 rounded-lg ${trendConfig.bg}`}>
             <div className="flex items-center gap-2">
               <TrendIcon className={`w-4 h-4 ${trendConfig.color}`} />
@@ -167,6 +167,21 @@ const CoachFocusCard = () => {
                 (last {gamesAnalyzed} games)
               </span>
             </span>
+          </div>
+        )}
+        
+        {/* Show simplified trend when no mistake data */}
+        {gamesAnalyzed >= 4 && mistakesBefore === 0 && mistakesAfter === 0 && (
+          <div className={`flex items-center justify-center p-3 rounded-lg ${trendConfig.bg}`}>
+            <div className="flex items-center gap-2">
+              <TrendIcon className={`w-4 h-4 ${trendConfig.color}`} />
+              <span className={`text-sm font-medium ${trendConfig.color}`}>
+                {trendConfig.label}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                (last {gamesAnalyzed} games)
+              </span>
+            </div>
           </div>
         )}
 
