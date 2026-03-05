@@ -1,58 +1,49 @@
 /**
- * CoachHome - The Focused Home Page
+ * CoachHome - The Personal Coaching Home Page
  * 
- * UX Promise: "From loss to learning in under 90 seconds."
+ * Vision: Replace human coaches by feeling personal, warm, and actionable.
  * 
- * Answers in 5 seconds:
- * - What stage am I in?
- * - What am I working on?
- * - How did I do?
- * - What should I do next?
+ * Target User: 600-1500 rated players who:
+ * - Make tactical mistakes and want to improve
+ * - Need ONE clear thing to focus on
+ * - Want to feel like they're making progress
+ * - Respond to encouragement, not overwhelm
  * 
- * Layout (Priority Order):
- * 1. Development Phase Banner - Shows current stage
- * 2. Fresh Loss Card OR Active Mission Card (if exists)
- * 3. Active Advice Card - THE ONE thing to focus on
- * 4. Post-Game Review Card (only if new game analyzed)
- * 5. Recommended Drill Card
- * 6. Quick Actions
+ * State-Based Priority:
+ * 1. Has games to reflect → REFLECT is primary (this is where learning happens)
+ * 2. All games reflected → TRAIN is primary (practice the specific weakness)
+ * 3. No recent games → Encourage PLAY (feed the loop)
+ * 
+ * The Coaching Loop: PLAY → REFLECT → TRAIN → PLAY
  */
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import {
-  DevelopmentPhaseBanner,
   ActiveMissionCard,
-  CoachGameReviewCard,
-  RecommendedDrillCard,
-  ActiveAdviceCard,
-  LastGameCoachCard,
-  CoachFocusCard,
   DeepSessionBanner,
 } from "@/components/Home";
-import BehavioralInsightCard from "@/components/Home/BehavioralInsightCard";
 import DeepSessionModal from "@/components/DeepSessionModal";
 import {
-  AlertTriangle,
   ChevronRight,
-  Clock,
-  Wrench,
   Loader2,
-  Import,
-  TrendingUp,
-  Brain,
-  BookOpen,
-  Sparkles,
-  Gamepad2,
-  Swords,
-  Play,
   Target,
+  Brain,
+  Gamepad2,
+  Trophy,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  TrendingUp,
+  Sparkles,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 // Helper to format time since
 const getTimeSince = (dateStr) => {
@@ -68,6 +59,13 @@ const getTimeSince = (dateStr) => {
   return "Just now";
 };
 
+// Get result emoji and color
+const getResultStyle = (result) => {
+  if (result === "win") return { emoji: "✓", color: "text-green-500", bg: "bg-green-500/10" };
+  if (result === "loss") return { emoji: "✗", color: "text-red-500", bg: "bg-red-500/10" };
+  return { emoji: "=", color: "text-yellow-500", bg: "bg-yellow-500/10" };
+};
+
 const CoachHome = ({ user }) => {
   const navigate = useNavigate();
   
@@ -77,10 +75,8 @@ const CoachHome = ({ user }) => {
   const [mission, setMission] = useState(null);
   const [freshLoss, setFreshLoss] = useState(null);
   const [starting, setStarting] = useState(false);
-  const [reanalysisStatus, setReanalysisStatus] = useState(null);
   const [coachState, setCoachState] = useState(null);
   const [showDeepSession, setShowDeepSession] = useState(false);
-  const [improvementMessage, setImprovementMessage] = useState(null);
 
   useEffect(() => {
     fetchAllData();
@@ -90,14 +86,11 @@ const CoachHome = ({ user }) => {
     try {
       setLoading(true);
       
-      // Fetch all data in parallel
-      const [homeRes, missionRes, lossRes, reanalysisRes, coachStateRes, improvementRes] = await Promise.all([
+      const [homeRes, missionRes, lossRes, coachStateRes] = await Promise.all([
         fetch(`${API}/coach/home-intelligence`, { credentials: "include" }),
         fetch(`${API}/missions/today`, { credentials: "include" }),
         fetch(`${API}/coach/fresh-loss`, { credentials: "include" }).catch(() => null),
-        fetch(`${API}/behavioral/reanalysis/status`, { credentials: "include" }).catch(() => null),
         fetch(`${API}/coach/state`, { credentials: "include" }).catch(() => null),
-        fetch(`${API}/coach/deep-session/improvement-check`, { credentials: "include" }).catch(() => null),
       ]);
       
       if (homeRes.ok) {
@@ -115,22 +108,8 @@ const CoachHome = ({ user }) => {
         }
       }
       
-      if (reanalysisRes?.ok) {
-        const statusData = await reanalysisRes.json();
-        if (statusData?.status === "RUNNING") {
-          setReanalysisStatus(statusData);
-        }
-      }
-      
       if (coachStateRes?.ok) {
         setCoachState(await coachStateRes.json());
-      }
-      
-      if (improvementRes?.ok) {
-        const impData = await improvementRes.json();
-        if (impData?.show_improvement) {
-          setImprovementMessage(impData.message);
-        }
       }
     } catch (err) {
       console.error("Error fetching home data:", err);
@@ -161,13 +140,7 @@ const CoachHome = ({ user }) => {
     }
   };
 
-  const handleStartRecovery = () => {
-    if (freshLoss?.game_id) {
-      navigate(`/recover/${freshLoss.game_id}`);
-    }
-  };
-
-  // Greeting based on time
+  // Get greeting based on time
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -185,363 +158,370 @@ const CoachHome = ({ user }) => {
     );
   }
 
-  const hasFreshLoss = freshLoss?.has_fresh_loss;
-  const userName = user?.name?.split(" ")[0] || "Player";
+  const userName = user?.name?.split(" ")[0] || "there";
   const hasData = homeData?.has_data;
-  const hasNewGame = homeData?.last_game?.is_new;
+  const gamesNeedingReflection = homeData?.games_needing_reflection || [];
+  const hasGamesToReflect = gamesNeedingReflection.length > 0;
+  const lastGame = homeData?.last_game;
+  const focusStage = coachState?.active_theme || homeData?.development_phase?.phase_name;
+  const focusAdvice = homeData?.active_advice;
+  
+  // Determine the primary state
+  const getPrimaryState = () => {
+    if (hasGamesToReflect) return "REFLECT";
+    if (mission?.mission_id) return "TRAIN";
+    if (!hasData) return "NO_GAMES";
+    return "TRAIN";
+  };
+  
+  const primaryState = getPrimaryState();
 
   return (
     <Layout user={user}>
-      <div className="max-w-2xl mx-auto space-y-6" data-testid="coach-home">
-        {/* Greeting */}
-        <motion.p 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-sm text-muted-foreground"
-        >
-          {getGreeting()}, {userName}
-        </motion.p>
-
-        {/* P1.6: Reanalysis Progress Banner */}
-        {reanalysisStatus && reanalysisStatus.status === "RUNNING" && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 py-2 px-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-sm"
-            data-testid="reanalysis-banner"
-          >
-            <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-            <span className="text-blue-300">
-              Updating your coaching history: {reanalysisStatus.processed_games}/{reanalysisStatus.total_games} games analyzed...
-            </span>
-          </motion.div>
-        )}
-
-        {/* Improvement Message - Shows after deep session if user improved */}
-        {improvementMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 py-2 px-4 rounded-lg bg-green-500/10 border border-green-500/30 text-sm"
-          >
-            <TrendingUp className="w-4 h-4 text-green-400" />
-            <span className="text-green-300">{improvementMessage}</span>
-          </motion.div>
-        )}
-
+      <div className="max-w-2xl mx-auto space-y-4 pb-8" data-testid="coach-home">
+        
         {/* Deep Session Banner - Shows when coaching review is due */}
         <DeepSessionBanner onStartSession={() => setShowDeepSession(true)} />
-
-        {/* Section 1: Focus Stage Banner - Single Source of Truth */}
-        {/* Priority: coachState.active_theme (locked) > homeData.development_phase (calculated) */}
-        {coachState?.active_theme ? (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5 p-3"
-            data-testid="locked-focus-banner"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Target className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Your Focus Stage
-                </p>
-                <p className="font-semibold text-primary">
-                  {coachState.active_theme?.replace(/([A-Z])/g, ' $1').trim()}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        ) : hasData && homeData.development_phase ? (
-          <DevelopmentPhaseBanner phase={homeData.development_phase} />
-        ) : null}
-
-        {/* Section 2: Primary Action Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          {hasFreshLoss ? (
-            <PostLossRecoveryCard 
-              loss={freshLoss} 
-              onStart={handleStartRecovery}
-            />
-          ) : mission?.mission_id ? (
-            <ActiveMissionCard 
-              mission={mission}
-              onStart={handleStartMission}
-              starting={starting}
-            />
-          ) : (
-            <NoMissionCard onImport={() => navigate("/import")} />
-          )}
-        </motion.div>
-
-        {/* Section 3: Active Advice (THE KEY CARD) */}
-        {hasData && homeData.active_advice && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-          >
-            <ActiveAdviceCard 
-              advice={homeData.active_advice}
-              focusCapacity={homeData.focus_capacity?.level}
-            />
-          </motion.div>
-        )}
-
-        {/* Section 3.6: Play with Coach - Training Mode */}
+        
+        {/* ============================================ */}
+        {/* HERO SECTION - Personal Coaching Greeting   */}
+        {/* ============================================ */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.17 }}
-          className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 p-4 cursor-pointer hover:border-primary/50 transition-colors"
-          onClick={() => navigate("/play-with-coach")}
-          data-testid="play-with-coach-card"
+          className="rounded-2xl border bg-gradient-to-br from-card to-card/50 p-5"
+          data-testid="hero-section"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-primary/20">
-                <Swords className="w-5 h-5 text-primary" />
+          {/* Greeting with context */}
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h1 className="text-xl font-semibold mb-1">
+                {getGreeting()}, {userName}
+              </h1>
+              {focusStage && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Target className="w-4 h-4 text-primary" />
+                  <span>Focus: <span className="text-primary font-medium">{focusStage.replace(/([A-Z])/g, ' $1').trim()}</span></span>
+                </div>
+              )}
+            </div>
+            {hasData && (
+              <Badge variant="outline" className="text-xs">
+                {homeData?.games_analyzed || 0} games analyzed
+              </Badge>
+            )}
+          </div>
+          
+          {/* State-based hero content */}
+          {primaryState === "REFLECT" && lastGame && (
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-muted/50 border border-muted">
+                <p className="text-sm text-muted-foreground mb-2">Your last game:</p>
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getResultStyle(lastGame.result).bg}`}>
+                    <span className={`font-bold ${getResultStyle(lastGame.result).color}`}>
+                      {getResultStyle(lastGame.result).emoji}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">vs {lastGame.opponent_name || lastGame.opponent || "Opponent"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {lastGame.result === "loss" && lastGame.key_mistake ? (
+                        <span className="text-amber-500">{lastGame.key_mistake}</span>
+                      ) : lastGame.result === "win" ? (
+                        <span className="text-green-500">Well played!</span>
+                      ) : (
+                        <span>{getTimeSince(lastGame.date)}</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-base flex items-center gap-2">
-                  Play with Coach
-                  <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">
-                    NEW
-                  </Badge>
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Train against an intelligent opponent with real-time guidance
+              
+              <p className="text-sm">
+                <span className="text-amber-500 font-medium">{gamesNeedingReflection.length} game{gamesNeedingReflection.length !== 1 ? 's' : ''}</span>
+                {" "}waiting for reflection. Let's understand what happened.
+              </p>
+            </div>
+          )}
+          
+          {primaryState === "TRAIN" && (
+            <div className="space-y-3">
+              {gamesNeedingReflection.length === 0 && hasData && (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <span className="text-sm text-green-600 dark:text-green-400">
+                    All caught up! You've reflected on your recent games.
+                  </span>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Time to train. Today's focus: <span className="text-foreground font-medium">{focusStage || "Tactical awareness"}</span>
+              </p>
+            </div>
+          )}
+          
+          {primaryState === "NO_GAMES" && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                I haven't seen any games yet. Play some games on Lichess/Chess.com, 
+                then import them so we can start learning together.
+              </p>
+            </div>
+          )}
+        </motion.div>
+        
+        {/* ============================================ */}
+        {/* PRIMARY ACTION - Based on State             */}
+        {/* ============================================ */}
+        
+        {/* State: REFLECT - Games needing reflection */}
+        {primaryState === "REFLECT" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                Games to Reflect
+              </h2>
+              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                {gamesNeedingReflection.length} waiting
+              </Badge>
+            </div>
+            
+            <div className="space-y-2">
+              {gamesNeedingReflection.slice(0, 3).map((game, index) => {
+                const style = getResultStyle(game.result);
+                return (
+                  <motion.button
+                    key={game.game_id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 + index * 0.05 }}
+                    onClick={() => navigate(`/reflect?game=${game.game_id}`)}
+                    className="w-full p-3 rounded-xl border bg-card hover:bg-accent/50 transition-colors text-left group"
+                    data-testid={`reflect-game-${index}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${style.bg}`}>
+                        <span className={`text-lg font-bold ${style.color}`}>{style.emoji}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">vs {game.opponent_name || game.opponent || "Opponent"}</span>
+                          <span className="text-xs text-muted-foreground">{getTimeSince(game.date)}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {game.moments_count || game.blunders || 0} moment{(game.moments_count || game.blunders || 0) !== 1 ? 's' : ''} to review
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </div>
+                  </motion.button>
+                );
+              })}
+              
+              {gamesNeedingReflection.length > 3 && (
+                <p className="text-xs text-center text-muted-foreground pt-1">
+                  +{gamesNeedingReflection.length - 3} more game{gamesNeedingReflection.length - 3 !== 1 ? 's' : ''}
                 </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+        
+        {/* State: TRAIN - Today's Mission */}
+        {primaryState === "TRAIN" && mission?.mission_id && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                Today's Training
+              </h2>
+            </div>
+            
+            <div 
+              className="p-4 rounded-xl border bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 cursor-pointer hover:border-primary/40 transition-colors"
+              onClick={handleStartMission}
+              data-testid="mission-card"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                  <Brain className="w-6 h-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold mb-1">{mission.name || "Training Mission"}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">{mission.description || "Practice your focus area"}</p>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {mission.estimated_time || "7 min"}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Target className="w-3 h-3" />
+                      {mission.position_count || 5} positions
+                    </span>
+                  </div>
+                </div>
+                <Button size="sm" disabled={starting}>
+                  {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start"}
+                </Button>
               </div>
             </div>
-            <Button size="sm" className="gap-2">
-              <Play className="w-4 h-4" />
-              Start
+          </motion.div>
+        )}
+        
+        {/* State: NO_GAMES - Import prompt */}
+        {primaryState === "NO_GAMES" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Button 
+              className="w-full h-14 text-base"
+              onClick={() => navigate("/import")}
+              data-testid="import-games-btn"
+            >
+              <Gamepad2 className="w-5 h-5 mr-2" />
+              Import Your Games
             </Button>
-          </div>
-        </motion.div>
-
-        {/* Section 4: Last Game • Coach Analysis - FROM GameCoachSummary */}
-        {homeData?.last_game?.game_id && (
+            <p className="text-xs text-center text-muted-foreground mt-2">
+              Connect your Lichess or Chess.com account to get started
+            </p>
+          </motion.div>
+        )}
+        
+        {/* ============================================ */}
+        {/* YOUR FOCUS - The ONE thing to work on       */}
+        {/* ============================================ */}
+        {focusAdvice && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
+            className="p-4 rounded-xl border bg-gradient-to-br from-amber-500/5 to-amber-500/10 border-amber-500/20"
+            data-testid="focus-advice-card"
           >
-            <LastGameCoachCard gameId={homeData.last_game.game_id} />
-          </motion.div>
-        )}
-
-        {/* Section 4.5: Games Needing Reflection (max 5, from last 3 days) */}
-        {homeData?.games_needing_reflection?.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.22 }}
-            className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4"
-            data-testid="games-needing-reflection"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-amber-400" />
-                <span className="font-medium text-amber-200">Games to Reflect On</span>
-                <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-xs">
-                  {homeData.games_needing_reflection.length}
-                </Badge>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-5 h-5 text-amber-500" />
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/reflect")}
-                className="text-amber-400 hover:text-amber-300 h-7 text-xs"
-              >
-                View All
-                <ChevronRight className="w-3 h-3 ml-1" />
-              </Button>
+              <div>
+                <h3 className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">
+                  Your Focus
+                </h3>
+                <p className="text-sm font-medium">
+                  {focusAdvice.advice || focusAdvice.message || "Before each move, check what your opponent is threatening."}
+                </p>
+              </div>
             </div>
-            <div className="space-y-2">
-              {homeData.games_needing_reflection.slice(0, 3).map((game, index) => {
-                // Format time since - use hours_ago from API
-                let timeSince = "";
-                if (game.hours_ago !== undefined) {
-                  const hours = Math.floor(game.hours_ago);
-                  const days = Math.floor(hours / 24);
-                  if (days > 0) timeSince = `${days}d ago`;
-                  else if (hours > 0) timeSince = `${hours}h ago`;
-                  else timeSince = "Just now";
-                } else if (game.analyzed_at) {
-                  timeSince = getTimeSince(game.analyzed_at);
-                }
-                return (
-                  <div
-                    key={game.game_id || index}
-                    className="flex items-center justify-between p-2 rounded-lg bg-background/50 hover:bg-background/80 cursor-pointer transition-colors"
-                    onClick={() => navigate(`/reflect?game=${game.game_id}`)}
-                    data-testid={`reflect-game-${index}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${
-                        game.result === 'win' ? 'bg-emerald-500' :
-                        game.result === 'loss' ? 'bg-red-500' :
-                        'bg-muted-foreground'
-                      }`} />
-                      <span className="text-sm">
-                        {game.result === 'win' ? 'Won' : game.result === 'loss' ? 'Lost' : 'Drew'} vs {game.opponent_name || game.opponent || 'Opponent'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {game.critical_moments_count > 0 && (
-                        <span className="text-amber-400">
-                          {game.critical_moments_count} moment{game.critical_moments_count !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                      {timeSince && <span>{timeSince}</span>}
-                      <ChevronRight className="w-3 h-3" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {homeData.games_needing_reflection.length > 3 && (
-              <p className="text-xs text-center text-muted-foreground mt-2">
-                +{homeData.games_needing_reflection.length - 3} more game{homeData.games_needing_reflection.length - 3 !== 1 ? 's' : ''}
-              </p>
-            )}
           </motion.div>
         )}
-
-        {/* Section 5: Recommended Drill */}
-        {hasData && homeData.recommended_drill && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-          >
-            <RecommendedDrillCard 
-              drill={homeData.recommended_drill}
-              advice={homeData.active_advice}
-            />
-          </motion.div>
-        )}
-
-        {/* Section 6: Quick Actions */}
+        
+        {/* ============================================ */}
+        {/* PLAY WITH COACH - Training mode             */}
+        {/* ============================================ */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="flex gap-3"
+          transition={{ delay: 0.25 }}
+          className="p-4 rounded-xl border bg-card hover:bg-accent/30 cursor-pointer transition-colors"
+          onClick={() => navigate("/play-with-coach")}
+          data-testid="play-with-coach-card"
         >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/import")}
-            className="flex-1 text-muted-foreground"
-            data-testid="quick-import"
-          >
-            <Import className="w-4 h-4 mr-2" />
-            Import Games
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/progress")}
-            className="flex-1 text-muted-foreground"
-            data-testid="quick-progress"
-          >
-            <TrendingUp className="w-4 h-4 mr-2" />
-            View Journey
-          </Button>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <MessageCircle className="w-6 h-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold">Play with Coach</h3>
+                <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">NEW</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Practice with real-time guidance
+              </p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+          </div>
         </motion.div>
+        
+        {/* ============================================ */}
+        {/* PROGRESS SECTION - Skill tracking           */}
+        {/* ============================================ */}
+        {hasData && coachState?.skill_progress && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="p-4 rounded-xl border bg-card"
+            data-testid="progress-section"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                {focusStage || "Skill"} Progress
+              </h3>
+              <span className="text-sm font-medium text-primary">
+                {coachState.skill_progress.percentage || 0}%
+              </span>
+            </div>
+            <Progress value={coachState.skill_progress.percentage || 0} className="h-2 mb-2" />
+            <p className="text-xs text-muted-foreground">
+              {coachState.skill_progress.games_completed || 0} of {coachState.skill_progress.games_required || 10} games to master this skill
+            </p>
+          </motion.div>
+        )}
+        
+        {/* ============================================ */}
+        {/* QUICK ACTIONS                               */}
+        {/* ============================================ */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="grid grid-cols-3 gap-2"
+        >
+          <button
+            onClick={() => navigate("/coach")}
+            className="p-3 rounded-xl border bg-card hover:bg-accent/50 transition-colors text-center"
+            data-testid="puzzles-action"
+          >
+            <Target className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Puzzles</span>
+          </button>
+          <button
+            onClick={() => navigate("/progress")}
+            className="p-3 rounded-xl border bg-card hover:bg-accent/50 transition-colors text-center"
+            data-testid="progress-action"
+          >
+            <TrendingUp className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Progress</span>
+          </button>
+          <button
+            onClick={() => navigate("/analyze")}
+            className="p-3 rounded-xl border bg-card hover:bg-accent/50 transition-colors text-center"
+            data-testid="analyze-action"
+          >
+            <Brain className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Analyze</span>
+          </button>
+        </motion.div>
+        
       </div>
-
+      
       {/* Deep Session Modal */}
-      <DeepSessionModal
-        isOpen={showDeepSession}
-        onClose={() => setShowDeepSession(false)}
-        onComplete={() => {
-          setShowDeepSession(false);
-          fetchAllData();  // Refresh data after session
-        }}
-      />
+      {showDeepSession && (
+        <DeepSessionModal onClose={() => setShowDeepSession(false)} />
+      )}
     </Layout>
   );
 };
-
-/* ========== SUB-COMPONENTS ========== */
-
-/**
- * Post-Loss Recovery Card - High priority when fresh loss exists
- */
-const PostLossRecoveryCard = ({ loss, onStart }) => {
-  const minutes = loss?.estimated_minutes || 6;
-  const focus = loss?.focus_label || "Critical moment";
-  
-  return (
-    <div 
-      className="relative overflow-hidden rounded-xl border-l-4 border-l-red-500 bg-card p-6"
-      data-testid="post-loss-hero"
-    >
-      <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 via-transparent to-transparent pointer-events-none" />
-      
-      <div className="relative space-y-4">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-red-500" />
-          <span className="text-xs font-semibold text-red-500 uppercase tracking-wide">
-            Fresh Loss
-          </span>
-        </div>
-        
-        <h1 className="text-2xl font-bold tracking-tight">
-          Tough game. Let's fix it.
-        </h1>
-        
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-          <Wrench className="w-5 h-5 text-muted-foreground" />
-          <div>
-            <p className="text-xs text-muted-foreground">Focus Area</p>
-            <p className="text-sm font-medium">{focus}</p>
-          </div>
-        </div>
-        
-        <Button 
-          onClick={onStart}
-          size="lg"
-          className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold"
-          data-testid="start-recovery-btn"
-        >
-          Fix this in {minutes} min
-          <ChevronRight className="w-5 h-5 ml-2" />
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-/**
- * No Mission Card - When user has no games/mission
- */
-const NoMissionCard = ({ onImport }) => (
-  <div 
-    className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center"
-    data-testid="no-mission-card"
-  >
-    <Gamepad2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-    <h2 className="text-lg font-semibold mb-2">No mission yet</h2>
-    <p className="text-sm text-muted-foreground mb-4">
-      Import a game to get your personalized coaching plan.
-    </p>
-    <Button onClick={onImport} data-testid="import-first-game">
-      <Import className="w-4 h-4 mr-2" />
-      Import Your First Game
-    </Button>
-  </div>
-);
 
 export default CoachHome;
