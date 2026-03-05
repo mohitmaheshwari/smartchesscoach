@@ -85,6 +85,29 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 
 ---
 
+## Recent Updates
+
+### P0 - "95/100" Home Page Redesign ✅ COMPLETED (Mar 6, 2026)
+Upgraded home page to feel like a personal coaching session:
+
+**What Changed:**
+- Updated `CoachHome.jsx` to use V2 API data (`specific_patterns`, `progress_trend`, `last_session`)
+- Displays specific behavioral patterns: "27x you missed opponent's threats this week"
+- Shows progress trends: "Steady progress. Stay focused on your habits."
+- Celebrates wins with trophy icon and "Clean win! Let's see what worked."
+- Shows session continuity for returning users
+
+**Key Files Modified:**
+- `/app/frontend/src/pages/CoachHome.jsx` - Frontend component
+- `/app/backend/home_intelligence_service.py` - Already had V2 functions
+
+**Test Status:** 100% passing (67/67 tests)
+- Frontend: 35/35 specs passed
+- Backend: 32/32 tests passed
+- New specs: `/app/tests/e2e/coach-home-v2.spec.ts`, `/app/backend/tests/test_home_intelligence_v2.py`
+
+---
+
 ## Next Steps
 
 ### P0 - Step 9 Integration ✅ COMPLETED (Mar 3, 2026)
