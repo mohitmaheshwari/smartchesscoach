@@ -215,64 +215,60 @@ const CoachHome = ({ user }) => {
           {/* State-based hero content */}
           {primaryState === "REFLECT" && (
             <div className="space-y-3">
-              {/* Show the most important game to reflect on */}
-              {gamesNeedingReflection[0] && (() => {
-                const topGame = gamesNeedingReflection[0];
-                const style = getResultStyle(topGame.result);
-                const blunders = topGame.blunders || 0;
-                const mistakes = topGame.mistakes || 0;
-                const accuracy = topGame.accuracy;
+              {/* Behavioral insight - What pattern are we seeing? */}
+              {(() => {
+                // Calculate behavioral trends from games needing reflection
+                const recentGames = gamesNeedingReflection.slice(0, 5);
+                const totalBlunders = recentGames.reduce((sum, g) => sum + (g.blunders || 0), 0);
+                const totalMistakes = recentGames.reduce((sum, g) => sum + (g.mistakes || 0), 0);
+                const losses = recentGames.filter(g => g.result === "loss").length;
+                const wins = recentGames.filter(g => g.result === "win").length;
+                const avgAccuracy = recentGames.filter(g => g.accuracy).length > 0 
+                  ? Math.round(recentGames.reduce((sum, g) => sum + (g.accuracy || 0), 0) / recentGames.filter(g => g.accuracy).length)
+                  : null;
                 
-                // Generate coaching insight based on game data
-                let coachInsight = "";
-                if (topGame.result === "loss") {
-                  if (blunders >= 2) {
-                    coachInsight = `You had ${blunders} blunders. Let's understand what went wrong.`;
-                  } else if (blunders === 1) {
-                    coachInsight = "One critical blunder cost you the game. Let's learn from it.";
-                  } else if (mistakes >= 3) {
-                    coachInsight = "Small mistakes added up. Let's find the pattern.";
-                  } else {
-                    coachInsight = "Close game! Let's see where it slipped away.";
-                  }
-                } else if (topGame.result === "win") {
-                  if (blunders > 0) {
-                    coachInsight = "You won, but there were moments to learn from.";
-                  } else {
-                    coachInsight = "Clean win! But always room to improve.";
-                  }
+                // Generate behavioral insight based on patterns
+                let behaviorInsight = "";
+                let insightType = "neutral"; // neutral, warning, positive
+                
+                if (totalBlunders >= 5) {
+                  behaviorInsight = `${totalBlunders} blunders in your recent games. There's a pattern here - let's find it.`;
+                  insightType = "warning";
+                } else if (losses >= 3 && wins === 0) {
+                  behaviorInsight = "Tough stretch. But every loss is a lesson if we reflect on it.";
+                  insightType = "warning";
+                } else if (avgAccuracy && avgAccuracy < 65) {
+                  behaviorInsight = `${avgAccuracy}% average accuracy. Small improvements in calculation will change everything.`;
+                  insightType = "warning";
+                } else if (wins >= losses && totalBlunders <= 2) {
+                  behaviorInsight = "You're playing solid chess. Let's keep building on that.";
+                  insightType = "positive";
+                } else if (gamesNeedingReflection.length >= 3) {
+                  behaviorInsight = "A few games to catch up on. Reflection is where real learning happens.";
+                  insightType = "neutral";
                 } else {
-                  coachInsight = "A fighting draw. Let's see if you could have pushed for more.";
+                  behaviorInsight = "Let's review your recent play and find opportunities to improve.";
+                  insightType = "neutral";
                 }
                 
+                const insightColors = {
+                  warning: "text-amber-600 dark:text-amber-400",
+                  positive: "text-green-600 dark:text-green-400",
+                  neutral: "text-muted-foreground"
+                };
+                
                 return (
-                  <div className="p-3 rounded-lg bg-muted/50 border border-muted">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${style.bg}`}>
-                        <span className={`text-lg font-bold ${style.color}`}>
-                          {style.emoji}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium">vs {topGame.opponent_name || "Opponent"}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {accuracy && <span>{accuracy}% accuracy</span>}
-                          {blunders > 0 && <span className="text-red-500">{blunders} blunder{blunders !== 1 ? 's' : ''}</span>}
-                          {mistakes > 0 && <span className="text-amber-500">{mistakes} mistake{mistakes !== 1 ? 's' : ''}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground italic pl-13">
-                      "{coachInsight}"
+                  <div className="space-y-2">
+                    <p className={`text-sm ${insightColors[insightType]}`}>
+                      {behaviorInsight}
+                    </p>
+                    <p className="text-sm">
+                      <span className="text-primary font-medium">{gamesNeedingReflection.length} game{gamesNeedingReflection.length !== 1 ? 's' : ''}</span>
+                      {" "}waiting for reflection.
                     </p>
                   </div>
                 );
               })()}
-              
-              <p className="text-sm">
-                <span className="text-amber-500 font-medium">{gamesNeedingReflection.length} game{gamesNeedingReflection.length !== 1 ? 's' : ''}</span>
-                {" "}waiting for reflection.
-              </p>
             </div>
           )}
           
@@ -326,6 +322,23 @@ const CoachHome = ({ user }) => {
             <div className="space-y-2">
               {gamesNeedingReflection.slice(0, 3).map((game, index) => {
                 const style = getResultStyle(game.result);
+                const blunders = game.blunders || 0;
+                const accuracy = game.accuracy;
+                
+                // Individual game insight
+                let gameInsight = "";
+                if (game.result === "loss" && blunders >= 2) {
+                  gameInsight = `${blunders} blunders to understand`;
+                } else if (game.result === "loss" && blunders === 1) {
+                  gameInsight = "1 critical moment";
+                } else if (game.result === "win" && blunders > 0) {
+                  gameInsight = "Won but got lucky";
+                } else if (accuracy && accuracy < 60) {
+                  gameInsight = `${accuracy}% accuracy`;
+                } else {
+                  gameInsight = `${game.moments_count || game.critical_moments_count || 0} moment${(game.moments_count || game.critical_moments_count || 0) !== 1 ? 's' : ''} to review`;
+                }
+                
                 return (
                   <motion.button
                     key={game.game_id}
@@ -343,10 +356,10 @@ const CoachHome = ({ user }) => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium truncate">vs {game.opponent_name || game.opponent || "Opponent"}</span>
-                          <span className="text-xs text-muted-foreground">{getTimeSince(game.date)}</span>
+                          <span className="text-xs text-muted-foreground">{getTimeSince(game.date || game.analyzed_at)}</span>
                         </div>
                         <p className="text-xs text-muted-foreground truncate">
-                          {game.moments_count || game.blunders || 0} moment{(game.moments_count || game.blunders || 0) !== 1 ? 's' : ''} to review
+                          {gameInsight}
                         </p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
