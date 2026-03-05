@@ -3722,6 +3722,54 @@ async def analyze_move_cognitive_gap(
     # Add coaching message
     coaching_message = get_coaching_message(gap_result)
     
+    # ENHANCEMENT: For positional misreads and generic gaps, get POSITION-SPECIFIC insights
+    if gap_result.get("primary_gap") in ["positional_misread", "calculation_depth", "wrong_plan"]:
+        try:
+            from services.position_strategy_analyzer import generate_move_specific_insight
+            pv_after_best = target_eval.get("pv_after_best", [])
+            # cp_loss can be directly from stockfish or calculated
+            cp_loss_val = target_eval.get("cp_loss", 0)
+            if not cp_loss_val and eval_before is not None and eval_after is not None:
+                cp_loss_val = abs(int((eval_before - eval_after) * 100))
+            user_color = game.get("user_color", "white") if game else "white"
+            
+            logger.info(f"Position-specific insight: threat={threat}, cp_loss={cp_loss_val}, user_move={user_move}, best_move={best_move}")
+            
+            specific_insight = generate_move_specific_insight(
+                fen_before=fen_before,
+                user_move=user_move,
+                best_move=best_move,
+                pv_after_best=pv_after_best,
+                cp_loss=cp_loss_val,
+                user_color=user_color,
+                threat=threat
+            )
+            
+            # Override generic explanation with position-specific one
+            if specific_insight and not specific_insight.get("error"):
+                # Build a better explanation
+                what_missed = specific_insight.get("what_you_missed", "")
+                what_best_achieves = specific_insight.get("what_best_move_achieves", "")
+                why_wrong = specific_insight.get("why_your_move_was_wrong", "")
+                
+                # Create concise, specific explanation
+                if what_missed and what_best_achieves:
+                    gap_result["explanation"] = f"{what_missed}. {best_move} would have {what_best_achieves.lower() if what_best_achieves[0].isupper() else what_best_achieves}."
+                elif what_best_achieves:
+                    gap_result["explanation"] = f"{best_move} {what_best_achieves.lower() if what_best_achieves[0].isupper() else what_best_achieves}. {why_wrong}"
+                
+                # Add position-specific coaching focus
+                if specific_insight.get("the_idea_you_should_learn"):
+                    gap_result["coaching_focus"] = specific_insight["the_idea_you_should_learn"]
+                
+                # Add how to spot this
+                if specific_insight.get("how_to_spot_this"):
+                    gap_result["how_to_spot"] = specific_insight["how_to_spot_this"]
+                    
+                logger.info(f"Enhanced positional misread with specific insight: {gap_result['explanation'][:100]}")
+        except Exception as e:
+            logger.warning(f"Could not enhance with position-specific insight: {e}")
+    
     # PHASE 1: Persist the cognitive gap for tracking
     await persist_cognitive_gap(
         db=db,

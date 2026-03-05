@@ -28,6 +28,7 @@ A self-correcting AI system that learns from user feedback to improve mistake cl
 - Progress trends and session continuity
 - Games to Reflect queue with opponent names and blunder counts
 - Active Focus card
+- **NEW: "Start Training" button** - Auto-routes to Prescribed Training based on dominant weakness
 
 #### 3. Lab Page "Human Coach" Vision ✅ (Mar 6, 2026)
 - "Where It Went Wrong" section with specific move comparisons
@@ -44,11 +45,12 @@ The core "Improvement Loop" connecting diagnosis to training:
 - "FROM YOUR GAME" badges with threat information
 - Progress tracking (solved count, accuracy)
 
-#### 5. Reflect Page ✅ (Mar 6, 2026)
-- Moment-by-moment game reflection
-- Quick select options for user thinking
-- "Show on board" feature
-- Free text input for custom explanations
+#### 5. Position-Specific Reflection Feedback ✅ (Dec 5, 2025)
+Fixed the generic advice problem in Reflect:
+- **Before**: "The best move was positional rather than tactical."
+- **After**: "You missed checkmate! After your move, opponent had Re1+ leading to checkmate."
+- Now detects mate-level blunders (cp_loss >= 9000) even when threat doesn't say "mate"
+- Uses `generate_move_specific_insight()` for accurate explanations
 
 #### 6. Play with Coach Mode ✅
 - Live coaching during games
@@ -62,20 +64,36 @@ The core "Improvement Loop" connecting diagnosis to training:
 
 | Endpoint | Purpose |
 |----------|---------|
-| `GET /api/home-intelligence/v2` | Powers Home page with patterns |
+| `GET /api/coach/home-intelligence` | Powers Home page with patterns |
 | `GET /api/lab/{game_id}` | Lab page with biggest_blunder data |
 | `GET /api/lab/deep-strategy-analysis` | Position-specific insights |
 | `GET /api/training/prescribed/{weakness}` | Prescribed training puzzles |
 | `POST /api/training/puzzle-attempt` | Record puzzle attempt |
+| `POST /api/games/{game_id}/move/{move_number}/analyze-gap` | Cognitive gap analysis with position-specific feedback |
 | `GET /api/reflect/pending` | Games needing reflection |
+
+---
+
+## Recent Fixes (Dec 5, 2025)
+
+### Fix 1: Generic Reflection Feedback
+**Problem**: Reflect page showed useless advice like "positional misread" without explaining WHAT was missed.
+**Solution**: 
+- Updated `cognitive_gap_service.py` to detect mate-level blunders
+- Added position-specific insights via `position_strategy_analyzer.py`
+- Now shows: "You missed checkmate! After your move, opponent had Re1+ leading to checkmate."
+
+### Fix 2: Start Training Button
+**Added**: "Start Training (28 missed threats to fix)" button on Home page
+- Auto-routes to Prescribed Training based on dominant weakness
+- Connects diagnosis directly to treatment
 
 ---
 
 ## Pending User Verification
 
-1. **Reflect Page Flow** - Test completing a moment and progressing to the next
-2. **Puzzle Display Bug** - If "piece not on board" issue occurs, report specific puzzle
-3. **Prescribed Training** - Verify puzzles from own games are helpful
+1. **Reflect Page Flow** - Test completing a moment and verify new specific feedback
+2. **Start Training Button** - Verify navigation to Prescribed Training works
 
 ---
 
@@ -119,30 +137,18 @@ The core "Improvement Loop" connecting diagnosis to training:
 ```
 /app
 ├── backend/
-│   ├── coach_engine/
-│   │   ├── wisdom_library.py (16 V1 rules)
-│   │   ├── piece_metrics.py
-│   │   ├── rule_validator.py
-│   │   └── teaching_engine.py
+│   ├── cognitive_gap_service.py     # (Modified) Now detects mate-level blunders
 │   ├── services/
-│   │   ├── pattern_learning/
-│   │   ├── home/ (home_intelligence_service_v2.py)
-│   │   ├── blunder_intelligence/
-│   │   │   ├── blunder_intelligence_service.py
-│   │   │   └── deep_strategy_analyzer.py
-│   │   └── coaching_puzzle_service.py
-│   └── server.py
+│   │   ├── position_strategy_analyzer.py  # Position-specific insights
+│   │   ├── coaching_puzzle_service.py     # Prescribed training
+│   │   └── ...
+│   └── server.py                    # (Modified) Enhanced cognitive gap endpoint
 └── frontend/
     └── src/
-        ├── components/
-        │   └── lab/
-        │       └── AlternateTimeline.jsx
         └── pages/
-            ├── CoachHome.jsx
-            ├── Lab.jsx
-            ├── CoachPlay.jsx
-            ├── Reflect.jsx
-            └── PrescribedTraining.jsx
+            ├── CoachHome.jsx        # (Modified) Added Start Training button
+            ├── PrescribedTraining.jsx
+            └── ...
 ```
 
 ---
@@ -157,20 +163,11 @@ The core "Improvement Loop" connecting diagnosis to training:
 
 ---
 
-## Testing Status
-
-- Latest test report: `/app/test_reports/iteration_96.json`
-- Backend: 100% passing
-- Frontend: 100% passing
-- All core features tested via testing_agent_fork
-
----
-
 ## Key Principles
 
 1. **NO HALLUCINATION**: Stockfish is source of truth. AI explains, doesn't invent.
-2. **IMPROVEMENT LOOP**: Connect diagnosis to training (don't just identify weaknesses, fix them)
-3. **POSITION-SPECIFIC**: No generic advice like "trade pieces when ahead"
+2. **POSITION-SPECIFIC**: No generic advice like "trade pieces when ahead" - say exactly what threat was missed
+3. **IMPROVEMENT LOOP**: Connect diagnosis to training (don't just identify weaknesses, fix them)
 4. **HUMAN COACH FEEL**: Conversational, personal, remembers patterns
 
 ---

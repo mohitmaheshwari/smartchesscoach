@@ -481,7 +481,7 @@ const CoachHome = ({ user }) => {
               <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-5 h-5 text-amber-500" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h3 className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">
                   Your Focus
                 </h3>
@@ -490,6 +490,18 @@ const CoachHome = ({ user }) => {
                 </p>
               </div>
             </div>
+            
+            {/* Start Training button - auto-routes to prescribed training */}
+            {specificPatterns?.dominant_pattern && (
+              <Button 
+                className="w-full mt-3 bg-amber-500 hover:bg-amber-600 text-black"
+                onClick={() => navigate(`/training/prescribed?weakness=${specificPatterns.dominant_pattern}`)}
+                data-testid="start-training-btn"
+              >
+                <Target className="w-4 h-4 mr-2" />
+                Start Training ({specificPatterns.pattern_count} {specificPatterns.dominant_pattern.replace(/_/g, " ")}s to fix)
+              </Button>
+            )}
           </motion.div>
         )}
         

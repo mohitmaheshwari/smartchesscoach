@@ -461,14 +461,23 @@ def analyze_cognitive_gap(
     if threat_description:
         threat_lower = threat_description.lower()
         
-        if "mate" in threat_lower or "checkmate" in threat_lower:
+        # Check for mate-level cp_loss (9000+ = checkmate) even if threat doesn't say "mate"
+        is_checkmate_level = cp_loss >= 9000
+        
+        if "mate" in threat_lower or "checkmate" in threat_lower or is_checkmate_level:
+            # Build specific explanation
+            if is_checkmate_level:
+                explanation = f"You missed checkmate! After your move, opponent had {threat_description} leading to checkmate."
+            else:
+                explanation = f"You missed a checkmate threat. {threat_description}"
+            
             return {
                 "primary_gap": CognitiveGap.THREAT_BLINDNESS.value,
                 "confidence": 0.95,
-                "evidence": f"Missed threat: {threat_description}",
-                "explanation": f"You missed a checkmate threat. {threat_description}",
+                "evidence": f"Missed threat: {threat_description}" + (" (leads to checkmate)" if is_checkmate_level else ""),
+                "explanation": explanation,
                 "secondary_gaps": [CognitiveGap.KING_SAFETY_NEGLECT.value],
-                "coaching_focus": "Always check: 'Does opponent have any threats against my king?'",
+                "coaching_focus": "Before EVERY move, ask: 'What can opponent do to me RIGHT NOW? Any checks?'",
             }
         
         if "fork" in threat_lower:
