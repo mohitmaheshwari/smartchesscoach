@@ -55,7 +55,8 @@ import {
   ListChecks,
   Square,
   CheckSquare,
-  Lock
+  Lock,
+  GraduationCap
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
@@ -1688,208 +1689,228 @@ const Lab = ({ user }) => {
                             </div>
                           )}
                           
-                          {/* Block 1: Position Type - Practical description, not abstract categories */}
-                          <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Position Type</p>
-                            <p className="text-sm font-medium">
-                              {(() => {
-                                const openingName = strategicAnalysis.opening?.name;
-                                const pawnType = strategicAnalysis.pawn_structure?.type;
-                                const themes = strategicAnalysis.strategic_themes || [];
-                                const execution = strategicAnalysis.opening?.execution || {};
-                                const details = execution.details || [];
+                          {/* THE STRATEGIC LESSON - Main learning from this game */}
+                          {(() => {
+                            const themes = strategicAnalysis.strategic_themes || [];
+                            const primaryTheme = themes[0]; // First theme is most relevant
+                            
+                            if (!primaryTheme) return null;
+                            
+                            return (
+                              <div className="p-4 rounded-lg bg-gradient-to-br from-violet-900/30 to-slate-900/50 border border-violet-500/20">
+                                <div className="flex items-start gap-3 mb-3">
+                                  <div className="p-2 rounded-lg bg-violet-500/20">
+                                    <GraduationCap className="w-5 h-5 text-violet-400" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-violet-400 uppercase tracking-wide font-medium">Today's Lesson</p>
+                                    <h3 className="text-lg font-semibold text-white">{primaryTheme.theme}</h3>
+                                  </div>
+                                </div>
                                 
-                                // Check for game-specific context
-                                const didCastle = !details.some(d => d.toLowerCase().includes('did not castle'));
-                                const hasDefensiveTheme = themes.some(t => t.theme?.includes('Defensive'));
-                                const pressureMoves = themes.find(t => t.theme?.includes('Defensive'))?.description?.match(/\d+/)?.[0];
+                                <p className="text-sm text-muted-foreground mb-4">
+                                  {primaryTheme.description}
+                                </p>
                                 
-                                // Known opening - use it
-                                if (openingName && !openingName.toLowerCase().includes('unknown')) {
-                                  return openingName;
-                                }
+                                {/* The Theory - What you should know */}
+                                <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/30 mb-3">
+                                  <p className="text-xs text-amber-400 font-medium mb-2 flex items-center gap-1">
+                                    <BookOpen className="w-3 h-3" />
+                                    THEORY
+                                  </p>
+                                  <p className="text-sm text-white">
+                                    {primaryTheme.principle}
+                                  </p>
+                                </div>
                                 
-                                // Build a game-specific description
-                                if (hasDefensiveTheme && !didCastle) {
-                                  return 'Flexible center — your king stayed in the middle while pieces became active.';
-                                }
-                                if (hasDefensiveTheme) {
-                                  return 'Unbalanced position — your opponent had the initiative early.';
-                                }
-                                if (pawnType?.toLowerCase().includes('balanced')) {
-                                  return 'Quiet central structure — neither side committed to a clear pawn break yet.';
-                                }
-                                if (pawnType && pawnType !== 'Unknown') {
-                                  return `${pawnType} — flexible pawn structure with multiple plans available.`;
-                                }
+                                {/* The Rule to Remember */}
+                                {primaryTheme.remember && (
+                                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                    <p className="text-xs text-amber-400 font-medium mb-1 flex items-center gap-1">
+                                      <Lightbulb className="w-3 h-3" />
+                                      RULE TO REMEMBER
+                                    </p>
+                                    <p className="text-sm text-amber-300 italic">
+                                      "{primaryTheme.remember}"
+                                    </p>
+                                  </div>
+                                )}
                                 
-                                return userColor === 'black' 
-                                  ? 'Open position as Black — development speed matters here.'
-                                  : 'Dynamic center — both sides fighting for control.';
-                              })()}
-                            </p>
-                          </div>
+                                {/* Verdict */}
+                                {primaryTheme.verdict && (
+                                  <div className={`mt-3 p-2 rounded-lg text-sm ${
+                                    primaryTheme.verdict.includes('✔') || primaryTheme.verdict.includes('✓')
+                                      ? 'bg-green-500/10 text-green-400'
+                                      : 'bg-red-500/10 text-red-400'
+                                  }`}>
+                                    {primaryTheme.verdict}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                           
-                          {/* Block 2: What the position required - Game-specific plan */}
+                          {/* CRITICAL POSITION - The key moment with board link */}
+                          {(() => {
+                            const themes = strategicAnalysis.strategic_themes || [];
+                            const criticalMoment = themes[0]?.critical_moment || 
+                                                   strategicAnalysis.pawn_structure?.execution?.critical_moment;
+                            
+                            if (!criticalMoment) return null;
+                            
+                            return (
+                              <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <Target className="w-4 h-4 text-red-400" />
+                                    <p className="text-xs text-red-400 uppercase tracking-wide font-medium">Critical Position</p>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs">Move {criticalMoment.move_number}</Badge>
+                                </div>
+                                
+                                <p className="text-sm text-muted-foreground mb-3">
+                                  {criticalMoment.description}
+                                </p>
+                                
+                                {criticalMoment.impact && (
+                                  <p className="text-sm text-red-400 mb-3">
+                                    {criticalMoment.impact}
+                                  </p>
+                                )}
+                                
+                                <button 
+                                  className="w-full p-3 rounded bg-slate-700/30 hover:bg-slate-700/50 transition-colors text-left flex items-center justify-between group"
+                                  onClick={() => {
+                                    const moveNum = criticalMoment.move_number;
+                                    if (moveNum) {
+                                      const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                                      goToMove(targetIdx);
+                                    }
+                                  }}
+                                  data-testid="critical-position-btn"
+                                >
+                                  <div>
+                                    <p className="text-sm text-white font-medium">
+                                      You played: <span className="text-red-400">{criticalMoment.your_move}</span>
+                                    </p>
+                                    {criticalMoment.what_went_wrong && (
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        {criticalMoment.what_went_wrong}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-xs text-primary group-hover:text-primary/80">
+                                    <Play className="w-3 h-3" />
+                                    See on board
+                                  </div>
+                                </button>
+                              </div>
+                            );
+                          })()}
+                          
+                          {/* IMPROVEMENT PLAN - What to do differently next time */}
                           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">What this position required</p>
-                            <div className="space-y-2 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-2 mb-3">
+                              <TrendingUp className="w-4 h-4 text-green-400" />
+                              <p className="text-xs text-green-400 uppercase tracking-wide font-medium">Improvement Plan</p>
+                            </div>
+                            
+                            <div className="space-y-3">
                               {(() => {
                                 const themes = strategicAnalysis.strategic_themes || [];
-                                const execution = strategicAnalysis.opening?.execution || {};
-                                const details = execution.details || [];
+                                const primaryTheme = themes[0];
+                                const opening = strategicAnalysis.opening;
                                 
-                                // Extract game-specific context
-                                const didCastle = !details.some(d => d.toLowerCase().includes('did not castle'));
-                                const hasDefensiveTheme = themes.some(t => t.theme?.includes('Defensive'));
-                                const hasActivityTheme = themes.some(t => t.theme?.includes('Activity'));
-                                const pressureTheme = themes.find(t => t.theme?.includes('Defensive'));
+                                const improvements = [];
                                 
-                                // Build game-aware plan
-                                const planLines = [];
-                                
-                                // Primary instruction based on what went wrong
-                                if (!didCastle && hasDefensiveTheme) {
-                                  planLines.push('Finish development and castle quickly.');
-                                  planLines.push('With active pieces on the board, king safety becomes the priority.');
-                                } else if (!didCastle) {
-                                  planLines.push('Complete development and castle early.');
-                                  planLines.push('An exposed king in the center invites tactical problems.');
-                                } else if (hasDefensiveTheme) {
-                                  planLines.push('Equalize first, then look for counterplay.');
-                                  planLines.push('When under pressure, avoid unnecessary pawn moves.');
-                                } else if (hasActivityTheme) {
-                                  planLines.push('Activate your pieces before starting an attack.');
-                                  planLines.push('The worst piece should be improved first.');
-                                } else {
-                                  planLines.push('Finish development before starting middlegame operations.');
-                                  planLines.push('Connect the rooks and control key central squares.');
+                                // Theme-specific improvement
+                                if (primaryTheme?.theme?.includes('Converting')) {
+                                  improvements.push({
+                                    title: "When you're winning",
+                                    action: "Trade pieces (not pawns), reduce counterplay, keep it simple."
+                                  });
+                                }
+                                if (primaryTheme?.theme?.includes('Defensive')) {
+                                  improvements.push({
+                                    title: "When you're worse",
+                                    action: "Create complications. Avoid trades. Make your opponent prove they can win."
+                                  });
+                                }
+                                if (primaryTheme?.theme?.includes('Activity')) {
+                                  improvements.push({
+                                    title: "Before each move",
+                                    action: "Ask: 'Which piece is my worst? How can I improve it?'"
+                                  });
                                 }
                                 
-                                return planLines.map((line, idx) => (
-                                  <p key={idx}>{line}</p>
+                                // Opening-specific improvement
+                                if (opening?.key_ideas?.length > 0) {
+                                  improvements.push({
+                                    title: "In similar positions",
+                                    action: opening.key_ideas[0]
+                                  });
+                                }
+                                
+                                // Fallback
+                                if (improvements.length === 0) {
+                                  improvements.push({
+                                    title: "Next time",
+                                    action: "Pause on critical moves. Calculate one move deeper before committing."
+                                  });
+                                }
+                                
+                                return improvements.map((item, idx) => (
+                                  <div key={idx} className="flex items-start gap-3">
+                                    <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                      <span className="text-xs text-green-400 font-medium">{idx + 1}</span>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium text-white">{item.title}</p>
+                                      <p className="text-xs text-muted-foreground mt-0.5">{item.action}</p>
+                                    </div>
+                                  </div>
                                 ));
                               })()}
                             </div>
                           </div>
                           
-                          {/* Block 3: What happened - Cause and consequence, not just verdict */}
-                          <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">What happened in your game</p>
+                          {/* OTHER LESSONS - Secondary themes from this game */}
+                          {(() => {
+                            const themes = strategicAnalysis.strategic_themes || [];
+                            const otherThemes = themes.slice(1, 3); // Up to 2 more themes
                             
-                            {(() => {
-                              const execution = strategicAnalysis.opening?.execution || {};
-                              const deviation = execution.critical_deviation;
-                              const details = execution.details || [];
-                              const verdict = execution.verdict || '';
-                              const themes = strategicAnalysis.strategic_themes || [];
-                              
-                              // Extract specific info from details
-                              const mistakes = details.filter(d => d.startsWith('✗') || d.startsWith('\u2717'));
-                              const successes = details.filter(d => d.startsWith('✓') || d.startsWith('\u2713'));
-                              
-                              // Get game-specific context from themes
-                              const defensiveTheme = themes.find(t => t.theme?.includes('Defensive'));
-                              const pressureMoves = defensiveTheme?.description?.match(/(\d+)\s*moves/)?.[1];
-                              const worstEval = defensiveTheme?.critical_moment?.eval_before;
-                              
-                              // Determine if opening was good or bad
-                              const wasGood = verdict.toLowerCase().includes('excellent') || 
-                                             verdict.toLowerCase().includes('solid') ||
-                                             mistakes.length === 0;
-                              
-                              // Parse success details for natural language
-                              const developmentSuccess = successes.find(s => s.toLowerCase().includes('development'));
-                              const pieceCount = developmentSuccess?.match(/(\d+)/)?.[1];
-                              
-                              return (
+                            if (otherThemes.length === 0) return null;
+                            
+                            return (
+                              <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/30">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-3">
+                                  Also relevant in this game
+                                </p>
                                 <div className="space-y-3">
-                                  {/* Main explanation - cause AND consequence */}
-                                  <div className="space-y-2">
-                                    {wasGood ? (
-                                      <p className="text-sm text-green-400">
-                                        You followed the opening plan well and reached a playable position.
-                                      </p>
-                                    ) : (
-                                      <>
-                                        {/* First line: what you did */}
-                                        <p className="text-sm text-muted-foreground">
-                                          {(() => {
-                                            // Build specific explanation
-                                            const didntCastle = mistakes.some(m => m.toLowerCase().includes('castle'));
-                                            const hadGoodDev = pieceCount && parseInt(pieceCount) >= 3;
-                                            
-                                            if (didntCastle && hadGoodDev) {
-                                              return `You developed ${pieceCount} pieces well, but your king remained in the center.`;
-                                            }
-                                            if (didntCastle) {
-                                              return 'You delayed castling while the position was opening up.';
-                                            }
-                                            if (deviation) {
-                                              return `You played ${deviation.your_move} instead of the more accurate ${deviation.better_move}.`;
-                                            }
-                                            return 'The opening deviated from the recommended plan.';
-                                          })()}
-                                        </p>
-                                        
-                                        {/* Second line: consequence */}
-                                        <p className="text-sm text-red-400">
-                                          {(() => {
-                                            if (pressureMoves) {
-                                              return `This allowed your opponent to keep pressure for ${pressureMoves} moves.`;
-                                            }
-                                            if (worstEval && worstEval < -50) {
-                                              return 'This gave your opponent a comfortable advantage.';
-                                            }
-                                            if (deviation?.cp_loss > 200) {
-                                              return 'This was a significant inaccuracy that shifted the balance.';
-                                            }
-                                            return 'This made your position harder to play.';
-                                          })()}
-                                        </p>
-                                      </>
-                                    )}
-                                  </div>
-                                  
-                                  {/* Key Moment - clickable with context */}
-                                  {deviation && (
-                                    <button 
-                                      className="mt-2 p-2 w-full rounded bg-slate-700/30 hover:bg-slate-700/50 transition-colors text-left"
-                                      onClick={() => {
-                                        const moveNum = deviation.move_number;
-                                        if (moveNum) {
-                                          const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
-                                          goToMove(targetIdx);
-                                        }
-                                      }}
-                                      data-testid="strategy-key-moment"
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div>
-                                          <p className="text-xs text-amber-400 font-medium">Key Moment: Move {deviation.move_number}</p>
-                                          <p className="text-xs text-muted-foreground mt-1">
-                                            {deviation.explanation || `You played ${deviation.your_move} instead of ${deviation.better_move}`}
-                                          </p>
-                                        </div>
-                                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                  {otherThemes.map((theme, idx) => (
+                                    <div key={idx} className="flex items-start gap-3">
+                                      <BookOpen className="w-4 h-4 text-muted-foreground mt-0.5" />
+                                      <div>
+                                        <p className="text-sm text-white font-medium">{theme.theme}</p>
+                                        <p className="text-xs text-muted-foreground">{theme.principle}</p>
                                       </div>
-                                    </button>
-                                  )}
-                                  
-                                  {/* Link to Milestones for deeper dive */}
-                                  <button
-                                    onClick={() => setActiveTab('milestones')}
-                                    className="mt-3 flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"
-                                    data-testid="strategy-to-milestones"
-                                  >
-                                    <Lightbulb className="w-3 h-3" />
-                                    See all learning moments in Milestones
-                                    <ChevronRight className="w-3 h-3" />
-                                  </button>
+                                    </div>
+                                  ))}
                                 </div>
-                              );
-                            })()}
-                          </div>
+                              </div>
+                            );
+                          })()}
+                          
+                          {/* Link to Milestones */}
+                          <button
+                            onClick={() => setActiveTab('milestones')}
+                            className="w-full p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors flex items-center justify-center gap-2 text-sm text-violet-400 hover:text-violet-300"
+                            data-testid="strategy-to-milestones"
+                          >
+                            <Lightbulb className="w-4 h-4" />
+                            See all learning moments
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
                         </div>
                       ) : (
                         <div className="text-center py-8 text-muted-foreground">

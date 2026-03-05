@@ -167,16 +167,24 @@ Verified that the stuck loop fix from previous session is working:
 - Moments load correctly with reflection questions
 - User verification confirms functionality
 
-### Phase 2 P1 - Play with Coach UI/UX ✅ ENHANCED (Mar 6, 2026)
-Enhanced CoachPlay chat panel:
-1. **Color-coded messages** based on trigger type:
-   - Warning (red) for risky moves
-   - Teaching (amber) for lessons
-   - Encouragement (green) for good play
-2. **Quick action buttons** for teaching messages:
-   - "Why?" button
-   - "What instead?" button
-3. **Improved response options** with letter indicators (A, B, C)
+### Strategy Tab Redesign ✅ COMPLETED (Mar 6, 2026)
+Completely redesigned Strategy tab from "dull" to educational:
+
+**New Structure:**
+1. **Today's Lesson** - Clear lesson title with theme (e.g., "Converting Advantage")
+2. **Theory** - The chess principle to learn
+3. **Rule to Remember** - Memorable quote/rule (amber highlight)
+4. **Verdict** - Pass/fail with specific move reference
+5. **Critical Position** - Clickable moment with "See on board" button
+6. **Improvement Plan** - Numbered actionable steps
+7. **Also Relevant** - Secondary themes from the game
+
+**Key Improvements:**
+- Theory section teaches chess concepts
+- Memorable rules users can apply
+- Critical position links directly to board
+- Numbered improvement plan is actionable
+- Connected to user's actual game data
 
 ---
 
