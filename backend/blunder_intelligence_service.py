@@ -3516,7 +3516,8 @@ def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
     Adds:
     - Core lesson of the game
     - Strategic analysis (opening, structure, themes)
-    - Positional insight (RAG-backed deep coaching) - NEW
+    - Positional insight (RAG-backed deep coaching)
+    - Wisdom-based lessons (from coach engine) - NEW
     """
     core_lesson = get_core_lesson(analysis)
     strategic_analysis = get_game_strategic_analysis(analysis, game)
@@ -3551,10 +3552,107 @@ def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
         logger.warning(f"Could not generate positional insight: {e}")
         positional_insight = None
     
+    # NEW: Generate wisdom-based lessons for critical moves
+    wisdom_lessons = []
+    try:
+        from coach_engine.teaching_engine import create_teaching_engine
+        from coach_engine.rule_validator import StockfishAnalysis
+        import chess
+        
+        user_id = game.get("user_id", "unknown") if game else "unknown"
+        user_color = game.get("user_color", "black") if game else "black"  # Default to black
+        user_rating = game.get("user_rating", 1200) if game else 1200
+        
+        engine = create_teaching_engine(user_id, user_rating)
+        
+        # Get move-by-move analysis
+        sf_analysis = analysis.get("stockfish_analysis", {})
+        move_evals = sf_analysis.get("move_evaluations", [])
+        
+        for move_eval in move_evals:
+            # Determine if this is user's move based on move number and color
+            move_number = move_eval.get("move_number", 1)
+            fen = move_eval.get("fen_before", "")
+            
+            # Check whose turn it is from FEN
+            is_white_to_move = " w " in fen if fen else True
+            is_user_move = (is_white_to_move and user_color == "white") or \
+                          (not is_white_to_move and user_color == "black")
+            
+            if not is_user_move:
+                continue
+            
+            # Get eval values (they're in centipawns in the data)
+            eval_before = move_eval.get("eval_before", 0) / 100
+            eval_after = move_eval.get("eval_after", 0) / 100
+            
+            # Calculate delta from user's perspective
+            if user_color == "white":
+                delta = int((eval_after - eval_before) * 100)
+            else:
+                delta = int((eval_before - eval_after) * 100)  # Flip for black
+            
+            # Skip if not significant
+            if delta > -80:
+                continue
+            
+            user_move_uci = move_eval.get("move_uci", "")
+            best_move_uci = move_eval.get("best_move_uci", "")
+            
+            if not fen or not user_move_uci:
+                continue
+            
+            try:
+                board = chess.Board(fen)
+                user_move = chess.Move.from_uci(user_move_uci)
+                color = chess.WHITE if user_color.lower() == "white" else chess.BLACK
+                
+                sf = StockfishAnalysis(
+                    eval_before=eval_before,
+                    eval_after=eval_after,
+                    delta_cp=delta,
+                    best_move=best_move_uci,
+                    best_move_eval=eval_before,
+                    pv_line=[best_move_uci],
+                    depth=20,
+                    is_stable=True,
+                )
+                
+                output = engine.process_move(
+                    board=board,
+                    user_move=user_move,
+                    user_color=color,
+                    sf_analysis=sf,
+                    move_number=move_number,
+                )
+                
+                if output and output.rule_id:
+                    wisdom_lessons.append({
+                        "move_number": move_number,
+                        "concept": output.diagnosis,
+                        "your_move": output.your_move,
+                        "better_move": output.sf_move,
+                        "rule": output.memorable_rule,
+                        "rule_id": output.rule_id,
+                        "delta_cp": delta,
+                        "highlights": output.highlights,
+                    })
+            except Exception as e:
+                logger.debug(f"Could not analyze move {move_number}: {e}")
+                continue
+        
+        # Limit to top 3 most impactful lessons
+        wisdom_lessons = sorted(wisdom_lessons, key=lambda x: x.get("delta_cp", 0))[:3]
+        
+    except Exception as e:
+        logger.warning(f"Could not generate wisdom lessons: {e}")
+        wisdom_lessons = []
+    
     return {
         "core_lesson": core_lesson,
         "strategic_analysis": strategic_analysis,
         "positional_insight": positional_insight,
+        "wisdom_lessons": wisdom_lessons,  # NEW
         "analysis": analysis
     }
 

@@ -643,6 +643,7 @@ const Lab = ({ user }) => {
   const coreLesson = labData?.core_lesson;
   const strategicAnalysis = labData?.strategic_analysis;
   const positionalInsight = labData?.positional_insight;
+  const wisdomLessons = labData?.wisdom_lessons || [];
   
   // State for collapsible positional insight
   const [insightExpanded, setInsightExpanded] = useState(false);
@@ -1461,6 +1462,32 @@ const Lab = ({ user }) => {
                               }}
                             />
                           ))}
+                          
+                          {/* 📚 WISDOM-BASED LESSONS - From teaching engine */}
+                          {wisdomLessons.length > 0 && (
+                            <div className="space-y-3">
+                              <p className="text-xs text-muted-foreground uppercase tracking-wide">Chess Principles Applied</p>
+                              {wisdomLessons.map((lesson, idx) => (
+                                <div key={idx} className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Lightbulb className="w-3.5 h-3.5 text-violet-400" />
+                                    <button
+                                      onClick={() => {
+                                        const targetIdx = (lesson.move_number - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                                        goToMove(targetIdx);
+                                      }}
+                                      className="text-xs text-violet-400 hover:text-violet-300"
+                                    >
+                                      Move {lesson.move_number}: {lesson.your_move} → {lesson.better_move}
+                                    </button>
+                                    <span className="text-xs text-red-400 ml-auto">{lesson.delta_cp} cp</span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mb-2">{lesson.concept}</p>
+                                  <p className="text-xs text-violet-300 italic">"{lesson.rule}"</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </>
                       )}
                       

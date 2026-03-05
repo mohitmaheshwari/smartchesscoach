@@ -170,8 +170,17 @@ Integrated teaching engine with existing Play with Coach system:
 - Exports added to `coach_play/__init__.py`
 - All 17 coach_engine tests passing
 
-### P1 - Smart Coach Engine - Phase 3 (Next)
-- Lab integration (replay CoachEvents in game analysis)
+### P1 - Smart Coach Engine - Phase 3 Lab Integration ✅ COMPLETED (Mar 5, 2026)
+Integrated teaching engine with Lab game analysis:
+
+- Added `wisdom_lessons` to `/api/lab/{game_id}` response
+- Lab now shows "Chess Principles Applied" section with:
+  - Clickable move references
+  - Board-grounded diagnosis
+  - Memorable rule from wisdom library
+- Play with Coach `/coach/play/move` endpoint now uses wisdom-based explanations
+  - Falls back to LLM if no rule matches
+  - Stores `rule_id`, `memorable_rule`, `highlights` in coach_messages
 
 ### P2 - Step 10: Identity Formation Layer
 - Long-term, identity-level feedback (e.g., "You are becoming a tactical player")

@@ -801,6 +801,8 @@ async def get_quick_analysis(
         "is_best_move": move_analysis.is_best_move,
         "is_candidate": move_analysis.is_candidate,
         "best_move": move_analysis.best_move_san,
+        "best_move_uci": move_analysis.best_move_uci,
+        "best_move_eval": position_analysis.evaluation,  # Best move maintains eval
         "move_quality": move_analysis.quality.value,
         "phase": position_analysis.phase,
         "opening_name": position_analysis.opening_name,

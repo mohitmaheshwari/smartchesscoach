@@ -12018,23 +12018,82 @@ async def _process_move_and_respond(
         
         # Step 3: Generate and store message if triggered
         if trigger.should_speak:
-            coach_message = await generate_coach_chat_message(
-                trigger_type=trigger.trigger_type.value,
-                context=trigger.context,
-                user_rating=user_rating,
-                user_color=user_color
-            )
+            # First, try to get wisdom-based explanation
+            from coach_play.teaching_integration import enhance_coaching_message
             
-            await db.coach_messages.insert_one({
-                "session_id": session_id,
-                "type": "coach",
-                "message": coach_message,
-                "trigger": trigger.trigger_type.value,
-                "move": user_move,
-                "move_number": move_number,
-                "created_at": datetime.now(timezone.utc),
-                "read": False
-            })
+            wisdom_enhanced = None
+            try:
+                # Get session to find user_id
+                session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+                user_id = session_doc.get("user_id", "unknown") if session_doc else "unknown"
+                
+                # Parse user move to UCI
+                import chess
+                board = chess.Board(fen_before)
+                chess_move = board.parse_san(user_move)
+                
+                wisdom_enhanced = enhance_coaching_message(
+                    fen=fen_before,
+                    user_move_uci=chess_move.uci(),
+                    user_color=user_color,
+                    eval_before=analysis["eval_before"],
+                    eval_after=analysis["eval_after"],
+                    best_move_uci=analysis.get("best_move_uci", ""),
+                    best_move_eval=analysis.get("best_move_eval", analysis["eval_before"]),
+                    move_number=move_number,
+                    user_id=user_id,
+                    user_rating=user_rating,
+                )
+            except Exception as e:
+                logger.warning(f"Wisdom enhancement failed: {e}")
+            
+            # Use wisdom-based message if available, otherwise fall back to LLM
+            if wisdom_enhanced and wisdom_enhanced.get("rule_id"):
+                # Wisdom-based coaching message
+                coach_message = wisdom_enhanced.get("chat_message", "")
+                rule_id = wisdom_enhanced.get("rule_id")
+                memorable_rule = wisdom_enhanced.get("memorable_rule", "")
+                highlights = wisdom_enhanced.get("highlights", {})
+                question = wisdom_enhanced.get("question")
+                teaching_level = wisdom_enhanced.get("level", "teach")
+                
+                await db.coach_messages.insert_one({
+                    "session_id": session_id,
+                    "type": "coach",
+                    "message": coach_message,
+                    "trigger": trigger.trigger_type.value,
+                    "move": user_move,
+                    "move_number": move_number,
+                    "created_at": datetime.now(timezone.utc),
+                    "read": False,
+                    # Wisdom-based enhancements
+                    "rule_id": rule_id,
+                    "memorable_rule": memorable_rule,
+                    "highlights": highlights,
+                    "question": question,
+                    "teaching_level": teaching_level,
+                    "is_wisdom_based": True,
+                })
+            else:
+                # Fall back to LLM-generated message
+                coach_message = await generate_coach_chat_message(
+                    trigger_type=trigger.trigger_type.value,
+                    context=trigger.context,
+                    user_rating=user_rating,
+                    user_color=user_color
+                )
+                
+                await db.coach_messages.insert_one({
+                    "session_id": session_id,
+                    "type": "coach",
+                    "message": coach_message,
+                    "trigger": trigger.trigger_type.value,
+                    "move": user_move,
+                    "move_number": move_number,
+                    "created_at": datetime.now(timezone.utc),
+                    "read": False,
+                    "is_wisdom_based": False,
+                })
         
         # Step 4: Make coach's responding move (if game not over)
         if not game_over:
