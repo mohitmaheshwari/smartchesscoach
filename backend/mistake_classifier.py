@@ -786,23 +786,21 @@ def find_overloaded_defenders(board: chess.Board, color: chess.Color) -> List[Di
 
 
 def detect_walked_into_fork(board_before: chess.Board, board_after: chess.Board, 
-                           user_color: chess.Color) -> Optional[Dict]:
+                           user_color: chess.Color, opponent_response: str = None) -> Optional[Dict]:
     """
     Detect if user's move walked into a fork.
     
     Compares forks available to opponent before and after the move.
     Only reports NEW forks created by the user's move.
+    
+    Also checks if opponent's NEXT move (opponent_response) creates a fork.
     """
     opponent = not user_color
     
-    # Get forks before and after
+    # First check immediate forks (forks available right after user moves)
     forks_before = find_forks(board_before, opponent)
     forks_after = find_forks(board_after, opponent)
     
-    if not forks_after:
-        return None
-    
-    # Check if this is a NEW fork (not one that existed before)
     forks_before_squares = {f["attacker_square"] for f in forks_before}
     
     for fork in forks_after:
@@ -813,6 +811,28 @@ def detect_walked_into_fork(board_before: chess.Board, board_after: chess.Board,
             if old_fork["attacker_square"] == fork["attacker_square"]:
                 if fork["total_value"] > old_fork["total_value"] + 2:
                     return fork
+    
+    # NEW: Check if opponent's response creates a fork
+    # This catches cases like: User plays Bxc5, opponent plays b4 (pawn fork)
+    if opponent_response:
+        try:
+            board_after_response = board_after.copy()
+            move = board_after_response.parse_san(opponent_response)
+            board_after_response.push(move)
+            
+            # Check for forks after opponent's response
+            forks_after_response = find_forks(board_after_response, opponent)
+            
+            for fork in forks_after_response:
+                # This is a fork created by opponent's response
+                return {
+                    **fork,
+                    "created_by_response": True,
+                    "response_move": opponent_response,
+                    "message": f"After {opponent_response}, opponent forks your pieces"
+                }
+        except (ValueError, chess.IllegalMoveError, chess.InvalidMoveError):
+            pass
     
     return None
 
@@ -1228,7 +1248,8 @@ def classify_mistake(
     eval_after: float,   # In centipawns
     user_color: str,
     move_number: int,
-    threat: Optional[str] = None
+    threat: Optional[str] = None,
+    pv_after_played: Optional[List[str]] = None  # Engine's predicted line after user's move
 ) -> ClassifiedMistake:
     """
     DETERMINISTIC mistake classification.
@@ -1332,7 +1353,9 @@ def classify_mistake(
     material_lost = material_before - material_after
     
     # Check for fork/pin/skewer patterns
-    walked_into_fork = detect_walked_into_fork(board_before, board_after, user_chess_color)
+    # Pass opponent's response from PV to detect forks created by opponent's next move
+    opponent_response = pv_after_played[0] if pv_after_played else None
+    walked_into_fork = detect_walked_into_fork(board_before, board_after, user_chess_color, opponent_response)
     walked_into_pin = detect_walked_into_pin(board_before, board_after, user_chess_color)
     walked_into_skewer = detect_walked_into_skewer(board_before, board_after, user_chess_color)
     missed_fork = detect_missed_fork(board_before, best_move, user_chess_color) if best_move else None
@@ -1517,6 +1540,36 @@ def classify_mistake(
     )
 
 
+def _format_fork_template(mistake: ClassifiedMistake, reason: str) -> str:
+    """Format a detailed fork template with specific information."""
+    fork_info = mistake.pattern_details.get("fork", {})
+    
+    if fork_info.get("created_by_response"):
+        # Fork is created by opponent's response move
+        response_move = fork_info.get("response_move", "")
+        attacker = fork_info.get("attacker_piece", "piece")
+        targets = fork_info.get("targets", [])
+        
+        if targets:
+            target_pieces = " and ".join([t.get("piece", "piece") for t in targets[:2]])
+            return (
+                f"After your move, opponent has {response_move}! "
+                f"This {attacker} forks your {target_pieces}. "
+                "Before capturing, check what your opponent can do in response."
+            )
+        else:
+            return (
+                f"After your move, {response_move} creates a fork. "
+                "Always check your opponent's next move before deciding."
+            )
+    else:
+        # Immediate fork
+        return (
+            f"You walked into a fork! {reason}. "
+            "Before moving, check what squares your opponent's pieces can reach."
+        )
+
+
 def get_verbalization_template(mistake: ClassifiedMistake) -> str:
     """
     Returns a TEMPLATE for GPT to verbalize.
@@ -1580,8 +1633,7 @@ def get_verbalization_template(mistake: ClassifiedMistake) -> str:
         
         # === NEGATIVE OUTCOMES (Mistakes) ===
         MistakeType.WALKED_INTO_FORK: (
-            f"You walked into a fork! {reason}. "
-            "Before moving, check what squares your opponent's pieces can reach."
+            _format_fork_template(mistake, reason)
         ),
         
         MistakeType.WALKED_INTO_PIN: (

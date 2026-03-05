@@ -8,7 +8,7 @@
  */
 import { test, expect, Page } from '@playwright/test';
 
-const BASE_URL = 'https://chess-coach-debug.preview.emergentagent.com';
+const BASE_URL = 'https://habit-forge-226.preview.emergentagent.com';
 
 async function devLogin(page: Page) {
   await page.goto('/api/auth/dev-login', { waitUntil: 'domcontentloaded' });

@@ -2206,6 +2206,10 @@ async def generate_position_explanation(
             
             # Only call classifier if we have both FENs
             if fen_after:
+                # Get PV line from milestone context
+                pv_after_played = milestone.get("pv_after_played") or \
+                                  milestone.get("context_for_explanation", {}).get("pv_played", [])
+                
                 classified_mistake = classify_mistake(
                     fen_before=fen,
                     fen_after=fen_after,
@@ -2215,6 +2219,7 @@ async def generate_position_explanation(
                     eval_after=eval_after if abs(eval_after) <= 100 else eval_after,
                     user_color="white" if " w " in fen else "black",
                     move_number=move_number,
+                    pv_after_played=pv_after_played,  # Pass opponent's response
                 )
                 
                 # Get the verbalization template - this is what GPT narrates

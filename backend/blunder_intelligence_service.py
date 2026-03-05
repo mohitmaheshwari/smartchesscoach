@@ -3607,6 +3607,9 @@ def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
                 user_move = chess.Move.from_uci(user_move_uci)
                 color = chess.WHITE if user_color.lower() == "white" else chess.BLACK
                 
+                # Get PV line for better classification
+                pv_after_played = move_eval.get("pv_after_played", [])
+                
                 sf = StockfishAnalysis(
                     eval_before=eval_before,
                     eval_after=eval_after,
@@ -3626,6 +3629,7 @@ def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
                     move_number=move_number,
                 )
                 
+                # If the teaching engine gives a lesson, use it
                 if output and output.rule_id:
                     wisdom_lessons.append({
                         "move_number": move_number,
@@ -3637,6 +3641,40 @@ def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
                         "delta_cp": delta,
                         "highlights": output.highlights,
                     })
+                else:
+                    # Fallback: Use classifier for accurate mistake type
+                    try:
+                        from mistake_classifier import classify_mistake, get_verbalization_template
+                        
+                        board_after = board.copy()
+                        board_after.push(user_move)
+                        
+                        classified = classify_mistake(
+                            fen_before=fen,
+                            fen_after=board_after.fen(),
+                            move_played=move_eval.get("move", ""),
+                            best_move=move_eval.get("best_move", ""),
+                            eval_before=eval_before * 100,
+                            eval_after=eval_after * 100,
+                            user_color=user_color.lower(),
+                            move_number=move_number,
+                            pv_after_played=pv_after_played,
+                        )
+                        
+                        if classified.mistake_type.value not in ["accurate", "good", "excellent", "great"]:
+                            verbalization = get_verbalization_template(classified)
+                            wisdom_lessons.append({
+                                "move_number": move_number,
+                                "concept": classified.mistake_type.name.replace("_", " ").title(),
+                                "your_move": move_eval.get("move", ""),
+                                "better_move": move_eval.get("best_move", ""),
+                                "rule": verbalization,
+                                "rule_id": f"classifier_{classified.mistake_type.value}",
+                                "delta_cp": delta,
+                                "highlights": [],
+                            })
+                    except Exception as ce:
+                        logger.debug(f"Classifier fallback failed: {ce}")
             except Exception as e:
                 logger.debug(f"Could not analyze move {move_number}: {e}")
                 continue
