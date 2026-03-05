@@ -34,7 +34,9 @@ import {
   RotateCcw,
   Loader2,
   Dumbbell,
+  ThumbsDown,
 } from "lucide-react";
+import FeedbackModal from "@/components/FeedbackModal";
 
 const Reflect = ({ user }) => {
   const navigate = useNavigate();
@@ -88,6 +90,31 @@ const Reflect = ({ user }) => {
   // Cognitive Gap Analysis state
   const [cognitiveGapAnalysis, setCognitiveGapAnalysis] = useState(null);
   const [loadingCognitiveGap, setLoadingCognitiveGap] = useState(false);
+  
+  // Feedback modal state (auto-correction system)
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackContext, setFeedbackContext] = useState(null);
+  
+  // Handle feedback button click
+  const handleFeedback = () => {
+    if (!currentMoment || !awarenessGap?.cognitive_gap) return;
+    
+    setFeedbackContext({
+      explanation: awarenessGap.cognitive_gap.explanation || "",
+      positionFen: currentMoment.fen_before || "",
+      movePlayed: currentMoment.user_move || "",
+      moveSan: currentMoment.user_move || "",
+      bestMove: currentMoment.best_move || "",
+      classification: awarenessGap.cognitive_gap.primary_gap || "unknown",
+      evalBefore: currentMoment.eval_before || 0,
+      evalAfter: currentMoment.eval_after || 0,
+      pvAfterPlayed: currentMoment.pv_after_played || [],
+      gameId: currentGame?.game_id || "",
+      moveNumber: currentMoment.move_number || 0,
+      userColor: currentGame?.user_color || "white",
+    });
+    setFeedbackOpen(true);
+  };
   
   const currentGame = gamesNeedingReflection[currentGameIndex];
   const currentMoment = moments[currentMomentIndex];
@@ -1073,6 +1100,18 @@ const Reflect = ({ user }) => {
                           </Button>
                         )}
                         
+                        {/* Feedback button - Auto-correction system */}
+                        {awarenessGap.cognitive_gap && (
+                          <button
+                            onClick={handleFeedback}
+                            className="w-full flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground hover:text-red-400 transition-colors mb-3"
+                            data-testid="reflect-feedback-btn"
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                            <span>Not helpful / Wrong explanation?</span>
+                          </button>
+                        )}
+                        
                         {/* Original awareness gap display (fallback) */}
                         {!awarenessGap.cognitive_gap && (
                           <div className="flex items-start gap-3 mb-4">
@@ -1531,6 +1570,28 @@ const Reflect = ({ user }) => {
           </div>
         )}
       </div>
+      
+      {/* Feedback Modal - Auto-correction system */}
+      <FeedbackModal
+        isOpen={feedbackOpen}
+        onClose={() => {
+          setFeedbackOpen(false);
+          setFeedbackContext(null);
+        }}
+        explanation={feedbackContext?.explanation}
+        positionFen={feedbackContext?.positionFen}
+        movePlayed={feedbackContext?.movePlayed}
+        moveSan={feedbackContext?.moveSan}
+        bestMove={feedbackContext?.bestMove}
+        classification={feedbackContext?.classification}
+        evalBefore={feedbackContext?.evalBefore}
+        evalAfter={feedbackContext?.evalAfter}
+        pvAfterPlayed={feedbackContext?.pvAfterPlayed}
+        gameId={feedbackContext?.gameId}
+        moveNumber={feedbackContext?.moveNumber}
+        userColor={feedbackContext?.userColor}
+        source="reflect"
+      />
     </Layout>
   );
 };

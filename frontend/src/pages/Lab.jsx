@@ -57,9 +57,11 @@ import {
   CheckSquare,
   Lock,
   GraduationCap,
-  ArrowRight
+  ArrowRight,
+  ThumbsDown
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
+import FeedbackModal from "@/components/FeedbackModal";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -168,6 +170,29 @@ const Lab = ({ user }) => {
   
   // User's recurring patterns from home-intelligence (for coaching connection)
   const [userPatterns, setUserPatterns] = useState(null);
+  
+  // Feedback modal state (auto-correction system)
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackContext, setFeedbackContext] = useState(null);
+  
+  // Handle feedback button click
+  const handleFeedback = (mistake, explanation) => {
+    setFeedbackContext({
+      explanation: explanation?.explanation || "",
+      positionFen: mistake.fen_before || "",
+      movePlayed: mistake.move || "",
+      moveSan: mistake.move || "",
+      bestMove: mistake.best_move || "",
+      classification: explanation?.short_label || mistake.mistakeType || "unknown",
+      evalBefore: mistake.eval_before || 0,
+      evalAfter: mistake.eval_after || 0,
+      pvAfterPlayed: mistake.pv_after_played || [],
+      gameId: gameId,
+      moveNumber: mistake.move_number || 0,
+      userColor: userColor,
+    });
+    setFeedbackOpen(true);
+  };
   
   // Re-analyze game handler
   const handleReanalyze = async () => {
@@ -2252,6 +2277,7 @@ const Lab = ({ user }) => {
                             }}
                             onPlayVariation={playVariation}
                             onShowPunishment={showPunishment}
+                            onFeedback={handleFeedback}
                           />
                         ))
                       ) : (
@@ -2317,11 +2343,33 @@ const Lab = ({ user }) => {
           />
         )}
       </div>
+      
+      {/* Feedback Modal - Auto-correction system */}
+      <FeedbackModal
+        isOpen={feedbackOpen}
+        onClose={() => {
+          setFeedbackOpen(false);
+          setFeedbackContext(null);
+        }}
+        explanation={feedbackContext?.explanation}
+        positionFen={feedbackContext?.positionFen}
+        movePlayed={feedbackContext?.movePlayed}
+        moveSan={feedbackContext?.moveSan}
+        bestMove={feedbackContext?.bestMove}
+        classification={feedbackContext?.classification}
+        evalBefore={feedbackContext?.evalBefore}
+        evalAfter={feedbackContext?.evalAfter}
+        pvAfterPlayed={feedbackContext?.pvAfterPlayed}
+        gameId={feedbackContext?.gameId}
+        moveNumber={feedbackContext?.moveNumber}
+        userColor={feedbackContext?.userColor}
+        source="lab"
+      />
     </Layout>
   );
 };
 
-const MilestoneGroup = ({ group, userColor, gameId, focusModule, onMoveClick, onPlayVariation, onShowPunishment }) => (
+const MilestoneGroup = ({ group, userColor, gameId, focusModule, onMoveClick, onPlayVariation, onShowPunishment, onFeedback }) => (
   <div className="space-y-2">
     <div className="flex items-center justify-between">
       <h3 className="font-medium flex items-center gap-2">
@@ -2353,6 +2401,7 @@ const MilestoneGroup = ({ group, userColor, gameId, focusModule, onMoveClick, on
             onClick={() => onMoveClick(item.move_number)}
             onPlayVariation={onPlayVariation}
             onShowPunishment={onShowPunishment}
+            onFeedback={onFeedback}
           />
         )
       ))}
@@ -2406,7 +2455,7 @@ const BrilliantMoveItem = ({ move, onClick }) => {
 };
 
 // Learning Moment Item - Constructive, coach-like feedback
-const LearningMomentItem = ({ mistake, onClick, userColor, gameId, focusModule, onPlayVariation, onShowPunishment }) => {
+const LearningMomentItem = ({ mistake, onClick, userColor, gameId, focusModule, onPlayVariation, onShowPunishment, onFeedback }) => {
   const cpLossInfo = formatCpLoss(mistake.cp_loss);
   const [expanded, setExpanded] = useState(false);
   const [explanation, setExplanation] = useState(null);
@@ -2728,6 +2777,18 @@ const LearningMomentItem = ({ mistake, onClick, userColor, gameId, focusModule, 
                     <span>What were you thinking here?</span>
                   </button>
                 )}
+              </div>
+              
+              {/* Feedback button - Auto-correction system */}
+              <div className="mt-2 pt-2 border-t border-border/30">
+                <button
+                  onClick={() => onFeedback(mistake, explanation)}
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-red-400 transition-colors"
+                  data-testid={`feedback-btn-${mistake.move_number}`}
+                >
+                  <ThumbsDown className="w-3.5 h-3.5" />
+                  <span>Not helpful / Wrong explanation?</span>
+                </button>
               </div>
             </>
           ) : (
