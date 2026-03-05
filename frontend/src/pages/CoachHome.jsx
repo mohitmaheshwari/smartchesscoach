@@ -213,34 +213,65 @@ const CoachHome = ({ user }) => {
           </div>
           
           {/* State-based hero content */}
-          {primaryState === "REFLECT" && lastGame && (
+          {primaryState === "REFLECT" && (
             <div className="space-y-3">
-              <div className="p-3 rounded-lg bg-muted/50 border border-muted">
-                <p className="text-sm text-muted-foreground mb-2">Your last game:</p>
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getResultStyle(lastGame.result).bg}`}>
-                    <span className={`font-bold ${getResultStyle(lastGame.result).color}`}>
-                      {getResultStyle(lastGame.result).emoji}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">vs {lastGame.opponent_name || lastGame.opponent || "Opponent"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {lastGame.result === "loss" && lastGame.key_mistake ? (
-                        <span className="text-amber-500">{lastGame.key_mistake}</span>
-                      ) : lastGame.result === "win" ? (
-                        <span className="text-green-500">Well played!</span>
-                      ) : (
-                        <span>{getTimeSince(lastGame.date)}</span>
-                      )}
+              {/* Show the most important game to reflect on */}
+              {gamesNeedingReflection[0] && (() => {
+                const topGame = gamesNeedingReflection[0];
+                const style = getResultStyle(topGame.result);
+                const blunders = topGame.blunders || 0;
+                const mistakes = topGame.mistakes || 0;
+                const accuracy = topGame.accuracy;
+                
+                // Generate coaching insight based on game data
+                let coachInsight = "";
+                if (topGame.result === "loss") {
+                  if (blunders >= 2) {
+                    coachInsight = `You had ${blunders} blunders. Let's understand what went wrong.`;
+                  } else if (blunders === 1) {
+                    coachInsight = "One critical blunder cost you the game. Let's learn from it.";
+                  } else if (mistakes >= 3) {
+                    coachInsight = "Small mistakes added up. Let's find the pattern.";
+                  } else {
+                    coachInsight = "Close game! Let's see where it slipped away.";
+                  }
+                } else if (topGame.result === "win") {
+                  if (blunders > 0) {
+                    coachInsight = "You won, but there were moments to learn from.";
+                  } else {
+                    coachInsight = "Clean win! But always room to improve.";
+                  }
+                } else {
+                  coachInsight = "A fighting draw. Let's see if you could have pushed for more.";
+                }
+                
+                return (
+                  <div className="p-3 rounded-lg bg-muted/50 border border-muted">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${style.bg}`}>
+                        <span className={`text-lg font-bold ${style.color}`}>
+                          {style.emoji}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">vs {topGame.opponent_name || "Opponent"}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {accuracy && <span>{accuracy}% accuracy</span>}
+                          {blunders > 0 && <span className="text-red-500">{blunders} blunder{blunders !== 1 ? 's' : ''}</span>}
+                          {mistakes > 0 && <span className="text-amber-500">{mistakes} mistake{mistakes !== 1 ? 's' : ''}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground italic pl-13">
+                      "{coachInsight}"
                     </p>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
               
               <p className="text-sm">
                 <span className="text-amber-500 font-medium">{gamesNeedingReflection.length} game{gamesNeedingReflection.length !== 1 ? 's' : ''}</span>
-                {" "}waiting for reflection. Let's understand what happened.
+                {" "}waiting for reflection.
               </p>
             </div>
           )}
