@@ -160,12 +160,17 @@ Built Stockfish-validated teaching engine with strict no-hallucination policy:
 
 **Tests:** 17/17 passing in `/app/backend/tests/test_coach_engine.py`
 
-### P1 - Smart Coach Engine - Phase 2 (Next)
-- Play with Coach integration (chat UI + board highlights)
-- Board lock/unlock states for pause/retry flow
-- MCQ buttons in chat
+### P1 - Smart Coach Engine - Phase 2 Integration ✅ COMPLETED (Mar 5, 2026)
+Integrated teaching engine with existing Play with Coach system:
 
-### P1 - Smart Coach Engine - Phase 3 (After Phase 2)
+- Created `/app/backend/coach_play/teaching_integration.py`:
+  - `enhance_coaching_message()` - Adds wisdom-based explanations to coaching moments
+  - `get_wisdom_for_position()` - Proactive hints based on position features
+  - `reset_engine_for_new_game()` - De-duplication state management
+- Exports added to `coach_play/__init__.py`
+- All 17 coach_engine tests passing
+
+### P1 - Smart Coach Engine - Phase 3 (Next)
 - Lab integration (replay CoachEvents in game analysis)
 
 ### P2 - Step 10: Identity Formation Layer

@@ -55,6 +55,13 @@ from .identity_engine import (
     update_player_identity
 )
 
+from .teaching_integration import (
+    enhance_coaching_message,
+    get_wisdom_for_position,
+    reset_engine_for_new_game,
+    get_teaching_engine
+)
+
 __all__ = [
     # Session
     'CoachGameSession',
@@ -86,5 +93,10 @@ __all__ = [
     'IdentityTrait',
     'PlayerIdentity',
     'TraitSnapshot',
-    'update_player_identity'
+    'update_player_identity',
+    # Teaching Engine Integration
+    'enhance_coaching_message',
+    'get_wisdom_for_position',
+    'reset_engine_for_new_game',
+    'get_teaching_engine',
 ]
