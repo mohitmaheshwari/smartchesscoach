@@ -165,6 +165,7 @@ from blunder_intelligence_service import (
     get_focus_data,
     get_journey_data,
     get_lab_data,
+    get_lab_data_async,
     get_drill_positions,
     find_similar_pattern_games
 )
@@ -10549,6 +10550,8 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     - Full analysis data
     - Similar games (Behavior Memory)
     - Pattern context (longitudinal tracking)
+    
+    Note: Now uses learned rules for more accurate mistake explanations.
     """
     analysis = await db.game_analyses.find_one({
         "game_id": game_id,
@@ -10570,7 +10573,12 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     if game and "_id" in game:
         del game["_id"]
     
-    lab_data = get_lab_data(analysis, game)
+    # Use async version with learned rules support
+    try:
+        lab_data = await get_lab_data_async(analysis, game)
+    except Exception as e:
+        logger.warning(f"Async lab data failed, falling back to sync: {e}")
+        lab_data = get_lab_data(analysis, game)
     
     # Get all analyses and games for pattern tracking
     all_analyses = await db.game_analyses.find(

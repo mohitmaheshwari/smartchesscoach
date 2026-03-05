@@ -327,17 +327,34 @@ class AutoCorrectionService:
         Check if we have a correction for this position/pattern.
         
         Use this to intercept classifications before displaying to user.
+        
+        The correction system works by matching on:
+        1. PV characteristics (is_sequential, attacker_piece)
+        2. NOT the system classification (since that's what we're correcting)
         """
         await self.initialize()
         
-        # Build signature
-        signature = {
-            "tactical_motif": system_classification,
-            "attacker_piece": self._extract_attacker_piece(pv_after_played, position_fen),
-            "is_sequential": len(pv_after_played or []) > 1
+        # Extract characteristics from the position
+        attacker_piece = self._extract_attacker_piece(pv_after_played, position_fen)
+        is_sequential = len(pv_after_played or []) > 1
+        
+        # Look for any correction that matches these PV characteristics
+        # We search by attacker_piece and is_sequential, not by tactical_motif
+        query = {
+            "attacker_piece": attacker_piece,
+            "is_sequential": is_sequential
         }
         
-        return await self.db.find_correction(signature)
+        correction = await self.db.db.verified_corrections.find_one(query, {"_id": 0})
+        
+        if correction:
+            # Increment use count
+            await self.db.db.verified_corrections.update_one(
+                {"correction_id": correction.get("correction_id")},
+                {"$inc": {"use_count": 1}}
+            )
+        
+        return correction
     
     async def approve_rule(self, rule_id: str, approved_by: str = "admin"):
         """Manually approve a rule pending review"""

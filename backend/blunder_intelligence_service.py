@@ -3518,6 +3518,9 @@ def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
     - Strategic analysis (opening, structure, themes)
     - Positional insight (RAG-backed deep coaching)
     - Wisdom-based lessons (from coach engine) - NEW
+    
+    Note: This is the synchronous version. For learned rule support,
+    use get_lab_data_async() instead.
     """
     core_lesson = get_core_lesson(analysis)
     strategic_analysis = get_game_strategic_analysis(analysis, game)
@@ -3692,6 +3695,191 @@ def get_lab_data(analysis: Dict, game: Dict = None) -> Dict:
         "positional_insight": positional_insight,
         "wisdom_lessons": wisdom_lessons,  # NEW
         "analysis": analysis
+    }
+
+
+async def get_lab_data_async(analysis: Dict, game: Dict = None) -> Dict:
+    """
+    Async version of get_lab_data that uses learned rules for better accuracy.
+    
+    This version:
+    1. Checks for existing corrections from the auto-correction system
+    2. Uses learned rules before falling back to hardcoded classifier
+    3. Provides more accurate explanations based on user feedback
+    """
+    core_lesson = get_core_lesson(analysis)
+    strategic_analysis = get_game_strategic_analysis(analysis, game)
+    
+    # Add RAG-backed positional insight
+    positional_insight = None
+    try:
+        from positional_coaching_service import get_positional_insight
+        
+        if strategic_analysis and strategic_analysis.get("has_strategy"):
+            structure_type = strategic_analysis.get("pawn_structure", {}).get("type", "")
+            user_color = game.get("user_color", "white") if game else "white"
+            
+            strategic_themes = []
+            for theme in strategic_analysis.get("strategic_themes", []):
+                if isinstance(theme, dict):
+                    strategic_themes.append(theme.get("theme", ""))
+                elif isinstance(theme, str):
+                    strategic_themes.append(theme)
+            
+            execution_data = strategic_analysis.get("pawn_structure", {}).get("execution", {})
+            
+            positional_insight = get_positional_insight(
+                structure_type=structure_type,
+                user_color=user_color,
+                strategic_themes=strategic_themes,
+                execution_data=execution_data
+            )
+    except Exception as e:
+        logger.warning(f"Could not generate positional insight: {e}")
+        positional_insight = None
+    
+    # Generate wisdom-based lessons using LEARNED RULES
+    wisdom_lessons = []
+    try:
+        from enhanced_classifier import classify_mistake_enhanced
+        from coach_engine.teaching_engine import create_teaching_engine
+        from coach_engine.rule_validator import StockfishAnalysis
+        import chess
+        
+        user_id = game.get("user_id", "unknown") if game else "unknown"
+        user_color = game.get("user_color", "black") if game else "black"
+        user_rating = game.get("user_rating", 1200) if game else 1200
+        
+        engine = create_teaching_engine(user_id, user_rating)
+        
+        sf_analysis = analysis.get("stockfish_analysis", {})
+        move_evals = sf_analysis.get("move_evaluations", [])
+        
+        for move_eval in move_evals:
+            move_number = move_eval.get("move_number", 1)
+            fen = move_eval.get("fen_before", "")
+            
+            is_white_to_move = " w " in fen if fen else True
+            is_user_move = (is_white_to_move and user_color == "white") or \
+                          (not is_white_to_move and user_color == "black")
+            
+            if not is_user_move:
+                continue
+            
+            eval_before = move_eval.get("eval_before", 0) / 100
+            eval_after = move_eval.get("eval_after", 0) / 100
+            
+            if user_color == "white":
+                delta = int((eval_after - eval_before) * 100)
+            else:
+                delta = int((eval_before - eval_after) * 100)
+            
+            if delta > -80:
+                continue
+            
+            user_move_uci = move_eval.get("move_uci", "")
+            best_move_uci = move_eval.get("best_move_uci", "")
+            pv_after_played = move_eval.get("pv_after_played", [])
+            
+            if not fen or not user_move_uci:
+                continue
+            
+            try:
+                board = chess.Board(fen)
+                user_move = chess.Move.from_uci(user_move_uci)
+                color = chess.WHITE if user_color.lower() == "white" else chess.BLACK
+                
+                sf = StockfishAnalysis(
+                    eval_before=eval_before,
+                    eval_after=eval_after,
+                    delta_cp=delta,
+                    best_move=best_move_uci,
+                    best_move_eval=eval_before,
+                    pv_line=[best_move_uci],
+                    depth=20,
+                    is_stable=True,
+                )
+                
+                output = engine.process_move(
+                    board=board,
+                    user_move=user_move,
+                    user_color=color,
+                    sf_analysis=sf,
+                    move_number=move_number,
+                )
+                
+                if output and output.rule_id:
+                    wisdom_lessons.append({
+                        "move_number": move_number,
+                        "concept": output.diagnosis,
+                        "your_move": output.your_move,
+                        "better_move": output.sf_move,
+                        "rule": output.memorable_rule,
+                        "rule_id": output.rule_id,
+                        "delta_cp": delta,
+                        "highlights": output.highlights,
+                        "is_learned": False,
+                    })
+                else:
+                    # Use ENHANCED classifier with learned rules
+                    board_after = board.copy()
+                    board_after.push(user_move)
+                    
+                    # Call the async enhanced classifier
+                    classified = await classify_mistake_enhanced(
+                        fen_before=fen,
+                        fen_after=board_after.fen(),
+                        move_played=move_eval.get("move", ""),
+                        best_move=move_eval.get("best_move", ""),
+                        eval_before=eval_before * 100,
+                        eval_after=eval_after * 100,
+                        user_color=user_color.lower(),
+                        move_number=move_number,
+                        pv_after_played=pv_after_played,
+                        use_learned_rules=True,
+                    )
+                    
+                    mistake_type = classified.get("mistake_type", "UNKNOWN")
+                    
+                    if mistake_type not in ["accurate", "good", "excellent", "great", "GOOD_MOVE", "EXCELLENT_MOVE"]:
+                        # Use learned explanation if available, else generate from type
+                        explanation = classified.get("explanation", "")
+                        if not explanation:
+                            explanation = mistake_type.replace("_", " ").title()
+                        
+                        wisdom_lessons.append({
+                            "move_number": move_number,
+                            "concept": mistake_type.replace("_", " ").title(),
+                            "your_move": move_eval.get("move", ""),
+                            "better_move": move_eval.get("best_move", ""),
+                            "rule": explanation,
+                            "rule_id": classified.get("rule_id") or f"classifier_{mistake_type.lower()}",
+                            "delta_cp": delta,
+                            "highlights": [],
+                            "is_learned": classified.get("is_learned", False),
+                            "correction_used": classified.get("correction_used", False),
+                        })
+                        
+            except Exception as e:
+                logger.debug(f"Could not analyze move {move_number} with learned rules: {e}")
+                continue
+        
+        # Limit to top 3 most impactful lessons
+        wisdom_lessons = sorted(wisdom_lessons, key=lambda x: x.get("delta_cp", 0))[:3]
+        
+    except Exception as e:
+        logger.warning(f"Could not generate wisdom lessons with learned rules: {e}")
+        # Fall back to sync version
+        sync_data = get_lab_data(analysis, game)
+        wisdom_lessons = sync_data.get("wisdom_lessons", [])
+    
+    return {
+        "core_lesson": core_lesson,
+        "strategic_analysis": strategic_analysis,
+        "positional_insight": positional_insight,
+        "wisdom_lessons": wisdom_lessons,
+        "analysis": analysis,
+        "uses_learned_rules": True,  # Marker that this used the enhanced system
     }
 
 

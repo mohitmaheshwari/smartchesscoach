@@ -323,8 +323,16 @@ Rules with confidence >= 85% are auto-approved and activated immediately.
 5. Rule activated (if confidence >= 85%)
 6. User B encounters similar pattern → Correct classification automatically!
 
-### Integration Points
-- `enhanced_classifier.py` - Wrapper that checks learned rules first
-- CoachPlay.jsx - Feedback modal with pattern correction
-- Lab page - Will use learned rules for milestone explanations
+### Integration with Lab Page (NEW - Mar 5, 2026)
+- Created `get_lab_data_async()` in `blunder_intelligence_service.py`
+- Uses `classify_mistake_enhanced()` from `enhanced_classifier.py`
+- Checks for corrections BEFORE hardcoded classification
+- Lab endpoint updated to use async version with fallback
+
+### Correction Matching Logic
+Corrections are matched by PV characteristics:
+- `attacker_piece`: The piece making the first PV move (e.g., "pawn")
+- `is_sequential`: Whether PV has multiple moves (>1)
+
+This ensures corrections propagate to similar tactical patterns across ALL positions, not just exact FEN matches.
 
