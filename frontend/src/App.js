@@ -11,6 +11,7 @@ import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import WeaknessTracker from "@/pages/WeaknessTracker";
 import Training from "@/pages/TrainingNew";  // NEW interactive training
+import PrescribedTraining from "@/pages/PrescribedTraining";  // Coached puzzles based on weaknesses
 import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
@@ -199,6 +200,11 @@ function AppRouter() {
       <Route path="/training" element={
         <ProtectedRoute>
           {({ user }) => <Training user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/training/prescribed" element={
+        <ProtectedRoute>
+          {({ user }) => <PrescribedTraining user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/challenge" element={

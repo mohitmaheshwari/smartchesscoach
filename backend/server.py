@@ -10825,6 +10825,162 @@ async def get_all_imbalances(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Knowledge base not available")
 
 
+# ============================================
+# COACHING PUZZLE ENDPOINTS - Prescribed Training
+# ============================================
+
+@api_router.get("/training/prescribed/{weakness}")
+async def get_prescribed_training(
+    weakness: str,
+    num_puzzles: int = 5,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get puzzles prescribed for a specific weakness.
+    
+    This is the IMPROVEMENT engine:
+    - Takes diagnosed weakness (e.g., "missed_threat")
+    - Returns puzzles with COACHING context
+    - Includes puzzles from user's own games!
+    
+    Example: GET /api/training/prescribed/missed_threat?num_puzzles=5
+    """
+    from services.coaching_puzzle_service import CoachingPuzzleService
+    
+    puzzle_service = CoachingPuzzleService(db)
+    
+    # Get user's rating for difficulty calibration
+    player_profile = await db.player_profiles.find_one({"user_id": user.user_id})
+    user_rating = 1200
+    if player_profile:
+        lichess_rating = player_profile.get("lichess_stats", {}).get("rating", 0)
+        chesscom_rating = player_profile.get("chesscom_stats", {}).get("rating", 0)
+        user_rating = max(lichess_rating, chesscom_rating, 1200)
+    
+    # Set rating range for puzzles (user rating +/- 200)
+    rating_range = (max(600, user_rating - 200), user_rating + 200)
+    
+    result = await puzzle_service.get_prescribed_training(
+        user_id=user.user_id,
+        weakness_pattern=weakness,
+        num_puzzles=num_puzzles,
+        rating_range=rating_range
+    )
+    
+    return result
+
+
+@api_router.post("/training/puzzle-attempt")
+async def record_puzzle_attempt(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Record a puzzle attempt and update progress.
+    
+    Body:
+    - puzzle_id: ID of the puzzle
+    - solved: bool - whether user solved it correctly
+    - time_taken: int - seconds taken
+    - weakness_pattern: str - the weakness this puzzle is for
+    """
+    from services.coaching_puzzle_service import CoachingPuzzleService
+    
+    puzzle_service = CoachingPuzzleService(db)
+    
+    result = await puzzle_service.record_puzzle_attempt(
+        user_id=user.user_id,
+        puzzle_id=request.get("puzzle_id"),
+        solved=request.get("solved", False),
+        time_taken=request.get("time_taken", 0),
+        weakness_pattern=request.get("weakness_pattern", "unknown")
+    )
+    
+    return result
+
+
+@api_router.get("/training/weekly-plan")
+async def get_weekly_training_plan(user: User = Depends(get_current_user)):
+    """
+    Get a personalized weekly training plan based on user's weaknesses.
+    
+    This is what a human coach does:
+    "This week, focus on piece safety (Mon-Wed) and forks (Thu-Sat)"
+    """
+    from services.coaching_puzzle_service import CoachingPuzzleService
+    
+    puzzle_service = CoachingPuzzleService(db)
+    
+    # Get user's top weaknesses from recent patterns
+    home_intelligence = await db.home_intelligence.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
+    
+    # Build weekly plan based on weaknesses
+    plan = await puzzle_service.get_weekly_training_plan(user.user_id)
+    
+    # Enhance with actual weakness data if available
+    if home_intelligence and home_intelligence.get("specific_patterns"):
+        patterns = home_intelligence.get("specific_patterns", {})
+        if patterns.get("dominant_pattern"):
+            plan["primary_weakness"] = patterns.get("dominant_pattern")
+            plan["pattern_count"] = patterns.get("pattern_count", 0)
+    
+    return plan
+
+
+@api_router.get("/training/progress")
+async def get_training_progress(user: User = Depends(get_current_user)):
+    """
+    Get user's training progress and improvement metrics.
+    
+    Shows:
+    - Puzzles solved by weakness type
+    - Solve rates over time
+    - Improvement trends
+    """
+    # Get puzzle attempts
+    attempts = await db.puzzle_attempts.find(
+        {"user_id": user.user_id}
+    ).sort("attempted_at", -1).limit(100).to_list(100)
+    
+    if not attempts:
+        return {
+            "has_data": False,
+            "message": "No training data yet. Start solving puzzles!"
+        }
+    
+    # Group by weakness pattern
+    by_weakness = {}
+    for attempt in attempts:
+        pattern = attempt.get("weakness_pattern", "unknown")
+        if pattern not in by_weakness:
+            by_weakness[pattern] = {"total": 0, "solved": 0, "times": []}
+        by_weakness[pattern]["total"] += 1
+        if attempt.get("solved"):
+            by_weakness[pattern]["solved"] += 1
+        if attempt.get("time_taken"):
+            by_weakness[pattern]["times"].append(attempt["time_taken"])
+    
+    # Calculate stats
+    progress = {}
+    for pattern, data in by_weakness.items():
+        progress[pattern] = {
+            "total_attempts": data["total"],
+            "solved": data["solved"],
+            "solve_rate": round(data["solved"] / data["total"] * 100, 1) if data["total"] > 0 else 0,
+            "avg_time": round(sum(data["times"]) / len(data["times"]), 1) if data["times"] else None
+        }
+    
+    return {
+        "has_data": True,
+        "progress_by_weakness": progress,
+        "total_puzzles_solved": sum(d["solved"] for d in by_weakness.values()),
+        "total_attempts": sum(d["total"] for d in by_weakness.values())
+    }
+
+
 @api_router.get("/lab/{game_id}/deep-strategy")
 async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_current_user)):
     """

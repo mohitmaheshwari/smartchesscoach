@@ -1,0 +1,462 @@
+/**
+ * PrescribedTraining - Puzzles prescribed based on user's weaknesses
+ * 
+ * This is the IMPROVEMENT engine:
+ * - Shows puzzles targeted at user's specific weaknesses
+ * - Includes puzzles from user's OWN games
+ * - Provides coaching context for each puzzle
+ * - Tracks progress over time
+ */
+
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Chessboard } from "react-chessboard";
+import { Chess } from "chess.js";
+import {
+  ArrowLeft,
+  Brain,
+  Target,
+  CheckCircle2,
+  XCircle,
+  Lightbulb,
+  ChevronRight,
+  Loader2,
+  Trophy,
+  AlertCircle,
+  Play,
+  RotateCcw,
+  Eye
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+
+const API = process.env.REACT_APP_BACKEND_URL;
+
+export default function PrescribedTraining() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const weakness = searchParams.get("weakness") || "missed_threat";
+  
+  // Data state
+  const [trainingData, setTrainingData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Puzzle state
+  const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0);
+  const [puzzleState, setPuzzleState] = useState("thinking"); // thinking, correct, incorrect, revealed
+  const [userMove, setUserMove] = useState(null);
+  const [showSolution, setShowSolution] = useState(false);
+  const [solvedCount, setSolvedCount] = useState(0);
+  
+  // Board state
+  const [game, setGame] = useState(new Chess());
+  const [boardOrientation, setBoardOrientation] = useState("white");
+  
+  // Fetch prescribed training
+  useEffect(() => {
+    const fetchTraining = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(
+          `${API}/api/training/prescribed/${weakness}?num_puzzles=5`,
+          { credentials: "include" }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setTrainingData(data);
+          
+          // Set up first puzzle
+          if (data.puzzles && data.puzzles.length > 0) {
+            const firstPuzzle = data.puzzles[0];
+            if (firstPuzzle.fen) {
+              const newGame = new Chess(firstPuzzle.fen);
+              setGame(newGame);
+              // Set orientation based on whose turn it is
+              const turn = firstPuzzle.fen.split(" ")[1];
+              setBoardOrientation(turn === "w" ? "white" : "black");
+            }
+          }
+        } else {
+          setError("Failed to load training");
+        }
+      } catch (err) {
+        console.error("Error fetching training:", err);
+        setError("Failed to load training");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchTraining();
+  }, [weakness]);
+  
+  // Current puzzle
+  const currentPuzzle = trainingData?.puzzles?.[currentPuzzleIndex];
+  
+  // Handle move attempt
+  const onDrop = (sourceSquare, targetSquare) => {
+    if (puzzleState !== "thinking") return false;
+    if (!currentPuzzle) return false;
+    
+    try {
+      const move = game.move({
+        from: sourceSquare,
+        to: targetSquare,
+        promotion: "q"
+      });
+      
+      if (move === null) return false;
+      
+      setUserMove(move.san);
+      
+      // Check if correct
+      const solution = currentPuzzle.solution || [];
+      const correctMove = solution[0];
+      
+      // Compare moves (handle different notation)
+      const isCorrect = move.san === correctMove || 
+                       move.lan === correctMove ||
+                       `${sourceSquare}${targetSquare}` === correctMove;
+      
+      if (isCorrect) {
+        setPuzzleState("correct");
+        setSolvedCount(prev => prev + 1);
+        
+        // Record attempt
+        recordAttempt(currentPuzzle, true);
+      } else {
+        setPuzzleState("incorrect");
+        // Undo the wrong move
+        game.undo();
+        setGame(new Chess(game.fen()));
+        
+        // Record attempt
+        recordAttempt(currentPuzzle, false);
+      }
+      
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+  
+  // Record puzzle attempt
+  const recordAttempt = async (puzzle, solved) => {
+    try {
+      await fetch(`${API}/api/training/puzzle-attempt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          puzzle_id: puzzle.puzzle_id || puzzle.game_id,
+          solved,
+          time_taken: 0, // TODO: track time
+          weakness_pattern: weakness
+        })
+      });
+    } catch (e) {
+      console.error("Error recording attempt:", e);
+    }
+  };
+  
+  // Next puzzle
+  const nextPuzzle = () => {
+    const nextIdx = currentPuzzleIndex + 1;
+    if (nextIdx < trainingData.puzzles.length) {
+      setCurrentPuzzleIndex(nextIdx);
+      setPuzzleState("thinking");
+      setUserMove(null);
+      setShowSolution(false);
+      
+      const nextPuzzle = trainingData.puzzles[nextIdx];
+      if (nextPuzzle.fen) {
+        const newGame = new Chess(nextPuzzle.fen);
+        setGame(newGame);
+        const turn = nextPuzzle.fen.split(" ")[1];
+        setBoardOrientation(turn === "w" ? "white" : "black");
+      }
+    }
+  };
+  
+  // Retry puzzle
+  const retryPuzzle = () => {
+    if (currentPuzzle?.fen) {
+      const newGame = new Chess(currentPuzzle.fen);
+      setGame(newGame);
+      setPuzzleState("thinking");
+      setUserMove(null);
+      setShowSolution(false);
+    }
+  };
+  
+  // Show solution
+  const revealSolution = () => {
+    setShowSolution(true);
+    setPuzzleState("revealed");
+  };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading your training...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error || !trainingData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-500">{error || "No training data available"}</p>
+          <Button onClick={() => navigate("/home")} className="mt-4">
+            Go Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
+  const progress = ((currentPuzzleIndex + (puzzleState === "correct" ? 1 : 0)) / trainingData.puzzles.length) * 100;
+  const isComplete = currentPuzzleIndex >= trainingData.puzzles.length - 1 && puzzleState === "correct";
+  
+  return (
+    <div className="min-h-screen bg-background" data-testid="prescribed-training">
+      {/* Header */}
+      <div className="border-b bg-card/50">
+        <div className="max-w-6xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div>
+                <h1 className="font-semibold flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  {trainingData.coaching_intro?.lesson || "Training"}
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  Weakness: {weakness.replace(/_/g, " ")}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm font-medium">{solvedCount}/{trainingData.total}</p>
+                <p className="text-xs text-muted-foreground">Solved</p>
+              </div>
+              <Progress value={progress} className="w-24 h-2" />
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Main content */}
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Board */}
+          <div>
+            {currentPuzzle?.fen ? (
+              <div className="rounded-lg overflow-hidden border border-border">
+                <Chessboard
+                  position={game.fen()}
+                  onPieceDrop={onDrop}
+                  boardOrientation={boardOrientation}
+                  arePiecesDraggable={puzzleState === "thinking"}
+                  customBoardStyle={{
+                    borderRadius: "0"
+                  }}
+                />
+              </div>
+            ) : currentPuzzle?.game_url ? (
+              <div className="aspect-square bg-slate-800/50 rounded-lg flex items-center justify-center">
+                <div className="text-center p-6">
+                  <p className="text-muted-foreground mb-4">
+                    This puzzle is from Lichess
+                  </p>
+                  <Button
+                    onClick={() => window.open(currentPuzzle.game_url, "_blank")}
+                  >
+                    Solve on Lichess
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="aspect-square bg-slate-800/50 rounded-lg flex items-center justify-center">
+                <p className="text-muted-foreground">No puzzle available</p>
+              </div>
+            )}
+            
+            {/* Puzzle status */}
+            {puzzleState === "correct" && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-4 rounded-lg bg-green-500/10 border border-green-500/30"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span className="font-medium text-green-500">Correct!</span>
+                </div>
+              </motion.div>
+            )}
+            
+            {puzzleState === "incorrect" && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-4 rounded-lg bg-red-500/10 border border-red-500/30"
+              >
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-5 h-5 text-red-500" />
+                  <span className="font-medium text-red-500">Not quite. Try again!</span>
+                </div>
+              </motion.div>
+            )}
+            
+            {/* Controls */}
+            <div className="mt-4 flex items-center gap-2">
+              {puzzleState === "thinking" && (
+                <Button variant="outline" onClick={revealSolution}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Show Solution
+                </Button>
+              )}
+              
+              {puzzleState === "incorrect" && (
+                <Button variant="outline" onClick={retryPuzzle}>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Retry
+                </Button>
+              )}
+              
+              {(puzzleState === "correct" || puzzleState === "revealed") && !isComplete && (
+                <Button onClick={nextPuzzle}>
+                  <ChevronRight className="w-4 h-4 mr-2" />
+                  Next Puzzle
+                </Button>
+              )}
+              
+              {isComplete && (
+                <Button onClick={() => navigate("/home")}>
+                  <Trophy className="w-4 h-4 mr-2" />
+                  Training Complete!
+                </Button>
+              )}
+            </div>
+          </div>
+          
+          {/* Coaching panel */}
+          <div className="space-y-4">
+            {/* Coaching intro */}
+            <Card className="border-primary/20">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-primary" />
+                  <CardTitle className="text-lg">Coach's Focus</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm">
+                  {trainingData.coaching_intro?.why_this_matters}
+                </p>
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-xs text-amber-400 font-medium mb-1">
+                    WHAT TO LOOK FOR
+                  </p>
+                  <p className="text-sm text-amber-300">
+                    {trainingData.coaching_intro?.what_to_look_for}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Current puzzle context */}
+            {currentPuzzle && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm">
+                      Puzzle {currentPuzzleIndex + 1} of {trainingData.total}
+                    </CardTitle>
+                    <Badge variant="outline">
+                      {currentPuzzle.source === "your_game" ? "From Your Game" : 
+                       currentPuzzle.source === "curated" ? "Training Puzzle" : "Lichess"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Personal note for user's own games */}
+                  {currentPuzzle.source === "your_game" && (
+                    <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                      <p className="text-xs text-violet-400 font-medium mb-1">
+                        FROM YOUR GAME
+                      </p>
+                      <p className="text-sm text-violet-300">
+                        You played <span className="font-mono">{currentPuzzle.your_move}</span> but 
+                        the best move was <span className="font-mono">{currentPuzzle.solution_san || currentPuzzle.solution?.[0]}</span>
+                      </p>
+                      {currentPuzzle.threat && (
+                        <p className="text-sm text-red-400 mt-2">
+                          You missed: <span className="font-medium">{currentPuzzle.threat}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Puzzle context */}
+                  {currentPuzzle.context && currentPuzzle.source !== "your_game" && (
+                    <p className="text-sm text-muted-foreground">
+                      {currentPuzzle.context}
+                    </p>
+                  )}
+                  
+                  {/* Solution reveal */}
+                  {showSolution && currentPuzzle.solution && (
+                    <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <p className="text-xs text-green-400 font-medium mb-1">
+                        SOLUTION
+                      </p>
+                      <p className="text-sm text-green-300 font-mono">
+                        {currentPuzzle.solution.join(" → ")}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Progress summary */}
+            <Card className="bg-slate-800/30">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{solvedCount} Correct</p>
+                    <p className="text-xs text-muted-foreground">
+                      {trainingData.prescription?.duration}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-primary">
+                      {Math.round((solvedCount / trainingData.total) * 100)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Accuracy</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
