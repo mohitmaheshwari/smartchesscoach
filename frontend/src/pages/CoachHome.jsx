@@ -232,10 +232,32 @@ const CoachHome = ({ user }) => {
         {/* Deep Session Banner - Shows when coaching review is due */}
         <DeepSessionBanner onStartSession={() => setShowDeepSession(true)} />
 
-        {/* Section 1: Development Phase Banner */}
-        {hasData && (
+        {/* Section 1: Focus Stage Banner - Single Source of Truth */}
+        {/* Priority: coachState.active_theme (locked) > homeData.development_phase (calculated) */}
+        {coachState?.active_theme ? (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5 p-3"
+            data-testid="locked-focus-banner"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                <Target className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
+                  Your Focus Stage
+                </p>
+                <p className="font-semibold text-primary">
+                  {coachState.active_theme?.replace(/([A-Z])/g, ' $1').trim()}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        ) : hasData && homeData.development_phase ? (
           <DevelopmentPhaseBanner phase={homeData.development_phase} />
-        )}
+        ) : null}
 
         {/* Section 2: Primary Action Card */}
         <motion.div
@@ -270,24 +292,6 @@ const CoachHome = ({ user }) => {
               advice={homeData.active_advice}
               focusCapacity={homeData.focus_capacity?.level}
             />
-          </motion.div>
-        )}
-
-        {/* Section 3.5: Your Focus Stage Banner */}
-        {coachState?.active_theme && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.16 }}
-            className="rounded-xl border border-primary/20 bg-primary/5 p-3"
-          >
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">Your Focus Stage:</span>
-              <span className="text-sm text-primary font-semibold">
-                {coachState.active_theme?.replace(/([A-Z])/g, ' $1').trim()}
-              </span>
-            </div>
           </motion.div>
         )}
 
