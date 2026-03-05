@@ -1,63 +1,59 @@
+/**
+ * PROGRESS PAGE - Human Coach Style
+ * 
+ * Not a dashboard. A coaching session.
+ * Shows your journey with celebration, trends, and specific examples.
+ */
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress as ProgressBar } from "@/components/ui/progress";
 import { 
   Loader2, 
-  ArrowLeft,
   TrendingUp,
   TrendingDown,
-  Minus,
   Target,
   Zap,
-  Clock,
   CheckCircle2,
   RefreshCw,
-  AlertCircle
+  Flame,
+  Trophy,
+  ArrowRight,
+  Sparkles,
+  Brain,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Eye
 } from "lucide-react";
-
-// Simple trend indicator
-const TrendBadge = ({ trend }) => {
-  if (trend === "improving") {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-green-500 bg-green-500/10 px-2 py-0.5 rounded">
-        <TrendingUp className="w-3 h-3" /> Improving
-      </span>
-    );
-  }
-  if (trend === "worsening") {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-red-500 bg-red-500/10 px-2 py-0.5 rounded">
-        <TrendingDown className="w-3 h-3" /> Needs work
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-      <Minus className="w-3 h-3" /> Stable
-    </span>
-  );
-};
 
 const Progress = ({ user }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
+  const [homeData, setHomeData] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [expandedSection, setExpandedSection] = useState(null);
 
   useEffect(() => {
-    fetchProgress();
+    fetchAll();
   }, []);
 
-  const fetchProgress = async () => {
+  const fetchAll = async () => {
     try {
-      const res = await fetch(`${API}/progress`, { credentials: "include" });
-      if (res.ok) setData(await res.json());
+      const [progressRes, homeRes] = await Promise.all([
+        fetch(`${API}/progress`, { credentials: "include" }),
+        fetch(`${API}/coach/home-intelligence`, { credentials: "include" })
+      ]);
+      if (progressRes.ok) setData(await progressRes.json());
+      if (homeRes.ok) setHomeData(await homeRes.json());
     } catch (e) {
-      console.error("Failed to fetch progress:", e);
+      console.error("Failed to fetch:", e);
     } finally {
       setLoading(false);
     }
@@ -66,39 +62,12 @@ const Progress = ({ user }) => {
   const syncNow = async () => {
     setSyncing(true);
     try {
-      await fetch(`${API}/journey/sync-now`, {
-        method: "POST",
-        credentials: "include"
-      });
-      setTimeout(fetchProgress, 3000);
+      await fetch(`${API}/journey/sync-now`, { method: "POST", credentials: "include" });
+      setTimeout(fetchAll, 3000);
     } catch (e) {
       console.error(e);
     } finally {
       setSyncing(false);
-    }
-  };
-
-  const [retrying, setRetrying] = useState(false);
-  
-  const retryFailedAnalyses = async () => {
-    setRetrying(true);
-    try {
-      // Retry each failed game
-      const failedIds = data?.failed_analyses || [];
-      for (const gameId of failedIds) {
-        await fetch(`${API}/analyze-game`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ game_id: gameId, force: true })
-        });
-      }
-      // Refresh data after retrying
-      setTimeout(fetchProgress, 2000);
-    } catch (e) {
-      console.error("Failed to retry analyses:", e);
-    } finally {
-      setRetrying(false);
     }
   };
 
@@ -112,251 +81,260 @@ const Progress = ({ user }) => {
     );
   }
 
-  const rating = data?.rating || {};
+  const patterns = homeData?.specific_patterns;
+  const dominantPattern = patterns?.dominant_pattern;
+  const patternCount = patterns?.pattern_count || 0;
   const accuracy = data?.accuracy || {};
   const habits = data?.habits || [];
-  const resolvedHabits = data?.resolved_habits || [];
+  const gamesAnalyzed = data?.valid_analysis_count || 0;
+
+  // Calculate improvement percentage
+  const accuracyImproved = accuracy.current > accuracy.previous;
+  const accuracyDelta = accuracy.current - (accuracy.previous || accuracy.current);
+
+  // Get greeting based on performance
+  const getCoachGreeting = () => {
+    if (accuracyDelta >= 5) return { text: "You're on fire!", icon: Flame, color: "text-orange-500" };
+    if (accuracyDelta >= 2) return { text: "Nice progress this week", icon: TrendingUp, color: "text-emerald-500" };
+    if (accuracyDelta <= -3) return { text: "Let's get back on track", icon: Target, color: "text-amber-500" };
+    return { text: "Steady progress", icon: Sparkles, color: "text-primary" };
+  };
+
+  const greeting = getCoachGreeting();
+  const GreetingIcon = greeting.icon;
 
   return (
     <Layout user={user}>
-      <div className="max-w-3xl mx-auto space-y-8" data-testid="progress-page">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/coach')}
-              data-testid="back-to-coach"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="font-heading font-bold text-2xl">Progress</h1>
-              <p className="text-sm text-muted-foreground">Your metrics and trends</p>
-            </div>
+      <div className="max-w-2xl mx-auto space-y-6" data-testid="progress-page">
+        
+        {/* Coach Greeting - Human touch */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-6"
+        >
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50 mb-4`}>
+            <GreetingIcon className={`w-5 h-5 ${greeting.color}`} />
+            <span className="font-medium">{greeting.text}</span>
           </div>
+          <h1 className="text-3xl font-heading font-bold mb-2">Your Progress</h1>
+          <p className="text-muted-foreground">Based on {gamesAnalyzed} games analyzed</p>
+        </motion.div>
+
+        {/* Main Metric - Accuracy with trend */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Card className="overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Move Accuracy</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold">{accuracy.current?.toFixed(1)}%</span>
+                    {accuracyDelta !== 0 && (
+                      <span className={`flex items-center text-sm ${accuracyImproved ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {accuracyImproved ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
+                        {accuracyDelta > 0 ? '+' : ''}{accuracyDelta.toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Last week</p>
+                  <p className="text-lg text-muted-foreground">{accuracy.previous?.toFixed(1) || '--'}%</p>
+                </div>
+              </div>
+              
+              {/* Visual progress bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Beginner</span>
+                  <span>Expert</span>
+                </div>
+                <ProgressBar value={accuracy.current || 0} className="h-3" />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>40%</span>
+                  <span>60%</span>
+                  <span>80%</span>
+                  <span>95%</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Your Main Weakness - With action */}
+        {dominantPattern && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold mb-1">Your Main Leak</h3>
+                    <p className="text-2xl font-bold text-amber-500 mb-1">
+                      {patternCount}x {dominantPattern.replace(/_/g, " ")}
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      This is costing you the most rating points. Fix this first.
+                    </p>
+                    <Button 
+                      onClick={() => navigate(`/training/prescribed?weakness=${dominantPattern}`)}
+                      className="bg-amber-500 hover:bg-amber-600 text-black"
+                      data-testid="train-weakness-btn"
+                    >
+                      <Target className="w-4 h-4 mr-2" />
+                      Train This Now
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Blunder Stats - Coach perspective */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-red-500" />
+                  Blunder Control
+                </h3>
+                <span className={`text-xs px-2 py-1 rounded ${
+                  data?.blunders?.trend === 'improving' 
+                    ? 'bg-emerald-500/10 text-emerald-500' 
+                    : data?.blunders?.trend === 'worsening'
+                    ? 'bg-red-500/10 text-red-500'
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {data?.blunders?.trend === 'improving' ? 'Improving' : 
+                   data?.blunders?.trend === 'worsening' ? 'Needs work' : 'Stable'}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg bg-muted/30">
+                  <p className="text-3xl font-bold">{data?.blunders?.avg_per_game?.toFixed(1) || '--'}</p>
+                  <p className="text-sm text-muted-foreground">blunders per game</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/30">
+                  <p className="text-3xl font-bold">{data?.blunders?.total || 0}</p>
+                  <p className="text-sm text-muted-foreground">total this week</p>
+                </div>
+              </div>
+              
+              <p className="mt-4 text-sm text-muted-foreground">
+                {data?.blunders?.avg_per_game <= 1 
+                  ? "Excellent control! You're keeping blunders rare."
+                  : data?.blunders?.avg_per_game <= 2
+                  ? "Good. Most games have 1-2 critical moments to fix."
+                  : "Focus on slowing down. Check for threats before each move."}
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Active Habits - What you're working on */}
+        {habits.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <Card>
+              <CardContent className="p-5">
+                <h3 className="font-semibold flex items-center gap-2 mb-4">
+                  <Brain className="w-4 h-4 text-purple-500" />
+                  Habits You're Building
+                </h3>
+                
+                <div className="space-y-3">
+                  {habits.filter(h => h.is_active).slice(0, 3).map((habit, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          habit.trend === 'improving' ? 'bg-emerald-500/20' : 'bg-muted'
+                        }`}>
+                          {habit.trend === 'improving' 
+                            ? <TrendingUp className="w-4 h-4 text-emerald-500" />
+                            : <Target className="w-4 h-4 text-muted-foreground" />
+                          }
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{habit.name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{habit.category}</p>
+                        </div>
+                      </div>
+                      <span className={`text-xs ${
+                        habit.trend === 'improving' ? 'text-emerald-500' : 'text-muted-foreground'
+                      }`}>
+                        {habit.occurrences_recent} this week
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="grid grid-cols-2 gap-3"
+        >
+          <Button 
+            variant="outline" 
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => navigate('/reflect')}
+          >
+            <Eye className="w-5 h-5" />
+            <span className="text-xs">Reflect on Games</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            className="h-auto py-4 flex-col gap-2"
+            onClick={() => navigate('/journey')}
+          >
+            <TrendingUp className="w-5 h-5" />
+            <span className="text-xs">Full Journey</span>
+          </Button>
+        </motion.div>
+
+        {/* Sync footer */}
+        <div className="flex justify-center pt-4">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={syncNow}
             disabled={syncing}
+            className="text-muted-foreground"
           >
             {syncing ? (
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
             ) : (
               <RefreshCw className="w-4 h-4 mr-2" />
             )}
-            Sync Games
+            Sync latest games
           </Button>
         </div>
-
-        {/* Failed Analyses Warning */}
-        {data?.failed_analysis_count > 0 && (
-          <Card className="border-amber-500/30 bg-amber-500/5">
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">
-                      {data.failed_analysis_count} game{data.failed_analysis_count > 1 ? 's' : ''} need re-analysis
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Engine analysis failed. Stats may be incomplete.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={retryFailedAnalyses}
-                  disabled={retrying}
-                  className="border-amber-500/30 hover:bg-amber-500/10"
-                >
-                  {retrying ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                  )}
-                  Retry Analysis
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Rating Section */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-amber-500" />
-              Rating
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <div className="text-3xl font-bold">{rating.current || "—"}</div>
-                <div className="text-xs text-muted-foreground">Current</div>
-              </div>
-              <div>
-                <div className={`text-3xl font-bold ${
-                  rating.change > 0 ? "text-green-500" : 
-                  rating.change < 0 ? "text-red-500" : ""
-                }`}>
-                  {rating.change > 0 ? "+" : ""}{rating.change || 0}
-                </div>
-                <div className="text-xs text-muted-foreground">This week</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-muted-foreground">{rating.peak || "—"}</div>
-                <div className="text-xs text-muted-foreground">Peak (90d)</div>
-              </div>
-            </div>
-            
-            {/* Simple rating context */}
-            {rating.change !== 0 && rating.habit_correlation && (
-              <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border">
-                {rating.change > 0 
-                  ? `Rating increased by ${rating.change} points. ${rating.habit_correlation}`
-                  : "Rating fluctuates. Focus on discipline and long-term habit correction."}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Accuracy & Blunders */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Target className="w-4 h-4 text-blue-500" />
-                Accuracy
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end justify-between">
-                <div>
-                  <div className="text-3xl font-bold">{accuracy.current || "—"}%</div>
-                  <div className="text-xs text-muted-foreground">Last 10 games</div>
-                </div>
-                <TrendBadge trend={accuracy.trend} />
-              </div>
-              {accuracy.previous && (
-                <div className="text-sm text-muted-foreground mt-3">
-                  Previous: {accuracy.previous}%
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Zap className="w-4 h-4 text-red-500" />
-                Blunders
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end justify-between">
-                <div>
-                  <div className="text-3xl font-bold">{data?.blunders?.avg_per_game ?? "—"}</div>
-                  <div className="text-xs text-muted-foreground">Avg per game</div>
-                </div>
-                <TrendBadge trend={data?.blunders?.trend} />
-              </div>
-              {data?.blunders?.total !== undefined && (
-                <div className="text-sm text-muted-foreground mt-3">
-                  Total (last 10): {data.blunders.total}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Active Habits */}
-        {habits.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-500" />
-                Habit Tracking
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {habits.map((habit, idx) => (
-                  <div 
-                    key={idx}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      habit.is_active ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{habit.name}</span>
-                        {habit.is_active && (
-                          <span className="text-[10px] bg-amber-500 text-black px-1.5 py-0.5 rounded font-semibold">
-                            ACTIVE
-                          </span>
-                        )}
-                        {habit.reflection_stats?.status === "improving" && (
-                          <span className="text-[10px] bg-emerald-500 text-black px-1.5 py-0.5 rounded font-semibold">
-                            IMPROVING
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {habit.occurrences_recent} occurrences recently
-                        {habit.reflection_stats?.total > 0 && (
-                          <span className="ml-2">
-                            • Reflections: {habit.reflection_stats.correct}/{habit.reflection_stats.total}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <TrendBadge trend={habit.trend} />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Resolved Habits */}
-        {resolvedHabits.length > 0 && (
-          <Card className="border-green-500/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2 text-green-500">
-                <CheckCircle2 className="w-4 h-4" />
-                Resolved
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {resolvedHabits.map((habit, idx) => (
-                  <div key={idx} className="text-sm text-muted-foreground">
-                    ✓ {habit.message || habit.name}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* No Data State */}
-        {!rating.current && habits.length === 0 && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">
-                Play and analyze some games to see your progress metrics.
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </Layout>
   );
