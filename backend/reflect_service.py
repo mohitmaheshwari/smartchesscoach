@@ -281,8 +281,17 @@ async def get_game_moments(db, user_id: str, game_id: str) -> List[Dict]:
     else:
         # FALLBACK: Use move_evaluations directly when commentary is empty
         for sf_data in move_evals:
-            move_quality = sf_data.get("move_quality", "")
+            move_quality = sf_data.get("move_quality") or sf_data.get("classification", "")
             cp_loss = sf_data.get("cp_loss", 0)
+            
+            # If no classification, derive from cp_loss
+            if not move_quality and cp_loss > 0:
+                if cp_loss >= 300:
+                    move_quality = "blunder"
+                elif cp_loss >= 100:
+                    move_quality = "mistake"
+                elif cp_loss >= 50:
+                    move_quality = "inaccuracy"
             
             # Only include blunders and mistakes
             if move_quality not in ["blunder", "mistake"]:
