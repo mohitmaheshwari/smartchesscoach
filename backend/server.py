@@ -10849,9 +10849,12 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
                 # Deep position analysis
                 position_analysis = analyze_position_deeply(fen, user_color)
                 
+                # Get threat data if available
+                threat = m.get("threat", "")
+                
                 # Specific insight for this mistake
                 insight = generate_move_specific_insight(
-                    fen, user_move, best_move, pv, cp_loss, user_color
+                    fen, user_move, best_move, pv, cp_loss, user_color, threat
                 )
                 
                 critical_moments.append({
@@ -10860,6 +10863,7 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
                     "your_move": user_move,
                     "best_move": best_move,
                     "cp_loss": cp_loss,
+                    "threat": threat,
                     "pv_after_best": pv[:4],  # First 4 moves of continuation
                     "position_analysis": position_analysis,
                     "insight": insight

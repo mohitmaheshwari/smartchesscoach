@@ -1499,22 +1499,29 @@ const Lab = ({ user }) => {
                               const isLoss = result === "0-1" && userColor === "white" || result === "1-0" && userColor === "black";
                               const isWin = result === "1-0" && userColor === "white" || result === "0-1" && userColor === "black";
                               const blunderCount = labData?.blunders || analysis?.stockfish_analysis?.blunders || 0;
+                              const mistakeCount = labData?.mistakes || analysis?.stockfish_analysis?.mistakes || 0;
                               const mainLesson = coreLesson?.lesson || "";
                               
-                              // Check if this game's issue matches user's recurring pattern
-                              const matchesRecurringPattern = userPatterns?.has_pattern && 
-                                (mainLesson.toLowerCase().includes("undefended") || 
-                                 mainLesson.toLowerCase().includes("threat") ||
-                                 userPatterns.dominant_pattern === "missed_threat");
+                              // Get the biggest blunder from this game for context
+                              const biggestBlunder = biggestEvalSwing;
+                              const wasCheckmate = biggestBlunder?.cp_loss >= 9000 || 
+                                                   game?.termination?.toLowerCase().includes('checkmate');
                               
-                              if (isLoss && blunderCount >= 2) {
-                                return matchesRecurringPattern 
-                                  ? `Tough game. But here's the thing — this is the same pattern we've seen before. You've ${userPatterns.pattern_description.toLowerCase()} ${userPatterns.pattern_count} times recently. Let's fix this once and for all.`
-                                  : `Tough loss. ${blunderCount} key moments went wrong, but there's a clear pattern here. Let's understand exactly what happened.`;
+                              // Be specific about THIS game first
+                              if (isLoss && wasCheckmate && blunderCount === 1) {
+                                // Single blunder leading to checkmate - be specific
+                                const threat = biggestBlunder?.threat;
+                                if (threat) {
+                                  return `This game came down to one move. You missed ${threat} — and that was checkmate. Let's make sure you never miss this pattern again.`;
+                                }
+                                return "This game came down to one critical moment. One missed threat, and it was over. Let's understand exactly what happened.";
+                              } else if (isLoss && blunderCount === 1) {
+                                // Single blunder but not checkmate
+                                return "Close game. One moment changed everything. Let's see what we can learn from it.";
+                              } else if (isLoss && blunderCount >= 2) {
+                                return `Tough loss. ${blunderCount} key moments went wrong. Let's understand the pattern.`;
                               } else if (isLoss) {
-                                return matchesRecurringPattern
-                                  ? `Close game, but the same issue showed up again. You've ${userPatterns.pattern_description.toLowerCase()} ${userPatterns.pattern_count} times this week. Today we break that cycle.`
-                                  : "Close game. One moment changed everything. Let's see what we can learn from it.";
+                                return "Let's break down what happened in this game.";
                               } else if (isWin && blunderCount > 0) {
                                 return `Good win, but you got away with ${blunderCount === 1 ? "one" : "a few"} shaky moment${blunderCount !== 1 ? "s" : ""}. Let's make sure these don't cost you next time.`;
                               } else if (isWin) {

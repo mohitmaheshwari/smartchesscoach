@@ -129,7 +129,8 @@ def generate_move_specific_insight(
     best_move: str,
     pv_after_best: List[str],
     cp_loss: int,
-    user_color: str
+    user_color: str,
+    threat: str = None  # The threat that was missed
 ) -> Dict[str, Any]:
     """
     Generate a specific insight about why a move was wrong and what should have been seen.
@@ -147,8 +148,26 @@ def generate_move_specific_insight(
         "why_your_move_was_wrong": "",
         "what_best_move_achieves": "",
         "the_idea_you_should_learn": "",
-        "how_to_spot_this": ""
+        "how_to_spot_this": "",
+        "was_checkmate_threat": False
     }
+    
+    # Check if this was a checkmate-level blunder
+    is_checkmate_blunder = cp_loss >= 9000
+    
+    # If there was a specific threat mentioned, use it
+    if threat and is_checkmate_blunder:
+        insight["what_you_missed"] = f"Your opponent had {threat} — this was checkmate (or winning)"
+        insight["was_checkmate_threat"] = True
+        insight["the_idea_you_should_learn"] = "Before every move, ask: 'What can my opponent do to me RIGHT NOW?'"
+        insight["how_to_spot_this"] = "Look for checks, captures, and threats — in that order. If you see a check is possible against YOU, stop everything."
+        
+        # The best move was defensive
+        insight["what_best_move_achieves"] = f"Prevents the checkmate threat of {threat}"
+        insight["why_your_move_was_wrong"] = f"You played {user_move} without seeing that your opponent could play {threat} and win immediately."
+        insight["position_type"] = "Your king was in immediate danger — defense was the only priority"
+        
+        return insight
     
     # Analyze what the best move achieves
     try:
