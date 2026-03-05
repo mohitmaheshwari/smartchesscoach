@@ -120,7 +120,55 @@ Wait for real user data before Step 10:
 - Need: 10+ completed locks, 5+ extended locks, 3+ strict-mode triggers, 2+ deep-sessions
 - Track: Completion rate, compliance distribution, quit patterns
 
-### P1 - Step 10: Identity Formation Layer
+### P1 - Smart Coach Engine - Phase 1 ✅ COMPLETED (Mar 4, 2026)
+Built Stockfish-validated teaching engine with strict no-hallucination policy:
+
+**Core Components Created:**
+- `/app/backend/coach_engine/` - New module with:
+  - `wisdom_library.py` - 16 V1 rules (high-frequency, verifiable)
+  - `piece_metrics.py` - Deterministic piece analysis (mobility, blocking, etc.)
+  - `rule_validator.py` - Two-gate validation (Gate A: evidence, Gate B: SF proof)
+  - `teaching_engine.py` - Main orchestrator with de-duplication
+  - `telemetry.py` - User interaction logging
+  - `models.py` - Strict output contracts
+
+**V1 Rules (16):**
+1. DELAYED_CASTLING
+2. EARLY_QUEEN_REPEATS
+3. MOVE_SAME_PIECE_REPEAT
+4. MISSED_FORCING_MOVES
+5. HANGING_PIECE
+6. SIMPLE_FORK_ALLOWED
+7. OPEN_FILE_ROOK_UNUSED
+8. ROOKS_NOT_CONNECTED
+9. BLOCKED_BISHOP_BY_OWN_PAWN
+10. BAD_TRADE_ACTIVE_FOR_PASSIVE
+11. BISHOP_PAIR_GIVEN_UP_OPEN_POS
+12. IGNORE_WORST_PIECE
+13. ADVANTAGE_CONVERSION_SIMPLIFY
+14. WHEN_WORSE_AVOID_TRADES
+15. KING_SAFETY_PAWN_SHIELD_WEAKEN
+16. CENTER_TENSION_IGNORED
+
+**Key Constraints Implemented:**
+- Coaching output contract: 1 diagnosis + move comparison + 1 reason + 1 rule
+- 8 allowed reasons: threat, pin, open_file, hanging_piece, king_safety, development_tempo, piece_activity, pawn_structure
+- De-duplication: max 1 same rule/game, max 3 same rule in last 10 games
+- Teach vs Observe distinction
+- Confidence + soft language policy
+- Telemetry from day 1
+
+**Tests:** 17/17 passing in `/app/backend/tests/test_coach_engine.py`
+
+### P1 - Smart Coach Engine - Phase 2 (Next)
+- Play with Coach integration (chat UI + board highlights)
+- Board lock/unlock states for pause/retry flow
+- MCQ buttons in chat
+
+### P1 - Smart Coach Engine - Phase 3 (After Phase 2)
+- Lab integration (replay CoachEvents in game analysis)
+
+### P2 - Step 10: Identity Formation Layer
 - Long-term, identity-level feedback (e.g., "You are becoming a tactical player")
 - Only starts after 10+ users complete full Focus Lock cycle
 - Need real compliance distributions first
