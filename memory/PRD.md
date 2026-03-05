@@ -126,6 +126,20 @@ Upgraded Lab page from 72/100 to ~85/100 on "human coach" feel:
 - Backend: 11/11 tests passed
 - New specs: `/app/tests/e2e/lab-coaching-features.spec.ts`, `/app/backend/tests/test_lab_coaching_api.py`
 
+### P0 - Lab Page "Alternate Timeline" Feature ✅ COMPLETED (Mar 6, 2026)
+Added the final feature to reach ~95/100 on "human coach" feel:
+
+**What Changed:**
+- Created `/app/frontend/src/components/Lab/AlternateTimeline.jsx` - New component
+- Shows "What if you played Nxd4?" with "Saved 6.3 pawns" badge
+- Displays PV (Principal Variation) move sequence: `Nxd4 → Rd5 → Rad8 → Rxd8 → Rxd8`
+- Mini chessboard preview of each position
+- "Play through" button to step through the alternate line
+- Coaching insight explaining the continuation
+
+**Test Status:** 100% passing (21/21 new tests)
+- New spec: `/app/tests/e2e/alternate-timeline.spec.ts`
+
 ---
 
 ## Next Steps
