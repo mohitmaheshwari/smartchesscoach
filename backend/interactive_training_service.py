@@ -192,6 +192,19 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10, include_solved: bo
             if not all([fen, user_move, best_move]):
                 continue
             
+            # Convert SAN to UCI for arrow drawing
+            user_move_uci = None
+            best_move_uci = None
+            try:
+                board = chess.Board(fen)
+                user_move_obj = board.parse_san(user_move)
+                user_move_uci = user_move_obj.uci()
+                best_move_obj = board.parse_san(best_move)
+                best_move_uci = best_move_obj.uci()
+            except Exception as e:
+                # If conversion fails, continue without UCI - arrows won't show
+                pass
+            
             # Use the new coaching classifier to determine if this should be a puzzle
             classification = classify_move_for_coaching(
                 fen_before=fen,
@@ -223,7 +236,9 @@ async def get_user_puzzles(db, user_id: str, limit: int = 10, include_solved: bo
                     "id": puzzle_id,
                     "fen": fen,
                     "user_move": user_move,
+                    "user_move_uci": user_move_uci,
                     "correct_move": best_move,
+                    "best_move_uci": best_move_uci,
                     "move_number": move_number,
                     "cp_loss": cp_loss,
                     "game_id": game_id,

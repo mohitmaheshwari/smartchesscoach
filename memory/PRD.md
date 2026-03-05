@@ -184,7 +184,7 @@ Integrated teaching engine with Lab game analysis:
 
 ### P1 - Bug Fixes ✅ COMPLETED (Mar 5, 2026)
 **Issue 2:** Updated `reflect_service.py` to check `stockfish_analysis.blunders/mistakes`. Fixed critical UnboundLocalError.
-**Issue 3:** Fixed puzzle board showing starting position - added `puzzles.length` to useEffect dependency array in `TrainingNew.jsx` so board updates when puzzles load.
+**Issue 3:** Fixed puzzle board showing starting position - added `puzzles.length` to useEffect dependency array. Also fixed red arrow not showing by adding `user_move_uci` and `best_move_uci` to puzzle data in `interactive_training_service.py`.
 **Issue 4:** Hide "0 → 0" metrics in `JourneyIntelligence.jsx` and `CoachFocusCard.jsx`.
 **Issue 5:** Added HelpCircle tooltips for rating metrics on `/progress` page.
 
