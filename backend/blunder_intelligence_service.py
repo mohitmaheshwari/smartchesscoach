@@ -173,6 +173,17 @@ def get_core_lesson(analysis: Dict) -> Dict:
     
     sf_analysis = analysis.get("stockfish_analysis", {})
     move_evals = sf_analysis.get("move_evaluations", [])
+    blunders = sf_analysis.get("blunders", 0)
+    mistakes = sf_analysis.get("mistakes", 0)
+    
+    # CLEAN GAME CHECK: 0 blunders AND 0 mistakes = celebrate!
+    if blunders == 0 and mistakes == 0:
+        return {
+            "lesson": "No significant mistakes detected. Well played!",
+            "pattern": "clean_game",
+            "behavioral_fix": "Keep this focus in your next games.",
+            "severity": "none"
+        }
     
     if not move_evals:
         # Check if there's basic analysis even without detailed move evals

@@ -1496,9 +1496,12 @@ const Lab = ({ user }) => {
                         <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30" data-testid="coaching-intro">
                           <p className="text-sm leading-relaxed">
                             {(() => {
-                              const isLoss = result === "0-1" && userColor === "white" || result === "1-0" && userColor === "black";
-                              const isWin = result === "1-0" && userColor === "white" || result === "0-1" && userColor === "black";
+                              const isLoss = (result === "0-1" && userColor === "white") || (result === "1-0" && userColor === "black");
+                              const isWin = (result === "1-0" && userColor === "white") || (result === "0-1" && userColor === "black");
+                              const isDraw = result === "1/2-1/2";
                               const blunderCount = labData?.blunders || 0;
+                              const mistakeCount = labData?.mistakes || 0;
+                              const totalErrors = blunderCount + mistakeCount;
                               
                               // USE THE ACTUAL BIGGEST_BLUNDER DATA FROM BACKEND
                               const biggestBlunder = labData?.biggest_blunder;
@@ -1506,28 +1509,62 @@ const Lab = ({ user }) => {
                               const isCheckmateLevel = biggestBlunder?.is_checkmate_level;
                               const cpLoss = Math.abs(biggestBlunder?.cp_loss || 0);
                               
-                              // Be specific about THIS game first
-                              if (isLoss && isCheckmateLevel && threat) {
-                                // Checkmate with specific threat - be very specific
-                                return `This game came down to one move. You missed ${threat} — and that was checkmate. Let's make sure you never miss this pattern again.`;
-                              } else if (isLoss && isCheckmateLevel) {
-                                // Checkmate but no specific threat data
-                                return "This game came down to one critical moment. One missed threat, and it was over. Let's understand exactly what happened.";
-                              } else if (isLoss && blunderCount === 1 && threat) {
-                                // Single blunder with threat
-                                return `Close game. One moment changed everything — you missed ${threat}. Let's make sure you see this next time.`;
-                              } else if (isLoss && blunderCount === 1) {
-                                // Single blunder, no threat data
-                                return "Close game. One moment changed everything. Let's see what we can learn from it.";
-                              } else if (isLoss && blunderCount >= 2) {
-                                return `Tough loss. ${blunderCount} key moments went wrong. Let's understand the pattern.`;
-                              } else if (isLoss) {
-                                return "Let's break down what happened in this game.";
-                              } else if (isWin && blunderCount > 0) {
-                                return `Good win, but you got away with ${blunderCount === 1 ? "one" : "a few"} shaky moment${blunderCount !== 1 ? "s" : ""}. Let's make sure these don't cost you next time.`;
-                              } else if (isWin) {
-                                return "Solid game. Let's see what made this one work so you can repeat it.";
+                              // SCENARIO 1: LOSS
+                              if (isLoss) {
+                                if (isCheckmateLevel && threat) {
+                                  // Checkmate with specific threat
+                                  return `This game came down to one move. You missed ${threat} — and that was checkmate. Let's make sure you never miss this pattern again.`;
+                                } else if (isCheckmateLevel) {
+                                  // Checkmate but no threat data
+                                  return "This game came down to one critical moment. One missed threat, and it was over. Let's understand exactly what happened.";
+                                } else if (blunderCount === 1 && threat) {
+                                  // Single blunder with specific threat
+                                  return `Close game. One moment changed everything — you missed ${threat}. Let's make sure you see this next time.`;
+                                } else if (blunderCount === 1) {
+                                  // Single blunder, no threat
+                                  return "Close game. One moment changed everything. Let's see what we can learn from it.";
+                                } else if (blunderCount >= 2 && threat) {
+                                  // Multiple blunders, show the biggest threat
+                                  return `Tough loss. ${blunderCount} key moments went wrong. The biggest was missing ${threat}. Let's fix these patterns.`;
+                                } else if (blunderCount >= 2) {
+                                  return `Tough loss. ${blunderCount} key moments went wrong. Let's understand the pattern.`;
+                                } else if (mistakeCount > 0) {
+                                  // Only mistakes, no blunders
+                                  return `Close game. Small inaccuracies added up — ${mistakeCount} mistake${mistakeCount !== 1 ? 's' : ''} in total. Let's tighten up your play.`;
+                                } else {
+                                  // Lost but no mistakes? Probably time trouble or resignation
+                                  return "Let's break down what happened in this game.";
+                                }
                               }
+                              
+                              // SCENARIO 2: WIN
+                              if (isWin) {
+                                if (totalErrors === 0) {
+                                  // Clean win!
+                                  return "Clean win! Your play was accurate throughout. Let's see what made this game work so you can repeat it.";
+                                } else if (blunderCount > 0 && threat) {
+                                  return `Good win, but you got lucky — you missed ${threat} and your opponent didn't punish it. Let's fix that.`;
+                                } else if (blunderCount > 0) {
+                                  return `Good win, but you got away with ${blunderCount === 1 ? "one" : blunderCount} shaky moment${blunderCount !== 1 ? "s" : ""}. Let's make sure these don't cost you next time.`;
+                                } else if (mistakeCount > 0) {
+                                  return `Solid win with a few small inaccuracies. Let's see where you can tighten up your play.`;
+                                } else {
+                                  return "Good game. Let's see what worked.";
+                                }
+                              }
+                              
+                              // SCENARIO 3: DRAW
+                              if (isDraw) {
+                                if (blunderCount > 0) {
+                                  return `Draw, but there were missed chances. You had ${blunderCount} moment${blunderCount !== 1 ? "s" : ""} where the game could have been decided.`;
+                                } else if (mistakeCount > 0) {
+                                  return `Solid draw. A few small improvements and this could have been a win.`;
+                                } else {
+                                  return "Well-played draw. Let's see if there were any chances for more.";
+                                }
+                              }
+                              
+                              // Fallback
                               return "Let's break down what happened in this game.";
                             })()}
                           </p>
