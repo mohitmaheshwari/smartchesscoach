@@ -1,0 +1,56 @@
+{
+  "summary": "Tested AlternateTimeline component on Lab page. All 10 new tests pass. Component correctly renders 'What if you played X?' header, shows 'Saved X pawns' badge, displays PV move sequence when expanded, shows mini chessboard preview, 'Play through' button cycles through positions, and only shows when pv_after_best data is available.",
+  "mode": "generate",
+  "baseline_commit": "f61e5d5d547de5bef05c926630d2b0156656fab7",
+  "head_commit": "f61a4c7bd91f803a22134656516dd9cd03dd7fab",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 2,
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/tests/e2e/alternate-timeline.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/alternate-timeline.spec.ts",
+    "/app/tests/e2e/lab-coaching-features.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/alternate-timeline.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "N/A",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "N/A - Used existing test game 42932bfa-24e8-4aff-9068-0b476cb6f4fc with pv_after_best=['Rd5', 'Rad8', 'Rxd8', 'Rxd8'] for move 20",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "AlternateTimeline component is fully tested. Component is located in /app/frontend/src/components/Lab/AlternateTimeline.jsx and is rendered in the Lab page Summary tab when biggestEvalSwing?.pv_after_best has data. Test game 42932bfa-24e8-4aff-9068-0b476cb6f4fc has pv_after_best data for move 20 where better_move='Nxd4'.",
+  "features_tested": {
+    "frontend": [
+      "AlternateTimeline renders with 'What if you played X?' header",
+      "AlternateTimeline shows 'Saved X pawns' badge from cpLoss data",
+      "AlternateTimeline shows PV move sequence when expanded",
+      "AlternateTimeline mini board displays the position",
+      "AlternateTimeline 'Play through' button cycles through positions",
+      "AlternateTimeline only shows when pv_after_best data is available",
+      "AlternateTimeline clicking on a PV move updates the board preview",
+      "AlternateTimeline expands and collapses on header click",
+      "AlternateTimeline shows coaching insight when expanded",
+      "AlternateTimeline has correct visual styling (emerald/green theme)"
+    ]
+  }
+}

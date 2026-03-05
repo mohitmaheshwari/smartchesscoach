@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
-import { LessonCard, CoachNotice, FocusLockStatus } from "@/components/Lab";
+import { LessonCard, CoachNotice, FocusLockStatus, AlternateTimeline } from "@/components/Lab";
 import { 
   ArrowLeft, 
   Loader2, 
@@ -1549,6 +1549,18 @@ const Lab = ({ user }) => {
                             }}
                             onSeeStrategy={() => setActiveTab('strategy')}
                           />
+                          
+                          {/* 🌿 ALTERNATE TIMELINE - What if you played the better move? */}
+                          {biggestEvalSwing?.pv_after_best?.length > 0 && (
+                            <AlternateTimeline
+                              fen={biggestEvalSwing.fen_before}
+                              yourMove={biggestEvalSwing.move}
+                              betterMove={biggestEvalSwing.best_move}
+                              pvAfterBest={biggestEvalSwing.pv_after_best}
+                              cpLoss={biggestEvalSwing.cp_loss}
+                              userColor={userColor}
+                            />
+                          )}
                           
                           {/* 📘 SUPPORTING LESSONS - From other moments (max 2) */}
                           {labData?.additional_lessons?.slice(0, 2).map((lesson, idx) => (
