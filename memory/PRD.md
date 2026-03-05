@@ -262,3 +262,69 @@ POST /api/coach/focus-lock/deactivate
   "failed_cycles": 0
 }
 ```
+
+---
+
+## Self-Learning Pattern Recognition System (NEW - Mar 5, 2026)
+
+### Overview
+A self-correcting AI system that learns from user feedback to improve mistake classification accuracy. When users flag a wrong explanation, the system:
+1. Generates an immediate corrected explanation
+2. Learns a new classification rule
+3. Propagates the fix to ALL users with similar patterns
+
+### Key Principle: NO HALLUCINATION
+- Stockfish = Source of Truth (WHAT happened)
+- AI = Translator (HOW to explain it)
+- LLM never invents chess facts, only interprets Stockfish data
+
+### Architecture
+```
+/app/backend/services/pattern_learning/
+├── __init__.py
+├── auto_correction_service.py   # Main orchestrator
+├── feedback_collector.py        # Collects user feedback
+├── pattern_learner.py           # GPT-4o generates rules from feedback
+├── rule_validator.py            # Validates rules before activation
+├── rule_executor.py             # Runs learned rules at classification time
+└── learning_db.py               # Database operations
+```
+
+### API Endpoints
+```
+POST /api/coach/pattern-learning/feedback    # Submit correction feedback
+GET  /api/coach/pattern-learning/stats       # System statistics
+GET  /api/coach/pattern-learning/pending-rules  # Rules needing review
+POST /api/coach/pattern-learning/approve-rule   # Approve a rule
+POST /api/coach/pattern-learning/reject-rule    # Reject a rule
+POST /api/coach/pattern-learning/classify       # Test classification
+POST /api/coach/pattern-learning/track-accuracy # Track rule accuracy
+```
+
+### Frontend Integration
+- Enhanced feedback modal in CoachPlay.jsx
+- When user selects "Wrong/Incorrect", shows pattern correction dropdown
+- Options: Fork, Pin, Skewer, Hanging Piece, Missed Tactic, etc.
+- User explanation helps AI learn the pattern
+
+### Auto-Approval Threshold: 0.85
+Rules with confidence >= 85% are auto-approved and activated immediately.
+
+### Database Collections
+- `pattern_feedback` - User feedback on wrong explanations
+- `learned_rules` - AI-generated classification rules
+- `verified_corrections` - Cached corrections for fast lookup
+
+### Cross-User Learning Flow
+1. User A flags: "This wasn't a trap, it was a pawn fork"
+2. AI analyzes position + Stockfish PV
+3. Generates rule: "When PV shows sequential pawn captures, classify as FORK"
+4. Rule validated against Stockfish
+5. Rule activated (if confidence >= 85%)
+6. User B encounters similar pattern → Correct classification automatically!
+
+### Integration Points
+- `enhanced_classifier.py` - Wrapper that checks learned rules first
+- CoachPlay.jsx - Feedback modal with pattern correction
+- Lab page - Will use learned rules for milestone explanations
+

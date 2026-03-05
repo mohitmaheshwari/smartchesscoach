@@ -181,6 +181,7 @@ const CoachPlay = ({ user }) => {
   const [feedbackMessage, setFeedbackMessage] = useState(null);
   const [feedbackType, setFeedbackType] = useState("");
   const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackCorrectPattern, setFeedbackCorrectPattern] = useState("");
   const chatEndRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
@@ -353,6 +354,7 @@ const CoachPlay = ({ user }) => {
     if (!feedbackMessage || !feedbackType) return;
     
     try {
+      // Submit basic feedback
       const response = await fetch(`${API}/coach/play/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -365,7 +367,47 @@ const CoachPlay = ({ user }) => {
         })
       });
       
-      if (response.ok) {
+      // If feedback type is "wrong" and user provided correction, submit to pattern learning
+      if (feedbackType === "wrong" && feedbackCorrectPattern && feedbackMessage.context) {
+        try {
+          const patternResponse = await fetch(`${API}/coach/pattern-learning/feedback`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              position_fen: feedbackMessage.context.fen || session?.current_fen || "",
+              move_played: feedbackMessage.context.move || "",
+              move_san: feedbackMessage.context.move_san || feedbackMessage.context.move || "",
+              system_classification: feedbackMessage.context.classification || "UNKNOWN",
+              system_explanation: feedbackMessage.message || "",
+              correct_classification: feedbackCorrectPattern,
+              user_explanation: feedbackComment,
+              eval_before: feedbackMessage.context.eval_before || 0,
+              eval_after: feedbackMessage.context.eval_after || 0,
+              best_move: feedbackMessage.context.best_move || "",
+              pv_after_played: feedbackMessage.context.pv || [],
+              game_id: session?.session_id || "",
+              move_number: feedbackMessage.context.move_number || 0,
+              user_color: session?.user_color || "white"
+            })
+          });
+          
+          if (patternResponse.ok) {
+            const result = await patternResponse.json();
+            if (result.corrected_explanation) {
+              toast.success("Got it! The coach will learn from this.", {
+                description: result.corrected_explanation.substring(0, 100) + "..."
+              });
+            } else {
+              toast.success("Thanks! This helps the coach improve for everyone.");
+            }
+          }
+        } catch (patternError) {
+          console.error("Error submitting pattern learning feedback:", patternError);
+          // Still show success for basic feedback
+          toast.success("Thanks for your feedback!");
+        }
+      } else if (response.ok) {
         toast.success("Thanks for your feedback!");
       }
     } catch (error) {
@@ -376,6 +418,7 @@ const CoachPlay = ({ user }) => {
     setFeedbackMessage(null);
     setFeedbackType("");
     setFeedbackComment("");
+    setFeedbackCorrectPattern("");
   };
 
   // Guardian intervention state
@@ -1014,7 +1057,7 @@ const CoachPlay = ({ user }) => {
                   <div className="space-y-2">
                     {[
                       { value: "confusing", label: "Confusing / Hard to understand" },
-                      { value: "wrong", label: "Wrong / Incorrect advice" },
+                      { value: "wrong", label: "Wrong / Incorrect explanation" },
                       { value: "obvious", label: "Too obvious / I knew this" },
                       { value: "not_relevant", label: "Not relevant to my plan" },
                     ].map(option => (
@@ -1048,8 +1091,38 @@ const CoachPlay = ({ user }) => {
                     ))}
                   </div>
                   
+                  {/* Pattern Correction Section - shown when "wrong" is selected */}
+                  {feedbackType === "wrong" && (
+                    <div className="space-y-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                      <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                        Help us learn! What was it actually?
+                      </p>
+                      <select
+                        value={feedbackCorrectPattern}
+                        onChange={(e) => setFeedbackCorrectPattern(e.target.value)}
+                        className="w-full p-2 text-sm rounded border bg-background"
+                        data-testid="pattern-correction-select"
+                      >
+                        <option value="">Select the correct pattern...</option>
+                        <option value="WALKED_INTO_FORK">I walked into a fork</option>
+                        <option value="WALKED_INTO_PIN">I walked into a pin</option>
+                        <option value="WALKED_INTO_SKEWER">I walked into a skewer</option>
+                        <option value="HANGING_PIECE">I left a piece hanging</option>
+                        <option value="MISSED_FORK">I missed a fork opportunity</option>
+                        <option value="MISSED_PIN">I missed a pin opportunity</option>
+                        <option value="MISSED_WINNING_TACTIC">I missed a winning tactic</option>
+                        <option value="BLUNDER_WHEN_AHEAD">I blundered when ahead</option>
+                        <option value="IGNORED_THREAT">I ignored opponent's threat</option>
+                        <option value="POSITIONAL_DRIFT">Small positional mistake</option>
+                        <option value="OTHER">Something else</option>
+                      </select>
+                    </div>
+                  )}
+                  
                   <Textarea
-                    placeholder="Tell us more (optional)..."
+                    placeholder={feedbackType === "wrong" 
+                      ? "Explain what the mistake actually was (e.g., 'The pawn forks my knight and bishop')..." 
+                      : "Tell us more (optional)..."}
                     value={feedbackComment}
                     onChange={(e) => setFeedbackComment(e.target.value)}
                     className="h-20 text-sm"
@@ -1057,11 +1130,17 @@ const CoachPlay = ({ user }) => {
                   
                   <Button 
                     onClick={submitFeedback}
-                    disabled={!feedbackType}
+                    disabled={!feedbackType || (feedbackType === "wrong" && !feedbackCorrectPattern)}
                     className="w-full"
                   >
-                    Submit Feedback
+                    {feedbackType === "wrong" ? "Submit & Help Coach Learn" : "Submit Feedback"}
                   </Button>
+                  
+                  {feedbackType === "wrong" && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      Your correction helps the coach improve for everyone!
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>
