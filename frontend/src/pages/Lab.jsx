@@ -56,7 +56,8 @@ import {
   Square,
   CheckSquare,
   Lock,
-  GraduationCap
+  GraduationCap,
+  ArrowRight
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 
@@ -145,6 +146,10 @@ const Lab = ({ user }) => {
   const [showOnlyCritical, setShowOnlyCritical] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("milestones");
+  
+  // Deep strategy analysis (position-specific insights)
+  const [deepStrategy, setDeepStrategy] = useState(null);
+  const [loadingDeepStrategy, setLoadingDeepStrategy] = useState(false);
   
   // Practice mode
   const [practiceMode, setPracticeMode] = useState(false);
@@ -286,6 +291,30 @@ const Lab = ({ user }) => {
     };
     fetchData();
   }, [gameId, navigate]);
+
+  // Fetch deep strategy analysis when Strategy tab is selected
+  useEffect(() => {
+    const fetchDeepStrategy = async () => {
+      if (activeTab === "strategy" && !deepStrategy && !loadingDeepStrategy && gameId) {
+        setLoadingDeepStrategy(true);
+        try {
+          const response = await fetch(`${API}/lab/${gameId}/deep-strategy`, {
+            credentials: "include"
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setDeepStrategy(data);
+          }
+        } catch (error) {
+          console.error("Error fetching deep strategy:", error);
+        } finally {
+          setLoadingDeepStrategy(false);
+        }
+      }
+    };
+    
+    fetchDeepStrategy();
+  }, [activeTab, gameId, deepStrategy, loadingDeepStrategy]);
 
   // Fetch Focus Lock state (Step 9.1)
   useEffect(() => {
@@ -1673,9 +1702,185 @@ const Lab = ({ user }) => {
                       )}
                     </TabsContent>
 
-                    {/* STRATEGY TAB - Game-aware coach explanations */}
+                    {/* STRATEGY TAB - Position-specific insights from deep analysis */}
                     <TabsContent value="strategy" className="p-4 space-y-4 m-0">
-                      {strategicAnalysis?.has_strategy ? (
+                      {loadingDeepStrategy ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                          <span className="ml-2 text-sm text-muted-foreground">Analyzing position strategy...</span>
+                        </div>
+                      ) : deepStrategy?.critical_moments?.length > 0 ? (
+                        <div className="space-y-4">
+                          {/* Header */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <GraduationCap className="w-5 h-5 text-violet-400" />
+                              <h3 className="font-semibold text-white">What You Missed</h3>
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              {deepStrategy.total_mistakes} critical moments
+                            </Badge>
+                          </div>
+                          
+                          {/* Each critical moment with position-specific insight */}
+                          {deepStrategy.critical_moments.map((moment, idx) => {
+                            const insight = moment.insight || {};
+                            
+                            return (
+                              <div 
+                                key={idx}
+                                className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50 space-y-3"
+                                data-testid={`critical-moment-${idx}`}
+                              >
+                                {/* Move header */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Badge className={idx === 0 ? "bg-red-500" : "bg-amber-500"}>
+                                      Move {moment.move_number}
+                                    </Badge>
+                                    <span className="text-sm text-red-400">
+                                      -{Math.abs(moment.cp_loss / 100).toFixed(1)} pawns
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      const moveNum = moment.move_number;
+                                      if (moveNum) {
+                                        const targetIdx = (moveNum - 1) * 2 + (userColor === 'black' ? 1 : 0);
+                                        goToMove(targetIdx);
+                                      }
+                                    }}
+                                    className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                                    data-testid={`see-position-${idx}`}
+                                  >
+                                    <Play className="w-3 h-3" />
+                                    See on board
+                                  </button>
+                                </div>
+                                
+                                {/* Your move vs Best move */}
+                                <div className="flex items-center gap-4 text-sm">
+                                  <div>
+                                    <span className="text-muted-foreground">You played: </span>
+                                    <span className="text-red-400 font-medium">{moment.your_move}</span>
+                                  </div>
+                                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                                  <div>
+                                    <span className="text-muted-foreground">Best was: </span>
+                                    <span className="text-green-400 font-medium">{moment.best_move}</span>
+                                  </div>
+                                </div>
+                                
+                                {/* WHAT YOU MISSED - The key insight */}
+                                {insight.what_you_missed && (
+                                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                    <p className="text-xs text-amber-400 font-medium mb-1 flex items-center gap-1">
+                                      <Eye className="w-3 h-3" />
+                                      WHAT YOU DIDN'T SEE
+                                    </p>
+                                    <p className="text-sm text-amber-300">
+                                      {insight.what_you_missed}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {/* WHAT BEST MOVE ACHIEVES */}
+                                {insight.what_best_move_achieves && (
+                                  <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                                    <p className="text-xs text-green-400 font-medium mb-1 flex items-center gap-1">
+                                      <Zap className="w-3 h-3" />
+                                      WHAT {moment.best_move} ACHIEVES
+                                    </p>
+                                    <p className="text-sm text-green-300">
+                                      {insight.what_best_move_achieves}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {/* WHY YOUR MOVE WAS WRONG */}
+                                {insight.why_your_move_was_wrong && (
+                                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                    <p className="text-xs text-red-400 font-medium mb-1">
+                                      WHY {moment.your_move} WAS WRONG
+                                    </p>
+                                    <p className="text-sm text-red-300">
+                                      {insight.why_your_move_was_wrong}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {/* THE PATTERN TO RECOGNIZE */}
+                                {(insight.the_idea_you_should_learn || insight.how_to_spot_this) && (
+                                  <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                                    <p className="text-xs text-violet-400 font-medium mb-1 flex items-center gap-1">
+                                      <Lightbulb className="w-3 h-3" />
+                                      PATTERN TO RECOGNIZE
+                                    </p>
+                                    {insight.the_idea_you_should_learn && (
+                                      <p className="text-sm text-violet-300 mb-2">
+                                        {insight.the_idea_you_should_learn}
+                                      </p>
+                                    )}
+                                    {insight.how_to_spot_this && (
+                                      <p className="text-sm text-violet-200 italic">
+                                        💡 {insight.how_to_spot_this}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {/* LLM COACH EXPLANATION (if available) */}
+                                {moment.coach_explanation && (
+                                  <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                                    <p className="text-xs text-primary font-medium mb-1 flex items-center gap-1">
+                                      <Brain className="w-3 h-3" />
+                                      COACH EXPLANATION
+                                    </p>
+                                    <p className="text-sm text-white/90">
+                                      {moment.coach_explanation}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {/* Continuation line */}
+                                {moment.pv_after_best?.length > 0 && (
+                                  <div className="pt-2 border-t border-slate-700/30">
+                                    <p className="text-xs text-muted-foreground">
+                                      After {moment.best_move}: {moment.pv_after_best.join(" → ")}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                          
+                          {/* Overall lesson from the game */}
+                          {deepStrategy.lesson?.main_strategic_theme && (
+                            <div className="p-4 rounded-lg bg-gradient-to-br from-violet-900/30 to-slate-900/50 border border-violet-500/20">
+                              <div className="flex items-center gap-2 mb-2">
+                                <BookOpen className="w-4 h-4 text-violet-400" />
+                                <p className="text-sm font-medium text-violet-400">
+                                  Main Theme: {deepStrategy.lesson.main_strategic_theme}
+                                </p>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                Practice spotting these patterns by scanning for undefended pieces before every move.
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Link to Milestones */}
+                          <button
+                            onClick={() => setActiveTab('milestones')}
+                            className="w-full p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/50 transition-colors flex items-center justify-center gap-2 text-sm text-violet-400 hover:text-violet-300"
+                            data-testid="strategy-to-milestones"
+                          >
+                            <Lightbulb className="w-4 h-4" />
+                            See all learning moments
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : strategicAnalysis?.has_strategy ? (
                         <div className="space-y-4">
                           {/* Abandoned game notice - coach acknowledges incomplete game */}
                           {(game?.termination?.toLowerCase().includes('abandoned') || 

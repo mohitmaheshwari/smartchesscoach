@@ -10798,6 +10798,123 @@ async def get_all_imbalances(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Knowledge base not available")
 
 
+@api_router.get("/lab/{game_id}/deep-strategy")
+async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Generate deep, position-specific strategic analysis for a game.
+    
+    This is what a HUMAN COACH would tell you:
+    - Not generic "trade pieces when ahead"
+    - But specific: "Your knight on e6 could take the bishop on d4, winning material"
+    - Shows WHAT you missed and WHY in each critical position
+    
+    Returns specific insights for each critical moment.
+    """
+    from services.position_strategy_analyzer import (
+        analyze_position_deeply,
+        generate_move_specific_insight,
+        generate_strategic_lesson
+    )
+    
+    # Get game and analysis
+    analysis = await db.game_analyses.find_one({
+        "game_id": game_id,
+        "user_id": user.user_id
+    }, {"_id": 0})
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Game analysis not found")
+    
+    game = await db.games.find_one({
+        "game_id": game_id,
+        "user_id": user.user_id
+    }, {"_id": 0})
+    
+    user_color = game.get("user_color", "white") if game else "white"
+    sf = analysis.get("stockfish_analysis", {})
+    move_evaluations = sf.get("move_evaluations", [])
+    
+    # Find critical moments (mistakes with cp_loss >= 100)
+    critical_moments = []
+    for m in move_evaluations:
+        cp_loss = abs(m.get("cp_loss", 0))
+        if cp_loss >= 100:
+            fen = m.get("fen_before", "")
+            user_move = m.get("move", "")
+            best_move = m.get("best_move", "")
+            pv = m.get("pv_after_best", [])
+            move_num = m.get("move_number", 0)
+            
+            if fen and user_move and best_move:
+                # Deep position analysis
+                position_analysis = analyze_position_deeply(fen, user_color)
+                
+                # Specific insight for this mistake
+                insight = generate_move_specific_insight(
+                    fen, user_move, best_move, pv, cp_loss, user_color
+                )
+                
+                critical_moments.append({
+                    "move_number": move_num,
+                    "fen": fen,
+                    "your_move": user_move,
+                    "best_move": best_move,
+                    "cp_loss": cp_loss,
+                    "pv_after_best": pv[:4],  # First 4 moves of continuation
+                    "position_analysis": position_analysis,
+                    "insight": insight
+                })
+    
+    # Sort by cp_loss to get most important first
+    critical_moments.sort(key=lambda x: abs(x["cp_loss"]), reverse=True)
+    
+    # Generate overall lesson
+    lesson = generate_strategic_lesson(
+        game or {},
+        move_evaluations,
+        user_color
+    )
+    
+    # If we have critical moments, use LLM to generate human-readable explanations
+    if critical_moments and len(critical_moments) > 0:
+        try:
+            # Use LLM to write natural explanations
+            top_moment = critical_moments[0]
+            prompt = f"""You are a chess coach explaining a mistake to a student. 
+Be specific about THIS position, not generic advice.
+
+POSITION (FEN): {top_moment['fen']}
+THE STUDENT PLAYED: {top_moment['your_move']}
+THE BEST MOVE WAS: {top_moment['best_move']}
+CONTINUATION AFTER BEST: {' '.join(top_moment.get('pv_after_best', []))}
+EVALUATION LOSS: {top_moment['cp_loss']} centipawns
+
+Analysis found:
+- Position type: {top_moment['insight'].get('position_type', '')}
+- What best move achieves: {top_moment['insight'].get('what_best_move_achieves', '')}
+
+Write a 2-3 sentence explanation that:
+1. Names the specific pieces and squares involved
+2. Explains what the student missed in THIS position
+3. Gives a concrete pattern to look for next time
+
+Be direct and specific. Example tone: "Your knight on e6 could have captured the bishop on d4. After Nxd4, you win a piece because the bishop was only defended by the queen, which would then be overloaded."
+"""
+            llm_explanation = await call_llm(prompt, max_tokens=200)
+            if llm_explanation:
+                critical_moments[0]["coach_explanation"] = llm_explanation
+        except Exception as e:
+            logger.error(f"Error generating LLM explanation: {e}")
+    
+    return {
+        "game_id": game_id,
+        "user_color": user_color,
+        "critical_moments": critical_moments[:5],  # Top 5 moments
+        "lesson": lesson,
+        "total_mistakes": len(critical_moments)
+    }
+
+
 @api_router.get("/weakness-ranking")
 async def get_weakness_ranking(user: User = Depends(get_current_user)):
     """
