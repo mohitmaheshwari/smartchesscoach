@@ -12,7 +12,7 @@ Tests:
 import pytest
 import uuid
 
-BASE_URL = "https://habit-forge-226.preview.emergentagent.com"
+BASE_URL = "https://chess-coach-learn.preview.emergentagent.com"
 
 
 class TestCoachPlayStart:

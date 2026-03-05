@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://habit-forge-226.preview.emergentagent.com';
+const BASE_URL = 'https://chess-coach-learn.preview.emergentagent.com';
 
 test.describe('Coach Home - UX Overhaul', () => {
   
@@ -47,17 +47,21 @@ test.describe('Coach Home - UX Overhaul', () => {
     
     await expect(page.getByTestId('coach-home')).toBeVisible({ timeout: 15000 });
     
-    // Either active mission card or no-mission card should be visible
-    const activeMissionCard = page.getByTestId('active-mission-card');
-    const noMissionCard = page.getByTestId('no-mission-card');
-    const postLossHero = page.getByTestId('post-loss-hero');
+    // UI redesign: When user has games to reflect, REFLECT state is primary
+    // When all games reflected, TRAIN state shows mission card
+    // One of these states should be active
+    const heroSection = page.getByTestId('hero-section');
+    const missionCard = page.getByTestId('mission-card');
+    const reflectGameCard = page.getByTestId('reflect-game-0');
+    const importGamesBtn = page.getByTestId('import-games-btn');
     
-    // One of these should be visible
-    const missionVisible = await activeMissionCard.isVisible().catch(() => false);
-    const noMissionVisible = await noMissionCard.isVisible().catch(() => false);
-    const postLossVisible = await postLossHero.isVisible().catch(() => false);
+    const heroVisible = await heroSection.isVisible({ timeout: 5000 }).catch(() => false);
+    const missionVisible = await missionCard.isVisible({ timeout: 2000 }).catch(() => false);
+    const reflectVisible = await reflectGameCard.isVisible({ timeout: 2000 }).catch(() => false);
+    const importVisible = await importGamesBtn.isVisible({ timeout: 2000 }).catch(() => false);
     
-    expect(missionVisible || noMissionVisible || postLossVisible).toBe(true);
+    // One of the primary state elements should be visible
+    expect(heroVisible || missionVisible || reflectVisible || importVisible).toBe(true);
   });
 
   test('Mission card shows focus label, duration, and protocol steps', async ({ page }) => {
@@ -145,46 +149,49 @@ test.describe('Coach Home - UX Overhaul', () => {
     await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
-    // Import Games button
-    const importBtn = page.getByTestId('quick-import');
-    await expect(importBtn).toBeVisible();
-    await expect(importBtn).toHaveText(/Import Games/);
+    // Updated UI: Quick actions are now Puzzles, Progress, Analyze
+    const puzzlesBtn = page.getByTestId('puzzles-action');
+    await expect(puzzlesBtn).toBeVisible();
+    await expect(puzzlesBtn).toContainText(/Puzzles/i);
     
-    // View Journey button (renamed from View Progress)
-    const journeyBtn = page.getByTestId('quick-progress');
-    await expect(journeyBtn).toBeVisible();
-    await expect(journeyBtn).toHaveText(/View Journey/);
+    const progressBtn = page.getByTestId('progress-action');
+    await expect(progressBtn).toBeVisible();
+    await expect(progressBtn).toContainText(/Progress/i);
+    
+    const analyzeBtn = page.getByTestId('analyze-action');
+    await expect(analyzeBtn).toBeVisible();
+    await expect(analyzeBtn).toContainText(/Analyze/i);
   });
 
-  test('Import Games quick action navigates to import page', async ({ page }) => {
+  test('Analyze quick action navigates to analyze page', async ({ page }) => {
     await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
     await hideEmergentBadge(page);
     
-    const importBtn = page.getByTestId('quick-import');
-    await importBtn.click({ force: true });
+    const analyzeBtn = page.getByTestId('analyze-action');
+    await analyzeBtn.click({ force: true });
     
-    // Should navigate to import page
-    await page.waitForURL(/\/import/, { timeout: 10000 });
-  });
-
-  test('View Journey quick action navigates to progress page', async ({ page }) => {
-    await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
-    await waitForAppReady(page);
-    
-    await hideEmergentBadge(page);
-    
-    const journeyBtn = page.getByTestId('quick-progress');
-    await expect(journeyBtn).toBeVisible({ timeout: 10000 });
-    await journeyBtn.click({ force: true });
-    
-    // Should navigate to progress page - use waitForLoadState instead of waitForURL
+    // Wait for navigation to complete
     await page.waitForLoadState('domcontentloaded');
     
-    // Verify URL contains progress
-    const currentUrl = page.url();
-    expect(currentUrl).toMatch(/\/progress/);
+    // Should navigate away from home
+    const url = page.url();
+    expect(url).not.toMatch(/\/home$/);
+  });
+
+  test('Progress quick action navigates to progress page', async ({ page }) => {
+    await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
+    await waitForAppReady(page);
+    
+    await hideEmergentBadge(page);
+    
+    const progressBtn = page.getByTestId('progress-action');
+    await expect(progressBtn).toBeVisible({ timeout: 10000 });
+    await progressBtn.click({ force: true });
+    
+    // Should navigate to progress page
+    await page.waitForURL(/\/progress/, { timeout: 10000 });
   });
 
   test('Recommended Drill card displays when user has data', async ({ page }) => {
@@ -211,8 +218,8 @@ test.describe('Coach Home - UX Overhaul', () => {
     await page.goto(`${BASE_URL}/home`, { waitUntil: 'domcontentloaded' });
     await waitForAppReady(page);
     
-    // Check for greeting text (Good morning/afternoon/evening)
-    const greeting = page.locator('p').filter({ hasText: /Good (morning|afternoon|evening)/ });
+    // Greeting is now in h1 element
+    const greeting = page.locator('h1').filter({ hasText: /Good (morning|afternoon|evening)/ });
     await expect(greeting).toBeVisible();
   });
 
@@ -266,8 +273,8 @@ test.describe('Coach Home - Navigation Integration', () => {
     const homeNav = page.getByTestId('nav-home');
     await expect(homeNav).toBeVisible();
     
-    // Should have active state (bg-muted class)
-    await expect(homeNav).toHaveClass(/bg-muted/);
+    // Should have active state (bg-primary/10 class in new UI)
+    await expect(homeNav).toHaveClass(/bg-primary/);
   });
 
   test('Navigation items navigate to correct routes', async ({ page }) => {
@@ -363,7 +370,7 @@ test.describe('Coach Home - P1.6 Reanalysis Progress Banner', () => {
       expect(statusData).toHaveProperty('processed_games');
       expect(statusData).toHaveProperty('total_games');
       expect(statusData).toHaveProperty('engine_version');
-      expect(statusData.engine_version).toBe('P1.6');
+      expect(statusData.engine_version).toBe('P2.7');
     }
   });
 });

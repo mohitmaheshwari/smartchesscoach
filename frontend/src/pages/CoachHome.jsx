@@ -166,6 +166,11 @@ const CoachHome = ({ user }) => {
   const focusStage = coachState?.active_theme || homeData?.development_phase?.phase_name;
   const focusAdvice = homeData?.active_advice;
   
+  // V2 Data - Specific patterns, progress trends, session continuity
+  const specificPatterns = homeData?.specific_patterns;
+  const progressTrend = homeData?.progress_trend;
+  const lastSession = homeData?.last_session;
+  
   // Determine the primary state
   const getPrimaryState = () => {
     if (hasGamesToReflect) return "REFLECT";
@@ -215,60 +220,54 @@ const CoachHome = ({ user }) => {
           {/* State-based hero content */}
           {primaryState === "REFLECT" && (
             <div className="space-y-3">
-              {/* Behavioral insight - What pattern are we seeing? */}
-              {(() => {
-                // Calculate behavioral trends from games needing reflection
-                const recentGames = gamesNeedingReflection.slice(0, 5);
-                const totalBlunders = recentGames.reduce((sum, g) => sum + (g.blunders || 0), 0);
-                const totalMistakes = recentGames.reduce((sum, g) => sum + (g.mistakes || 0), 0);
-                const losses = recentGames.filter(g => g.result === "loss").length;
-                const wins = recentGames.filter(g => g.result === "win").length;
-                const avgAccuracy = recentGames.filter(g => g.accuracy).length > 0 
-                  ? Math.round(recentGames.reduce((sum, g) => sum + (g.accuracy || 0), 0) / recentGames.filter(g => g.accuracy).length)
-                  : null;
-                
-                // Generate behavioral insight based on patterns
-                let behaviorInsight = "";
-                let insightType = "neutral"; // neutral, warning, positive
-                
-                if (totalBlunders >= 5) {
-                  behaviorInsight = `${totalBlunders} blunders in your recent games. There's a pattern here - let's find it.`;
-                  insightType = "warning";
-                } else if (losses >= 3 && wins === 0) {
-                  behaviorInsight = "Tough stretch. But every loss is a lesson if we reflect on it.";
-                  insightType = "warning";
-                } else if (avgAccuracy && avgAccuracy < 65) {
-                  behaviorInsight = `${avgAccuracy}% average accuracy. Small improvements in calculation will change everything.`;
-                  insightType = "warning";
-                } else if (wins >= losses && totalBlunders <= 2) {
-                  behaviorInsight = "You're playing solid chess. Let's keep building on that.";
-                  insightType = "positive";
-                } else if (gamesNeedingReflection.length >= 3) {
-                  behaviorInsight = "A few games to catch up on. Reflection is where real learning happens.";
-                  insightType = "neutral";
-                } else {
-                  behaviorInsight = "Let's review your recent play and find opportunities to improve.";
-                  insightType = "neutral";
-                }
-                
-                const insightColors = {
-                  warning: "text-amber-600 dark:text-amber-400",
-                  positive: "text-green-600 dark:text-green-400",
-                  neutral: "text-muted-foreground"
-                };
-                
-                return (
-                  <div className="space-y-2">
-                    <p className={`text-sm ${insightColors[insightType]}`}>
-                      {behaviorInsight}
+              {/* Specific Pattern Insight from API - the key "95/100" improvement */}
+              {specificPatterns?.has_pattern && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                      {specificPatterns.pattern_count}x {specificPatterns.pattern_description.toLowerCase()} this week
                     </p>
-                    <p className="text-sm">
-                      <span className="text-primary font-medium">{gamesNeedingReflection.length} game{gamesNeedingReflection.length !== 1 ? 's' : ''}</span>
-                      {" "}waiting for reflection.
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      This is your main leak. Let's fix it.
                     </p>
                   </div>
-                );
-              })()}
+                </div>
+              )}
+              
+              {/* Progress Trend - shows improvement or decline */}
+              {progressTrend?.has_trend && (
+                <div className={`flex items-center gap-2 text-sm ${
+                  progressTrend.trend === "improving" ? "text-green-600 dark:text-green-400" :
+                  progressTrend.trend === "declining" ? "text-red-500" : "text-muted-foreground"
+                }`}>
+                  {progressTrend.trend === "improving" && <TrendingUp className="w-4 h-4" />}
+                  {progressTrend.trend === "declining" && <AlertCircle className="w-4 h-4" />}
+                  {progressTrend.trend === "stable" && <CheckCircle2 className="w-4 h-4" />}
+                  <span>{progressTrend.message}</span>
+                </div>
+              )}
+              
+              {/* Session Continuity - what we worked on last time */}
+              {lastSession?.has_session && lastSession.games_on_theme > 0 && (
+                <p className="text-sm text-muted-foreground italic">
+                  {lastSession.message}
+                </p>
+              )}
+              
+              {/* Fallback if no specific pattern data - use game count */}
+              {!specificPatterns?.has_pattern && (
+                <p className="text-sm text-muted-foreground">
+                  {gamesNeedingReflection.length >= 3 
+                    ? "A few games to catch up on. Reflection is where real learning happens."
+                    : "Let's review your recent play."}
+                </p>
+              )}
+              
+              <p className="text-sm">
+                <span className="text-primary font-medium">{gamesNeedingReflection.length} game{gamesNeedingReflection.length !== 1 ? 's' : ''}</span>
+                {" "}waiting for reflection.
+              </p>
             </div>
           )}
           
@@ -282,6 +281,22 @@ const CoachHome = ({ user }) => {
                   </span>
                 </div>
               )}
+              
+              {/* Progress Trend in TRAIN mode too */}
+              {progressTrend?.has_trend && progressTrend.trend === "improving" && (
+                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                  <TrendingUp className="w-4 h-4" />
+                  <span>{progressTrend.message}</span>
+                </div>
+              )}
+              
+              {/* Session Continuity */}
+              {lastSession?.has_session && lastSession.games_on_theme > 0 && (
+                <p className="text-sm text-muted-foreground italic">
+                  {lastSession.message}
+                </p>
+              )}
+              
               <p className="text-sm text-muted-foreground">
                 Time to train. Today's focus: <span className="text-foreground font-medium">{focusStage || "Tactical awareness"}</span>
               </p>
@@ -324,17 +339,20 @@ const CoachHome = ({ user }) => {
                 const style = getResultStyle(game.result);
                 const blunders = game.blunders || 0;
                 const accuracy = game.accuracy;
+                const isWin = game.result === "win";
                 
-                // Individual game insight
+                // Individual game insight - more specific and celebratory for wins
                 let gameInsight = "";
-                if (game.result === "loss" && blunders >= 2) {
-                  gameInsight = `${blunders} blunders to understand`;
+                if (isWin && blunders === 0) {
+                  gameInsight = "Clean win! Let's see what worked.";
+                } else if (isWin && blunders > 0) {
+                  gameInsight = `Won but ${blunders} close call${blunders !== 1 ? 's' : ''}.`;
+                } else if (game.result === "loss" && blunders >= 2) {
+                  gameInsight = `${blunders} blunder${blunders !== 1 ? 's' : ''} to understand`;
                 } else if (game.result === "loss" && blunders === 1) {
-                  gameInsight = "1 critical moment";
-                } else if (game.result === "win" && blunders > 0) {
-                  gameInsight = "Won but got lucky";
+                  gameInsight = "1 critical moment to study";
                 } else if (accuracy && accuracy < 60) {
-                  gameInsight = `${accuracy}% accuracy`;
+                  gameInsight = `${accuracy}% accuracy - room to grow`;
                 } else {
                   gameInsight = `${game.moments_count || game.critical_moments_count || 0} moment${(game.moments_count || game.critical_moments_count || 0) !== 1 ? 's' : ''} to review`;
                 }
@@ -346,19 +364,25 @@ const CoachHome = ({ user }) => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.1 + index * 0.05 }}
                     onClick={() => navigate(`/reflect?game=${game.game_id}`)}
-                    className="w-full p-3 rounded-xl border bg-card hover:bg-accent/50 transition-colors text-left group"
+                    className={`w-full p-3 rounded-xl border bg-card hover:bg-accent/50 transition-colors text-left group ${
+                      isWin ? "border-green-500/30 bg-green-500/5" : ""
+                    }`}
                     data-testid={`reflect-game-${index}`}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${style.bg}`}>
-                        <span className={`text-lg font-bold ${style.color}`}>{style.emoji}</span>
+                        {isWin && blunders === 0 ? (
+                          <Trophy className="w-5 h-5 text-green-500" />
+                        ) : (
+                          <span className={`text-lg font-bold ${style.color}`}>{style.emoji}</span>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium truncate">vs {game.opponent_name || game.opponent || "Opponent"}</span>
                           <span className="text-xs text-muted-foreground">{getTimeSince(game.date || game.analyzed_at)}</span>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className={`text-xs truncate ${isWin && blunders === 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
                           {gameInsight}
                         </p>
                       </div>

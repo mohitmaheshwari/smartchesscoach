@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://habit-forge-226.preview.emergentagent.com';
+const BASE_URL = 'https://chess-coach-learn.preview.emergentagent.com';
 
 test.describe('Coach Pulse Indicator', () => {
   

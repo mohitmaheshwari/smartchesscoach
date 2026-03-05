@@ -1,0 +1,57 @@
+{
+  "summary": "Coach Home V2 personalization features verified - All requested features working correctly. Specific mistake patterns (27x missed threats), progress trend messages, clean win trophy display, blunder counts on loss games, and focus advice section all displaying from API data.",
+  "mode": "generate",
+  "baseline_commit": "11a1f88e1d69af6fd878b7d9a7561fd1a05f38c7",
+  "head_commit": "1cc6f57f82ce1e5d2b5286a63093b0eeb3fbfacb",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 4,
+    "passed": 67,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/tests/e2e/coach-home-v2.spec.ts",
+    "/app/backend/tests/test_home_intelligence_v2.py"
+  ],
+  "specs_updated": [
+    "/app/tests/e2e/coach-home.spec.ts"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/coach-home-v2.spec.ts",
+    "/app/tests/e2e/coach-home.spec.ts",
+    "/app/backend/tests/test_home_intelligence_v2.py",
+    "/app/backend/tests/test_coach_home_api.py",
+    "/app/test_reports/pytest/coach_home_v2_tests.xml"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/coach-home.spec.ts - Updated tests to match new UI design (quick action testids, greeting element, nav active class, engine version)"
+  ],
+  "success_rate": {
+    "backend": "100% (32/32 tests passed)",
+    "frontend": "100% (35/35 tests passed)"
+  },
+  "seed_data_creation": "Used existing test user user_bdd07038f9c0 with 20+ analyzed games",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All Coach Home V2 features verified. The home-intelligence API now returns specific_patterns, progress_trend, and last_session fields. Frontend displays: '27x missed opponent's threats this week' (specific patterns), 'Steady progress. Stay focused on your habits.' (progress trend), clean win trophy icons with 'Clean win! Let's see what worked.' message, blunder counts for losses. Navigation to reflect page from game cards works correctly.",
+  "features_verified": {
+    "specific_patterns_display": "27x you missed opponent's threats this week - WORKING",
+    "progress_trend_message": "Steady progress. Stay focused on your habits. - WORKING", 
+    "clean_win_trophy_icon": "vs Demerw shows trophy icon with green highlight - WORKING",
+    "clean_win_message": "Clean win! Let's see what worked. - WORKING",
+    "loss_blunder_count": "vs Rayne1019: 2 blunders to understand, vs Riotis12: 3 blunders to understand - WORKING",
+    "game_card_navigation": "Clicking game cards navigates to /reflect?game=<game_id> - WORKING",
+    "focus_advice_section": "YOUR FOCUS - Before each move, check what your opponent is threatening. - WORKING"
+  }
+}

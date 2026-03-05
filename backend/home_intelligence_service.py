@@ -498,6 +498,15 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
     from reflect_service import get_games_needing_reflection
     games_needing_reflection = await get_games_needing_reflection(db, user_id, limit=5)
     
+    # NEW: Get specific mistake patterns from recent games
+    specific_patterns = await get_specific_mistake_patterns(db, user_id, games_needing_reflection)
+    
+    # NEW: Get progress trends (comparing last 5 games vs previous 5)
+    progress_trend = await get_progress_trend(db, user_id)
+    
+    # NEW: Get last session info for continuity
+    last_session_info = await get_last_session_info(db, user_id)
+    
     return {
         "has_data": True,
         "games_analyzed": total_games,
@@ -505,12 +514,227 @@ async def get_home_intelligence(db, user_id: str) -> Dict:
         "focus_capacity": focus_capacity,
         "active_advice": active_advice,
         "last_game": last_game_summary,
-        "games_needing_reflection": games_needing_reflection,  # NEW: List of games to reflect on
+        "games_needing_reflection": games_needing_reflection,
         "recommended_drill": recommended_drill,
         "recurring_patterns": recurring_patterns[:3],
+        "specific_patterns": specific_patterns,  # NEW: e.g., "3 knight forks this week"
+        "progress_trend": progress_trend,  # NEW: "2 fewer blunders than last week"
+        "last_session": last_session_info,  # NEW: What we worked on last time
         "stats": {
             "blunders_per_game": round(blunders_per_game, 2),
             "mistakes_per_game": round(mistakes_per_game, 2),
             "time_trouble_rate": round(time_trouble_rate * 100, 1),
         },
+    }
+
+
+async def get_specific_mistake_patterns(db, user_id: str, recent_games: List[Dict]) -> Dict:
+    """
+    Analyze recent games to find specific tactical patterns the user is struggling with.
+    
+    Returns:
+    - dominant_pattern: The most common mistake type (e.g., "walked into fork")
+    - pattern_count: How many times it happened
+    - pattern_description: Human-readable description
+    """
+    if not recent_games:
+        return {"has_pattern": False}
+    
+    # Get game IDs
+    game_ids = [g.get("game_id") for g in recent_games if g.get("game_id")]
+    
+    if not game_ids:
+        return {"has_pattern": False}
+    
+    # Fetch analyses for these games
+    pattern_counts = defaultdict(int)
+    
+    for game_id in game_ids:
+        analysis = await db.game_analyses.find_one(
+            {"game_id": game_id, "user_id": user_id},
+            {"stockfish_analysis.move_evaluations": 1, "_id": 0}
+        )
+        
+        if not analysis:
+            continue
+        
+        evals = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+        
+        for move in evals:
+            cp_loss = move.get("cp_loss", 0)
+            if cp_loss < 100:  # Only look at significant mistakes
+                continue
+            
+            threat = move.get("threat", "")
+            pv = move.get("pv_after_played", [])
+            
+            # Analyze the pattern
+            pattern = classify_mistake_pattern(move, threat, pv)
+            if pattern:
+                pattern_counts[pattern] += 1
+    
+    if not pattern_counts:
+        return {"has_pattern": False}
+    
+    # Find dominant pattern
+    dominant_pattern, count = max(pattern_counts.items(), key=lambda x: x[1])
+    
+    pattern_descriptions = {
+        "missed_threat": "You missed opponent's threats",
+        "walked_into_fork": "You walked into forks",
+        "walked_into_pin": "You walked into pins",
+        "left_piece_hanging": "You left pieces undefended",
+        "missed_tactic": "You missed winning tactics",
+        "calculation_error": "You miscalculated sequences",
+        "positional_drift": "You made small positional mistakes",
+    }
+    
+    return {
+        "has_pattern": True,
+        "dominant_pattern": dominant_pattern,
+        "pattern_count": count,
+        "pattern_description": pattern_descriptions.get(dominant_pattern, "tactical mistakes"),
+        "total_mistakes": sum(pattern_counts.values()),
+        "all_patterns": dict(pattern_counts),
+    }
+
+
+def classify_mistake_pattern(move: Dict, threat: str, pv: List[str]) -> Optional[str]:
+    """
+    Classify a mistake into a specific pattern based on available data.
+    """
+    cp_loss = move.get("cp_loss", 0)
+    
+    # Check for threat-related mistakes
+    if threat:
+        threat_lower = threat.lower()
+        if "fork" in threat_lower:
+            return "walked_into_fork"
+        if "pin" in threat_lower:
+            return "walked_into_pin"
+        if threat:  # Any other threat
+            return "missed_threat"
+    
+    # Check PV for patterns
+    if pv and len(pv) >= 2:
+        # If opponent's response in PV involves captures, likely tactical
+        if cp_loss > 200:
+            return "missed_tactic"
+        elif cp_loss > 100:
+            return "calculation_error"
+    
+    # Significant loss without clear tactical reason = positional
+    if cp_loss > 50:
+        return "positional_drift"
+    
+    return None
+
+
+async def get_progress_trend(db, user_id: str) -> Dict:
+    """
+    Compare recent performance vs previous period to show progress.
+    
+    Returns:
+    - trend: "improving", "stable", "declining"
+    - blunder_delta: Change in blunders per game
+    - message: Human-readable progress message
+    """
+    # Get last 10 games
+    games = await db.games.find(
+        {"user_id": user_id},
+        {"_id": 0, "game_id": 1, "blunders": 1, "mistakes": 1, "accuracy": 1, "analyzed_at": 1}
+    ).sort("analyzed_at", -1).limit(10).to_list(10)
+    
+    if len(games) < 4:
+        return {"has_trend": False, "message": "Play a few more games to see your progress."}
+    
+    # Split into recent (first 5) and previous (next 5)
+    recent = games[:5]
+    previous = games[5:10] if len(games) >= 10 else games[5:]
+    
+    if len(previous) < 2:
+        return {"has_trend": False, "message": "Keep playing to track your progress!"}
+    
+    recent_blunders = sum(g.get("blunders", 0) for g in recent) / len(recent)
+    previous_blunders = sum(g.get("blunders", 0) for g in previous) / len(previous)
+    
+    recent_accuracy = [g.get("accuracy") for g in recent if g.get("accuracy")]
+    previous_accuracy = [g.get("accuracy") for g in previous if g.get("accuracy")]
+    
+    avg_recent_acc = sum(recent_accuracy) / len(recent_accuracy) if recent_accuracy else None
+    avg_previous_acc = sum(previous_accuracy) / len(previous_accuracy) if previous_accuracy else None
+    
+    blunder_delta = previous_blunders - recent_blunders  # Positive = improvement
+    
+    # Determine trend
+    if blunder_delta > 0.5:
+        trend = "improving"
+        if blunder_delta >= 1:
+            message = f"Excellent! {blunder_delta:.1f} fewer blunders per game than before."
+        else:
+            message = "You're blundering less. Keep it up!"
+    elif blunder_delta < -0.5:
+        trend = "declining"
+        message = "Blunders are creeping up. Let's slow down and focus."
+    else:
+        trend = "stable"
+        if avg_recent_acc and avg_previous_acc and avg_recent_acc > avg_previous_acc:
+            message = "Consistent play, and your accuracy is improving!"
+        else:
+            message = "Steady progress. Stay focused on your habits."
+    
+    return {
+        "has_trend": True,
+        "trend": trend,
+        "blunder_delta": round(blunder_delta, 1),
+        "recent_blunders_avg": round(recent_blunders, 1),
+        "previous_blunders_avg": round(previous_blunders, 1),
+        "recent_accuracy_avg": round(avg_recent_acc, 1) if avg_recent_acc else None,
+        "message": message,
+    }
+
+
+async def get_last_session_info(db, user_id: str) -> Dict:
+    """
+    Get info about the user's last coaching session for continuity.
+    
+    Returns what we worked on last time so we can follow up.
+    """
+    # Check for recent activity
+    last_reflection = await db.reflections.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "created_at": 1}
+    )
+    has_recent_reflection = last_reflection is not None
+    
+    # Get the most recent coach state interaction
+    coach_state = await db.coach_state.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "active_theme": 1, "games_on_theme": 1, "last_deep_session_at": 1}
+    )
+    
+    if not coach_state:
+        return {"has_session": False}
+    
+    games_on_theme = coach_state.get("games_on_theme", 0)
+    active_theme = coach_state.get("active_theme", "")
+    
+    # Format theme name - add spaces before capitals
+    import re
+    theme_name = re.sub(r'([A-Z])', r' \1', active_theme).strip() if active_theme else "improvement"
+    
+    if games_on_theme == 0:
+        message = f"Starting fresh with {theme_name}."
+    elif games_on_theme < 3:
+        message = f"We've been working on {theme_name} for {games_on_theme} game{'s' if games_on_theme != 1 else ''}."
+    elif games_on_theme < 10:
+        message = f"Good progress on {theme_name}! {games_on_theme} games in."
+    else:
+        message = f"You've been focused on {theme_name} for {games_on_theme} games. Let's see how it's paying off."
+    
+    return {
+        "has_session": True,
+        "theme": active_theme,
+        "games_on_theme": games_on_theme,
+        "message": message,
     }
