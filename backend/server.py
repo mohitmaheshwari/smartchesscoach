@@ -12075,13 +12075,19 @@ async def _process_move_and_respond(
                     "is_wisdom_based": True,
                 })
             else:
-                # Fall back to LLM-generated message
-                coach_message = await generate_coach_chat_message(
-                    trigger_type=trigger.trigger_type.value,
-                    context=trigger.context,
-                    user_rating=user_rating,
-                    user_color=user_color
-                )
+                # Fall back to simple factual message (NO LLM - no hallucination risk)
+                # Only state facts: what was played, what engine preferred, eval diff
+                eval_before = analysis.get("eval_before", 0)
+                eval_after = analysis.get("eval_after", 0)
+                best_move = analysis.get("best_move", "")
+                delta = int((eval_after - eval_before) * 100)
+                
+                if abs(delta) >= 200:
+                    coach_message = f"You played {user_move}. Engine preferred {best_move} ({delta:+d} cp difference)."
+                elif abs(delta) >= 100:
+                    coach_message = f"{user_move} is playable. {best_move} was slightly more accurate."
+                else:
+                    coach_message = f"Interesting choice with {user_move}."
                 
                 await db.coach_messages.insert_one({
                     "session_id": session_id,
@@ -12093,6 +12099,7 @@ async def _process_move_and_respond(
                     "created_at": datetime.now(timezone.utc),
                     "read": False,
                     "is_wisdom_based": False,
+                    "is_factual_fallback": True,  # Mark as simple factual message
                 })
         
         # Step 4: Make coach's responding move (if game not over)
