@@ -182,6 +182,12 @@ Integrated teaching engine with Lab game analysis:
   - Falls back to LLM if no rule matches
   - Stores `rule_id`, `memorable_rule`, `highlights` in coach_messages
 
+### P1 - Bug Fixes ✅ COMPLETED (Mar 5, 2026)
+**Issue 2:** Updated `reflect_service.py` to check `stockfish_analysis.blunders/mistakes`. Fixed critical UnboundLocalError.
+**Issue 3:** Added robust FEN validation in `TrainingNew.jsx` - skip invalid puzzles.
+**Issue 4:** Hide "0 → 0" metrics in `JourneyIntelligence.jsx` and `CoachFocusCard.jsx`.
+**Issue 5:** Added HelpCircle tooltips for rating metrics on `/progress` page.
+
 ### P2 - Step 10: Identity Formation Layer
 - Long-term, identity-level feedback (e.g., "You are becoming a tactical player")
 - Only starts after 10+ users complete full Focus Lock cycle
