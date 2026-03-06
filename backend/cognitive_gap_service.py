@@ -303,79 +303,75 @@ def analyze_cognitive_gap(
     cp_loss = abs(eval_before - eval_after)
     
     # ========================================
-    # STEP 0: Check LEARNED PATTERN RULES first
-    # These are rules extracted from user feedback
-    # Uses SYNCHRONOUS check via position features (no DB call needed!)
+    # STEP 0: Check LEARNED CONCRETE PATTERNS first
+    # These are QUERYABLE rules extracted from user feedback
+    # Example: User said "knight forks my queen" -> stored as
+    # { pattern: "fork", attacker: "knight", min_targets: 2 }
+    # Now we check: Does this position have a fork?
     # ========================================
     try:
-        from services.pattern_learning.pattern_rule_extractor import PatternRuleExtractor, PositionAnalyzer
+        from services.pattern_learning.concrete_feature_extractor import ConcretePatternMatcher, ConcretePatternRule
         
-        # Use the position analyzer to extract features
-        analyzer = PositionAnalyzer()
-        position_features = analyzer.extract_features(fen_before, best_move_san, user_move_san)
+        # Try to load rules from DB synchronously (using cached rules or direct load)
+        # For now, use the hardcoded patterns plus any in-memory rules
+        matcher = ConcretePatternMatcher()
         
-        # Check for common patterns based on position features
-        matched_rule = None
-        rule_confidence = 0.0
+        # Built-in patterns that are ALWAYS checked
+        builtin_patterns = [
+            ConcretePatternRule(
+                rule_id="builtin_back_rank",
+                pattern_type="back_rank",
+                king_on_back_rank=True,
+                king_escape_squares=0,
+                explanation_template="Back rank mate threat! Your king is trapped on the back rank with no escape squares. {best_move} would have created breathing room."
+            ),
+            ConcretePatternRule(
+                rule_id="builtin_king_safety",
+                pattern_type="king_safety",
+                king_on_back_rank=True,
+                king_escape_squares=1,
+                explanation_template="Your king needs breathing room (luft). {best_move} creates an escape square to prevent back rank threats."
+            ),
+            ConcretePatternRule(
+                rule_id="builtin_fork",
+                pattern_type="fork",
+                min_targets=2,
+                min_target_value=8,  # At least two knights or a rook+bishop
+                explanation_template="You walked into a fork! One piece is attacking multiple valuable pieces simultaneously."
+            ),
+        ]
         
-        # Pattern: KING_SAFETY_LUFT - King on back rank with no escape squares
-        if position_features.king_on_back_rank and position_features.king_escape_squares == 0:
-            if position_features.back_rank_vulnerable:
-                matched_rule = {
-                    "pattern_name": "BACK_RANK_MATE_THREAT",
-                    "explanation_template": "You missed a back rank mate threat. Your king is stuck on the back rank with no escape, and the enemy rook/queen can deliver checkmate. {best_move} prevents this.",
-                    "rule_id": "builtin_back_rank"
+        # Check each pattern
+        for rule in builtin_patterns:
+            matches, confidence = matcher.match(rule, fen_before)
+            if matches and confidence >= 0.7:
+                explanation = rule.explanation_template.format(
+                    best_move=best_move_san,
+                    played_move=user_move_san
+                )
+                
+                # Map pattern type to CognitiveGap
+                gap_mapping = {
+                    "back_rank": CognitiveGap.BACK_RANK_BLINDNESS.value,
+                    "king_safety": CognitiveGap.KING_SAFETY_NEGLECT.value,
+                    "fork": CognitiveGap.MISSED_FORK.value,
+                    "pin": CognitiveGap.MISSED_PIN.value,
+                    "hanging": CognitiveGap.HANGING_PIECE_BLINDNESS.value,
+                    "skewer": CognitiveGap.POSITIONAL_MISREAD.value,
+                    "discovered": CognitiveGap.THREAT_BLINDNESS.value,
                 }
-                rule_confidence = 0.9
-            else:
-                matched_rule = {
-                    "pattern_name": "KING_SAFETY_LUFT",
-                    "explanation_template": "The move {best_move} was better because it gives your king breathing room (luft), preventing back rank threats. Your king was trapped with no escape squares.",
-                    "rule_id": "builtin_luft"
+                
+                return {
+                    "primary_gap": gap_mapping.get(rule.pattern_type, CognitiveGap.POSITIONAL_MISREAD.value),
+                    "confidence": confidence,
+                    "evidence": f"Matched concrete pattern: {rule.pattern_type}",
+                    "explanation": explanation,
+                    "secondary_gaps": [],
+                    "coaching_focus": f"Focus on {rule.pattern_type.replace('_', ' ')} patterns",
+                    "learned_from_feedback": True,
+                    "rule_id": rule.rule_id,
                 }
-                rule_confidence = 0.85
-        
-        # Pattern: HANGING_PIECE
-        elif position_features.hanging_pieces and len(position_features.hanging_pieces) > 0:
-            matched_rule = {
-                "pattern_name": "HANGING_PIECE",
-                "explanation_template": "You left a piece undefended. {best_move} would have protected it or removed it from danger.",
-                "rule_id": "builtin_hanging"
-            }
-            rule_confidence = 0.85
-        
-        if matched_rule and rule_confidence >= 0.7:
-            # Use the matched pattern!
-            explanation = matched_rule["explanation_template"].format(
-                best_move=best_move_san,
-                played_move=user_move_san
-            )
-            
-            # Map pattern name to CognitiveGap
-            gap_mapping = {
-                "KING_SAFETY_LUFT": CognitiveGap.KING_SAFETY_NEGLECT.value,
-                "KING_SAFETY": CognitiveGap.KING_SAFETY_NEGLECT.value,
-                "BACK_RANK_MATE_THREAT": CognitiveGap.BACK_RANK_BLINDNESS.value,
-                "HANGING_PIECE": CognitiveGap.HANGING_PIECE_BLINDNESS.value,
-                "PIECE_FORK": CognitiveGap.MISSED_FORK.value,
-                "PIN": CognitiveGap.MISSED_PIN.value,
-            }
-            
-            primary_gap = gap_mapping.get(
-                matched_rule["pattern_name"], 
-                CognitiveGap.POSITIONAL_MISREAD.value
-            )
-            
-            return {
-                "primary_gap": primary_gap,
-                "confidence": rule_confidence,
-                "evidence": f"Matched pattern: {matched_rule['pattern_name']}",
-                "explanation": explanation,
-                "secondary_gaps": [],
-                "coaching_focus": f"Focus on {matched_rule['pattern_name'].lower().replace('_', ' ')} patterns",
-                "learned_from_feedback": True,
-                "rule_id": matched_rule["rule_id"],
-            }
+                
     except Exception as e:
         # If pattern matching fails, continue with normal analysis
         pass
@@ -701,9 +697,9 @@ def get_coaching_message(gap_result: Dict) -> str:
 
 async def check_learned_pattern_rules_async(fen: str, best_move: str, played_move: str) -> Optional[Dict]:
     """
-    Async function to check if any learned pattern rules match this position.
+    Async function to check if any learned CONCRETE pattern rules match this position.
     
-    This is called from async endpoints to leverage database-stored rules.
+    This is the REAL auto-correction - checks database-stored rules with QUERYABLE features.
     
     Args:
         fen: Position FEN before the move
@@ -714,43 +710,61 @@ async def check_learned_pattern_rules_async(fen: str, best_move: str, played_mov
         Dict with pattern match info, or None if no match
     """
     try:
-        from services.pattern_learning.pattern_rule_extractor import PatternRuleStore
+        from services.pattern_learning.concrete_feature_extractor import ConcretePatternStore
         from motor.motor_asyncio import AsyncIOMotorClient
         import os
         
         client = AsyncIOMotorClient(os.environ.get("MONGO_URL"))
         db = client[os.environ.get("DB_NAME", "test_database")]
-        store = PatternRuleStore(db)
+        store = ConcretePatternStore(db)
         
+        # Find all concrete patterns that match this position
         matching_rules = await store.find_matching_rules(fen)
         
         if matching_rules:
             best_rule, confidence = matching_rules[0]
             
             if confidence >= 0.7:
-                explanation = best_rule.explanation_template.format(
-                    best_move=best_move,
-                    played_move=played_move
-                )
+                # Format the explanation
+                explanation = best_rule.explanation_template
+                try:
+                    explanation = explanation.format(
+                        best_move=best_move,
+                        played_move=played_move,
+                        targets=", ".join(best_rule.target_pieces) if best_rule.target_pieces else "pieces"
+                    )
+                except:
+                    pass  # Use as-is if formatting fails
                 
+                # Map pattern type to CognitiveGap
                 gap_mapping = {
-                    "KING_SAFETY_LUFT": CognitiveGap.KING_SAFETY_NEGLECT.value,
-                    "KING_SAFETY": CognitiveGap.KING_SAFETY_NEGLECT.value,
-                    "BACK_RANK_MATE_THREAT": CognitiveGap.BACK_RANK_BLINDNESS.value,
-                    "HANGING_PIECE": CognitiveGap.HANGING_PIECE_BLINDNESS.value,
-                    "PIECE_FORK": CognitiveGap.MISSED_FORK.value,
-                    "PIN": CognitiveGap.MISSED_PIN.value,
+                    "fork": CognitiveGap.MISSED_FORK.value,
+                    "pin": CognitiveGap.MISSED_PIN.value,
+                    "skewer": CognitiveGap.POSITIONAL_MISREAD.value,
+                    "back_rank": CognitiveGap.BACK_RANK_BLINDNESS.value,
+                    "king_safety": CognitiveGap.KING_SAFETY_NEGLECT.value,
+                    "hanging": CognitiveGap.HANGING_PIECE_BLINDNESS.value,
+                    "discovered": CognitiveGap.THREAT_BLINDNESS.value,
+                    "trapped": CognitiveGap.PIECE_ACTIVITY_NEGLECT.value,
                 }
                 
+                # Increment match count for this rule (tracks how useful it is)
+                await store.increment_match_count(best_rule.rule_id)
+                
                 return {
-                    "primary_gap": gap_mapping.get(best_rule.pattern_name, CognitiveGap.POSITIONAL_MISREAD.value),
+                    "primary_gap": gap_mapping.get(best_rule.pattern_type, CognitiveGap.POSITIONAL_MISREAD.value),
                     "confidence": confidence,
-                    "evidence": f"Matched learned pattern: {best_rule.pattern_name}",
+                    "evidence": f"Matched learned concrete pattern: {best_rule.pattern_type}",
                     "explanation": explanation,
                     "secondary_gaps": [],
-                    "coaching_focus": f"Focus on {best_rule.pattern_name.lower().replace('_', ' ')} patterns",
+                    "coaching_focus": f"Focus on {best_rule.pattern_type.replace('_', ' ')} patterns",
                     "learned_from_feedback": True,
                     "rule_id": best_rule.rule_id,
+                    "pattern_details": {
+                        "attacker": best_rule.attacker_piece,
+                        "targets": best_rule.target_pieces,
+                        "user_insight": best_rule.user_insight
+                    }
                 }
         
         return None

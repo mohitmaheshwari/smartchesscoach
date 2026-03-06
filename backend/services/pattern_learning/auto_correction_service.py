@@ -280,19 +280,21 @@ class AutoCorrectionService:
         """
         Extract a generalizable pattern rule from feedback and store it.
         
-        This is the KEY piece that makes the system truly learn patterns
-        that can be applied to FUTURE similar positions.
+        THIS IS THE REAL AUTO-CORRECTION SYSTEM.
         
-        Uses pattern_rule_extractor to:
-        1. Analyze the position features (king safety, back rank, etc.)
-        2. Match user insight to a pattern type
-        3. Store a rule in pattern_rules collection
+        Uses concrete_feature_extractor to:
+        1. Extract QUERYABLE features from user's text (e.g., "fork" -> attacker=knight, targets=[queen,rook])
+        2. Store as a rule with features that can be matched against future positions
+        3. When a new position is analyzed, we check if it matches these concrete features
         
-        The cognitive_gap_service.py checks this collection FIRST
-        before doing its own analysis.
+        Example:
+        User says: "The knight forks my queen and rook"
+        Extracts:  { pattern: "fork", attacker: "knight", targets: ["queen", "rook"], min_targets: 2 }
+        Stored in: concrete_patterns collection
+        Future:    New position with knight attacking 2 pieces -> MATCHED -> Use this explanation
         """
         try:
-            from .pattern_rule_extractor import PatternRuleStore
+            from .concrete_feature_extractor import ConcretePatternStore
             
             # Get user's insight - this is the key to learning
             user_insight = feedback.get("user_explanation", "")
@@ -300,28 +302,33 @@ class AutoCorrectionService:
                 logger.debug("No user explanation provided, skipping pattern rule extraction")
                 return
             
-            # Create the store and extract the rule
-            store = PatternRuleStore(self.db.db)
+            # Create the store and extract CONCRETE features
+            store = ConcretePatternStore(self.db.db)
             
-            # Prepare feedback in the format expected by extractor
+            # Prepare feedback
             extractor_feedback = {
                 "feedback_id": feedback.get("feedback_id", f"fb_{uuid.uuid4().hex[:8]}"),
                 "position_fen": feedback.get("position_fen", ""),
                 "move_played": feedback.get("move_played", ""),
+                "move_san": feedback.get("move_san", ""),
                 "best_move": feedback.get("best_move", ""),
                 "user_explanation": user_insight,
                 "correct_classification": feedback.get("correct_classification", ""),
             }
             
-            rule = await store.extract_and_store_rule(extractor_feedback)
+            rule = await store.extract_and_store_from_feedback(extractor_feedback)
             
             if rule:
-                logger.info(f"Extracted pattern rule: {rule.pattern_name} - {rule.explanation_template[:50]}...")
+                logger.info(f"CONCRETE PATTERN RULE CREATED: {rule.pattern_type}")
+                logger.info(f"  - Attacker: {rule.attacker_piece}")
+                logger.info(f"  - Targets: {rule.target_pieces}")
+                logger.info(f"  - Features: king_back_rank={rule.king_on_back_rank}, escapes={rule.king_escape_squares}")
+                logger.info(f"  - Explanation: {rule.explanation_template[:80]}...")
             else:
-                logger.debug("No pattern rule could be extracted from feedback")
+                logger.debug("Could not extract concrete pattern rule from feedback")
                 
         except Exception as e:
-            logger.error(f"Error extracting pattern rule: {e}")
+            logger.error(f"Error extracting concrete pattern rule: {e}")
     
     def _extract_attacker_piece(self, pv: List[str], fen: str) -> str:
         """Extract the attacking piece from PV"""
