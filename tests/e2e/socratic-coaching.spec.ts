@@ -9,7 +9,7 @@
  */
 import { test, expect, Page } from '@playwright/test';
 
-const BASE_URL = 'https://chess-coach-ai-3.preview.emergentagent.com';
+const BASE_URL = 'https://self-learn-chess.preview.emergentagent.com';
 
 async function devLogin(page: Page) {
   await page.goto('/api/auth/dev-login', { waitUntil: 'domcontentloaded' });

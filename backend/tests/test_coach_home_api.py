@@ -7,7 +7,7 @@ import requests
 import os
 from datetime import datetime, timezone
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-coach-ai-3.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://self-learn-chess.preview.emergentagent.com').rstrip('/')
 
 
 class TestHomeIntelligenceAPI:

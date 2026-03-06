@@ -305,39 +305,48 @@ def analyze_cognitive_gap(
     # ========================================
     # STEP 0: Check LEARNED PATTERN RULES first
     # These are rules extracted from user feedback
+    # Uses SYNCHRONOUS check via position features (no DB call needed!)
     # ========================================
     try:
-        from services.pattern_learning.pattern_rule_extractor import PatternRuleStore, PositionAnalyzer
-        from motor.motor_asyncio import AsyncIOMotorClient
-        import os
-        import asyncio
+        from services.pattern_learning.pattern_rule_extractor import PatternRuleExtractor, PositionAnalyzer
         
-        async def check_learned_rules_async():
-            client = AsyncIOMotorClient(os.environ.get("MONGO_URL"))
-            db = client[os.environ.get("DB_NAME", "test_database")]
-            store = PatternRuleStore(db)
-            
-            matching_rules = await store.find_matching_rules(fen_before)
-            if matching_rules:
-                best_rule, confidence = matching_rules[0]
-                return best_rule, confidence
-            return None, 0.0
+        # Use the position analyzer to extract features
+        analyzer = PositionAnalyzer()
+        position_features = analyzer.extract_features(fen_before, best_move_san, user_move_san)
         
-        # Run async check - handle event loop properly
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Already in async context - skip for now
-                matched_rule, rule_confidence = None, 0.0
+        # Check for common patterns based on position features
+        matched_rule = None
+        rule_confidence = 0.0
+        
+        # Pattern: KING_SAFETY_LUFT - King on back rank with no escape squares
+        if position_features.king_on_back_rank and position_features.king_escape_squares == 0:
+            if position_features.back_rank_vulnerable:
+                matched_rule = {
+                    "pattern_name": "BACK_RANK_MATE_THREAT",
+                    "explanation_template": "You missed a back rank mate threat. Your king is stuck on the back rank with no escape, and the enemy rook/queen can deliver checkmate. {best_move} prevents this.",
+                    "rule_id": "builtin_back_rank"
+                }
+                rule_confidence = 0.9
             else:
-                matched_rule, rule_confidence = loop.run_until_complete(check_learned_rules_async())
-        except RuntimeError:
-            # No event loop - create one
-            matched_rule, rule_confidence = asyncio.run(check_learned_rules_async())
+                matched_rule = {
+                    "pattern_name": "KING_SAFETY_LUFT",
+                    "explanation_template": "The move {best_move} was better because it gives your king breathing room (luft), preventing back rank threats. Your king was trapped with no escape squares.",
+                    "rule_id": "builtin_luft"
+                }
+                rule_confidence = 0.85
+        
+        # Pattern: HANGING_PIECE
+        elif position_features.hanging_pieces and len(position_features.hanging_pieces) > 0:
+            matched_rule = {
+                "pattern_name": "HANGING_PIECE",
+                "explanation_template": "You left a piece undefended. {best_move} would have protected it or removed it from danger.",
+                "rule_id": "builtin_hanging"
+            }
+            rule_confidence = 0.85
         
         if matched_rule and rule_confidence >= 0.7:
-            # Use the learned rule's classification!
-            explanation = matched_rule.explanation_template.format(
+            # Use the matched pattern!
+            explanation = matched_rule["explanation_template"].format(
                 best_move=best_move_san,
                 played_move=user_move_san
             )
@@ -353,19 +362,19 @@ def analyze_cognitive_gap(
             }
             
             primary_gap = gap_mapping.get(
-                matched_rule.pattern_name, 
+                matched_rule["pattern_name"], 
                 CognitiveGap.POSITIONAL_MISREAD.value
             )
             
             return {
                 "primary_gap": primary_gap,
                 "confidence": rule_confidence,
-                "evidence": f"Matched learned pattern: {matched_rule.pattern_name}",
+                "evidence": f"Matched pattern: {matched_rule['pattern_name']}",
                 "explanation": explanation,
                 "secondary_gaps": [],
-                "coaching_focus": f"Focus on {matched_rule.pattern_name.lower().replace('_', ' ')} patterns",
+                "coaching_focus": f"Focus on {matched_rule['pattern_name'].lower().replace('_', ' ')} patterns",
                 "learned_from_feedback": True,
-                "rule_id": matched_rule.rule_id,
+                "rule_id": matched_rule["rule_id"],
             }
     except Exception as e:
         # If pattern matching fails, continue with normal analysis
@@ -687,3 +696,64 @@ def get_coaching_message(gap_result: Dict) -> str:
     }
     
     return messages.get(gap, coaching_focus or "Review this position carefully.")
+
+
+
+async def check_learned_pattern_rules_async(fen: str, best_move: str, played_move: str) -> Optional[Dict]:
+    """
+    Async function to check if any learned pattern rules match this position.
+    
+    This is called from async endpoints to leverage database-stored rules.
+    
+    Args:
+        fen: Position FEN before the move
+        best_move: What Stockfish recommends
+        played_move: What the user played
+        
+    Returns:
+        Dict with pattern match info, or None if no match
+    """
+    try:
+        from services.pattern_learning.pattern_rule_extractor import PatternRuleStore
+        from motor.motor_asyncio import AsyncIOMotorClient
+        import os
+        
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URL"))
+        db = client[os.environ.get("DB_NAME", "test_database")]
+        store = PatternRuleStore(db)
+        
+        matching_rules = await store.find_matching_rules(fen)
+        
+        if matching_rules:
+            best_rule, confidence = matching_rules[0]
+            
+            if confidence >= 0.7:
+                explanation = best_rule.explanation_template.format(
+                    best_move=best_move,
+                    played_move=played_move
+                )
+                
+                gap_mapping = {
+                    "KING_SAFETY_LUFT": CognitiveGap.KING_SAFETY_NEGLECT.value,
+                    "KING_SAFETY": CognitiveGap.KING_SAFETY_NEGLECT.value,
+                    "BACK_RANK_MATE_THREAT": CognitiveGap.BACK_RANK_BLINDNESS.value,
+                    "HANGING_PIECE": CognitiveGap.HANGING_PIECE_BLINDNESS.value,
+                    "PIECE_FORK": CognitiveGap.MISSED_FORK.value,
+                    "PIN": CognitiveGap.MISSED_PIN.value,
+                }
+                
+                return {
+                    "primary_gap": gap_mapping.get(best_rule.pattern_name, CognitiveGap.POSITIONAL_MISREAD.value),
+                    "confidence": confidence,
+                    "evidence": f"Matched learned pattern: {best_rule.pattern_name}",
+                    "explanation": explanation,
+                    "secondary_gaps": [],
+                    "coaching_focus": f"Focus on {best_rule.pattern_name.lower().replace('_', ' ')} patterns",
+                    "learned_from_feedback": True,
+                    "rule_id": best_rule.rule_id,
+                }
+        
+        return None
+        
+    except Exception as e:
+        return None

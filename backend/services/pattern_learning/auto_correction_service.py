@@ -213,7 +213,17 @@ class AutoCorrectionService:
     async def _try_generate_rule(self, feedback: Dict) -> Optional[Dict]:
         """Try to generate and validate a new rule from feedback"""
         try:
-            # Analyze the feedback
+            # ============================================
+            # STEP 1: Extract a GENERALIZABLE pattern rule
+            # This goes to the pattern_rules collection and is
+            # used by cognitive_gap_service.py for future positions
+            # ============================================
+            await self._extract_and_store_pattern_rule(feedback)
+            
+            # ============================================
+            # STEP 2: Generate AI-powered classification rule
+            # This goes to learned_rules collection
+            # ============================================
             analysis = await self.learner.analyze_feedback(feedback)
             if "error" in analysis:
                 logger.debug(f"Analysis failed: {analysis['error']}")
@@ -265,6 +275,53 @@ class AutoCorrectionService:
         except Exception as e:
             logger.error(f"Error generating rule: {e}")
             return None
+    
+    async def _extract_and_store_pattern_rule(self, feedback: Dict):
+        """
+        Extract a generalizable pattern rule from feedback and store it.
+        
+        This is the KEY piece that makes the system truly learn patterns
+        that can be applied to FUTURE similar positions.
+        
+        Uses pattern_rule_extractor to:
+        1. Analyze the position features (king safety, back rank, etc.)
+        2. Match user insight to a pattern type
+        3. Store a rule in pattern_rules collection
+        
+        The cognitive_gap_service.py checks this collection FIRST
+        before doing its own analysis.
+        """
+        try:
+            from .pattern_rule_extractor import PatternRuleStore
+            
+            # Get user's insight - this is the key to learning
+            user_insight = feedback.get("user_explanation", "")
+            if not user_insight:
+                logger.debug("No user explanation provided, skipping pattern rule extraction")
+                return
+            
+            # Create the store and extract the rule
+            store = PatternRuleStore(self.db.db)
+            
+            # Prepare feedback in the format expected by extractor
+            extractor_feedback = {
+                "feedback_id": feedback.get("feedback_id", f"fb_{uuid.uuid4().hex[:8]}"),
+                "position_fen": feedback.get("position_fen", ""),
+                "move_played": feedback.get("move_played", ""),
+                "best_move": feedback.get("best_move", ""),
+                "user_explanation": user_insight,
+                "correct_classification": feedback.get("correct_classification", ""),
+            }
+            
+            rule = await store.extract_and_store_rule(extractor_feedback)
+            
+            if rule:
+                logger.info(f"Extracted pattern rule: {rule.pattern_name} - {rule.explanation_template[:50]}...")
+            else:
+                logger.debug("No pattern rule could be extracted from feedback")
+                
+        except Exception as e:
+            logger.error(f"Error extracting pattern rule: {e}")
     
     def _extract_attacker_piece(self, pv: List[str], fen: str) -> str:
         """Extract the attacking piece from PV"""

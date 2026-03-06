@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://chess-coach-ai-3.preview.emergentagent.com';
+const BASE_URL = 'https://self-learn-chess.preview.emergentagent.com';
 
 test.describe('PostLossRecoveryCard Component', () => {
   

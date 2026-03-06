@@ -19,7 +19,7 @@ import { waitForAppReady, dismissToasts } from '../fixtures/helpers';
  * - API returns difficulty and engine_version fields
  */
 
-const BASE_URL = 'https://chess-coach-ai-3.preview.emergentagent.com';
+const BASE_URL = 'https://self-learn-chess.preview.emergentagent.com';
 
 test.describe('BehavioralInsightCard', () => {
   test.beforeEach(async ({ page }) => {
