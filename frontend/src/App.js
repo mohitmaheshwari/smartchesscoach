@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import "@/App.css";
 
 // Pages
@@ -15,7 +15,7 @@ import PrescribedTraining from "@/pages/PrescribedTraining";  // Coached puzzles
 import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
-import Journey from "@/pages/JourneyCognitive";
+import UnifiedProgress from "@/pages/UnifiedProgress";  // Merged progress + journey
 import JourneyV2 from "@/pages/JourneyV2";
 import JourneyIntelligence from "@/pages/JourneyIntelligence";
 import ProgressV2 from "@/pages/ProgressV2";
@@ -149,8 +149,11 @@ function AppRouter() {
       } />
       <Route path="/progress" element={
         <ProtectedRoute>
-          {({ user }) => <JourneyIntelligence user={user} />}
+          {({ user }) => <UnifiedProgress user={user} />}
         </ProtectedRoute>
+      } />
+      <Route path="/journey" element={
+        <Navigate to="/progress" replace />
       } />
       <Route path="/progress-v2" element={
         <ProtectedRoute>
@@ -215,11 +218,6 @@ function AppRouter() {
       <Route path="/settings" element={
         <ProtectedRoute>
           {({ user }) => <Settings user={user} />}
-        </ProtectedRoute>
-      } />
-      <Route path="/journey" element={
-        <ProtectedRoute>
-          {({ user }) => <Journey user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/reflect" element={
