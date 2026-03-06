@@ -91,6 +91,259 @@ def get_piece_value(piece_type: int) -> int:
     return values.get(piece_type, 0)
 
 
+# =========================================
+# LEARNED PATTERN CACHE & SYNC CHECKER
+# =========================================
+# This enables synchronous checking of learned patterns
+# by caching patterns loaded from the database
+
+import logging
+logger = logging.getLogger(__name__)
+
+_learned_patterns_cache = None
+_cache_loaded_time = None
+
+def _load_patterns_sync():
+    """Load patterns from database synchronously (for use in sync functions)"""
+    global _learned_patterns_cache, _cache_loaded_time
+    import time
+    import os
+    from pymongo import MongoClient
+    
+    # Cache for 60 seconds
+    if _learned_patterns_cache is not None and _cache_loaded_time:
+        if time.time() - _cache_loaded_time < 60:
+            return _learned_patterns_cache
+    
+    try:
+        client = MongoClient(os.environ.get("MONGO_URL"))
+        db = client[os.environ.get("DB_NAME", "test_database")]
+        _learned_patterns_cache = list(db.smart_patterns.find({}))
+        _cache_loaded_time = time.time()
+        logger.debug(f"Loaded {len(_learned_patterns_cache)} learned patterns from DB")
+        return _learned_patterns_cache
+    except Exception as e:
+        logger.error(f"Error loading patterns: {e}")
+        return []
+
+
+def _check_learned_patterns_sync(
+    fen: str, 
+    move_played: str = None,
+    best_move: str = None
+) -> Optional[Dict]:
+    """
+    Check if position matches any learned pattern - SYNCHRONOUS version.
+    
+    This is the KEY function that completes the auto-correction loop.
+    It queries the database for patterns learned from user feedback
+    and matches them against the current position.
+    """
+    try:
+        board = chess.Board(fen)
+    except:
+        return None
+    
+    patterns = _load_patterns_sync()
+    if not patterns:
+        return None
+    
+    for pattern in patterns:
+        result = _match_pattern_sync(board, pattern)
+        if result:
+            return result
+    
+    return None
+
+
+def _match_pattern_sync(board: chess.Board, pattern: Dict) -> Optional[Dict]:
+    """Match a single pattern against the board"""
+    pattern_type = pattern.get("pattern_type", "")
+    criteria = pattern.get("match_criteria", {})
+    
+    if pattern_type == "fork":
+        return _match_fork_sync(board, pattern, criteria)
+    elif pattern_type == "king_trapped":
+        return _match_king_trapped_sync(board, pattern, criteria)
+    elif pattern_type == "pin":
+        return _match_pin_sync(board, pattern, criteria)
+    
+    return None
+
+
+def _match_fork_sync(board: chess.Board, pattern: Dict, criteria: Dict) -> Optional[Dict]:
+    """Match fork pattern synchronously"""
+    required_attacker = criteria.get("attacker_piece")
+    min_targets = criteria.get("min_targets", 2)
+    
+    PIECE_NAMES = {
+        chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+        chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"
+    }
+    PIECE_VALUES = {
+        chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+        chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100
+    }
+    
+    for color in [chess.WHITE, chess.BLACK]:
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece is None or piece.color != color:
+                continue
+            
+            piece_name = PIECE_NAMES.get(piece.piece_type, "")
+            if required_attacker and piece_name != required_attacker:
+                continue
+            
+            attacks = board.attacks(square)
+            targets = []
+            
+            for target_sq in attacks:
+                target = board.piece_at(target_sq)
+                if target and target.color != color:
+                    value = PIECE_VALUES.get(target.piece_type, 0)
+                    if value >= 3:
+                        targets.append({
+                            "piece": PIECE_NAMES.get(target.piece_type),
+                            "square": chess.square_name(target_sq),
+                            "value": value
+                        })
+            
+            if len(targets) >= min_targets:
+                # FORK FOUND!
+                target_names = " and ".join(t["piece"] for t in targets[:2])
+                explanation = pattern.get("explanation_template", "")
+                if not explanation:
+                    explanation = f"The {piece_name} on {chess.square_name(square)} forks your {target_names}!"
+                
+                return {
+                    "matched": True,
+                    "pattern_type": "fork",
+                    "rule_id": pattern.get("rule_id", ""),
+                    "confidence": 0.9,
+                    "explanation": explanation,
+                    "details": {
+                        "attacker": piece_name,
+                        "attacker_square": chess.square_name(square),
+                        "targets": targets
+                    }
+                }
+    
+    return None
+
+
+def _match_king_trapped_sync(board: chess.Board, pattern: Dict, criteria: Dict) -> Optional[Dict]:
+    """Match king trapped pattern synchronously"""
+    require_back_rank = criteria.get("king_on_back_rank", False)
+    max_escapes = criteria.get("max_escape_squares", 0)
+    
+    PIECE_NAMES = {
+        chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+        chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"
+    }
+    
+    color = board.turn
+    king_sq = board.king(color)
+    if king_sq is None:
+        return None
+    
+    king_rank = chess.square_rank(king_sq)
+    back_rank = 0 if color == chess.WHITE else 7
+    
+    if require_back_rank and king_rank != back_rank:
+        return None
+    
+    escape_squares = []
+    blocked_by_own = []
+    
+    for sq in board.attacks(king_sq):
+        piece = board.piece_at(sq)
+        if piece is None:
+            if not board.is_attacked_by(not color, sq):
+                escape_squares.append(chess.square_name(sq))
+        elif piece.color == color:
+            blocked_by_own.append({
+                "piece": PIECE_NAMES.get(piece.piece_type),
+                "square": chess.square_name(sq)
+            })
+    
+    if len(escape_squares) > max_escapes:
+        return None
+    
+    # KING TRAPPED FOUND!
+    explanation = pattern.get("explanation_template", "")
+    if not explanation:
+        blockers = ", ".join(f"{p['piece']} on {p['square']}" for p in blocked_by_own[:2])
+        explanation = f"Your king is trapped on the back rank! Blocked by your own pieces: {blockers}"
+    
+    return {
+        "matched": True,
+        "pattern_type": "king_trapped",
+        "rule_id": pattern.get("rule_id", ""),
+        "confidence": 0.85,
+        "explanation": explanation,
+        "details": {
+            "king_square": chess.square_name(king_sq),
+            "escape_squares": escape_squares,
+            "blocked_by_own": blocked_by_own
+        }
+    }
+
+
+def _match_pin_sync(board: chess.Board, pattern: Dict, criteria: Dict) -> Optional[Dict]:
+    """Match pin pattern synchronously"""
+    PIECE_NAMES = {
+        chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
+        chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"
+    }
+    
+    color = board.turn
+    king_sq = board.king(color)
+    if king_sq is None:
+        return None
+    
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if piece is None or piece.color == color:
+            continue
+        
+        if piece.piece_type not in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
+            continue
+        
+        ray = chess.SquareSet.between(sq, king_sq)
+        if not ray:
+            continue
+        
+        pieces_in_ray = []
+        for ray_sq in ray:
+            ray_piece = board.piece_at(ray_sq)
+            if ray_piece:
+                pieces_in_ray.append((ray_sq, ray_piece))
+        
+        if len(pieces_in_ray) == 1:
+            pinned_sq, pinned_piece = pieces_in_ray[0]
+            if pinned_piece.color == color:
+                # PIN FOUND!
+                explanation = pattern.get("explanation_template", "")
+                if not explanation:
+                    explanation = f"Your {PIECE_NAMES.get(pinned_piece.piece_type)} is pinned to your king!"
+                
+                return {
+                    "matched": True,
+                    "pattern_type": "pin",
+                    "rule_id": pattern.get("rule_id", ""),
+                    "confidence": 0.85,
+                    "explanation": explanation,
+                    "details": {
+                        "pinning_piece": PIECE_NAMES.get(piece.piece_type),
+                        "pinned_piece": PIECE_NAMES.get(pinned_piece.piece_type),
+                        "pinned_square": chess.square_name(pinned_sq)
+                    }
+                }
+    
+    return None
+
+
 def find_hanging_pieces(board: chess.Board, color: chess.Color) -> List[Tuple[int, int]]:
     """Find all hanging (undefended attacked) pieces for a color.
     Returns list of (square, piece_value) tuples.
@@ -303,77 +556,50 @@ def analyze_cognitive_gap(
     cp_loss = abs(eval_before - eval_after)
     
     # ========================================
-    # STEP 0: Check LEARNED CONCRETE PATTERNS first
-    # These are QUERYABLE rules extracted from user feedback
-    # Example: User said "knight forks my queen" -> stored as
-    # { pattern: "fork", attacker: "knight", min_targets: 2 }
-    # Now we check: Does this position have a fork?
+    # STEP 0: Check LEARNED PATTERNS from DATABASE
+    # This is the AUTO-CORRECTION system - uses rules learned from user feedback
+    # 
+    # Flow: User feedback → Pattern extracted → Stored in DB → 
+    #       New position → Query DB → Match → Return learned explanation
     # ========================================
     try:
-        from services.pattern_learning.concrete_feature_extractor import ConcretePatternMatcher, ConcretePatternRule
+        # Try to use cached patterns (loaded async, cached in memory)
+        from services.pattern_learning.smart_pattern_matcher import SmartPatternMatcher
+        import asyncio
         
-        # Try to load rules from DB synchronously (using cached rules or direct load)
-        # For now, use the hardcoded patterns plus any in-memory rules
-        matcher = ConcretePatternMatcher()
+        # Create matcher instance
+        matcher = SmartPatternMatcher()
         
-        # Built-in patterns that are ALWAYS checked
-        builtin_patterns = [
-            ConcretePatternRule(
-                rule_id="builtin_back_rank",
-                pattern_type="back_rank",
-                king_on_back_rank=True,
-                king_escape_squares=0,
-                explanation_template="Back rank mate threat! Your king is trapped on the back rank with no escape squares. {best_move} would have created breathing room."
-            ),
-            ConcretePatternRule(
-                rule_id="builtin_king_safety",
-                pattern_type="king_safety",
-                king_on_back_rank=True,
-                king_escape_squares=1,
-                explanation_template="Your king needs breathing room (luft). {best_move} creates an escape square to prevent back rank threats."
-            ),
-            ConcretePatternRule(
-                rule_id="builtin_fork",
-                pattern_type="fork",
-                min_targets=2,
-                min_target_value=8,  # At least two knights or a rook+bishop
-                explanation_template="You walked into a fork! One piece is attacking multiple valuable pieces simultaneously."
-            ),
-        ]
+        # We need to run async code from sync context
+        # Use a cached result if available, otherwise do sync matching
+        learned_result = _check_learned_patterns_sync(fen_before, user_move_san, best_move_san)
         
-        # Check each pattern
-        for rule in builtin_patterns:
-            matches, confidence = matcher.match(rule, fen_before)
-            if matches and confidence >= 0.7:
-                explanation = rule.explanation_template.format(
-                    best_move=best_move_san,
-                    played_move=user_move_san
-                )
-                
-                # Map pattern type to CognitiveGap
-                gap_mapping = {
-                    "back_rank": CognitiveGap.BACK_RANK_BLINDNESS.value,
-                    "king_safety": CognitiveGap.KING_SAFETY_NEGLECT.value,
-                    "fork": CognitiveGap.MISSED_FORK.value,
-                    "pin": CognitiveGap.MISSED_PIN.value,
-                    "hanging": CognitiveGap.HANGING_PIECE_BLINDNESS.value,
-                    "skewer": CognitiveGap.POSITIONAL_MISREAD.value,
-                    "discovered": CognitiveGap.THREAT_BLINDNESS.value,
-                }
-                
-                return {
-                    "primary_gap": gap_mapping.get(rule.pattern_type, CognitiveGap.POSITIONAL_MISREAD.value),
-                    "confidence": confidence,
-                    "evidence": f"Matched concrete pattern: {rule.pattern_type}",
-                    "explanation": explanation,
-                    "secondary_gaps": [],
-                    "coaching_focus": f"Focus on {rule.pattern_type.replace('_', ' ')} patterns",
-                    "learned_from_feedback": True,
-                    "rule_id": rule.rule_id,
-                }
+        if learned_result:
+            # Map pattern type to CognitiveGap
+            gap_mapping = {
+                "fork": CognitiveGap.MISSED_FORK.value,
+                "king_trapped": CognitiveGap.KING_SAFETY_NEGLECT.value,
+                "back_rank": CognitiveGap.BACK_RANK_BLINDNESS.value,
+                "pin": CognitiveGap.MISSED_PIN.value,
+                "hanging_piece": CognitiveGap.HANGING_PIECE_BLINDNESS.value,
+                "skewer": CognitiveGap.POSITIONAL_MISREAD.value,
+            }
+            
+            return {
+                "primary_gap": gap_mapping.get(learned_result["pattern_type"], CognitiveGap.POSITIONAL_MISREAD.value),
+                "confidence": learned_result["confidence"],
+                "evidence": f"Matched learned pattern: {learned_result['pattern_type']}",
+                "explanation": learned_result["explanation"],
+                "secondary_gaps": [],
+                "coaching_focus": f"Focus on {learned_result['pattern_type'].replace('_', ' ')} patterns",
+                "learned_from_feedback": True,
+                "rule_id": learned_result.get("rule_id", ""),
+                "match_details": learned_result.get("details", {})
+            }
                 
     except Exception as e:
         # If pattern matching fails, continue with normal analysis
+        logger.debug(f"Learned pattern check failed: {e}")
         pass
     
     # ========================================
