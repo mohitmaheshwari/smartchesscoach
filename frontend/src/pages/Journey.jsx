@@ -59,6 +59,10 @@ const Journey = ({ user }) => {
   const [xpToastData, setXpToastData] = useState({ xp: 0, action: '' });
   const [dailyClaimed, setDailyClaimed] = useState(false);
   
+  // NEW: Rolling Evolution state
+  const [evolutionData, setEvolutionData] = useState(null);
+  const [openingEvolution, setOpeningEvolution] = useState(null);
+  
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -67,11 +71,13 @@ const Journey = ({ user }) => {
 
   const fetchDashboard = async () => {
     try {
-      const [res1, res2, res3, res4] = await Promise.all([
+      const [res1, res2, res3, res4, res5, res6] = await Promise.all([
         fetch(API + "/journey/linked-accounts", { credentials: "include" }),
         fetch(API + "/journey/v2", { credentials: "include" }),
         fetch(API + "/gamification/progress", { credentials: "include" }),
         fetch(API + "/missions/focus-mastery", { credentials: "include" }),
+        fetch(API + "/progress/evolution", { credentials: "include" }),
+        fetch(API + "/progress/openings", { credentials: "include" }),
       ]);
       
       if (res1.ok) setAccounts(await res1.json());
@@ -81,6 +87,8 @@ const Journey = ({ user }) => {
         const masteryData = await res4.json();
         setFocusMastery(masteryData.focus_mastery || null);
       }
+      if (res5.ok) setEvolutionData(await res5.json());
+      if (res6.ok) setOpeningEvolution(await res6.json());
     } catch (e) {
       console.error(e);
     } finally {
@@ -293,13 +301,15 @@ const Journey = ({ user }) => {
               />
             )}
 
-            {/* NEW: Progress Tracker - Baseline vs Current */}
-            <ProgressTrackerSection 
-              baseline={journeyData.baseline}
-              current={journeyData.current_stats}
-              progress={journeyData.progress}
-              hasBaseline={journeyData.has_baseline}
-              gamesUntilBaseline={journeyData.games_until_baseline}
+            {/* NEW: Rolling Evolution Section - Replaces baseline comparison */}
+            <RollingEvolutionSection 
+              evolutionData={evolutionData}
+            />
+
+            {/* NEW: Opening Evolution Section */}
+            <OpeningEvolutionSection 
+              openingData={openingEvolution}
+              onViewGame={(gameId) => navigate(`/lab/game/${gameId}`)}
             />
 
             {/* Section 1: Chess Fundamentals Assessment */}
@@ -310,12 +320,6 @@ const Journey = ({ user }) => {
 
             {/* Section 2: Rating Ceiling Assessment */}
             <RatingCeilingSection data={journeyData.rating_ceiling} />
-
-            {/* Section 3: Opening Progress */}
-            <OpeningProgressSection 
-              data={journeyData.opening_progress}
-              onViewGame={(gameId) => navigate(`/lab/${gameId}`)}
-            />
           </AnimatedList>
         )}
 
@@ -648,7 +652,309 @@ const FocusMasterySection = ({ data, onNavigate }) => {
 };
 
 // ============================================
-// Progress Tracker - Your Coaching Journey
+// Rolling Evolution Section - NEW Progress System
+// ============================================
+const RollingEvolutionSection = ({ evolutionData }) => {
+  if (!evolutionData || evolutionData.total_games < 15) {
+    return (
+      <AnimatedItem>
+        <Card className="surface border-2 border-dashed border-primary/30">
+          <CardContent className="py-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-heading font-semibold">Building Your Progress Profile</h3>
+                <p className="text-sm text-muted-foreground">
+                  {evolutionData?.total_games || 0} games analyzed. Need 15+ for evolution tracking.
+                </p>
+              </div>
+            </div>
+            <Progress value={((evolutionData?.total_games || 0) / 15) * 100} className="h-2" />
+          </CardContent>
+        </Card>
+      </AnimatedItem>
+    );
+  }
+
+  const assessment = evolutionData.assessment || {};
+  const medium = evolutionData.medium || {};
+  const micro = evolutionData.micro || {};
+  
+  const trend = assessment.trend || "stable";
+  const headline = assessment.headline || "Tracking your progress";
+  const detail = assessment.detail || "";
+
+  const getTrendIcon = (t) => {
+    if (t === "improving") return <TrendingUp className="w-5 h-5 text-emerald-500" />;
+    if (t === "declining") return <TrendingDown className="w-5 h-5 text-amber-500" />;
+    return <Minus className="w-5 h-5 text-muted-foreground" />;
+  };
+
+  const getTrendColor = (t) => {
+    if (t === "improving") return "emerald";
+    if (t === "declining") return "amber";
+    return "blue";
+  };
+
+  const color = getTrendColor(trend);
+
+  return (
+    <AnimatedItem>
+      <Card className="surface overflow-hidden" data-testid="rolling-evolution">
+        {/* Header */}
+        <div className={`bg-gradient-to-r from-${color}-500/10 to-transparent px-6 py-4 border-b border-border/50`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-${color}-500/20`}>
+                {getTrendIcon(trend)}
+              </div>
+              <div>
+                <h3 className="font-heading font-semibold">{headline}</h3>
+                <p className="text-xs text-muted-foreground">{detail}</p>
+              </div>
+            </div>
+            <div className={`px-3 py-1.5 rounded-full text-sm font-medium bg-${color}-500/10 text-${color}-500`}>
+              {evolutionData.total_games} games
+            </div>
+          </div>
+        </div>
+        
+        <CardContent className="py-5">
+          {/* Comparison Windows */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Recent 10 vs Previous 10 */}
+            {medium.recent && medium.previous && (
+              <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
+                  <BarChart3 className="w-3 h-3" />
+                  Last 10 vs Previous 10 Games
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Win Rate</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono">{Math.round((medium.recent.win_rate || 0) * 100)}%</span>
+                      <DeltaBadge delta={(medium.delta?.win_rate_delta || 0) * 100} suffix="%" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Blunders/Game</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono">{(medium.recent.blunders_per_game || 0).toFixed(1)}</span>
+                      <DeltaBadge delta={-(medium.delta?.blunders_delta || 0)} invert />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Recent 5 vs Previous 5 (This Week) */}
+            {micro.recent && micro.previous && (
+              <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  This Week (5 vs 5 Games)
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Win Rate</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono">{Math.round((micro.recent.win_rate || 0) * 100)}%</span>
+                      <DeltaBadge delta={(micro.delta?.win_rate_delta || 0) * 100} suffix="%" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Record</span>
+                    <span className="font-mono">
+                      {micro.recent.wins}W-{micro.recent.losses}L-{micro.recent.draws}D
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </AnimatedItem>
+  );
+};
+
+// Delta Badge component for showing +/- changes
+const DeltaBadge = ({ delta, suffix = "", invert = false }) => {
+  const value = invert ? -delta : delta;
+  if (Math.abs(value) < 0.5) return null;
+  
+  const isPositive = value > 0;
+  return (
+    <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+      isPositive 
+        ? 'bg-emerald-500/10 text-emerald-500' 
+        : 'bg-red-500/10 text-red-500'
+    }`}>
+      {isPositive ? '+' : ''}{value.toFixed(0)}{suffix}
+    </span>
+  );
+};
+
+// ============================================
+// Opening Evolution Section - NEW
+// ============================================
+const OpeningEvolutionSection = ({ openingData, onViewGame }) => {
+  if (!openingData || openingData.recent_games_count < 10) {
+    return null; // Not enough data yet
+  }
+
+  const improving = openingData.improving || [];
+  const declining = openingData.declining || [];
+  const stable = openingData.stable || [];
+  const recommendations = openingData.recommendations || [];
+
+  // Only show if there's meaningful data
+  if (improving.length === 0 && declining.length === 0 && stable.length < 2) {
+    return null;
+  }
+
+  return (
+    <AnimatedItem>
+      <Card className="surface" data-testid="opening-evolution">
+        <CardContent className="py-6">
+          <SectionHeader 
+            label="Opening Performance" 
+            action={
+              <span className="text-xs text-muted-foreground">
+                Last {openingData.recent_games_count} vs previous {openingData.previous_games_count} games
+              </span>
+            }
+          />
+          
+          <div className="space-y-4 mt-4">
+            {/* Recommendations */}
+            {recommendations.length > 0 && (
+              <div className="space-y-2">
+                {recommendations.slice(0, 2).map((rec, idx) => (
+                  <div 
+                    key={idx}
+                    className={`p-3 rounded-lg border ${
+                      rec.priority === "positive" 
+                        ? "bg-emerald-500/5 border-emerald-500/20" 
+                        : rec.priority === "warning"
+                        ? "bg-amber-500/5 border-amber-500/20"
+                        : "bg-muted/30 border-border/50"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {rec.priority === "positive" ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5" />
+                      ) : rec.priority === "warning" ? (
+                        <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5" />
+                      ) : (
+                        <BookOpen className="w-4 h-4 text-muted-foreground mt-0.5" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium">{rec.opening}</p>
+                        <p className="text-xs text-muted-foreground">{rec.message}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Opening Stats Grid */}
+            <div className="grid md:grid-cols-3 gap-3">
+              {/* Improving Openings */}
+              {improving.length > 0 && (
+                <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs font-medium text-emerald-500 mb-2 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" />
+                    Improving
+                  </p>
+                  <div className="space-y-1">
+                    {improving.slice(0, 2).map((o, idx) => (
+                      <div key={idx} className="text-sm">
+                        <span className="font-medium">{o.opening_name}</span>
+                        <span className="text-xs text-emerald-500 ml-1">
+                          +{Math.round(o.accuracy_delta || 0)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Stable Openings */}
+              {stable.length > 0 && (
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                    <Minus className="w-3 h-3" />
+                    Stable
+                  </p>
+                  <div className="space-y-1">
+                    {stable.slice(0, 2).map((o, idx) => (
+                      <div key={idx} className="text-sm">
+                        <span className="font-medium">{o.opening_name}</span>
+                        <span className="text-xs text-muted-foreground ml-1">
+                          {o.recent?.games_played || 0} games
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Declining Openings */}
+              {declining.length > 0 && (
+                <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <p className="text-xs font-medium text-amber-500 mb-2 flex items-center gap-1">
+                    <TrendingDown className="w-3 h-3" />
+                    Needs Work
+                  </p>
+                  <div className="space-y-1">
+                    {declining.slice(0, 2).map((o, idx) => (
+                      <div key={idx} className="text-sm">
+                        <span className="font-medium">{o.opening_name}</span>
+                        <span className="text-xs text-amber-500 ml-1">
+                          {Math.round(o.accuracy_delta || 0)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Detailed opening list - collapsible */}
+            {stable.length > 2 && (
+              <details className="group">
+                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                  View all {stable.length + improving.length + declining.length} openings
+                </summary>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {[...improving, ...stable, ...declining].map((o, idx) => (
+                    <div 
+                      key={idx} 
+                      className="text-xs p-2 rounded bg-muted/20 flex justify-between"
+                    >
+                      <span className="truncate">{o.opening_name}</span>
+                      <span className="text-muted-foreground ml-2">
+                        {o.recent?.score_pct || 0}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </AnimatedItem>
+  );
+};
+
+// ============================================
+// Progress Tracker - OLD (keeping as fallback)
 // ============================================
 const ProgressTrackerSection = ({ baseline, current, progress, hasBaseline, gamesUntilBaseline }) => {
   // If no baseline yet, show progress toward establishing profile

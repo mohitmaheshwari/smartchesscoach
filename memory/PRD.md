@@ -26,6 +26,7 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
      - Micro: 5 vs 5 games (weekly trend)
    - Automatic trend detection (improving/declining/stable)
    - API endpoint: `GET /api/progress/evolution`
+   - **INTEGRATED INTO FRONTEND** - UnifiedProgress.jsx now shows rolling evolution
 
 2. **Opening Evolution Tracking**
    - Created `/app/backend/services/opening_evolution_service.py`
@@ -33,6 +34,7 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
    - Extracts openings from PGN when not stored in DB
    - Generates actionable recommendations
    - API endpoint: `GET /api/progress/openings`
+   - **INTEGRATED INTO FRONTEND** - Shows in Progress page "Now" tab
 
 3. **Game Tagging System (Foundation)**
    - Created `/app/backend/services/game_tagging_service.py`

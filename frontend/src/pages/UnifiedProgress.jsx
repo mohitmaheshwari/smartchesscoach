@@ -28,6 +28,8 @@ const UnifiedProgress = ({ user }) => {
   const [journeyData, setJourneyData] = useState(null);
   const [journeyV2Data, setJourneyV2Data] = useState(null);  // For rating ceiling, baseline
   const [homeData, setHomeData] = useState(null);
+  const [evolutionData, setEvolutionData] = useState(null);  // NEW: Rolling evolution
+  const [openingEvolution, setOpeningEvolution] = useState(null);  // NEW: Opening evolution
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState("now");
   const [showIdentity, setShowIdentity] = useState(false);
@@ -38,17 +40,21 @@ const UnifiedProgress = ({ user }) => {
 
   const fetchAll = async () => {
     try {
-      const [progressRes, journeyRes, journeyV2Res, homeRes] = await Promise.all([
+      const [progressRes, journeyRes, journeyV2Res, homeRes, evolutionRes, openingRes] = await Promise.all([
         fetch(`${API}/progress`, { credentials: "include" }),
         fetch(`${API}/cognitive/journey`, { credentials: "include" }),
         fetch(`${API}/journey/v2`, { credentials: "include" }),
-        fetch(`${API}/coach/home-intelligence`, { credentials: "include" })
+        fetch(`${API}/coach/home-intelligence`, { credentials: "include" }),
+        fetch(`${API}/progress/evolution`, { credentials: "include" }),
+        fetch(`${API}/progress/openings`, { credentials: "include" })
       ]);
       
       if (progressRes.ok) setProgressData(await progressRes.json());
       if (journeyRes.ok) setJourneyData(await journeyRes.json());
       if (journeyV2Res.ok) setJourneyV2Data(await journeyV2Res.json());
       if (homeRes.ok) setHomeData(await homeRes.json());
+      if (evolutionRes.ok) setEvolutionData(await evolutionRes.json());
+      if (openingRes.ok) setOpeningEvolution(await openingRes.json());
     } catch (e) {
       console.error("Failed to fetch:", e);
     } finally {
@@ -363,6 +369,122 @@ const UnifiedProgress = ({ user }) => {
                         <p className="text-xs text-primary font-medium uppercase tracking-wide mb-1">Coach's Focus</p>
                         <p className="text-sm font-medium">{snapshot.directive}</p>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* NEW: Rolling Evolution - Your Recent Progress */}
+              {evolutionData && evolutionData.total_games >= 15 && (
+                <Card data-testid="rolling-evolution-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          evolutionData.assessment?.trend === 'improving' ? 'bg-emerald-500/10' :
+                          evolutionData.assessment?.trend === 'declining' ? 'bg-amber-500/10' : 'bg-slate-500/10'
+                        }`}>
+                          {evolutionData.assessment?.trend === 'improving' ? (
+                            <TrendingUp className="w-4 h-4 text-emerald-500" />
+                          ) : evolutionData.assessment?.trend === 'declining' ? (
+                            <TrendingDown className="w-4 h-4 text-amber-500" />
+                          ) : (
+                            <Minus className="w-4 h-4 text-slate-400" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{evolutionData.assessment?.headline || 'Your Progress'}</p>
+                          <p className="text-xs text-muted-foreground">{evolutionData.assessment?.detail}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* 10 vs 10 comparison */}
+                    {evolutionData.medium?.recent && (
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="p-2.5 rounded-lg bg-muted/30">
+                          <p className="text-muted-foreground mb-1">Win Rate (Last 10)</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-lg font-bold">
+                              {Math.round((evolutionData.medium.recent.win_rate || 0) * 100)}%
+                            </span>
+                            {evolutionData.medium.delta?.win_rate_delta !== 0 && (
+                              <span className={`text-xs px-1 py-0.5 rounded ${
+                                evolutionData.medium.delta.win_rate_delta > 0 
+                                  ? 'bg-emerald-500/10 text-emerald-500' 
+                                  : 'bg-red-500/10 text-red-500'
+                              }`}>
+                                {evolutionData.medium.delta.win_rate_delta > 0 ? '+' : ''}
+                                {Math.round(evolutionData.medium.delta.win_rate_delta * 100)}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-muted/30">
+                          <p className="text-muted-foreground mb-1">Blunders/Game</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-lg font-bold">
+                              {(evolutionData.medium.recent.blunders_per_game || 0).toFixed(1)}
+                            </span>
+                            {evolutionData.medium.delta?.blunders_delta !== 0 && (
+                              <span className={`text-xs px-1 py-0.5 rounded ${
+                                evolutionData.medium.delta.blunders_delta < 0 
+                                  ? 'bg-emerald-500/10 text-emerald-500' 
+                                  : 'bg-red-500/10 text-red-500'
+                              }`}>
+                                {evolutionData.medium.delta.blunders_delta < 0 ? '' : '+'}
+                                {evolutionData.medium.delta.blunders_delta.toFixed(1)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* NEW: Opening Evolution */}
+              {openingEvolution && (openingEvolution.improving?.length > 0 || openingEvolution.declining?.length > 0 || openingEvolution.stable?.length > 2) && (
+                <Card data-testid="opening-evolution-card">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-3">
+                      Opening Performance
+                    </p>
+                    <div className="space-y-2">
+                      {/* Improving Openings */}
+                      {openingEvolution.improving?.slice(0, 2).map((o, idx) => (
+                        <div key={`imp-${idx}`} className="flex items-center justify-between py-1 px-2 rounded bg-emerald-500/5">
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                            <span className="text-sm">{o.opening_name}</span>
+                          </div>
+                          <span className="text-xs text-emerald-500">+{Math.round(o.accuracy_delta || 0)}%</span>
+                        </div>
+                      ))}
+                      {/* Declining Openings */}
+                      {openingEvolution.declining?.slice(0, 2).map((o, idx) => (
+                        <div key={`dec-${idx}`} className="flex items-center justify-between py-1 px-2 rounded bg-amber-500/5">
+                          <div className="flex items-center gap-2">
+                            <TrendingDown className="w-3.5 h-3.5 text-amber-500" />
+                            <span className="text-sm">{o.opening_name}</span>
+                          </div>
+                          <span className="text-xs text-amber-500">{Math.round(o.accuracy_delta || 0)}%</span>
+                        </div>
+                      ))}
+                      {/* Show some stable openings if no improving/declining */}
+                      {openingEvolution.improving?.length === 0 && openingEvolution.declining?.length === 0 && 
+                        openingEvolution.stable?.slice(0, 3).map((o, idx) => (
+                        <div key={`stb-${idx}`} className="flex items-center justify-between py-1 px-2 rounded bg-muted/30">
+                          <div className="flex items-center gap-2">
+                            <Minus className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-sm">{o.opening_name}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {o.recent?.games_played || 0} games • {o.recent?.score_pct || 0}%
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
