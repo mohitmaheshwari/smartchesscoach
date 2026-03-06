@@ -219,14 +219,21 @@ const CoachPlay = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         if (data.messages && data.messages.length > 0) {
-          // Add new messages to chat
+          // Add new messages to chat (preserve id for feedback button!)
           setChatMessages(prev => [
             ...prev,
             ...data.messages.map(msg => ({
+              id: msg.id,  // CRITICAL: Preserve ID for feedback button
               type: msg.type,
               message: msg.message,
               trigger: msg.trigger,
               move: msg.move,
+              question: msg.question,  // For Socratic questions
+              context: {
+                fen: msg.fen,
+                move_number: msg.move_number,
+                classification: msg.trigger
+              },
               timestamp: Date.now()
             }))
           ]);
@@ -664,13 +671,25 @@ const CoachPlay = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         
-        // Add coach response to chat
+        // Generate a client-side ID for feedback on chat responses
+        const chatResponseId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Add coach response to chat (with id for feedback button!)
         setChatMessages(prev => [...prev, {
+          id: chatResponseId,  // For feedback button
           type: "coach",
           message: data.response,
+          trigger: "chat_response",  // Mark as chat response
           suggestion_arrow: data.suggestion_arrow,
           best_move: data.best_move,
           missed_tactic: data.missed_tactic,
+          move_quality: data.move_quality,
+          context: {
+            user_question: messageToSend,
+            fen: currentFen,
+            best_move: data.best_move,
+            move_quality: data.move_quality
+          },
           timestamp: Date.now()
         }]);
         

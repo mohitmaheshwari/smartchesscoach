@@ -102,9 +102,19 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 - `/app/backend/tests/test_coach_chat_hallucinations.py` - 20 tests for no hallucinations
 - `/app/tests/e2e/coach-chat.spec.ts` - Frontend integration tests
 
-### 2. Frontend Bug Fix - Chat Send Button
+### 2. Frontend Bug Fix - Chat Send Button & Feedback Button
 - Fixed `onClick={sendChatMessage}` passing event object instead of null
 - Changed to `onClick={() => sendChatMessage()}`
+- **Fixed feedback button not showing**: `pollCoachMessages()` was stripping the `id` field when mapping messages
+- Now preserves `id`, `question`, and `context` fields for feedback button to work
+- Chat responses now generate client-side IDs for feedback
+
+### 3. Opening Teaching Enhancement ✅
+**The coach now actively TEACHES openings, not just plays them:**
+- Added rich `teaching_moments` for Sicilian variations (d5, Nf6, a6, g6, e6)
+- Each move now gets educational context: "The Najdorf! This prevents Bb5 and prepares queenside expansion"
+- `generate_opening_plan_question()` now checks for specific teaching and uses it
+- Goal: Player LEARNS why each move is played, not just follows engine
 
 ### 3. Merged Progress & Journey Pages (Dec 5, 2025)
 - Created `UnifiedProgress.jsx`

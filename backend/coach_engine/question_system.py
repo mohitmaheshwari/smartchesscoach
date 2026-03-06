@@ -51,22 +51,28 @@ class CoachQuestion:
 def generate_opening_plan_question(opening: OpeningPlan, move_number: int, current_move: str = None) -> CoachQuestion:
     """Generate a question about the opening plan.
     
+    The goal is to TEACH the opening, not just avoid hallucinations.
+    Each message should help the player understand the IDEAS behind the moves.
+    
     Args:
         opening: The detected opening
         move_number: Current move number in the game
-        current_move: The move just played (to avoid wrongly attributing opening to it)
+        current_move: The move just played (to check if it's an identifying move)
     """
     # Check if this move is one of the identifying moves for this opening
-    # Only claim "This is the X" when the current move IS a key identifying move
     is_identifying_move = current_move and current_move in opening.identifying_moves
     
+    # Check if there's a specific teaching moment for this move
+    teaching_for_move = opening.teaching_moments.get(current_move, "") if current_move else ""
+    
     if move_number <= 4 and is_identifying_move:
-        # This move IS part of what defines the opening - safe to name it
+        # This move IS what defines the opening - announce it and teach
+        main_idea = opening.main_ideas[0] if opening.main_ideas else "Control the center"
         return CoachQuestion(
             question_type=QuestionType.PLAN_CHECK,
-            text=f"This is the {opening.name}. What do you think the main idea is?",
+            text=f"This is the {opening.name}. {opening.simple_explanation} What do you think is the main idea?",
             options=[
-                opening.main_ideas[0] if opening.main_ideas else "Control the center",
+                main_idea,
                 "Attack the king immediately",
                 "Trade all the pieces",
                 "I'm not sure"
@@ -74,21 +80,40 @@ def generate_opening_plan_question(opening: OpeningPlan, move_number: int, curre
             correct_option_idx=0,
             accepts_free_response=True,
         )
-    elif move_number <= 4:
-        # Opening already established, this is a continuation move
+    elif teaching_for_move:
+        # We have specific teaching for this move - USE IT!
         return CoachQuestion(
             question_type=QuestionType.UNDERSTANDING,
-            text=f"We're in the {opening.name}. Do you know what I'm trying to do with this move?",
-            options=["Control the center", "Develop pieces", "Prepare an attack", "I'm not sure"],
+            text=teaching_for_move,
+            options=["I see the idea", "Tell me more", "What should I do?"],
             correct_option_idx=None,  # No wrong answer
             accepts_free_response=True,
         )
+    elif move_number <= 6:
+        # Opening phase, continuation move without specific teaching
+        # Ask about the opening ideas to reinforce learning
+        if opening.main_ideas and len(opening.main_ideas) > 1:
+            return CoachQuestion(
+                question_type=QuestionType.UNDERSTANDING,
+                text=f"In the {opening.name}, the key ideas are: {opening.main_ideas[1] if len(opening.main_ideas) > 1 else opening.main_ideas[0]}. Do you see how this move fits?",
+                options=["Yes, I see it", "Not really", "Please explain"],
+                correct_option_idx=None,
+                accepts_free_response=True,
+            )
+        else:
+            return CoachQuestion(
+                question_type=QuestionType.UNDERSTANDING,
+                text=f"We're in the {opening.name}. Do you know what I'm planning with this move?",
+                options=["Control the center", "Develop pieces", "Prepare an attack", "I'm not sure"],
+                correct_option_idx=None,
+                accepts_free_response=True,
+            )
     else:
         return CoachQuestion(
             question_type=QuestionType.UNDERSTANDING,
             text="Do you see what I'm planning with this move?",
             options=["Yes, I see it", "I think so", "Not really", "Please explain"],
-            correct_option_idx=None,  # No wrong answer
+            correct_option_idx=None,
             accepts_free_response=True,
         )
 

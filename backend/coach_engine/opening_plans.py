@@ -192,9 +192,13 @@ SICILIAN_DEFENSE = OpeningPlan(
     simple_explanation="c5 fights for the center sideways. When pawns trade on d4, your rook uses the c-file.",
     teaching_moments={
         "c5": "The Sicilian! You fight for the center from the side. Very combative.",
-        "d6": "Solid. Preparing to develop and control the center.",
-        "Nf6": "Attacking their e4 pawn. Good!",
-        "Nc6": "Developing and controlling d4.",
+        "d6": "Solid. The Sicilian Dragon or Najdorf often starts like this. Preparing kingside development.",
+        "d5": "Challenging the center directly! This is the Sicilian 2...d5 line - very aggressive.",
+        "Nf6": "Attacking their e4 pawn. In the Sicilian, you want to pressure white's center.",
+        "Nc6": "Developing toward d4. Knights love that outpost in the Sicilian.",
+        "e6": "The Scheveningen setup. Solid, and prepares ...d5 later when the time is right.",
+        "a6": "The Najdorf! This little pawn move prevents Bb5 and prepares queenside expansion.",
+        "g6": "The Dragon! You'll fianchetto your bishop to g7 - very powerful on the long diagonal.",
     }
 )
 
