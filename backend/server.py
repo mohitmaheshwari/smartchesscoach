@@ -12269,6 +12269,102 @@ def _get_coach_move_explanation(move_san: str, fen_before: str, fen_after: str, 
         return f"I played {move_san}."
 
 
+def _get_teaching_explanation(move_san: str, fen_before: str, fen_after: str, move_number: int) -> str:
+    """
+    Generate TEACHING-FOCUSED explanation for coach's move.
+    
+    Key difference: We're not an opponent saying "I played X"
+    We're a TEACHER explaining concepts: "Watch this...", "See how...", "Notice..."
+    """
+    import chess
+    
+    try:
+        board_before = chess.Board(fen_before)
+        
+        # Parse the move
+        chess_move = board_before.parse_san(move_san)
+        from_sq = chess_move.from_square
+        to_sq = chess_move.to_square
+        piece = board_before.piece_at(from_sq)
+        
+        if piece is None:
+            return f"See this {move_san}? Think about what it's preparing."
+        
+        piece_names = {
+            chess.PAWN: "pawn",
+            chess.KNIGHT: "knight", 
+            chess.BISHOP: "bishop",
+            chess.ROOK: "rook",
+            chess.QUEEN: "queen",
+            chess.KING: "king"
+        }
+        piece_name = piece_names.get(piece.piece_type, "piece")
+        
+        # Is it a pawn move?
+        if piece.piece_type == chess.PAWN:
+            file = chess.square_file(to_sq)
+            rank = chess.square_rank(to_sq)
+            
+            if file in [3, 4]:  # d or e file - center pawns
+                return f"Watch this {move_san} - fighting for the center. What squares does this pawn control now?"
+            elif file in [2, 5]:  # c or f file
+                return f"This {move_san} supports the center. Can you see how it helps control d4/e4?"
+            elif rank in [2, 5]:  # h3/a3 or h6/a6
+                return f"This {move_san} is a useful waiting move. What do you think it prevents?"
+            else:
+                return f"See this pawn move {move_san}? Every pawn move changes the structure permanently."
+        
+        # Is it castling?
+        if board_before.is_castling(chess_move):
+            if board_before.is_kingside_castling(chess_move):
+                return "Castling kingside! The king is now safe, and the rook is ready to join the fight. Have you castled yet?"
+            else:
+                return "Castling queenside! This is aggressive - the rook immediately eyes the center. Be ready for action!"
+        
+        # Knight moves
+        if piece.piece_type == chess.KNIGHT:
+            central_squares = [chess.D4, chess.D5, chess.E4, chess.E5, chess.C4, chess.C5, chess.F4, chess.F5]
+            development_squares = [chess.F3, chess.C3, chess.F6, chess.C6]
+            
+            if to_sq in central_squares:
+                return f"Look at this knight on {chess.square_name(to_sq)}! From the center, a knight controls up to 8 squares. What does it threaten?"
+            elif to_sq in development_squares:
+                return f"Knight to {chess.square_name(to_sq)} - this is a natural developing move. Notice it's heading toward the center?"
+            else:
+                return f"Watch this knight maneuver to {chess.square_name(to_sq)}. Knights need good outposts - squares where they can't be chased away."
+        
+        # Bishop moves  
+        if piece.piece_type == chess.BISHOP:
+            if to_sq in [chess.G2, chess.B2, chess.G7, chess.B7]:
+                return f"Fianchetto! The bishop on this diagonal is a long-range sniper. See how it controls the whole diagonal?"
+            elif to_sq in [chess.C4, chess.F4, chess.C5, chess.F5]:
+                return f"Active bishop! It's pointing right at your position. What targets can you see?"
+            else:
+                return f"Developing the bishop. Bishops are strongest on long, open diagonals."
+        
+        # Queen moves
+        if piece.piece_type == chess.QUEEN:
+            if move_number <= 5:
+                return f"Early queen move! Usually risky - can you think of ways to attack it and gain time?"
+            else:
+                return f"The queen joins the attack. This is the most powerful piece - watch where it points!"
+        
+        # Rook moves
+        if piece.piece_type == chess.ROOK:
+            file = chess.square_file(to_sq)
+            if file in [3, 4]:  # d or e file
+                return f"Rook to the center! Rooks love open files. Is there an open file for your rook too?"
+            else:
+                return f"The rook is repositioning. Rooks are most powerful on open files and the 7th rank."
+        
+        # Default
+        return f"See this {move_san}? Think about what it accomplishes. What's the idea?"
+        
+    except Exception as e:
+        logger.warning(f"Error generating teaching explanation: {e}")
+        return f"Watch this move - {move_san}. What do you think it's preparing?"
+
+
 
 # =============================================================================
 # PLAY WITH COACH API - P2 Feature
@@ -12586,18 +12682,21 @@ async def _process_move_and_respond(
                 })
             else:
                 # Fall back to simple factual message (NO LLM - no hallucination risk)
-                # Only state facts: what was played, what engine preferred, eval diff
+                # TEACHING STYLE: Guide the student, don't just evaluate
                 eval_before = analysis.get("eval_before", 0)
                 eval_after = analysis.get("eval_after", 0)
                 best_move = analysis.get("best_move", "")
                 delta = int((eval_after - eval_before) * 100)
                 
                 if abs(delta) >= 200:
-                    coach_message = f"You played {user_move}. Engine preferred {best_move} ({delta:+d} cp difference)."
+                    # Big mistake - but teach, don't scold
+                    coach_message = f"Hmm, {user_move} changes things significantly. Let's look at {best_move} - do you see why it's stronger here?"
                 elif abs(delta) >= 100:
-                    coach_message = f"{user_move} is playable. {best_move} was slightly more accurate."
+                    # Inaccuracy - gentle guidance
+                    coach_message = f"{user_move} is okay, but {best_move} was a bit more precise. Can you spot the difference?"
                 else:
-                    coach_message = f"Interesting choice with {user_move}."
+                    # Good move - reinforce and ask
+                    coach_message = f"Good thinking with {user_move}! What's your plan from here?"
                 
                 await db.coach_messages.insert_one({
                     "session_id": session_id,
@@ -12732,15 +12831,17 @@ async def _process_move_and_respond(
                                     except:
                                         pass
                                 
-                                # Create coach message explaining the move
+                                # Create coach message explaining the move - TEACHING STYLE
+                                # NOT "I played X" but "Watch this..." or "See how..."
                                 if teaching_msg:
-                                    msg_text = f"I played {coach_move}. {teaching_msg}"
-                                elif opening_name and coach_move_number <= 4 and _is_common_opening_move(coach_move):
-                                    # Only mention opening name for truly mainline opening moves in first 4 moves
-                                    msg_text = f"I played {coach_move}. This is part of the {opening_name}. What do you think I'm planning?"
+                                    # Use the teaching moment but make it more conversational
+                                    msg_text = teaching_msg
+                                elif opening_name and coach_move_number <= 4:
+                                    # Guide them through the opening
+                                    msg_text = f"In the {opening_name}, {coach_move} is a key move. Can you see what it's preparing?"
                                 else:
-                                    # Generate position-specific commentary for any move
-                                    msg_text = _get_coach_move_explanation(coach_move, fen_after_user, fen_after_coach, coach_move_number)
+                                    # Generate position-specific teaching
+                                    msg_text = _get_teaching_explanation(coach_move, fen_after_user, fen_after_coach, coach_move_number)
                                 
                                 # Generate a question for early moves
                                 question_data = None

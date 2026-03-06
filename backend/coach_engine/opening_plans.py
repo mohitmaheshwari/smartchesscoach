@@ -45,10 +45,16 @@ ITALIAN_GAME = OpeningPlan(
     ],
     simple_explanation="Your bishop aims at f7 (only the king guards it). Develop, castle, then attack.",
     teaching_moments={
-        "Bc4": "Your bishop now looks at f7. That pawn is weak because only the king protects it.",
-        "O-O": "Good! King is safe. Now you can attack without worrying.",
-        "d3": "This supports your center and gives your other bishop a way out.",
-        "c3": "Preparing d4 to control more of the center. Good plan!",
+        "e5": "Fighting for the center! This creates an open game with lots of tactics. Ready for some action?",
+        "Nf6": "Good development! The knight attacks e4. Can you see what square it's aiming for?",
+        "Nc6": "Natural move - the knight develops and defends e5. How many pieces protect that pawn now?",
+        "Bc5": "Mirror image! Your bishop also eyes f2 - white's weak pawn. Now it's a real battle!",
+        "Be7": "Solid choice - preparing to castle. Sometimes safe is better than aggressive.",
+        "Bc4": "This is the Italian Game! The bishop stares at f7 - the weakest point. Only the king guards it.",
+        "O-O": "Castle! King safety first, attack second. This is how grandmasters play.",
+        "d3": "Supporting the center and opening a path for the bishop. Good technique!",
+        "c3": "Preparing d4 - the big center push. Can you see the plan coming together?",
+        "d6": "Solid - defending e5 and preparing development. What should develop next?",
     }
 )
 
@@ -191,14 +197,14 @@ SICILIAN_DEFENSE = OpeningPlan(
     ],
     simple_explanation="c5 fights for the center sideways. When pawns trade on d4, your rook uses the c-file.",
     teaching_moments={
-        "c5": "The Sicilian! You fight for the center from the side. Very combative.",
-        "d6": "Solid. The Sicilian Dragon or Najdorf often starts like this. Preparing kingside development.",
-        "d5": "Challenging the center directly! This is the Sicilian 2...d5 line - very aggressive.",
-        "Nf6": "Attacking their e4 pawn. In the Sicilian, you want to pressure white's center.",
-        "Nc6": "Developing toward d4. Knights love that outpost in the Sicilian.",
-        "e6": "The Scheveningen setup. Solid, and prepares ...d5 later when the time is right.",
-        "a6": "The Najdorf! This little pawn move prevents Bb5 and prepares queenside expansion.",
-        "g6": "The Dragon! You'll fianchetto your bishop to g7 - very powerful on the long diagonal.",
+        "c5": "The Sicilian Defense! Notice how c5 fights for the d4 square from the side? This is chess's most combative response to e4.",
+        "d6": "Solid setup - this is often the start of the Dragon or Najdorf. Can you guess why we delay developing the knight?",
+        "d5": "Direct challenge! We're not waiting around. This grabs space immediately. What do you think happens if white takes?",
+        "Nf6": "See how this knight attacks e4? In the Sicilian, we constantly pressure white's center. What would happen if they ignore it?",
+        "Nc6": "The knight develops toward d4 - our dream square. Every piece should aim for the center. Where should your knight go?",
+        "e6": "The Scheveningen - very solid. We're preparing to play d5 when the time is right. Patience is key here.",
+        "a6": "The Najdorf! A small move with big ideas - it prevents Bb5 pins and prepares b5-b4 expansion. One of the richest openings in chess!",
+        "g6": "The Dragon setup! The bishop on g7 will be a monster on that diagonal. What diagonal is it aiming at?",
     }
 )
 
@@ -219,10 +225,11 @@ FRENCH_DEFENSE = OpeningPlan(
     ],
     simple_explanation="e6 is solid. You'll play d5 next and challenge white's center with c5 later.",
     teaching_moments={
-        "e6": "The French Defense. Solid! You'll play d5 next.",
-        "d5": "Now you're fighting for the center directly.",
-        "c5": "Perfect! Attacking white's d4 pawn. This is the key move in the French.",
-        "Nc6": "Developing and putting pressure on d4.",
+        "e6": "The French Defense - very solid! The plan is to play d5 next and create a strong center. Ready?",
+        "d5": "Perfect timing! Now we're fighting for the center. What happens to the pawns if white captures?",
+        "c5": "This is THE key move in the French! We're attacking d4 - white's center is under pressure. See the idea?",
+        "Nc6": "Knight to c6 adds more pressure to d4. Count the attackers - how many pieces target that square now?",
+        "Bb4": "Pinning the knight! This is the Winawer variation. If the knight moves, what happens to d4?",
     }
 )
 

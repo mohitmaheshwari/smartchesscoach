@@ -109,12 +109,35 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 - Now preserves `id`, `question`, and `context` fields for feedback button to work
 - Chat responses now generate client-side IDs for feedback
 
-### 3. Opening Teaching Enhancement ✅
-**The coach now actively TEACHES openings, not just plays them:**
-- Added rich `teaching_moments` for Sicilian variations (d5, Nf6, a6, g6, e6)
-- Each move now gets educational context: "The Najdorf! This prevents Bb5 and prepares queenside expansion"
-- `generate_opening_plan_question()` now checks for specific teaching and uses it
-- Goal: Player LEARNS why each move is played, not just follows engine
+### 4. Play with Coach - Teaching Mindset Redesign ✅ (Major)
+**Paradigm shift from "opponent" to "teacher"**
+
+**Old Style (Robotic):**
+- "I played e5. Fighting for the center."
+- "I played Nc6. Developing the knight."
+- "Interesting choice with Nf3."
+
+**New Style (Human Coach):**
+- "Watch this e5 - fighting for the center. What squares does this pawn control now?"
+- "The knight develops toward d4 - our dream square. Every piece should aim for the center. Where should your knight go?"
+- "Good thinking with Nf3! What's your plan from here?"
+
+**Changes Made:**
+1. Created `/app/backend/coach_play/teaching_coach.py` - Teaching-focused coach service
+2. Added `_get_teaching_explanation()` function in server.py - No more "I played X"
+3. Updated `teaching_moments` in opening_plans.py for Sicilian, French, Italian with:
+   - Questions to engage the student
+   - Explanations of concepts
+   - Follow-up prompts
+4. Changed user move feedback to be encouraging, not evaluative:
+   - "Hmm, that changes things. Let's look at {best_move} - do you see why?"
+   - "Good thinking with {move}! What's your plan from here?"
+
+**Teaching Philosophy:**
+- Ask questions before explaining
+- Guide thinking, don't just evaluate
+- Make mistakes teachable moments
+- Celebrate understanding, not just good moves
 
 ### 3. Merged Progress & Journey Pages (Dec 5, 2025)
 - Created `UnifiedProgress.jsx`
