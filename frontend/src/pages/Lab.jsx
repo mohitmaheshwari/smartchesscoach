@@ -62,6 +62,7 @@ import {
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 import FeedbackModal from "@/components/FeedbackModal";
+import InlineFeedbackButton from "@/components/InlineFeedbackButton";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -176,21 +177,29 @@ const Lab = ({ user }) => {
   const [feedbackContext, setFeedbackContext] = useState(null);
   
   // Handle feedback button click
-  const handleFeedback = (mistake, explanation) => {
-    setFeedbackContext({
-      explanation: explanation?.explanation || "",
-      positionFen: mistake.fen_before || "",
-      movePlayed: mistake.move || "",
-      moveSan: mistake.move || "",
-      bestMove: mistake.best_move || "",
-      classification: explanation?.short_label || mistake.mistakeType || "unknown",
-      evalBefore: mistake.eval_before || 0,
-      evalAfter: mistake.eval_after || 0,
-      pvAfterPlayed: mistake.pv_after_played || [],
-      gameId: gameId,
-      moveNumber: mistake.move_number || 0,
-      userColor: userColor,
-    });
+  const handleFeedback = (mistakeOrContext, explanation) => {
+    // Support both old style (mistake, explanation) and new style (context object)
+    if (explanation !== undefined) {
+      // Old style: two parameters
+      setFeedbackContext({
+        explanation: explanation?.explanation || "",
+        positionFen: mistakeOrContext.fen_before || "",
+        movePlayed: mistakeOrContext.move || "",
+        moveSan: mistakeOrContext.move || "",
+        bestMove: mistakeOrContext.best_move || "",
+        classification: explanation?.short_label || mistakeOrContext.mistakeType || "unknown",
+        evalBefore: mistakeOrContext.eval_before || 0,
+        evalAfter: mistakeOrContext.eval_after || 0,
+        pvAfterPlayed: mistakeOrContext.pv_after_played || [],
+        gameId: gameId,
+        moveNumber: mistakeOrContext.move_number || 0,
+        userColor: userColor,
+        sectionType: "milestone_explanation"
+      });
+    } else {
+      // New style: single context object
+      setFeedbackContext(mistakeOrContext);
+    }
     setFeedbackOpen(true);
   };
   
@@ -1764,6 +1773,28 @@ const Lab = ({ user }) => {
                             <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform ml-auto" />
                           </summary>
                           <div className="mt-2 p-3 rounded-lg bg-slate-800/30 border border-slate-700/30">
+                            <div className="flex justify-end mb-2">
+                              <InlineFeedbackButton
+                                onClick={() => {
+                                  setFeedbackContext({
+                                    explanation: coachCommentary,
+                                    positionFen: allFens[allFens.length - 1] || "",
+                                    movePlayed: "",
+                                    moveSan: "",
+                                    bestMove: "",
+                                    classification: "COACH_FULL_REVIEW",
+                                    evalBefore: 0,
+                                    evalAfter: 0,
+                                    pvAfterPlayed: [],
+                                    gameId: gameId,
+                                    moveNumber: 0,
+                                    userColor: userColor,
+                                    sectionType: "coach_full_review"
+                                  });
+                                  setFeedbackOpen(true);
+                                }}
+                              />
+                            </div>
                             <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
                               {coachCommentary}
                             </p>
@@ -1844,10 +1875,32 @@ const Lab = ({ user }) => {
                                 {/* WHAT YOU MISSED - The key insight */}
                                 {insight.what_you_missed && (
                                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                                    <p className="text-xs text-amber-400 font-medium mb-1 flex items-center gap-1">
-                                      <Eye className="w-3 h-3" />
-                                      WHAT YOU DIDN'T SEE
-                                    </p>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <p className="text-xs text-amber-400 font-medium flex items-center gap-1">
+                                        <Eye className="w-3 h-3" />
+                                        WHAT YOU DIDN'T SEE
+                                      </p>
+                                      <InlineFeedbackButton
+                                        onClick={() => {
+                                          setFeedbackContext({
+                                            explanation: insight.what_you_missed,
+                                            positionFen: moment.fen_before || allFens[moment.move_number * 2 - 2] || "",
+                                            movePlayed: moment.your_move,
+                                            moveSan: moment.your_move,
+                                            bestMove: moment.best_move,
+                                            classification: "WHAT_YOU_MISSED",
+                                            evalBefore: moment.eval_before,
+                                            evalAfter: moment.eval_after,
+                                            pvAfterPlayed: moment.pv_after_best,
+                                            gameId: gameId,
+                                            moveNumber: moment.move_number,
+                                            userColor: userColor,
+                                            sectionType: "what_you_missed"
+                                          });
+                                          setFeedbackOpen(true);
+                                        }}
+                                      />
+                                    </div>
                                     <p className="text-sm text-amber-300">
                                       {insight.what_you_missed}
                                     </p>
@@ -1857,10 +1910,32 @@ const Lab = ({ user }) => {
                                 {/* WHAT BEST MOVE ACHIEVES */}
                                 {insight.what_best_move_achieves && (
                                   <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                                    <p className="text-xs text-green-400 font-medium mb-1 flex items-center gap-1">
-                                      <Zap className="w-3 h-3" />
-                                      WHAT {moment.best_move} ACHIEVES
-                                    </p>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <p className="text-xs text-green-400 font-medium flex items-center gap-1">
+                                        <Zap className="w-3 h-3" />
+                                        WHAT {moment.best_move} ACHIEVES
+                                      </p>
+                                      <InlineFeedbackButton
+                                        onClick={() => {
+                                          setFeedbackContext({
+                                            explanation: insight.what_best_move_achieves,
+                                            positionFen: moment.fen_before || allFens[moment.move_number * 2 - 2] || "",
+                                            movePlayed: moment.your_move,
+                                            moveSan: moment.your_move,
+                                            bestMove: moment.best_move,
+                                            classification: "BEST_MOVE_ACHIEVES",
+                                            evalBefore: moment.eval_before,
+                                            evalAfter: moment.eval_after,
+                                            pvAfterPlayed: moment.pv_after_best,
+                                            gameId: gameId,
+                                            moveNumber: moment.move_number,
+                                            userColor: userColor,
+                                            sectionType: "what_best_move_achieves"
+                                          });
+                                          setFeedbackOpen(true);
+                                        }}
+                                      />
+                                    </div>
                                     <p className="text-sm text-green-300">
                                       {insight.what_best_move_achieves}
                                     </p>
@@ -1870,9 +1945,31 @@ const Lab = ({ user }) => {
                                 {/* WHY YOUR MOVE WAS WRONG */}
                                 {insight.why_your_move_was_wrong && (
                                   <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                                    <p className="text-xs text-red-400 font-medium mb-1">
-                                      WHY {moment.your_move} WAS WRONG
-                                    </p>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <p className="text-xs text-red-400 font-medium">
+                                        WHY {moment.your_move} WAS WRONG
+                                      </p>
+                                      <InlineFeedbackButton
+                                        onClick={() => {
+                                          setFeedbackContext({
+                                            explanation: insight.why_your_move_was_wrong,
+                                            positionFen: moment.fen_before || allFens[moment.move_number * 2 - 2] || "",
+                                            movePlayed: moment.your_move,
+                                            moveSan: moment.your_move,
+                                            bestMove: moment.best_move,
+                                            classification: "WHY_MOVE_WRONG",
+                                            evalBefore: moment.eval_before,
+                                            evalAfter: moment.eval_after,
+                                            pvAfterPlayed: moment.pv_after_best,
+                                            gameId: gameId,
+                                            moveNumber: moment.move_number,
+                                            userColor: userColor,
+                                            sectionType: "why_your_move_was_wrong"
+                                          });
+                                          setFeedbackOpen(true);
+                                        }}
+                                      />
+                                    </div>
                                     <p className="text-sm text-red-300">
                                       {insight.why_your_move_was_wrong}
                                     </p>
@@ -1882,10 +1979,32 @@ const Lab = ({ user }) => {
                                 {/* THE PATTERN TO RECOGNIZE */}
                                 {(insight.the_idea_you_should_learn || insight.how_to_spot_this) && (
                                   <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                                    <p className="text-xs text-violet-400 font-medium mb-1 flex items-center gap-1">
-                                      <Lightbulb className="w-3 h-3" />
-                                      PATTERN TO RECOGNIZE
-                                    </p>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <p className="text-xs text-violet-400 font-medium flex items-center gap-1">
+                                        <Lightbulb className="w-3 h-3" />
+                                        PATTERN TO RECOGNIZE
+                                      </p>
+                                      <InlineFeedbackButton
+                                        onClick={() => {
+                                          setFeedbackContext({
+                                            explanation: `${insight.the_idea_you_should_learn || ""} ${insight.how_to_spot_this || ""}`.trim(),
+                                            positionFen: moment.fen_before || allFens[moment.move_number * 2 - 2] || "",
+                                            movePlayed: moment.your_move,
+                                            moveSan: moment.your_move,
+                                            bestMove: moment.best_move,
+                                            classification: "PATTERN_TO_LEARN",
+                                            evalBefore: moment.eval_before,
+                                            evalAfter: moment.eval_after,
+                                            pvAfterPlayed: moment.pv_after_best,
+                                            gameId: gameId,
+                                            moveNumber: moment.move_number,
+                                            userColor: userColor,
+                                            sectionType: "pattern_to_recognize"
+                                          });
+                                          setFeedbackOpen(true);
+                                        }}
+                                      />
+                                    </div>
                                     {insight.the_idea_you_should_learn && (
                                       <p className="text-sm text-violet-300 mb-2">
                                         {insight.the_idea_you_should_learn}
@@ -1893,7 +2012,7 @@ const Lab = ({ user }) => {
                                     )}
                                     {insight.how_to_spot_this && (
                                       <p className="text-sm text-violet-200 italic">
-                                        💡 {insight.how_to_spot_this}
+                                        {insight.how_to_spot_this}
                                       </p>
                                     )}
                                   </div>
@@ -1902,10 +2021,32 @@ const Lab = ({ user }) => {
                                 {/* LLM COACH EXPLANATION (if available) */}
                                 {moment.coach_explanation && (
                                   <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                                    <p className="text-xs text-primary font-medium mb-1 flex items-center gap-1">
-                                      <Brain className="w-3 h-3" />
-                                      COACH EXPLANATION
-                                    </p>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <p className="text-xs text-primary font-medium flex items-center gap-1">
+                                        <Brain className="w-3 h-3" />
+                                        COACH EXPLANATION
+                                      </p>
+                                      <InlineFeedbackButton
+                                        onClick={() => {
+                                          setFeedbackContext({
+                                            explanation: moment.coach_explanation,
+                                            positionFen: moment.fen_before || allFens[moment.move_number * 2 - 2] || "",
+                                            movePlayed: moment.your_move,
+                                            moveSan: moment.your_move,
+                                            bestMove: moment.best_move,
+                                            classification: "COACH_EXPLANATION",
+                                            evalBefore: moment.eval_before,
+                                            evalAfter: moment.eval_after,
+                                            pvAfterPlayed: moment.pv_after_best,
+                                            gameId: gameId,
+                                            moveNumber: moment.move_number,
+                                            userColor: userColor,
+                                            sectionType: "coach_explanation"
+                                          });
+                                          setFeedbackOpen(true);
+                                        }}
+                                      />
+                                    </div>
                                     <p className="text-sm text-white/90">
                                       {moment.coach_explanation}
                                     </p>
@@ -1927,11 +2068,33 @@ const Lab = ({ user }) => {
                           {/* Overall lesson from the game */}
                           {deepStrategy.lesson?.main_strategic_theme && (
                             <div className="p-4 rounded-lg bg-gradient-to-br from-violet-900/30 to-slate-900/50 border border-violet-500/20">
-                              <div className="flex items-center gap-2 mb-2">
-                                <BookOpen className="w-4 h-4 text-violet-400" />
-                                <p className="text-sm font-medium text-violet-400">
-                                  Main Theme: {deepStrategy.lesson.main_strategic_theme}
-                                </p>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <BookOpen className="w-4 h-4 text-violet-400" />
+                                  <p className="text-sm font-medium text-violet-400">
+                                    Main Theme: {deepStrategy.lesson.main_strategic_theme}
+                                  </p>
+                                </div>
+                                <InlineFeedbackButton
+                                  onClick={() => {
+                                    setFeedbackContext({
+                                      explanation: `Main Theme: ${deepStrategy.lesson.main_strategic_theme}`,
+                                      positionFen: allFens[allFens.length - 1] || "",
+                                      movePlayed: "",
+                                      moveSan: "",
+                                      bestMove: "",
+                                      classification: "GAME_THEME",
+                                      evalBefore: 0,
+                                      evalAfter: 0,
+                                      pvAfterPlayed: [],
+                                      gameId: gameId,
+                                      moveNumber: 0,
+                                      userColor: userColor,
+                                      sectionType: "main_strategic_theme"
+                                    });
+                                    setFeedbackOpen(true);
+                                  }}
+                                />
                               </div>
                               <p className="text-sm text-muted-foreground">
                                 Practice spotting these patterns by scanning for undefended pieces before every move.
@@ -2676,9 +2839,29 @@ const LearningMomentItem = ({ mistake, onClick, userColor, gameId, focusModule, 
               )}
               
               {/* Main explanation */}
-              <p className="text-sm leading-relaxed">
-                {explanation.explanation}
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm leading-relaxed flex-1">
+                  {explanation.explanation}
+                </p>
+                <InlineFeedbackButton
+                  onClick={() => onFeedback({
+                    explanation: explanation.explanation,
+                    positionFen: mistake.fen_before || "",
+                    movePlayed: mistake.move,
+                    moveSan: mistake.move,
+                    bestMove: mistake.best_move,
+                    classification: explanation.mistake_type || "UNKNOWN",
+                    evalBefore: mistake.eval_before || 0,
+                    evalAfter: mistake.eval_after || 0,
+                    pvAfterPlayed: mistake.pv_after_played || [],
+                    gameId: gameId,
+                    moveNumber: mistake.move_number,
+                    userColor: userColor,
+                    sectionType: "milestone_explanation"
+                  })}
+                  className="mt-1"
+                />
+              </div>
               
               {/* Thinking habit tip */}
               {explanation.thinking_habit && (
