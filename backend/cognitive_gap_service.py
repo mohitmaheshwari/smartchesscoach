@@ -303,6 +303,75 @@ def analyze_cognitive_gap(
     cp_loss = abs(eval_before - eval_after)
     
     # ========================================
+    # STEP 0: Check LEARNED PATTERN RULES first
+    # These are rules extracted from user feedback
+    # ========================================
+    try:
+        from services.pattern_learning.pattern_rule_extractor import PatternRuleStore, PositionAnalyzer
+        from motor.motor_asyncio import AsyncIOMotorClient
+        import os
+        import asyncio
+        
+        async def check_learned_rules_async():
+            client = AsyncIOMotorClient(os.environ.get("MONGO_URL"))
+            db = client[os.environ.get("DB_NAME", "test_database")]
+            store = PatternRuleStore(db)
+            
+            matching_rules = await store.find_matching_rules(fen_before)
+            if matching_rules:
+                best_rule, confidence = matching_rules[0]
+                return best_rule, confidence
+            return None, 0.0
+        
+        # Run async check - handle event loop properly
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Already in async context - skip for now
+                matched_rule, rule_confidence = None, 0.0
+            else:
+                matched_rule, rule_confidence = loop.run_until_complete(check_learned_rules_async())
+        except RuntimeError:
+            # No event loop - create one
+            matched_rule, rule_confidence = asyncio.run(check_learned_rules_async())
+        
+        if matched_rule and rule_confidence >= 0.7:
+            # Use the learned rule's classification!
+            explanation = matched_rule.explanation_template.format(
+                best_move=best_move_san,
+                played_move=user_move_san
+            )
+            
+            # Map pattern name to CognitiveGap
+            gap_mapping = {
+                "KING_SAFETY_LUFT": CognitiveGap.KING_SAFETY_NEGLECT.value,
+                "KING_SAFETY": CognitiveGap.KING_SAFETY_NEGLECT.value,
+                "BACK_RANK_MATE_THREAT": CognitiveGap.BACK_RANK_BLINDNESS.value,
+                "HANGING_PIECE": CognitiveGap.HANGING_PIECE_BLINDNESS.value,
+                "PIECE_FORK": CognitiveGap.MISSED_FORK.value,
+                "PIN": CognitiveGap.MISSED_PIN.value,
+            }
+            
+            primary_gap = gap_mapping.get(
+                matched_rule.pattern_name, 
+                CognitiveGap.POSITIONAL_MISREAD.value
+            )
+            
+            return {
+                "primary_gap": primary_gap,
+                "confidence": rule_confidence,
+                "evidence": f"Matched learned pattern: {matched_rule.pattern_name}",
+                "explanation": explanation,
+                "secondary_gaps": [],
+                "coaching_focus": f"Focus on {matched_rule.pattern_name.lower().replace('_', ' ')} patterns",
+                "learned_from_feedback": True,
+                "rule_id": matched_rule.rule_id,
+            }
+    except Exception as e:
+        # If pattern matching fails, continue with normal analysis
+        pass
+    
+    # ========================================
     # STEP 1: Check for TIME PRESSURE (easiest to identify)
     # ========================================
     if clock_remaining_seconds is not None and clock_remaining_seconds < 30:
