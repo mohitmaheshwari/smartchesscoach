@@ -26,6 +26,7 @@ const UnifiedProgress = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [progressData, setProgressData] = useState(null);
   const [journeyData, setJourneyData] = useState(null);
+  const [journeyV2Data, setJourneyV2Data] = useState(null);  // For rating ceiling, baseline
   const [homeData, setHomeData] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState("now");
@@ -37,14 +38,16 @@ const UnifiedProgress = ({ user }) => {
 
   const fetchAll = async () => {
     try {
-      const [progressRes, journeyRes, homeRes] = await Promise.all([
+      const [progressRes, journeyRes, journeyV2Res, homeRes] = await Promise.all([
         fetch(`${API}/progress`, { credentials: "include" }),
         fetch(`${API}/cognitive/journey`, { credentials: "include" }),
+        fetch(`${API}/journey/v2`, { credentials: "include" }),
         fetch(`${API}/coach/home-intelligence`, { credentials: "include" })
       ]);
       
       if (progressRes.ok) setProgressData(await progressRes.json());
       if (journeyRes.ok) setJourneyData(await journeyRes.json());
+      if (journeyV2Res.ok) setJourneyV2Data(await journeyV2Res.json());
       if (homeRes.ok) setHomeData(await homeRes.json());
     } catch (e) {
       console.error("Failed to fetch:", e);
@@ -431,6 +434,142 @@ const UnifiedProgress = ({ user }) => {
                               </div>
                             </div>
                           ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Rating Ceiling - Your True Level */}
+                  {journeyV2Data?.rating_ceiling?.has_data && (
+                    <Card className={`border-l-4 ${
+                      journeyV2Data.rating_ceiling.urgency === "high" ? "border-l-red-500" :
+                      journeyV2Data.rating_ceiling.urgency === "medium" ? "border-l-amber-500" : "border-l-emerald-500"
+                    }`} data-testid="rating-ceiling-card">
+                      <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-3">
+                          Your True Level
+                        </p>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div className="text-center p-3 rounded-lg bg-muted/50">
+                            <p className="text-xs text-muted-foreground mb-1">Stable Level</p>
+                            <p className="text-2xl font-bold">{journeyV2Data.rating_ceiling.stable_level}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {journeyV2Data.rating_ceiling.stable_games_count} clean games
+                            </p>
+                          </div>
+                          <div className="text-center p-3 rounded-lg bg-primary/10">
+                            <p className="text-xs text-muted-foreground mb-1">Peak Level</p>
+                            <p className="text-2xl font-bold text-primary">{journeyV2Data.rating_ceiling.peak_level}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {journeyV2Data.rating_ceiling.peak_accuracy}% accuracy
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Gap visualization */}
+                        <div className="space-y-2 mb-3">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Stability Gap</span>
+                            <span className="font-medium">{journeyV2Data.rating_ceiling.gap} points</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div 
+                              className="h-full bg-primary rounded-full transition-all"
+                              style={{ width: `${Math.min(100, (journeyV2Data.rating_ceiling.stable_level / journeyV2Data.rating_ceiling.peak_level) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                        
+                        <p className="text-sm text-muted-foreground">
+                          {journeyV2Data.rating_ceiling.message}
+                        </p>
+                        
+                        {journeyV2Data.rating_ceiling.gap_driver && (
+                          <div className="mt-3 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                            <p className="text-xs font-medium text-amber-500">Gap Driver: {journeyV2Data.rating_ceiling.gap_driver}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{journeyV2Data.rating_ceiling.fix_suggestion}</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Baseline Comparison - First 10 vs Now */}
+                  {journeyV2Data?.has_baseline && journeyV2Data?.baseline && journeyV2Data?.current_stats && (
+                    <Card data-testid="baseline-comparison-card">
+                      <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-3">
+                          First {journeyV2Data.baseline.games_analyzed} Games vs Now
+                        </p>
+                        <div className="space-y-2">
+                          {/* Accuracy */}
+                          <div className="flex items-center justify-between py-1.5 border-b border-border/30">
+                            <span className="text-xs text-muted-foreground">Accuracy</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{journeyV2Data.baseline.avg_accuracy?.toFixed(1)}%</span>
+                              <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs font-medium">{journeyV2Data.current_stats.avg_accuracy?.toFixed(1)}%</span>
+                              {(() => {
+                                const delta = journeyV2Data.current_stats.avg_accuracy - journeyV2Data.baseline.avg_accuracy;
+                                return delta !== 0 && (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${delta > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                                    {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          {/* Blunders/Game */}
+                          <div className="flex items-center justify-between py-1.5 border-b border-border/30">
+                            <span className="text-xs text-muted-foreground">Blunders/Game</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{journeyV2Data.baseline.blunders_per_game?.toFixed(1)}</span>
+                              <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs font-medium">{journeyV2Data.current_stats.blunders_per_game?.toFixed(1)}</span>
+                              {(() => {
+                                const delta = journeyV2Data.current_stats.blunders_per_game - journeyV2Data.baseline.blunders_per_game;
+                                return delta !== 0 && (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${delta < 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                                    {delta > 0 ? '+' : ''}{delta.toFixed(1)}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          {/* Best Moves/Game */}
+                          <div className="flex items-center justify-between py-1.5 border-b border-border/30">
+                            <span className="text-xs text-muted-foreground">Best Moves/Game</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{journeyV2Data.baseline.best_moves_per_game?.toFixed(1)}</span>
+                              <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs font-medium">{journeyV2Data.current_stats.best_moves_per_game?.toFixed(1)}</span>
+                              {(() => {
+                                const delta = journeyV2Data.current_stats.best_moves_per_game - journeyV2Data.baseline.best_moves_per_game;
+                                return delta !== 0 && (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${delta > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                                    {delta > 0 ? '+' : ''}{delta.toFixed(1)}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          {/* Win Rate */}
+                          <div className="flex items-center justify-between py-1.5">
+                            <span className="text-xs text-muted-foreground">Win Rate</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{journeyV2Data.baseline.win_rate}%</span>
+                              <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs font-medium">{journeyV2Data.current_stats.win_rate}%</span>
+                              {(() => {
+                                const delta = journeyV2Data.current_stats.win_rate - journeyV2Data.baseline.win_rate;
+                                return delta !== 0 && (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${delta > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                                    {delta > 0 ? '+' : ''}{delta}%
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
