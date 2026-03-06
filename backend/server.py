@@ -12151,6 +12151,35 @@ async def get_blunder_context(user: User = Depends(get_current_user)):
 
 
 
+def _is_common_opening_move(move_san: str) -> bool:
+    """
+    Check if a move is a common mainline opening move.
+    We don't want to say "This is part of the Italian Game" for h6!
+    """
+    # Common first moves (very mainline)
+    mainline_moves = {
+        # Pawn moves
+        "e4", "d4", "c4", "Nf3", "g3", "e3", "d3", "c3",
+        "e5", "d5", "c5", "c6", "e6", "d6",
+        # Knight development
+        "Nc3", "Nc6", "Nf6",
+        # Bishop development
+        "Bc4", "Bb5", "Be2", "Bd3", "Bg2", "Bc5", "Bb4", "Be7", "Bf5", "Bg4",
+        # Castling
+        "O-O", "O-O-O",
+        # Queen moves (rare but valid)
+        "Qd2",
+    }
+    
+    # Edge pawn moves are NOT common opening theory
+    if move_san in ["h3", "h4", "h6", "a3", "a4", "a6", "Rh3", "Ra3"]:
+        return False
+    
+    # Check against common moves
+    return move_san in mainline_moves
+
+
+
 def _get_coach_move_explanation(move_san: str, fen_before: str, fen_after: str, move_number: int) -> str:
     """
     Generate POSITION-SPECIFIC explanation for coach's move.
@@ -12706,13 +12735,12 @@ async def _process_move_and_respond(
                                 # Create coach message explaining the move
                                 if teaching_msg:
                                     msg_text = f"I played {coach_move}. {teaching_msg}"
-                                elif opening_name:
+                                elif opening_name and coach_move_number <= 4 and _is_common_opening_move(coach_move):
+                                    # Only mention opening name for truly mainline opening moves in first 4 moves
                                     msg_text = f"I played {coach_move}. This is part of the {opening_name}. What do you think I'm planning?"
-                                elif coach_move_number <= 3:
-                                    # Generate position-specific commentary instead of generic garbage
-                                    msg_text = _get_coach_move_explanation(coach_move, fen_after_user, fen_after_coach, coach_move_number)
                                 else:
-                                    msg_text = None
+                                    # Generate position-specific commentary for any move
+                                    msg_text = _get_coach_move_explanation(coach_move, fen_after_user, fen_after_coach, coach_move_number)
                                 
                                 # Generate a question for early moves
                                 question_data = None
@@ -12810,6 +12838,7 @@ async def get_coach_messages(
     
     async for msg in cursor:
         messages.append({
+            "id": str(msg["_id"]),  # Include message ID for feedback!
             "type": msg.get("type", "coach"),
             "message": msg.get("message", ""),
             "trigger": msg.get("trigger"),
