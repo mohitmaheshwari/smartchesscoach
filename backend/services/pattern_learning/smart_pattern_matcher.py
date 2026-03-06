@@ -124,6 +124,16 @@ class SmartPatternMatcher:
         if best_match:
             # Increment match count in DB
             await self._increment_match_count(best_match.rule_id)
+            
+            # Store match history for analytics and training
+            await self._store_match_history(
+                rule_id=best_match.rule_id,
+                pattern_type=best_match.pattern_type,
+                position_fen=fen,
+                explanation=best_match.explanation,
+                match_details=best_match.match_details
+            )
+            
             logger.info(f"MATCHED learned pattern: {best_match.pattern_type} (confidence: {best_confidence:.2f})")
         
         return best_match
@@ -457,6 +467,46 @@ class SmartPatternMatcher:
             )
         except Exception as e:
             logger.error(f"Error incrementing match count: {e}")
+    
+    async def _store_match_history(
+        self, 
+        rule_id: str, 
+        pattern_type: str,
+        position_fen: str,
+        explanation: str,
+        match_details: Dict,
+        user_id: str = None
+    ):
+        """
+        Store match history in database.
+        
+        This creates valuable data:
+        1. Training data for improving patterns
+        2. Analytics on which patterns are most useful
+        3. Evidence for "Your feedback helped X positions"
+        4. Debug info if a pattern matches incorrectly
+        """
+        try:
+            from datetime import datetime, timezone
+            
+            db = await self._get_db()
+            
+            match_record = {
+                "rule_id": rule_id,
+                "pattern_type": pattern_type,
+                "position_fen": position_fen,
+                "explanation_given": explanation,
+                "match_details": match_details,
+                "user_id": user_id,
+                "matched_at": datetime.now(timezone.utc).isoformat(),
+                "was_helpful": None,  # Can be updated later if user gives feedback
+            }
+            
+            await db.pattern_match_history.insert_one(match_record)
+            logger.debug(f"Stored match history for rule {rule_id}")
+            
+        except Exception as e:
+            logger.error(f"Error storing match history: {e}")
 
 
 # Global instance for easy access

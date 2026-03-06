@@ -151,6 +151,14 @@ def _check_learned_patterns_sync(
     for pattern in patterns:
         result = _match_pattern_sync(board, pattern)
         if result:
+            # Store match history for analytics and training data
+            _store_match_history_sync(
+                rule_id=result.get("rule_id", ""),
+                pattern_type=result.get("pattern_type", ""),
+                position_fen=fen,
+                explanation=result.get("explanation", ""),
+                match_details=result.get("details", {})
+            )
             return result
     
     return None
@@ -169,6 +177,55 @@ def _match_pattern_sync(board: chess.Board, pattern: Dict) -> Optional[Dict]:
         return _match_pin_sync(board, pattern, criteria)
     
     return None
+
+
+def _store_match_history_sync(
+    rule_id: str,
+    pattern_type: str, 
+    position_fen: str,
+    explanation: str,
+    match_details: Dict
+):
+    """
+    Store match history synchronously.
+    
+    This records every time a learned pattern matches a new position.
+    Valuable for:
+    - Training data collection
+    - Analytics (which patterns are most useful)
+    - "Your feedback helped X positions" feature
+    - Debugging incorrect matches
+    """
+    try:
+        from datetime import datetime, timezone
+        from pymongo import MongoClient
+        import os
+        
+        client = MongoClient(os.environ.get("MONGO_URL"))
+        db = client[os.environ.get("DB_NAME", "test_database")]
+        
+        match_record = {
+            "rule_id": rule_id,
+            "pattern_type": pattern_type,
+            "position_fen": position_fen,
+            "explanation_given": explanation,
+            "match_details": match_details,
+            "matched_at": datetime.now(timezone.utc).isoformat(),
+            "was_helpful": None,  # Can be updated if user gives feedback
+        }
+        
+        db.pattern_match_history.insert_one(match_record)
+        
+        # Also increment match count on the pattern
+        db.smart_patterns.update_one(
+            {"rule_id": rule_id},
+            {"$inc": {"match_count": 1}}
+        )
+        
+        logger.debug(f"Stored match history for rule {rule_id}")
+        
+    except Exception as e:
+        logger.error(f"Error storing match history: {e}")
 
 
 def _match_fork_sync(board: chess.Board, pattern: Dict, criteria: Dict) -> Optional[Dict]:
