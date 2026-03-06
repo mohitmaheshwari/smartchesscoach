@@ -852,14 +852,61 @@ Keep it under 20 words. Be conversational, not formal."""
         except Exception:
             return f"We're in the {opening_name}. Solid choice!"
     
-    # Warning/Teaching - use LLM for explanation
+    # Warning/Teaching - use LLM for explanation with REAL position data
     if trigger_type in ["warning", "teaching", "reflection"]:
         move = context.get("move", "")
         eval_loss = context.get("eval_loss", 0)
         best_move = context.get("best_move", "")
         severity = context.get("severity", "inaccuracy")
+        fen = context.get("fen", "")
+        pv_after_best = context.get("pv_after_best", [])
+        threat = context.get("threat", "")
         
-        # Build appropriate prompt based on severity
+        # Get REAL position-specific insight instead of making LLM guess
+        position_insight = ""
+        try:
+            import sys
+            sys.path.insert(0, '/app/backend')
+            from services.position_strategy_analyzer import generate_move_specific_insight
+            
+            if fen and move and best_move:
+                cp_loss = int(abs(eval_loss) * 100) if eval_loss else 0
+                insight = generate_move_specific_insight(
+                    fen_before=fen,
+                    user_move=move,
+                    best_move=best_move,
+                    pv_after_best=pv_after_best,
+                    cp_loss=cp_loss,
+                    user_color=context.get("user_color", "white"),
+                    threat=threat
+                )
+                if insight and not insight.get("error"):
+                    what_missed = insight.get("what_you_missed", "")
+                    what_best = insight.get("what_best_move_achieves", "")
+                    why_wrong = insight.get("why_your_move_was_wrong", "")
+                    
+                    parts = []
+                    if what_missed:
+                        parts.append(f"You missed: {what_missed}")
+                    if what_best:
+                        parts.append(f"{best_move} would have: {what_best}")
+                    if why_wrong:
+                        parts.append(f"Problem with {move}: {why_wrong}")
+                    position_insight = " ".join(parts)
+        except Exception as e:
+            pass  # Fall back to generic
+        
+        # Build prompt with REAL tactical analysis
+        if position_insight:
+            # We have real analysis - use it!
+            if severity == "blunder":
+                return f"That's a tough spot. {position_insight}"
+            elif severity == "mistake":
+                return f"Close, but not quite. {position_insight}"
+            else:
+                return f"{best_move} was slightly better. {position_insight}"
+        
+        # Fallback to generic if no position insight (shouldn't happen often)
         if severity == "blunder":
             prompt = f"""You are a chess coach. The student played {move} which was a blunder (lost {eval_loss:.1f} pawns of advantage).
 The best move was {best_move}. 
@@ -1036,6 +1083,35 @@ Piece placement tips: {position_plan.get('piece_placement', {})}
             if move_analysis.threat_explanation:
                 tactic_explanation = f"\nTACTIC DETAIL: {move_analysis.threat_explanation}"
             
+            # Get REAL position-specific insight for better explanations
+            position_specific_insight = ""
+            try:
+                from services.position_strategy_analyzer import generate_move_specific_insight
+                
+                cp_loss = int(abs(eval_before - eval_after) * 100) if eval_before is not None and eval_after is not None else 0
+                insight = generate_move_specific_insight(
+                    fen_before=fen_before,
+                    user_move=move_san,
+                    best_move=best_move,
+                    pv_after_best=move_analysis.pv_after_best if hasattr(move_analysis, 'pv_after_best') else [],
+                    cp_loss=cp_loss,
+                    user_color=user_color,
+                    threat=move_analysis.threat if hasattr(move_analysis, 'threat') else None
+                )
+                if insight and not insight.get("error"):
+                    parts = []
+                    if insight.get("what_you_missed"):
+                        parts.append(f"WHAT WAS MISSED: {insight['what_you_missed']}")
+                    if insight.get("what_best_move_achieves"):
+                        parts.append(f"WHY {best_move} WAS BETTER: {insight['what_best_move_achieves']}")
+                    if insight.get("why_your_move_was_wrong"):
+                        parts.append(f"PROBLEM WITH {move_san}: {insight['why_your_move_was_wrong']}")
+                    if insight.get("the_idea_you_should_learn"):
+                        parts.append(f"LESSON: {insight['the_idea_you_should_learn']}")
+                    position_specific_insight = "\n".join(parts)
+            except Exception:
+                pass
+            
             if was_best:
                 move_analysis_context = f"""
 MOVE ANALYSIS:
@@ -1047,7 +1123,10 @@ MOVE ANALYSIS:
 - Move played: {move_san}
 - Quality: {quality.upper()}
 - Evaluation: {eval_before:+.2f} → {eval_after:+.2f}
-- Better was: {best_move}{tactic_explanation}"""
+- Better was: {best_move}{tactic_explanation}
+{position_specific_insight}
+
+>>> USE THE POSITION-SPECIFIC INSIGHT ABOVE! Tell the user exactly what they missed, not generic advice."""
     
     # Get position info
     position = await coach.analyze_position(current_fen)
@@ -1067,23 +1146,29 @@ CURRENT POSITION:
 {personal_section}
 {plan_section}
 
-COACHING STYLE - BE PERSONAL!
-1. If there's PERSONAL HISTORY, reference it! "Remember your game against X..."
-2. If asking about a plan, use the STRATEGIC PLAN section - explain it simply
-3. Give HUMAN advice, not engine analysis: "Your plan should be..." not "Stockfish says..."
-4. If they have a TENDENCY, mention it gently: "I've noticed you sometimes..."
-5. Be warm and encouraging, like a coach who's been watching their games
-6. Keep it to 2-3 sentences, be specific!
+COACHING STYLE - BE SPECIFIC, NOT GENERIC!
+1. If there's POSITION-SPECIFIC INSIGHT above, USE IT! Tell the user exactly what they missed.
+2. If there's PERSONAL HISTORY, reference it briefly
+3. If asking about a plan, use the STRATEGIC PLAN section
+4. NO GENERIC ADVICE like "think about piece activity" or "be vigilant for tactics"
+5. Keep it to 2-3 sentences, be SPECIFIC about this position!
+
+CRITICAL RULES:
+- If the move analysis shows WHAT WAS MISSED, tell them that specific thing
+- If it shows WHY their move was bad, explain that specific problem
+- NEVER say vague things like "missed tactical potential" - say what the tactic WAS
+- Reference their past games only if the specific insight is weak
 
 EXAMPLES OF GOOD RESPONSES:
-- "Remember your game against Magnus123? You made a similar knight move there. This time, try Nf3 instead - it develops with tempo."
-- "Your plan here should be to castle quickly and then attack on the kingside. You tend to forget castling - don't let that happen again!"
-- "Good move! You're improving at finding these tactics. Your plan now: control the center, then look for weaknesses."
+- "Bc4 missed the tactic Ne2 which forks your queen and rook. Always check for knight forks before moving your bishop!"
+- "Your knight on e4 was actually safe - you should have played Nf3 to threaten their queen."
+- "That pawn push weakened your king. Better was to castle first and keep your king safe."
 
 AVOID:
-- Generic advice like "think about piece activity"
-- Just quoting engine evaluations
-- Ignoring the personal history if available"""
+- Generic advice like "think about piece activity" or "be vigilant for tactics"
+- Just quoting engine evaluations without explaining WHY
+- Saying "tactical potential" without explaining what the tactic IS
+- Phrases like "You've got this!" or "Keep an eye out!" - be SPECIFIC"""
     
     try:
         response = await call_llm(
