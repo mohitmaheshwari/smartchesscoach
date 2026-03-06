@@ -10604,6 +10604,45 @@ async def get_journey_page_data(user: User = Depends(get_current_user)):
     return journey_data
 
 
+# ============================================
+# ROLLING EVOLUTION ENDPOINTS (New Progress System)
+# ============================================
+
+@api_router.get("/progress/evolution")
+async def get_progress_evolution(user: User = Depends(get_current_user)):
+    """
+    Get rolling window evolution data.
+    
+    Replaces baseline-based progress with continuous improvement tracking:
+    - macro: 25 vs 25 games (monthly trend)
+    - medium: 10 vs 10 games (bi-weekly trend)
+    - micro: 5 vs 5 games (weekly trend)
+    
+    Returns:
+    - Window metrics for each granularity
+    - Delta (change) between windows
+    - Trend assessment
+    """
+    from services.rolling_evolution_service import get_rolling_evolution
+    return await get_rolling_evolution(db, user.user_id)
+
+
+@api_router.get("/progress/openings")
+async def get_opening_evolution(user: User = Depends(get_current_user)):
+    """
+    Get opening performance evolution.
+    
+    Shows:
+    - Openings you're improving in
+    - Openings not working for you
+    - Recommendations
+    
+    Compares last 25 games vs previous 25 games.
+    """
+    from services.opening_evolution_service import get_user_opening_evolution
+    return await get_user_opening_evolution(db, user.user_id, window_size=25)
+
+
 @api_router.get("/lab/{game_id}")
 async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)):
     """
@@ -11094,6 +11133,24 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
                     fen, user_move, best_move, pv, cp_loss, user_color, threat
                 )
                 
+                # Tag this moment with patterns
+                from services.game_tagging_service import tag_critical_moment
+                user_rating = game.get("user_rating", 1200) if game else 1200
+                total_moves = len(positions) if positions else 40
+                tags = tag_critical_moment(
+                    move_number=move_num,
+                    move_san=user_move,
+                    fen_before=fen,
+                    fen_after=positions[i+1] if i+1 < len(positions) else fen,
+                    cp_loss=cp_loss,
+                    best_move=best_move,
+                    pv_after=pv[:5] if pv else [],
+                    user_rating=user_rating,
+                    total_moves=total_moves,
+                    eval_before=prev_eval,
+                    eval_after=prev_eval - cp_loss
+                )
+                
                 critical_moments.append({
                     "move_number": move_num,
                     "fen": fen,
@@ -11103,7 +11160,8 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
                     "threat": threat,
                     "pv_after_best": pv[:4],  # First 4 moves of continuation
                     "position_analysis": position_analysis,
-                    "insight": insight
+                    "insight": insight,
+                    "tags": tags.to_dict() if tags else {},  # Add tags
                 })
     
     # Sort by cp_loss to get most important first

@@ -14,39 +14,43 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 
 ## What's Been Implemented
 
-### Session Update: March 6, 2026 (Continued)
+### Session Update: March 6, 2026 (Continued - Session 2)
 
 #### COMPLETED IN THIS SESSION ✅
 
-1. **Server.py Refactoring Started** (P0 Critical Task)
-   - Created `/app/backend/routes/` module structure
-   - Extracted Auth routes to `/app/backend/routes/auth.py` (~10 endpoints)
-     - Google OAuth, dev-login, session management, mobile auth, demo login
-   - Extracted Pattern Learning routes to `/app/backend/routes/feedback.py` (~8 endpoints)
-     - Feedback submission, stats, classify, approve/reject rules
-   - Total: ~18 endpoints extracted from 315+ in server.py
-   - Next: Continue extracting games, coach, reflect, training routes
+1. **Rolling Evolution System** (Replaces baseline-based progress)
+   - Created `/app/backend/services/rolling_evolution_service.py`
+   - Three comparison windows:
+     - Macro: 25 vs 25 games (monthly trend)
+     - Medium: 10 vs 10 games (bi-weekly trend)
+     - Micro: 5 vs 5 games (weekly trend)
+   - Automatic trend detection (improving/declining/stable)
+   - API endpoint: `GET /api/progress/evolution`
 
-2. **GuidedAnalysis Component Enhanced to 9.5/10**
-   - Added coach personality with 50+ varied phrases per category
-   - Categories: intros, transitions, blunders, mistakes, encouragement, conclusions
-   - Pattern-specific quick tips (tactical, positional, endgame, etc.)
-   - Session completion celebration with Trophy icon
-   - "Show improvement tip" expandable section
-   - Integrated "Not helpful" feedback button for self-learning
-   - Progress tracking with seen/unseen moment indicators
-   - Quick jump navigation with visual status
+2. **Opening Evolution Tracking**
+   - Created `/app/backend/services/opening_evolution_service.py`
+   - Tracks: "Openings improving" vs "Openings not working"
+   - Extracts openings from PGN when not stored in DB
+   - Generates actionable recommendations
+   - API endpoint: `GET /api/progress/openings`
 
-3. **All Tests Passing**
-   - Frontend: 9/9 E2E tests for GuidedAnalysis
-   - Backend: 11/12 tests passing (1 skipped - classify endpoint now fixed)
-   - Fixed `/api/coach/pattern-learning/classify` endpoint
+3. **Game Tagging System (Foundation)**
+   - Created `/app/backend/services/game_tagging_service.py`
+   - 40+ tag definitions: one_move_blunder, hung_piece, captured_in_fork, missed_back_rank_mate, etc.
+   - Rating-appropriate filtering (beginners see different tags than experts)
+   - Phase detection (opening/middlegame/endgame)
+   - Theory linking for each tag type
+   - Integrated into critical moment generation in server.py
 
-### Previous Session Fixes ✅
-1. **Reflect Page Stuck Loop** - Fixed by using BOTH `move_number` AND `FEN` to filter already-reflected moments.
-2. **Puzzle Display** - Verified working. API returns FEN, solution, and source correctly.
-3. **Coach Personality System** - 50+ varied phrases for different situations
-4. **Match History Storage** - Every pattern match recorded in `pattern_match_history` collection
+4. **Server.py Refactoring (6% complete)**
+   - Auth routes: `/app/backend/routes/auth.py`
+   - Feedback routes: `/app/backend/routes/feedback.py`
+
+5. **GuidedAnalysis Enhanced to 9.5/10**
+   - 50+ coach personality phrases
+   - Pattern-specific tips
+   - Session completion celebration
+   - Feedback integration
 
 ### Core Features ✅
 
