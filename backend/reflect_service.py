@@ -196,6 +196,9 @@ async def get_game_moments(db, user_id: str, game_id: str) -> List[Dict]:
     2. Only include blunders and mistakes (not inaccuracies)
     3. Require minimum centipawn loss to filter out theoretical preferences
     4. Limit to most critical moments (max 6 per game)
+    
+    BUG FIX (Mar 6, 2026): Use BOTH move_number AND FEN to filter already-reflected moments
+    to prevent stuck loop when move_number is None.
     """
     # Get the game analysis
     analysis = await db.game_analyses.find_one(
@@ -206,15 +209,18 @@ async def get_game_moments(db, user_id: str, game_id: str) -> List[Dict]:
     if not analysis:
         return []
     
-    # Get existing reflections for this game - use move_number as stable identifier
+    # Get existing reflections for this game - use BOTH move_number AND FEN as identifiers
     existing_reflections = await db.reflections.find(
         {"game_id": game_id, "user_id": user_id},
         {"_id": 0, "move_number": 1, "moment_fen": 1}
     ).to_list(100)
     
-    # Create set of already reflected move numbers and FENs for lookup
-    reflected_move_numbers = {r.get("move_number") for r in existing_reflections if r.get("move_number")}
+    # Create sets of already reflected identifiers
+    # Use BOTH for maximum reliability - if either matches, it's already reflected
+    reflected_move_numbers = {r.get("move_number") for r in existing_reflections if r.get("move_number") is not None}
     reflected_fens = {r.get("moment_fen") for r in existing_reflections if r.get("moment_fen")}
+    
+    logger.debug(f"Already reflected: {len(reflected_move_numbers)} move numbers, {len(reflected_fens)} FENs")
     
     # Extract critical moments from analysis
     moments = []

@@ -141,11 +141,50 @@ const CoachHome = ({ user }) => {
   };
 
   // Get greeting based on time
+  // Get contextual, coach-like greeting
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
+    const hasRecentGames = gamesNeedingReflection?.length > 0;
+    const daysSinceLastGame = lastGame?.date 
+      ? Math.floor((Date.now() - new Date(lastGame.date)) / (1000 * 60 * 60 * 24))
+      : 999;
+    
+    // Time-based base greeting
+    let baseGreeting = "Good evening";
+    if (hour < 12) baseGreeting = "Good morning";
+    else if (hour < 17) baseGreeting = "Good afternoon";
+    
+    // Add coach context
+    if (daysSinceLastGame > 3) {
+      return "Welcome back";
+    }
+    if (hasRecentGames && hour < 12) {
+      return "Ready to learn";
+    }
+    if (lastGame?.result === "win") {
+      return "Nice work yesterday";
+    }
+    
+    return baseGreeting;
+  };
+  
+  // Get coach message based on context
+  const getCoachMessage = () => {
+    const hasRecentGames = gamesNeedingReflection?.length > 0;
+    
+    if (hasRecentGames && gamesNeedingReflection.length >= 3) {
+      return "You've been busy! Let's look at what we can learn from these games.";
+    }
+    if (hasRecentGames) {
+      return "I've been looking at your recent games. Found some moments worth discussing.";
+    }
+    if (specificPatterns?.has_pattern) {
+      return `I noticed a pattern in your play. Let's work on it together.`;
+    }
+    if (mission?.mission_id) {
+      return "Your training is ready. Let's sharpen those skills.";
+    }
+    return "Ready when you are. What would you like to work on today?";
   };
 
   if (loading) {
@@ -198,17 +237,15 @@ const CoachHome = ({ user }) => {
           data-testid="hero-section"
         >
           {/* Greeting with context */}
-          <div className="flex items-start justify-between mb-4">
+          <div className="flex items-start justify-between mb-3">
             <div>
               <h1 className="text-xl font-semibold mb-1">
                 {getGreeting()}, {userName}
               </h1>
-              {focusStage && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Target className="w-4 h-4 text-primary" />
-                  <span>Focus: <span className="text-primary font-medium">{focusStage.replace(/([A-Z])/g, ' $1').trim()}</span></span>
-                </div>
-              )}
+              {/* Coach message - the human touch */}
+              <p className="text-sm text-muted-foreground">
+                {getCoachMessage()}
+              </p>
             </div>
             {hasData && (
               <Badge variant="outline" className="text-xs">
@@ -216,6 +253,14 @@ const CoachHome = ({ user }) => {
               </Badge>
             )}
           </div>
+          
+          {/* Focus area indicator */}
+          {focusStage && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 pl-0.5">
+              <Target className="w-4 h-4 text-primary" />
+              <span>This week's focus: <span className="text-primary font-medium">{focusStage.replace(/([A-Z])/g, ' $1').trim()}</span></span>
+            </div>
+          )}
           
           {/* State-based hero content */}
           {primaryState === "REFLECT" && (

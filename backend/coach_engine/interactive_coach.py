@@ -8,6 +8,7 @@ Handles:
 - Generating teaching moments
 - Managing conversation state
 - Feedback collection
+- Coach personality (varied phrases, memory)
 """
 
 import chess
@@ -26,6 +27,7 @@ from .lichess_explorer import (
     get_opening_info, get_popular_moves, get_opening_name, is_opening_phase
 )
 from .piece_metrics import PieceMetricsAnalyzer, PositionMetrics
+from .coach_personality import get_coach_personality, get_coach_phrase, get_memory_comment
 
 
 class CoachState(Enum):
@@ -229,8 +231,9 @@ class InteractiveCoach:
     async def _generate_response_to_user_move(
         self, move_san: str, move_number: int
     ) -> List[CoachMessage]:
-        """Generate coaching response to user's move"""
+        """Generate coaching response to user's move using personality system"""
         messages = []
+        personality = get_coach_personality()
         
         # Check if move matches opening plan
         if self.session.current_opening:
@@ -251,7 +254,7 @@ class InteractiveCoach:
         # Check for common issues
         user_color = chess.WHITE if self.session.user_color == "white" else chess.BLACK
         
-        # Check development in opening
+        # Check development in opening - varied phrasing
         if move_number <= 10:
             dev_count = (
                 metrics.white_developed_count 
@@ -259,15 +262,21 @@ class InteractiveCoach:
                 else metrics.black_developed_count
             )
             if dev_count < 2 and move_number >= 5:
+                development_tips = [
+                    "Remember: develop your knights and bishops before making other moves. They need to get into the game!",
+                    "Your minor pieces are still at home. Let's get them into the action!",
+                    "Development first! Knights and bishops are waiting to join the battle.",
+                    "In the opening, piece development is key. Those knights and bishops want to play!",
+                ]
                 msg = CoachMessage(
                     id=str(uuid.uuid4()),
                     type=MessageType.POSITION_INSIGHT,
-                    text="Remember: develop your knights and bishops before making other moves. They need to get into the game!",
+                    text=personality._pick_phrase(development_tips, "development"),
                 )
                 messages.append(msg)
                 return messages
         
-        # Check castling
+        # Check castling - varied phrasing
         is_castled = (
             metrics.white_castled if user_color == chess.WHITE else metrics.black_castled
         )
@@ -278,20 +287,39 @@ class InteractiveCoach:
                 else metrics.black_king_safety
             )
             if king_safety < 60:
+                castle_tips = [
+                    "Your king is still in the center. Think about castling soon - a safe king lets you attack freely!",
+                    "The center isn't safe for your king much longer. Castle when you can!",
+                    "King safety first! Consider tucking your king away before complications arise.",
+                    "Your king looks exposed. Castling would give you peace of mind.",
+                ]
                 msg = CoachMessage(
                     id=str(uuid.uuid4()),
                     type=MessageType.WARNING,
-                    text="Your king is still in the center. Think about castling soon - a safe king lets you attack freely!",
+                    text=personality._pick_phrase(castle_tips, "castling"),
                     highlights=[chess.square_name(self.board.king(user_color))],
                 )
                 messages.append(msg)
                 return messages
         
-        # Default: simple encouragement
+        # Check for endgame transition
+        total_pieces = len(self.board.piece_map())
+        if total_pieces <= 12 and move_number > 20:
+            if not hasattr(self.session, '_endgame_announced'):
+                self.session._endgame_announced = True
+                msg = CoachMessage(
+                    id=str(uuid.uuid4()),
+                    type=MessageType.POSITION_INSIGHT,
+                    text=personality.get_endgame_transition(),
+                )
+                messages.append(msg)
+                return messages
+        
+        # Default: good move comment with variety
         msg = CoachMessage(
             id=str(uuid.uuid4()),
             type=MessageType.MOVE_COMMENT,
-            text=get_coach_phrase("good_move"),
+            text=personality.get_good_move_comment(),
         )
         messages.append(msg)
         

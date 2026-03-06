@@ -14,39 +14,50 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 
 ## What's Been Implemented
 
+### Session Update: March 6, 2026
+
+#### BUGS FIXED ✅
+1. **Reflect Page Stuck Loop** - Fixed by using BOTH `move_number` AND `FEN` to filter already-reflected moments. Old reflections with `None` move_number were causing the loop.
+
+2. **Puzzle Display** - Verified working. API returns FEN, solution, and source correctly.
+
+#### IMPROVEMENTS MADE ✅
+1. **Coach Personality System** (`coach_engine/coach_personality.py`)
+   - 50+ varied phrases for different situations
+   - Never repeats same phrase twice in a row
+   - Adaptive tone based on user performance
+   - Pattern-specific warnings
+   - Memory comments based on user history
+
+2. **Home Page Coach Messages**
+   - Contextual greetings ("Welcome back" vs "Good morning")
+   - Dynamic coach message based on context
+   - "You've been busy! Let's look at what we can learn..."
+
+3. **Match History Storage**
+   - Every pattern match is recorded in `pattern_match_history` collection
+   - Tracks: position, rule used, explanation given, timestamp
+   - Enables "Your feedback helped X positions" feature
+
 ### Core Features ✅
 
-#### 1. COMPLETE Self-Learning Pattern Recognition System ✅ (Mar 6, 2026)
-**The auto-correction system is now FULLY implemented with generalizable rule learning:**
+#### 1. COMPLETE Auto-Correction System ✅ (100% Done)
+**Three-Layer Architecture:**
+1. **Deep Position Analyzer** (`deep_position_analyzer.py`) - Real chess analysis using python-chess
+2. **Smart Pattern Matcher** (`smart_pattern_matcher.py`) - Queries DB, matches new positions  
+3. **Match History** (`pattern_match_history` collection) - Records every successful match
 
-**Two-Layer Rule System:**
-1. **`pattern_rules` collection** - Stores generalizable position-based rules (king safety, back rank, forks)
-2. **`learned_rules` collection** - Stores AI-generated classification rules from GPT-4o
-
-**How it works:**
-1. User clicks "Not helpful" on Lab, Reflect, or CoachPlay
-2. System immediately generates corrected explanation
-3. `pattern_rule_extractor.py` analyzes position features (king on back rank, escape squares, etc.)
-4. Creates a GENERALIZABLE rule that applies to similar future positions
-5. `cognitive_gap_service.py` checks these rules FIRST before own analysis
-6. AI-powered learner also creates classification rules for complex patterns
-
-**Key Files:**
-- `backend/services/pattern_learning/pattern_rule_extractor.py` - Feature-based rule extraction
-- `backend/services/pattern_learning/auto_correction_service.py` - Main orchestrator
-- `backend/cognitive_gap_service.py` - Uses learned rules in analysis
+**Complete Flow:**
+```
+User feedback → Deep analysis → Store pattern → 
+New position → Query DB → Match → Return explanation → Record history
+```
 
 **Collections:**
-- `pattern_rules` - Position-feature based rules
-- `learned_rules` - AI-generated classification rules
+- `smart_patterns` - Deep chess analysis patterns with match criteria
+- `pattern_match_history` - Every match recorded for analytics
 - `pattern_feedback` - User feedback storage
-- `verified_corrections` - Validated corrections cache
-
-**API Endpoints:**
-- `POST /api/coach/pattern-learning/feedback` - Submit feedback
-- `GET /api/coach/pattern-learning/my-feedback` - View user's feedback history
-- `GET /api/coach/pattern-learning/stats` - System statistics
-- `POST /api/coach/pattern-learning/classify` - Classify using learned rules
+- `learned_rules` - AI-generated classification rules
 
 #### 2. Home Page "95/100" ✅
 - Personal greeting with specific patterns ("28x missed threats this week")
