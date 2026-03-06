@@ -197,12 +197,12 @@ async def approve_learned_rule(
         raise HTTPException(status_code=400, detail="rule_id is required")
     
     service = get_auto_correction_service()
-    result = await service.approve_rule(rule_id, reviewer_id=user.user_id)
     
-    if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("error", "Failed to approve rule"))
-    
-    return result
+    try:
+        await service.approve_rule(rule_id, approved_by=user.user_id)
+        return {"success": True, "message": f"Rule {rule_id} approved"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/reject-rule")
@@ -220,18 +220,18 @@ async def reject_learned_rule(
     from services.pattern_learning.auto_correction_service import get_auto_correction_service
     
     rule_id = request.get("rule_id")
-    reason = request.get("reason", "")
+    reason = request.get("reason", "Rejected by user")
     
     if not rule_id:
         raise HTTPException(status_code=400, detail="rule_id is required")
     
     service = get_auto_correction_service()
-    result = await service.reject_rule(rule_id, reason=reason, reviewer_id=user.user_id)
     
-    if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("error", "Failed to reject rule"))
-    
-    return result
+    try:
+        await service.reject_rule(rule_id, reason=reason)
+        return {"success": True, "message": f"Rule {rule_id} rejected"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/classify")
@@ -251,6 +251,8 @@ async def classify_position(
     - eval_before: Optional - evaluation before move
     - eval_after: Optional - evaluation after move
     - best_move: Optional - Stockfish's best move
+    - pv_after_played: Optional - principal variation after move
+    - user_color: Optional - "white" or "black"
     
     Returns:
     - matched_rules: List of rules that match this position
@@ -262,15 +264,39 @@ async def classify_position(
     
     service = get_auto_correction_service()
     
-    result = await service.classify_position(
-        position_fen=request.get("position_fen", ""),
+    position_fen = request.get("position_fen", "")
+    if not position_fen:
+        raise HTTPException(status_code=400, detail="position_fen is required")
+    
+    # Calculate eval_drop from eval_before and eval_after
+    eval_before = request.get("eval_before", 0.0) or 0.0
+    eval_after = request.get("eval_after", 0.0) or 0.0
+    eval_drop = abs(eval_before - eval_after)
+    
+    # Use the correct method signature from the service
+    result = await service.classify_with_learned_rules(
+        position_fen=position_fen,
         move_played=request.get("move_played", ""),
-        eval_before=request.get("eval_before"),
-        eval_after=request.get("eval_after"),
-        best_move=request.get("best_move", "")
+        pv_after_played=request.get("pv_after_played", []),
+        eval_drop=eval_drop,
+        best_move=request.get("best_move"),
+        user_color=request.get("user_color", "white")
     )
     
-    return result
+    if result:
+        return {
+            "matched": True,
+            "classification": result.classification if hasattr(result, 'classification') else str(result),
+            "explanation": result.explanation if hasattr(result, 'explanation') else None,
+            "source": "learned_rule"
+        }
+    else:
+        return {
+            "matched": False,
+            "classification": None,
+            "explanation": None,
+            "source": "no_matching_rules"
+        }
 
 
 @router.post("/track-accuracy")

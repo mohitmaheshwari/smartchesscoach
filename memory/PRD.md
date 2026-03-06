@@ -14,30 +14,39 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 
 ## What's Been Implemented
 
-### Session Update: March 6, 2026
+### Session Update: March 6, 2026 (Continued)
 
-#### BUGS FIXED ✅
-1. **Reflect Page Stuck Loop** - Fixed by using BOTH `move_number` AND `FEN` to filter already-reflected moments. Old reflections with `None` move_number were causing the loop.
+#### COMPLETED IN THIS SESSION ✅
 
+1. **Server.py Refactoring Started** (P0 Critical Task)
+   - Created `/app/backend/routes/` module structure
+   - Extracted Auth routes to `/app/backend/routes/auth.py` (~10 endpoints)
+     - Google OAuth, dev-login, session management, mobile auth, demo login
+   - Extracted Pattern Learning routes to `/app/backend/routes/feedback.py` (~8 endpoints)
+     - Feedback submission, stats, classify, approve/reject rules
+   - Total: ~18 endpoints extracted from 315+ in server.py
+   - Next: Continue extracting games, coach, reflect, training routes
+
+2. **GuidedAnalysis Component Enhanced to 9.5/10**
+   - Added coach personality with 50+ varied phrases per category
+   - Categories: intros, transitions, blunders, mistakes, encouragement, conclusions
+   - Pattern-specific quick tips (tactical, positional, endgame, etc.)
+   - Session completion celebration with Trophy icon
+   - "Show improvement tip" expandable section
+   - Integrated "Not helpful" feedback button for self-learning
+   - Progress tracking with seen/unseen moment indicators
+   - Quick jump navigation with visual status
+
+3. **All Tests Passing**
+   - Frontend: 9/9 E2E tests for GuidedAnalysis
+   - Backend: 11/12 tests passing (1 skipped - classify endpoint now fixed)
+   - Fixed `/api/coach/pattern-learning/classify` endpoint
+
+### Previous Session Fixes ✅
+1. **Reflect Page Stuck Loop** - Fixed by using BOTH `move_number` AND `FEN` to filter already-reflected moments.
 2. **Puzzle Display** - Verified working. API returns FEN, solution, and source correctly.
-
-#### IMPROVEMENTS MADE ✅
-1. **Coach Personality System** (`coach_engine/coach_personality.py`)
-   - 50+ varied phrases for different situations
-   - Never repeats same phrase twice in a row
-   - Adaptive tone based on user performance
-   - Pattern-specific warnings
-   - Memory comments based on user history
-
-2. **Home Page Coach Messages**
-   - Contextual greetings ("Welcome back" vs "Good morning")
-   - Dynamic coach message based on context
-   - "You've been busy! Let's look at what we can learn..."
-
-3. **Match History Storage**
-   - Every pattern match is recorded in `pattern_match_history` collection
-   - Tracks: position, rule used, explanation given, timestamp
-   - Enables "Your feedback helped X positions" feature
+3. **Coach Personality System** - 50+ varied phrases for different situations
+4. **Match History Storage** - Every pattern match recorded in `pattern_match_history` collection
 
 ### Core Features ✅
 
@@ -181,22 +190,67 @@ New position → Query DB → Match criteria → Return learned explanation ✅
 
 ## Upcoming Tasks
 
-### P0 - Refactor Monolithic server.py (CRITICAL)
-- `server.py` is over 14,000 lines and handles nearly all backend logic
-- Break down into domain-specific route files:
-  - `/routes/coach.py`
-  - `/routes/lab.py`
-  - `/routes/feedback.py`
-  - `/routes/games.py`
+### P0 - Continue Refactoring server.py (IN PROGRESS - 6% done)
+- `server.py` is over 14,000 lines - only ~18 endpoints extracted so far
+- Next priority route files to create:
+  - `/routes/games.py` - Game import, listing, analysis (~40 endpoints)
+  - `/routes/coach.py` - Coach state, memory, play with coach (~50 endpoints)
+  - `/routes/lab.py` - Lab analysis endpoints (~20 endpoints)
+  - `/routes/training.py` - Training and puzzle endpoints (~20 endpoints)
+  - `/routes/reflect.py` - Reflection engine endpoints (~15 endpoints)
 
-### P1 - B2B Coaching Model
+### P1 - Enhance Other Pages to 9.5/10
+- **Reflect Page**: Add coach encouragement, progress animations
+- **Prescribed Training**: Add "Why this puzzle?" messaging, celebrations
+- **Play with Coach**: Memory of past games, visual move hints
+
+### P2 - Production Hardening
+- Pattern validation layer (require 2-3 similar feedbacks before rule creation)
+- Human review queue for low-confidence patterns
+- Confidence decay for unused rules
+
+### P3 - B2B Coaching Model
 - Coach portal with student dashboard
 - Add/invite students
 - Assign prescribed training
 
-### P2 - Weekly Progress Report
+### P4 - Weekly Progress Report
 - "Last week: 5 missed threats. This week: 3."
 - Email/WhatsApp notification
+
+---
+
+## Code Architecture (Updated)
+
+```
+/app/backend/
+├── routes/
+│   ├── __init__.py       # Module documentation
+│   ├── auth.py           # NEW: Auth endpoints (10 endpoints)
+│   └── feedback.py       # NEW: Pattern learning endpoints (8 endpoints)
+├── server.py             # MONOLITH: Still 14,400+ lines, ~295 endpoints
+├── services/
+│   ├── blunder_intelligence/
+│   │   ├── cognitive_gap_service.py
+│   │   └── deep_position_analyzer.py
+│   ├── pattern_learning/
+│   │   ├── auto_correction_service.py
+│   │   └── smart_pattern_matcher.py
+│   └── coach_engine/
+│       └── coach_personality.py
+└── tests/
+    └── test_auth_and_feedback_routes.py  # NEW
+
+/app/frontend/
+├── src/
+│   ├── components/
+│   │   ├── GuidedAnalysis.jsx    # ENHANCED: Coach personality, tips, feedback
+│   │   └── InlineFeedbackButton.jsx
+│   └── pages/
+│       └── Lab.jsx               # Integrated GuidedAnalysis mode
+└── tests/e2e/
+    └── guided-analysis.spec.ts   # NEW: 9 E2E tests
+```
 
 ---
 
