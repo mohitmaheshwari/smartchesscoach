@@ -12150,6 +12150,97 @@ async def get_blunder_context(user: User = Depends(get_current_user)):
     }
 
 
+
+def _get_coach_move_explanation(move_san: str, fen_before: str, fen_after: str, move_number: int) -> str:
+    """
+    Generate POSITION-SPECIFIC explanation for coach's move.
+    No more generic "develops pieces toward the center" for h6!
+    """
+    import chess
+    
+    try:
+        board_before = chess.Board(fen_before)
+        
+        # Parse the move to understand what it does
+        chess_move = board_before.parse_san(move_san)
+        from_sq = chess_move.from_square
+        to_sq = chess_move.to_square
+        piece = board_before.piece_at(from_sq)
+        
+        if piece is None:
+            return f"I played {move_san}."
+        
+        # Is it a pawn move?
+        if piece.piece_type == chess.PAWN:
+            # Pawn moves - be specific
+            file = chess.square_file(to_sq)
+            rank = chess.square_rank(to_sq)
+            
+            if file in [0, 7]:  # a or h file
+                # Edge pawn - don't claim center development!
+                if rank in [2, 5]:  # h3/a3 or h6/a6
+                    return f"I played {move_san}. This prepares a potential retreat square for my bishop or prevents your pieces from using that square."
+                else:
+                    return f"I played {move_san}. A flank pawn move."
+            elif file in [3, 4]:  # d or e file - center pawns
+                return f"I played {move_san}. Fighting for the center."
+            elif file in [2, 5]:  # c or f file
+                return f"I played {move_san}. Supporting my central control."
+            else:
+                return f"I played {move_san}."
+        
+        # Is it castling?
+        if board_before.is_castling(chess_move):
+            if board_before.is_kingside_castling(chess_move):
+                return f"I played {move_san}. Castling kingside - my king is now safe and my rook is ready for action."
+            else:
+                return f"I played {move_san}. Castling queenside - my king is tucked away and my rook eyes the center."
+        
+        # Knight moves
+        if piece.piece_type == chess.KNIGHT:
+            central_squares = [chess.D4, chess.D5, chess.E4, chess.E5, chess.C4, chess.C5, chess.F4, chess.F5]
+            development_squares = [chess.F3, chess.C3, chess.F6, chess.C6]  # Natural development squares
+            if to_sq in central_squares:
+                return f"I played {move_san}. The knight is powerful in the center - it controls many squares from here."
+            elif to_sq in development_squares:
+                return f"I played {move_san}. Developing the knight to its natural square - knights should be developed early."
+            else:
+                return f"I played {move_san}. Repositioning my knight."
+        
+        # Bishop moves
+        if piece.piece_type == chess.BISHOP:
+            # Check if it's a fianchetto
+            if to_sq in [chess.G2, chess.B2, chess.G7, chess.B7]:
+                return f"I played {move_san}. Fianchettoing my bishop - it will be powerful on this diagonal."
+            elif to_sq in [chess.C4, chess.F4, chess.C5, chess.F5]:
+                return f"I played {move_san}. Active bishop pointing at your position."
+            else:
+                return f"I played {move_san}. Developing my bishop."
+        
+        # Queen moves
+        if piece.piece_type == chess.QUEEN:
+            if move_number <= 5:
+                return f"I played {move_san}. An early queen move - can you punish it?"
+            else:
+                return f"I played {move_san}. The queen enters the game."
+        
+        # Rook moves
+        if piece.piece_type == chess.ROOK:
+            file = chess.square_file(to_sq)
+            if file in [3, 4]:  # d or e file
+                return f"I played {move_san}. Centralizing my rook on an open file."
+            else:
+                return f"I played {move_san}."
+        
+        # Default
+        return f"I played {move_san}."
+        
+    except Exception as e:
+        logger.warning(f"Error generating coach move explanation: {e}")
+        return f"I played {move_san}."
+
+
+
 # =============================================================================
 # PLAY WITH COACH API - P2 Feature
 # =============================================================================
@@ -12618,7 +12709,8 @@ async def _process_move_and_respond(
                                 elif opening_name:
                                     msg_text = f"I played {coach_move}. This is part of the {opening_name}. What do you think I'm planning?"
                                 elif coach_move_number <= 3:
-                                    msg_text = f"I played {coach_move}. Notice how this develops my pieces toward the center."
+                                    # Generate position-specific commentary instead of generic garbage
+                                    msg_text = _get_coach_move_explanation(coach_move, fen_after_user, fen_after_coach, coach_move_number)
                                 else:
                                     msg_text = None
                                 
