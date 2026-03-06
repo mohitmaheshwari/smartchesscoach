@@ -278,32 +278,32 @@ class AutoCorrectionService:
     
     async def _extract_and_store_pattern_rule(self, feedback: Dict):
         """
-        Extract a generalizable pattern rule from feedback and store it.
+        Extract an INTELLIGENT pattern rule from feedback using deep position analysis.
         
         THIS IS THE REAL AUTO-CORRECTION SYSTEM.
         
-        Uses concrete_feature_extractor to:
-        1. Extract QUERYABLE features from user's text (e.g., "fork" -> attacker=knight, targets=[queen,rook])
-        2. Store as a rule with features that can be matched against future positions
-        3. When a new position is analyzed, we check if it matches these concrete features
+        When user says "knight forks my king and queen", this:
+        1. Analyzes the ACTUAL position with chess engine
+        2. Finds WHERE the knight, king, queen are
+        3. Understands the GEOMETRY of the fork
+        4. Creates a rule that matches ANY similar fork pattern
         
-        Example:
-        User says: "The knight forks my queen and rook"
-        Extracts:  { pattern: "fork", attacker: "knight", targets: ["queen", "rook"], min_targets: 2 }
-        Stored in: concrete_patterns collection
-        Future:    New position with knight attacking 2 pieces -> MATCHED -> Use this explanation
+        When user says "king has no breathing space", this:
+        1. Analyzes king position on the board
+        2. Checks WHICH pieces (own/enemy) block each escape square
+        3. Counts ACTUAL escape squares
+        4. Creates a rule matching similar trapped king patterns
         """
         try:
-            from .concrete_feature_extractor import ConcretePatternStore
+            from .deep_position_analyzer import SmartPatternExtractor
             
-            # Get user's insight - this is the key to learning
             user_insight = feedback.get("user_explanation", "")
             if not user_insight:
-                logger.debug("No user explanation provided, skipping pattern rule extraction")
+                logger.debug("No user explanation provided, skipping pattern extraction")
                 return
             
-            # Create the store and extract CONCRETE features
-            store = ConcretePatternStore(self.db.db)
+            # Use the SMART extractor that does real chess analysis
+            extractor = SmartPatternExtractor()
             
             # Prepare feedback
             extractor_feedback = {
@@ -316,19 +316,34 @@ class AutoCorrectionService:
                 "correct_classification": feedback.get("correct_classification", ""),
             }
             
-            rule = await store.extract_and_store_from_feedback(extractor_feedback)
+            # Extract intelligent pattern
+            rule = await extractor.extract_pattern(extractor_feedback)
             
             if rule:
-                logger.info(f"CONCRETE PATTERN RULE CREATED: {rule.pattern_type}")
-                logger.info(f"  - Attacker: {rule.attacker_piece}")
-                logger.info(f"  - Targets: {rule.target_pieces}")
-                logger.info(f"  - Features: king_back_rank={rule.king_on_back_rank}, escapes={rule.king_escape_squares}")
-                logger.info(f"  - Explanation: {rule.explanation_template[:80]}...")
+                # Store in database
+                await self.db.db.smart_patterns.update_one(
+                    {"rule_id": rule["rule_id"]},
+                    {"$set": rule},
+                    upsert=True
+                )
+                
+                logger.info(f"SMART PATTERN RULE CREATED: {rule.get('pattern_type')}")
+                logger.info(f"  - Match criteria: {rule.get('match_criteria')}")
+                logger.info(f"  - Geometry: {rule.get('geometry', 'N/A')}")
+                logger.info(f"  - Explanation: {rule.get('explanation_template', '')[:80]}...")
             else:
-                logger.debug("Could not extract concrete pattern rule from feedback")
+                logger.debug("Could not extract smart pattern rule from feedback")
+            
+            # Also store in concrete_patterns for backward compatibility
+            try:
+                from .concrete_feature_extractor import ConcretePatternStore
+                store = ConcretePatternStore(self.db.db)
+                await store.extract_and_store_from_feedback(extractor_feedback)
+            except Exception as e:
+                logger.debug(f"Concrete pattern extraction skipped: {e}")
                 
         except Exception as e:
-            logger.error(f"Error extracting concrete pattern rule: {e}")
+            logger.error(f"Error extracting smart pattern rule: {e}")
     
     def _extract_attacker_piece(self, pv: List[str], fen: str) -> str:
         """Extract the attacking piece from PV"""
