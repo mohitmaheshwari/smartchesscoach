@@ -12746,7 +12746,7 @@ async def _process_move_and_respond(
                                 question_data = None
                                 if coach_move_number in [2, 4, 6] and opening:
                                     from coach_engine.question_system import generate_opening_plan_question
-                                    question = generate_opening_plan_question(opening, coach_move_number)
+                                    question = generate_opening_plan_question(opening, coach_move_number, coach_move)
                                     question_data = question.to_dict()
                                     msg_text = f"I played {coach_move}. {question.text}"
                                 

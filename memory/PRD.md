@@ -89,15 +89,17 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 1. Missing `logger` import in `coach_commentary.py` - caused silent failures
 2. Fast path in `generate_response_to_user()` was bypassing move analysis when user asked about specific moves
 3. Phrase patterns for move detection were incomplete
+4. **Opening attribution bug:** Coach was saying "I played d5. This is the Sicilian Defense" when d5 was just a continuation move, not the defining move (c5 defines Sicilian)
 
 **Solution:**
 - Added `import logging` and `logger = logging.getLogger(__name__)` to `coach_commentary.py`
 - Modified fast path to skip when `asking_about_last_move` is true
 - Added phrase patterns: `"i played"`, `"why did i"`, `"was h"`, `"was my h"`, `"was my move"`
+- Fixed `generate_opening_plan_question()` to only say "This is the X" for identifying moves; uses "We're in the X" for continuation moves
 - Now correctly routes to `position_strategy_analyzer.py` for Stockfish-based analysis
 
 **Tests Created:**
-- `/app/backend/tests/test_coach_chat_hallucinations.py` - 17 tests for no hallucinations
+- `/app/backend/tests/test_coach_chat_hallucinations.py` - 20 tests for no hallucinations
 - `/app/tests/e2e/coach-chat.spec.ts` - Frontend integration tests
 
 ### 2. Frontend Bug Fix - Chat Send Button

@@ -48,9 +48,20 @@ class CoachQuestion:
 
 # ==================== QUESTION GENERATORS ====================
 
-def generate_opening_plan_question(opening: OpeningPlan, move_number: int) -> CoachQuestion:
-    """Generate a question about the opening plan"""
-    if move_number <= 4:
+def generate_opening_plan_question(opening: OpeningPlan, move_number: int, current_move: str = None) -> CoachQuestion:
+    """Generate a question about the opening plan.
+    
+    Args:
+        opening: The detected opening
+        move_number: Current move number in the game
+        current_move: The move just played (to avoid wrongly attributing opening to it)
+    """
+    # Check if this move is one of the identifying moves for this opening
+    # Only claim "This is the X" when the current move IS a key identifying move
+    is_identifying_move = current_move and current_move in opening.identifying_moves
+    
+    if move_number <= 4 and is_identifying_move:
+        # This move IS part of what defines the opening - safe to name it
         return CoachQuestion(
             question_type=QuestionType.PLAN_CHECK,
             text=f"This is the {opening.name}. What do you think the main idea is?",
@@ -61,6 +72,15 @@ def generate_opening_plan_question(opening: OpeningPlan, move_number: int) -> Co
                 "I'm not sure"
             ],
             correct_option_idx=0,
+            accepts_free_response=True,
+        )
+    elif move_number <= 4:
+        # Opening already established, this is a continuation move
+        return CoachQuestion(
+            question_type=QuestionType.UNDERSTANDING,
+            text=f"We're in the {opening.name}. Do you know what I'm trying to do with this move?",
+            options=["Control the center", "Develop pieces", "Prepare an attack", "I'm not sure"],
+            correct_option_idx=None,  # No wrong answer
             accepts_free_response=True,
         )
     else:

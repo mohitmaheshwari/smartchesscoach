@@ -414,3 +414,36 @@ class TestCoachChatRequired:
             json={"session_id": str(uuid.uuid4()), "message": "Hello"}
         )
         assert response.status_code == 404
+
+
+class TestOpeningAttributionFix:
+    """Test that opening names are only attributed to defining moves, not continuation moves"""
+    
+    def test_identifying_move_gets_this_is(self):
+        """The defining move of an opening should get 'This is the X' message"""
+        from coach_engine.question_system import generate_opening_plan_question
+        from coach_engine.opening_plans import SICILIAN_DEFENSE
+        
+        # c5 IS the identifying move for Sicilian
+        question = generate_opening_plan_question(SICILIAN_DEFENSE, move_number=1, current_move="c5")
+        assert "This is the Sicilian Defense" in question.text
+    
+    def test_continuation_move_gets_were_in(self):
+        """A continuation move should get 'We're in the X' message, not 'This is'"""
+        from coach_engine.question_system import generate_opening_plan_question
+        from coach_engine.opening_plans import SICILIAN_DEFENSE
+        
+        # d5 is NOT an identifying move for Sicilian
+        question = generate_opening_plan_question(SICILIAN_DEFENSE, move_number=2, current_move="d5")
+        assert "We're in the Sicilian Defense" in question.text
+        assert "This is the Sicilian Defense" not in question.text
+    
+    def test_random_move_not_attributed_to_opening(self):
+        """A random move like Nf6 should not claim to be 'the Sicilian'"""
+        from coach_engine.question_system import generate_opening_plan_question
+        from coach_engine.opening_plans import SICILIAN_DEFENSE
+        
+        question = generate_opening_plan_question(SICILIAN_DEFENSE, move_number=4, current_move="Nf6")
+        assert "This is the Sicilian Defense" not in question.text
+        # Should use "We're in" instead
+        assert "We're in the Sicilian Defense" in question.text
