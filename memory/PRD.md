@@ -62,7 +62,7 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 | Lab | 90/100 | ✅ Position-specific, feedback enabled |
 | Reflect | 85/100 | ✅ Specific explanations, feedback enabled |
 | Progress | 90/100 | ✅ Unified, coaching narrative |
-| CoachPlay | 80/100 | ✅ Guardian + feedback |
+| CoachPlay | 90/100 | ✅ Hallucination fix, position-specific advice |
 
 ---
 
@@ -80,20 +80,42 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 
 ---
 
-## Recent Changes (Dec 5, 2025)
+## Recent Changes (Mar 6, 2026)
 
-### 1. Merged Progress & Journey Pages
+### 1. Play with Coach - LLM Hallucination Fix ✅ (Critical)
+**Problem:** Coach was giving incorrect opening claims (e.g., "h3 is Italian Game") and generic nonsensical advice.
+
+**Root Causes Fixed:**
+1. Missing `logger` import in `coach_commentary.py` - caused silent failures
+2. Fast path in `generate_response_to_user()` was bypassing move analysis when user asked about specific moves
+3. Phrase patterns for move detection were incomplete
+
+**Solution:**
+- Added `import logging` and `logger = logging.getLogger(__name__)` to `coach_commentary.py`
+- Modified fast path to skip when `asking_about_last_move` is true
+- Added phrase patterns: `"i played"`, `"why did i"`, `"was h"`, `"was my h"`, `"was my move"`
+- Now correctly routes to `position_strategy_analyzer.py` for Stockfish-based analysis
+
+**Tests Created:**
+- `/app/backend/tests/test_coach_chat_hallucinations.py` - 17 tests for no hallucinations
+- `/app/tests/e2e/coach-chat.spec.ts` - Frontend integration tests
+
+### 2. Frontend Bug Fix - Chat Send Button
+- Fixed `onClick={sendChatMessage}` passing event object instead of null
+- Changed to `onClick={() => sendChatMessage()}`
+
+### 3. Merged Progress & Journey Pages (Dec 5, 2025)
 - Created `UnifiedProgress.jsx`
 - Combined quick stats, main weakness, three tabs (Now/Journey/Trend)
 - `/journey` now redirects to `/progress`
 
-### 2. Position-Specific Reflection Fix
+### 4. Position-Specific Reflection Fix
 - Cognitive gap analysis now detects mate-level blunders
 - Shows specific explanations instead of generic advice
 
-### 3. Auto-Correction System Sync
+### 5. Auto-Correction System Sync
 - FeedbackModal on Lab, Reflect, CoachPlay
-- Consistent feedback submission
+- Messages now have IDs for feedback button
 
 ---
 
@@ -120,4 +142,4 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 
 ---
 
-*Last Updated: December 5, 2025*
+*Last Updated: March 6, 2026*
