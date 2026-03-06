@@ -58,11 +58,14 @@ import {
   Lock,
   GraduationCap,
   ArrowRight,
-  ThumbsDown
+  ThumbsDown,
+  X,
+  History
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 import FeedbackModal from "@/components/FeedbackModal";
 import InlineFeedbackButton from "@/components/InlineFeedbackButton";
+import MyFeedback from "@/components/MyFeedback";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -149,6 +152,7 @@ const Lab = ({ user }) => {
   const [showOnlyCritical, setShowOnlyCritical] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("milestones");
+  const [showMyFeedback, setShowMyFeedback] = useState(false);
   
   // Deep strategy analysis (position-specific insights)
   const [deepStrategy, setDeepStrategy] = useState(null);
@@ -1319,6 +1323,18 @@ const Lab = ({ user }) => {
                 )}
               </Button>
             )}
+            
+            {/* My Feedback History Button */}
+            <Button
+              onClick={() => setShowMyFeedback(true)}
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              data-testid="my-feedback-btn"
+            >
+              <History className="w-4 h-4 mr-1" />
+              My Feedback
+            </Button>
           </div>
         </div>
 
@@ -2526,8 +2542,29 @@ const Lab = ({ user }) => {
         gameId={feedbackContext?.gameId}
         moveNumber={feedbackContext?.moveNumber}
         userColor={feedbackContext?.userColor}
+        sectionType={feedbackContext?.sectionType}
         source="lab"
       />
+      
+      {/* My Feedback History Modal */}
+      {showMyFeedback && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800">
+              <h2 className="text-lg font-semibold">My Feedback History</h2>
+              <button 
+                onClick={() => setShowMyFeedback(false)}
+                className="p-1 hover:bg-slate-800 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <MyFeedback />
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };

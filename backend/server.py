@@ -14202,6 +14202,50 @@ async def submit_pattern_feedback(
     return result
 
 
+@api_router.get("/coach/pattern-learning/my-feedback")
+async def get_my_feedback(user: User = Depends(get_current_user)):
+    """
+    Get the current user's submitted feedback with corrections.
+    
+    Returns:
+    - List of feedback submissions with status and corrections
+    """
+    feedback_list = []
+    
+    # Get user's feedback
+    cursor = db.pattern_feedback.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).limit(50)
+    
+    async for doc in cursor:
+        feedback_id = doc.get("feedback_id")
+        
+        # Get corresponding correction if exists
+        correction = await db.verified_corrections.find_one(
+            {"feedback_id": feedback_id},
+            {"_id": 0}
+        )
+        
+        feedback_list.append({
+            "feedback_id": feedback_id,
+            "created_at": doc.get("created_at"),
+            "status": doc.get("status", "pending"),
+            "position_fen": doc.get("position_fen"),
+            "move_played": doc.get("move_played"),
+            "best_move": doc.get("best_move"),
+            "move_number": doc.get("move_number"),
+            "game_id": doc.get("game_id"),
+            "section_type": doc.get("section_type"),
+            "system_classification": doc.get("system_classification"),
+            "system_explanation": doc.get("system_explanation"),
+            "correct_classification": doc.get("correct_classification"),
+            "user_explanation": doc.get("user_explanation"),
+            "correction": correction
+        })
+    
+    return {"feedback": feedback_list, "count": len(feedback_list)}
+
+
 @api_router.get("/coach/pattern-learning/stats")
 async def get_pattern_learning_stats(user: User = Depends(get_current_user)):
     """

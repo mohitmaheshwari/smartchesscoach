@@ -272,7 +272,9 @@ Output your analysis as JSON."""
     
     def _build_analysis_prompt(self, feedback: Dict) -> str:
         """Build prompt for analyzing why classification failed"""
-        return f"""Analyze this chess position and explain why the classification was wrong.
+        user_explanation = feedback.get('user_explanation', '')
+        
+        return f"""Analyze this chess position and explain why our classification was wrong. The user provided valuable insight - USE IT.
 
 POSITION (FEN): {feedback.get('position_fen', 'N/A')}
 
@@ -284,18 +286,22 @@ STOCKFISH DATA:
 - Best move was: {feedback.get('best_move', 'N/A')}
 - Principal Variation after played move: {feedback.get('pv_after_played', [])}
 
-SYSTEM CLASSIFICATION: {feedback.get('system_classification', 'N/A')}
-SYSTEM EXPLANATION: {feedback.get('system_explanation', 'N/A')}
+OUR WRONG CLASSIFICATION: {feedback.get('system_classification', 'N/A')}
+OUR WRONG EXPLANATION: {feedback.get('system_explanation', 'N/A')}
 
-USER CORRECTION: {feedback.get('correct_classification', 'N/A')}
-USER EXPLANATION: {feedback.get('user_explanation', 'N/A')}
+USER'S CORRECTION (IMPORTANT - THEY OFTEN SEE THE REAL ISSUE):
+User says pattern is: {feedback.get('correct_classification', 'N/A')}
+User's insight: "{user_explanation}"
 
-Analyze the position and Stockfish data. Output JSON:
+Analyze the position and Stockfish data. The user's insight "{user_explanation}" is likely correct - incorporate it.
+
+Output JSON:
 {{
-    "root_cause": "Why did the classifier fail?",
+    "root_cause": "Why did our classifier fail? What did we miss?",
+    "user_insight_validity": "How does the user's insight apply here?",
     "missed_indicators": ["What pattern indicators were missed?"],
     "pv_analysis": "What does the PV show happens?",
-    "correct_pattern": "What is the actual tactical pattern?",
+    "correct_pattern": "What is the actual tactical pattern? (Use user's insight)",
     "key_insight": "The key insight for identifying this pattern"
 }}"""
     
@@ -339,30 +345,41 @@ Output JSON:
     
     def _build_correction_prompt(self, feedback: Dict) -> str:
         """Build prompt for generating corrected explanation"""
-        return f"""Generate a corrected explanation for this chess mistake.
+        user_explanation = feedback.get('user_explanation', '')
+        
+        return f"""You are a chess coach correcting an incorrect explanation. A user flagged this explanation as wrong and provided their insight.
 
 POSITION: {feedback.get('position_fen', 'N/A')}
 MOVE PLAYED: {feedback.get('move_san', 'N/A')}
+BEST MOVE WAS: {feedback.get('best_move', 'N/A')}
 
 STOCKFISH DATA:
-- Best move was: {feedback.get('best_move', 'N/A')}
+- Eval before: {feedback.get('eval_before', 'N/A')} centipawns
+- Eval after: {feedback.get('eval_after', 'N/A')} centipawns
 - What happens after played move (PV): {feedback.get('pv_after_played', [])}
 
-WRONG EXPLANATION: {feedback.get('system_explanation', 'N/A')}
-CORRECT PATTERN: {feedback.get('correct_classification', 'N/A')}
-USER SAYS: {feedback.get('user_explanation', 'N/A')}
+THE WRONG EXPLANATION WE GAVE:
+"{feedback.get('system_explanation', 'N/A')}"
 
-Generate a corrected explanation that:
-1. Is based ONLY on what the PV shows
-2. Names the specific tactical pattern
-3. Explains the consequence in simple terms
-4. Is 1-2 sentences max
+USER'S CORRECTION (IMPORTANT - USE THIS INSIGHT):
+Pattern type: {feedback.get('correct_classification', 'N/A')}
+User's explanation: "{user_explanation}"
+
+Your task:
+1. INCORPORATE the user's insight - they often see something we missed
+2. The user said: "{user_explanation}" - this is likely the REAL reason
+3. Generate a corrected explanation that combines:
+   - The user's insight (primary)
+   - What the Stockfish PV shows (supporting evidence)
+4. Keep it simple, 1-2 sentences max
+5. Speak directly to the student ("You played X instead of Y because...")
 
 Output JSON:
 {{
-    "corrected_explanation": "Your explanation here",
-    "tactical_motif": "FORK/PIN/SKEWER/etc",
-    "consequence": "What material/position is lost"
+    "corrected_explanation": "Your explanation incorporating the user's insight",
+    "tactical_motif": "KING_SAFETY/FORK/PIN/SKEWER/DISCOVERED_ATTACK/TRAPPED_PIECE/BACK_RANK/OTHER",
+    "consequence": "What material/position is lost",
+    "user_insight_used": true
 }}"""
     
     def _parse_json_response(self, response: str) -> Dict:
