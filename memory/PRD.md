@@ -109,35 +109,27 @@ Build a hyper-personalized, data-driven chess coaching application. The coach sh
 - Now preserves `id`, `question`, and `context` fields for feedback button to work
 - Chat responses now generate client-side IDs for feedback
 
-### 4. Play with Coach - Teaching Mindset Redesign ✅ (Major)
-**Paradigm shift from "opponent" to "teacher"**
+### 5. Opening Teaching Database ✅
+**Built our own curated knowledge base - no Lichess dependency!**
 
-**Old Style (Robotic):**
-- "I played e5. Fighting for the center."
-- "I played Nc6. Developing the knight."
-- "Interesting choice with Nf3."
+Created `/app/backend/coach_engine/opening_teaching_db.py`:
+- 12 key positions seeded with rich teaching content
+- Covers: Starting position, e4 responses (e5, c5, e6, c6), Italian, Sicilian, French, Caro-Kann, Queen's Gambit, London
+- Each move has:
+  - Teaching message (conversational, question-based)
+  - Explanation (the "why")
+- Uses MongoDB for fast lookups
+- Falls back to `opening_plans.py` if position not in DB
 
-**New Style (Human Coach):**
-- "Watch this e5 - fighting for the center. What squares does this pawn control now?"
-- "The knight develops toward d4 - our dream square. Every piece should aim for the center. Where should your knight go?"
-- "Good thinking with Nf3! What's your plan from here?"
+**Example Teaching:**
+- "1...c5 - The Sicilian Defense! The most popular and aggressive response. You fight for the d4 square from the side. Combative!"
+- "3.Bc4 - The Italian Game! Your bishop aims at f7 - the weakest point in Black's camp."
 
-**Changes Made:**
-1. Created `/app/backend/coach_play/teaching_coach.py` - Teaching-focused coach service
-2. Added `_get_teaching_explanation()` function in server.py - No more "I played X"
-3. Updated `teaching_moments` in opening_plans.py for Sicilian, French, Italian with:
-   - Questions to engage the student
-   - Explanations of concepts
-   - Follow-up prompts
-4. Changed user move feedback to be encouraging, not evaluative:
-   - "Hmm, that changes things. Let's look at {best_move} - do you see why?"
-   - "Good thinking with {move}! What's your plan from here?"
-
-**Teaching Philosophy:**
-- Ask questions before explaining
-- Guide thinking, don't just evaluate
-- Make mistakes teachable moments
-- Celebrate understanding, not just good moves
+**Why our own DB instead of Lichess:**
+- No rate limits for concurrent users
+- Higher quality, curated teaching (pedagogically designed)
+- Works offline
+- Can expand over time
 
 ### 3. Merged Progress & Journey Pages (Dec 5, 2025)
 - Created `UnifiedProgress.jsx`

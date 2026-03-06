@@ -12810,31 +12810,36 @@ async def _process_move_and_respond(
                     if coach_move_number <= 12 and not coach_game_over:
                         try:
                             from coach_engine.opening_plans import get_opening_by_moves, get_teaching_for_move
-                            from coach_engine.lichess_explorer import get_opening_name
+                            from coach_engine.opening_teaching_db import get_curated_teaching
                             
                             # Get all moves for opening detection
                             all_moves = [m.get("move", "") for m in move_history]
                             opening = get_opening_by_moves(all_moves)
                             
+                            # First, try our curated teaching database
+                            curated = await get_curated_teaching(fen_after_user, coach_move)
+                            
                             # Generate teaching message for coach's move
                             teaching_msg = None
-                            if opening:
+                            opening_name = ""
+                            
+                            if curated.get("found") and curated.get("move_teaching"):
+                                # Use curated teaching from our database
+                                teaching_msg = curated["move_teaching"]
+                                opening_name = curated.get("opening_name", "")
+                            elif opening:
+                                # Fall back to opening_plans teaching moments
                                 teaching_msg = get_teaching_for_move(opening, coach_move)
+                                opening_name = opening.name
                             
                             # If we have teaching, or it's an early move, explain the plan
                             if teaching_msg or coach_move_number <= 5:
-                                # Get opening name from Lichess if we don't have one
-                                opening_name = opening.name if opening else ""
-                                if not opening_name:
-                                    try:
-                                        opening_name = await get_opening_name(fen_after_coach)
-                                    except:
-                                        pass
+                                if not opening_name and opening:
+                                    opening_name = opening.name
                                 
                                 # Create coach message explaining the move - TEACHING STYLE
-                                # NOT "I played X" but "Watch this..." or "See how..."
                                 if teaching_msg:
-                                    # Use the teaching moment but make it more conversational
+                                    # Use the teaching message directly (already conversational)
                                     msg_text = teaching_msg
                                 elif opening_name and coach_move_number <= 4:
                                     # Guide them through the opening
