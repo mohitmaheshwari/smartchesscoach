@@ -499,7 +499,7 @@ const UnifiedProgress = ({ user }) => {
                     <Card data-testid="baseline-comparison-card">
                       <CardContent className="p-4">
                         <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-3">
-                          First {journeyV2Data.baseline.games_analyzed} Games vs Now
+                          Long-term: First {journeyV2Data.baseline.games_analyzed} vs Last {journeyV2Data.current_stats.games_analyzed} Games
                         </p>
                         <div className="space-y-2">
                           {/* Accuracy */}
@@ -537,7 +537,7 @@ const UnifiedProgress = ({ user }) => {
                             </div>
                           </div>
                           {/* Best Moves/Game */}
-                          <div className="flex items-center justify-between py-1.5 border-b border-border/30">
+                          <div className="flex items-center justify-between py-1.5">
                             <span className="text-xs text-muted-foreground">Best Moves/Game</span>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">{journeyV2Data.baseline.best_moves_per_game?.toFixed(1)}</span>
@@ -553,23 +553,124 @@ const UnifiedProgress = ({ user }) => {
                               })()}
                             </div>
                           </div>
-                          {/* Win Rate */}
-                          <div className="flex items-center justify-between py-1.5">
-                            <span className="text-xs text-muted-foreground">Win Rate</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">{journeyV2Data.baseline.win_rate}%</span>
-                              <ArrowRight className="w-3 h-3 text-muted-foreground" />
-                              <span className="text-xs font-medium">{journeyV2Data.current_stats.win_rate}%</span>
-                              {(() => {
-                                const delta = journeyV2Data.current_stats.win_rate - journeyV2Data.baseline.win_rate;
-                                return delta !== 0 && (
-                                  <span className={`text-xs px-1.5 py-0.5 rounded ${delta > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-                                    {delta > 0 ? '+' : ''}{delta}%
-                                  </span>
-                                );
-                              })()}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Short-term Pattern Trends - Last 7 vs Previous 7 */}
+                  {journeyV2Data?.pattern_trends?.has_enough_data && (
+                    <Card data-testid="short-term-trends-card">
+                      <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-3">
+                          Short-term: Last {journeyV2Data.pattern_trends.recent_games} vs Previous {journeyV2Data.pattern_trends.previous_games} Games
+                        </p>
+                        <div className="space-y-2">
+                          {Object.entries(journeyV2Data.pattern_trends.patterns || {}).map(([key, pattern]) => (
+                            <div key={key} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-0">
+                              <span className="text-xs text-muted-foreground">{pattern.label}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">{pattern.previous}</span>
+                                <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                                <span className="text-xs font-medium">{pattern.recent}</span>
+                                <span className={`text-xs px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                                  pattern.trend === "improving" ? "bg-emerald-500/10 text-emerald-400" :
+                                  pattern.trend === "worsening" ? "bg-red-500/10 text-red-400" :
+                                  "bg-slate-500/10 text-slate-400"
+                                }`}>
+                                  {pattern.trend === "improving" ? <TrendingDown className="w-3 h-3" /> :
+                                   pattern.trend === "worsening" ? <TrendingUp className="w-3 h-3" /> :
+                                   <Minus className="w-3 h-3" />}
+                                  {pattern.change > 0 ? '+' : ''}{pattern.change}%
+                                </span>
+                              </div>
                             </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Behavioral Changes - Long term */}
+                  {journeyV2Data?.pattern_comparison?.weaknesses?.length > 0 && (
+                    <Card data-testid="behavioral-changes-card">
+                      <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-3">
+                          Behavioral Changes (Overall Journey)
+                        </p>
+                        <div className="space-y-3">
+                          {journeyV2Data.pattern_comparison.weaknesses.map((weakness) => (
+                            <div key={weakness.id} className="p-3 rounded-lg bg-muted/30">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium">{weakness.label}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  weakness.trend === "fixed" ? "bg-emerald-500/20 text-emerald-400" :
+                                  weakness.trend === "improved" ? "bg-blue-500/20 text-blue-400" :
+                                  weakness.trend === "regressed" ? "bg-red-500/20 text-red-400" :
+                                  "bg-slate-500/10 text-slate-400"
+                                }`}>
+                                  {weakness.trend === "fixed" ? "Fixed!" :
+                                   weakness.trend === "improved" ? "Improving" :
+                                   weakness.trend === "regressed" ? "Needs work" : "Stable"}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>Occurrence: {weakness.baseline_pct}%</span>
+                                <ArrowRight className="w-3 h-3" />
+                                <span className="font-medium text-foreground">{weakness.current_pct}%</span>
+                                {weakness.delta !== 0 && (
+                                  <span className={weakness.delta < 0 ? "text-emerald-400" : "text-red-400"}>
+                                    ({weakness.delta > 0 ? '+' : ''}{weakness.delta}%)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Overall improvement indicator */}
+                        {journeyV2Data.pattern_comparison.overall_improvement && (
+                          <div className={`mt-3 p-2 rounded text-center text-xs font-medium ${
+                            journeyV2Data.pattern_comparison.overall_improvement === "improving" 
+                              ? "bg-emerald-500/10 text-emerald-400" 
+                              : journeyV2Data.pattern_comparison.overall_improvement === "regressing"
+                              ? "bg-red-500/10 text-red-400"
+                              : "bg-slate-500/10 text-slate-400"
+                          }`}>
+                            Overall: {journeyV2Data.pattern_comparison.overall_improvement === "improving" 
+                              ? "Your behaviors are improving!" 
+                              : journeyV2Data.pattern_comparison.overall_improvement === "regressing"
+                              ? "Some patterns need attention"
+                              : "Behaviors are stable"}
                           </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Cognitive Journey - Decision making evolution */}
+                  {journey?.cognitive_rows && journey.cognitive_rows.length > 0 && (
+                    <Card data-testid="cognitive-journey-card">
+                      <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-3">
+                          Decision Making Evolution
+                        </p>
+                        <div className="space-y-2">
+                          {journey.cognitive_rows.map((row, idx) => (
+                            <div key={idx} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-0">
+                              <span className="text-xs text-muted-foreground">{row.label}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">{row.then}</span>
+                                <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                                <span className={`text-xs font-medium ${row.changed ? "text-emerald-400" : ""}`}>
+                                  {row.now}
+                                </span>
+                                {row.changed && (
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </CardContent>
                     </Card>
