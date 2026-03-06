@@ -28,6 +28,9 @@ from enum import Enum
 import os
 import time
 import urllib.parse
+import logging
+
+logger = logging.getLogger(__name__)
 
 STOCKFISH_PATH = "/usr/games/stockfish"
 
@@ -906,35 +909,13 @@ Keep it under 20 words. Be conversational, not formal."""
             else:
                 return f"{best_move} was slightly better. {position_insight}"
         
-        # Fallback to generic if no position insight (shouldn't happen often)
+        # Fallback to FACTUAL message only (no LLM guessing)
         if severity == "blunder":
-            prompt = f"""You are a chess coach. The student played {move} which was a blunder (lost {eval_loss:.1f} pawns of advantage).
-The best move was {best_move}. 
-Give a brief, encouraging but educational response (2 sentences max). 
-Don't be harsh - explain what was missed kindly. Start with acknowledging the move, then explain briefly."""
+            return f"You played {move}. {best_move} was much stronger here (about {int(abs(eval_loss)*100)} centipawns better)."
         elif severity == "mistake":
-            prompt = f"""You are a chess coach. The student played {move} which was a mistake. 
-Better was {best_move}. 
-Give a brief comment (1-2 sentences) about what to look for. Be friendly and constructive."""
-        else:  # inaccuracy
-            prompt = f"""You are a chess coach. The student played {move}, a slight inaccuracy. 
-{best_move} was more precise.
-Give a very brief friendly hint (1 sentence). Don't be critical."""
-        
-        try:
-            response = await call_llm(
-                system_message="You are a warm, encouraging chess coach. Keep responses brief and friendly.",
-                user_message=prompt,
-                model="gpt-4o-mini"
-            )
-            return response.strip()
-        except Exception:
-            if severity == "blunder":
-                return f"Oops! {best_move} was much stronger here. Let's see what happens..."
-            elif severity == "mistake":
-                return f"Hmm, {best_move} would have been better. Keep fighting!"
-            else:
-                return f"Interesting choice! {best_move} was slightly more accurate."
+            return f"{best_move} was better than {move}. Take your time to find the best move."
+        else:
+            return f"{best_move} was slightly more accurate than {move}."
     
     return ""
 
@@ -977,36 +958,43 @@ async def generate_response_to_user(
         "missed_tactic": None
     }
     
-    # === FAST PATH: Use pattern matching first (no LLM needed) ===
-    try:
-        from coach_engine.question_system import ResponseUnderstanding, generate_response_to_answer
-        from coach_engine.opening_plans import get_opening_by_moves
-        
-        intent, confidence = ResponseUnderstanding.understand(user_message)
-        
-        # Get opening context
-        all_moves = [m.get("move", "") for m in move_history]
-        opening = get_opening_by_moves(all_moves)
-        
-        # For simple intents, use pattern-matched response (faster, no hallucination)
-        if intent in ["confused", "affirmative", "negative", "asking_plan"] and confidence >= 0.7:
-            response = generate_response_to_answer(
-                user_message=user_message,
-                question=None,  # No pending question in this context
-                opening=opening,
-                board=None
-            )
-            result["response"] = response
-            return result
-    except Exception as e:
-        # Fall through to LLM-based response
-        pass
-    
-    # Detect question types
-    asking_about_last_move = any(phrase in msg_lower for phrase in [
+    # Pre-check: Is this a question about the last move?
+    # If so, we need full analysis, not fast path
+    asking_about_last_move_fast_check = any(phrase in msg_lower for phrase in [
         "last move", "my move", "was that", "was it", "that move",
-        "what i played", "good move", "bad move", "mistake", "blunder"
+        "what i played", "i played", "good move", "bad move", "mistake", "blunder",
+        "why did i", "was h", "was my h", "was my move"
     ])
+    
+    # === FAST PATH: Use pattern matching first (no LLM needed) ===
+    # BUT: Skip fast path if asking about a specific move
+    if not asking_about_last_move_fast_check:
+        try:
+            from coach_engine.question_system import ResponseUnderstanding, generate_response_to_answer
+            from coach_engine.opening_plans import get_opening_by_moves
+            
+            intent, confidence = ResponseUnderstanding.understand(user_message)
+            
+            # Get opening context
+            all_moves = [m.get("move", "") for m in move_history]
+            opening = get_opening_by_moves(all_moves)
+            
+            # For simple intents, use pattern-matched response (faster, no hallucination)
+            if intent in ["confused", "affirmative", "negative", "asking_plan"] and confidence >= 0.7:
+                response = generate_response_to_answer(
+                    user_message=user_message,
+                    question=None,  # No pending question in this context
+                    opening=opening,
+                    board=None
+                )
+                result["response"] = response
+                return result
+        except Exception as e:
+            # Fall through to LLM-based response
+            pass
+    
+    # Detect question types (already computed above for fast path check)
+    asking_about_last_move = asking_about_last_move_fast_check
     
     asking_about_plan = any(phrase in msg_lower for phrase in [
         "what should i", "what do i", "plan", "strategy", "what now",
@@ -1093,10 +1081,10 @@ Piece placement tips: {position_plan.get('piece_placement', {})}
                     fen_before=fen_before,
                     user_move=move_san,
                     best_move=best_move,
-                    pv_after_best=move_analysis.pv_after_best if hasattr(move_analysis, 'pv_after_best') else [],
+                    pv_after_best=move_analysis.best_continuation if move_analysis.best_continuation else [],
                     cp_loss=cp_loss,
                     user_color=user_color,
-                    threat=move_analysis.threat if hasattr(move_analysis, 'threat') else None
+                    threat=move_analysis.threat_explanation
                 )
                 if insight and not insight.get("error"):
                     parts = []
@@ -1109,8 +1097,9 @@ Piece placement tips: {position_plan.get('piece_placement', {})}
                     if insight.get("the_idea_you_should_learn"):
                         parts.append(f"LESSON: {insight['the_idea_you_should_learn']}")
                     position_specific_insight = "\n".join(parts)
-            except Exception:
-                pass
+                    logger.info(f"Generated position-specific insight: {position_specific_insight[:200]}")
+            except Exception as e:
+                logger.warning(f"Failed to generate position-specific insight: {e}")
             
             if was_best:
                 move_analysis_context = f"""

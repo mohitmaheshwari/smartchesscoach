@@ -1402,7 +1402,7 @@ const CoachPlay = ({ user }) => {
                 />
                 <Button
                   size="icon"
-                  onClick={sendChatMessage}
+                  onClick={() => sendChatMessage()}
                   disabled={!chatInput.trim() || isSendingChat}
                   data-testid="send-chat-btn"
                 >
