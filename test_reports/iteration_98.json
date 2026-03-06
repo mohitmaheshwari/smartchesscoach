@@ -1,0 +1,73 @@
+{
+  "summary": "Tested auth routes (dev-login, status, me) and pattern learning feedback endpoint. All features working correctly. GuidedAnalysis component tested with 9 E2E tests - all passing. Identified one backend bug: /api/coach/pattern-learning/classify endpoint returns 500 error.",
+  "mode": "generate",
+  "baseline_commit": "fa3962cf1348d472fcc318413b48bdf119f843a8",
+  "head_commit": "17f75f82f53cad9a96fdad11197216a8d39c21cc",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/coach/pattern-learning/classify",
+        "issue": "Returns 500 Internal Server Error when called with valid position data",
+        "priority": "MEDIUM"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 1,
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/tests/e2e/guided-analysis.spec.ts",
+    "/app/backend/tests/test_auth_and_feedback_routes.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/tests/e2e/guided-analysis.spec.ts",
+    "/app/backend/tests/test_auth_and_feedback_routes.py",
+    "/app/test_reports/pytest/auth_feedback_results.xml"
+  ],
+  "action_items": [
+    "Fix /api/coach/pattern-learning/classify endpoint - returns 500 error"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "91.7% (11 passed, 1 skipped)",
+    "frontend": "100% (9 passed)"
+  },
+  "seed_data_creation": "N/A - Used existing dev user and game data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Auth routes and pattern learning feedback endpoints are fully tested and working. GuidedAnalysis component in Lab page Summary tab is working correctly with all coach features: reveal explanation, varied coach messages, expandable quick tips, Previous/Next navigation, quick jump buttons, and Not helpful feedback button. One minor issue: /api/coach/pattern-learning/classify endpoint has internal error - skipped in tests.",
+  "features_tested": {
+    "backend": [
+      "GET /api/auth/status - returns dev_mode flag",
+      "GET /api/auth/dev-login - creates session and returns user",
+      "GET /api/auth/me - returns current user profile",
+      "POST /api/auth/logout - clears session",
+      "POST /api/coach/pattern-learning/feedback - accepts and processes feedback",
+      "GET /api/coach/pattern-learning/stats - returns system statistics",
+      "GET /api/coach/pattern-learning/my-feedback - returns user's feedback",
+      "GET /api/coach/pattern-learning/pending-rules - returns pending rules"
+    ],
+    "frontend": [
+      "GuidedAnalysis displays in Summary tab",
+      "Reveal What Happened button shows explanation",
+      "Coach messages vary and display encouragement",
+      "Quick tip section is expandable",
+      "Navigation between moments works (Previous/Next buttons)",
+      "Quick jump buttons navigate to correct moments",
+      "Not helpful feedback button is present and clickable",
+      "Full Analysis button visible with data-testid",
+      "Move info shows correct move number and cp loss"
+    ]
+  }
+}

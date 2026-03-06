@@ -303,6 +303,12 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# Initialize modular routes with database reference
+from routes import auth as auth_routes
+from routes import feedback as feedback_routes
+auth_routes.set_db(db)
+feedback_routes.set_db(db)
+
 # LLM Key
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
@@ -14429,6 +14435,14 @@ async def track_rule_accuracy(
 
 
 # Include the router in the main app
+# Include modular routers FIRST to take precedence
+from routes import auth as auth_routes
+from routes import feedback as feedback_routes
+
+app.include_router(auth_routes.router, prefix="/api")
+app.include_router(feedback_routes.router, prefix="/api")
+
+# Then include the legacy api_router
 app.include_router(api_router)
 
 app.add_middleware(

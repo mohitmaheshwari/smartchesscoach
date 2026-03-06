@@ -60,12 +60,14 @@ import {
   ArrowRight,
   ThumbsDown,
   X,
-  History
+  History,
+  Compass
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 import FeedbackModal from "@/components/FeedbackModal";
 import InlineFeedbackButton from "@/components/InlineFeedbackButton";
 import MyFeedback from "@/components/MyFeedback";
+import GuidedAnalysis from "@/components/GuidedAnalysis";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -741,6 +743,9 @@ const Lab = ({ user }) => {
   
   // Coach Mode vs Engine Mode toggle
   const [coachMode, setCoachMode] = useState(true); // Default to Coach Mode
+  
+  // Guided Analysis Mode - step-by-step walkthrough
+  const [guidedMode, setGuidedMode] = useState(true); // Default to Guided
   
   // User color from game data (needed for move filtering)
   const userColor = game?.user_color || "white";
@@ -1541,6 +1546,51 @@ const Lab = ({ user }) => {
                     {/* SUMMARY TAB - Redesigned: Max 3 lessons, clean structure */}
                     <TabsContent value="summary" className="p-4 space-y-4 m-0">
                       
+                      {/* Mode Toggle: Guided vs Full Analysis */}
+                      <div className="flex items-center justify-between pb-2 border-b border-border/30">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant={guidedMode ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => setGuidedMode(true)}
+                            className="h-7 text-xs"
+                          >
+                            <Compass className="w-3 h-3 mr-1" />
+                            Guided
+                          </Button>
+                          <Button
+                            variant={!guidedMode ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => setGuidedMode(false)}
+                            className="h-7 text-xs"
+                          >
+                            <Brain className="w-3 h-3 mr-1" />
+                            Full Analysis
+                          </Button>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {criticalMoves.length} moments to review
+                        </span>
+                      </div>
+                      
+                      {/* Guided Analysis Mode */}
+                      {guidedMode && criticalMoves.length > 0 ? (
+                        <GuidedAnalysis
+                          criticalMoments={criticalMoves}
+                          currentMoveIndex={currentMoveIndex}
+                          onNavigateToMove={(idx) => {
+                            setCurrentMoveIndex(idx);
+                          }}
+                          onComplete={() => setGuidedMode(false)}
+                          userColor={userColor}
+                          gameId={gameId}
+                          onFeedback={(context) => {
+                            setFeedbackContext(context);
+                            setFeedbackOpen(true);
+                          }}
+                        />
+                      ) : (
+                        <>
                       {/* 💬 COACHING INTRO - Personal, conversational opener */}
                       {result && (
                         <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30" data-testid="coaching-intro">
@@ -1816,6 +1866,8 @@ const Lab = ({ user }) => {
                             </p>
                           </div>
                         </details>
+                      )}
+                        </>
                       )}
                     </TabsContent>
 

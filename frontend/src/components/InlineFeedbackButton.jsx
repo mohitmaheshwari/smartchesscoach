@@ -13,12 +13,16 @@
 
 import { ThumbsDown } from "lucide-react";
 
-export default function InlineFeedbackButton({ onClick, className = "" }) {
+export default function InlineFeedbackButton({ onClick, context, className = "" }) {
   return (
     <button
       onClick={(e) => {
         e.stopPropagation();
-        onClick();
+        if (context && onClick) {
+          onClick(context);
+        } else if (onClick) {
+          onClick();
+        }
       }}
       className={`inline-flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-red-400 transition-colors opacity-60 hover:opacity-100 ${className}`}
       title="Report incorrect or unhelpful content"

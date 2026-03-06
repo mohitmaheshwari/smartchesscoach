@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts } from '../fixtures/helpers';
 
-const BASE_URL = 'https://self-learn-chess.preview.emergentagent.com';
+const BASE_URL = 'https://self-learning-coach.preview.emergentagent.com';
 
 /**
  * AlternateTimeline Component Tests
