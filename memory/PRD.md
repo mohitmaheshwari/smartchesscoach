@@ -119,16 +119,19 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 ## Upcoming Tasks (Prioritized)
 
 ### P1 - High Priority
-1. Continue server.py refactoring (extract lab, coach, training routes)
+1. ✅ Server.py refactoring COMPLETE - 13 route modules, 135 endpoints extracted
+2. ✅ Tag feedback integration COMPLETE - 33 tags connected to auto-correction
 
 ### P2 - Medium Priority
-1. Reconcile learned_rules vs smart_patterns collections
-2. Enhance Play with Coach (memory of past games, visual hints)
+1. ✅ Progress page verification COMPLETE - Rolling evolution, opening performance working
+2. ✅ Play with Coach enhancements COMPLETE - Memory and visual hints added
+3. Reconcile learned_rules vs smart_patterns collections (migrate remaining useful rules)
 
 ### Future/Backlog
 - Identity Formation Layer (long-term playstyle evolution)
 - B2B Model for Coaches
 - Mobile App
+- Full learned_rules → smart_patterns migration
 
 ## Database Collections
 
@@ -137,6 +140,8 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 | games | ~300 | Imported chess games |
 | game_analyses | ~300 | Stockfish analysis results |
 | smart_patterns | 11 | Active learned pattern rules |
+| tag_correction_patterns | 2 | NEW: Tag correction rules from user feedback |
+| tag_feedback | 2 | NEW: User tag corrections |
 | learned_rules | 13 | Legacy rules (deprecated, migrated) |
 | pattern_feedback | 31 | User corrections (26 processed, 5 skipped) |
 | verified_corrections | 32 | Applied corrections |
