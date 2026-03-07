@@ -351,3 +351,168 @@ async def track_rule_accuracy(
         "success": True,
         "message": "Accuracy tracked"
     }
+
+
+@router.post("/process-pending-feedback")
+async def process_pending_feedback(
+    request: Dict = Body(default={}),
+    user: User = Depends(get_current_user)
+):
+    """
+    Process pending feedback items and generate smart patterns.
+    
+    This batch processes all pending feedback to:
+    1. Analyze each feedback using the AI pattern extractor
+    2. Generate smart_patterns for position matching
+    3. Update feedback status to 'processed'
+    
+    Body:
+    - limit: Max items to process (default: 10)
+    - dry_run: If true, analyze but don't save patterns (default: false)
+    """
+    global db
+    import uuid
+    from datetime import datetime, timezone
+    
+    limit = request.get("limit", 10)
+    dry_run = request.get("dry_run", False)
+    
+    # Get pending feedback items
+    pending = await db.pattern_feedback.find(
+        {"status": "pending"},
+        {"_id": 0}
+    ).limit(limit).to_list(length=limit)
+    
+    if not pending:
+        return {
+            "success": True,
+            "processed": 0,
+            "message": "No pending feedback to process"
+        }
+    
+    processed = []
+    errors = []
+    
+    # Import the pattern extractor
+    try:
+        from services.pattern_learning.deep_position_analyzer import SmartPatternExtractor
+        extractor = SmartPatternExtractor()
+    except Exception as e:
+        logger.error(f"Failed to import pattern extractor: {e}")
+        raise HTTPException(status_code=500, detail="Pattern extractor unavailable")
+    
+    for feedback in pending:
+        try:
+            feedback_id = feedback.get("feedback_id")
+            user_explanation = feedback.get("user_explanation", "")
+            
+            if not user_explanation:
+                # Mark as skipped - no user explanation to learn from
+                if not dry_run:
+                    await db.pattern_feedback.update_one(
+                        {"feedback_id": feedback_id},
+                        {"$set": {"status": "skipped", "skip_reason": "no_user_explanation"}}
+                    )
+                errors.append({
+                    "feedback_id": feedback_id,
+                    "error": "No user explanation provided"
+                })
+                continue
+            
+            # Prepare for extraction
+            extractor_feedback = {
+                "feedback_id": feedback_id,
+                "position_fen": feedback.get("position_fen", ""),
+                "move_played": feedback.get("move_played", ""),
+                "move_san": feedback.get("move_san", ""),
+                "best_move": feedback.get("best_move", ""),
+                "user_explanation": user_explanation,
+                "correct_classification": feedback.get("correct_classification", ""),
+            }
+            
+            # Extract pattern
+            rule = await extractor.extract_pattern(extractor_feedback)
+            
+            if rule and not dry_run:
+                # Store the smart pattern
+                await db.smart_patterns.update_one(
+                    {"rule_id": rule["rule_id"]},
+                    {"$set": rule},
+                    upsert=True
+                )
+                
+                # Update feedback status
+                await db.pattern_feedback.update_one(
+                    {"feedback_id": feedback_id},
+                    {"$set": {
+                        "status": "processed",
+                        "processed_at": datetime.now(timezone.utc).isoformat(),
+                        "generated_rule_id": rule["rule_id"]
+                    }}
+                )
+                
+                processed.append({
+                    "feedback_id": feedback_id,
+                    "pattern_type": rule.get("pattern_type"),
+                    "rule_id": rule["rule_id"],
+                    "explanation": rule.get("explanation_template", "")[:100]
+                })
+            elif rule:
+                # Dry run - just report
+                processed.append({
+                    "feedback_id": feedback_id,
+                    "pattern_type": rule.get("pattern_type"),
+                    "rule_id": rule["rule_id"],
+                    "dry_run": True
+                })
+            else:
+                # Couldn't extract a pattern
+                if not dry_run:
+                    await db.pattern_feedback.update_one(
+                        {"feedback_id": feedback_id},
+                        {"$set": {"status": "unprocessable", "skip_reason": "no_pattern_extracted"}}
+                    )
+                errors.append({
+                    "feedback_id": feedback_id,
+                    "error": "Could not extract pattern"
+                })
+                
+        except Exception as e:
+            logger.error(f"Error processing feedback {feedback.get('feedback_id')}: {e}")
+            errors.append({
+                "feedback_id": feedback.get("feedback_id"),
+                "error": str(e)
+            })
+    
+    return {
+        "success": True,
+        "processed": len(processed),
+        "errors": len(errors),
+        "total_pending": len(pending),
+        "results": processed,
+        "error_details": errors[:5],  # Limit error details
+        "dry_run": dry_run
+    }
+
+
+@router.get("/pending-feedback")
+async def get_pending_feedback(
+    limit: int = 10,
+    user: User = Depends(get_current_user)
+):
+    """Get pending feedback items waiting to be processed"""
+    global db
+    
+    pending = await db.pattern_feedback.find(
+        {"status": "pending"},
+        {"_id": 0}
+    ).limit(limit).to_list(length=limit)
+    
+    total = await db.pattern_feedback.count_documents({"status": "pending"})
+    
+    return {
+        "items": pending,
+        "count": len(pending),
+        "total": total
+    }
+
