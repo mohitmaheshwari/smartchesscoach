@@ -125,7 +125,12 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 ### P2 - Medium Priority
 1. ✅ Progress page verification COMPLETE - Rolling evolution, opening performance working
 2. ✅ Play with Coach enhancements COMPLETE - Memory and visual hints added
-3. Reconcile learned_rules vs smart_patterns collections (migrate remaining useful rules)
+3. ✅ Reconcile learned_rules vs smart_patterns COMPLETE - All 13 rules migrated
+
+### P3 - Completed
+- Server.py refactoring: 13 route modules, 135 endpoints extracted, 3,867 lines removed
+- Tag feedback integration: 33 game tags connected to auto-correction
+- Pattern migration: All learned_rules migrated to smart_patterns (24 total patterns)
 
 ### Future/Backlog
 - Identity Formation Layer (long-term playstyle evolution)
@@ -139,10 +144,10 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 |------------|-------|---------|
 | games | ~300 | Imported chess games |
 | game_analyses | ~300 | Stockfish analysis results |
-| smart_patterns | 11 | Active learned pattern rules |
-| tag_correction_patterns | 2 | NEW: Tag correction rules from user feedback |
-| tag_feedback | 2 | NEW: User tag corrections |
-| learned_rules | 13 | Legacy rules (deprecated, migrated) |
+| smart_patterns | 24 | Active learned pattern rules (13 migrated + 11 original) |
+| tag_correction_patterns | 2 | Tag correction rules from user feedback |
+| tag_feedback | 2 | User tag corrections |
+| learned_rules | 13 | Legacy rules (ALL MIGRATED to smart_patterns) |
 | pattern_feedback | 31 | User corrections (26 processed, 5 skipped) |
 | verified_corrections | 32 | Applied corrections |
 

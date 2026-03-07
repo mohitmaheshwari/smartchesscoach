@@ -110,12 +110,24 @@ class LearningDB:
         return str(result.inserted_id)
     
     async def get_active_rules(self) -> List[Dict]:
-        """Get all active learned rules for classification"""
+        """Get all active learned rules for classification from both collections"""
+        # First get from learned_rules (legacy)
         cursor = self.db.learned_rules.find(
             {"status": "active"},
             {"_id": 0}
         ).sort("priority", -1)
-        return await cursor.to_list(length=500)
+        learned = await cursor.to_list(length=500)
+        
+        # Also get from smart_patterns (new system)
+        smart_cursor = self.db.smart_patterns.find(
+            {"status": "active"},
+            {"_id": 0}
+        )
+        smart = await smart_cursor.to_list(length=500)
+        
+        # Combine both, with smart_patterns taking priority
+        combined = smart + learned
+        return combined
     
     async def get_rule_by_id(self, rule_id: str) -> Optional[Dict]:
         """Get a specific rule by ID"""
@@ -182,7 +194,8 @@ class LearningDB:
         return await cursor.to_list(length=100)
     
     async def get_rules_stats(self) -> Dict:
-        """Get overall statistics about learned rules"""
+        """Get overall statistics about learned rules from both collections"""
+        # Stats from learned_rules (legacy)
         pipeline = [
             {
                 "$group": {
@@ -194,21 +207,41 @@ class LearningDB:
             }
         ]
         cursor = self.db.learned_rules.aggregate(pipeline)
-        results = await cursor.to_list(length=100)
+        learned_results = await cursor.to_list(length=100)
+        
+        # Stats from smart_patterns (new)
+        smart_cursor = self.db.smart_patterns.aggregate(pipeline)
+        smart_results = await smart_cursor.to_list(length=100)
         
         stats = {
             "by_status": {},
             "total_rules": 0,
-            "total_triggers": 0
+            "total_triggers": 0,
+            "smart_patterns_total": 0,
+            "learned_rules_total": 0
         }
-        for r in results:
-            stats["by_status"][r["_id"]] = {
+        
+        # Process learned_rules
+        for r in learned_results:
+            status = f"learned_{r['_id']}"
+            stats["by_status"][status] = {
                 "count": r["count"],
                 "triggers": r["total_triggers"],
                 "avg_accuracy": r.get("avg_accuracy", 0)
             }
-            stats["total_rules"] += r["count"]
-            stats["total_triggers"] += r["total_triggers"]
+            stats["learned_rules_total"] += r["count"]
+        
+        # Process smart_patterns
+        for r in smart_results:
+            status = f"smart_{r['_id']}"
+            stats["by_status"][status] = {
+                "count": r["count"],
+                "triggers": r["total_triggers"] or 0,
+                "avg_accuracy": r.get("avg_accuracy", 0) or 0
+            }
+            stats["smart_patterns_total"] += r["count"]
+        
+        stats["total_rules"] = stats["smart_patterns_total"] + stats["learned_rules_total"]
         
         return stats
     
