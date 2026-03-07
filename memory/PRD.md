@@ -78,6 +78,16 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
   3. Future tagging checks for corrections before applying tags
   4. System learns and improves over time
 
+### 10. Play With Coach Enhancements ✅ (P2)
+- **Coach Memory**: Added "Coach Remembers" section to game setup screen
+  - Shows win/draw/loss stats from past games
+  - Displays recent session history with dates
+  - Shows player identity if available (e.g., "The Calculator")
+- **Visual Move Hints**: Enhanced guardian intervention modal
+  - Alternative moves are now clickable with icons
+  - Shows toast with square hints when clicked
+  - Better explanation text for suggested moves
+
 ## API Endpoints
 
 ### Pattern Learning (Enhanced)

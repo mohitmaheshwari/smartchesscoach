@@ -3317,246 +3317,18 @@ async def check_post_session_improvement(user: User = Depends(get_current_user))
 # - GET /behavioral/mission/history
 # - GET /behavioral/mission/last-result
 
-# ==================== MISSION ENGINE ROUTES ====================
-
-class MissionStepRequest(BaseModel):
-    """Request for recording a mission step"""
-    step_type: str  # "drill_result" | "reflect_complete" | "process_signal"
-    payload: Dict = {}
-
-class MissionCompleteRequest(BaseModel):
-    """Request for completing a mission"""
-    score: Dict
-
-@api_router.get("/missions/today")
-async def get_today_mission(user: User = Depends(get_current_user)):
-    """
-    Get or generate today's mission.
-    Returns active mission if exists, otherwise generates new one.
-    """
-    user_doc = await db.users.find_one({"user_id": user.user_id})
-    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
-    
-    mission = await generate_daily_mission(user.user_id, rating, db)
-    
-    # Get focus info
-    focus_data = PATTERN_FOCUS_MAP.get(mission.get("focus_pattern"), {})
-    
-    return {
-        "mission_id": mission.get("mission_id"),
-        "trigger_type": mission.get("trigger_type"),
-        "focus_label": mission.get("focus_label"),
-        "focus_pattern": mission.get("focus_pattern"),
-        "micro_protocol": mission.get("micro_protocol", focus_data.get("micro_protocol", [])),
-        "goal": {
-            "type": mission.get("goal_type"),
-            "target": mission.get("goal_target"),
-            "success_threshold": mission.get("goal_success_threshold"),
-        },
-        "estimated_minutes": mission.get("estimated_minutes"),
-        "difficulty_band": mission.get("difficulty_band"),
-        "status": mission.get("status"),
-        "source_game_id": mission.get("source_game_id"),
-    }
-
-@api_router.post("/missions/{mission_id}/start")
-async def start_mission_endpoint(mission_id: str, user: User = Depends(get_current_user)):
-    """Start a mission session."""
-    result = await start_mission(mission_id, user.user_id, db)
-    return result
-
-@api_router.get("/missions/{mission_id}/positions")
-async def get_mission_positions(mission_id: str, user: User = Depends(get_current_user)):
-    """
-    Get drill positions for a specific mission.
-    Returns positions from user's games that match the mission's focus pattern.
-    """
-    # Get mission
-    mission = await db.behavioral_missions.find_one({
-        "mission_id": mission_id,
-        "user_id": user.user_id
-    })
-    
-    if not mission:
-        raise HTTPException(status_code=404, detail="Mission not found")
-    
-    focus_pattern = mission.get("focus_pattern", "critical_moment_drift")
-    target_count = mission.get("goal_target", 5)
-    source_game_id = mission.get("source_game_id")
-    
-    # Get positions from user's analyzed games
-    positions = []
-    
-    # If mission is from a specific game, prioritize that game
-    if source_game_id:
-        source_analysis = await db.game_analyses.find_one({"game_id": source_game_id})
-        if source_analysis:
-            positions = extract_drill_positions(source_analysis, focus_pattern, limit=target_count)
-    
-    # Get more from other games if needed
-    if len(positions) < target_count:
-        other_analyses = await db.game_analyses.find({
-            "user_id": user.user_id,
-        }).sort("analyzed_at", -1).limit(15).to_list(15)
-        
-        for analysis in other_analyses:
-            more_positions = extract_drill_positions(analysis, focus_pattern, limit=target_count - len(positions))
-            positions.extend(more_positions)
-            if len(positions) >= target_count:
-                break
-    
-    # If still no positions, generate sample positions for the pattern
-    if len(positions) == 0:
-        positions = get_sample_drill_positions(focus_pattern, target_count)
-    
-    return {
-        "positions": positions[:target_count],
-        "total": len(positions[:target_count]),
-        "focus_pattern": focus_pattern,
-        "mission_id": mission_id
-    }
+# NOTE: Mission routes moved to routes/missions.py:
+# - GET /missions/today
+# - POST /missions/{mission_id}/start
+# - GET /missions/{mission_id}/positions
+# - POST /missions/generate-fix
+# - POST /missions/{mission_id}/step
+# - POST /missions/{mission_id}/complete
+# - GET /missions/history
+# - GET /missions/focus-mastery
 
 
-def get_sample_drill_positions(focus_pattern: str, count: int = 5) -> list:
-    """
-    Generate sample drill positions for training when no user-specific positions exist.
-    These are common tactical patterns matching the focus area.
-    """
-    # Sample positions by pattern - real tactical puzzles
-    SAMPLE_POSITIONS = {
-        "ignored_opponent_forcing": [
-            {
-                "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
-                "best_move": "Qxf7+",
-                "explanation": "White can win material - what threat did Black ignore?",
-            },
-            {
-                "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 3",
-                "best_move": "Ng5",
-                "explanation": "Look for forcing moves against f7.",
-            },
-            {
-                "fen": "rnbqkb1r/pppp1ppp/5n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
-                "best_move": "Nc6",
-                "explanation": "Develop while defending - what threat must Black see?",
-            },
-            {
-                "fen": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
-                "best_move": "a6",
-                "explanation": "Address the bishop's threat to the knight.",
-            },
-            {
-                "fen": "r2qkb1r/ppp2ppp/2n1bn2/3pp3/2B1P3/2NP1N2/PPP2PPP/R1BQK2R w KQkq - 0 6",
-                "best_move": "exd5",
-                "explanation": "Open lines while the king is in the center.",
-            },
-        ],
-        "missed_forcing_move": [
-            {
-                "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
-                "best_move": "Ng5",
-                "explanation": "Find the most aggressive move targeting f7.",
-            },
-            {
-                "fen": "r1bqkbnr/pppp1Qpp/2n5/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4",
-                "best_move": "Kxf7",
-                "explanation": "The only legal move - but what did White miss before?",
-            },
-            {
-                "fen": "rnb1kbnr/pppp1ppp/8/4p3/5PPq/8/PPPPP2P/RNBQKBNR w KQkq - 1 3",
-                "best_move": "g3",
-                "explanation": "Trap the queen - forcing moves work both ways!",
-            },
-            {
-                "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
-                "best_move": "d3",
-                "explanation": "Solidify before attacking - sometimes defense is forcing.",
-            },
-            {
-                "fen": "r1bqkb1r/1ppp1ppp/p1n2n2/4p3/B3P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5",
-                "best_move": "Bxc6",
-                "explanation": "Exchange before Black can castle.",
-            },
-        ],
-        "critical_moment_drift": [
-            {
-                "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
-                "best_move": "Bb5",
-                "explanation": "The critical moment - choose the most active development.",
-            },
-            {
-                "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/4P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 4",
-                "best_move": "Bb5",
-                "explanation": "Don't drift - keep the pressure on.",
-            },
-            {
-                "fen": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
-                "best_move": "Nf6",
-                "explanation": "Develop with tempo - challenge the center.",
-            },
-            {
-                "fen": "rnbqkb1r/pp2pppp/5n2/2pp4/3P4/2N2N2/PPP1PPPP/R1BQKB1R w KQkq - 0 4",
-                "best_move": "cxd5",
-                "explanation": "Critical pawn tension - make the right capture.",
-            },
-            {
-                "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
-                "best_move": "d3",
-                "explanation": "Solid over flashy - protect before attacking.",
-            },
-        ],
-        "advantage_mismanagement": [
-            {
-                "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/1bPP4/2NBPN2/PP3PPP/R1BQK2R w KQ - 2 7",
-                "best_move": "O-O",
-                "explanation": "Consolidate your advantage - safety first.",
-            },
-            {
-                "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2BPP3/5N2/PPP2PPP/RNBQK2R b KQkq - 0 4",
-                "best_move": "exd4",
-                "explanation": "Convert the advantage carefully.",
-            },
-            {
-                "fen": "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
-                "best_move": "c3",
-                "explanation": "Prepare d4 - don't rush the attack.",
-            },
-            {
-                "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2BPP3/5N2/PPP2PPP/RNBQK2R b KQkq - 0 4",
-                "best_move": "exd4",
-                "explanation": "Simplify when ahead - trade pieces.",
-            },
-            {
-                "fen": "r1bq1rk1/ppppbppp/2n2n2/4p3/2B1P3/3P1N2/PPP2PPP/RNBQ1RK1 w - - 6 6",
-                "best_move": "Nc3",
-                "explanation": "Develop all pieces before attacking.",
-            },
-        ],
-    }
-    
-    # Default to critical_moment_drift if pattern not found
-    pattern_positions = SAMPLE_POSITIONS.get(focus_pattern, SAMPLE_POSITIONS["critical_moment_drift"])
-    
-    positions = []
-    for i, pos in enumerate(pattern_positions[:count]):
-        positions.append({
-            "position_id": f"sample_{focus_pattern}_{i}",
-            "game_id": "sample",
-            "fen": pos["fen"],
-            "move_number": i + 1,
-            "user_move": None,
-            "best_move": pos["best_move"],
-            "eval_before": 0,
-            "eval_after": 0,
-            "eval_change": 0,
-            "category": focus_pattern,
-            "explanation": pos["explanation"],
-            "type": "drill",
-        })
-    
-    return positions
-
-
+# Helper functions for missions (used by routes/missions.py)
 def extract_drill_positions(analysis: dict, focus_pattern: str, limit: int = 5) -> list:
     """
     Extract drill-worthy positions from a game analysis based on focus pattern.
@@ -3612,392 +3384,45 @@ def extract_drill_positions(analysis: dict, focus_pattern: str, limit: int = 5) 
     
     return positions
 
-@api_router.post("/missions/generate-fix")
-async def generate_fix_mission(data: dict, user: User = Depends(get_current_user)):
-    """
-    Generate a fix-it mission for a specific game (post-loss recovery).
-    Returns the mission that targets the main issue from the game.
-    """
-    game_id = data.get("game_id")
-    if not game_id:
-        raise HTTPException(status_code=400, detail="game_id required")
-    
-    # Get game analysis
-    analysis = await db.game_analyses.find_one({"game_id": game_id, "user_id": user.user_id})
-    if not analysis:
-        raise HTTPException(status_code=404, detail="Game analysis not found")
-    
-    # Get user rating
-    user_doc = await db.users.find_one({"user_id": user.user_id})
-    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
-    
-    # Find main issue pattern
-    blunders = analysis.get("blunders", [])
-    main_pattern = "critical_moment_drift"  # Default
-    
-    if blunders:
-        categories = [b.get("mistake_category") for b in blunders if b.get("mistake_category")]
-        if categories:
-            from collections import Counter
-            main_pattern = Counter(categories).most_common(1)[0][0]
-    
-    # Generate mission targeting this pattern
-    mission = await generate_daily_mission(
-        user.user_id, 
-        rating, 
-        db,
-        trigger_type="post_loss",
-        source_game_id=game_id,
-        force_pattern=main_pattern
-    )
-    
-    # Get focus info
-    focus_data = PATTERN_FOCUS_MAP.get(mission.get("focus_pattern"), {})
-    
-    return {
-        "mission_id": mission.get("mission_id"),
-        "trigger_type": "post_loss",
-        "focus_label": mission.get("focus_label"),
-        "focus_pattern": mission.get("focus_pattern"),
-        "micro_protocol": mission.get("micro_protocol", focus_data.get("micro_protocol", [])),
-        "goal": {
-            "type": mission.get("goal_type"),
-            "target": mission.get("goal_target"),
-            "success_threshold": mission.get("goal_threshold"),
-        },
-        "estimated_minutes": mission.get("estimated_minutes"),
-        "difficulty_band": mission.get("difficulty_band"),
-        "source_game_id": game_id,
-    }
 
-@api_router.post("/missions/{mission_id}/step")
-async def record_mission_step(
-    mission_id: str,
-    data: MissionStepRequest,
-    user: User = Depends(get_current_user)
-):
+def get_sample_drill_positions(focus_pattern: str, count: int = 5) -> list:
     """
-    Record a step in the mission session.
-    Emits reward events for process recognition.
+    Generate sample drill positions for training when no user-specific positions exist.
+    These are common tactical patterns matching the focus area.
     """
-    now = datetime.now(timezone.utc)
-    
-    # Get active session
-    session = await db.mission_sessions.find_one({
-        "mission_id": mission_id,
-        "user_id": user.user_id,
-        "ended_at": None,
-    })
-    
-    if not session:
-        raise HTTPException(status_code=404, detail="No active session for this mission")
-    
-    # Build step record
-    step = {
-        "type": data.step_type,
-        "payload": data.payload,
-        "status": data.payload.get("status", "done"),
-        "duration_ms": data.payload.get("duration_ms", 0),
-        "recorded_at": now.isoformat(),
+    # Sample positions by pattern - real tactical puzzles
+    SAMPLE_POSITIONS = {
+        "ignored_opponent_forcing": [
+            {"fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
+             "best_move": "Qxf7+", "explanation": "White can win material - what threat did Black ignore?"},
+            {"fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 3",
+             "best_move": "Ng5", "explanation": "Look for forcing moves against f7."},
+        ],
+        "missed_forcing_move": [
+            {"fen": "rnbqkb1r/pppp1ppp/5n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+             "best_move": "Nc6", "explanation": "Develop while defending - what threat must Black see?"},
+        ],
+        "critical_moment_drift": [
+            {"fen": "r2qkb1r/ppp2ppp/2n1bn2/3pp3/2B1P3/2NP1N2/PPP2PPP/R1BQK2R w KQkq - 0 6",
+             "best_move": "exd5", "explanation": "Critical position - find the strongest continuation."},
+        ],
     }
     
-    # Update session
-    await db.mission_sessions.update_one(
-        {"session_id": session["session_id"]},
-        {"$push": {"steps": step}}
-    )
-    
-    # Check for reward triggers
-    reward_events = []
-    user_doc = await db.users.find_one({"user_id": user.user_id})
-    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
-    
-    # Process Recognition: Check if user used threat scan
-    if data.step_type == "drill_result" and data.payload.get("used_threat_scan"):
-        reward_msg = get_reward_message(
-            RewardEventType.PROCESS_THREAT_SCAN,
-            rating,
-        )
-        if reward_msg:
-            reward_events.append({
-                "type": "process_recognition",
-                "message": reward_msg["text"],
-            })
-            # Store event
-            await db.reward_events.insert_one({
-                "event_id": f"e_{uuid.uuid4().hex[:12]}",
-                "user_id": user.user_id,
-                "event_type": RewardEventType.PROCESS_THREAT_SCAN.value,
-                "source": "mission",
-                "payload": {"mission_id": mission_id},
-                "message_id": reward_msg["message_id"],
-                "created_at": now.isoformat(),
-                "seen": False,
-            })
-    
-    # Pattern Recognition: Check if user got 2+ correct on same pattern
-    if data.step_type == "drill_result" and data.payload.get("is_correct"):
-        # Count correct in session
-        correct_count = sum(1 for s in session.get("steps", []) 
-                          if s.get("type") == "drill_result" and s.get("payload", {}).get("is_correct"))
-        if correct_count == 1:  # This is their second correct
-            reward_msg = get_reward_message(
-                RewardEventType.PATTERN_RECOGNIZED,
-                rating,
-            )
-            if reward_msg:
-                reward_events.append({
-                    "type": "pattern_recognition",
-                    "message": reward_msg["text"],
-                })
-    
-    # Recovery: Check for wrong → correct → correct sequence
-    steps = session.get("steps", []) + [step]
-    drill_results = [s for s in steps if s.get("type") == "drill_result"]
-    if len(drill_results) >= 3:
-        last_three = drill_results[-3:]
-        results = [s.get("payload", {}).get("is_correct") for s in last_three]
-        if results == [False, True, True]:
-            reward_msg = get_reward_message(
-                RewardEventType.RECOVERY_GOOD_RESET,
-                rating,
-            )
-            if reward_msg:
-                reward_events.append({
-                    "type": "recovery_moment",
-                    "message": reward_msg["text"],
-                })
-    
-    # Update score in session
-    if data.step_type == "drill_result":
-        is_correct = data.payload.get("is_correct", False)
-        await db.mission_sessions.update_one(
-            {"session_id": session["session_id"]},
-            {
-                "$inc": {
-                    "score.attempted": 1,
-                    "score.correct": 1 if is_correct else 0,
-                }
-            }
-        )
-    
-    # Get updated score
-    updated_session = await db.mission_sessions.find_one({"session_id": session["session_id"]})
-    
-    return {
-        "step_recorded": True,
-        "reward_events": reward_events,
-        "progress": {
-            "attempted": updated_session.get("score", {}).get("attempted", 0),
-            "correct": updated_session.get("score", {}).get("correct", 0),
-            "target": 5,  # From mission
-        },
-    }
-
-@api_router.post("/missions/{mission_id}/complete")
-async def complete_mission_endpoint(
-    mission_id: str,
-    data: MissionCompleteRequest,
-    user: User = Depends(get_current_user)
-):
-    """Complete a mission and get result + rewards."""
-    # Get active session
-    session = await db.mission_sessions.find_one({
-        "mission_id": mission_id,
-        "user_id": user.user_id,
-        "ended_at": None,
-    })
-    
-    if not session:
-        raise HTTPException(status_code=404, detail="No active session")
-    
-    result = await complete_mission(
-        mission_id=mission_id,
-        session_id=session["session_id"],
-        user_id=user.user_id,
-        score=data.score,
-        db=db,
-    )
-    
-    # Get reward message
-    user_doc = await db.users.find_one({"user_id": user.user_id})
-    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
-    
-    passed = result.get("result") == "pass"
-    reward_event = RewardEventType.MISSION_COMPLETE_PASS if passed else RewardEventType.MISSION_COMPLETE_FAIL
-    
-    reward_msg = get_reward_message(reward_event, rating, {
-        "focus_label": result.get("focus_label"),
-        "correct": result.get("score", {}).get("correct", 0),
-        "attempted": result.get("score", {}).get("attempted", 0),
-    })
-    
-    # Store reward event
-    if reward_msg:
-        await db.reward_events.insert_one({
-            "event_id": f"e_{uuid.uuid4().hex[:12]}",
-            "user_id": user.user_id,
-            "event_type": reward_event.value,
-            "source": "mission",
-            "payload": {"mission_id": mission_id, "result": result.get("result")},
-            "message_id": reward_msg["message_id"],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "seen": False,
-        })
-    
-    return {
-        "result": result.get("result"),
-        "score": result.get("score"),
-        "threshold": result.get("threshold"),
-        "focus_label": result.get("focus_label"),
-        "coach_message": reward_msg["text"] if reward_msg else ("Good work!" if passed else "Keep practicing."),
-    }
-
-@api_router.get("/missions/history")
-async def get_mission_history(limit: int = 10, user: User = Depends(get_current_user)):
-    """Get user's recent mission history."""
-    missions = await db.behavioral_missions.find({
-        "user_id": user.user_id,
-        "status": "completed",
-    }).sort("completed_at", -1).limit(limit).to_list(limit)
+    positions = SAMPLE_POSITIONS.get(focus_pattern, SAMPLE_POSITIONS.get("critical_moment_drift", []))
     
     result = []
-    for m in missions:
+    for i, pos in enumerate(positions[:count]):
         result.append({
-            "mission_id": m.get("mission_id"),
-            "focus_label": m.get("focus_label"),
-            "result": m.get("result"),
-            "completed_at": m.get("completed_at"),
-            "trigger_type": m.get("trigger_type"),
+            "position_id": f"sample_{focus_pattern}_{i}",
+            "game_id": "sample",
+            "fen": pos["fen"],
+            "best_move": pos["best_move"],
+            "explanation": pos["explanation"],
+            "category": focus_pattern,
+            "type": "sample",
         })
     
-    # Stats
-    total = len(result)
-    passed = sum(1 for m in result if m["result"] == "pass")
-    
-    return {
-        "missions": result,
-        "stats": {
-            "total": total,
-            "passed": passed,
-            "pass_rate": passed / total if total > 0 else 0,
-        },
-    }
-
-@api_router.get("/missions/focus-mastery")
-async def get_focus_mastery(user: User = Depends(get_current_user)):
-    """
-    Get user's comprehensive focus mastery data.
-    Shows mastery scores, trends, and recommendations for cognitive patterns.
-    """
-    # Get all game analyses for this user
-    game_analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    ).to_list(100)
-    
-    # Get active patterns from user settings or defaults
-    user_settings = await db.user_settings.find_one({"user_id": user.user_id})
-    active_patterns = None
-    if user_settings:
-        active_patterns = user_settings.get("active_focus_patterns")
-    
-    # Get comprehensive mastery data
-    mastery_data = get_user_focus_mastery(user.user_id, game_analyses, active_patterns)
-    
-    # Also get legacy format for backwards compatibility
-    legacy_masteries = await db.focus_mastery.find({
-        "user_id": user.user_id,
-    }).to_list(20)
-    
-    legacy_result = []
-    for m in legacy_masteries:
-        score = m.get("mastery_score", 0)
-        band = "Emerging" if score < 25 else "Improving" if score < 50 else "Stable" if score < 75 else "Reliable"
-        
-        pattern = m.get("pattern")
-        focus_data = PATTERN_FOCUS_MAP.get(pattern, {})
-        
-        legacy_result.append({
-            "pattern": pattern,
-            "label": focus_data.get("focus_label", pattern),
-            "mastery_score": score,
-            "band": band,
-            "recent_results": m.get("recent_mission_results", [])[-5:],
-        })
-    
-    return {
-        "masteries": legacy_result,  # Legacy format
-        "focus_mastery": mastery_data,  # New comprehensive format
-    }
-
-@api_router.get("/weekly-proof")
-async def get_weekly_proof_endpoint(user: User = Depends(get_current_user)):
-    """
-    Get weekly proof card data.
-    Shows improvement, ongoing issues, and next focus.
-    """
-    user_doc = await db.users.find_one({"user_id": user.user_id})
-    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
-    
-    # Get recent analyses for blunder trend
-    now = datetime.now(timezone.utc)
-    week_ago = now - timedelta(days=7)
-    two_weeks_ago = now - timedelta(days=14)
-    
-    this_week = await db.game_analyses.find({
-        "user_id": user.user_id,
-        "analyzed_at": {"$gte": week_ago.isoformat()},
-    }).to_list(50)
-    
-    last_week = await db.game_analyses.find({
-        "user_id": user.user_id,
-        "analyzed_at": {"$gte": two_weeks_ago.isoformat(), "$lt": week_ago.isoformat()},
-    }).to_list(50)
-    
-    # Calculate blunder rates
-    this_week_blunders = sum(len(a.get("blunders", [])) for a in this_week)
-    this_week_games = len(this_week) or 1
-    last_week_blunders = sum(len(a.get("blunders", [])) for a in last_week)
-    last_week_games = len(last_week) or 1
-    
-    blunders_delta = (this_week_blunders / this_week_games) - (last_week_blunders / last_week_games)
-    
-    # Get main leak
-    pattern_counts = {}
-    for a in this_week:
-        for b in a.get("blunders", []):
-            cat = b.get("mistake_category")
-            if cat:
-                pattern_counts[cat] = pattern_counts.get(cat, 0) + 1
-    
-    main_leak = None
-    if pattern_counts:
-        main_pattern = max(pattern_counts, key=pattern_counts.get)
-        main_leak = PATTERN_FOCUS_MAP.get(main_pattern, {}).get("focus_label", main_pattern)
-    
-    # Get next focus from training profile or top pattern
-    training_profile = await db.training_profiles.find_one({"user_id": user.user_id})
-    next_focus = training_profile.get("current_focus_label") if training_profile else main_leak
-    
-    # Generate proof
-    proof = generate_weekly_proof(
-        rating=rating,
-        blunders_delta=blunders_delta,
-        main_leak=main_leak or "General patterns",
-        improvement_area=None,
-        next_focus=next_focus,
-    )
-    
-    return {
-        "lines": proof["lines"],
-        "rating_band": proof["rating_band"],
-        "stats": {
-            "this_week_games": this_week_games,
-            "this_week_blunders_per_game": round(this_week_blunders / this_week_games, 2),
-            "blunders_delta": round(blunders_delta, 2),
-        },
-    }
+    return result
 
 
 # NOTE: GET /reflect/v1/post-loss/{game_id} moved to routes/reflect.py
@@ -5325,362 +4750,14 @@ async def record_challenge_result_endpoint(
     
     return result
 
-# ==================== EMAIL NOTIFICATION SETTINGS ====================
 
-class EmailNotificationSettings(BaseModel):
-    game_analyzed: bool = True
-    weekly_summary: bool = True
-    weakness_alert: bool = True
-
-@api_router.get("/settings/email-notifications")
-async def get_email_notification_settings(user: User = Depends(get_current_user)):
-    """Get user's email notification preferences"""
-    user_doc = await db.users.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0, "email_notifications": 1, "email": 1}
-    )
-    
-    if not user_doc:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Default settings if not set
-    default_settings = {
-        "game_analyzed": True,
-        "weekly_summary": True,
-        "weakness_alert": True
-    }
-    
-    return {
-        "email": user_doc.get("email", ""),
-        "notifications": user_doc.get("email_notifications", default_settings)
-    }
-
-@api_router.put("/settings/email-notifications")
-async def update_email_notification_settings(
-    settings: EmailNotificationSettings,
-    user: User = Depends(get_current_user)
-):
-    """Update user's email notification preferences"""
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$set": {
-            "email_notifications": {
-                "game_analyzed": settings.game_analyzed,
-                "weekly_summary": settings.weekly_summary,
-                "weakness_alert": settings.weakness_alert
-            }
-        }}
-    )
-    
-    return {
-        "message": "Email notification settings updated",
-        "notifications": {
-            "game_analyzed": settings.game_analyzed,
-            "weekly_summary": settings.weekly_summary,
-            "weakness_alert": settings.weakness_alert
-        }
-    }
-
-@api_router.post("/settings/test-email")
-async def send_test_email(user: User = Depends(get_current_user)):
-    """Send a test email to verify email configuration"""
-    from email_service import send_email, is_email_configured
-    
-    if not is_email_configured():
-        raise HTTPException(
-            status_code=503, 
-            detail="Email service not configured. Please add SENDGRID_API_KEY to environment."
-        )
-    
-    user_doc = await db.users.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0, "email": 1, "name": 1}
-    )
-    
-    if not user_doc or not user_doc.get("email"):
-        raise HTTPException(status_code=400, detail="No email address found for user")
-    
-    subject = "🎯 Chess Coach AI - Test Email"
-    html_content = f"""
-    <html>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2>✅ Email Test Successful!</h2>
-            <p>Hey {user_doc.get('name', 'Chess Player')}!</p>
-            <p>Great news - your email notifications are working correctly.</p>
-            <p>You'll receive notifications when:</p>
-            <ul>
-                <li>New games are analyzed</li>
-                <li>Weekly progress summaries are ready</li>
-                <li>Recurring weaknesses are detected</li>
-            </ul>
-            <p>Keep improving your game! ♟️</p>
-            <p><em>— Your Chess Coach</em></p>
-        </div>
-    </body>
-    </html>
-    """
-    
-    success = await send_email(user_doc["email"], subject, html_content)
-    
-    if success:
-        return {"message": "Test email sent successfully", "email": user_doc["email"]}
-    else:
-        raise HTTPException(status_code=500, detail="Failed to send test email")
-
-# ==================== ONBOARDING ====================
-
-@api_router.get("/onboarding/status")
-async def get_onboarding_status(user: User = Depends(get_current_user)):
-    """
-    Check if user needs onboarding.
-    Returns needs_onboarding=true if no linked accounts AND no analyzed games.
-    """
-    user_doc = await db.users.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0, "chess_com_username": 1, "chesscom_username": 1, "lichess_username": 1, "onboarding_completed": 1}
-    )
-    
-    if not user_doc:
-        return {"needs_onboarding": True, "reason": "user_not_found"}
-    
-    # Check if onboarding was explicitly completed
-    if user_doc.get("onboarding_completed"):
-        return {"needs_onboarding": False}
-    
-    # Check if user has linked accounts (support both field names)
-    has_linked = user_doc.get("chess_com_username") or user_doc.get("chesscom_username") or user_doc.get("lichess_username")
-    
-    if not has_linked:
-        return {"needs_onboarding": True, "reason": "no_linked_accounts"}
-    
-    # Check if user has analyzed games
-    game_count = await db.game_analyses.count_documents({"user_id": user.user_id})
-    
-    if game_count == 0:
-        return {"needs_onboarding": True, "reason": "no_analyzed_games"}
-    
-    return {"needs_onboarding": False}
-
-
-class ProfileSettingsRequest(BaseModel):
-    fide_rating: Optional[int] = None
-    detected_rating: Optional[int] = None  # Auto-detected from linked account
-    detected_platform: Optional[str] = None  # chess.com or lichess
-    focus_intent: Optional[str] = None  # tactics, openings, endgames, stability
-
-
-@api_router.post("/settings/profile")
-async def update_profile_settings(req: ProfileSettingsRequest, user: User = Depends(get_current_user)):
-    """
-    Update user profile settings from onboarding.
-    - fide_rating: Official FIDE rating (optional)
-    - detected_rating: Auto-detected from Chess.com/Lichess
-    - focus_intent: What user wants to improve (doesn't override diagnosis)
-    """
-    update_data = {}
-    
-    if req.fide_rating is not None:
-        update_data["fide_rating"] = req.fide_rating
-    if req.detected_rating is not None:
-        update_data["detected_rating"] = req.detected_rating
-        update_data["detected_platform"] = req.detected_platform
-        # Auto-classify skill level based on rating
-        if req.detected_rating >= 1800:
-            update_data["skill_level"] = "advanced"
-        elif req.detected_rating >= 1200:
-            update_data["skill_level"] = "intermediate"
-        else:
-            update_data["skill_level"] = "developing"
-    if req.focus_intent is not None:
-        update_data["focus_intent"] = req.focus_intent
-    
-    update_data["onboarding_completed"] = True
-    update_data["onboarding_completed_at"] = datetime.now(timezone.utc).isoformat()
-    
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$set": update_data}
-    )
-    
-    return {"message": "Profile updated successfully"}
-
-
-class LinkAccountRequest(BaseModel):
-    """Request model for linking chess accounts"""
-    platform: str  # "chess.com" or "lichess"
-    username: str
-
-
-@api_router.post("/settings/link-account")
-async def settings_link_account(req: LinkAccountRequest, user: User = Depends(get_current_user)):
-    """
-    Link chess account and calculate assessed skill rating.
-    """
-    from skill_calibration_service import calculate_performance_rating, classify_time_control
-    
-    platform = req.platform.lower()
-    username = req.username.strip()
-    
-    if platform not in ["chess.com", "lichess"]:
-        raise HTTPException(status_code=400, detail="Invalid platform. Use 'chess.com' or 'lichess'")
-    
-    if not username:
-        raise HTTPException(status_code=400, detail="Username is required")
-    
-    # Update user record based on platform
-    if platform == "chess.com":
-        update_field = "chesscom_username"
-    else:
-        update_field = "lichess_username"
-    
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$set": {
-            update_field: username,
-            "last_game_sync": None
-        }}
-    )
-    
-    # Fetch recent games and calculate performance rating
-    assessed_rating = None
-    games_data = []
-    
-    try:
-        if platform == "chess.com":
-            import httpx
-            async with httpx.AsyncClient() as client:
-                # Get recent games from Chess.com
-                from datetime import datetime
-                now = datetime.now()
-                year, month = now.year, now.month
-                
-                for _ in range(3):  # Check last 3 months
-                    url = f"https://api.chess.com/pub/player/{username}/games/{year}/{month:02d}"
-                    resp = await client.get(url, timeout=10)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        for game in data.get("games", [])[:25]:
-                            # Extract game info
-                            white = game.get("white", {})
-                            black = game.get("black", {})
-                            is_white = white.get("username", "").lower() == username.lower()
-                            
-                            opp = black if is_white else white
-                            player = white if is_white else black
-                            
-                            opp_rating = opp.get("rating")
-                            result_str = player.get("result", "")
-                            
-                            if result_str == "win":
-                                result = "win"
-                            elif result_str in ["checkmated", "timeout", "resigned", "abandoned"]:
-                                result = "loss"
-                            else:
-                                result = "draw"
-                            
-                            tc = game.get("time_class", "blitz")
-                            
-                            if opp_rating:
-                                games_data.append({
-                                    "opponent_rating": opp_rating,
-                                    "result": result,
-                                    "time_control": tc
-                                })
-                    
-                    # Move to previous month
-                    month -= 1
-                    if month == 0:
-                        month = 12
-                        year -= 1
-                    
-                    if len(games_data) >= 25:
-                        break
-        
-        elif platform == "lichess":
-            import httpx
-            async with httpx.AsyncClient() as client:
-                url = f"https://lichess.org/api/games/user/{username}?max=25&perfType=rapid,classical,blitz"
-                headers = {"Accept": "application/x-ndjson"}
-                resp = await client.get(url, headers=headers, timeout=15)
-                
-                if resp.status_code == 200:
-                    import json
-                    for line in resp.text.strip().split("\n"):
-                        if not line:
-                            continue
-                        try:
-                            game = json.loads(line)
-                            players = game.get("players", {})
-                            white = players.get("white", {})
-                            black = players.get("black", {})
-                            
-                            is_white = white.get("user", {}).get("name", "").lower() == username.lower()
-                            
-                            opp = black if is_white else white
-                            player_color = "white" if is_white else "black"
-                            
-                            opp_rating = opp.get("rating")
-                            winner = game.get("winner")
-                            
-                            if winner == player_color:
-                                result = "win"
-                            elif winner is None:
-                                result = "draw"
-                            else:
-                                result = "loss"
-                            
-                            tc = game.get("speed", "blitz")
-                            
-                            if opp_rating:
-                                games_data.append({
-                                    "opponent_rating": opp_rating,
-                                    "result": result,
-                                    "time_control": tc
-                                })
-                        except (json.JSONDecodeError, KeyError, TypeError):
-                            continue
-        
-        # Calculate performance rating
-        if games_data:
-            perf, confidence = calculate_performance_rating(games_data, platform)
-            if perf:
-                assessed_rating = int(perf)
-                
-                # Determine skill level
-                if assessed_rating >= 2000:
-                    skill_level = "expert"
-                elif assessed_rating >= 1800:
-                    skill_level = "advanced"
-                elif assessed_rating >= 1400:
-                    skill_level = "intermediate"
-                elif assessed_rating >= 1000:
-                    skill_level = "developing"
-                else:
-                    skill_level = "beginner"
-                
-                # Store assessed rating
-                await db.users.update_one(
-                    {"user_id": user.user_id},
-                    {"$set": {
-                        "assessed_rating": assessed_rating,
-                        "skill_level": skill_level,
-                        "rating_confidence": confidence,
-                        "rating_source": platform,
-                        "rating_games_analyzed": len(games_data)
-                    }}
-                )
-    
-    except Exception as e:
-        logger.warning(f"Failed to calculate performance rating: {e}")
-    
-    return {
-        "message": "Account linked successfully",
-        "platform": platform,
-        "username": username,
-        "assessed_rating": assessed_rating,
-        "games_analyzed": len(games_data)
-    }
+# NOTE: Settings routes moved to routes/settings.py:
+# - GET /settings/email-notifications
+# - PUT /settings/email-notifications
+# - POST /settings/test-email
+# - GET /onboarding/status
+# - POST /settings/profile
+# - POST /settings/link-account
 
 
 @api_router.post("/games/sync")
@@ -11559,6 +10636,8 @@ from routes import journey as journey_routes
 from routes import cognitive as cognitive_routes
 from routes import behavioral as behavioral_routes
 from routes import notifications as notifications_routes
+from routes import missions as missions_routes
+from routes import settings as settings_routes
 
 # Set database references for modular routers
 games_routes.set_db(db)
@@ -11573,6 +10652,18 @@ journey_routes.set_sync_status(_sync_status, QUICK_SYNC_INTERVAL_SECONDS)
 cognitive_routes.set_db(db)
 behavioral_routes.set_db(db)
 notifications_routes.set_db(db)
+missions_routes.set_db(db)
+missions_routes.set_mission_services(
+    generate_daily_mission_fn=generate_daily_mission,
+    start_mission_fn=start_mission,
+    complete_mission_fn=complete_mission,
+    extract_drill_positions_fn=extract_drill_positions,
+    get_sample_drill_positions_fn=get_sample_drill_positions,
+    pattern_focus_map=PATTERN_FOCUS_MAP,
+    reward_event_type=RewardEventType,
+    get_reward_message_fn=get_reward_message
+)
+settings_routes.set_db(db)
 
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(feedback_routes.router, prefix="/api")
@@ -11585,6 +10676,8 @@ app.include_router(journey_routes.router, prefix="/api")
 app.include_router(cognitive_routes.router, prefix="/api")
 app.include_router(behavioral_routes.router, prefix="/api")
 app.include_router(notifications_routes.router, prefix="/api")
+app.include_router(missions_routes.router, prefix="/api")
+app.include_router(settings_routes.router, prefix="/api")
 
 # Then include the legacy api_router
 app.include_router(api_router)

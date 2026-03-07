@@ -46,7 +46,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   Target,
-  X
+  X,
+  History
 } from "lucide-react";
 
 /**
@@ -189,6 +190,14 @@ const CoachPlay = ({ user }) => {
   const chatEndRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
+  // NEW: Past games memory and identity state
+  const [pastGamesHistory, setPastGamesHistory] = useState(null);
+  const [playerIdentityData, setPlayerIdentityData] = useState(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  
+  // NEW: Visual move hints state
+  const [moveHints, setMoveHints] = useState([]);
+
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -247,7 +256,35 @@ const CoachPlay = ({ user }) => {
   // Check for active session on mount
   useEffect(() => {
     checkActiveSession();
+    fetchPastGamesAndIdentity();
   }, []);
+
+  // NEW: Fetch past games history and player identity
+  const fetchPastGamesAndIdentity = async () => {
+    setLoadingHistory(true);
+    try {
+      const [historyRes, identityRes] = await Promise.all([
+        fetch(`${API}/coach/play/history?limit=5`, { credentials: "include" }),
+        fetch(`${API}/coach/play/identity`, { credentials: "include" })
+      ]);
+      
+      if (historyRes.ok) {
+        const historyData = await historyRes.json();
+        setPastGamesHistory(historyData);
+      }
+      
+      if (identityRes.ok) {
+        const identityData = await identityRes.json();
+        if (identityData.has_identity) {
+          setPlayerIdentityData(identityData.identity);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching coach play history:", error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   // Check for practice mode from Lab alternate timeline
   useEffect(() => {
@@ -966,6 +1003,60 @@ const CoachPlay = ({ user }) => {
                 </div>
               </div>
 
+              {/* NEW: Past Games Memory */}
+              {!practiceMode && pastGamesHistory?.sessions?.length > 0 && (
+                <div className="p-4 rounded-lg border border-border bg-muted/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    <History className="w-4 h-4 text-primary" />
+                    <span className="font-medium text-sm">Coach Remembers</span>
+                  </div>
+                  
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                    <div className="p-2 rounded bg-background/50">
+                      <div className="text-lg font-bold text-green-500">{pastGamesHistory.stats.wins}</div>
+                      <div className="text-xs text-muted-foreground">Wins</div>
+                    </div>
+                    <div className="p-2 rounded bg-background/50">
+                      <div className="text-lg font-bold text-muted-foreground">{pastGamesHistory.stats.draws}</div>
+                      <div className="text-xs text-muted-foreground">Draws</div>
+                    </div>
+                    <div className="p-2 rounded bg-background/50">
+                      <div className="text-lg font-bold text-red-500">{pastGamesHistory.stats.losses}</div>
+                      <div className="text-xs text-muted-foreground">Losses</div>
+                    </div>
+                  </div>
+                  
+                  {/* Recent sessions */}
+                  <div className="space-y-1">
+                    {pastGamesHistory.sessions.slice(0, 3).map((s, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs p-2 rounded bg-background/50">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${
+                            s.result === 'win' ? 'bg-green-500' : 
+                            s.result === 'loss' ? 'bg-red-500' : 'bg-gray-400'
+                          }`} />
+                          <span className="capitalize">{s.result || 'In progress'}</span>
+                        </div>
+                        <span className="text-muted-foreground">
+                          {s.created_at ? new Date(s.created_at).toLocaleDateString() : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Identity snippet if available */}
+                  {playerIdentityData?.identity_label && (
+                    <div className="mt-3 pt-3 border-t border-border/50 text-xs">
+                      <span className="text-muted-foreground">Your style: </span>
+                      <Badge variant="secondary" className="ml-1">
+                        {playerIdentityData.identity_label}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Start Button */}
               <Button
                 onClick={startGame}
@@ -1519,20 +1610,38 @@ const CoachPlay = ({ user }) => {
                 {guardianIntervention.explanation}
               </p>
               
-              {/* Alternative Moves */}
+              {/* Alternative Moves with Visual Hints */}
               {guardianIntervention.alternative_moves?.length > 0 && (
                 <div className="p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 mb-2 text-sm font-medium">
                     <Lightbulb className="w-4 h-4 text-primary" />
-                    Better alternatives:
+                    Better alternatives (click to see on board):
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {guardianIntervention.alternative_moves.map((move, i) => (
-                      <Badge key={i} variant="outline" className="font-mono">
+                      <Badge 
+                        key={i} 
+                        variant="outline" 
+                        className="font-mono cursor-pointer hover:bg-primary/20 hover:border-primary transition-colors"
+                        onClick={() => {
+                          // Extract squares from SAN move (e.g., "Nf3" -> "f3")
+                          const squares = move.match(/[a-h][1-8]/g);
+                          if (squares && squares.length > 0) {
+                            toast.info(`Move ${move}: ${squares.join(' → ')}`, {
+                              duration: 3000,
+                              icon: <Lightbulb className="w-4 h-4 text-primary" />
+                            });
+                          }
+                        }}
+                      >
+                        <Target className="w-3 h-3 mr-1 text-primary" />
                         {move}
                       </Badge>
                     ))}
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    These moves maintain or improve your position.
+                  </p>
                 </div>
               )}
               
