@@ -38,6 +38,137 @@ import {
 } from "lucide-react";
 import FeedbackModal from "@/components/FeedbackModal";
 
+// Encouraging coach messages for different scenarios
+const COACH_ENCOURAGEMENTS = {
+  reflection_submitted: [
+    "Nice! Taking time to reflect is what separates good players from great ones.",
+    "Good reflection! This kind of thinking will help you spot similar patterns.",
+    "That's the right mindset. Learning from mistakes is how champions improve.",
+    "Excellent! You're building real awareness about your game.",
+    "Well done! This reflection will stick with you next time.",
+  ],
+  game_complete: [
+    "Fantastic work! You've reflected on all the key moments in this game.",
+    "Game review complete! Your future self will thank you for this.",
+    "Great job! Each reflection makes you a stronger player.",
+    "Impressive dedication! This is how real improvement happens.",
+    "All done with this game! Your chess brain just got a workout.",
+  ],
+  all_done: [
+    "You're a reflection champion! All games reviewed.",
+    "Amazing! You've completed all your reflections. Time to play!",
+    "All caught up! Your dedication to improvement is inspiring.",
+    "Outstanding! You've turned every loss into a learning opportunity.",
+  ],
+  quick_reflection: [
+    "Quick and thoughtful - that's the way!",
+    "Efficient! You know what you need to work on.",
+    "Sharp thinking!",
+  ],
+  deep_reflection: [
+    "That was a thorough reflection. This will really help!",
+    "Great depth of analysis! You're thinking like a coach.",
+    "Impressive self-awareness. You caught the key issue!",
+  ]
+};
+
+// Helper to get random encouragement
+const getEncouragement = (type) => {
+  const messages = COACH_ENCOURAGEMENTS[type] || COACH_ENCOURAGEMENTS.reflection_submitted;
+  return messages[Math.floor(Math.random() * messages.length)];
+};
+
+// Celebration confetti component
+const CelebrationOverlay = ({ show, message, onComplete }) => {
+  useEffect(() => {
+    if (show) {
+      const timer = setTimeout(() => onComplete?.(), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [show, onComplete]);
+
+  if (!show) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        className="text-center p-8"
+      >
+        <motion.div
+          animate={{ 
+            rotate: [0, -10, 10, -10, 0],
+            scale: [1, 1.2, 1]
+          }}
+          transition={{ duration: 0.5 }}
+          className="mb-4"
+        >
+          <Trophy className="w-20 h-20 mx-auto text-yellow-500" />
+        </motion.div>
+        <motion.h2
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-2xl font-bold text-foreground mb-2"
+        >
+          {message || "Great work!"}
+        </motion.h2>
+        <motion.p
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-muted-foreground"
+        >
+          {getEncouragement('game_complete')}
+        </motion.p>
+        {/* Animated confetti particles */}
+        {[...Array(12)].map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{ 
+              x: 0, 
+              y: 0, 
+              opacity: 1,
+              scale: 1
+            }}
+            animate={{ 
+              x: (Math.random() - 0.5) * 400,
+              y: (Math.random() - 0.5) * 400,
+              opacity: 0,
+              scale: 0,
+              rotate: Math.random() * 360
+            }}
+            transition={{ 
+              duration: 1.5,
+              delay: i * 0.05,
+              ease: "easeOut"
+            }}
+            className="absolute"
+            style={{
+              left: '50%',
+              top: '40%',
+            }}
+          >
+            <Sparkles 
+              className="w-6 h-6" 
+              style={{ 
+                color: ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'][i % 5]
+              }} 
+            />
+          </motion.div>
+        ))}
+      </motion.div>
+    </motion.div>
+  );
+};
+
 const Reflect = ({ user }) => {
   const navigate = useNavigate();
   const boardRef = useRef(null);
@@ -95,6 +226,10 @@ const Reflect = ({ user }) => {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState(null);
   
+  // Celebration state
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationMessage, setCelebrationMessage] = useState("");
+
   // Handle feedback button click
   const handleFeedback = () => {
     if (!currentMoment || !awarenessGap?.cognitive_gap) return;
@@ -611,15 +746,28 @@ const Reflect = ({ user }) => {
       if (data.awareness_gap) {
         setAwarenessGap(data.awareness_gap);
         setShowingGap(true);
+        // Show encouragement for completing reflection
+        setCoachReward(getEncouragement('reflection_submitted'));
       } else if (updatedMoments.length === 0) {
-        // No more moments - game complete
-        toast.success("Game reflection complete!");
+        // No more moments - game complete - show celebration!
         if (currentGameIndex < gamesNeedingReflection.length - 1) {
-          setCurrentGameIndex(prev => prev + 1);
+          setCelebrationMessage("Game Review Complete!");
+          setShowCelebration(true);
+          setTimeout(() => {
+            setShowCelebration(false);
+            setCurrentGameIndex(prev => prev + 1);
+          }, 2500);
         } else {
-          toast.success("All reflections done!");
-          fetchGamesNeedingReflection();
+          setCelebrationMessage("All Reflections Done!");
+          setShowCelebration(true);
+          setTimeout(() => {
+            setShowCelebration(false);
+            fetchGamesNeedingReflection();
+          }, 3000);
         }
+      } else {
+        // Show encouragement for this reflection
+        setCoachReward(getEncouragement('reflection_submitted'));
       }
       // If there are still moments, fetchGameMoments already set them with index 0
       
@@ -638,13 +786,21 @@ const Reflect = ({ user }) => {
     const updatedMoments = await fetchGameMoments(currentGame.game_id);
     
     if (updatedMoments.length === 0) {
-      // No more moments - game complete
-      toast.success("Game reflection complete!");
+      // No more moments - game complete - show celebration!
       if (currentGameIndex < gamesNeedingReflection.length - 1) {
-        setCurrentGameIndex(prev => prev + 1);
+        setCelebrationMessage("Game Review Complete!");
+        setShowCelebration(true);
+        setTimeout(() => {
+          setShowCelebration(false);
+          setCurrentGameIndex(prev => prev + 1);
+        }, 2500);
       } else {
-        toast.success("All reflections done!");
-        fetchGamesNeedingReflection();
+        setCelebrationMessage("All Reflections Done!");
+        setShowCelebration(true);
+        setTimeout(() => {
+          setShowCelebration(false);
+          fetchGamesNeedingReflection();
+        }, 3000);
       }
     }
     // If there are still moments, fetchGameMoments already set them
@@ -664,16 +820,22 @@ const Reflect = ({ user }) => {
       
       // If no more moments after refetch, move to next game
       if (remainingMoments.length === 0) {
-        toast.success("Game reflection complete!");
-        
         if (currentGameIndex < gamesNeedingReflection.length - 1) {
-          setCurrentGameIndex(prev => prev + 1);
-          setCurrentMomentIndex(0);
+          setCelebrationMessage("Game Review Complete!");
+          setShowCelebration(true);
+          setTimeout(() => {
+            setShowCelebration(false);
+            setCurrentGameIndex(prev => prev + 1);
+            setCurrentMomentIndex(0);
+          }, 2500);
         } else {
           // All games done!
-          toast.success("All reflections done!");
-          // Refetch games list to update badge
-          fetchGamesNeedingReflection();
+          setCelebrationMessage("All Reflections Done!");
+          setShowCelebration(true);
+          setTimeout(() => {
+            setShowCelebration(false);
+            fetchGamesNeedingReflection();
+          }, 3000);
         }
       }
       // If there are remaining moments, fetchGameMoments already set them
@@ -726,6 +888,15 @@ const Reflect = ({ user }) => {
 
   return (
     <Layout user={user}>
+      {/* Celebration overlay for game/all completion */}
+      <AnimatePresence>
+        <CelebrationOverlay 
+          show={showCelebration} 
+          message={celebrationMessage}
+          onComplete={() => setShowCelebration(false)}
+        />
+      </AnimatePresence>
+      
       <div className="max-w-5xl mx-auto py-6 px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

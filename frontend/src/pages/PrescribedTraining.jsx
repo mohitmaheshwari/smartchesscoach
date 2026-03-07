@@ -35,6 +35,40 @@ import { Progress } from "@/components/ui/progress";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+// Encouraging messages for puzzle completion
+const PUZZLE_ENCOURAGEMENTS = {
+  correct: [
+    "Nice! You're building the habit.",
+    "That's the pattern! Keep going.",
+    "Excellent! Your eyes are getting sharper.",
+    "Great recognition! This is how you improve.",
+    "Perfect! You won't miss this in a real game.",
+  ],
+  incorrect: [
+    "Almost! The pattern is tricky, but you'll get it.",
+    "Not quite, but keep trying. This is exactly the training you need.",
+    "Take another look. The solution involves the same weakness you're working on.",
+  ],
+  streak: [
+    "You're on fire! 🔥",
+    "Three in a row - your pattern recognition is improving!",
+    "Streak! This weakness is becoming your strength.",
+  ],
+  complete: [
+    "Training session complete! Every puzzle makes you stronger.",
+    "Great work! You've done your training for today.",
+    "Session done! Come back tomorrow to keep the momentum.",
+  ]
+};
+
+const getEncouragement = (type, streak = 0) => {
+  if (streak >= 3 && type === "correct") {
+    return PUZZLE_ENCOURAGEMENTS.streak[Math.floor(Math.random() * PUZZLE_ENCOURAGEMENTS.streak.length)];
+  }
+  const messages = PUZZLE_ENCOURAGEMENTS[type] || PUZZLE_ENCOURAGEMENTS.correct;
+  return messages[Math.floor(Math.random() * messages.length)];
+};
+
 export default function PrescribedTraining() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -51,6 +85,8 @@ export default function PrescribedTraining() {
   const [userMove, setUserMove] = useState(null);
   const [showSolution, setShowSolution] = useState(false);
   const [solvedCount, setSolvedCount] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [encouragement, setEncouragement] = useState("");
   
   // Board state
   const [game, setGame] = useState(new Chess());
@@ -125,11 +161,15 @@ export default function PrescribedTraining() {
       if (isCorrect) {
         setPuzzleState("correct");
         setSolvedCount(prev => prev + 1);
+        setStreak(prev => prev + 1);
+        setEncouragement(getEncouragement("correct", streak + 1));
         
         // Record attempt
         recordAttempt(currentPuzzle, true);
       } else {
         setPuzzleState("incorrect");
+        setStreak(0);
+        setEncouragement(getEncouragement("incorrect"));
         // Undo the wrong move
         game.undo();
         setGame(new Chess(game.fen()));
@@ -303,10 +343,18 @@ export default function PrescribedTraining() {
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-4 p-4 rounded-lg bg-green-500/10 border border-green-500/30"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-1">
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
                   <span className="font-medium text-green-500">Correct!</span>
+                  {streak >= 3 && (
+                    <Badge variant="outline" className="ml-2 border-amber-500/50 text-amber-400">
+                      {streak} streak 🔥
+                    </Badge>
+                  )}
                 </div>
+                {encouragement && (
+                  <p className="text-sm text-green-400/80 ml-7">{encouragement}</p>
+                )}
               </motion.div>
             )}
             
@@ -316,10 +364,13 @@ export default function PrescribedTraining() {
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-4 p-4 rounded-lg bg-red-500/10 border border-red-500/30"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-1">
                   <XCircle className="w-5 h-5 text-red-500" />
-                  <span className="font-medium text-red-500">Not quite. Try again!</span>
+                  <span className="font-medium text-red-500">Not quite!</span>
                 </div>
+                {encouragement && (
+                  <p className="text-sm text-red-400/80 ml-7">{encouragement}</p>
+                )}
               </motion.div>
             )}
             
@@ -395,6 +446,22 @@ export default function PrescribedTraining() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {/* Why this puzzle - explains the connection to weakness */}
+                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <p className="text-xs text-blue-400 font-medium mb-1 flex items-center gap-1">
+                      <Lightbulb className="w-3 h-3" />
+                      WHY THIS PUZZLE?
+                    </p>
+                    <p className="text-sm text-blue-300">
+                      {currentPuzzle.source === "your_game" 
+                        ? `This is from your actual game. You made this mistake, so practicing it will help you spot it next time.`
+                        : currentPuzzle.context 
+                          ? currentPuzzle.context 
+                          : `This puzzle trains your ${weakness.replace(/_/g, " ")} detection. Solving similar patterns builds pattern recognition.`
+                      }
+                    </p>
+                  </div>
+                  
                   {/* Personal note for user's own games */}
                   {currentPuzzle.source === "your_game" && (
                     <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
@@ -411,13 +478,6 @@ export default function PrescribedTraining() {
                         </p>
                       )}
                     </div>
-                  )}
-                  
-                  {/* Puzzle context */}
-                  {currentPuzzle.context && currentPuzzle.source !== "your_game" && (
-                    <p className="text-sm text-muted-foreground">
-                      {currentPuzzle.context}
-                    </p>
                   )}
                   
                   {/* Solution reveal */}
