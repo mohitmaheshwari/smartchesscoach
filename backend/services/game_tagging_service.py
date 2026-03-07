@@ -698,3 +698,91 @@ def compare_tag_evolution(
         "recent_summary": recent_agg,
         "previous_summary": previous_agg,
     }
+
+
+# ============================================
+# INTEGRATION WITH AUTO-CORRECTION SYSTEM
+# ============================================
+
+async def tag_critical_moment_with_corrections(
+    db,
+    move_number: int,
+    move_san: str,
+    fen_before: str,
+    fen_after: str,
+    cp_loss: float,
+    best_move: str,
+    pv_after: List[str],
+    user_rating: int,
+    total_moves: int,
+    time_remaining: Optional[float] = None,
+    eval_before: float = 0,
+    eval_after: float = 0
+) -> MomentTags:
+    """
+    Tag a critical moment with learned corrections applied.
+    
+    This is the enhanced version of tag_critical_moment that
+    checks for user corrections before applying a tag.
+    
+    Args:
+        db: Database connection for checking corrections
+        (other args same as tag_critical_moment)
+    
+    Returns:
+        MomentTags with potentially corrected primary tag
+    """
+    # First get the standard tag
+    tags = tag_critical_moment(
+        move_number=move_number,
+        move_san=move_san,
+        fen_before=fen_before,
+        fen_after=fen_after,
+        cp_loss=cp_loss,
+        best_move=best_move,
+        pv_after=pv_after,
+        user_rating=user_rating,
+        total_moves=total_moves,
+        time_remaining=time_remaining,
+        eval_before=eval_before,
+        eval_after=eval_after
+    )
+    
+    # Check if we have a learned correction for this tag
+    try:
+        from services.tag_feedback_service import get_corrected_tag
+        
+        corrected_tag = await get_corrected_tag(
+            db=db,
+            position_fen=fen_before,
+            proposed_tag=tags.primary_tag,
+            cp_loss=abs(cp_loss),
+            phase=tags.phase
+        )
+        
+        if corrected_tag and corrected_tag != tags.primary_tag:
+            logger.info(f"Tag corrected: {tags.primary_tag} -> {corrected_tag}")
+            
+            # Update theory links for the corrected tag
+            THEORY_MAP = {
+                "one_move_blunder": ["tactical_vision_basics"],
+                "hung_piece": ["piece_safety_check"],
+                "back_rank_weakness": ["back_rank_mate_patterns"],
+                "missed_fork": ["fork_patterns"],
+                "captured_in_fork": ["fork_patterns"],
+                "opening_theory_deviation": ["opening_principles"],
+                "endgame_technique_error": ["basic_endgames"],
+                "threw_winning_position": ["winning_position_technique"],
+            }
+            
+            return MomentTags(
+                primary_tag=corrected_tag,
+                secondary_tags=tags.secondary_tags + [f"corrected_from_{tags.primary_tag}"],
+                theory_links=THEORY_MAP.get(corrected_tag, tags.theory_links),
+                phase=tags.phase,
+                severity=tags.severity
+            )
+    except Exception as e:
+        logger.debug(f"Error checking tag correction: {e}")
+    
+    return tags

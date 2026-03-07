@@ -516,3 +516,130 @@ async def get_pending_feedback(
         "total": total
     }
 
+
+# ==================== TAG FEEDBACK ENDPOINTS ====================
+
+@router.post("/tag-feedback")
+async def submit_tag_feedback(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Submit feedback when a game tag is wrong.
+    
+    This connects the 33 game tags to the auto-correction system.
+    When users disagree with a tag, the system learns and improves.
+    
+    Body:
+    - game_id: Game where the tag was applied
+    - move_number: Move number with the tag
+    - position_fen: FEN of the position
+    - move_san: The move played (SAN notation)
+    - current_tag: The tag the system assigned (e.g., "missed_fork")
+    - correct_tag: What the user says it should be (e.g., "hung_piece" or "none")
+    - user_explanation: Why the user thinks it's different (optional)
+    - cp_loss: Centipawn loss of the move (optional)
+    - phase: Game phase - opening/middlegame/endgame (optional)
+    
+    Returns:
+    - success: True if feedback was processed
+    - feedback_id: ID of the stored feedback
+    - learning_status: "queued", "pattern_generated", or "acknowledged"
+    """
+    from services.tag_feedback_service import TagFeedbackService
+    
+    service = TagFeedbackService(db)
+    
+    result = await service.submit_tag_feedback(
+        user_id=user.user_id,
+        game_id=request.get("game_id", ""),
+        move_number=request.get("move_number", 0),
+        position_fen=request.get("position_fen", ""),
+        move_san=request.get("move_san", ""),
+        current_tag=request.get("current_tag", ""),
+        correct_tag=request.get("correct_tag", ""),
+        user_explanation=request.get("user_explanation", ""),
+        cp_loss=request.get("cp_loss", 0),
+        phase=request.get("phase", "middlegame")
+    )
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to process feedback"))
+    
+    return result
+
+
+@router.get("/tag-feedback/stats")
+async def get_tag_feedback_stats(user: User = Depends(get_current_user)):
+    """
+    Get statistics about tag feedback and corrections.
+    
+    Returns:
+    - total_feedback: Total tag feedback submissions
+    - processed: Processed feedback count
+    - pending: Pending feedback count
+    - total_correction_patterns: Number of learned correction patterns
+    - active_correction_patterns: Active patterns being applied
+    - top_corrections: Most common tag corrections
+    """
+    from services.tag_feedback_service import TagFeedbackService
+    
+    service = TagFeedbackService(db)
+    stats = await service.get_tag_feedback_stats()
+    
+    return stats
+
+
+@router.get("/tag-feedback/pending")
+async def get_pending_tag_feedback(
+    limit: int = 20,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get pending tag feedback items.
+    
+    Returns list of tag feedback waiting to be processed.
+    """
+    from services.tag_feedback_service import TagFeedbackService
+    
+    service = TagFeedbackService(db)
+    pending = await service.get_pending_tag_feedback(limit)
+    
+    return {
+        "items": pending,
+        "count": len(pending)
+    }
+
+
+@router.get("/available-tags")
+async def get_available_tags(user: User = Depends(get_current_user)):
+    """
+    Get all available game tags that users can correct to.
+    
+    Returns the 33 comprehensive tags with their labels and descriptions.
+    """
+    from services.game_tagging_service import GAME_TAGS, get_tag_label, get_tag_description
+    
+    tags = []
+    for tag_id, tag_info in GAME_TAGS.items():
+        tags.append({
+            "id": tag_id,
+            "label": tag_info.get("label", tag_id),
+            "description": tag_info.get("description", ""),
+            "category": tag_info.get("category", "other"),
+            "phase": tag_info.get("phase")
+        })
+    
+    # Group by category
+    by_category = {}
+    for tag in tags:
+        cat = tag["category"]
+        if cat not in by_category:
+            by_category[cat] = []
+        by_category[cat].append(tag)
+    
+    return {
+        "tags": tags,
+        "by_category": by_category,
+        "total": len(tags)
+    }

@@ -63,9 +63,29 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 - **learned_rules**: 13 patterns (deprecated, migrated useful ones)
 - **Migrated**: 2 tactical patterns from learned_rules to smart_patterns
 
+### 9. Tag Feedback Integration ✅ (NEW)
+- **Created**: `services/tag_feedback_service.py` - Connects 33 game tags to auto-correction
+- **New endpoints**:
+  - `POST /api/coach/pattern-learning/tag-feedback` - Submit tag corrections
+  - `GET /api/coach/pattern-learning/tag-feedback/stats` - Tag correction statistics
+  - `GET /api/coach/pattern-learning/tag-feedback/pending` - Pending corrections
+  - `GET /api/coach/pattern-learning/available-tags` - List all 33 game tags
+- **Enhanced**: `game_tagging_service.py` with `tag_critical_moment_with_corrections()`
+- **New collection**: `tag_correction_patterns` - Stores learned tag corrections
+- **How it works**:
+  1. User disagrees with a tag (e.g., "This isn't a missed_fork, it's a hung_piece")
+  2. Feedback creates a `tag_correction_pattern` with position features
+  3. Future tagging checks for corrections before applying tags
+  4. System learns and improves over time
+
 ## API Endpoints
 
-### Pattern Learning (New)
+### Pattern Learning (Enhanced)
+- `POST /api/coach/pattern-learning/feedback` - Submit explanation corrections
+- `POST /api/coach/pattern-learning/tag-feedback` - Submit tag corrections (NEW)
+- `GET /api/coach/pattern-learning/stats` - System statistics
+- `GET /api/coach/pattern-learning/tag-feedback/stats` - Tag correction stats (NEW)
+- `GET /api/coach/pattern-learning/available-tags` - List 33 game tags (NEW)
 - `POST /api/coach/pattern-learning/process-pending-feedback` - Batch process feedback
 - `GET /api/coach/pattern-learning/pending-feedback` - Get pending items
 
