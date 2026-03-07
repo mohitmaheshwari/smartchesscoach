@@ -40,15 +40,16 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 - **Opening performance tracking**: Stats by opening name
 - **Real-time trends**: Dynamic progress indicators
 
-### 7. Server.py Refactoring (In Progress)
+### 7. Server.py Refactoring ✅
 - **Extracted modules**:
   - `routes/auth.py`: 9 endpoints
-  - `routes/feedback.py`: 10 endpoints (including new batch processing)
+  - `routes/feedback.py`: 10 endpoints (including batch processing)
   - `routes/games.py`: 7 endpoints
-- **Total extracted**: 26 endpoints
-- **Lines in server.py**: 14,245 (down from 14,560)
-- **Remaining**: ~270+ endpoints still in server.py monolith
-- **Note**: Training routes (64), reflect routes (20), lab routes (3) are candidates for next extraction
+  - `routes/lab.py`: 4 endpoints (lab page, deep-strategy, mistake context, explain)
+- **Total extracted**: 30 endpoints
+- **Lines in server.py**: 13,876 (down from 14,560 - **684 lines removed**)
+- **Remaining**: ~260+ endpoints in server.py
+- **Candidates for next extraction**: reflect (15), training (60), coach (50)
 
 ### 8. Pattern Collections Reconciliation ✅
 - **smart_patterns**: 11 patterns (active, primary system)
