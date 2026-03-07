@@ -131,6 +131,23 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 - Server.py refactoring: 13 route modules, 135 endpoints extracted, 3,867 lines removed
 - Tag feedback integration: 33 game tags connected to auto-correction
 - Pattern migration: All learned_rules migrated to smart_patterns (24 total patterns)
+- Identity Formation Layer: Long-term identity evolution tracking
+
+### 11. Identity Formation Layer ✅ (NEW)
+- **Created**: `services/identity_formation_service.py` - Tracks identity evolution over time
+- **New endpoints**:
+  - `GET /api/coach/identity/evolution` - Full identity evolution analysis
+  - `GET /api/coach/identity/snapshots` - Historical identity snapshots
+  - `POST /api/coach/identity/snapshot` - Create manual snapshot
+  - `GET /api/coach/identity/trajectory` - Long-term trajectory analysis
+  - `GET /api/coach/identity/insight` - Human-readable insight
+- **New collection**: `identity_snapshots` - Stores periodic identity snapshots
+- **Features**:
+  - Automatic snapshots every 7 days (if 5+ new games)
+  - Change detection between snapshots
+  - Long-term trajectory (improving/declining/stable)
+  - Milestone tracking (game count milestones)
+- **Fixed**: `player_identity_engine.py` - Changed sort field from `created_at` to `imported_at`
 
 ### Future/Backlog
 - Identity Formation Layer (long-term playstyle evolution)

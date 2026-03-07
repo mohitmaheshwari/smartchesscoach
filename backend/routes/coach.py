@@ -570,3 +570,133 @@ async def get_theme_history(user: User = Depends(get_current_user)):
             })
     
     return {"themes": themes}
+
+
+# ==================== IDENTITY FORMATION LAYER ====================
+
+@router.get("/identity/evolution")
+async def get_identity_evolution(user: User = Depends(get_current_user)):
+    """
+    Get the user's identity evolution over time.
+    
+    Returns:
+    - Current identity snapshot
+    - Changes since last snapshot
+    - Long-term trajectory
+    - Milestones achieved
+    """
+    global db
+    from services.identity_formation_service import compute_identity_evolution
+    
+    evolution = await compute_identity_evolution(db, user.user_id)
+    return evolution
+
+
+@router.get("/identity/snapshots")
+async def get_identity_snapshots(
+    limit: int = 12,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get historical identity snapshots.
+    
+    Returns list of snapshots showing how identity evolved.
+    """
+    global db
+    from services.identity_formation_service import get_snapshot_history
+    
+    snapshots = await get_snapshot_history(db, user.user_id, limit)
+    
+    return {
+        "snapshots": [{
+            "snapshot_id": s.get("snapshot_id"),
+            "created_at": s.get("created_at"),
+            "games_analyzed": s.get("games_analyzed"),
+            "stability_label": s.get("stability_label"),
+            "primary_leak": s.get("primary_leak"),
+            "risk_style": s.get("risk_style"),
+            "collapsed_summary": s.get("collapsed_summary"),
+        } for s in snapshots],
+        "count": len(snapshots)
+    }
+
+
+@router.post("/identity/snapshot")
+async def create_manual_snapshot(user: User = Depends(get_current_user)):
+    """
+    Manually create an identity snapshot.
+    
+    Useful for marking a point in time (e.g., after completing training).
+    """
+    global db
+    from player_identity_engine import compute_player_identity
+    from services.identity_formation_service import create_identity_snapshot
+    
+    # Compute current identity
+    identity = await compute_player_identity(db, user.user_id)
+    
+    if not identity.get("has_identity"):
+        raise HTTPException(
+            status_code=400, 
+            detail="Not enough games to create identity snapshot"
+        )
+    
+    # Create snapshot
+    snapshot = await create_identity_snapshot(db, user.user_id, identity)
+    
+    return {
+        "success": True,
+        "snapshot_id": snapshot.get("snapshot_id"),
+        "message": "Identity snapshot created"
+    }
+
+
+@router.get("/identity/trajectory")
+async def get_identity_trajectory(user: User = Depends(get_current_user)):
+    """
+    Get the long-term trajectory of identity evolution.
+    
+    Shows overall direction: improving, declining, or stable.
+    """
+    global db
+    from services.identity_formation_service import get_snapshot_history, compute_trajectory
+    
+    snapshots = await get_snapshot_history(db, user.user_id, limit=12)
+    
+    if len(snapshots) < 3:
+        return {
+            "has_trajectory": False,
+            "reason": "Need at least 3 snapshots for trajectory analysis",
+            "snapshots_available": len(snapshots)
+        }
+    
+    trajectory = compute_trajectory(snapshots)
+    
+    return {
+        "has_trajectory": True,
+        **trajectory
+    }
+
+
+@router.get("/identity/insight")
+async def get_identity_insight(user: User = Depends(get_current_user)):
+    """
+    Get a human-readable insight about identity evolution.
+    
+    Returns a single paragraph summarizing recent changes and trajectory.
+    """
+    global db
+    from services.identity_formation_service import (
+        compute_identity_evolution,
+        generate_evolution_insight
+    )
+    
+    evolution = await compute_identity_evolution(db, user.user_id)
+    insight = generate_evolution_insight(evolution)
+    
+    return {
+        "insight": insight,
+        "has_evolution": evolution.get("has_evolution", False),
+        "snapshot_count": evolution.get("snapshot_count", 0)
+    }
+

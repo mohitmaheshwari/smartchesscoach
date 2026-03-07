@@ -151,7 +151,7 @@ async def compute_player_identity(db, user_id: str, games: List[Dict] = None) ->
         raw_games = await db.games.find(
             {"user_id": user_id},
             {"_id": 0}
-        ).sort("created_at", -1).limit(50).to_list(50)
+        ).sort("imported_at", -1).limit(50).to_list(50)
         
         analyses = await db.game_analyses.find(
             {"user_id": user_id},
