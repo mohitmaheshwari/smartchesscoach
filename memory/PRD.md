@@ -45,8 +45,15 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
   - `routes/auth.py`: 9 endpoints
   - `routes/feedback.py`: 10 endpoints (including new batch processing)
   - `routes/games.py`: 7 endpoints
-- **Lines removed**: ~320 lines from server.py (14,560 → 14,240)
-- **Remaining**: ~271 endpoints still in server.py monolith
+- **Total extracted**: 26 endpoints
+- **Lines in server.py**: 14,245 (down from 14,560)
+- **Remaining**: ~270+ endpoints still in server.py monolith
+- **Note**: Training routes (64), reflect routes (20), lab routes (3) are candidates for next extraction
+
+### 8. Pattern Collections Reconciliation ✅
+- **smart_patterns**: 11 patterns (active, primary system)
+- **learned_rules**: 13 patterns (deprecated, migrated useful ones)
+- **Migrated**: 2 tactical patterns from learned_rules to smart_patterns
 
 ## API Endpoints
 
@@ -91,8 +98,8 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 |------------|-------|---------|
 | games | ~300 | Imported chess games |
 | game_analyses | ~300 | Stockfish analysis results |
-| smart_patterns | 9 | Learned pattern rules |
-| learned_rules | 13 | Older rule system |
+| smart_patterns | 11 | Active learned pattern rules |
+| learned_rules | 13 | Legacy rules (deprecated, migrated) |
 | pattern_feedback | 31 | User corrections (26 processed, 5 skipped) |
 | verified_corrections | 32 | Applied corrections |
 
