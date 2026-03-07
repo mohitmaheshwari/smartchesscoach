@@ -2327,291 +2327,16 @@ async def generate_move_voice(req: MoveVoiceRequest, user: User = Depends(get_cu
         logger.error(f"TTS move voice error: {e}")
         raise HTTPException(status_code=500, detail=f"Voice generation failed: {str(e)}")
 
-# ==================== JOURNEY DASHBOARD ROUTES ====================
-
-@api_router.get("/journey")
-async def get_journey_dashboard(user: User = Depends(get_current_user)):
-    """
-    Get Journey Dashboard data - proves learning over time.
-    
-    This is the primary surface where coaching results appear.
-    No manual analysis required - games are analyzed automatically.
-    """
-    # Get player profile
-    profile = await db.player_profiles.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    )
-    
-    if not profile:
-        # Create profile if doesn't exist
-        profile = await get_or_create_profile(db, user.user_id, user.name)
-    
-    # Generate dashboard data
-    dashboard = await generate_journey_dashboard_data(db, user.user_id, profile)
-    
-    return dashboard
-
-
-@api_router.get("/journey/comprehensive")
-async def get_comprehensive_journey(user: User = Depends(get_current_user)):
-    """
-    Get comprehensive chess journey data.
-    
-    Returns:
-    - Rating progression over time
-    - Phase mastery (Opening, Middlegame, Endgame)
-    - Improvement metrics (then vs now)
-    - Habit journey (conquered, in progress, needs attention)
-    - Opening repertoire with win rates
-    - Weekly summary and insights
-    """
-    journey = await get_chess_journey(db, user.user_id)
-    return journey
-
-
-@api_router.get("/journey/weekly-assessment")
-async def get_weekly_assessment(user: User = Depends(get_current_user)):
-    """Get coach's weekly assessment paragraph"""
-    from journey_service import generate_weekly_assessment
-    
-    profile = await db.player_profiles.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    )
-    
-    if not profile:
-        return {
-            "assessment": "Link your Chess.com or Lichess account to start your coaching journey.",
-            "games_analyzed": 0
-        }
-    
-    recent_analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "_cqs_internal": 0}
-    ).sort("created_at", -1).limit(5).to_list(5)
-    
-    improvement_trend = profile.get("improvement_trend", "stuck")
-    
-    return {
-        "assessment": generate_weekly_assessment(profile, recent_analyses, improvement_trend),
-        "games_analyzed": profile.get("games_analyzed_count", 0),
-        "improvement_trend": improvement_trend
-    }
-
-@api_router.get("/journey/weakness-trends")
-async def get_weakness_trends(user: User = Depends(get_current_user)):
-    """Get weakness trend data - shows if habits are improving"""
-    from journey_service import calculate_weakness_trend
-    
-    profile = await db.player_profiles.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    )
-    
-    if not profile:
-        return {"trends": [], "message": "Not enough data yet"}
-    
-    # Get recent analyses
-    recent_analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "weaknesses": 1, "identified_weaknesses": 1}
-    ).sort("created_at", -1).limit(10).to_list(10)
-    
-    top_weaknesses = profile.get("top_weaknesses", [])[:5]
-    recent_5 = recent_analyses[:5]
-    previous_5 = recent_analyses[5:10]
-    
-    trends = []
-    for w in top_weaknesses:
-        weakness_key = f"{w.get('category', '')}:{w.get('subcategory', '')}"
-        trend_data = calculate_weakness_trend(weakness_key, recent_5, previous_5)
-        
-        trends.append({
-            "name": w.get("subcategory", "").replace("_", " "),
-            "category": w.get("category", ""),
-            **trend_data
-        })
-    
-    return {"trends": trends}
-
-class LinkAccountRequest(BaseModel):
-    platform: str  # "chess.com" or "lichess"
-    username: str
-
-@api_router.post("/journey/link-account")
-async def link_chess_account(req: LinkAccountRequest, user: User = Depends(get_current_user)):
-    """
-    Link Chess.com or Lichess account for automatic game tracking.
-    Only ONE account per platform can be linked at a time.
-    """
-    platform = req.platform.lower()
-    username = req.username.strip()
-    
-    if platform not in ["chess.com", "lichess"]:
-        raise HTTPException(status_code=400, detail="Invalid platform. Use 'chess.com' or 'lichess'")
-    
-    if not username:
-        raise HTTPException(status_code=400, detail="Username is required")
-    
-    # Check if user already has a linked account for this platform
-    user_doc = await db.users.find_one({"user_id": user.user_id})
-    if user_doc:
-        existing_chesscom = user_doc.get("chess_com_username") or user_doc.get("chesscom_username")
-        existing_lichess = user_doc.get("lichess_username")
-        
-        if platform == "chess.com" and existing_chesscom:
-            if existing_chesscom.lower() != username.lower():
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"You already have a linked Chess.com account ({existing_chesscom}). Please unlink it first before linking a new account."
-                )
-        elif platform == "lichess" and existing_lichess:
-            if existing_lichess.lower() != username.lower():
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"You already have a linked Lichess account ({existing_lichess}). Please unlink it first before linking a new account."
-                )
-    
-    # Validate account exists
-    if platform == "chess.com":
-        games = await fetch_recent_chesscom_games(username)
-        if not games and games != []:
-            raise HTTPException(status_code=404, detail=f"Chess.com user '{username}' not found")
-        update_field = "chess_com_username"  # Standardized field name
-    else:
-        games = await fetch_recent_lichess_games(username)
-        update_field = "lichess_username"
-    
-    # Update user record
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$set": {
-            update_field: username,
-            "last_game_sync": None  # Trigger initial sync
-        }}
-    )
-    
-    return {
-        "message": "Account linked successfully! We'll import your games from the last 3 months and auto-analyze up to 3 games per day.",
-        "platform": platform,
-        "username": username,
-        "import_info": {
-            "period": "Last 3 months",
-            "auto_analysis_limit": "3 games per day",
-            "sync_frequency": "Every 4 hours"
-        }
-    }
-
-@api_router.get("/journey/linked-accounts")
-async def get_linked_accounts(user: User = Depends(get_current_user)):
-    """Get user's linked chess accounts"""
-    user_doc = await db.users.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0, "chess_com_username": 1, "chesscom_username": 1, "lichess_username": 1}
-    )
-    
-    if not user_doc:
-        return {"chess_com": None, "lichess": None}
-    
-    # Support both field names for backward compatibility
-    chess_com = user_doc.get("chess_com_username") or user_doc.get("chesscom_username")
-    
-    return {
-        "chess_com": chess_com,
-        "lichess": user_doc.get("lichess_username")
-    }
-
-
-class UnlinkAccountRequest(BaseModel):
-    platform: str  # "chess.com" or "lichess"
-
-@api_router.post("/journey/unlink-account")
-async def unlink_chess_account(req: UnlinkAccountRequest, user: User = Depends(get_current_user)):
-    """
-    Unlink a Chess.com or Lichess account.
-    This does NOT delete imported games, but stops future syncing.
-    """
-    platform = req.platform.lower()
-    
-    if platform not in ["chess.com", "lichess"]:
-        raise HTTPException(status_code=400, detail="Invalid platform. Use 'chess.com' or 'lichess'")
-    
-    if platform == "chess.com":
-        # Remove both field variants for safety
-        await db.users.update_one(
-            {"user_id": user.user_id},
-            {"$unset": {"chess_com_username": "", "chesscom_username": ""}}
-        )
-    else:
-        await db.users.update_one(
-            {"user_id": user.user_id},
-            {"$unset": {"lichess_username": ""}}
-        )
-    
-    return {
-        "message": f"{platform} account unlinked successfully",
-        "platform": platform
-    }
-
-
-@api_router.post("/journey/sync-now")
-async def trigger_game_sync(background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
-    """
-    Manually trigger game sync for the current user.
-    Runs the sync immediately in the background.
-    """
-    from journey_service import sync_user_games
-    
-    user_doc = await db.users.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    )
-    
-    if not user_doc:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    has_linked = user_doc.get("chesscom_username") or user_doc.get("lichess_username")
-    if not has_linked:
-        raise HTTPException(status_code=400, detail="No chess accounts linked. Link an account first.")
-    
-    # Run sync in background
-    async def do_sync():
-        try:
-            count = await sync_user_games(db, user.user_id, user_doc)
-            logger.info(f"Manual sync for user {user.user_id}: {count} games synced")
-        except Exception as e:
-            logger.error(f"Manual sync error for {user.user_id}: {e}")
-    
-    background_tasks.add_task(do_sync)
-    
-    return {"message": "Game sync started. New games will appear shortly."}
-
-@api_router.get("/sync-status")
-async def get_sync_status(user: User = Depends(get_current_user)):
-    """
-    Get the current game sync status including countdown to next sync.
-    Used by frontend to display sync timer.
-    """
-    now = datetime.now(timezone.utc)
-    
-    # Calculate seconds until next sync
-    next_sync_in_seconds = 0
-    if _sync_status.get("next_sync_at"):
-        try:
-            next_sync = datetime.fromisoformat(_sync_status["next_sync_at"].replace('Z', '+00:00'))
-            diff = (next_sync - now).total_seconds()
-            next_sync_in_seconds = max(0, int(diff))
-        except:
-            next_sync_in_seconds = QUICK_SYNC_INTERVAL_SECONDS
-    
-    return {
-        "is_syncing": _sync_status.get("is_syncing", False),
-        "last_sync_at": _sync_status.get("last_sync_at"),
-        "next_sync_in_seconds": next_sync_in_seconds,
-        "sync_interval_seconds": QUICK_SYNC_INTERVAL_SECONDS,
-        "games_found_last_sync": _sync_status.get("games_found_last_sync", 0)
-    }
+# NOTE: Journey routes moved to routes/journey.py:
+# - GET /journey
+# - GET /journey/comprehensive
+# - GET /journey/weekly-assessment
+# - GET /journey/weakness-trends
+# - POST /journey/link-account
+# - GET /journey/linked-accounts
+# - POST /journey/unlink-account
+# - POST /journey/sync-now
+# - GET /sync-status
 
 # ==================== REFLECTION ROUTES ====================
 
@@ -2992,75 +2717,14 @@ async def analyze_move_cognitive_gap(
     }
 
 
-# ==================== COGNITIVE GAP INTELLIGENCE API ====================
-
-@api_router.get("/cognitive-gaps/summary")
-async def get_cognitive_gap_summary(user: User = Depends(get_current_user)):
-    """
-    Get a quick summary of user's cognitive gap status.
-    Used for dashboard display.
-    """
-    return await get_gap_summary(db, user.user_id)
-
-
-@api_router.get("/cognitive-gaps/progress")
-async def get_cognitive_gap_progress(weeks: int = 8, user: User = Depends(get_current_user)):
-    """
-    Get cognitive gap progress over time.
-    Shows trends: improving, worsening, or stable.
-    """
-    return await get_gap_progress(db, user.user_id, weeks)
-
-
-@api_router.get("/cognitive-gaps/recurring")
-async def get_recurring_patterns(min_occurrences: int = 3, user: User = Depends(get_current_user)):
-    """
-    Get all recurring cognitive gap patterns.
-    Returns patterns that occurred 3+ times in the last 7 days.
-    """
-    return {
-        "patterns": await get_all_recurring_patterns(db, user.user_id, min_occurrences),
-    }
-
-
-@api_router.get("/cognitive-gaps/plan-quality")
-async def get_plan_quality_analysis(user: User = Depends(get_current_user)):
-    """
-    Analyze the quality of user's plans over time.
-    Tracks plan specificity, accuracy, and improvement.
-    """
-    return await analyze_plan_quality(db, user.user_id)
-
-
-@api_router.get("/drills/recommended")
-async def get_recommended_drills_endpoint(user: User = Depends(get_current_user)):
-    """
-    Get personalized drill recommendations based on cognitive gap history.
-    Prioritizes high severity gaps and recurring patterns.
-    """
-    return await get_recommended_drills(db, user.user_id)
-
-
-@api_router.get("/drills/from-gap/{gap_type}")
-async def get_drills_from_gap(gap_type: str, count: int = 5, user: User = Depends(get_current_user)):
-    """
-    Get drill positions targeting a specific cognitive gap type.
-    Uses user's own mistakes when available.
-    """
-    if gap_type not in COGNITIVE_GAP_CONFIG:
-        raise HTTPException(status_code=400, detail=f"Unknown gap type: {gap_type}")
-    
-    return await get_drills_for_gap(db, user.user_id, gap_type, count)
-
-
-@api_router.post("/cognitive-gaps/sync-training")
-async def sync_gap_training(user: User = Depends(get_current_user)):
-    """
-    Update training focus based on accumulated cognitive gaps.
-    Call this to ensure training reflects your actual weaknesses.
-    """
-    return await update_training_from_gaps(db, user.user_id)
-
+# NOTE: Cognitive gap endpoints moved to routes/cognitive.py:
+# - GET /cognitive-gaps/summary
+# - GET /cognitive-gaps/progress
+# - GET /cognitive-gaps/recurring
+# - GET /cognitive-gaps/plan-quality
+# - GET /drills/recommended
+# - GET /drills/from-gap/{gap_type}
+# - POST /cognitive-gaps/sync-training
 
 # ==================== RICH COACH AUDIT ====================
 
@@ -3102,30 +2766,7 @@ async def get_latest_rich_audit(user: User = Depends(get_current_user)):
     return await generate_rich_coach_audit(db, user.user_id, latest_game["game_id"])
 
 
-# ==================== JOURNEY INTELLIGENCE ====================
-
-@api_router.get("/journey/intelligence")
-async def get_journey_intelligence(user: User = Depends(get_current_user)):
-    """
-    Get comprehensive journey intelligence for the user.
-    
-    Returns all 8 sections:
-    1. Identity Snapshot
-    2. Growth Delta
-    3. Rating Ceiling Model
-    4. Pattern Engine
-    5. Phase Discipline
-    6. Fundamentals Snapshot
-    7. Opening Snapshot
-    8. Momentum Trend
-    
-    All computed deterministically from game data - no LLM required.
-    """
-    from journey_intelligence_service import compute_journey_intelligence
-    
-    logger.info(f"Journey intelligence requested for user: {user.user_id}")
-    return await compute_journey_intelligence(db, user.user_id)
-
+# NOTE: /journey/intelligence moved to routes/journey.py
 
 # ==================== REWARD EVENT FEED ====================
 
@@ -3371,154 +3012,11 @@ async def get_home_intelligence_endpoint(user: User = Depends(get_current_user))
 
 # ==================== COACH STATE - SINGLE SOURCE OF TRUTH ====================
 
-@api_router.get("/coach/state")
-async def get_coach_state_endpoint(user: User = Depends(get_current_user)):
-    """
-    Get user's CoachState - the SPINE of the coaching system.
-    
-    Every page should read from this to maintain consistency:
-    - Home: shows active_theme, micro_rules
-    - Train: prioritizes drills for active_theme
-    - Progress: shows theme improvement delta
-    """
-    from coach_state_service import CoachStateService, CoachTheme
-    
-    service = CoachStateService(db)
-    state = await service.get_coach_state(user.user_id)
-    
-    if not state:
-        # Initialize with default theme
-        state = await service.initialize_coach_state(user.user_id)
-    
-    return state.to_dict()
+
+# NOTE: /coach/state moved to routes/coach.py
 
 
-@api_router.get("/coach/last-game-summary")
-async def get_last_game_summary_endpoint(user: User = Depends(get_current_user)):
-    """
-    Get GameCoachSummary for the most recent analyzed game.
-    
-    This is what the Home page "Last Game • Coach Analysis" card renders from.
-    
-    Returns in order:
-    1. confidence (Low/Medium/High)
-    2. primary_issue (root cause label)
-    3. emotion_mirror_line ("You rushed here.")
-    4. coach_explain_line (positional + contextual)
-    5. theme_reinforcement_line (if ties to active theme)
-    6. cta_type + cta_text + cta_target (one action)
-    """
-    from coach_state_service import CoachStateService
-    
-    service = CoachStateService(db)
-    summary = await service.get_latest_game_coach_summary(user.user_id)
-    
-    if not summary:
-        return {"has_summary": False}
-    
-    return {
-        "has_summary": True,
-        **summary.to_dict()
-    }
-
-
-@api_router.get("/coach/memory-summary")
-async def get_memory_summary_endpoint(user: User = Depends(get_current_user)):
-    """
-    Debug endpoint: Get summarized memory context for a user.
-    
-    Returns what the narrative engine sees (abstracted context),
-    NOT raw memory tables. Development use only.
-    
-    Output:
-    - active_lessons: Recent lesson keys
-    - lessons_on_cooldown: Lessons that shouldn't repeat yet
-    - pattern_trends: How each pattern is trending
-    - milestone_pending: Any milestone ready to mention
-    - training_phase: Early/Mid/Late/Mastery for current theme
-    """
-    from coach_memory_service import get_memory_service
-    from coach_state_service import CoachStateService
-    import lesson_resolver
-    
-    memory_service = get_memory_service(db)
-    coach_service = CoachStateService(db)
-    
-    # Get current coach state for streak
-    coach_state = await coach_service.get_coach_state(user.user_id)
-    current_streak = coach_state.good_game_streak if coach_state else 0
-    
-    # Get raw memory for additional processing
-    memory = await memory_service.get_memory_state(user.user_id)
-    
-    if not memory:
-        return {
-            "has_memory": False,
-            "message": "No coaching memory yet. Analyze some games first."
-        }
-    
-    # Build context (what narrative engine would see)
-    # Use a placeholder lesson key for context building
-    context = await memory_service.build_context(
-        user_id=user.user_id,
-        current_lesson_key="verify_opponent_threats",  # Placeholder
-        current_streak=current_streak
-    )
-    
-    # Extract lessons on cooldown
-    lesson_memory = memory.get("lesson_memory", [])
-    lessons_on_cooldown = []
-    unique_lessons = set(e.get("lesson_key") for e in lesson_memory)
-    
-    for lesson_key in unique_lessons:
-        cooldown = lesson_resolver.get_lesson_cooldown(lesson_key)
-        is_cooldown, games_until = memory_service.is_on_cooldown(lesson_key, lesson_memory, cooldown)
-        if is_cooldown:
-            lessons_on_cooldown.append({
-                "lesson_key": lesson_key,
-                "games_until_available": games_until
-            })
-    
-    # Extract pattern trends
-    pattern_progress = memory.get("pattern_progress", {})
-    pattern_trends = {}
-    for key, prog in pattern_progress.items():
-        pattern_trends[key] = {
-            "occurrence_count": prog.get("occurrence_count", 0),
-            "trend": prog.get("trend", "stable"),
-            "games_since_last": prog.get("games_since_last", 0)
-        }
-    
-    # Determine training phase for current theme
-    games_on_theme = coach_state.games_on_theme if coach_state else 0
-    if games_on_theme < 5:
-        training_phase = "early"
-    elif games_on_theme < 15:
-        training_phase = "mid"
-    elif games_on_theme < 30:
-        training_phase = "late"
-    else:
-        training_phase = "mastery"
-    
-    # Get milestones
-    milestones = memory.get("milestones", [])
-    milestone_types = [m.get("milestone_type") for m in milestones]
-    
-    return {
-        "has_memory": True,
-        "total_games_analyzed": memory.get("total_games_analyzed", 0),
-        "active_lessons": context.recent_lessons[-5:],
-        "lessons_on_cooldown": lessons_on_cooldown,
-        "pattern_trends": pattern_trends,
-        "most_frequent_lesson": context.most_frequent_lesson,
-        "current_streak": current_streak,
-        "training_phase": training_phase,
-        "games_on_theme": games_on_theme,
-        "milestones_achieved": milestone_types,
-        "active_milestone": context.active_milestone,
-        "milestone_message": context.milestone_message
-    }
-
+# NOTE: /coach/last-game-summary, /coach/memory-summary moved to routes/coach.py
 
 @api_router.get("/coach/game-summary/{game_id}")
 async def get_game_summary_endpoint(game_id: str, user: User = Depends(get_current_user)):
@@ -3611,113 +3109,11 @@ async def get_theme_stats_endpoint(user: User = Depends(get_current_user)):
 
 # ==================== BEHAVIORAL MATURITY ROUTES ====================
 
-@api_router.get("/coach/maturity")
-async def get_behavioral_maturity(user: User = Depends(get_current_user)):
-    """
-    Get user's behavioral maturity level and tone configuration.
-    
-    This determines how the coach speaks:
-    - Novice: More explanation, fewer questions
-    - Developing: Balanced
-    - Disciplined: Ask more, explain less
-    - Advanced: Mostly discovery questions
-    """
-    from behavioral_maturity_service import BehavioralMaturityService, BehavioralMaturity, TONE_CONFIGS
-    
-    service = BehavioralMaturityService(db)
-    maturity, metrics = await service.calculate_maturity(user.user_id)
-    tone_config = service.get_tone_config(maturity)
-    
-    return {
-        "maturity_level": maturity.value,
-        "tone_config": tone_config.to_dict(),
-        "metrics": metrics.to_dict(),
-        "description": {
-            "Novice": "More explanation, clear step-by-step teaching",
-            "Developing": "Balanced coaching with some discovery questions",
-            "Disciplined": "Challenge-focused, asking more than telling",
-            "Advanced": "Mostly discovery, rare lectures"
-        }.get(maturity.value, "")
-    }
+
+# NOTE: /coach/maturity endpoints moved to routes/coach.py
 
 
-@api_router.post("/coach/maturity/update")
-async def update_behavioral_maturity(user: User = Depends(get_current_user)):
-    """
-    Update user's behavioral maturity in CoachState.
-    
-    Should be called after every 5 analyzed games.
-    """
-    from behavioral_maturity_service import BehavioralMaturityService
-    
-    service = BehavioralMaturityService(db)
-    result = await service.update_coach_state_maturity(user.user_id)
-    
-    return {
-        "success": True,
-        **result
-    }
-
-
-@api_router.get("/coach/maturity/adapt-message")
-async def get_adapted_message(
-    issue_type: str,
-    emotion: str = "",
-    explanation: str = "",
-    user: User = Depends(get_current_user)
-):
-    """
-    Get a coaching message adapted to user's maturity level.
-    
-    Same content, different framing based on maturity.
-    """
-    from behavioral_maturity_service import BehavioralMaturityService, BehavioralMaturity
-    
-    service = BehavioralMaturityService(db)
-    maturity, _ = await service.calculate_maturity(user.user_id)
-    
-    adapted = service.adapt_message(issue_type, maturity, emotion, explanation)
-    
-    return {
-        "maturity_level": maturity.value,
-        "adapted_message": adapted
-    }
-
-
-
-# ==================== COACH ANALYTICS ROUTES ====================
-
-@api_router.get("/coach/analytics/summary")
-async def get_coach_analytics_summary(
-    days: int = 30,
-    user: User = Depends(get_current_user)
-):
-    """
-    Get analytics summary for the user's coaching journey.
-    
-    Returns event counts, latest transitions, and trends.
-    """
-    from coach_analytics_service import get_analytics_service
-    
-    analytics = get_analytics_service(db)
-    summary = await analytics.get_user_analytics_summary(user.user_id, days)
-    return summary
-
-
-@api_router.get("/coach/analytics/theme-history")
-async def get_theme_switch_history(
-    limit: int = 10,
-    user: User = Depends(get_current_user)
-):
-    """
-    Get theme switch history for the user.
-    """
-    from coach_analytics_service import get_analytics_service
-    
-    analytics = get_analytics_service(db)
-    history = await analytics.get_theme_switch_history(user.user_id, limit)
-    return {"theme_switches": history}
-
+# NOTE: /coach/analytics/summary, /coach/analytics/theme-history moved to routes/coach.py
 
 @api_router.get("/coach/analytics/maturity-progression")
 async def get_maturity_progression(user: User = Depends(get_current_user)):
@@ -6353,6 +5749,12 @@ async def update_profile_settings(req: ProfileSettingsRequest, user: User = Depe
     )
     
     return {"message": "Profile updated successfully"}
+
+
+class LinkAccountRequest(BaseModel):
+    """Request model for linking chess accounts"""
+    platform: str  # "chess.com" or "lichess"
+    username: str
 
 
 @api_router.post("/settings/link-account")
@@ -9504,98 +8906,7 @@ async def get_coaching_loop_profile(user: User = Depends(get_current_user)):
     return profile
 
 
-@api_router.get("/journey/v2")
-async def get_journey_page_data(user: User = Depends(get_current_user)):
-    """
-    Get data for the Journey page (TREND - How you're evolving)
-    
-    Returns:
-    - Baseline vs Current progress tracking
-    - Baseline patterns (weaknesses from first games)
-    - Current patterns (weaknesses from recent games)
-    - Pattern comparison (improvement/regression per weakness)
-    - Weakness ranking (not equal badges)
-    - Win-state analysis
-    - Identity profile
-    """
-    from baseline_service import (
-        get_or_create_baseline,
-        get_baseline_patterns,
-        calculate_current_stats,
-        calculate_progress,
-        calculate_pattern_snapshot,
-        compare_patterns,
-        MIN_GAMES_FOR_BASELINE
-    )
-    
-    # Get ALL analyses for baseline calculation
-    all_analyses = await db.game_analyses.find(
-        {"user_id": user.user_id}
-    ).sort("created_at", -1).to_list(200)
-    
-    # Get last 25 games for current stats
-    analyses = all_analyses[:25] if len(all_analyses) > 25 else all_analyses
-    
-    # Get ALL games for baseline, last 25 for current
-    all_games = await db.games.find(
-        {"user_id": user.user_id}
-    ).sort("imported_at", -1).to_list(200)
-    
-    games = all_games[:25] if len(all_games) > 25 else all_games
-    
-    # Get or create baseline profile
-    baseline = await get_or_create_baseline(db, user.user_id, all_analyses, all_games)
-    
-    # Get baseline patterns (weaknesses from first games)
-    baseline_patterns = await get_baseline_patterns(db, user.user_id)
-    
-    # If baseline exists but patterns don't (legacy user), create patterns now
-    if baseline and not baseline_patterns:
-        baseline_analyses = sorted(all_analyses, key=lambda x: x.get('created_at', ''))[:MIN_GAMES_FOR_BASELINE]
-        baseline_games = sorted(all_games, key=lambda x: x.get('imported_at', ''))[:MIN_GAMES_FOR_BASELINE]
-        baseline_patterns = calculate_pattern_snapshot(baseline_analyses, baseline_games)
-        
-        # Save it for future use
-        await db.users.update_one(
-            {'user_id': user.user_id},
-            {'$set': {'baseline_patterns': baseline_patterns}}
-        )
-    
-    # Calculate current stats from recent 25 games
-    current_stats = calculate_current_stats(analyses, games)
-    
-    # Calculate current patterns
-    current_patterns = calculate_pattern_snapshot(analyses, games) if analyses else None
-    
-    # Calculate progress if baseline exists
-    progress = None
-    if baseline and current_stats:
-        progress = calculate_progress(baseline, current_stats)
-    
-    # Calculate pattern comparison
-    pattern_comparison = None
-    if baseline_patterns and current_patterns:
-        pattern_comparison = compare_patterns(baseline_patterns, current_patterns)
-    
-    # Get existing badge data
-    badge_data = await calculate_all_badges(db, user.user_id)
-    
-    journey_data = get_journey_data(analyses, games, badge_data)
-    
-    # Add baseline and progress tracking
-    journey_data['baseline'] = baseline
-    journey_data['current_stats'] = current_stats
-    journey_data['progress'] = progress
-    journey_data['has_baseline'] = baseline is not None
-    journey_data['games_until_baseline'] = max(0, MIN_GAMES_FOR_BASELINE - len(all_analyses)) if not baseline else 0
-    
-    # Add pattern data for Before/After tabs
-    journey_data['baseline_patterns'] = baseline_patterns
-    journey_data['current_patterns'] = current_patterns
-    journey_data['pattern_comparison'] = pattern_comparison
-    
-    return journey_data
-
+# NOTE: /journey/v2 moved to routes/journey.py
 
 # ============================================
 # ROLLING EVOLUTION ENDPOINTS (New Progress System)
@@ -10317,341 +9628,18 @@ async def get_all_user_thoughts(user: User = Depends(get_current_user)):
     }
 
 
-
-# ============================================================
-# COGNITIVE PATTERNS API (Diagnosis + Prescription + Audit)
-# ============================================================
-
-@api_router.get("/cognitive/journey")
-async def get_cognitive_journey(user: User = Depends(get_current_user)):
-    """
-    Journey Page - 3-Tab Cognitive Progress Tracker (Master Spec v4)
-    
-    Tab A (Now): Snapshot - 5 items + directive
-    Tab B (Journey): 4 stat rows + 4 cognitive rows + directive
-    Tab C (Trend): Headline + shifts + evidence + directive
-    
-    INTEGRATES: Stat Interpretation Engine + Coach Voice Generator
-    """
-    from journey_engine import compute_journey
-    
-    # Get analyzed games - include ALL games for the user
-    # Previously filtered by onboarding_date but this excluded pre-existing games
-    all_analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "stockfish_analysis": 1, "created_at": 1, "user_color": 1, "game_id": 1, "user_result": 1}
-    ).sort("created_at", -1).to_list(100)
-    
-    # Compute journey with integrated engines
-    result = compute_journey(all_games=all_analyses)
-    
-    return result
-
-
-@api_router.get("/cognitive/patterns")
-async def get_cognitive_patterns(user: User = Depends(get_current_user)):
-    """
-    Get aggregated cognitive patterns from user's games.
-    
-    Returns:
-    - patterns: Dict of cognitive categories with frequency, severity, trend
-    - thinking_stability_index: 0-100 score
-    - tsi_trend: improving/worsening/stable
-    """
-    from cognitive_patterns_service import aggregate_cognitive_patterns
-    
-    result = await aggregate_cognitive_patterns(db, user.user_id)
-    return result
-
-
-@api_router.get("/cognitive/weaknesses")
-async def get_prioritized_weaknesses_api(user: User = Depends(get_current_user)):
-    """
-    Get prioritized list of cognitive weaknesses.
-    
-    Only includes patterns that cross the threshold.
-    Used by Training page for prescription.
-    """
-    from cognitive_patterns_service import get_prioritized_weaknesses
-    
-    weaknesses = await get_prioritized_weaknesses(db, user.user_id)
-    return {"weaknesses": weaknesses}
-
-
-@api_router.get("/cognitive/training-priority")
-async def get_training_priority(user: User = Depends(get_current_user)):
-    """
-    Get training content prioritization based on user's weaknesses.
-    
-    Returns:
-    - primary_focus: Main weakness to address
-    - secondary_focus: Additional weaknesses
-    - puzzle_priority_order: Types of puzzles to prioritize
-    - trap_priority_order: Types of traps to prioritize
-    - general_drills: If no specific weakness, show general drills
-    """
-    from cognitive_patterns_service import (
-        get_prioritized_weaknesses,
-        get_training_prioritization
-    )
-    
-    weaknesses = await get_prioritized_weaknesses(db, user.user_id)
-    prioritization = get_training_prioritization(weaknesses)
-    
-    return prioritization
-
-
-@api_router.post("/cognitive/focus/activate")
-async def activate_focus(
-    data: dict,
-    user: User = Depends(get_current_user)
-):
-    """
-    Activate a focus module for the user.
-    
-    Body: { "category": "missed_forcing_move" }
-    
-    Starts audit tracking for next 5 games.
-    """
-    from cognitive_patterns_service import activate_focus_module
-    
-    category = data.get("category")
-    if not category:
-        raise HTTPException(400, "category is required")
-    
-    result = await activate_focus_module(db, user.user_id, category)
-    return result
-
-
-@api_router.get("/cognitive/focus/status")
-async def get_focus_status(user: User = Depends(get_current_user)):
-    """
-    Get current focus module status.
-    """
-    from cognitive_patterns_service import get_focus_module_status
-    
-    status = await get_focus_module_status(db, user.user_id)
-    if not status:
-        return {"active": False}
-    
-    return {
-        "active": True,
-        "category": status.get("active_category"),
-        "activated_at": status.get("activated_at")
-    }
-
-
-@api_router.get("/cognitive/focus/progress")
-async def get_focus_progress(user: User = Depends(get_current_user)):
-    """
-    Evaluate progress on active focus module.
-    
-    Compares baseline (10 games before) vs audit window (5 games after).
-    """
-    from cognitive_patterns_service import evaluate_focus_progress
-    
-    progress = await evaluate_focus_progress(db, user.user_id)
-    if not progress:
-        return {"active": False, "message": "No focus module active"}
-    
-    return progress
-
-
-@api_router.get("/cognitive/tsi")
-async def get_thinking_stability_index(user: User = Depends(get_current_user)):
-    """
-    Get Thinking Stability Index.
-    
-    Simple derived metric showing overall thinking stability.
-    """
-    from cognitive_patterns_service import aggregate_cognitive_patterns
-    
-    result = await aggregate_cognitive_patterns(db, user.user_id, num_games=20)
-    
-    return {
-        "thinking_stability_index": result.get("thinking_stability_index", 100),
-        "trend": result.get("tsi_trend", "stable"),
-        "games_analyzed": result.get("games_analyzed", 0)
-    }
-
-
-@api_router.get("/cognitive/trend")
-async def get_cognitive_trend(user: User = Depends(get_current_user)):
-    """
-    Get TSI trend data for last 30 games.
-    
-    Returns array of {game_num, value} for charting.
-    """
-    from cognitive_patterns_service import aggregate_cognitive_patterns
-    
-    # Get analyses for last 30 games
-    analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "stockfish_analysis": 1, "created_at": 1}
-    ).sort("created_at", -1).limit(30).to_list(30)
-    
-    if not analyses:
-        return {"data": []}
-    
-    # Calculate rolling TSI for each game window
-    trend_data = []
-    analyses.reverse()  # Oldest first
-    
-    for i in range(len(analyses)):
-        # Use a sliding window of up to 5 games
-        window_start = max(0, i - 4)
-        window = analyses[window_start:i + 1]
-        
-        # Simple TSI approximation based on mistake severity in window
-        total_mistakes = 0
-        total_severity = 0
-        
-        for analysis in window:
-            sf = analysis.get("stockfish_analysis", {})
-            for move in sf.get("move_evaluations", []):
-                cp_loss = abs(move.get("cp_loss", 0))
-                if cp_loss >= 50:  # Significant mistake
-                    total_mistakes += 1
-                    total_severity += min(1.0, cp_loss / 300)
-        
-        # Calculate TSI for this window (100 = perfect, 0 = very bad)
-        if total_mistakes > 0:
-            avg_severity = total_severity / total_mistakes
-            # Normalize: assume max 5 mistakes per game at 0.5 severity
-            normalized = min(1.0, (total_mistakes * avg_severity) / (len(window) * 2.5))
-            tsi = max(0, min(100, int(100 - normalized * 100)))
-        else:
-            tsi = 100
-        
-        trend_data.append({
-            "game_num": i + 1,
-            "value": tsi
-        })
-    
-    return {"data": trend_data}
-
-
-@api_router.get("/cognitive/phase-insight")
-async def get_phase_insight(user: User = Depends(get_current_user)):
-    """
-    Get phase stability insight.
-    
-    Returns most stable and most unstable phases.
-    """
-    # Get recent analyses
-    analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "stockfish_analysis": 1}
-    ).sort("created_at", -1).limit(20).to_list(20)
-    
-    phase_mistakes = {
-        "opening": {"count": 0, "severity": 0},
-        "middlegame": {"count": 0, "severity": 0},
-        "endgame": {"count": 0, "severity": 0}
-    }
-    
-    for analysis in analyses:
-        sf = analysis.get("stockfish_analysis", {})
-        for move in sf.get("move_evaluations", []):
-            cp_loss = abs(move.get("cp_loss", 0))
-            if cp_loss >= 50:
-                phase = move.get("phase", "middlegame")
-                if phase in phase_mistakes:
-                    phase_mistakes[phase]["count"] += 1
-                    phase_mistakes[phase]["severity"] += min(1.0, cp_loss / 300)
-    
-    # Calculate weighted score per phase
-    phase_scores = {}
-    for phase, data in phase_mistakes.items():
-        if data["count"] > 0:
-            phase_scores[phase] = data["count"] * (data["severity"] / data["count"])
-        else:
-            phase_scores[phase] = 0
-    
-    # Find most unstable and most stable
-    sorted_phases = sorted(phase_scores.items(), key=lambda x: x[1], reverse=True)
-    
-    most_unstable = sorted_phases[0][0].capitalize() if sorted_phases else "Middlegame"
-    most_stable = sorted_phases[-1][0].capitalize() if sorted_phases else "Endgame"
-    
-    return {
-        "most_unstable": most_unstable,
-        "most_stable": most_stable,
-        "phase_scores": phase_scores
-    }
-
-
-@api_router.get("/cognitive/blunder-context")
-async def get_blunder_context(user: User = Depends(get_current_user)):
-    """
-    Get blunder context distribution - where do mistakes happen?
-    
-    Analyzes the position evaluation BEFORE each blunder to determine
-    if user blunders more when winning, equal, or losing.
-    
-    Returns:
-        winning: % of blunders that occurred in winning positions
-        equal: % of blunders that occurred in equal positions  
-        losing: % of blunders that occurred in losing positions
-    """
-    # Get recent analyses
-    analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "stockfish_analysis": 1, "user_color": 1}
-    ).sort("created_at", -1).limit(20).to_list(20)
-    
-    context_counts = {
-        "winning": 0,
-        "equal": 0,
-        "losing": 0
-    }
-    total_blunders = 0
-    
-    for analysis in analyses:
-        sf = analysis.get("stockfish_analysis", {})
-        user_color = analysis.get("user_color", "white")
-        
-        for move in sf.get("move_evaluations", []):
-            cp_loss = abs(move.get("cp_loss", 0))
-            if cp_loss < 100:  # Only count significant mistakes/blunders
-                continue
-            
-            total_blunders += 1
-            
-            # Get evaluation BEFORE the blunder
-            eval_before = move.get("eval_before", 0)
-            
-            # Adjust for user's perspective
-            if user_color == "black":
-                eval_before = -eval_before
-            
-            # Classify position context
-            if eval_before >= 150:  # +1.5 or better = winning
-                context_counts["winning"] += 1
-            elif eval_before <= -150:  # -1.5 or worse = losing
-                context_counts["losing"] += 1
-            else:  # Between -1.5 and +1.5 = equal
-                context_counts["equal"] += 1
-    
-    # Calculate percentages
-    if total_blunders > 0:
-        distribution = {
-            "winning": round((context_counts["winning"] / total_blunders) * 100),
-            "equal": round((context_counts["equal"] / total_blunders) * 100),
-            "losing": round((context_counts["losing"] / total_blunders) * 100)
-        }
-        # Ensure they sum to 100 (handle rounding)
-        diff = 100 - (distribution["winning"] + distribution["equal"] + distribution["losing"])
-        distribution["equal"] += diff
-    else:
-        distribution = {"winning": 33, "equal": 34, "losing": 33}
-    
-    return {
-        "distribution": distribution,
-        "total_blunders": total_blunders,
-        "games_analyzed": len(analyses)
-    }
-
+# NOTE: Cognitive patterns API moved to routes/cognitive.py:
+# - GET /cognitive/journey
+# - GET /cognitive/patterns
+# - GET /cognitive/weaknesses
+# - GET /cognitive/training-priority
+# - POST /cognitive/focus/activate
+# - GET /cognitive/focus/status
+# - GET /cognitive/focus/progress
+# - GET /cognitive/tsi
+# - GET /cognitive/trend
+# - GET /cognitive/phase-insight
+# - GET /cognitive/blunder-context
 
 
 def _is_common_opening_move(move_san: str) -> bool:
@@ -12939,6 +11927,9 @@ from routes import games as games_routes
 from routes import lab as lab_routes
 from routes import reflect as reflect_routes
 from routes import training as training_routes
+from routes import coach as coach_routes
+from routes import journey as journey_routes
+from routes import cognitive as cognitive_routes
 
 # Set database references for modular routers
 games_routes.set_db(db)
@@ -12946,6 +11937,11 @@ lab_routes.set_db(db)
 lab_routes.set_llm(call_llm)
 reflect_routes.set_db(db)
 training_routes.set_db(db)
+coach_routes.set_db(db)
+coach_routes.set_llm(call_llm)
+journey_routes.set_db(db)
+journey_routes.set_sync_status(_sync_status, QUICK_SYNC_INTERVAL_SECONDS)
+cognitive_routes.set_db(db)
 
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(feedback_routes.router, prefix="/api")
@@ -12953,6 +11949,9 @@ app.include_router(games_routes.router, prefix="/api")
 app.include_router(lab_routes.router, prefix="/api")
 app.include_router(reflect_routes.router, prefix="/api")
 app.include_router(training_routes.router, prefix="/api")
+app.include_router(coach_routes.router, prefix="/api")
+app.include_router(journey_routes.router, prefix="/api")
+app.include_router(cognitive_routes.router, prefix="/api")
 
 # Then include the legacy api_router
 app.include_router(api_router)
