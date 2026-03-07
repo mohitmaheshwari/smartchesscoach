@@ -3306,261 +3306,16 @@ async def check_post_session_improvement(user: User = Depends(get_current_user))
     return result or {"show_improvement": False}
 
 
-# ==================== BEHAVIORAL ANALYSIS ROUTES ====================
-
-@api_router.get("/behavioral/analyze/{game_id}")
-async def get_behavioral_report(game_id: str, user: User = Depends(get_current_user)):
-    """
-    Get behavioral analysis report for a specific game.
-    
-    This is the core "coach memory" feature - returns:
-    - 5 behavioral scorecard dimensions
-    - One headline + one rich insight
-    - One mission (next action)
-    - Evidence references
-    - Confidence score
-    
-    NOT just "0 blunders, 1 mistake" - actual behavioral coaching.
-    """
-    from behavioral_analyzer_service import generate_behavioral_report
-    
-    report = await generate_behavioral_report(db, user.user_id, game_id)
-    return report
-
-
-@api_router.get("/behavioral/last-report")
-async def get_last_behavioral_report(user: User = Depends(get_current_user)):
-    """
-    Get behavioral report for the user's most recent analyzed game.
-    """
-    from behavioral_analyzer_service import generate_behavioral_report
-    
-    # Find most recent analyzed game
-    last_analysis = await db.game_analyses.find_one(
-        {"user_id": user.user_id},
-        sort=[("analyzed_at", -1)]
-    )
-    
-    if not last_analysis:
-        return {"error": "No analyzed games found"}
-    
-    report = await generate_behavioral_report(db, user.user_id, last_analysis.get("game_id"))
-    return report
-
-
-# ==================== REANALYSIS JOB ROUTES (P1.6) ====================
-
-class ReanalysisRequest(BaseModel):
-    """Request for enqueueing a reanalysis job"""
-    user_id: Optional[str] = None  # Admin can specify, otherwise uses current user
-
-@api_router.post("/behavioral/reanalysis/enqueue")
-async def enqueue_reanalysis_job(
-    request: ReanalysisRequest = None,
-    user: User = Depends(get_current_user)
-):
-    """
-    Enqueue a historical reanalysis job for a user.
-    
-    Re-analyzes all historical games using the latest P1.6 engine.
-    - Idempotent: returns existing job if one is already pending/running
-    - Safe: max 1 running job per user, max 50 games per run
-    - historical_mode=True: does NOT mutate advice lifecycle
-    """
-    from jobs import enqueue_reanalysis, run_reanalysis_job
-    import asyncio
-    
-    target_user_id = request.user_id if request and request.user_id else user.user_id
-    
-    # Enqueue job (idempotent)
-    job = await enqueue_reanalysis(db, target_user_id)
-    
-    # Start job in background if PENDING
-    if job.status == "PENDING":
-        asyncio.create_task(run_reanalysis_job(db, job.job_id))
-    
-    return {
-        "job_id": job.job_id,
-        "status": job.status,
-        "message": "Reanalysis job enqueued" if job.status == "PENDING" else "Existing job found"
-    }
-
-
-@api_router.get("/behavioral/reanalysis/status")
-async def get_reanalysis_job_status(user: User = Depends(get_current_user)):
-    """
-    Get the status of the most recent reanalysis job for the current user.
-    
-    Returns progress information including:
-    - status: PENDING | RUNNING | DONE | FAILED
-    - processed_games: number of games reanalyzed
-    - skipped_games: number of games already up-to-date
-    - total_games: total games to process
-    - engine_version: version used for reanalysis
-    """
-    from jobs import get_reanalysis_status
-    
-    status = await get_reanalysis_status(db, user.user_id)
-    
-    if not status:
-        return {"status": "NO_JOB", "message": "No reanalysis job found"}
-    
-    return status
-
-
-# ==================== MISSION LIFECYCLE ROUTES (P1.7) ====================
-
-class BehavioralMissionStartRequest(BaseModel):
-    """Request to start tracking a behavioral mission"""
-    mission_type: str
-    difficulty: str = "STANDARD"
-    game_id_context: Optional[str] = None
-    root_cause: Optional[str] = None
-    payload: Dict = {}
-
-class BehavioralMissionCompleteRequest(BaseModel):
-    """Request to complete a behavioral mission"""
-    mission_id: str
-    user_self_rating: Optional[int] = None  # 1-5
-
-
-@api_router.post("/behavioral/mission/start")
-async def start_behavioral_mission(
-    request: BehavioralMissionStartRequest,
-    user: User = Depends(get_current_user)
-):
-    """
-    Start tracking a behavioral mission.
-    Called when mission is shown to user.
-    
-    Creates a STARTED entry in mission_history.
-    """
-    from behavioral.mission_lifecycle import start_mission
-    
-    mission_data = {
-        "type": request.mission_type,
-        "difficulty": request.difficulty,
-        "payload": request.payload,
-    }
-    
-    record = await start_mission(
-        db,
-        user.user_id,
-        mission_data,
-        game_id_context=request.game_id_context,
-        root_cause=request.root_cause
-    )
-    
-    return {
-        "mission_id": record.mission_id,
-        "status": record.status,
-        "message": "Mission tracking started"
-    }
-
-
-@api_router.post("/behavioral/mission/complete")
-async def complete_behavioral_mission(
-    request: BehavioralMissionCompleteRequest,
-    user: User = Depends(get_current_user)
-):
-    """
-    Mark a behavioral mission as complete and trigger validation.
-    
-    Validation happens against NEXT APPLICABLE GAMES (not just next game).
-    If no applicable games yet, mission stays STARTED.
-    
-    Returns validation result including:
-    - status: COMPLETED | STARTED | FAILED
-    - validation: score, applicability, games used
-    - difficulty_decay_triggered: bool
-    """
-    from behavioral.mission_lifecycle import complete_mission
-    
-    result = await complete_mission(
-        db,
-        user.user_id,
-        request.mission_id,
-        user_self_rating=request.user_self_rating
-    )
-    
-    return result
-
-
-@api_router.get("/behavioral/mission/active")
-async def get_active_missions(user: User = Depends(get_current_user)):
-    """
-    Get user's active (STARTED) missions.
-    Also checks for abandoned missions (48h timeout).
-    """
-    from behavioral.mission_lifecycle import check_abandoned_missions
-    
-    # Check for abandoned missions first
-    await check_abandoned_missions(db, user.user_id)
-    
-    # Get active missions
-    active = await db.mission_history.find({
-        "user_id": user.user_id,
-        "status": "STARTED"
-    }).sort("created_at", -1).limit(5).to_list(5)
-    
-    return {
-        "active_missions": [{
-            "mission_id": m.get("mission_id"),
-            "mission_type": m.get("mission_type"),
-            "difficulty": m.get("difficulty"),
-            "created_at": m.get("created_at"),
-            "root_cause_context": m.get("root_cause_context")
-        } for m in active],
-        "count": len(active)
-    }
-
-
-@api_router.get("/behavioral/mission/history")
-async def get_mission_history(
-    limit: int = 10,
-    user: User = Depends(get_current_user)
-):
-    """
-    Get user's mission history with validation results.
-    """
-    missions = await db.mission_history.find({
-        "user_id": user.user_id
-    }).sort("created_at", -1).limit(limit).to_list(limit)
-    
-    return {
-        "missions": [{
-            "mission_id": m.get("mission_id"),
-            "mission_type": m.get("mission_type"),
-            "difficulty": m.get("difficulty"),
-            "status": m.get("status"),
-            "validation_score": m.get("engine_validation_score"),
-            "validation_reason": m.get("validation_reason"),
-            "created_at": m.get("created_at"),
-            "completed_at": m.get("completed_at"),
-            "user_self_rating": m.get("user_self_rating")
-        } for m in missions],
-        "count": len(missions)
-    }
-
-
-@api_router.get("/behavioral/mission/last-result")
-async def get_last_mission_result_endpoint(user: User = Depends(get_current_user)):
-    """
-    Get the last completed/failed mission result.
-    Used by narrative engine to reference recent mission outcomes.
-    """
-    from behavioral.mission_lifecycle import get_last_mission_result
-    
-    result = await get_last_mission_result(db, user.user_id)
-    
-    if not result:
-        return {"has_result": False}
-    
-    return {
-        "has_result": True,
-        **result
-    }
-
+# NOTE: Behavioral routes moved to routes/behavioral.py:
+# - GET /behavioral/analyze/{game_id}
+# - GET /behavioral/last-report
+# - POST /behavioral/reanalysis/enqueue
+# - GET /behavioral/reanalysis/status
+# - POST /behavioral/mission/start
+# - POST /behavioral/mission/complete
+# - GET /behavioral/mission/active
+# - GET /behavioral/mission/history
+# - GET /behavioral/mission/last-result
 
 # ==================== MISSION ENGINE ROUTES ====================
 
@@ -5960,41 +5715,9 @@ async def sync_games_now(background_tasks: BackgroundTasks, user: User = Depends
     return {"message": "Game sync started", "status": "processing"}
 
 
-# ==================== PUSH NOTIFICATIONS ====================
-
-class RegisterDeviceRequest(BaseModel):
-    push_token: str
-    platform: str  # 'ios' or 'android'
-
-@api_router.post("/notifications/register-device")
-async def register_push_device(request: RegisterDeviceRequest, user: User = Depends(get_current_user)):
-    """Register a device for push notifications"""
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {
-            "$set": {
-                "push_token": request.push_token,
-                "push_platform": request.platform,
-                "push_registered_at": datetime.now(timezone.utc).isoformat()
-            }
-        }
-    )
-    return {"message": "Device registered for push notifications"}
-
-@api_router.delete("/notifications/unregister-device")
-async def unregister_push_device(user: User = Depends(get_current_user)):
-    """Unregister device from push notifications"""
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {
-            "$unset": {
-                "push_token": "",
-                "push_platform": "",
-                "push_registered_at": ""
-            }
-        }
-    )
-    return {"message": "Device unregistered from push notifications"}
+# NOTE: Push notification routes moved to routes/notifications.py:
+# - POST /notifications/register-device
+# - DELETE /notifications/unregister-device
 
 async def send_push_notification(user_id: str, title: str, body: str, data: dict = None):
     """
@@ -7077,45 +6800,10 @@ async def get_opening_repertoire(user: User = Depends(get_current_user)):
     result = await analyze_opening_repertoire(db, user.user_id)
     return result
 
-# ==================== NOTIFICATIONS ROUTES ====================
-
-@api_router.get("/notifications")
-async def get_notifications(limit: int = 20, unread_only: bool = False, user: User = Depends(get_current_user)):
-    """Get user's in-app notifications"""
-    query = {"user_id": user.user_id}
-    if unread_only:
-        query["read"] = False
-    
-    notifications = await db.notifications.find(
-        query,
-        {"_id": 0}
-    ).sort("created_at", -1).limit(limit).to_list(limit)
-    
-    # Count unread
-    unread_count = await db.notifications.count_documents({"user_id": user.user_id, "read": False})
-    
-    return {
-        "notifications": notifications,
-        "unread_count": unread_count
-    }
-
-@api_router.post("/notifications/{notification_id}/read")
-async def mark_single_notification_read(notification_id: str, user: User = Depends(get_current_user)):
-    """Mark a notification as read"""
-    result = await db.notifications.update_one(
-        {"user_id": user.user_id, "notification_id": notification_id},
-        {"$set": {"read": True}}
-    )
-    return {"success": result.modified_count > 0}
-
-@api_router.post("/notifications/read-all")
-async def mark_all_notifications_read(user: User = Depends(get_current_user)):
-    """Mark all notifications as read"""
-    result = await db.notifications.update_many(
-        {"user_id": user.user_id, "read": False},
-        {"$set": {"read": True}}
-    )
-    return {"success": True, "updated": result.modified_count}
+# NOTE: Notification routes moved to routes/notifications.py:
+# - GET /notifications
+# - POST /notifications/{notification_id}/read
+# - POST /notifications/read-all
 
 # ==================== RAG MANAGEMENT ROUTES ====================
 
@@ -9254,72 +8942,11 @@ async def get_milestones(user: User = Depends(get_current_user)):
     }
 
 
-# ============== NOTIFICATION ENDPOINTS ==============
-
-@api_router.get("/notifications")
-async def get_notifications(
-    unread_only: bool = False,
-    limit: int = 20,
-    user: User = Depends(get_current_user)
-):
-    """
-    Get user's notifications.
-    """
-    notifications = await get_user_notifications(db, user.user_id, unread_only, limit)
-    unread_count = await get_unread_count(db, user.user_id)
-    
-    return {
-        "notifications": notifications,
-        "unread_count": unread_count
-    }
-
-
-@api_router.post("/notifications/read")
-async def mark_notifications_read(
-    notification_id: str = None,
-    user: User = Depends(get_current_user)
-):
-    """
-    Mark notification(s) as read.
-    If notification_id is provided, marks only that notification.
-    Otherwise marks all as read.
-    """
-    success = await mark_notification_read(db, user.user_id, notification_id)
-    return {"success": success}
-
-
-@api_router.post("/notifications/{notification_id}/dismiss")
-async def dismiss_user_notification(
-    notification_id: str,
-    user: User = Depends(get_current_user)
-):
-    """
-    Dismiss a notification.
-    """
-    success = await dismiss_notification(db, user.user_id, notification_id)
-    return {"success": success}
-
-
-@api_router.get("/notifications/push-payload/{notification_id}")
-async def get_notification_push_payload(
-    notification_id: str,
-    user: User = Depends(get_current_user)
-):
-    """
-    Get push notification payload for browser Notification API.
-    """
-    from bson import ObjectId
-    notification = await db.notifications.find_one(
-        {"_id": ObjectId(notification_id), "user_id": user.user_id},
-        {"_id": 0}
-    )
-    
-    if not notification:
-        raise HTTPException(status_code=404, detail="Notification not found")
-    
-    notification["id"] = notification_id
-    return get_push_notification_payload(notification)
-
+# NOTE: Additional notification endpoints moved to routes/notifications.py:
+# - GET /notifications
+# - POST /notifications/read
+# - POST /notifications/{notification_id}/dismiss
+# - GET /notifications/push-payload/{notification_id}
 
 # ============== SUBSCRIPTION/PLAN ENDPOINTS ==============
 
@@ -11930,6 +11557,8 @@ from routes import training as training_routes
 from routes import coach as coach_routes
 from routes import journey as journey_routes
 from routes import cognitive as cognitive_routes
+from routes import behavioral as behavioral_routes
+from routes import notifications as notifications_routes
 
 # Set database references for modular routers
 games_routes.set_db(db)
@@ -11942,6 +11571,8 @@ coach_routes.set_llm(call_llm)
 journey_routes.set_db(db)
 journey_routes.set_sync_status(_sync_status, QUICK_SYNC_INTERVAL_SECONDS)
 cognitive_routes.set_db(db)
+behavioral_routes.set_db(db)
+notifications_routes.set_db(db)
 
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(feedback_routes.router, prefix="/api")
@@ -11952,6 +11583,8 @@ app.include_router(training_routes.router, prefix="/api")
 app.include_router(coach_routes.router, prefix="/api")
 app.include_router(journey_routes.router, prefix="/api")
 app.include_router(cognitive_routes.router, prefix="/api")
+app.include_router(behavioral_routes.router, prefix="/api")
+app.include_router(notifications_routes.router, prefix="/api")
 
 # Then include the legacy api_router
 app.include_router(api_router)

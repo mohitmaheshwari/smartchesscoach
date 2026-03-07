@@ -51,10 +51,12 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
   - `routes/coach.py`: 17 endpoints (coach state, memory, play, analytics)
   - `routes/journey.py`: 11 endpoints (dashboard, account linking, sync, intelligence)
   - `routes/cognitive.py`: 18 endpoints (cognitive gaps, patterns, TSI, training priority)
-- **Total extracted**: 100 endpoints
-- **Lines in server.py**: 11,967 (down from 14,560 - **2,593 lines removed**)
-- **Remaining**: ~245 endpoints in server.py
-- **Candidates for next extraction**: behavioral (9), missions (8), notifications (9)
+  - `routes/behavioral.py`: 9 endpoints (behavioral analysis, missions, reanalysis)
+  - `routes/notifications.py`: 8 endpoints (notifications, push, device registration)
+- **Total extracted**: 117 endpoints
+- **Lines in server.py**: 11,600 (down from 14,560 - **2,960 lines removed**)
+- **Remaining**: ~220 endpoints in server.py
+- **Candidates for next extraction**: missions (8), settings (5)
 
 ### 8. Pattern Collections Reconciliation ✅
 - **smart_patterns**: 11 patterns (active, primary system)
