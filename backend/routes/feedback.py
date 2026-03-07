@@ -153,12 +153,34 @@ async def get_pattern_learning_stats(user: User = Depends(get_current_user)):
     - feedback: Feedback statistics (pending, processed, total)
     - rules: Rule statistics (by status, total triggers, accuracy)
     - corrections: Correction statistics (by motif, usage counts)
-    - loaded_rules: Currently active rules summary
+    - loaded_rules: Currently active rules from smart_patterns
+    - system_health: Whether auto-correction is working
     """
     from services.pattern_learning.auto_correction_service import get_auto_correction_service
     
     service = get_auto_correction_service()
     stats = await service.get_system_stats()
+    
+    # Add smart_patterns stats (the actual loaded patterns)
+    smart_count = await db.smart_patterns.count_documents({})
+    patterns_by_type = {}
+    async for p in db.smart_patterns.find({}, {"pattern_type": 1, "_id": 0}):
+        ptype = p.get("pattern_type", "unknown")
+        patterns_by_type[ptype] = patterns_by_type.get(ptype, 0) + 1
+    
+    # Add match history stats
+    match_count = await db.pattern_match_history.count_documents({})
+    
+    stats["loaded_rules"] = {
+        "total": smart_count,
+        "by_pattern": patterns_by_type
+    }
+    
+    stats["system_health"] = {
+        "patterns_loaded": smart_count > 0,
+        "total_matches_applied": match_count,
+        "status": "active" if smart_count > 0 else "no_patterns"
+    }
     
     return stats
 

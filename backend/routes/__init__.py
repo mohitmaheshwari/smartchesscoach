@@ -6,11 +6,11 @@ This module contains the modular route definitions extracted from the monolithic
 Each route file handles a specific domain of the application.
 
 Extracted Domains (IN USE):
-- auth: Authentication endpoints (login, logout, session management, OAuth)
-- feedback: Pattern learning and feedback endpoints for self-correction system
+- auth: Authentication endpoints (login, logout, session management, OAuth) - 9 endpoints
+- feedback: Pattern learning and feedback endpoints for self-correction system - 8 endpoints
+- games: Game listing, details, blunders, best-moves, analysis-status - 7 endpoints
 
 Domains TO BE EXTRACTED (from server.py):
-- games: Game import, listing, and analysis (~40 endpoints)
 - coach: Coach-related endpoints (state, memory, analytics, play) (~50 endpoints)
 - reflect: Reflection engine endpoints (~15 endpoints)
 - training: Training and puzzle endpoints (~20 endpoints)
@@ -19,10 +19,11 @@ Domains TO BE EXTRACTED (from server.py):
 - behavioral: Behavioral analysis endpoints (~15 endpoints)
 - notifications: Notification management (~5 endpoints)
 - eval: Position evaluation endpoints (~5 endpoints)
+- lab: Lab page analysis endpoints (~15 endpoints)
 
-Total endpoints in server.py: ~315
-Endpoints extracted: ~20 (auth: 10, feedback: 8)
-Remaining: ~295
+Total endpoints in server.py: ~295 (was ~315)
+Endpoints extracted: ~24 (auth: 9, feedback: 8, games: 7)
+Remaining: ~271
 """
 
 from fastapi import APIRouter

@@ -30,7 +30,9 @@ import {
   ThumbsDown,
   Sparkles,
   Clock,
-  Shield
+  Shield,
+  BookOpen,
+  Tag
 } from "lucide-react";
 import InlineFeedbackButton from "@/components/InlineFeedbackButton";
 
@@ -98,6 +100,27 @@ const PATTERN_TIPS = {
 // Helper to pick random phrase
 const randomPhrase = (phrases) => phrases[Math.floor(Math.random() * phrases.length)];
 
+// Format tag label for display
+const formatTagLabel = (tagId) => {
+  if (!tagId) return "";
+  return tagId
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+// Get badge color for tag category
+const getTagColor = (tags) => {
+  if (!tags?.phase) return "bg-muted";
+  switch(tags.phase) {
+    case "opening": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+    case "middlegame": return "bg-purple-500/20 text-purple-400 border-purple-500/30";
+    case "endgame": return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+    default: return "bg-muted text-muted-foreground";
+  }
+};
+
 // Get pattern category from classification
 const getPatternCategory = (classification_v2) => {
   if (!classification_v2) return "default";
@@ -119,7 +142,8 @@ export default function GuidedAnalysis({
   onComplete,
   userColor,
   gameId,
-  onFeedback
+  onFeedback,
+  onOpenTheory // New: callback to open theory module
 }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -365,6 +389,24 @@ export default function GuidedAnalysis({
             {/* Explanation - After button is clicked */}
             {showExplanation && (
               <div className="space-y-4">
+                {/* Tags Section - Show pattern tags when available */}
+                {currentMoment.tags && currentMoment.tags.primary_tag && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs ${getTagColor(currentMoment.tags)}`}
+                    >
+                      <Tag className="w-3 h-3 mr-1" />
+                      {formatTagLabel(currentMoment.tags.primary_tag)}
+                    </Badge>
+                    {currentMoment.tags.phase && (
+                      <Badge variant="outline" className="text-xs bg-muted/50">
+                        {currentMoment.tags.phase}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+                
                 {/* Main Explanation */}
                 <div className="p-4 bg-background/60 rounded-lg border border-border/50">
                   <div className="flex items-start gap-3">
@@ -377,7 +419,9 @@ export default function GuidedAnalysis({
                       )}
                       <p className="text-sm text-muted-foreground leading-relaxed">
                         {currentMoment.classification_v2?.coaching_focus || 
+                         currentMoment.coach_explanation ||
                          currentMoment.explanation ||
+                         currentMoment.insight?.what_best_move_achieves ||
                          "This move allowed your opponent to gain a significant advantage."}
                       </p>
                       
@@ -393,6 +437,29 @@ export default function GuidedAnalysis({
                     </div>
                   </div>
                 </div>
+                
+                {/* Theory Link - Learn More */}
+                {currentMoment.recommended_theory?.primary_theory && (
+                  <div 
+                    className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 cursor-pointer hover:bg-blue-500/15 transition-colors"
+                    onClick={() => onOpenTheory?.(currentMoment.recommended_theory.primary_theory)}
+                    data-testid="theory-link"
+                  >
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-blue-400" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-blue-400">Learn about this pattern</p>
+                        <p className="text-sm font-medium text-blue-300">
+                          {currentMoment.recommended_theory.primary_theory.name}
+                        </p>
+                        <p className="text-xs text-blue-400/70 mt-0.5">
+                          {currentMoment.recommended_theory.primary_theory.key_insight}
+                        </p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-blue-400" />
+                    </div>
+                  </div>
+                )}
                 
                 {/* Quick Tip - Collapsible */}
                 {!showTip ? (

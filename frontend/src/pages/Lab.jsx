@@ -335,7 +335,11 @@ const Lab = ({ user }) => {
   // Fetch deep strategy analysis when Strategy tab is selected
   useEffect(() => {
     const fetchDeepStrategy = async () => {
-      if (activeTab === "strategy" && !deepStrategy && !loadingDeepStrategy && gameId) {
+      // Load deep strategy for Strategy tab OR when we have critical moves (for Guided Analysis)
+      const shouldLoad = (activeTab === "strategy" || activeTab === "summary") 
+        && !deepStrategy && !loadingDeepStrategy && gameId;
+      
+      if (shouldLoad) {
         setLoadingDeepStrategy(true);
         try {
           const response = await fetch(`${API}/lab/${gameId}/deep-strategy`, {
@@ -1576,7 +1580,22 @@ const Lab = ({ user }) => {
                       {/* Guided Analysis Mode */}
                       {guidedMode && criticalMoves.length > 0 ? (
                         <GuidedAnalysis
-                          criticalMoments={criticalMoves}
+                          criticalMoments={deepStrategy?.critical_moments?.length > 0 
+                            ? deepStrategy.critical_moments.map(m => ({
+                                move_number: m.move_number,
+                                move_san: m.your_move,
+                                move: m.your_move,
+                                best_move: m.best_move,
+                                cp_loss: m.cp_loss,
+                                fen_before: m.fen,
+                                category: Math.abs(m.cp_loss) >= 300 ? "blunder" : "mistake",
+                                explanation: m.coach_explanation || m.insight?.what_best_move_achieves,
+                                tags: m.tags,
+                                recommended_theory: m.recommended_theory,
+                                insight: m.insight
+                              }))
+                            : criticalMoves
+                          }
                           currentMoveIndex={currentMoveIndex}
                           onNavigateToMove={(idx) => {
                             setCurrentMoveIndex(idx);
@@ -1587,6 +1606,14 @@ const Lab = ({ user }) => {
                           onFeedback={(context) => {
                             setFeedbackContext(context);
                             setFeedbackOpen(true);
+                          }}
+                          onOpenTheory={(theory) => {
+                            if (theory?.name) {
+                              toast.info(`Theory: ${theory.name}`, {
+                                description: theory.summary || theory.key_insight,
+                                duration: 6000
+                              });
+                            }
                           }}
                         />
                       ) : (

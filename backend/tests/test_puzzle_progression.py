@@ -13,7 +13,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://self-learning-coach.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-insight-hub.preview.emergentagent.com').rstrip('/')
 
 class TestPuzzleProgressionAPI:
     """Tests for puzzle progression endpoints"""

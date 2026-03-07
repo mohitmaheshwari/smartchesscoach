@@ -1277,6 +1277,35 @@ def parse_pgn_games(pgn_text: str, platform: str, user_username: str) -> List[Di
         current_game['pgn_moves'] = ' '.join(moves)
         games.append(current_game)
     
+    # ECO code to opening name mapping
+    ECO_TO_OPENING = {
+        "A00": "Uncommon Opening", "A01": "Nimzowitsch-Larsen Attack", "A04": "Reti Opening",
+        "A10": "English Opening", "A20": "English Opening", "A40": "Queen's Pawn Game",
+        "A45": "Indian Defense", "A80": "Dutch Defense",
+        "B00": "Uncommon King's Pawn", "B01": "Scandinavian Defense", "B02": "Alekhine's Defense",
+        "B06": "Modern Defense", "B07": "Pirc Defense", "B10": "Caro-Kann Defense",
+        "B20": "Sicilian Defense", "B21": "Sicilian Defense", "B22": "Sicilian Defense",
+        "B23": "Sicilian Defense", "B27": "Sicilian Defense", "B30": "Sicilian Defense",
+        "B40": "Sicilian Defense", "B50": "Sicilian Defense", "B90": "Sicilian Najdorf",
+        "C00": "French Defense", "C01": "French Defense", "C02": "French Defense",
+        "C10": "French Defense", "C20": "King's Pawn Game", "C21": "Danish Gambit",
+        "C24": "Bishop's Opening", "C25": "Vienna Game", "C30": "King's Gambit",
+        "C40": "King's Knight Opening", "C41": "Philidor Defense", "C42": "Petrov Defense",
+        "C44": "Scotch Game", "C45": "Scotch Game", "C46": "Three Knights Game",
+        "C47": "Four Knights Game", "C50": "Italian Game", "C51": "Evans Gambit",
+        "C52": "Evans Gambit", "C53": "Italian Game", "C54": "Italian Game", "C55": "Two Knights Defense",
+        "C60": "Ruy Lopez", "C61": "Ruy Lopez", "C62": "Ruy Lopez", "C63": "Ruy Lopez",
+        "C64": "Ruy Lopez", "C65": "Ruy Lopez", "C70": "Ruy Lopez", "C80": "Ruy Lopez",
+        "D00": "Queen's Pawn Game", "D02": "London System", "D04": "Colle System",
+        "D06": "Queen's Gambit", "D10": "Slav Defense", "D20": "Queen's Gambit Accepted",
+        "D30": "Queen's Gambit Declined", "D35": "Queen's Gambit Declined",
+        "D37": "Queen's Gambit Declined", "D50": "Queen's Gambit Declined",
+        "E00": "Indian Defense", "E10": "Queen's Indian Defense", "E12": "Queen's Indian Defense",
+        "E20": "Nimzo-Indian Defense", "E30": "Nimzo-Indian Defense",
+        "E60": "King's Indian Defense", "E70": "King's Indian Defense",
+        "E80": "King's Indian Defense", "E90": "King's Indian Defense",
+    }
+    
     parsed_games = []
     for g in games:
         white = g.get('white', 'Unknown')
@@ -1289,6 +1318,17 @@ def parse_pgn_games(pgn_text: str, platform: str, user_username: str) -> List[Di
                 full_pgn += f'[{key.capitalize()} "{value}"]\n'
         full_pgn += f'\n{g.get("pgn_moves", "")}'
         
+        # Get opening name - prefer Opening header, fall back to ECO mapping
+        opening_name = g.get('opening', '')
+        eco_code = g.get('eco', '')
+        
+        if not opening_name and eco_code:
+            # Try exact match first, then prefix match
+            opening_name = ECO_TO_OPENING.get(eco_code)
+            if not opening_name:
+                eco_prefix = eco_code[:2] + "0" if len(eco_code) >= 2 else eco_code
+                opening_name = ECO_TO_OPENING.get(eco_prefix, f"ECO {eco_code}")
+        
         parsed_games.append({
             'platform': platform,
             'pgn': full_pgn,
@@ -1297,7 +1337,7 @@ def parse_pgn_games(pgn_text: str, platform: str, user_username: str) -> List[Di
             'result': g.get('result', '*'),
             'time_control': g.get('timecontrol', g.get('event', '')),
             'date_played': g.get('date', g.get('utcdate', '')),
-            'opening': g.get('opening', g.get('eco', '')),
+            'opening': opening_name or eco_code,  # Store opening name, fall back to ECO
             'user_color': user_color
         })
     
@@ -1403,99 +1443,7 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
     
     return {"imported": imported_count, "total_found": len(games_to_import)}
 
-@api_router.get("/games")
-async def get_games(user: User = Depends(get_current_user)):
-    """Get all games for the current user"""
-    games = await db.games.find(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    ).sort("imported_at", -1).to_list(100)
-    return games
-
-
-# IMPORTANT: These specific routes must come BEFORE /games/{game_id} wildcard
-@api_router.get("/games/analyzed")
-async def get_analyzed_games(user: User = Depends(get_current_user)):
-    """Get list of all analyzed games with summary stats"""
-    games = await db.games.find(
-        {"user_id": user.user_id, "is_analyzed": True},
-        {"_id": 0, "game_id": 1, "result": 1, "user_color": 1, "user_result": 1,
-         "white_player": 1, "black_player": 1, "platform": 1, "imported_at": 1}
-    ).sort("imported_at", -1).to_list(50)
-    
-    result = []
-    for game in games:
-        # Get analysis for this game
-        analysis = await db.game_analyses.find_one(
-            {"game_id": game["game_id"]},
-            {"_id": 0, "accuracy": 1, "blunders": 1, "mistakes": 1, "best_moves": 1, "stockfish_analysis": 1}
-        )
-        
-        # Determine opponent
-        user_color = game.get("user_color", "white")
-        opponent = game.get("black_player") if user_color == "white" else game.get("white_player")
-        
-        # Get accuracy from stockfish_analysis if available
-        accuracy = 0
-        if analysis:
-            sf = analysis.get("stockfish_analysis", {})
-            accuracy = sf.get("accuracy", analysis.get("accuracy", 0))
-        
-        result.append({
-            "game_id": game["game_id"],
-            "opponent": opponent or "Unknown",
-            "result": game.get("user_result", "unknown"),
-            "accuracy": round(accuracy, 1) if accuracy else 0,
-            "blunders": analysis.get("blunders", 0) if analysis else 0,
-            "mistakes": analysis.get("mistakes", 0) if analysis else 0,
-            "best_moves": analysis.get("best_moves", 0) if analysis else 0,
-            "platform": game.get("platform", "chess.com")
-        })
-    
-    return {"games": result, "total": len(result)}
-
-
-@api_router.get("/games/blunders")
-async def get_all_blunders(user: User = Depends(get_current_user)):
-    """Get all blunders from user's games with position and explanation"""
-    # Get all analyzed games
-    analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "commentary": 1, "stockfish_analysis": 1}
-    ).to_list(100)
-    
-    blunders = []
-    for analysis in analyses:
-        commentary = analysis.get("commentary", [])
-        sf_analysis = analysis.get("stockfish_analysis", {})
-        move_evals = sf_analysis.get("move_evaluations", [])
-        
-        # Create a map of move_number to FEN
-        fen_map = {m.get("move_number"): m.get("fen_before") for m in move_evals}
-        
-        for move in commentary:
-            if move.get("evaluation") in ["blunder", "mistake"]:
-                move_num = move.get("move_number")
-                # Try to get FEN from stockfish data
-                fen = fen_map.get(move_num, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-                
-                blunders.append({
-                    "game_id": analysis["game_id"],
-                    "move_number": move_num,
-                    "move": move.get("move"),
-                    "evaluation": move.get("evaluation"),
-                    "fen": fen,
-                    "feedback": move.get("feedback", ""),
-                    "consider": move.get("consider", ""),
-                    "threat": move.get("details", {}).get("threat_line"),
-                    "thinking_pattern": move.get("details", {}).get("thinking_pattern")
-                })
-    
-    # Sort by most recent (game_id contains timestamp info)
-    blunders.sort(key=lambda x: x["game_id"], reverse=True)
-    
-    return {"blunders": blunders[:50], "total": len(blunders)}
-
+# NOTE: /games, /games/analyzed, /games/blunders endpoints moved to routes/games.py
 
 @api_router.get("/training/one-move-blunders")
 async def get_one_move_blunders(
@@ -1599,146 +1547,7 @@ async def get_one_move_blunders(
     }
 
 
-@api_router.get("/games/best-moves")
-async def get_all_best_moves(user: User = Depends(get_current_user)):
-    """Get all best/excellent moves from user's games"""
-    # Get all analyzed games
-    analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "commentary": 1, "stockfish_analysis": 1}
-    ).to_list(100)
-    
-    best_moves = []
-    for analysis in analyses:
-        commentary = analysis.get("commentary", [])
-        sf_analysis = analysis.get("stockfish_analysis", {})
-        move_evals = sf_analysis.get("move_evaluations", [])
-        
-        # Create a map of move_number to data
-        move_data_map = {m.get("move_number"): m for m in move_evals}
-        
-        # First, check commentary for best/excellent/good
-        for move in commentary:
-            if move.get("evaluation") in ["best", "excellent", "good"]:
-                move_num = move.get("move_number")
-                move_data = move_data_map.get(move_num, {})
-                fen = move_data.get("fen_before", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-                
-                best_moves.append({
-                    "game_id": analysis["game_id"],
-                    "move_number": move_num,
-                    "move": move.get("move"),
-                    "evaluation": move.get("evaluation"),
-                    "fen": fen,
-                    "feedback": move.get("feedback", ""),
-                    "intent": move.get("intent", "")
-                })
-        
-        # Also check stockfish evaluations for moves with very low cp_loss (excellent moves)
-        for move_data in move_evals:
-            cp_loss = move_data.get("cp_loss", 100)
-            eval_type = move_data.get("evaluation", "")
-            if hasattr(eval_type, "value"):
-                eval_type = eval_type.value
-            
-            # Moves with < 5 centipawn loss are excellent
-            if cp_loss <= 5 and eval_type not in ["blunder", "mistake", "inaccuracy"]:
-                move_num = move_data.get("move_number")
-                # Avoid duplicates
-                if not any(m["game_id"] == analysis["game_id"] and m["move_number"] == move_num for m in best_moves):
-                    best_moves.append({
-                        "game_id": analysis["game_id"],
-                        "move_number": move_num,
-                        "move": move_data.get("move", ""),
-                        "evaluation": "excellent" if cp_loss == 0 else "good",
-                        "fen": move_data.get("fen_before", ""),
-                        "feedback": f"Perfect move with {cp_loss} centipawn loss",
-                        "intent": ""
-                    })
-    
-    # Sort and limit
-    best_moves.sort(key=lambda x: (x["game_id"], x["move_number"]), reverse=True)
-    
-    return {"best_moves": best_moves[:50], "total": len(best_moves)}
-
-
-@api_router.get("/games/{game_id}")
-async def get_game(game_id: str, user: User = Depends(get_current_user)):
-    """Get a specific game with player names and termination reason"""
-    import re
-    
-    game = await db.games.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
-        {"_id": 0}
-    )
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
-    
-    # Extract player names from PGN if not already present
-    pgn = game.get("pgn", "")
-    if pgn:
-        white_match = re.search(r'\[White "([^"]+)"\]', pgn)
-        black_match = re.search(r'\[Black "([^"]+)"\]', pgn)
-        game["white_player"] = white_match.group(1) if white_match else "White"
-        game["black_player"] = black_match.group(1) if black_match else "Black"
-        
-        # Extract ratings from PGN
-        white_elo_match = re.search(r'\[WhiteElo "(\d+)"\]', pgn)
-        black_elo_match = re.search(r'\[BlackElo "(\d+)"\]', pgn)
-        if white_elo_match:
-            game["white_rating"] = int(white_elo_match.group(1))
-        if black_elo_match:
-            game["black_rating"] = int(black_elo_match.group(1))
-        
-        # Also try to extract termination from PGN if not stored
-        if not game.get("termination"):
-            term_match = re.search(r'\[Termination "([^"]+)"\]', pgn)
-            if term_match:
-                game["termination"] = term_match.group(1).lower()
-    else:
-        game["white_player"] = "White"
-        game["black_player"] = "Black"
-    
-    # Generate human-readable termination text
-    termination = game.get("termination", "")
-    user_color = game.get("user_color", "white")
-    result = game.get("result", "")
-    
-    # Determine if user won or lost
-    if user_color == "white":
-        user_won = result == "1-0"
-    else:
-        user_won = result == "0-1"
-    
-    termination_text = ""
-    if termination == "timeout":
-        termination_text = "You lost on time" if not user_won else "Opponent lost on time"
-    elif termination == "resigned":
-        termination_text = "You resigned" if not user_won else "Opponent resigned"
-    elif termination == "checkmated":
-        termination_text = "You got checkmated" if not user_won else "You checkmated opponent"
-    elif termination == "won":
-        termination_text = "You won" if user_won else "You lost"
-    elif termination == "stalemate":
-        termination_text = "Draw by stalemate"
-    elif termination == "repetition":
-        termination_text = "Draw by repetition"
-    elif termination == "insufficient_material":
-        termination_text = "Draw - insufficient material"
-    elif termination == "draw_agreed":
-        termination_text = "Draw by agreement"
-    elif "abandoned" in termination.lower():
-        termination_text = "Opponent abandoned" if user_won else "Game abandoned (disconnection)"
-    elif "time" in termination.lower():
-        termination_text = "You lost on time" if not user_won else "Opponent lost on time"
-    elif "resign" in termination.lower():
-        termination_text = "You resigned" if not user_won else "Opponent resigned"
-    elif "checkmate" in termination.lower():
-        termination_text = "You got checkmated" if not user_won else "You checkmated opponent"
-    
-    game["termination_text"] = termination_text
-    
-    return game
+# NOTE: /games/best-moves, /games/{game_id} endpoints moved to routes/games.py
 
 # ==================== AI ANALYSIS ROUTES ====================
 
@@ -11110,16 +10919,22 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
     sf = analysis.get("stockfish_analysis", {})
     move_evaluations = sf.get("move_evaluations", [])
     
+    # Get total moves for phase detection
+    total_moves = len(move_evaluations) if move_evaluations else 40
+    
     # Find critical moments (mistakes with cp_loss >= 100)
     critical_moments = []
-    for m in move_evaluations:
+    for i, m in enumerate(move_evaluations):
         cp_loss = abs(m.get("cp_loss", 0))
         if cp_loss >= 100:
             fen = m.get("fen_before", "")
+            fen_after = m.get("fen_after", fen)  # Use fen_after if available
             user_move = m.get("move", "")
             best_move = m.get("best_move", "")
             pv = m.get("pv_after_best", [])
             move_num = m.get("move_number", 0)
+            eval_before = m.get("eval_before", 0)
+            eval_after = m.get("eval_after", eval_before - cp_loss)
             
             if fen and user_move and best_move:
                 # Deep position analysis
@@ -11135,23 +10950,23 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
                 
                 # Tag this moment with patterns
                 from services.game_tagging_service import tag_critical_moment
+                from services.tag_theory_mapping import enrich_moment_with_theories
                 user_rating = game.get("user_rating", 1200) if game else 1200
-                total_moves = len(positions) if positions else 40
                 tags = tag_critical_moment(
                     move_number=move_num,
                     move_san=user_move,
                     fen_before=fen,
-                    fen_after=positions[i+1] if i+1 < len(positions) else fen,
+                    fen_after=fen_after,
                     cp_loss=cp_loss,
                     best_move=best_move,
                     pv_after=pv[:5] if pv else [],
                     user_rating=user_rating,
                     total_moves=total_moves,
-                    eval_before=prev_eval,
-                    eval_after=prev_eval - cp_loss
+                    eval_before=eval_before,
+                    eval_after=eval_after
                 )
                 
-                critical_moments.append({
+                moment_data = {
                     "move_number": move_num,
                     "fen": fen,
                     "your_move": user_move,
@@ -11162,7 +10977,12 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
                     "position_analysis": position_analysis,
                     "insight": insight,
                     "tags": tags.to_dict() if tags else {},  # Add tags
-                })
+                }
+                
+                # Enrich with theory recommendations
+                moment_data = enrich_moment_with_theories(moment_data)
+                
+                critical_moments.append(moment_data)
     
     # Sort by cp_loss to get most important first
     critical_moments.sort(key=lambda x: abs(x["cp_loss"]), reverse=True)
@@ -11624,101 +11444,7 @@ async def trigger_auto_coach_analysis(
 
 
 # ==================== RE-ANALYSIS QUEUE ROUTES ====================
-
-@api_router.post("/games/{game_id}/reanalyze")
-async def reanalyze_game(
-    game_id: str,
-    background_tasks: BackgroundTasks,
-    user: User = Depends(get_current_user)
-):
-    """
-    Queue a game for re-analysis. This is for games that were imported
-    but not properly analyzed.
-    """
-    # Verify game exists and belongs to user
-    game = await db.games.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
-        {"_id": 0}
-    )
-    
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
-    
-    # Check if already in queue
-    existing_queue = await db.analysis_queue.find_one(
-        {"game_id": game_id, "status": {"$in": ["pending", "processing"]}}
-    )
-    
-    if existing_queue:
-        return {
-            "success": True,
-            "status": "already_queued",
-            "message": "Game is already queued for analysis"
-        }
-    
-    # Add to queue (or update existing entry)
-    queue_item = {
-        "game_id": game_id,
-        "user_id": user.user_id,
-        "status": "pending",
-        "queued_at": datetime.now(timezone.utc),
-        "priority": 1  # User-requested re-analysis gets priority
-    }
-    
-    # Use upsert to avoid duplicate entries - update existing or create new
-    await db.analysis_queue.update_one(
-        {"game_id": game_id, "user_id": user.user_id},
-        {"$set": queue_item},
-        upsert=True
-    )
-    
-    # Update game status - set is_analyzed to False so it shows in queue
-    await db.games.update_one(
-        {"game_id": game_id},
-        {"$set": {"analysis_status": "queued", "is_analyzed": False}}
-    )
-    
-    # NOTE: Analysis is now handled by the separate analysis_worker.py process
-    # The worker polls the analysis_queue collection and processes pending jobs
-    # This keeps the web server fast and responsive
-    
-    logger.info(f"Game {game_id} queued for analysis (worker will process)")
-    
-    return {
-        "success": True,
-        "status": "queued",
-        "message": "Game queued for analysis. The analysis worker will process it shortly."
-    }
-
-
-@api_router.get("/games/{game_id}/analysis-status")
-async def get_game_analysis_status(game_id: str, user: User = Depends(get_current_user)):
-    """Get the current analysis status for a specific game"""
-    game = await db.games.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
-        {"_id": 0, "is_analyzed": 1, "analysis_status": 1}
-    )
-    
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
-    
-    # Check queue for progress info
-    queue_item = await db.analysis_queue.find_one(
-        {"game_id": game_id},
-        {"_id": 0, "status": 1, "created_at": 1}
-    )
-    
-    if game.get("is_analyzed"):
-        return {"status": "analyzed"}
-    
-    if queue_item:
-        return {
-            "status": queue_item.get("status", "unknown"),
-            "queued_at": queue_item.get("created_at")
-        }
-    
-    return {"status": "not_analyzed"}
-
+# NOTE: /games/{game_id}/reanalyze, /games/{game_id}/analysis-status moved to routes/games.py
 
 @api_router.get("/analysis-queue")
 async def get_analysis_queue_status(user: User = Depends(get_current_user)):
@@ -14496,9 +14222,14 @@ async def track_rule_accuracy(
 # Include modular routers FIRST to take precedence
 from routes import auth as auth_routes
 from routes import feedback as feedback_routes
+from routes import games as games_routes
+
+# Set database references for modular routers
+games_routes.set_db(db)
 
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(feedback_routes.router, prefix="/api")
+app.include_router(games_routes.router, prefix="/api")
 
 # Then include the legacy api_router
 app.include_router(api_router)
