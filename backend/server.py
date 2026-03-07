@@ -2747,82 +2747,18 @@ from reflect_service import (
     generate_contextual_tags
 )
 
-@api_router.get("/reflect/pending")
-async def get_pending_reflections(user: User = Depends(get_current_user)):
-    """Get games that need reflection - most recent first."""
-    games = await get_games_needing_reflection(db, user.user_id, limit=5)
-    return {"games": games}
-
-@api_router.get("/reflect/pending/count")
-async def get_reflection_count(user: User = Depends(get_current_user)):
-    """Get count of games needing reflection for badge display."""
-    count = await get_pending_reflection_count(db, user.user_id)
-    return {"count": count}
-
-@api_router.get("/reflect/game/{game_id}/moments")
-async def get_reflection_moments(game_id: str, user: User = Depends(get_current_user)):
-    """Get critical moments from a game for reflection."""
-    moments = await get_game_moments(db, user.user_id, game_id)
-    return {"moments": moments}
-
-class ReflectionSubmission(BaseModel):
-    game_id: str
-    moment_index: int
-    moment_fen: str
-    user_thought: str
-    user_move: str
-    best_move: str
-    eval_change: float = 0.0
-    move_number: Optional[int] = None  # For tracking reflected moments
-
-@api_router.post("/reflect/submit")
-async def submit_reflection(data: ReflectionSubmission, user: User = Depends(get_current_user)):
-    """Submit a reflection for a critical moment."""
-    result = await process_reflection(
-        db,
-        user.user_id,
-        data.game_id,
-        data.moment_index,
-        data.moment_fen,
-        data.user_thought,
-        data.user_move,
-        data.best_move,
-        data.eval_change,
-        data.move_number
-    )
-    return result
-
-@api_router.post("/reflect/game/{game_id}/complete")
-async def complete_game_reflection(game_id: str, user: User = Depends(get_current_user)):
-    """Mark a game as fully reflected on."""
-    result = await mark_game_reflected(db, user.user_id, game_id)
-    return result
-
-
-class ContextualTagsRequest(BaseModel):
-    """Request for generating contextual quick-tags based on position."""
-    fen: str
-    user_move: str
-    best_move: str
-    eval_change: float = 0.0
-
-
-@api_router.post("/reflect/moment/contextual-tags")
-async def get_contextual_tags(data: ContextualTagsRequest, user: User = Depends(get_current_user)):
-    """
-    Generate contextual quick-tag options based on the actual chess position.
-    
-    Uses verified position analysis to infer what the user might have been thinking.
-    Only returns tags that can be genuinely inferred - no generic placeholders.
-    """
-    result = generate_contextual_tags(
-        data.fen,
-        data.user_move,
-        data.best_move,
-        data.eval_change
-    )
-    return result
-
+# NOTE: Reflect endpoints moved to routes/reflect.py:
+# - GET /reflect/pending
+# - GET /reflect/pending/count
+# - GET /reflect/game/{game_id}/moments
+# - POST /reflect/submit
+# - POST /reflect/game/{game_id}/complete
+# - POST /reflect/moment/contextual-tags
+# - POST /reflect/explain-moment
+# - GET /reflect/v1/profile
+# - POST /reflect/v1/quick-tags
+# - POST /reflect/v1/submit
+# - GET /reflect/v1/post-loss/{game_id}
 
 @api_router.get("/training/data-driven")
 async def get_data_driven_training(
@@ -2922,376 +2858,13 @@ async def check_training_override(user: User = Depends(get_current_user)):
     result = await should_override_curriculum(db, user.user_id)
     return result
 
-class MomentExplanationRequest(BaseModel):
-    fen: str
-    user_move: str
-    best_move: str
-    eval_change: float = 0.0
-    type: str = "mistake"
 
-@api_router.post("/reflect/explain-moment")
-async def explain_moment(data: MomentExplanationRequest, user: User = Depends(get_current_user)):
-    """
-    Get a coach-style explanation of what happened at this moment.
-    Uses VERIFIED position analysis - no LLM hallucinations.
-    """
-    from position_analysis_service import (
-        generate_verified_insight,
-        build_llm_prompt_with_facts,
-        validate_llm_output
-    )
-    from llm_service import call_llm
-    
-    try:
-        # Step 1: Generate verified insights from actual position analysis
-        verified = generate_verified_insight(
-            data.fen,
-            data.user_move,
-            data.best_move,
-            data.eval_change
-        )
-        
-        # Step 2: Get LLM to elaborate on verified facts (optional enhancement)
-        # Build prompt with ONLY verified facts
-        prompt = build_llm_prompt_with_facts(
-            data.fen,
-            data.user_move,
-            data.best_move,
-            data.eval_change
-        )
-        
-        try:
-            response = await call_llm(
-                system_message="You are a supportive chess coach. ONLY use the verified facts provided. Never make up piece locations.",
-                user_message=prompt,
-                model="gpt-4o-mini"
-            )
-            
-            import json
-            response_clean = response.strip()
-            if response_clean.startswith("```json"):
-                response_clean = response_clean[7:]
-            if response_clean.startswith("```"):
-                response_clean = response_clean[3:]
-            if response_clean.endswith("```"):
-                response_clean = response_clean[:-3]
-            
-            llm_result = json.loads(response_clean)
-            
-            # Step 3: Validate LLM output against position facts
-            is_valid, errors = validate_llm_output(
-                json.dumps(llm_result), 
-                verified["position_facts"]
-            )
-            
-            if is_valid:
-                # LLM output is valid, use it
-                return {
-                    "impact": llm_result.get("impact", verified["verified_impact"]),
-                    "better_plan": llm_result.get("better_plan", verified["verified_better_plan"]),
-                    "verified": True
-                }
-            else:
-                # LLM hallucinated, fall back to verified facts
-                logger.warning(f"LLM validation failed: {errors}")
-                return {
-                    "impact": verified["verified_impact"],
-                    "better_plan": verified["verified_better_plan"],
-                    "verified": True,
-                    "fallback": True
-                }
-                
-        except Exception as llm_error:
-            logger.error(f"LLM error: {llm_error}")
-            # Fall back to verified analysis
-            return {
-                "impact": verified["verified_impact"],
-                "better_plan": verified["verified_better_plan"],
-                "verified": True,
-                "fallback": True
-            }
-            
-    except Exception as e:
-        logger.error(f"Error analyzing moment: {e}")
-        return {
-            "impact": f"Your move {data.user_move} wasn't the best in this position.",
-            "better_plan": f"The move {data.best_move} was stronger here.",
-            "error": True
-        }
-
-# ==================== REFLECTION ENGINE V1 ROUTES ====================
-# Deterministic, config-driven reflection system
-# No LLM in critical path - rule-based only
-
-class ReflectEngineTagsRequest(BaseModel):
-    """Request for V1 quick tag generation"""
-    fen: str
-    user_move: str
-    best_move: str
-    mistake_category: str
-    cp_loss: float = 0.0
-    time_remaining_sec: Optional[int] = None
-    move_number: int = 0
-
-class ReflectSessionSubmitRequest(BaseModel):
-    """Request to complete a reflection session"""
-    game_id: str
-    move_index: int
-    fen: str
-    user_move: str
-    best_move: str
-    mistake_category: str
-    intent: str
-    intent_confidence: str
-    selected_quick_tags: List[str]
-    auto_tag_candidates_shown: List[str] = []  # For analytics
-    free_text: Optional[str] = ""
-    cp_loss: float = 0.0
-    time_remaining_sec: Optional[int] = None
-    move_number: int = 0
-    completed_in_seconds: int = 0  # Time to complete reflection
-    game_ended_at: Optional[str] = None  # For freshness calculation
-
-@api_router.get("/reflect/v1/profile")
-async def get_reflection_profile(user: User = Depends(get_current_user)):
-    """
-    Get user's adaptive reflection profile.
-    Frontend uses this to configure UX - no hardcoded values in React.
-    
-    Now includes rating-aware reflection style:
-    - SIMPLE_TAP (400-999): Basic checkbox options
-    - PLAN_TEXT (1000-1299): Type your plan
-    - PLAN_BOARD (1300+): Show plan on board + explain
-    """
-    # Get user's rating
-    user_doc = await db.users.find_one({"user_id": user.user_id})
-    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
-    
-    profile = await get_adaptive_profile(user.user_id, rating, db)
-    profile["rule_version"] = REFLECT_RULES_VERSION
-    
-    # Add rating-aware reflection style
-    rating_band = get_rating_band(rating)
-    reflection_style = get_reflection_style(rating)
-    
-    profile["reflection_style"] = reflection_style.value
-    profile["rating_band"] = rating_band.value
-    profile["rating"] = rating
-    
-    # Get rating-appropriate intent options
-    intent_list = INTENT_BY_RATING.get(rating_band, INTENT_BY_RATING[get_rating_band(1200)])
-    profile["intent_options"] = [
-        {"value": i.value, "label": INTENT_LABELS.get(i, i.value)}
-        for i in intent_list
-    ]
-    
-    # Add plan-based questions for 1000+ players
-    if rating >= 1000:
-        profile["plan_questions"] = [
-            "What was your plan in this position?",
-            "What did you think your opponent would do?",
-            "What candidate moves did you consider?",
-        ]
-        profile["show_plan_input"] = True
-        profile["allow_board_moves"] = rating >= 1300  # Board input for 1300+
-    else:
-        profile["plan_questions"] = []
-        profile["show_plan_input"] = False
-        profile["allow_board_moves"] = False
-    
-    return profile
-
-@api_router.post("/reflect/v1/quick-tags")
-async def get_quick_tags_v1(data: ReflectEngineTagsRequest, user: User = Depends(get_current_user)):
-    """
-    Generate quick tags using the V1 deterministic engine.
-    Tags are config-driven, predicate-backed, and rating-adaptive.
-    """
-    # Get user's rating
-    user_doc = await db.users.find_one({"user_id": user.user_id})
-    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
-    
-    result = generate_quick_tags(
-        fen_before=data.fen,
-        user_move=data.user_move,
-        best_move=data.best_move,
-        mistake_category=data.mistake_category,
-        rating=rating,
-        cp_loss=data.cp_loss,
-        time_remaining_sec=data.time_remaining_sec,
-        move_number=data.move_number,
-    )
-    
-    # Add profile info for frontend
-    profile = get_adaptive_profile_sync(rating)
-    result["intent_options"] = profile["intent_options"]
-    result["confidence_options"] = profile["confidence_options"]
-    result["max_quick_tags"] = profile["max_quick_tags"]
-    result["friction_budget_taps"] = profile["friction_budget_taps"]
-    result["rule_version"] = REFLECT_RULES_VERSION
-    
-    return result
-
-@api_router.post("/reflect/v1/submit")
-async def submit_reflection_v1(data: ReflectSessionSubmitRequest, user: User = Depends(get_current_user)):
-    """
-    Submit a completed reflection session.
-    Stores structured data, computes awareness gap, returns reward.
-    """
-    user_doc = await db.users.find_one({"user_id": user.user_id})
-    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
-    
-    # Compute awareness gap
-    awareness_result = evaluate_awareness_gap(
-        fen_before=data.fen,
-        user_move=data.user_move,
-        best_move=data.best_move,
-        intent=data.intent,
-        confidence=data.intent_confidence,
-        selected_tags=data.selected_quick_tags,
-        mistake_category=data.mistake_category,
-        rating=rating,
-        cp_loss=data.cp_loss,
-        time_remaining_sec=data.time_remaining_sec,
-        move_number=data.move_number,
-    )
-    
-    # Build reflection session document
-    reflection_id = f"r_{uuid.uuid4().hex[:12]}"
-    now = datetime.now(timezone.utc)
-    
-    # Calculate freshness (hours since game ended)
-    is_fresh = False
-    hours_since_game = None
-    if data.game_ended_at:
-        try:
-            game_time = datetime.fromisoformat(data.game_ended_at.replace("Z", "+00:00"))
-            hours_since_game = (now - game_time).total_seconds() / 3600
-            is_fresh = hours_since_game < 12  # Fresh if within 12 hours
-        except:
-            pass
-    
-    reflection_doc = {
-        "reflection_id": reflection_id,
-        "user_id": user.user_id,
-        "game_id": data.game_id,
-        "move_index": data.move_index,
-        
-        "mistake_category": data.mistake_category,
-        "mistake_category_version": "v1",
-        
-        "intent": data.intent,
-        "intent_confidence": data.intent_confidence,
-        
-        "selected_quick_tags": data.selected_quick_tags,
-        "auto_tag_candidates_shown": data.auto_tag_candidates_shown,
-        
-        "awareness_gap_type": awareness_result["gap_type"],
-        "awareness_gap_reason_codes": awareness_result["reason_codes"],
-        "awareness_gap_rule_id": awareness_result.get("rule_id"),
-        
-        "free_text": data.free_text or "",
-        "completed_in_seconds": data.completed_in_seconds,
-        
-        # Freshness tracking
-        "is_fresh": is_fresh,
-        "hours_since_game": hours_since_game,
-        
-        "rule_version": REFLECT_RULES_VERSION,
-        "created_at": now.isoformat(),
-        
-        # Position data for replay
-        "fen": data.fen,
-        "user_move": data.user_move,
-        "best_move": data.best_move,
-        "cp_loss": data.cp_loss,
-    }
-    
-    # Store reflection in reflection_sessions collection
-    await db.reflection_sessions.insert_one(reflection_doc)
-    
-    # ALSO store in reflections collection for moment filtering
-    # This ensures get_game_moments filters out already reflected moments
-    await db.reflections.insert_one({
-        "user_id": user.user_id,
-        "game_id": data.game_id,
-        "move_number": data.move_number,
-        "moment_fen": data.fen,
-        "reflection_id": reflection_id,
-        "created_at": now.isoformat()
-    })
-    
-    # Get reward message
-    # Determine which reward type based on reflection quality
-    reward_event = RewardEventType.REFLECTION_COMPLETE
-    
-    # Fresh reflection gets special recognition
-    if is_fresh and data.completed_in_seconds < 30:
-        reward_event = RewardEventType.REFLECTION_CAPTURED_FAST
-    elif data.intent_confidence == "guessing" and "not_sure" in data.selected_quick_tags:
-        reward_event = RewardEventType.REFLECTION_HONEST_NOT_SURE
-    elif awareness_result["gap_type"] == "confidence_gap":
-        reward_event = RewardEventType.REFLECTION_CONFIDENCE_INSIGHT
-    
-    # Get recent messages for anti-repeat
-    recent = await db.reward_events.find(
-        {"user_id": user.user_id}
-    ).sort("created_at", -1).limit(10).to_list(10)
-    recent_ids = [r.get("message_id") for r in recent if r.get("message_id")]
-    
-    reward_message = get_reward_message(
-        event_type=reward_event,
-        rating=rating,
-        context={"focus_label": awareness_result.get("focus_recommendation", "")},
-        recent_message_ids=recent_ids,
-    )
-    
-    # Store reward event
-    if reward_message:
-        await db.reward_events.insert_one({
-            "event_id": f"e_{uuid.uuid4().hex[:12]}",
-            "user_id": user.user_id,
-            "event_type": reward_event.value,
-            "source": "reflection",
-            "payload": {
-                "reflection_id": reflection_id,
-                "gap_type": awareness_result["gap_type"],
-            },
-            "message_id": reward_message["message_id"],
-            "created_at": now.isoformat(),
-            "seen": False,
-        })
-    
-    # Build next actions
-    next_actions = [
-        {"type": "next_moment", "label": "Next moment"},
-    ]
-    
-    # If there's a focus recommendation, offer training
-    if awareness_result.get("focus_recommendation"):
-        next_actions.insert(0, {
-            "type": "start_mission",
-            "label": f"Train: {awareness_result['focus_recommendation']}",
-            "focus": awareness_result["focus_recommendation"],
-        })
-    
-    return {
-        "reflection_status": "completed",
-        "reflection_id": reflection_id,
-        "awareness_result": {
-            "type": awareness_result["gap_type"],
-            "headline": awareness_result["headline"],
-            "focus_recommendation": awareness_result.get("focus_recommendation"),
-        },
-        "coach_message": reward_message["text"] if reward_message else "Good. Reflection captured.",
-        "next_actions": next_actions,
-        "rule_version": REFLECT_RULES_VERSION,
-        # Timing metrics
-        "completed_in_seconds": data.completed_in_seconds,
-        "is_fresh": is_fresh,
-        "freshness_badge": "Fresh Memory" if is_fresh else None,
-    }
-
+# NOTE: Reflect V1 endpoints moved to routes/reflect.py
+# - MomentExplanationRequest, ReflectEngineTagsRequest, ReflectSessionSubmitRequest models
+# - POST /reflect/explain-moment
+# - GET /reflect/v1/profile
+# - POST /reflect/v1/quick-tags  
+# - POST /reflect/v1/submit
 
 # ==================== TIME ANALYSIS ENDPOINTS ====================
 
@@ -5470,115 +5043,8 @@ async def get_weekly_proof_endpoint(user: User = Depends(get_current_user)):
         },
     }
 
-@api_router.get("/reflect/v1/post-loss/{game_id}")
-async def get_post_loss_recovery(game_id: str, user: User = Depends(get_current_user)):
-    """
-    Get post-loss recovery screen data.
-    Shows after a loss to convert pain into training.
-    
-    ENHANCED: Now includes recurring pattern context ("This is the Xth time...")
-    """
-    # Get the game
-    game = await db.games.find_one({"game_id": game_id, "user_id": user.user_id})
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
-    
-    # Get analysis
-    analysis = await db.game_analyses.find_one({"game_id": game_id})
-    if not analysis:
-        raise HTTPException(status_code=404, detail="Game not analyzed yet")
-    
-    # Get user rating
-    user_doc = await db.users.find_one({"user_id": user.user_id})
-    rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
-    
-    # Get main issue and critical moment from game
-    blunders = analysis.get("blunders", [])
-    mistakes = analysis.get("mistakes", [])
-    stockfish_eval = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
-    
-    main_issue = "Critical position focus"
-    critical_moment = None
-    main_category = None
-    
-    # ===== COMPUTE RECURRING PATTERN CONTEXT =====
-    # This is the "coach memory" - how many times has this pattern appeared?
-    recurring_pattern = await compute_recurring_pattern_context(
-        db, user.user_id, game_id, stockfish_eval, blunders
-    )
-    
-    # Find the most critical blunder
-    if blunders:
-        # Get most severe blunder category
-        categories = [b.get("mistake_category", "unknown") for b in blunders if b.get("mistake_category")]
-        if categories:
-            from collections import Counter
-            main_category = Counter(categories).most_common(1)[0][0]
-            main_issue = {
-                "ignored_opponent_forcing": "Opponent Threat Awareness",
-                "missed_forcing_move": "Forcing Move Awareness",
-                "phantom_threat": "Threat Prioritization",
-                "advantage_mismanagement": "Advantage Conversion",
-                "critical_moment_drift": "Critical Position Focus",
-                "structural_misjudgment": "Pawn Structure Judgment",
-            }.get(main_category, main_category.replace("_", " ").title())
-        
-        # Get the critical moment (worst blunder)
-        worst_blunder = max(blunders, key=lambda b: abs(b.get("eval_change", 0)))
-        critical_moment = {
-            "fen": worst_blunder.get("fen"),
-            "user_move": worst_blunder.get("user_move"),
-            "best_move": worst_blunder.get("best_move"),
-            "eval_change": worst_blunder.get("eval_change"),
-            "move_number": worst_blunder.get("move_number"),
-        }
-    elif mistakes:
-        worst_mistake = max(mistakes, key=lambda m: abs(m.get("eval_change", 0)))
-        critical_moment = {
-            "fen": worst_mistake.get("fen"),
-            "user_move": worst_mistake.get("user_move"),
-            "best_move": worst_mistake.get("best_move"),
-            "eval_change": worst_mistake.get("eval_change"),
-            "move_number": worst_mistake.get("move_number"),
-        }
-    elif stockfish_eval:
-        # Find worst eval drop from stockfish analysis
-        for move in stockfish_eval:
-            eval_type = move.get("evaluation")
-            if hasattr(eval_type, 'value'):
-                eval_type = eval_type.value
-            if eval_type in ["blunder", "mistake"]:
-                critical_moment = {
-                    "fen": move.get("fen"),
-                    "user_move": move.get("san"),
-                    "best_move": move.get("best_move"),
-                    "eval_change": move.get("eval_delta"),
-                    "move_number": move.get("move_number"),
-                }
-                break
-    
-    # Get adaptive profile for mission time
-    profile = get_adaptive_profile_sync(rating)
-    minutes = profile["mission_minutes_target"]
-    
-    # Get post-loss message for headline
-    message = get_post_loss_message(rating, main_issue, minutes)
-    
-    return {
-        "game_id": game_id,
-        "result": game.get("result", "loss"),
-        "opponent_name": game.get("opponent_name", "Opponent"),
-        "user_color": game.get("user_color", "white"),
-        "main_issue": main_issue,
-        "headline": message.get("headline", "Let's fix this moment."),
-        "estimated_minutes": minutes,
-        "critical_moment": critical_moment,
-        "has_pending_reflection": len(blunders) + len(mistakes) > 0,
-        "blunder_count": len(blunders),
-        "mistake_count": len(mistakes),
-        # COACH MEMORY: Recurring pattern context
-        "recurring_pattern": recurring_pattern,
-    }
+
+# NOTE: GET /reflect/v1/post-loss/{game_id} moved to routes/reflect.py
 
 # ==================== COACH MODE ROUTES ====================
 
@@ -13851,16 +13317,19 @@ from routes import auth as auth_routes
 from routes import feedback as feedback_routes
 from routes import games as games_routes
 from routes import lab as lab_routes
+from routes import reflect as reflect_routes
 
 # Set database references for modular routers
 games_routes.set_db(db)
 lab_routes.set_db(db)
 lab_routes.set_llm(call_llm)
+reflect_routes.set_db(db)
 
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(feedback_routes.router, prefix="/api")
 app.include_router(games_routes.router, prefix="/api")
 app.include_router(lab_routes.router, prefix="/api")
+app.include_router(reflect_routes.router, prefix="/api")
 
 # Then include the legacy api_router
 app.include_router(api_router)
