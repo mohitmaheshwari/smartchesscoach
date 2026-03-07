@@ -487,3 +487,30 @@ async def get_journey_page_data(user: User = Depends(get_current_user)):
     journey_data['pattern_comparison'] = pattern_comparison
     
     return journey_data
+
+
+@router.get("/evolution/rolling")
+async def get_rolling_evolution(user: User = Depends(get_current_user)):
+    """
+    Get rolling evolution data using equal window comparison.
+    
+    Compares recent 25 games vs previous 25 games.
+    This is the PROPER way to track evolution - equal windows, continuous.
+    
+    Returns:
+    - recent: Stats for last 25 games
+    - previous: Stats for games 26-50
+    - changes: What improved/declined between windows
+    - overall: Overall direction (improving/declining/stable)
+    """
+    global db
+    from baseline_service import calculate_rolling_evolution, ROLLING_WINDOW_SIZE
+    
+    # Get all analyses
+    all_analyses = await db.game_analyses.find(
+        {"user_id": user.user_id}
+    ).sort("created_at", -1).to_list(200)
+    
+    evolution = calculate_rolling_evolution(all_analyses)
+    
+    return evolution

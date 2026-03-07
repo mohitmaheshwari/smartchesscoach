@@ -14,8 +14,161 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# Minimum games needed to establish baseline
+# Minimum games needed to establish baseline (for first-time users)
 MIN_GAMES_FOR_BASELINE = 10
+
+# Rolling window size for evolution comparison (equal windows)
+ROLLING_WINDOW_SIZE = 25  # Compare recent 25 vs previous 25 games
+
+
+# =============================================================================
+# ROLLING EVOLUTION - Equal Window Comparison
+# =============================================================================
+
+def calculate_rolling_evolution(analyses: List[Dict], games: List[Dict] = None) -> Dict:
+    """
+    Calculate evolution using equal rolling windows.
+    
+    Compares:
+    - Recent window (last 25 games)
+    - Previous window (games 26-50)
+    
+    This is the PROPER way to track evolution - not fixed baseline vs current.
+    
+    Returns:
+        Dict with recent_stats, previous_stats, and changes
+    """
+    if len(analyses) < ROLLING_WINDOW_SIZE:
+        return {
+            "has_evolution": False,
+            "reason": f"Need at least {ROLLING_WINDOW_SIZE} games for evolution tracking",
+            "games_available": len(analyses),
+            "games_needed": ROLLING_WINDOW_SIZE
+        }
+    
+    # Sort by date (newest first) - handle both datetime and string formats
+    def get_sort_key(x):
+        created = x.get('created_at', '')
+        if isinstance(created, str):
+            return created
+        elif hasattr(created, 'isoformat'):
+            return created.isoformat()
+        return ''
+    
+    sorted_analyses = sorted(analyses, key=get_sort_key, reverse=True)
+    
+    # Split into equal windows
+    recent_window = sorted_analyses[:ROLLING_WINDOW_SIZE]
+    previous_window = sorted_analyses[ROLLING_WINDOW_SIZE:ROLLING_WINDOW_SIZE * 2]
+    
+    if len(previous_window) < ROLLING_WINDOW_SIZE // 2:
+        # Not enough data for meaningful previous window
+        return {
+            "has_evolution": False,
+            "reason": f"Need at least {ROLLING_WINDOW_SIZE + ROLLING_WINDOW_SIZE // 2} games for comparison",
+            "games_available": len(analyses),
+            "recent_window_size": len(recent_window),
+            "previous_window_size": len(previous_window)
+        }
+    
+    # Calculate stats for each window
+    recent_stats = _calculate_window_stats(recent_window, "recent")
+    previous_stats = _calculate_window_stats(previous_window, "previous")
+    
+    # Calculate changes
+    changes = _calculate_stat_changes(recent_stats, previous_stats)
+    
+    return {
+        "has_evolution": True,
+        "window_size": ROLLING_WINDOW_SIZE,
+        "recent": recent_stats,
+        "previous": previous_stats,
+        "changes": changes,
+        "total_games_analyzed": len(analyses)
+    }
+
+
+def _calculate_window_stats(analyses: List[Dict], label: str) -> Dict:
+    """Calculate key stats for a window of games."""
+    if not analyses:
+        return {"label": label, "games": 0}
+    
+    # Accuracy
+    accuracies = []
+    blunder_counts = []
+    mistake_counts = []
+    
+    for a in analyses:
+        sf = a.get("stockfish_analysis", {})
+        
+        # Get accuracy
+        acc = sf.get("accuracy")
+        if acc is not None and acc > 0:
+            accuracies.append(acc)
+        
+        # Count blunders and mistakes
+        blunders = 0
+        mistakes = 0
+        for m in sf.get("move_evaluations", []):
+            if m.get("evaluation") == "blunder":
+                blunders += 1
+            elif m.get("evaluation") == "mistake":
+                mistakes += 1
+        blunder_counts.append(blunders)
+        mistake_counts.append(mistakes)
+    
+    return {
+        "label": label,
+        "games": len(analyses),
+        "accuracy": round(sum(accuracies) / len(accuracies), 1) if accuracies else 0,
+        "blunders_per_game": round(sum(blunder_counts) / len(blunder_counts), 2) if blunder_counts else 0,
+        "mistakes_per_game": round(sum(mistake_counts) / len(mistake_counts), 2) if mistake_counts else 0,
+    }
+
+
+def _calculate_stat_changes(recent: Dict, previous: Dict) -> Dict:
+    """Calculate the changes between two stat windows."""
+    changes = {}
+    
+    # Accuracy change
+    if recent.get("accuracy") and previous.get("accuracy"):
+        acc_change = recent["accuracy"] - previous["accuracy"]
+        changes["accuracy"] = {
+            "value": round(acc_change, 1),
+            "direction": "improved" if acc_change > 0 else "declined" if acc_change < 0 else "stable",
+            "significant": abs(acc_change) >= 3.0  # 3% is significant
+        }
+    
+    # Blunders change
+    if recent.get("blunders_per_game") is not None and previous.get("blunders_per_game") is not None:
+        blunder_change = recent["blunders_per_game"] - previous["blunders_per_game"]
+        changes["blunders"] = {
+            "value": round(blunder_change, 2),
+            "direction": "improved" if blunder_change < 0 else "declined" if blunder_change > 0 else "stable",
+            "significant": abs(blunder_change) >= 0.3  # 0.3 blunders/game is significant
+        }
+    
+    # Mistakes change
+    if recent.get("mistakes_per_game") is not None and previous.get("mistakes_per_game") is not None:
+        mistake_change = recent["mistakes_per_game"] - previous["mistakes_per_game"]
+        changes["mistakes"] = {
+            "value": round(mistake_change, 2),
+            "direction": "improved" if mistake_change < 0 else "declined" if mistake_change > 0 else "stable",
+            "significant": abs(mistake_change) >= 0.5
+        }
+    
+    # Overall direction
+    improvements = sum(1 for c in changes.values() if c.get("direction") == "improved")
+    declines = sum(1 for c in changes.values() if c.get("direction") == "declined")
+    
+    if improvements > declines:
+        changes["overall"] = "improving"
+    elif declines > improvements:
+        changes["overall"] = "declining"
+    else:
+        changes["overall"] = "stable"
+    
+    return changes
 
 
 # =============================================================================

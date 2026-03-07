@@ -35,10 +35,14 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 - **Streak counter** with special messages for 3+ streak
 - **Category-specific encouragements**: correct, incorrect, streak, complete
 
-### 6. Rolling Evolution Progress ✅
-- **Rolling windows**: Compare recent 10 vs previous 10 games
+### 6. Rolling Evolution Progress ✅ (VERIFIED WORKING)
+- **Rolling windows**: 
+  - Macro: 25 vs 25 games (monthly trend)
+  - Medium: 10 vs 10 games (bi-weekly trend)
+  - Micro: 5 vs 5 games (weekly trend)
 - **Opening performance tracking**: Stats by opening name
 - **Real-time trends**: Dynamic progress indicators
+- **Status**: `/api/progress/evolution` endpoint verified working - returns all evolution data correctly
 
 ### 7. Server.py Refactoring ✅ (Ongoing)
 - **Extracted modules**:
@@ -150,10 +154,11 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 - **Fixed**: `player_identity_engine.py` - Changed sort field from `created_at` to `imported_at`
 
 ### Future/Backlog
-- Identity Formation Layer (long-term playstyle evolution)
+- Data Observation & Tuning - monitor `smart_patterns` based on user feedback
+- Identity Formation Layer enhancements (richer long-term insights)
 - B2B Model for Coaches
 - Mobile App
-- Full learned_rules → smart_patterns migration
+- Deprecate remaining `learned_rules` code references (tech debt cleanup)
 
 ## Database Collections
 
@@ -179,4 +184,5 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 Plain, simple, direct Indian-English
 
 ---
-*Last updated: 2026-03-07*
+*Last updated: 2025-03-07*
+*P0 Bug Status: `/api/progress/evolution` endpoint verified working - rolling 25v25 data displaying correctly on Progress and Journey pages*

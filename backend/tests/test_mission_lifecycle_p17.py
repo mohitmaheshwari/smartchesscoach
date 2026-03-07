@@ -21,7 +21,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-coach-ai-5.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-growth-hub.preview.emergentagent.com')
 
 
 @pytest.fixture(scope="module")
