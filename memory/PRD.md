@@ -137,7 +137,7 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 - Pattern migration: All learned_rules migrated to smart_patterns (24 total patterns)
 - Identity Formation Layer: Long-term identity evolution tracking
 
-### 11. Identity Formation Layer ✅ (NEW)
+### 11. Identity Formation Layer ✅ (ENHANCED)
 - **Created**: `services/identity_formation_service.py` - Tracks identity evolution over time
 - **New endpoints**:
   - `GET /api/coach/identity/evolution` - Full identity evolution analysis
@@ -145,17 +145,31 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
   - `POST /api/coach/identity/snapshot` - Create manual snapshot
   - `GET /api/coach/identity/trajectory` - Long-term trajectory analysis
   - `GET /api/coach/identity/insight` - Human-readable insight
-- **New collection**: `identity_snapshots` - Stores periodic identity snapshots
+  - `GET /api/coach/identity/summary` - **NEW** Summarized trajectory for UI display
+- **New collection**: `identity_snapshots` - Stores periodic identity snapshots with rich metrics
 - **Features**:
   - Automatic snapshots every 7 days (if 5+ new games)
   - Change detection between snapshots
   - Long-term trajectory (improving/declining/stable)
   - Milestone tracking (game count milestones)
-- **Fixed**: `player_identity_engine.py` - Changed sort field from `created_at` to `imported_at`
+  - **NEW**: Player archetypes (e.g., "The Positional Learner", "The Calculating Attacker")
+  - **NEW**: Comparative insights ("You used to be X, now you're Y")
+  - **NEW**: Coaching moments - auto-detect significant identity shifts with actionable advice
+  - **NEW**: Human-readable style labels (solid/balanced/aggressive)
+- **Snapshot structure** now includes:
+  - `identity.primary_archetype` - Player archetype derived from stability, leak, and style
+  - `identity.traits` - Key characteristics (up to 4)
+  - `metrics` - stability_label, primary_leak, weak_phase, risk_style
+  - `stats_snapshot` - total_games, confidence
+
+### 12. Smart Patterns Audit ✅
+- **Current state**: 24 patterns in `smart_patterns` collection
+- **Pattern types**: fork (8), king_trapped (2), custom (3), and 11 migrated patterns
+- **Match activity**: Low match rate (2 total matches) - monitoring for improvement
+- **Deprecated**: `learned_rules` collection (13 rules) - all migrated to smart_patterns
 
 ### Future/Backlog
-- Data Observation & Tuning - monitor `smart_patterns` based on user feedback
-- Identity Formation Layer enhancements (richer long-term insights)
+- Data Observation & Tuning - monitor `smart_patterns` match rates and refine patterns
 - B2B Model for Coaches
 - Mobile App
 - Deprecate remaining `learned_rules` code references (tech debt cleanup)
@@ -185,4 +199,4 @@ Plain, simple, direct Indian-English
 
 ---
 *Last updated: 2025-03-07*
-*P0 Bug Status: `/api/progress/evolution` endpoint verified working - rolling 25v25 data displaying correctly on Progress and Journey pages*
+*Status: Identity Formation Layer enhanced with archetypes, comparative insights, and coaching moments*

@@ -700,3 +700,23 @@ async def get_identity_insight(user: User = Depends(get_current_user)):
         "snapshot_count": evolution.get("snapshot_count", 0)
     }
 
+
+
+@router.get("/identity/summary")
+async def get_identity_summary(user: User = Depends(get_current_user)):
+    """
+    Get a summarized identity trajectory for UI display.
+    
+    Returns:
+        - Current archetype (e.g., "The Calculating Attacker")
+        - Stability and style labels
+        - Trajectory direction
+        - Comparative insight ("You used to be X, now you're Y")
+        - Coaching moments
+    """
+    global db
+    from services.identity_formation_service import get_identity_trajectory_summary
+    
+    summary = await get_identity_trajectory_summary(db, user.user_id)
+    return summary
+
