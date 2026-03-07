@@ -47,10 +47,11 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
   - `routes/games.py`: 7 endpoints
   - `routes/lab.py`: 4 endpoints (lab page, deep-strategy, mistake context, explain)
   - `routes/reflect.py`: 11 endpoints (V1 engine, post-loss, pending, submit)
-- **Total extracted**: 41 endpoints
-- **Lines in server.py**: 13,345 (down from 14,560 - **1,215 lines removed**)
-- **Remaining**: ~240 endpoints in server.py
-- **Candidates for next extraction**: training (60), coach (50), journey (15)
+  - `routes/training.py`: 13 endpoints (sessions, cards, prescribed, habits)
+- **Total extracted**: 54 endpoints
+- **Lines in server.py**: 12,968 (down from 14,560 - **1,592 lines removed**)
+- **Remaining**: ~220 endpoints in server.py
+- **Candidates for next extraction**: coach (50), journey (15), cognitive (20)
 
 ### 8. Pattern Collections Reconciliation ✅
 - **smart_patterns**: 11 patterns (active, primary system)

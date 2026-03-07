@@ -1445,131 +1445,8 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
 
 # NOTE: /games, /games/analyzed, /games/blunders endpoints moved to routes/games.py
 
-@api_router.get("/training/one-move-blunders")
-async def get_one_move_blunders(
-    user: User = Depends(get_current_user),
-    include_solved: bool = False  # Query param to include already-solved puzzles
-):
-    """
-    Get ACTUAL one-move tactical blunders from Stockfish analysis.
-    
-    These are positions where:
-    - The user made a blunder (classification = "blunder")
-    - The eval drop was significant but not complex (150-600 cp loss)
-    - Represents simple tactical oversights that can be fixed with one correct move
-    
-    By default, excludes puzzles the user has already solved correctly.
-    Pass ?include_solved=true to include all puzzles.
-    
-    Returns positions suitable for training the user's tactical awareness.
-    """
-    # Get puzzle IDs the user has already SOLVED correctly
-    solved_puzzle_ids = set()
-    if not include_solved:
-        solved_attempts = await db.puzzle_attempts_history.find(
-            {"user_id": user.user_id, "solved": True},
-            {"puzzle_id": 1}
-        ).to_list(1000)
-        solved_puzzle_ids = {a["puzzle_id"] for a in solved_attempts}
-        logger.info(f"User has solved {len(solved_puzzle_ids)} puzzles, filtering them out")
-    
-    # Get all analyzed games
-    analyses = await db.game_analyses.find(
-        {"user_id": user.user_id},
-        {"_id": 0, "game_id": 1, "stockfish_analysis": 1, "white_player": 1, "black_player": 1}
-    ).to_list(100)
-    
-    one_move_blunders = []
-    
-    for analysis in analyses:
-        sf_analysis = analysis.get("stockfish_analysis", {})
-        move_evals = sf_analysis.get("move_evaluations", [])
-        game_id = analysis.get("game_id")
-        
-        # Determine user's color
-        # For now, assume user played as the side with more blunders or use metadata
-        user_stats = sf_analysis.get("user_stats", {})
-        
-        for m in move_evals:
-            # Only blunders with actual move data
-            if m.get("evaluation") != "blunder" or not m.get("move"):
-                continue
-            
-            cp_loss = m.get("cp_loss", 0)
-            fen_before = m.get("fen_before")
-            
-            # One-move blunders: significant but not overwhelming losses
-            # 150-600cp typically means material loss (piece hanging, simple tactic)
-            # Not 1000+ which usually means missed mate or complex tactics
-            if 150 <= cp_loss <= 600 and fen_before:
-                puzzle_id = f"sf_blunder_{game_id}_{m.get('move_number')}"
-                
-                # Skip if user already solved this puzzle
-                if puzzle_id in solved_puzzle_ids:
-                    continue
-                
-                # Determine user color from FEN (whose turn it was)
-                user_color = "white" if " w " in fen_before else "black"
-                
-                one_move_blunders.append({
-                    "puzzle_id": puzzle_id,
-                    "game_id": game_id,
-                    "move_number": m.get("move_number"),
-                    "fen": fen_before,
-                    "user_move": m.get("move"),
-                    "user_move_uci": m.get("move_uci"),
-                    "correct_move": m.get("best_move"),
-                    "correct_move_uci": m.get("best_move_uci"),
-                    "user_color": user_color,
-                    "cp_loss": cp_loss,
-                    "eval_before": m.get("eval_before"),
-                    "eval_after": m.get("eval_after"),
-                    "threat": m.get("threat"),  # What threat did user miss?
-                    "pv_after_best": m.get("pv_after_best"),  # Better continuation
-                    "pv_after_played": m.get("pv_after_played"),  # Refutation line after the blunder
-                    "issue_type": "one_move_blunder",
-                    "source": "your_blunders",
-                    "principle": {
-                        "name": "One-Move Blunder",
-                        "description": f"Lost {cp_loss} centipawns with a simple tactical error",
-                        "quick_tip": "Always check what your opponent can do after your move"
-                    }
-                })
-    
-    # Sort by cp_loss (most severe first) to prioritize learning
-    one_move_blunders.sort(key=lambda x: x["cp_loss"], reverse=True)
-    
-    return {
-        "puzzles": one_move_blunders[:30],  # Limit to 30 for training session
-        "total": len(one_move_blunders),
-        "solved_count": len(solved_puzzle_ids),
-        "source": "stockfish_analysis"
-    }
 
-
-# NOTE: /games/best-moves, /games/{game_id} endpoints moved to routes/games.py
-
-# ==================== AI ANALYSIS ROUTES ====================
-
-async def get_user_mistake_context(user_id: str) -> str:
-    """Get user's mistake history for AI context"""
-    patterns = await db.mistake_patterns.find(
-        {"user_id": user_id},
-        {"_id": 0}
-    ).sort("occurrences", -1).to_list(10)
-    
-    if not patterns:
-        return "This is a new player with no previous mistake history."
-    
-    context_parts = ["Here are the player's recurring mistakes:"]
-    for p in patterns:
-        days_ago = (datetime.now(timezone.utc) - datetime.fromisoformat(p['last_seen'].replace('Z', '+00:00') if isinstance(p['last_seen'], str) else p['last_seen'].isoformat())).days if isinstance(p.get('last_seen'), (str, datetime)) else 0
-        context_parts.append(
-            f"- {p['subcategory']} ({p['category']}): seen {p['occurrences']} times, "
-            f"last occurrence {days_ago} days ago. {p['description']}"
-        )
-    
-    return "\n".join(context_parts)
+# NOTE: /training/one-move-blunders moved to routes/training.py
 
 @api_router.post("/analyze-game")
 async def analyze_game(req: AnalyzeGameRequest, background_tasks: BackgroundTasks, user: User = Depends(get_current_user)):
@@ -2760,80 +2637,8 @@ from reflect_service import (
 # - POST /reflect/v1/submit
 # - GET /reflect/v1/post-loss/{game_id}
 
-@api_router.get("/training/data-driven")
-async def get_data_driven_training(
-    focus: str = None,
-    user: User = Depends(get_current_user)
-):
-    """
-    Get training focus based purely on YOUR data (mistakes + reflections).
-    This bypasses the rating-based curriculum.
-    
-    Optional param:
-    - focus: Override to show a specific focus area (e.g., "one_move_blunders")
-    """
-    from reflection_training_service import get_data_driven_training_focus
-    from training_profile_service import PATTERN_INFO
-    
-    result = await get_data_driven_training_focus(db, user.user_id)
-    
-    # If focus param provided, try to use that specific focus
-    if focus and result.get("focus_type"):
-        # Convert URL-friendly name to match our patterns
-        focus_key = focus.lower().replace(" ", "_").replace("-", "_")
-        
-        # Pattern name mappings for common subcategory names
-        SUBCATEGORY_TO_LABEL = {
-            "one_move_blunders": ("One-Move Blunders", "Simple blunders where the solution is one move deep"),
-            "threat_blindness": ("Threat Blindness", "Missing opponent's threats"),
-            "hanging_pieces": ("Hanging Pieces", "Leaving pieces undefended"),
-            "pin_blindness": ("Pin Blindness", "Missing pins or being pinned"),
-            "fork_misses": ("Fork Misses", "Missing fork opportunities"),
-            "back_rank_weakness": ("Back Rank Weakness", "Vulnerable back rank leading to mate threats"),
-            "missed_forcing_move": ("Missed Forcing Moves", "Not seeing checks, captures, or threats"),
-            "ignored_opponent_forcing": ("Ignored Opponent Threats", "Moving without considering opponent's reply"),
-            "structural_misjudgment": ("Structural Misjudgments", "Pawn structure and piece coordination errors"),
-            "time_pressure_collapse": ("Time Pressure Collapse", "Mistakes due to running low on time"),
-            "advantage_mismanagement": ("Advantage Mismanagement", "Throwing away winning positions"),
-        }
-        
-        # Look up from our mappings first
-        if focus_key in SUBCATEGORY_TO_LABEL:
-            label, description = SUBCATEGORY_TO_LABEL[focus_key]
-            result["micro_habit"] = focus_key
-            result["micro_habit_label"] = label
-            result["micro_habit_description"] = description
-            # Also update the main layer display when focus is overridden
-            result["active_layer_label"] = label
-            result["active_layer_description"] = description
-            result["override_focus"] = focus_key
-            result["training_reason"] = f"Focused training on {label}"
-        # Try PATTERN_INFO as fallback
-        elif focus_key in PATTERN_INFO:
-            pattern_info = PATTERN_INFO[focus_key]
-            label = pattern_info.get("label", focus_key.replace("_", " ").title())
-            desc = pattern_info.get("description", "")
-            result["micro_habit"] = focus_key
-            result["micro_habit_label"] = label
-            result["micro_habit_description"] = desc
-            # Also update the main layer display
-            result["active_layer_label"] = label
-            result["active_layer_description"] = desc
-            result["override_focus"] = focus_key
-            result["training_reason"] = f"Focused training on {label}"
-        else:
-            # Still set the focus but use a generic label
-            label = focus_key.replace("_", " ").title()
-            desc = f"Training focus on {focus_key.replace('_', ' ')}"
-            result["micro_habit"] = focus_key
-            result["micro_habit_label"] = label
-            result["micro_habit_description"] = desc
-            result["active_layer_label"] = label
-            result["active_layer_description"] = desc
-            result["override_focus"] = focus_key
-            result["training_reason"] = f"Focused training on {label}"
-    
-    return result
+
+# NOTE: /training/data-driven moved to routes/training.py
 
 @api_router.get("/training/reflection-impact")
 async def get_reflection_impact(user: User = Depends(get_current_user)):
@@ -5854,95 +5659,8 @@ async def get_coach_today(user: User = Depends(get_current_user)):
 
 # ==================== MISTAKE MASTERY SYSTEM ROUTES ====================
 
-@api_router.get("/training/session")
-async def get_training_session_endpoint(user: User = Depends(get_current_user)):
-    """
-    Get the current training session.
-    Returns either:
-    - Post-Game Debrief (if user just played a game)
-    - Daily Training (cards due for review)
-    - All Caught Up (no cards due)
-    """
-    session = await get_training_session(db, user.user_id)
-    return session
 
-
-@api_router.get("/training/due-cards")
-async def get_due_cards_endpoint(user: User = Depends(get_current_user), limit: int = 5):
-    """Get cards due for review today."""
-    cards = await get_due_cards(db, user.user_id, limit=limit)
-    return {"cards": cards, "count": len(cards)}
-
-
-@api_router.get("/training/card/{card_id}")
-async def get_training_card(card_id: str, user: User = Depends(get_current_user)):
-    """Get a specific training card."""
-    card = await get_card_by_id(db, card_id, user.user_id)
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
-    return card
-
-
-class CardAttemptRequest(BaseModel):
-    card_id: str
-    correct: bool
-
-
-@api_router.post("/training/attempt")
-async def record_training_attempt(req: CardAttemptRequest, user: User = Depends(get_current_user)):
-    """
-    Record an attempt on a training card.
-    Updates spaced repetition schedule based on correctness.
-    """
-    result = await record_card_attempt(db, req.card_id, user.user_id, req.correct)
-    if result.get("error"):
-        raise HTTPException(status_code=404, detail=result["error"])
-    return result
-
-
-@api_router.get("/training/card/{card_id}/why")
-async def get_why_question_for_card(card_id: str, user: User = Depends(get_current_user)):
-    """
-    Get a Socratic "Why is this move better?" question for a card.
-    Used after the user answers correctly to deepen understanding.
-    """
-    card = await get_card_by_id(db, card_id, user.user_id)
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
-    
-    why_data = await generate_why_question(db, card)
-    return why_data
-
-
-@api_router.get("/training/progress")
-async def get_training_progress(user: User = Depends(get_current_user)):
-    """Get user's habit mastery progress."""
-    progress = await get_user_habit_progress(db, user.user_id)
-    stats = await get_training_stats(db, user.user_id)
-    return {
-        "habits": progress,
-        "stats": stats
-    }
-
-
-class SetActiveHabitRequest(BaseModel):
-    habit_key: str
-
-
-@api_router.post("/training/set-habit")
-async def set_training_habit(req: SetActiveHabitRequest, user: User = Depends(get_current_user)):
-    """Manually set the active habit to focus on."""
-    result = await set_active_habit(db, user.user_id, req.habit_key)
-    if result.get("error"):
-        raise HTTPException(status_code=400, detail=result["error"])
-    return result
-
-
-@api_router.get("/training/habits")
-async def get_available_habits(user: User = Depends(get_current_user)):
-    """Get all available habit definitions."""
-    return {"habits": HABIT_DEFINITIONS}
-
+# NOTE: /training/session, /training/due-cards, /training/attempt, /training/progress, /training/set-habit, /training/habits moved to routes/training.py
 
 @api_router.get("/progress")
 async def get_progress_metrics(user: User = Depends(get_current_user)):
@@ -9973,106 +9691,8 @@ async def get_all_imbalances(user: User = Depends(get_current_user)):
 # COACHING PUZZLE ENDPOINTS - Prescribed Training
 # ============================================
 
-@api_router.get("/training/prescribed/{weakness}")
-async def get_prescribed_training(
-    weakness: str,
-    num_puzzles: int = 5,
-    user: User = Depends(get_current_user)
-):
-    """
-    Get puzzles prescribed for a specific weakness.
-    
-    This is the IMPROVEMENT engine:
-    - Takes diagnosed weakness (e.g., "missed_threat")
-    - Returns puzzles with COACHING context
-    - Includes puzzles from user's own games!
-    
-    Example: GET /api/training/prescribed/missed_threat?num_puzzles=5
-    """
-    from services.coaching_puzzle_service import CoachingPuzzleService
-    
-    puzzle_service = CoachingPuzzleService(db)
-    
-    # Get user's rating for difficulty calibration
-    player_profile = await db.player_profiles.find_one({"user_id": user.user_id})
-    user_rating = 1200
-    if player_profile:
-        lichess_rating = player_profile.get("lichess_stats", {}).get("rating", 0)
-        chesscom_rating = player_profile.get("chesscom_stats", {}).get("rating", 0)
-        user_rating = max(lichess_rating, chesscom_rating, 1200)
-    
-    # Set rating range for puzzles (user rating +/- 200)
-    rating_range = (max(600, user_rating - 200), user_rating + 200)
-    
-    result = await puzzle_service.get_prescribed_training(
-        user_id=user.user_id,
-        weakness_pattern=weakness,
-        num_puzzles=num_puzzles,
-        rating_range=rating_range
-    )
-    
-    return result
 
-
-@api_router.post("/training/puzzle-attempt")
-async def record_puzzle_attempt(
-    request: Dict = Body(...),
-    user: User = Depends(get_current_user)
-):
-    """
-    Record a puzzle attempt and update progress.
-    
-    Body:
-    - puzzle_id: ID of the puzzle
-    - solved: bool - whether user solved it correctly
-    - time_taken: int - seconds taken
-    - weakness_pattern: str - the weakness this puzzle is for
-    """
-    from services.coaching_puzzle_service import CoachingPuzzleService
-    
-    puzzle_service = CoachingPuzzleService(db)
-    
-    result = await puzzle_service.record_puzzle_attempt(
-        user_id=user.user_id,
-        puzzle_id=request.get("puzzle_id"),
-        solved=request.get("solved", False),
-        time_taken=request.get("time_taken", 0),
-        weakness_pattern=request.get("weakness_pattern", "unknown")
-    )
-    
-    return result
-
-
-@api_router.get("/training/weekly-plan")
-async def get_weekly_training_plan(user: User = Depends(get_current_user)):
-    """
-    Get a personalized weekly training plan based on user's weaknesses.
-    
-    This is what a human coach does:
-    "This week, focus on piece safety (Mon-Wed) and forks (Thu-Sat)"
-    """
-    from services.coaching_puzzle_service import CoachingPuzzleService
-    
-    puzzle_service = CoachingPuzzleService(db)
-    
-    # Get user's top weaknesses from recent patterns
-    home_intelligence = await db.home_intelligence.find_one(
-        {"user_id": user.user_id},
-        {"_id": 0}
-    )
-    
-    # Build weekly plan based on weaknesses
-    plan = await puzzle_service.get_weekly_training_plan(user.user_id)
-    
-    # Enhance with actual weakness data if available
-    if home_intelligence and home_intelligence.get("specific_patterns"):
-        patterns = home_intelligence.get("specific_patterns", {})
-        if patterns.get("dominant_pattern"):
-            plan["primary_weakness"] = patterns.get("dominant_pattern")
-            plan["pattern_count"] = patterns.get("pattern_count", 0)
-    
-    return plan
-
+# NOTE: /training/prescribed/{weakness}, /training/puzzle-attempt, /training/weekly-plan moved to routes/training.py
 
 @api_router.get("/training/progress")
 async def get_training_progress(user: User = Depends(get_current_user)):
@@ -13318,18 +12938,21 @@ from routes import feedback as feedback_routes
 from routes import games as games_routes
 from routes import lab as lab_routes
 from routes import reflect as reflect_routes
+from routes import training as training_routes
 
 # Set database references for modular routers
 games_routes.set_db(db)
 lab_routes.set_db(db)
 lab_routes.set_llm(call_llm)
 reflect_routes.set_db(db)
+training_routes.set_db(db)
 
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(feedback_routes.router, prefix="/api")
 app.include_router(games_routes.router, prefix="/api")
 app.include_router(lab_routes.router, prefix="/api")
 app.include_router(reflect_routes.router, prefix="/api")
+app.include_router(training_routes.router, prefix="/api")
 
 # Then include the legacy api_router
 app.include_router(api_router)

@@ -11,18 +11,18 @@ Extracted Domains (IN USE):
 - games: Game listing, details, blunders, best-moves, analysis-status - 7 endpoints
 - lab: Lab page analysis, deep strategy, mistake explanations - 4 endpoints
 - reflect: Reflection engine, V1 endpoints, post-loss recovery - 11 endpoints
+- training: Training sessions, cards, prescribed training, habits - 13 endpoints
 
 Domains TO BE EXTRACTED (from server.py):
 - coach: Coach-related endpoints (state, memory, analytics, play) (~50 endpoints)
-- training: Training and puzzle endpoints (~60 endpoints)
 - journey: Journey/progress dashboard endpoints (~15 endpoints)
 - cognitive: Cognitive gap analysis endpoints (~20 endpoints)
 - behavioral: Behavioral analysis endpoints (~15 endpoints)
 - notifications: Notification management (~5 endpoints)
 
-Total endpoints in server.py: ~240 (was ~315)
-Endpoints extracted: ~41 (auth: 9, feedback: 10, games: 7, lab: 4, reflect: 11)
-Lines removed: ~1,215 (from 14,560 to 13,345)
+Total endpoints in server.py: ~220 (was ~315)
+Endpoints extracted: ~54 (auth: 9, feedback: 10, games: 7, lab: 4, reflect: 11, training: 13)
+Lines removed: ~1,592 (from 14,560 to 12,968)
 """
 
 from fastapi import APIRouter
