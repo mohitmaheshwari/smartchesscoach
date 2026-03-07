@@ -643,3 +643,54 @@ async def get_available_tags(user: User = Depends(get_current_user)):
         "by_category": by_category,
         "total": len(tags)
     }
+
+
+
+@router.get("/pattern-quality")
+async def get_pattern_quality(user: User = Depends(get_current_user)):
+    """
+    Get pattern quality report for monitoring and tuning.
+    
+    Returns:
+    - Overall quality score
+    - Breakdown by quality level
+    - Pattern types and counts
+    - Issues and recommendations
+    """
+    global db
+    from services.pattern_quality_service import get_pattern_quality_report
+    
+    report = await get_pattern_quality_report(db)
+    return report
+
+
+@router.post("/pattern-quality/optimize")
+async def optimize_patterns(user: User = Depends(get_current_user)):
+    """
+    Attempt to auto-fix common issues in low-quality patterns.
+    
+    This is a maintenance operation that:
+    - Fixes empty criteria fields
+    - Infers attacker pieces from geometry
+    - Removes duplicate patterns
+    """
+    global db
+    from services.pattern_quality_service import optimize_low_quality_patterns
+    
+    result = await optimize_low_quality_patterns(db)
+    return result
+
+
+@router.get("/pattern-effectiveness")
+async def get_pattern_effectiveness(user: User = Depends(get_current_user)):
+    """
+    Get effectiveness metrics for pattern matching.
+    
+    Shows which pattern types are actually matching positions
+    and how often patterns are reused.
+    """
+    global db
+    from services.pattern_quality_service import get_pattern_effectiveness
+    
+    result = await get_pattern_effectiveness(db)
+    return result

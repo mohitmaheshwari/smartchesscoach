@@ -30,6 +30,7 @@ const UnifiedProgress = ({ user }) => {
   const [homeData, setHomeData] = useState(null);
   const [evolutionData, setEvolutionData] = useState(null);  // NEW: Rolling evolution
   const [openingEvolution, setOpeningEvolution] = useState(null);  // NEW: Opening evolution
+  const [identityData, setIdentityData] = useState(null);  // NEW: Identity summary
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState("now");
   const [showIdentity, setShowIdentity] = useState(false);
@@ -40,13 +41,14 @@ const UnifiedProgress = ({ user }) => {
 
   const fetchAll = async () => {
     try {
-      const [progressRes, journeyRes, journeyV2Res, homeRes, evolutionRes, openingRes] = await Promise.all([
+      const [progressRes, journeyRes, journeyV2Res, homeRes, evolutionRes, openingRes, identityRes] = await Promise.all([
         fetch(`${API}/progress`, { credentials: "include" }),
         fetch(`${API}/cognitive/journey`, { credentials: "include" }),
         fetch(`${API}/journey/v2`, { credentials: "include" }),
         fetch(`${API}/coach/home-intelligence`, { credentials: "include" }),
         fetch(`${API}/progress/evolution`, { credentials: "include" }),
-        fetch(`${API}/progress/openings`, { credentials: "include" })
+        fetch(`${API}/progress/openings`, { credentials: "include" }),
+        fetch(`${API}/coach/identity/summary`, { credentials: "include" })
       ]);
       
       if (progressRes.ok) setProgressData(await progressRes.json());
@@ -55,6 +57,7 @@ const UnifiedProgress = ({ user }) => {
       if (homeRes.ok) setHomeData(await homeRes.json());
       if (evolutionRes.ok) setEvolutionData(await evolutionRes.json());
       if (openingRes.ok) setOpeningEvolution(await openingRes.json());
+      if (identityRes.ok) setIdentityData(await identityRes.json());
     } catch (e) {
       console.error("Failed to fetch:", e);
     } finally {
@@ -935,27 +938,42 @@ const UnifiedProgress = ({ user }) => {
           </Tabs>
         </motion.div>
 
-        {/* Playing Identity - Expandable */}
-        {progressData?.playing_identity && (
+        {/* Enhanced Identity Card */}
+        {identityData?.has_data && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
           >
-            <Card>
-              <CardContent className="p-4">
+            <Card className="border-l-4 border-l-primary" data-testid="identity-card">
+              <CardContent className="p-5">
                 <button 
                   onClick={() => setShowIdentity(!showIdentity)}
                   className="w-full flex items-center justify-between"
                   data-testid="identity-toggle"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Brain className="w-4 h-4 text-primary" />
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                      <Brain className="w-5 h-5 text-primary" />
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-medium">Your Playing Identity</p>
-                      <p className="text-xs text-muted-foreground">Based on {progressData.total_analysis_count} games</p>
+                      <p className="text-base font-bold">{identityData.archetype || "Your Identity"}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          identityData.stability === 'stable' ? 'bg-emerald-500/10 text-emerald-500' :
+                          identityData.stability === 'volatile' ? 'bg-amber-500/10 text-amber-500' :
+                          'bg-slate-500/10 text-slate-500'
+                        }`}>
+                          {identityData.stability}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          identityData.style === 'aggressive' ? 'bg-red-500/10 text-red-500' :
+                          identityData.style === 'solid' ? 'bg-blue-500/10 text-blue-500' :
+                          'bg-slate-500/10 text-slate-500'
+                        }`}>
+                          {identityData.style}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   {showIdentity ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -969,12 +987,79 @@ const UnifiedProgress = ({ user }) => {
                       exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
-                      <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border/50">
-                        {progressData.playing_identity}
-                      </p>
+                      <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
+                        {/* Comparative Insight */}
+                        {identityData.comparative_insight && (
+                          <div className="p-3 rounded-lg bg-primary/5">
+                            <p className="text-sm text-primary font-medium">
+                              <Sparkles className="w-3.5 h-3.5 inline mr-1.5" />
+                              {identityData.comparative_insight}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Coaching Moments */}
+                        {identityData.coaching_moments?.length > 0 && (
+                          <div className="space-y-2">
+                            {identityData.coaching_moments.map((moment, idx) => (
+                              <div key={idx} className={`p-3 rounded-lg ${
+                                moment.type === 'breakthrough' ? 'bg-emerald-500/10' :
+                                moment.type === 'regression' ? 'bg-amber-500/10' :
+                                'bg-muted/50'
+                              }`}>
+                                <p className={`text-sm ${
+                                  moment.type === 'breakthrough' ? 'text-emerald-400' :
+                                  moment.type === 'regression' ? 'text-amber-400' :
+                                  'text-muted-foreground'
+                                }`}>
+                                  {moment.type === 'breakthrough' && <TrendingUp className="w-3.5 h-3.5 inline mr-1.5" />}
+                                  {moment.type === 'regression' && <AlertTriangle className="w-3.5 h-3.5 inline mr-1.5" />}
+                                  {moment.type === 'style_shift' && <Zap className="w-3.5 h-3.5 inline mr-1.5" />}
+                                  {moment.message}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Trajectory */}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>
+                            {identityData.trajectory_direction === 'improving' && <TrendingUp className="w-3 h-3 inline mr-1 text-emerald-500" />}
+                            {identityData.trajectory_direction === 'declining' && <TrendingDown className="w-3 h-3 inline mr-1 text-amber-500" />}
+                            {identityData.trajectory_message}
+                          </span>
+                          {identityData.next_milestone && (
+                            <span>Next milestone: {identityData.next_milestone} games</span>
+                          )}
+                        </div>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+        
+        {/* Fallback: Old Playing Identity */}
+        {!identityData?.has_data && progressData?.playing_identity && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+          >
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Brain className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Your Playing Identity</p>
+                    <p className="text-xs text-muted-foreground">{progressData.playing_identity}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </motion.div>
