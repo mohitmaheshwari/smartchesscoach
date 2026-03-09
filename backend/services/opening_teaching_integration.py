@@ -42,30 +42,48 @@ async def check_opening_and_offer_teaching(
         OPENING_DATABASE
     )
     
+    logger.info(f"Checking opening for session {session_id}, move_history length: {len(move_history)}")
+    
     # Get session to check if we've already offered teaching
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
+        logger.info("No session found")
         return None
     
     # Skip if already in teaching mode or offer was shown
-    if session_doc.get("teaching_mode") or session_doc.get("opening_offer_shown"):
+    if session_doc.get("teaching_mode"):
+        logger.info("Already in teaching mode, skipping")
+        return None
+    if session_doc.get("opening_offer_shown"):
+        logger.info("Opening offer already shown, skipping")
         return None
     
     # Only check in first 12 moves (opening phase)
     if len(move_history) > 24:  # 12 moves per side
+        logger.info("Past opening phase, skipping")
+        return None
+    
+    # Need at least 2 moves to detect an opening
+    if len(move_history) < 2:
+        logger.info("Not enough moves yet")
         return None
     
     # Get moves as SAN strings
     moves = [m.get("move", "") for m in move_history if m.get("move")]
+    logger.info(f"Checking moves for opening: {moves}")
     
     # Detect opening
     opening_info = detect_opening_from_moves(moves)
     if not opening_info:
+        logger.info("No opening detected")
         return None
+    
+    logger.info(f"Opening detected: {opening_info['opening_name']}")
     
     opening_key = opening_info["opening_key"]
     opening = OPENING_DATABASE.get(opening_key)
     if not opening:
+        logger.info(f"Opening {opening_key} not in database")
         return None
     
     # Check user's progress with this opening

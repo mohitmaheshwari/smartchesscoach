@@ -8624,20 +8624,47 @@ async def start_play_with_coach(
         if practice_mode:
             message = f"Practice mode! Playing from a position in your game. You are {user_color}."
         
-        # Get memory-aware welcome message from Human Coach
+        # Get memory-aware welcome message from Coach Memory + Human Coach
         welcome_message = message
+        coaching_context = {}
         try:
-            from services.human_coach_service import create_human_coach
-            coach = await create_human_coach(db, user.user_id, session.user_rating)
-            welcome_message = await coach.get_welcome_message()
+            # Get coaching context from memory
+            from services.coach_memory import get_coaching_context, get_personalized_greeting
+            coaching_context = await get_coaching_context(db, user.user_id)
+            personalized_greeting = await get_personalized_greeting(db, user.user_id)
             
-            # Also check for relevant memory to surface
-            if starting_fen:
-                memory_note = await coach.surface_relevant_memory(current_fen=starting_fen)
-                if memory_note:
-                    welcome_message = f"{welcome_message}\n\n{memory_note}"
+            # Start with personalized greeting
+            welcome_message = personalized_greeting
+            
+            # Add focus suggestion if available
+            if coaching_context.get("focus_suggestion"):
+                welcome_message += f" {coaching_context['focus_suggestion']}."
+            
+            # Surface any recurring patterns
+            if coaching_context.get("watch_for"):
+                top_weakness = coaching_context["watch_for"][0] if coaching_context["watch_for"] else None
+                if top_weakness and top_weakness["count"] >= 3:
+                    welcome_message += f"\n\nRemember: Watch out for {top_weakness['name']} - let's work on that today!"
+            
+            # Try Human Coach as fallback/enhancement
+            try:
+                from services.human_coach_service import create_human_coach
+                coach = await create_human_coach(db, user.user_id, session.user_rating)
+                human_welcome = await coach.get_welcome_message()
+                
+                # Use human coach message if it's more personal
+                if len(human_welcome) > len(welcome_message):
+                    welcome_message = human_welcome
+                    
+                if starting_fen:
+                    memory_note = await coach.surface_relevant_memory(current_fen=starting_fen)
+                    if memory_note:
+                        welcome_message = f"{welcome_message}\n\n{memory_note}"
+            except Exception as e:
+                logger.warning(f"Human coach welcome failed: {e}")
+                
         except Exception as e:
-            logger.warning(f"Human coach welcome failed: {e}")
+            logger.warning(f"Coach memory greeting failed: {e}")
             welcome_message = message
         
         return {
@@ -9081,6 +9108,37 @@ async def _process_move_and_respond(
                     except Exception as e:
                         logger.warning(f"Opening detection failed: {e}")
                 
+                # === ENDGAME DETECTION ===
+                # Check if we've entered an endgame and offer teaching
+                if len(move_history) > 24 and not session_doc.get("endgame_offer_shown"):
+                    try:
+                        from services.endgame_teaching import check_endgame_and_offer_teaching
+                        
+                        endgame_offer = await check_endgame_and_offer_teaching(
+                            db=db,
+                            session_id=session_id,
+                            current_fen=fen_after_user,
+                            user_id=user_id,
+                            user_color=user_color
+                        )
+                        
+                        if endgame_offer:
+                            await db.coach_messages.insert_one({
+                                "session_id": session_id,
+                                "type": "endgame_teaching_offer",
+                                "message": endgame_offer["message"],
+                                "trigger": "endgame_detected",
+                                "endgame_type": endgame_offer["endgame_type"],
+                                "lesson_name": endgame_offer["lesson_name"],
+                                "key_concepts": endgame_offer["key_concepts"],
+                                "options": endgame_offer["options"],
+                                "created_at": datetime.now(timezone.utc),
+                                "read": False,
+                            })
+                            logger.info(f"Endgame detected: {endgame_offer['lesson_name']} - offered teaching")
+                    except Exception as e:
+                        logger.warning(f"Endgame detection failed: {e}")
+                
                 # Get student weaknesses from their profile (if available)
                 student_weaknesses = session_doc.get("student_weaknesses", [])
                 teaching_focus = session_doc.get("teaching_focus", None)
@@ -9228,6 +9286,38 @@ async def _process_move_and_respond(
                 {"session_id": session_id},
                 {"$set": {"coach_move_pending": False}}
             )
+            
+            # === UPDATE COACH MEMORY AFTER GAME ===
+            try:
+                from services.coach_memory import update_memory_after_game
+                
+                session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+                if session_doc:
+                    # Determine result from user's perspective
+                    result = "draw"
+                    if game_over:
+                        import chess
+                        board = chess.Board(fen_after_user)
+                        if board.is_checkmate():
+                            # User delivered checkmate
+                            result = "win"
+                    
+                    await update_memory_after_game(
+                        db=db,
+                        user_id=session_doc.get("user_id"),
+                        game_result=result,
+                        accuracy=0,  # Would need move-by-move analysis
+                        blunders=0,
+                        mistakes=0,
+                        habits_violated=[],
+                        habits_improved=[],
+                        opening_played=session_doc.get("detected_opening"),
+                        endgame_reached=session_doc.get("endgame_offer_shown", False),
+                        performance_rating=session_doc.get("user_rating", 1200)
+                    )
+                    logger.info(f"Updated coach memory after game {session_id}")
+            except Exception as e:
+                logger.warning(f"Failed to update coach memory: {e}")
             
     except Exception as e:
         logger.error(f"Background move processing failed: {e}")
@@ -10175,6 +10265,158 @@ async def submit_coach_feedback(
         "success": True,
         "message": "Thank you for your feedback! It helps us improve the coach."
     }
+
+
+# ========================================
+# ENDGAME TEACHING ENDPOINTS
+# ========================================
+
+@api_router.post("/coach/play/endgame/start")
+async def start_endgame_lesson(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Start an interactive endgame lesson.
+    
+    Body:
+    - session_id: Current game session
+    - lesson_key: Key of the lesson to start (e.g., "queen_checkmate", "opposition")
+    
+    Returns lesson setup and first instruction.
+    """
+    from services.endgame_teaching import start_endgame_lesson as start_lesson
+    
+    session_id = request.get("session_id")
+    lesson_key = request.get("lesson_key")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not lesson_key:
+        raise HTTPException(status_code=400, detail="lesson_key is required")
+    
+    # Verify session
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    result = await start_lesson(db, session_id, lesson_key)
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+
+@api_router.post("/coach/play/endgame/move")
+async def process_endgame_lesson_move(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Process a move during endgame lesson.
+    
+    Body:
+    - session_id: Current game session
+    - move: Move played by user (SAN notation)
+    """
+    from services.endgame_teaching import process_endgame_teaching_move
+    
+    session_id = request.get("session_id")
+    move = request.get("move")
+    
+    if not session_id or not move:
+        raise HTTPException(status_code=400, detail="session_id and move are required")
+    
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    result = await process_endgame_teaching_move(db, session_id, move)
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+
+# ========================================
+# COACH MEMORY ENDPOINTS
+# ========================================
+
+@api_router.get("/coach/memory")
+async def get_coach_memory(user: User = Depends(get_current_user)):
+    """
+    Get the coach's memory about the user.
+    
+    Returns insights, patterns, and personalized context.
+    """
+    from services.coach_memory import get_coaching_context, get_personalized_greeting
+    
+    context = await get_coaching_context(db, user.user_id)
+    greeting = await get_personalized_greeting(db, user.user_id)
+    
+    return {
+        "greeting": greeting,
+        "context": context
+    }
+
+
+@api_router.post("/coach/memory/update")
+async def update_coach_memory(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Update coach memory after a game.
+    
+    Body:
+    - session_id: Game session that just ended
+    - game_result: "win", "loss", "draw"
+    - accuracy: Accuracy percentage
+    - blunders: Number of blunders
+    - mistakes: Number of mistakes
+    - habits_violated: List of habit IDs violated
+    - habits_improved: List of habit IDs improved
+    - opening_played: Opening name if identified
+    - performance_rating: Estimated performance rating
+    """
+    from services.coach_memory import update_memory_after_game
+    
+    session_id = request.get("session_id")
+    
+    # Get session for context
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if session_doc and session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    memory = await update_memory_after_game(
+        db=db,
+        user_id=user.user_id,
+        game_result=request.get("game_result", "draw"),
+        accuracy=request.get("accuracy", 0),
+        blunders=request.get("blunders", 0),
+        mistakes=request.get("mistakes", 0),
+        habits_violated=request.get("habits_violated", []),
+        habits_improved=request.get("habits_improved", []),
+        opening_played=request.get("opening_played"),
+        endgame_reached=request.get("endgame_reached", False),
+        performance_rating=request.get("performance_rating", 1200)
+    )
+    
+    return {
+        "success": True,
+        "insights": memory.last_game_insights,
+        "patterns": memory.recurring_patterns,
+        "games_played": memory.performance.games_played
+    }
+
+
+
 
 
 @api_router.get("/coach/play/opening-plan")
