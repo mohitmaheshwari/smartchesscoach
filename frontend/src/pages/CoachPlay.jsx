@@ -62,11 +62,8 @@ import {
 /**
  * EvalBar - Visual evaluation bar showing position advantage
  * 
- * A vertical bar showing who is winning:
- * - White portion grows from bottom when white is winning
- * - Black portion grows from top when black is winning
- * - Clear numeric display with +/- sign
- * - Color-coded advantage indicators
+ * A vertical bar that fills its container height:
+ * - Score displayed inside the bar at the boundary between black/white
  */
 const EvalBar = ({ evaluation, userColor, gameOver }) => {
   const { score, mate_in } = evaluation || { score: 0, mate_in: null };
@@ -74,7 +71,7 @@ const EvalBar = ({ evaluation, userColor, gameOver }) => {
   // Calculate percentage for the bar (50% = equal, >50% = white advantage)
   const getBarPercentage = () => {
     if (mate_in !== null) {
-      return mate_in > 0 ? 98 : 2;
+      return mate_in > 0 ? 95 : 5;
     }
     const clamped = Math.max(-10, Math.min(10, score));
     return 50 + (clamped * 4.5);
@@ -96,75 +93,51 @@ const EvalBar = ({ evaluation, userColor, gameOver }) => {
   // Determine who is winning
   const isWhiteWinning = score > 0.3 || (mate_in !== null && mate_in > 0);
   const isBlackWinning = score < -0.3 || (mate_in !== null && mate_in < 0);
-  const isEqual = !isWhiteWinning && !isBlackWinning;
   
   // Color coding based on user's perspective
   const userIsWhite = userColor === "white";
   const userWinning = (userIsWhite && isWhiteWinning) || (!userIsWhite && isBlackWinning);
   const userLosing = (userIsWhite && isBlackWinning) || (!userIsWhite && isWhiteWinning);
   
-  // Evaluation text color based on who's winning
-  const getEvalColor = () => {
-    if (isEqual) return "text-zinc-400";
-    if (userWinning) return "text-green-400";
-    if (userLosing) return "text-red-400";
-    return "text-zinc-400";
-  };
-  
   return (
     <div 
-      className="flex flex-col items-center gap-1 select-none"
+      className="w-full h-full flex flex-col rounded overflow-hidden border border-zinc-700 relative select-none"
       data-testid="eval-bar"
       title={`Evaluation: ${getEvalText()}`}
     >
-      {/* Evaluation number on top */}
+      {/* Black portion (top) */}
       <div 
-        className={`text-sm font-bold tabular-nums ${getEvalColor()}`}
-        data-testid="eval-text"
+        className="bg-zinc-800 transition-all duration-500 ease-out"
+        style={{ height: `${100 - whitePercent}%` }}
+      />
+      
+      {/* White portion (bottom) */}
+      <div 
+        className="bg-zinc-200 transition-all duration-500 ease-out"
+        style={{ height: `${whitePercent}%` }}
+      />
+      
+      {/* Score displayed at the boundary between black and white portions */}
+      <div 
+        className="absolute left-0 right-0 flex items-center justify-center transition-all duration-500 ease-out pointer-events-none"
+        style={{ 
+          top: `${100 - whitePercent}%`,
+          transform: 'translateY(-50%)'
+        }}
       >
-        {getEvalText()}
-      </div>
-      
-      {/* The bar itself */}
-      <div className="w-4 flex-1 min-h-[350px] flex flex-col rounded-sm overflow-hidden border border-zinc-700 shadow-inner bg-zinc-900">
-        {/* Black portion (top) - shrinks when white is winning */}
         <div 
-          className="bg-zinc-800 transition-all duration-500 ease-out relative"
-          style={{ height: `${100 - whitePercent}%` }}
+          className={`px-0.5 py-0.5 rounded text-[9px] font-bold leading-none whitespace-nowrap ${
+            userWinning 
+              ? "bg-green-500 text-white" 
+              : userLosing 
+                ? "bg-red-500 text-white"
+                : "bg-zinc-500 text-white"
+          }`}
+          data-testid="eval-text"
         >
-          {/* Subtle gradient for depth */}
-          <div className="absolute inset-0 bg-gradient-to-r from-zinc-700/20 to-transparent" />
-        </div>
-        
-        {/* Divider line at 50% mark (when equal) */}
-        {isEqual && (
-          <div className="absolute top-1/2 left-0 right-0 h-px bg-zinc-500/50" />
-        )}
-        
-        {/* White portion (bottom) - grows when white is winning */}
-        <div 
-          className="bg-zinc-200 transition-all duration-500 ease-out relative"
-          style={{ height: `${whitePercent}%` }}
-        >
-          {/* Subtle gradient for depth */}
-          <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent" />
+          {getEvalText()}
         </div>
       </div>
-      
-      {/* Arrow indicator showing direction of advantage */}
-      {!gameOver && !isEqual && (
-        <div className="flex items-center justify-center w-4 h-4">
-          {isWhiteWinning ? (
-            <svg className={`w-3 h-3 ${userIsWhite ? "text-green-400" : "text-red-400"}`} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 4l-8 8h6v8h4v-8h6z"/>
-            </svg>
-          ) : (
-            <svg className={`w-3 h-3 ${!userIsWhite ? "text-green-400" : "text-red-400"} rotate-180`} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 4l-8 8h6v8h4v-8h6z"/>
-            </svg>
-          )}
-        </div>
-      )}
     </div>
   );
 };
@@ -1359,33 +1332,36 @@ const CoachPlay = ({ user }) => {
       <div className="h-[calc(100vh-80px)] flex" data-testid="coach-play-game">
         {/* Left: Board + Eval Bar */}
         <div className="flex-1 flex flex-col items-center justify-center p-4">
-          <div className="w-full max-w-[600px] flex gap-3">
-            {/* Eval Bar */}
-            <EvalBar 
-              evaluation={evaluation} 
-              userColor={selectedColor}
-              gameOver={gameOver}
-            />
-            
-            <div className="flex-1 max-w-[560px]">
-              {/* Coach info bar */}
-              <div className="flex items-center justify-between mb-3 p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-primary" />
-                  <span className="font-medium">Coach</span>
-                  <Badge variant="secondary" className="text-xs">
-                    Level {session?.coach_skill_level || 8}
-                  </Badge>
-                </div>
-                <Badge variant="outline">
-                  <Clock className="w-3 h-3 mr-1" />
-                  {Math.floor((session?.coach_time_remaining || 900) / 60)}:
-                  {String(Math.floor((session?.coach_time_remaining || 900) % 60)).padStart(2, "0")}
+          <div className="w-full max-w-[600px]">
+            {/* Coach info bar */}
+            <div className="flex items-center justify-between mb-3 p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" />
+                <span className="font-medium">Coach</span>
+                <Badge variant="secondary" className="text-xs">
+                  Level {session?.coach_skill_level || 8}
                 </Badge>
               </div>
-
-              {/* Chessboard - Using Lichess Board */}
-              <div className="rounded-lg overflow-hidden" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
+              <Badge variant="outline">
+                <Clock className="w-3 h-3 mr-1" />
+                {Math.floor((session?.coach_time_remaining || 900) / 60)}:
+                {String(Math.floor((session?.coach_time_remaining || 900) % 60)).padStart(2, "0")}
+              </Badge>
+            </div>
+            
+            {/* Eval Bar + Board in same row */}
+            <div className="flex gap-2 items-stretch">
+              {/* Eval Bar - narrow strip that stretches to match board height */}
+              <div className="w-5 shrink-0">
+                <EvalBar 
+                  evaluation={evaluation} 
+                  userColor={selectedColor}
+                  gameOver={gameOver}
+                />
+              </div>
+              
+              {/* Chessboard - square aspect ratio, this sets the row height */}
+              <div className="flex-1 rounded-lg overflow-hidden aspect-square" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
                 <LichessBoard
                   ref={boardRef}
                   fen={currentFen}
@@ -1401,22 +1377,23 @@ const CoachPlay = ({ user }) => {
                   showDests={true}
                 />
               </div>
+            </div>
 
-              {/* Player info bar */}
-              <div className="flex items-center justify-between mt-3 p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <div className={`w-4 h-4 rounded-full ${selectedColor === "white" ? "bg-white border" : "bg-gray-900"}`} />
-                  <span className="font-medium">You</span>
-                  {isPlayerTurn && !gameOver && (
-                    <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
-                      Your turn
-                    </Badge>
-                  )}
-                </div>
-                <Badge variant="outline">
-                  <Clock className="w-3 h-3 mr-1" />
-                  {Math.floor((session?.user_time_remaining || 900) / 60)}:
-                  {String(Math.floor((session?.user_time_remaining || 900) % 60)).padStart(2, "0")}
+            {/* Player info bar */}
+            <div className="flex items-center justify-between mt-3 p-3 rounded-lg bg-muted/50">
+              <div className="flex items-center gap-2">
+                <div className={`w-4 h-4 rounded-full ${selectedColor === "white" ? "bg-white border" : "bg-gray-900"}`} />
+                <span className="font-medium">You</span>
+                {isPlayerTurn && !gameOver && (
+                  <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
+                    Your turn
+                  </Badge>
+                )}
+              </div>
+              <Badge variant="outline">
+                <Clock className="w-3 h-3 mr-1" />
+                {Math.floor((session?.user_time_remaining || 900) / 60)}:
+                {String(Math.floor((session?.user_time_remaining || 900) % 60)).padStart(2, "0")}
               </Badge>
             </div>
 
@@ -1448,7 +1425,6 @@ const CoachPlay = ({ user }) => {
                   New Game
                 </Button>
               )}
-            </div>
             </div>
           </div>
         </div>
