@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import TeachingPanel from "@/components/TeachingPanel";
 import PostGameLesson from "@/components/PostGameLesson";
+import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 
 /**
  * EvalBar - Visual evaluation bar showing position advantage
@@ -200,6 +201,10 @@ const CoachPlay = ({ user }) => {
   
   // NEW: Visual move hints state
   const [moveHints, setMoveHints] = useState([]);
+  
+  // NEW: Emotional state tracking for Human Coach
+  const [blundersThisGame, setBlundersThisGame] = useState(0);
+  const [recentResults, setRecentResults] = useState([]);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -231,6 +236,14 @@ const CoachPlay = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         if (data.messages && data.messages.length > 0) {
+          // Track blunders for emotional state
+          const newBlunders = data.messages.filter(msg => 
+            msg.trigger === "warning" || msg.trigger === "blunder"
+          ).length;
+          if (newBlunders > 0) {
+            setBlundersThisGame(prev => prev + newBlunders);
+          }
+          
           // Add new messages to chat (preserve id for feedback button!)
           setChatMessages(prev => [
             ...prev,
@@ -241,6 +254,8 @@ const CoachPlay = ({ user }) => {
               trigger: msg.trigger,
               move: msg.move,
               question: msg.question,  // For Socratic questions
+              isSocratic: msg.is_socratic,  // Track Socratic messages
+              emotionalState: msg.emotional_state,  // Track emotional adaptation
               context: {
                 fen: msg.fen,
                 move_number: msg.move_number,
@@ -368,6 +383,9 @@ const CoachPlay = ({ user }) => {
 
   const startGame = async () => {
     setLoading(true);
+    // Reset emotional state tracking for new game
+    setBlundersThisGame(0);
+    
     try {
       // Build request body
       const requestBody = {
@@ -1346,6 +1364,17 @@ const CoachPlay = ({ user }) => {
                 onPlayAgain={newGame}
               />
             </div>
+          )}
+          
+          {/* Emotional State Indicator - Shows coach awareness of player mood */}
+          {session && !gameOver && blundersThisGame > 0 && (
+            <EmotionalStateIndicator
+              blundersThisGame={blundersThisGame}
+              recentResults={recentResults}
+              onTakeBreak={() => {
+                toast.info("Take a 5-minute break. The game will be here when you're back!");
+              }}
+            />
           )}
           
           {/* Chat Messages */}

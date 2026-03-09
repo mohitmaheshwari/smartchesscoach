@@ -18,8 +18,9 @@ import {
   Loader2, Target, Zap, TrendingUp, TrendingDown, Minus,
   AlertTriangle, CheckCircle2, Brain, Flame, Sparkles,
   ChevronRight, RefreshCw, Clock, Eye, ArrowRight,
-  Award, ChevronDown, ChevronUp
+  Award, ChevronDown, ChevronUp, Calendar
 } from "lucide-react";
+import TrainingDashboard from "@/components/coach/TrainingDashboard";
 
 const UnifiedProgress = ({ user }) => {
   const navigate = useNavigate();
@@ -376,6 +377,11 @@ const UnifiedProgress = ({ user }) => {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Training Dashboard - Weekly Curriculum & Coach Memory */}
+              <TrainingDashboard 
+                onStartTraining={() => navigate('/play-with-coach')}
+              />
 
               {/* NEW: Rolling Evolution - Your Recent Progress */}
               {evolutionData && evolutionData.total_games >= 15 && (

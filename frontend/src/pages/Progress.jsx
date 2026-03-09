@@ -29,8 +29,10 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
-  Eye
+  Eye,
+  Calendar
 } from "lucide-react";
+import TrainingDashboard from "@/components/coach/TrainingDashboard";
 
 const Progress = ({ user }) => {
   const navigate = useNavigate();
@@ -201,6 +203,17 @@ const Progress = ({ user }) => {
             </Card>
           </motion.div>
         )}
+
+        {/* Training Dashboard - Weekly Curriculum & Coach Memory */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <TrainingDashboard 
+            onStartTraining={() => navigate('/play-with-coach')}
+          />
+        </motion.div>
 
         {/* Blunder Stats - Coach perspective */}
         <motion.div
