@@ -533,7 +533,7 @@ class SocraticEngine:
             area=area,
             piece=piece_name,
             square=to_square,
-            file_or_rank=f"the {to_file}-file" if to_file else "the center",
+            file_or_rank=f"{to_file}-file" if to_file else "center",
             color="enemy" if board.turn else "your",
             square_area=area,
             target="the opponent's position",
