@@ -578,6 +578,18 @@ Plain, simple, direct Indian-English
   - `backend/tests/test_opening_detection.py`
 - **Status**: FIXED - All 43 tests pass (32 backend, 11 frontend E2E)
 
+### 23. Opening Database Expansion (March 2026) ✅
+- **Added 4 new openings** to the hardcoded database:
+  1. **French Defense** (e4 e6) - With Winawer Poisoned Pawn trap
+  2. **Scandinavian Defense** (e4 d5) - With Queen Trap
+  3. **Ruy Lopez** (e4 e5 Nf3 Nc6 Bb5) - With Noah's Ark Trap & Fishing Pole Trap
+  4. **Philidor Defense** (e4 e5 Nf3 d6) - With Philidor Trap & Legal's Mate
+- **Total openings in database**: 9 (was 5)
+- **Total traps**: 12 (was 6)
+- **Files Modified**:
+  - `backend/services/opening_mastery.py` - Added new openings and detection logic
+- **Detection now includes**: Italian Game, Sicilian, Queen's Gambit, London System, Caro-Kann, French Defense, Scandinavian, Ruy Lopez, Philidor
+
 ---
 *Last updated: March 2026*
-*Status: HALLUCINATION FIX COMPLETE - Coach no longer mentions non-existent pieces*
+*Status: HALLUCINATION FIX COMPLETE + OPENING DATABASE EXPANDED TO 9 OPENINGS*

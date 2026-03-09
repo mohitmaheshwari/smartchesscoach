@@ -503,6 +503,273 @@ def _build_opening_database():
             "correct_applications": 2
         }
     )
+    
+    # ==================== FRENCH DEFENSE ====================
+    french_traps = [
+        OpeningTrap(
+            name="French Defense Winawer Poisoned Pawn",
+            moves=["e4", "e6", "d4", "d5", "Nc3", "Bb4", "e5", "c5", "a3", "Bxc3+", "bxc3", "Ne7", "Qg4", "Qc7", "Qxg7", "Rg8", "Qxh7", "cxd4"],
+            trap_move="Qxg7",
+            explanation="White grabs the g7 pawn, but Black gets tremendous counterplay with cxd4, opening lines against White's weakened center.",
+            refutation="White should avoid being too greedy. Play Nf3 for safer development.",
+            fen_before_trap="r1b1k1nr/ppq1ppbp/4p3/2ppP3/3P2Q1/P1P5/2P2PPP/R1B1KBNR w KQkq - 0 9",
+            fen_after_trap="r1b1k1nr/ppq1pp1p/4p3/2ppP1Q1/3P4/P1P5/2P2PPP/R1B1KBNR b KQkq - 0 9",
+            victim_color="white",
+            difficulty="advanced"
+        ),
+    ]
+    
+    french_variations = [
+        OpeningVariation(
+            name="French Defense Classical",
+            eco="C11",
+            moves=["e4", "e6", "d4", "d5"],
+            key_ideas=[
+                "Black creates a solid pawn chain",
+                "The light-squared bishop is blocked (French bishop problem)",
+                "Black counterattacks White's center with c5"
+            ],
+            plans_for_white=[
+                "Push e5 to gain space",
+                "Attack the kingside with f4-f5",
+                "Target the weak d6 square"
+            ],
+            plans_for_black=[
+                "Play c5 to challenge the center",
+                "Develop the knight to c6, then e7-f5",
+                "Solve the bishop problem with Bd7-e8-g6 or b6-Ba6"
+            ],
+            common_mistakes=[
+                "Black: Leaving the bad bishop passive",
+                "White: Overextending the e-pawn"
+            ],
+            traps=french_traps,
+            model_games=[]
+        ),
+    ]
+    
+    OPENING_DATABASE["french_defense"] = OpeningFamily(
+        name="French Defense",
+        eco_range="C00-C19",
+        first_moves=["e4", "e6"],
+        description="A solid, counterattacking defense where Black builds a strong pawn chain but must solve the 'French bishop' problem.",
+        character="semi-open",
+        suitable_for=["strategic players", "counterattackers", "intermediate players"],
+        variations=french_variations,
+        introduction_message="The French Defense! Solid like a fortress. You'll build a strong center with d5 and counterattack with c5. Just remember - your light-squared bishop needs a plan!",
+        mastery_criteria={
+            "know_main_line": True,
+            "know_c5_break": True,
+            "applied_in_games": 3,
+            "correct_applications": 2
+        }
+    )
+    
+    # ==================== SCANDINAVIAN DEFENSE ====================
+    scandinavian_traps = [
+        OpeningTrap(
+            name="Scandinavian Queen Trap",
+            moves=["e4", "d5", "exd5", "Qxd5", "Nc3", "Qa5", "d4", "e5", "dxe5"],
+            trap_move="dxe5",
+            explanation="After dxe5, Black's queen is exposed. White develops with tempo and Black struggles to find safe squares.",
+            refutation="Black should not play e5 - play Nf6 or c6 for solid development.",
+            fen_before_trap="rnb1kbnr/ppp2ppp/8/q3P3/8/2N5/PPP2PPP/R1BQKBNR b KQkq - 0 5",
+            fen_after_trap="rnb1kbnr/ppp2ppp/8/q3P3/8/2N5/PPP2PPP/R1BQKBNR b KQkq - 0 5",
+            victim_color="black",
+            difficulty="beginner"
+        ),
+    ]
+    
+    scandinavian_variations = [
+        OpeningVariation(
+            name="Scandinavian Main Line",
+            eco="B01",
+            moves=["e4", "d5", "exd5", "Qxd5", "Nc3", "Qa5"],
+            key_ideas=[
+                "Black immediately challenges White's center",
+                "The queen comes out early (unusual but playable)",
+                "Black develops quickly: Nf6, c6, Bf5"
+            ],
+            plans_for_white=[
+                "Develop with tempo against the queen",
+                "Control the center with d4",
+                "Castle and attack"
+            ],
+            plans_for_black=[
+                "Keep the queen safe while developing",
+                "Play c6, Bf5, e6 for solid setup",
+                "Don't let the queen get trapped!"
+            ],
+            common_mistakes=[
+                "Black: Moving queen too much",
+                "Black: Playing e5 which weakens d5",
+                "White: Overchasing the queen"
+            ],
+            traps=scandinavian_traps,
+            model_games=[]
+        ),
+    ]
+    
+    OPENING_DATABASE["scandinavian_defense"] = OpeningFamily(
+        name="Scandinavian Defense",
+        eco_range="B01",
+        first_moves=["e4", "d5"],
+        description="A provocative defense where Black immediately challenges White's e-pawn, bringing the queen out early.",
+        character="open",
+        suitable_for=["aggressive players", "surprise weapon", "beginners"],
+        variations=scandinavian_variations,
+        introduction_message="The Scandinavian Defense! Bold choice - you're bringing your queen out early. Keep her safe while you develop!",
+        mastery_criteria={
+            "know_main_line": True,
+            "know_queen_safety": True,
+            "applied_in_games": 3,
+            "correct_applications": 2
+        }
+    )
+    
+    # ==================== RUY LOPEZ ====================
+    ruylopez_traps = [
+        OpeningTrap(
+            name="Noah's Ark Trap",
+            moves=["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "d6", "d4", "b5", "Bb3", "Nxd4", "Nxd4", "exd4", "Qxd4", "c5", "Qd5", "Be6", "Qc6+", "Bd7", "Qd5", "c4"],
+            trap_move="c4",
+            explanation="The bishop on b3 is trapped! After c4, the bishop retreats to a4, then b4 and c3 close the cage.",
+            refutation="White should avoid Qxd4 - play c3 instead to maintain the center.",
+            fen_before_trap="r2qkbnr/3b1ppp/p2p4/1p1Q4/2p1P3/1B6/PPP2PPP/RNB1K2R w KQkq - 0 12",
+            fen_after_trap="r2qkbnr/3b1ppp/p2p4/1p1Q4/2p1P3/1B6/PPP2PPP/RNB1K2R w KQkq - 0 12",
+            victim_color="white",
+            difficulty="intermediate"
+        ),
+        OpeningTrap(
+            name="Fishing Pole Trap",
+            moves=["e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6", "O-O", "Ng4", "h3", "h5", "hxg4", "hxg4"],
+            trap_move="hxg4",
+            explanation="After hxg4 hxg4, Black's h-file is open! Qh4 threatens mate. The attack is devastating.",
+            refutation="Don't take the knight with the h-pawn - play d3 or Be2 instead.",
+            fen_before_trap="r1bqkb1r/pppp1pp1/2n5/1B2p3/4P1p1/5N2/PPPP1PP1/RNBQ1RK1 w kq - 0 7",
+            fen_after_trap="r1bqkb1r/pppp1pp1/2n5/1B2p3/4P1p1/5N2/PPPP1PP1/RNBQ1RK1 w kq - 0 7",
+            victim_color="white",
+            difficulty="intermediate"
+        ),
+    ]
+    
+    ruylopez_variations = [
+        OpeningVariation(
+            name="Ruy Lopez Morphy Defense",
+            eco="C65",
+            moves=["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4"],
+            key_ideas=[
+                "White puts pressure on Black's center via the c6 knight",
+                "The bishop retreat to a4 maintains tension",
+                "Black must decide how to defend the e5 pawn"
+            ],
+            plans_for_white=[
+                "Castle and play d4 to open the center",
+                "Build up with c3, Re1, and Nbd2",
+                "Launch a kingside attack in the middlegame"
+            ],
+            plans_for_black=[
+                "Play d6 or Nf6 to solidify the center",
+                "Counter with b5 to push the bishop back",
+                "Consider the Marshall Attack for aggressive play"
+            ],
+            common_mistakes=[
+                "Black: Playing Nxe4 too early (trappy!)",
+                "White: Being too greedy with pawns"
+            ],
+            traps=ruylopez_traps,
+            model_games=[]
+        ),
+    ]
+    
+    OPENING_DATABASE["ruy_lopez"] = OpeningFamily(
+        name="Ruy Lopez",
+        eco_range="C60-C99",
+        first_moves=["e4", "e5", "Nf3", "Nc6", "Bb5"],
+        description="The 'Spanish Game' - one of the oldest and most respected openings. Rich in strategy and theory.",
+        character="open",
+        suitable_for=["strategic players", "serious improvers", "intermediate to advanced"],
+        variations=ruylopez_variations,
+        introduction_message="The Ruy Lopez! A classic opening played by world champions for centuries. Let's explore its rich strategies and sneaky traps!",
+        mastery_criteria={
+            "know_main_line": True,
+            "know_morphy_defense": True,
+            "applied_in_games": 5,
+            "correct_applications": 3
+        }
+    )
+    
+    # ==================== PHILIDOR DEFENSE ====================
+    philidor_traps = [
+        OpeningTrap(
+            name="Philidor Defense Trap",
+            moves=["e4", "e5", "Nf3", "d6", "d4", "Nd7", "Bc4", "Be7", "dxe5", "dxe5", "Qd5"],
+            trap_move="Qd5",
+            explanation="Qd5! attacks f7 and e5 simultaneously. Black cannot defend both.",
+            refutation="Black should play Nxe5 instead of dxe5, or develop Nf6 instead of Nd7.",
+            fen_before_trap="r1bqk1nr/pppnbppp/8/4p3/2B1P3/5N2/PPP2PPP/RNBQK2R w KQkq - 0 6",
+            fen_after_trap="r1bqk1nr/pppnbppp/8/3Qp3/2B1P3/5N2/PPP2PPP/RNB1K2R b KQkq - 1 6",
+            victim_color="black",
+            difficulty="beginner"
+        ),
+        OpeningTrap(
+            name="Legal's Mate",
+            moves=["e4", "e5", "Nf3", "d6", "Bc4", "Bg4", "Nc3", "g6", "Nxe5", "Bxd1", "Bxf7+", "Ke7", "Nd5#"],
+            trap_move="Nxe5",
+            explanation="White sacrifices the queen! After Bxd1, Bxf7+ Ke7, Nd5# is checkmate.",
+            refutation="Black should not capture the queen - play dxe5 instead.",
+            fen_before_trap="rn1qkbnr/ppp2p1p/3p2p1/4p3/2B1P1b1/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 5",
+            fen_after_trap="rn1qkbnr/ppp2p1p/3p2p1/4N3/2B1P1b1/2N5/PPPP1PPP/R1BQK2R b KQkq - 0 5",
+            victim_color="black",
+            difficulty="intermediate"
+        ),
+    ]
+    
+    philidor_variations = [
+        OpeningVariation(
+            name="Philidor Defense",
+            eco="C41",
+            moves=["e4", "e5", "Nf3", "d6"],
+            key_ideas=[
+                "Black solidly defends e5 with d6",
+                "More passive than Nc6 but very solid",
+                "Black aims for slow, strategic play"
+            ],
+            plans_for_white=[
+                "Play d4 to challenge the center",
+                "Develop Bc4 targeting f7",
+                "Castle and build pressure"
+            ],
+            plans_for_black=[
+                "Develop Nf6 and Be7",
+                "Castle kingside quickly",
+                "Look for c6 and d5 break later"
+            ],
+            common_mistakes=[
+                "Black: Playing Nd7 blocking the bishop",
+                "Black: Capturing dxe5 allowing Qd5 fork"
+            ],
+            traps=philidor_traps,
+            model_games=[]
+        ),
+    ]
+    
+    OPENING_DATABASE["philidor_defense"] = OpeningFamily(
+        name="Philidor Defense",
+        eco_range="C41",
+        first_moves=["e4", "e5", "Nf3", "d6"],
+        description="A solid but passive defense. Named after the legendary François-André Danican Philidor.",
+        character="semi-open",
+        suitable_for=["solid players", "defensive players", "beginners"],
+        variations=philidor_variations,
+        introduction_message="The Philidor Defense! Solid and reliable, but watch out for the deadly Legal's Mate trap!",
+        mastery_criteria={
+            "know_main_line": True,
+            "know_legals_mate": True,
+            "applied_in_games": 3,
+            "correct_applications": 2
+        }
+    )
 
 
 # Initialize the database
@@ -569,8 +836,25 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
         if moves_lower[:2] == ["e4", "c6"]:
             return _build_opening_result("caro_kann", moves)
     
-    # French Defense: e4 e6 (add if we have it)
-    # Scandinavian: e4 d5 (add if we have it)
+    # French Defense: e4 e6
+    if len(moves_lower) >= 2:
+        if moves_lower[:2] == ["e4", "e6"]:
+            return _build_opening_result("french_defense", moves)
+    
+    # Scandinavian Defense: e4 d5
+    if len(moves_lower) >= 2:
+        if moves_lower[:2] == ["e4", "d5"]:
+            return _build_opening_result("scandinavian_defense", moves)
+    
+    # Ruy Lopez: e4 e5 Nf3 Nc6 Bb5 (5 moves)
+    if len(moves_lower) >= 5:
+        if moves_lower[:5] == ["e4", "e5", "nf3", "nc6", "bb5"]:
+            return _build_opening_result("ruy_lopez", moves)
+    
+    # Philidor Defense: e4 e5 Nf3 d6 (4 moves)
+    if len(moves_lower) >= 4:
+        if moves_lower[:4] == ["e4", "e5", "nf3", "d6"]:
+            return _build_opening_result("philidor_defense", moves)
     
     return None
 
