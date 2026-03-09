@@ -185,8 +185,8 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
   - Next milestone countdown
 
 ### Future/Backlog
-- **Teaching Move Selector** (P0) - Select instructive moves for coach to play
-- **Active Teaching Engine** (P1) - Real-time Socratic feedback during play
+- ~~Teaching Move Selector~~ ✅ DONE
+- ~~Active Teaching Engine~~ ✅ DONE
 - **Structure & Plan Database** (P2) - Map ~20 structures to strategic plans
 - **Human Coach Training Dashboard** - B2B interface for 100% accuracy
 - Mobile App
@@ -255,10 +255,45 @@ The CUS is the computational backbone for the Teaching Coach. It provides factua
 | Endgame Classifier | `game_phase_service.py` | ✅ Complete | 18 endgame types with teaching content |
 | Pawn Structure Classifier | `pawn_structure_service.py` | ✅ Complete | Structure → plans mapping |
 | Move Effect Analyzer | `move_effect_analyzer.py` | ✅ Complete | Explains WHY moves work |
+| Teaching Move Selector | `teaching_move_selector.py` | ✅ Complete | Selects instructive moves |
+| Active Teaching Engine | `active_teaching_engine.py` | ✅ Complete | Real-time Socratic feedback |
+
+### 17. Teaching Move Selector ✅ (NEW - Completed)
+- **Created**: `services/teaching_move_selector.py` (800+ lines)
+- **Purpose**: Selects moves that CREATE LEARNING OPPORTUNITIES, not necessarily the strongest moves
+- **Features**:
+  - Multi-candidate move evaluation from Stockfish
+  - Teaching value scoring for each move
+  - Student rating calibration (beginner → advanced)
+  - Teaching goal classification (tactics, piece_activity, development, etc.)
+  - Avoids crushing/too-strong moves to keep learning opportunity
+  - Generates teaching explanations for each move
+  - Phase-appropriate concept selection
+  - Student weakness targeting
+- **New endpoint**: `POST /api/coach/teaching/select-move`
+
+### 18. Active Teaching Engine ✅ (NEW - Completed)
+- **Created**: `services/active_teaching_engine.py` (700+ lines)
+- **Purpose**: Real-time, conversational, Socratic coaching during play
+- **Teaching Phases**:
+  - `game_start` - Welcome and opening guidance
+  - `before_coach_move` - "What do you think I'm planning?"
+  - `after_coach_move` - Explains the concept behind the move
+  - `before_student_move` - Socratic questions to guide thinking
+  - `after_student_move` - Celebration, encouragement, or gentle correction
+  - `game_end` - Game review and reflection prompts
+- **Features**:
+  - Rating-calibrated tone and complexity
+  - Position-aware hints (checks hanging pieces, tactics)
+  - Gentle correction for mistakes (never harsh)
+  - Celebration for great moves
+  - Indian-English plain language
+- **New endpoint**: `POST /api/coach/teaching/feedback`
 
 **Next CUS Components Needed**:
-1. **Teaching Move Selector** - Select instructive moves for the coach to play
-2. **Active Teaching Engine** - Real-time Socratic feedback during play
+1. ~~Teaching Move Selector~~ ✅ DONE
+2. ~~Active Teaching Engine~~ ✅ DONE
+3. **Structure & Plan Database** - Map ~20 structures to strategic plans (P2)
 
 ## Database Collections
 

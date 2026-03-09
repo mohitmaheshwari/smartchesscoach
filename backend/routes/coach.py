@@ -869,6 +869,115 @@ async def analyze_move_effect(
     return result
 
 
+@router.post("/teaching/select-move")
+async def select_teaching_move(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Select an instructive move for the teaching coach to play.
+    
+    This is the heart of "play to teach" - the coach selects moves that
+    CREATE LEARNING OPPORTUNITIES, not necessarily the strongest moves.
+    
+    Request body:
+        {
+            "fen": "...",                     # Current position
+            "student_rating": 1200,           # Student's rating for calibration
+            "student_weaknesses": ["tactics"], # Areas to focus on
+            "teaching_focus": "piece_activity", # Specific concept to teach
+            "game_phase": "middlegame"        # Current game phase
+        }
+    
+    Returns:
+        - Selected move with teaching goal
+        - Why this move is instructive
+        - Concept being taught
+        - Challenge question for student
+        - Teaching content (before/after explanations)
+    """
+    import chess
+    from services.teaching_move_selector import select_teaching_move as select_move
+    
+    fen = request.get("fen", chess.STARTING_FEN)
+    student_rating = request.get("student_rating", 1200)
+    student_weaknesses = request.get("student_weaknesses", [])
+    teaching_focus = request.get("teaching_focus")
+    game_phase = request.get("game_phase", "middlegame")
+    
+    result = select_move(
+        fen=fen,
+        student_rating=student_rating,
+        student_weaknesses=student_weaknesses,
+        teaching_focus=teaching_focus,
+        game_phase=game_phase
+    )
+    
+    return result
+
+
+@router.post("/teaching/feedback")
+async def get_teaching_feedback(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Generate real-time teaching feedback for a game moment.
+    
+    Uses Socratic questioning to guide student thinking.
+    Adapts tone and complexity to student level.
+    
+    Request body:
+        {
+            "fen": "...",                     # Current position
+            "last_move": "e2e4",              # Last move (UCI format, optional)
+            "student_rating": 1200,           # Student's rating
+            "phase": "before_student_move",   # Teaching phase
+            "student_color": "white",         # Which color student plays
+            "move_context": {                 # Optional context from move selector
+                "teaching_goal": "tactics",
+                "was_blunder": false,
+                ...
+            }
+        }
+    
+    Teaching phases:
+        - game_start: Beginning of game
+        - before_coach_move: Coach is about to play
+        - after_coach_move: Coach just played
+        - before_student_move: Student is thinking
+        - after_student_move: Student just played
+        - game_end: Game is over
+    
+    Returns:
+        - Teaching message
+        - Feedback type (question, explanation, encouragement, etc.)
+        - Related concept
+        - Follow-up question
+        - Hints
+    """
+    from services.active_teaching_engine import generate_teaching_feedback
+    import chess
+    
+    fen = request.get("fen", chess.STARTING_FEN)
+    last_move = request.get("last_move")
+    student_rating = request.get("student_rating", 1200)
+    phase = request.get("phase", "before_student_move")
+    student_color = request.get("student_color", "white")
+    move_context = request.get("move_context", {})
+    
+    result = generate_teaching_feedback(
+        fen=fen,
+        last_move_uci=last_move,
+        student_rating=student_rating,
+        phase=phase,
+        student_color=student_color,
+        move_context=move_context
+    )
+    
+    return result
+
+
 @router.post("/analyze/position")
 async def analyze_position_complete(
     request: dict,
