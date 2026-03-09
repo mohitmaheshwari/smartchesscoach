@@ -376,46 +376,23 @@ class CoachCommentary:
         if position.opening_name:
             opening_context = f"\nOpening: {position.opening_name}"
         
-        prompt = f"""You are a friendly chess coach having a real-time training session. 
-The student just played a move and explained their reasoning. Give targeted Socratic feedback.
+        prompt = f"""Chess coach giving quick feedback. Student played {move.move_san} and said: "{user_reasoning}"
 
-POSITION CONTEXT (FEN: {position.fen}):
-- Game phase: {position.phase}{opening_context}
-- Position evaluation before move: {position.evaluation:+.2f} (positive = {user_color} is better)
-- Key features: {', '.join(position.key_features[:3]) if position.key_features else 'standard position'}
-- Move number: {move_number}
+POSITION (FEN: {position.fen}):
+Phase: {position.phase}{opening_context} | Eval: {position.evaluation:+.2f} → {move.eval_after:+.2f}
+Move quality: {move_assessment}
+Best was: {', '.join(move.best_continuation[:2])}
 
-MOVE ANALYSIS:
-- Student played: {move.move_san}
-- Move quality: {move_assessment}
-- Eval change: {position.evaluation:+.2f} → {move.eval_after:+.2f}
-- Best moves were: {', '.join(move.best_continuation[:3])}
-
-STUDENT'S REASONING:
-"{user_reasoning}"
-
-YOUR TASK:
-Generate coaching feedback in this JSON format:
+Return JSON only:
 {{
-  "main_message": "Your primary feedback (1-2 sentences, conversational)",
-  "reasoning_feedback": "Response to their stated reasoning - was their thinking on track? (1-2 sentences)",
-  "position_insight": "What was actually important in this position? (1 sentence)",
-  "improvement_tip": "What should they look for next time? (1 sentence, optional - null if move was great)",
-  "encouragement": true/false (true if move was good or reasoning showed understanding)
+  "main_message": "1 sentence - was move good/bad and why",
+  "reasoning_feedback": "1 sentence - was their thinking right?",
+  "position_insight": "1 sentence - key thing in position",
+  "improvement_tip": "1 sentence tip or null if good",
+  "encouragement": true/false
 }}
 
-COACHING STYLE:
-- Be warm and encouraging, like a supportive coach
-- If they found a great move, celebrate it!
-- If their reasoning was wrong but move was good, gently correct the thinking
-- If move was bad, focus on what they missed, not criticism
-- Use "you" not "the student"
-- Keep it conversational, not formal
-- Reference their specific reasoning in your response
-- ONLY mention pieces on specific squares if you can VERIFY from the FEN they are there
-- DO NOT guess or make up piece positions - stick to what's in the analysis above
-
-Respond with ONLY the JSON, no other text."""
+Keep each field SHORT (max 15 words). No fluff."""
 
         return prompt
     
@@ -1202,52 +1179,20 @@ FOCUS on explaining your reasoning for playing {target_move}.
 """
     
     # Build the full prompt - INCLUDE FEN to prevent hallucinations
-    prompt = f"""You are a PERSONALIZED chess coach who KNOWS this player. 
-You've analyzed their past games and know their tendencies.
+    prompt = f"""Chess coach. Student asks: "{user_message}"
 
-The student ({user_color}, rated {user_rating}) asks:
-"{user_message}"
-
-CURRENT POSITION (FEN: {current_fen}):
-- Evaluation: {position.evaluation:+.2f}
-- Phase: {position.phase}
-- Opening: {position.opening_name or 'N/A'}
+FEN: {current_fen} | Eval: {position.evaluation:+.2f} | {position.phase}
 {coach_move_context}
-{best_move_suggestion}
 {move_analysis_context}
-{personal_section}
 {plan_section}
 
-COACHING STYLE - BE SPECIFIC, NOT GENERIC!
-1. If there's POSITION-SPECIFIC INSIGHT above, USE IT! Tell the user exactly what they missed.
-2. If there's PERSONAL HISTORY, reference it briefly
-3. If asking about a plan, use the STRATEGIC PLAN section
-4. NO GENERIC ADVICE like "think about piece activity" or "be vigilant for tactics"
-5. Keep it to 2-3 sentences, be SPECIFIC about this position!
-
-CRITICAL RULES:
-- If the move analysis shows WHAT WAS MISSED, tell them that specific thing
-- If it shows WHY their move was bad, explain that specific problem
-- NEVER say vague things like "missed tactical potential" - say what the tactic WAS
-- Reference their past games only if the specific insight is weak
-- ONLY mention pieces on squares if you have VERIFIED they are actually there in the FEN
-- DO NOT make up or guess about piece positions - if you're unsure, just say "there was a better move"
-
-EXAMPLES OF GOOD RESPONSES:
-- "Bc4 missed the tactic Ne2 which forks your queen and rook. Always check for knight forks before moving your bishop!"
-- "Your knight on e4 was actually safe - you should have played Nf3 to threaten their queen."
-- "That pawn push weakened your king. Better was to castle first and keep your king safe."
-
-AVOID:
-- Generic advice like "think about piece activity" or "be vigilant for tactics"
-- Just quoting engine evaluations without explaining WHY
-- Saying "tactical potential" without explaining what the tactic IS
-- Phrases like "You've got this!" or "Keep an eye out!" - be SPECIFIC
-- NEVER mention a piece being on a specific square unless it's VERIFIED in the position analysis above"""
+MAX 1-2 SENTENCES. No fluff. Say the specific move/tactic.
+GOOD: "Develop Nf3 attacking center. Then Bc4 eyes f7."  
+BAD: Long explanations about strategy..."""
     
     try:
         response = await call_llm(
-            system_message="You are a personalized chess coach who knows this player's history. Reference their past games and give plan-based advice.",
+            system_message="Chess coach. Max 20 words. Direct.",
             user_message=prompt,
             model="gpt-4o-mini"
         )
@@ -1255,10 +1200,10 @@ AVOID:
     except Exception:
         if personal_context and personal_context.get("similar_mistake"):
             sm = personal_context["similar_mistake"]
-            result["response"] = f"This reminds me of your game against {sm.get('opponent', 'a previous opponent')}. Let's not repeat that mistake!"
+            result["response"] = f"Similar to your game vs {sm.get('opponent', 'before')} - don't repeat it!"
         elif position_plan:
-            result["response"] = f"Your plan here: {position_plan.get('main_idea', 'develop your pieces and control the center')}."
+            result["response"] = f"Plan: {position_plan.get('main_idea', 'develop and control center')}."
         else:
-            result["response"] = "Let me analyze that for you..."
+            result["response"] = "Let me check..."
     
     return result
