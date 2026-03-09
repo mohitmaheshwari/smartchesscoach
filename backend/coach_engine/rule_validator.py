@@ -280,10 +280,23 @@ class RuleValidator:
     ) -> Tuple[bool, Dict]:
         """Check BLOCKED_BISHOP_BY_OWN_PAWN rule"""
         
+        # Skip this rule in early opening - bishops on starting squares is normal
+        if move_number < 6:
+            return False, evidence
+        
+        # Starting squares for bishops (don't flag these as "blocked")
+        white_bishop_starts = {chess.C1, chess.F1}
+        black_bishop_starts = {chess.C8, chess.F8}
+        starting_squares = white_bishop_starts if self.user_color == chess.WHITE else black_bishop_starts
+        
         # Find user's bishops
         for sq in chess.SQUARES:
             piece = self.board.piece_at(sq)
             if piece and piece.piece_type == chess.BISHOP and piece.color == self.user_color:
+                # Skip bishops still on starting squares - it's not a teaching moment
+                if sq in starting_squares:
+                    continue
+                    
                 blocking_info = self.metrics.get_bishop_blocking_info(sq)
                 
                 if blocking_info and blocking_info["blocked_by_own_pawn"]:

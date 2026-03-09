@@ -2,16 +2,16 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: '/app/tests/e2e',
-  outputDir: '/root/.emergent/automation_output/20260309_074003/test-results',
+  outputDir: '/root/.emergent/automation_output/20260309_114811/test-results',
   timeout: 60000,
   retries: 0,
   workers: 1,
   reporter: [
     ['line'],
-    ['json', { outputFile: '/root/.emergent/automation_output/20260309_074003/results.json' }],
+    ['json', { outputFile: '/root/.emergent/automation_output/20260309_114811/results.json' }],
   ],
   use: {
-    baseURL: 'https://chess-tutor-pro-1.preview.emergentagent.com',
+    baseURL: 'https://ai-chess-mentor-1.preview.emergentagent.com',
     screenshot: 'only-on-failure',
     trace: 'off',
     headless: true,

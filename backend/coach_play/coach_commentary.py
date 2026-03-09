@@ -379,7 +379,7 @@ class CoachCommentary:
         prompt = f"""You are a friendly chess coach having a real-time training session. 
 The student just played a move and explained their reasoning. Give targeted Socratic feedback.
 
-POSITION CONTEXT:
+POSITION CONTEXT (FEN: {position.fen}):
 - Game phase: {position.phase}{opening_context}
 - Position evaluation before move: {position.evaluation:+.2f} (positive = {user_color} is better)
 - Key features: {', '.join(position.key_features[:3]) if position.key_features else 'standard position'}
@@ -412,6 +412,8 @@ COACHING STYLE:
 - Use "you" not "the student"
 - Keep it conversational, not formal
 - Reference their specific reasoning in your response
+- ONLY mention pieces on specific squares if you can VERIFY from the FEN they are there
+- DO NOT guess or make up piece positions - stick to what's in the analysis above
 
 Respond with ONLY the JSON, no other text."""
 
@@ -1199,14 +1201,14 @@ DO NOT talk about the student's move or what they should do next.
 FOCUS on explaining your reasoning for playing {target_move}.
 """
     
-    # Build the full prompt
+    # Build the full prompt - INCLUDE FEN to prevent hallucinations
     prompt = f"""You are a PERSONALIZED chess coach who KNOWS this player. 
 You've analyzed their past games and know their tendencies.
 
 The student ({user_color}, rated {user_rating}) asks:
 "{user_message}"
 
-CURRENT POSITION:
+CURRENT POSITION (FEN: {current_fen}):
 - Evaluation: {position.evaluation:+.2f}
 - Phase: {position.phase}
 - Opening: {position.opening_name or 'N/A'}
@@ -1228,6 +1230,8 @@ CRITICAL RULES:
 - If it shows WHY their move was bad, explain that specific problem
 - NEVER say vague things like "missed tactical potential" - say what the tactic WAS
 - Reference their past games only if the specific insight is weak
+- ONLY mention pieces on squares if you have VERIFIED they are actually there in the FEN
+- DO NOT make up or guess about piece positions - if you're unsure, just say "there was a better move"
 
 EXAMPLES OF GOOD RESPONSES:
 - "Bc4 missed the tactic Ne2 which forks your queen and rook. Always check for knight forks before moving your bishop!"
@@ -1238,7 +1242,8 @@ AVOID:
 - Generic advice like "think about piece activity" or "be vigilant for tactics"
 - Just quoting engine evaluations without explaining WHY
 - Saying "tactical potential" without explaining what the tactic IS
-- Phrases like "You've got this!" or "Keep an eye out!" - be SPECIFIC"""
+- Phrases like "You've got this!" or "Keep an eye out!" - be SPECIFIC
+- NEVER mention a piece being on a specific square unless it's VERIFIED in the position analysis above"""
     
     try:
         response = await call_llm(
