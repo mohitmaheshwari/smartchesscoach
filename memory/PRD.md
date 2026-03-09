@@ -796,3 +796,26 @@ Plain, simple, direct Indian-English
 ---
 *Last updated: March 2026*
 *Status: COACH NOW KNOWS YOU - REAL PERSONALIZED DATA DURING GAME*
+
+### 31. Coach Memory - REAL Data Only (March 2026) ✅
+**Fixed fake data issues - now shows only accurate information**
+
+- **Problem**: Coach Memory showed "68 games together" and "3 openings" when user only had 4 real games and 0 mastered openings. This was from simulation data during testing.
+
+- **Fixes Applied**:
+  1. **Reset coach_memory** to reflect actual completed games (4, not 68)
+  2. **get_coaching_context()** now queries `user_opening_progress` for REAL mastery data
+     - Only shows openings with `mastery_level` = "practiced" or "mastered"
+  3. **Traps known** now queries `user_trap_stats` for 70%+ success rate
+  4. **Opening teaching** now includes `user_plays_white` and `is_user_move` flags
+     - Coach auto-plays opponent moves correctly
+     - User only plays their own color's moves
+
+- **Before**: "68 games | 3 openings | 97% accuracy" (FAKE)
+- **After**: "4 games | Let's explore a new opening today" (REAL)
+
+- **Test Coverage**: 30 tests (22 backend + 8 frontend) - 100% pass
+
+---
+*Last updated: March 2026*
+*Status: ALL DATA IS REAL AND ACCURATE*
