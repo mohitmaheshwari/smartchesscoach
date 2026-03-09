@@ -214,54 +214,64 @@ async def _analyze_mistakes(
     evaluations: List[Dict],
     user_color: str
 ) -> List[MistakeAnalysis]:
-    """Analyze all mistakes in the game."""
+    """Analyze all mistakes in the game using stored evaluations."""
     mistakes = []
     
-    # Determine which moves are user's
-    user_move_indices = []
-    for i, move in enumerate(move_history):
-        if move.get("by") == "player":
-            user_move_indices.append(i)
+    # Build evaluation lookup by move number (evaluations only contain player moves)
+    eval_by_move = {}
+    for ev in evaluations:
+        if ev.get("by") == "player":
+            eval_by_move[ev.get("move_number")] = ev
     
-    for i, move_idx in enumerate(user_move_indices):
-        if move_idx >= len(evaluations) or move_idx == 0:
+    # Check each player move
+    for i, move in enumerate(move_history):
+        if move.get("by") != "player":
             continue
-            
-        move = move_history[move_idx]
-        eval_before = evaluations[move_idx - 1] if move_idx > 0 else {"score": 0}
-        eval_after = evaluations[move_idx] if move_idx < len(evaluations) else {"score": 0}
         
-        score_before = eval_before.get("score", 0) if isinstance(eval_before, dict) else 0
-        score_after = eval_after.get("score", 0) if isinstance(eval_after, dict) else 0
+        # Get evaluation data from the move itself or from evaluations list
+        eval_before = move.get("eval_before", 0)
+        eval_after = move.get("eval_after", 0)
         
-        # Normalize scores for black
+        # Also check evaluations list if move doesn't have eval data
+        move_num = (i // 2) + 1  # Calculate move number
+        if eval_before == 0 and eval_after == 0 and move_num in eval_by_move:
+            ev = eval_by_move[move_num]
+            eval_before = ev.get("eval_before", 0)
+            eval_after = ev.get("eval_after", 0)
+        
+        # Skip if no evaluation data
+        if eval_before == 0 and eval_after == 0:
+            continue
+        
+        # Normalize scores for black (negative is good for black)
         if user_color == "black":
-            score_before = -score_before
-            score_after = -score_after
+            eval_before = -eval_before
+            eval_after = -eval_after
         
-        eval_change = score_after - score_before
+        # Calculate centipawn loss (in pawns)
+        eval_change = eval_after - eval_before
         
-        # Classify mistake
+        # Classify mistake based on centipawn loss
         if eval_change < -2.0:
             mistake_type = MistakeType.BLUNDER
             severity = "critical"
-            explanation = f"This move loses significant advantage. The evaluation dropped from {score_before:+.1f} to {score_after:+.1f}."
+            explanation = f"Lost {abs(eval_change):.1f} pawns worth of advantage."
         elif eval_change < -1.0:
             mistake_type = MistakeType.MISTAKE
             severity = "moderate"
-            explanation = "This move gives away some advantage. Consider why this wasn't the best choice."
+            explanation = f"Gave away {abs(eval_change):.1f} pawns of advantage."
         elif eval_change < -0.3:
             mistake_type = MistakeType.INACCURACY
             severity = "minor"
-            explanation = "A small inaccuracy. Not game-changing, but there was a better option."
+            explanation = f"Small inaccuracy - lost {abs(eval_change):.1f} pawns."
         else:
             continue  # Good move, skip
         
-        # Get better move suggestion if available
-        better_move = eval_before.get("best_move") if isinstance(eval_before, dict) else None
+        # Get better move suggestion
+        better_move = move.get("best_move")
         
         mistakes.append(MistakeAnalysis(
-            move_number=(move_idx // 2) + 1,
+            move_number=(i // 2) + 1,
             move_played=move.get("move", "?"),
             mistake_type=mistake_type,
             severity=severity,

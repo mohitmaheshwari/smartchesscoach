@@ -8811,6 +8811,24 @@ async def make_coach_play_move(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _classify_move(eval_before: float, eval_after: float, user_color: str) -> str:
+    """Classify a move as blunder, mistake, inaccuracy, or good based on centipawn loss."""
+    # Calculate centipawn loss from user's perspective
+    if user_color == "white":
+        cp_loss = (eval_before - eval_after) * 100  # Positive means user lost eval
+    else:
+        cp_loss = (eval_after - eval_before) * 100  # For black, eval going down is good
+    
+    if cp_loss >= 300:
+        return "blunder"
+    elif cp_loss >= 100:
+        return "mistake"
+    elif cp_loss >= 50:
+        return "inaccuracy"
+    else:
+        return "good"
+
+
 async def _process_move_and_respond(
     session_id: str,
     user_move: str,
@@ -8859,6 +8877,44 @@ async def _process_move_and_respond(
             move_number=move_number,
             opening_name=analysis.get("opening_name")
         )
+        
+        # === CRITICAL: Store evaluations in move_history for post-game analysis ===
+        session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+        if session_doc:
+            move_history = session_doc.get("move_history", [])
+            # Find and update the last user move with evaluations
+            for i in range(len(move_history) - 1, -1, -1):
+                if move_history[i].get("move") == user_move and move_history[i].get("by") == "player":
+                    move_history[i]["eval_before"] = analysis.get("eval_before", 0)
+                    move_history[i]["eval_after"] = analysis.get("eval_after", 0)
+                    move_history[i]["is_best_move"] = analysis.get("is_best_move", False)
+                    move_history[i]["best_move"] = analysis.get("best_move")
+                    move_history[i]["evaluation"] = _classify_move(
+                        analysis.get("eval_before", 0),
+                        analysis.get("eval_after", 0),
+                        user_color
+                    )
+                    break
+            
+            # Store evaluations list for post-game analysis
+            evaluations = session_doc.get("evaluations", [])
+            evaluations.append({
+                "move_number": move_number,
+                "move": user_move,
+                "by": "player",
+                "score": analysis.get("eval_after", 0),
+                "eval_before": analysis.get("eval_before", 0),
+                "eval_after": analysis.get("eval_after", 0),
+                "best_move": analysis.get("best_move")
+            })
+            
+            await db.coach_sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {
+                    "move_history": move_history,
+                    "evaluations": evaluations
+                }}
+            )
         
         # Step 3: Generate and store message if triggered
         if trigger.should_speak:
@@ -9168,8 +9224,9 @@ async def _process_move_and_respond(
                     board.push(chess_move)
                     fen_after_coach = board.fen()
                     
-                    # Update move history with teaching context
-                    move_history = session_doc.get("move_history", [])
+                    # CRITICAL: Fetch FRESH move_history that includes evaluations we just stored
+                    fresh_session = await db.coach_sessions.find_one({"session_id": session_id})
+                    move_history = fresh_session.get("move_history", []) if fresh_session else []
                     move_history.append({
                         "move": coach_move,
                         "uci": chess_move.uci(),

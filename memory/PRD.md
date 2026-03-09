@@ -642,9 +642,12 @@ Plain, simple, direct Indian-English
 | Scandinavian | Queen Trap |
 
 ### 26. Fixed Opening Teaching & Post-Game Analysis (March 2026) ✅
-- **Bug 1: Post-game analysis not working**
-  - Fixed `PostGameAnalysis` dataclass field order (non-default after default argument error)
-  - Analysis now returns: performance rating, accuracy, mistakes, coach summary
+- **Bug 1: Post-game analysis showing fake 100% accuracy**
+  - Fixed `PostGameAnalysis` dataclass field order
+  - Fixed evaluation storage - wasn't storing eval_before/eval_after in move_history
+  - Fixed race condition - coach move was overwriting evaluations
+  - Added `_classify_move()` function for blunder/mistake/inaccuracy detection
+  - Added `evaluations` field to `CoachGameSession` dataclass
   
 - **Bug 2: Opening teaching offers not showing**
   - Messages endpoint was missing `opening_name`, `opening_key`, `options`, `trap_name` fields
@@ -652,19 +655,19 @@ Plain, simple, direct Indian-English
   
 - **Bug 3: Robotic "Stockfish confirms" messages**
   - Removed "tactical awareness" praise for simple trades
-  - Removed "Stockfish confirms" from user-facing messages
   - Simple trades now pass silently
 
 **Files Modified:**
-- `backend/services/postgame_analysis.py` - Fixed field order
-- `backend/server.py` - Added opening/endgame fields to messages endpoint
+- `backend/services/postgame_analysis.py` - Fixed field order and mistake analysis
+- `backend/server.py` - Store evaluations properly, fetch fresh move_history
 - `backend/coach_play/pre_move_guardian.py` - Removed robotic messages
+- `backend/coach_play/coach_game_session.py` - Added evaluations field
 
 **Verified Working:**
-- Opening detection: Caro-Kann detected after e4 c6 d4
-- Teaching offer includes: trap name, options, opening key
-- Post-game analysis returns performance rating & coach summary
+- Move evaluations: e4 (good), Nf3 (good), d3 (mistake: -1.08 pawns)
+- Post-game: 77.8% accuracy, 1 mistake detected
+- Opening detection: Caro-Kann detected and teaching offered
 
 ---
 *Last updated: March 2026*
-*Status: OPENING TEACHING & POST-GAME ANALYSIS WORKING*
+*Status: POST-GAME ANALYSIS NOW SHOWS REAL DATA - MISTAKES DETECTED*

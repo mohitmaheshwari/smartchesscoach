@@ -97,6 +97,9 @@ class CoachGameSession:
     habits_checked: List[str] = field(default_factory=list)  # Which habits were monitored
     habit_violations: List[Dict] = field(default_factory=list)  # Habit violations detected
     
+    # Move evaluations for post-game analysis
+    evaluations: List[Dict] = field(default_factory=list)  # [{move_number, move, score, eval_before, eval_after}]
+    
     def to_dict(self) -> Dict:
         """Convert to dictionary for MongoDB storage"""
         data = asdict(self)
