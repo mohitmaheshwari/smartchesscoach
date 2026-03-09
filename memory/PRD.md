@@ -325,6 +325,44 @@ The CUS is the computational backbone for the Teaching Coach. It provides factua
   - Endgame type detection with specific guidance
 - **Integration**: Added to `CoachPlay.jsx` right panel
 
+### 21. Conversational Coach Service ✅ (NEW)
+- **Created**: `services/conversational_coach.py`
+- **Purpose**: Natural, human-like coaching messages during play
+- **Features**:
+  - Rating-calibrated tone (encouraging → collegial)
+  - Game context tracking (concepts taught, mistakes, good moves)
+  - Socratic questioning framework
+  - Move quality feedback (excellent → blunder)
+  - Phase-aware messaging
+  - End-of-game summary generation
+
+### 22. Opening Teaching Database ✅ (NEW)
+- **Created**: `services/opening_teaching_db.py`
+- **Purpose**: Curated opening knowledge with move-by-move explanations
+- **Openings Covered** (~12 with full teaching):
+  - Italian Game, Ruy Lopez, Sicilian Defense
+  - French Defense, Caro-Kann Defense
+  - Queen's Gambit, London System
+  - King's Indian, Nimzo-Indian
+  - English Opening, Réti Opening
+- **Features per Opening**:
+  - Move-by-move teaching explanations
+  - Concepts and what to watch for
+  - Typical plans for both sides
+  - Common mistakes
+  - Famous games
+
+### 23. Post-Game Lesson Component ✅ (NEW)
+- **Created**: `frontend/src/components/PostGameLesson.jsx`
+- **Purpose**: Structured lesson summary after game ends
+- **Features**:
+  - Result banner (win/loss/draw with styling)
+  - Concepts covered during game
+  - Good moments and learning opportunities
+  - Key takeaways
+  - Opening identification
+  - Play again button
+
 ## Teaching Coach API Summary
 
 | API | Endpoint | Purpose |
@@ -334,8 +372,11 @@ The CUS is the computational backbone for the Teaching Coach. It provides factua
 | Move Effect | `POST /api/coach/analyze/move-effect` | Explain WHY a move works |
 | Move Selector | `POST /api/coach/teaching/select-move` | Select instructive (not strongest) move |
 | Feedback | `POST /api/coach/teaching/feedback` | Generate Socratic coaching feedback |
-| Structures List | `GET /api/coach/teaching/structures` | List all structure types |
+| Structures List | `GET /api/coach/teaching/structures` | List all 20 structure types |
 | Structure Plans | `POST /api/coach/teaching/structure-plans` | Get detailed plans for structure |
+| **Opening ID** | `POST /api/coach/teaching/identify-opening` | **NEW**: Identify opening from moves |
+| **Opening Move** | `POST /api/coach/teaching/opening-move` | **NEW**: Get move-by-move teaching |
+| **Game Summary** | `POST /api/coach/teaching/game-summary` | **NEW**: Post-game lesson summary |
 
 ## Database Collections
 
@@ -362,4 +403,4 @@ Plain, simple, direct Indian-English
 
 ---
 *Last updated: December 2025*
-*Status: Teaching Coach COMPLETE - 20 structures, Frontend Teaching Panel integrated, all 7 APIs operational*
+*Status: Teaching Coach COMPLETE - 20 structures, 12 openings with teaching, Post-game lessons, 10 APIs operational*

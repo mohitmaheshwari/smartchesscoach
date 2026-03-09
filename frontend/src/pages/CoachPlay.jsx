@@ -51,6 +51,7 @@ import {
   BookOpen
 } from "lucide-react";
 import TeachingPanel from "@/components/TeachingPanel";
+import PostGameLesson from "@/components/PostGameLesson";
 
 /**
  * EvalBar - Visual evaluation bar showing position advantage
@@ -1330,6 +1331,19 @@ const CoachPlay = ({ user }) => {
                 fen={currentFen} 
                 userColor={session.user_color}
                 sessionId={session.session_id}
+              />
+            </div>
+          )}
+          
+          {/* Post-Game Lesson - Shows when game is over */}
+          {session && gameOver && (
+            <div className="p-4 border-b border-border">
+              <PostGameLesson
+                sessionId={session.session_id}
+                result={session.result || "1/2-1/2"}
+                studentColor={session.user_color}
+                moves={moveHistory.map(m => m.move)}
+                onPlayAgain={newGame}
               />
             </div>
           )}

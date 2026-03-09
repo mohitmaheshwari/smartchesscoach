@@ -1095,3 +1095,171 @@ async def analyze_position_complete(
             "endgame_concepts": phase_coaching.get("endgame_concepts", [])[:2]
         }
     }
+
+
+@router.post("/teaching/identify-opening")
+async def identify_opening(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Identify the opening from a list of moves.
+    
+    Request body:
+        {"moves": ["e4", "e5", "Nf3", "Nc6", "Bc4"]}
+    
+    Returns:
+        Opening identification with teaching content
+    """
+    from services.opening_teaching_db import OpeningTeachingDatabase
+    
+    moves = request.get("moves", [])
+    
+    if not moves:
+        return {"error": "No moves provided"}
+    
+    db = OpeningTeachingDatabase()
+    opening = db.identify_opening(moves)
+    
+    if not opening:
+        return {
+            "identified": False,
+            "message": "Opening not identified yet - keep playing!"
+        }
+    
+    return {
+        "identified": True,
+        "opening_id": opening.opening_id,
+        "name": opening.name,
+        "eco_code": opening.eco_code,
+        "overview": opening.overview,
+        "main_idea_white": opening.main_idea_white,
+        "main_idea_black": opening.main_idea_black,
+        "typical_plans_white": opening.typical_plans_white,
+        "typical_plans_black": opening.typical_plans_black,
+        "difficulty": opening.difficulty,
+        "famous_games": opening.famous_games
+    }
+
+
+@router.post("/teaching/opening-move")
+async def get_opening_move_teaching(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get teaching explanation for a specific move in an opening.
+    
+    Request body:
+        {
+            "moves": ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+            "move_number": 3,
+            "move": "Bc4",
+            "player_color": "white"
+        }
+    
+    Returns:
+        Teaching explanation for the move
+    """
+    from services.opening_teaching_db import OpeningTeachingDatabase
+    
+    moves = request.get("moves", [])
+    move_number = request.get("move_number", 1)
+    move = request.get("move", "")
+    player_color = request.get("player_color", "white")
+    
+    if not moves or not move:
+        return {"error": "moves and move are required"}
+    
+    db = OpeningTeachingDatabase()
+    opening = db.identify_opening(moves)
+    
+    if not opening:
+        return {"teaching": None, "opening_identified": False}
+    
+    teaching = db.get_move_teaching(opening.opening_id, move_number, move, player_color)
+    
+    return {
+        "opening_identified": True,
+        "opening_name": opening.name,
+        "move": move,
+        "move_number": move_number,
+        "teaching": teaching,
+        "overview": db.get_opening_overview(opening.opening_id, player_color)
+    }
+
+
+@router.post("/teaching/game-summary")
+async def get_game_teaching_summary(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Generate post-game teaching summary.
+    
+    Request body:
+        {
+            "session_id": "...",
+            "result": "1-0",
+            "student_color": "white",
+            "moves": ["e4", "e5", ...],
+            "concepts_taught": ["development", "tactics"],
+            "mistakes": [{"move": "Nf6", "better": "d5"}],
+            "good_moves": [{"move": "Bc4"}]
+        }
+    
+    Returns:
+        Structured lesson summary from the game
+    """
+    from services.conversational_coach import ConversationalCoach, GameContext
+    from services.opening_teaching_db import OpeningTeachingDatabase
+    
+    result = request.get("result", "1/2-1/2")
+    student_color = request.get("student_color", "white")
+    moves = request.get("moves", [])
+    concepts = request.get("concepts_taught", [])
+    mistakes = request.get("mistakes", [])
+    good_moves = request.get("good_moves", [])
+    user_rating = request.get("user_rating", 1200)
+    
+    # Create coach and populate context
+    coach = ConversationalCoach(user.user_id, user_rating)
+    coach.context.student_color = student_color
+    coach.context.concepts_taught = concepts
+    coach.context.mistakes_made = mistakes
+    coach.context.good_moves = good_moves
+    
+    # Identify opening if possible
+    db = OpeningTeachingDatabase()
+    opening = db.identify_opening(moves)
+    if opening:
+        coach.context.opening_name = opening.name
+    
+    # Generate summary
+    summary = coach.get_game_end_summary(result)
+    
+    # Build structured lesson
+    lesson = {
+        "summary": summary,
+        "result_for_student": (
+            "win" if (result == "1-0" and student_color == "white") or 
+                     (result == "0-1" and student_color == "black") 
+            else "loss" if result in ["1-0", "0-1"]
+            else "draw"
+        ),
+        "concepts_covered": concepts,
+        "opening_played": opening.name if opening else None,
+        "good_moments": len(good_moves),
+        "learning_opportunities": len(mistakes),
+        "key_takeaways": []
+    }
+    
+    # Generate key takeaways
+    if mistakes:
+        lesson["key_takeaways"].append(f"Check for tactics before every move")
+    if concepts:
+        lesson["key_takeaways"].append(f"Great practice with: {', '.join(concepts[:2])}")
+    if opening:
+        lesson["key_takeaways"].append(f"The {opening.name} is worth studying more")
+    
+    return lesson
