@@ -1256,10 +1256,377 @@ async def get_game_teaching_summary(
     
     # Generate key takeaways
     if mistakes:
-        lesson["key_takeaways"].append(f"Check for tactics before every move")
+        lesson["key_takeaways"].append("Check for tactics before every move")
     if concepts:
         lesson["key_takeaways"].append(f"Great practice with: {', '.join(concepts[:2])}")
     if opening:
         lesson["key_takeaways"].append(f"The {opening.name} is worth studying more")
     
     return lesson
+
+
+
+# ==================== SOCRATIC ENGINE ====================
+
+@router.post("/socratic/start")
+async def start_socratic_dialogue(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Start a Socratic dialogue about a position/move.
+    
+    The Socratic approach NEVER gives the answer first.
+    Instead, it asks what the student was thinking and guides them to discover.
+    
+    Request body:
+        {
+            "fen": "...",           # Position before the move
+            "move_played": "Nf3",   # What the student played (SAN)
+            "best_move": "Bxh7+",   # What was objectively better (SAN)
+            "eval_loss": 150,       # Centipawns lost (optional)
+            "position_type": "blunder"  # blunder, mistake, missed_tactic, strategic
+        }
+    
+    Returns:
+        - dialogue_id: ID to continue the dialogue
+        - opening_question: The first Socratic question (NOT the answer)
+        - state: Current dialogue state
+        - expects_response: True (waiting for student input)
+    """
+    from services.socratic_engine import create_socratic_dialogue
+    
+    fen = request.get("fen", "")
+    move_played = request.get("move_played", "")
+    best_move = request.get("best_move", "")
+    eval_loss = request.get("eval_loss", 0)
+    position_type = request.get("position_type", "blunder")
+    
+    if not fen or not move_played or not best_move:
+        return {"error": "fen, move_played, and best_move are required"}
+    
+    # Get user rating for calibration
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    # Create the dialogue
+    context, opening_question = create_socratic_dialogue(
+        fen=fen,
+        move_played=move_played,
+        best_move=best_move,
+        eval_loss=eval_loss,
+        position_type=position_type,
+        user_rating=user_rating
+    )
+    
+    return {
+        "dialogue_id": context.dialogue_id,
+        "opening_question": opening_question.message,
+        "state": opening_question.state.value,
+        "expects_response": opening_question.expects_response,
+        "response_type": opening_question.response_type
+    }
+
+
+@router.post("/socratic/respond")
+async def continue_socratic_dialogue(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Continue a Socratic dialogue with the student's response.
+    
+    The engine processes their response and either:
+    - Celebrates if they discovered the answer
+    - Acknowledges and redirects if they're off track
+    - Encourages and hints if they're close
+    - Guides to final discovery if they're very close
+    
+    Request body:
+        {
+            "dialogue_id": "abc123",    # From start endpoint
+            "fen": "...",               # Original position
+            "move_played": "Nf3",       # What they played
+            "best_move": "Bxh7+",       # Best move
+            "response": "I was trying to develop",  # Their text response OR move guess
+            "hints_given": 0,           # How many hints so far
+            "state": "awaiting_response"  # Current state
+        }
+    
+    Returns:
+        - message: Coach's response (question, hint, celebration, or reveal)
+        - state: New dialogue state
+        - expects_response: Whether waiting for more input
+        - celebration: True if they found the answer
+        - hint_level: Level of hint given (if any)
+    """
+    from services.socratic_engine import (
+        SocraticEngine, DialogueContext, DialogueState, continue_dialogue
+    )
+    
+    dialogue_id = request.get("dialogue_id", "")
+    fen = request.get("fen", "")
+    move_played = request.get("move_played", "")
+    best_move = request.get("best_move", "")
+    response = request.get("response", "")
+    hints_given = request.get("hints_given", 0)
+    state_str = request.get("state", "awaiting_response")
+    
+    if not response:
+        return {"error": "response is required"}
+    
+    # Get user rating for calibration
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    # Reconstruct context (since dialogues aren't persisted across requests)
+    try:
+        state = DialogueState(state_str)
+    except ValueError:
+        state = DialogueState.AWAITING_RESPONSE
+    
+    # Create a context object to continue the dialogue
+    context = DialogueContext(
+        dialogue_id=dialogue_id,
+        fen=fen,
+        move_played=move_played,
+        best_move=best_move,
+        eval_loss=0,
+        position_type="blunder",
+        state=state,
+        hints_given=hints_given,
+        student_rating=user_rating
+    )
+    
+    # Continue the dialogue
+    result = continue_dialogue(context, response, user_rating)
+    
+    return {
+        "message": result.message,
+        "state": result.state.value,
+        "expects_response": result.expects_response,
+        "response_type": result.response_type,
+        "celebration": result.celebration,
+        "hint_level": result.hint_level.value if result.hint_level else None,
+        "hints_given": context.hints_given,
+        "choices": result.choices
+    }
+
+
+@router.post("/socratic/hint")
+async def get_socratic_hint(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the next progressive hint in a Socratic dialogue.
+    
+    Hints progress from subtle to specific:
+    1. Subtle: "Think about piece activity..."
+    2. Directional: "Look at the kingside"
+    3. Specific: "What about the h7 square?"
+    4. Almost answer: "What if Bishop went to h7?"
+    
+    Request body:
+        {
+            "dialogue_id": "abc123",
+            "fen": "...",
+            "move_played": "Nf3",
+            "best_move": "Bxh7+",
+            "hints_given": 1
+        }
+    
+    Returns:
+        - hint: The next progressive hint
+        - hint_level: Level of hint (subtle, directional, specific, almost_answer)
+        - state: New dialogue state (may be REVEAL if max hints reached)
+    """
+    from services.socratic_engine import SocraticEngine, DialogueContext, DialogueState
+    
+    fen = request.get("fen", "")
+    move_played = request.get("move_played", "")
+    best_move = request.get("best_move", "")
+    hints_given = request.get("hints_given", 0)
+    
+    if not fen or not best_move:
+        return {"error": "fen and best_move are required"}
+    
+    # Get user rating
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    # Create context
+    context = DialogueContext(
+        dialogue_id=request.get("dialogue_id", "hint"),
+        fen=fen,
+        move_played=move_played or "",
+        best_move=best_move,
+        eval_loss=0,
+        position_type="blunder",
+        state=DialogueState.HINT_PHASE,
+        hints_given=hints_given,
+        student_rating=user_rating
+    )
+    
+    engine = SocraticEngine(user_rating)
+    result = engine.get_next_hint(context)
+    
+    return {
+        "hint": result.message,
+        "hint_level": result.hint_level.value if result.hint_level else "subtle",
+        "state": result.state.value,
+        "expects_response": result.expects_response,
+        "hints_given": context.hints_given
+    }
+
+
+@router.post("/socratic/reveal")
+async def get_socratic_reveal(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Reveal the answer after Socratic engagement.
+    
+    This should only be called AFTER the student has tried.
+    The reveal is teaching-focused, not just "the answer was X".
+    
+    Request body:
+        {
+            "fen": "...",
+            "move_played": "Nf3",
+            "best_move": "Bxh7+",
+            "eval_loss": 150,
+            "hints_given": 2,
+            "student_guesses": ["Qh5", "Bc4"]  # Optional: their previous guesses
+        }
+    
+    Returns:
+        - explanation: Teaching explanation of the best move
+        - acknowledgment: Recognition of their effort
+    """
+    from services.socratic_engine import SocraticEngine, DialogueContext, DialogueState
+    
+    fen = request.get("fen", "")
+    move_played = request.get("move_played", "")
+    best_move = request.get("best_move", "")
+    eval_loss = request.get("eval_loss", 0)
+    hints_given = request.get("hints_given", 0)
+    student_guesses = request.get("student_guesses", [])
+    
+    if not fen or not best_move:
+        return {"error": "fen and best_move are required"}
+    
+    # Get user rating
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    # Create context
+    context = DialogueContext(
+        dialogue_id=request.get("dialogue_id", "reveal"),
+        fen=fen,
+        move_played=move_played or "",
+        best_move=best_move,
+        eval_loss=eval_loss,
+        position_type="blunder",
+        state=DialogueState.REVEAL,
+        hints_given=hints_given,
+        student_guesses=student_guesses,
+        student_rating=user_rating
+    )
+    
+    engine = SocraticEngine(user_rating)
+    result = engine.get_reveal(context)
+    
+    return {
+        "explanation": result.message,
+        "state": result.state.value,
+        "complete": True
+    }
+
+
+# Debug endpoint to test Socratic Engine
+@router.post("/debug/test-socratic")
+async def test_socratic_engine(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Debug endpoint to test the full Socratic dialogue flow.
+    
+    Request body:
+        {
+            "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
+            "move_played": "Nf3",
+            "best_move": "Qxf7#"
+        }
+    
+    Returns a sample dialogue showing how the Socratic approach works.
+    """
+    from services.socratic_engine import SocraticEngine, create_socratic_dialogue, continue_dialogue
+    
+    fen = request.get("fen", "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4")
+    move_played = request.get("move_played", "Nf3")
+    best_move = request.get("best_move", "Qxf7#")
+    
+    # Get user rating
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    # Start the dialogue
+    context, opening_q = create_socratic_dialogue(
+        fen=fen,
+        move_played=move_played,
+        best_move=best_move,
+        eval_loss=0,
+        position_type="missed_tactic",
+        user_rating=user_rating
+    )
+    
+    # Simulate a student response
+    response1 = continue_dialogue(context, "I was just developing my knight", user_rating)
+    
+    # Get a hint
+    engine = SocraticEngine(user_rating)
+    engine.dialogues[context.dialogue_id] = context
+    hint = engine.get_next_hint(context)
+    
+    # Get reveal
+    reveal = engine.get_reveal(context)
+    
+    return {
+        "demo_dialogue": [
+            {
+                "step": 1,
+                "type": "opening_question",
+                "message": opening_q.message,
+                "state": opening_q.state.value
+            },
+            {
+                "step": 2,
+                "type": "student_response",
+                "student_said": "I was just developing my knight",
+                "coach_response": response1.message,
+                "state": response1.state.value
+            },
+            {
+                "step": 3,
+                "type": "hint",
+                "message": hint.message,
+                "hint_level": hint.hint_level.value if hint.hint_level else None,
+                "state": hint.state.value
+            },
+            {
+                "step": 4,
+                "type": "reveal",
+                "message": reveal.message,
+                "state": reveal.state.value
+            }
+        ],
+        "philosophy": "The Socratic method never gives the answer first. It asks, guides, hints, and only reveals after engagement.",
+        "position_info": {
+            "fen": fen,
+            "move_played": move_played,
+            "best_move": best_move
+        }
+    }

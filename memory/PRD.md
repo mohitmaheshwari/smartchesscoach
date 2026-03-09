@@ -402,5 +402,39 @@ The CUS is the computational backbone for the Teaching Coach. It provides factua
 Plain, simple, direct Indian-English
 
 ---
+
+### 24. Socratic Engine ✅ (NEW - COMPLETE)
+- **Created**: `services/socratic_engine.py` (726 lines) - The SOUL of human-like coaching
+- **Purpose**: Transform coaching from "telling" to "guiding discovery"
+- **Philosophy**:
+  - NEVER give the answer first
+  - ASK what they think
+  - GUIDE with progressive hints
+  - Let them DISCOVER
+  - Only REVEAL after engagement
+- **Features**:
+  - Dialogue state machine (OPENING_QUESTION → AWAITING_RESPONSE → HINT_PHASE → GUIDED_DISCOVERY → REVEAL → CELEBRATION)
+  - Progressive hint levels (subtle → directional → specific → almost_answer)
+  - Rating-calibrated hint count (beginners get more hints)
+  - Celebration when student discovers the answer
+  - Gentle reveal after effort
+- **New API Endpoints**:
+  - `POST /api/coach/socratic/start` - Start a Socratic dialogue about a position
+  - `POST /api/coach/socratic/respond` - Continue dialogue with student response
+  - `POST /api/coach/socratic/hint` - Get progressive hint
+  - `POST /api/coach/socratic/reveal` - Reveal after engagement
+  - `POST /api/coach/debug/test-socratic` - Demo the full dialogue flow
+- **Example Dialogue**:
+  ```
+  Coach: "There was something special in this position. Did you feel it?"
+  Student: "I was just developing my knight"
+  Coach: "I see what you were thinking - that's reasonable. But what could go wrong after Nf3?"
+  Student: (thinks)
+  Coach: "Something's not quite safe..." (subtle hint)
+  Student: "Qxf7?"
+  Coach: "Yes! You found it! That's exactly right. And you found it without any hints!"
+  ```
+
+---
 *Last updated: December 2025*
-*Status: Teaching Coach COMPLETE - 20 structures, 12 openings with teaching, Post-game lessons, 10 APIs operational*
+*Status: Teaching Coach COMPLETE + Socratic Engine COMPLETE - Human-like coaching foundation built*

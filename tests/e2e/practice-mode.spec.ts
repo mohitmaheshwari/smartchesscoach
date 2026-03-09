@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://move-effect.preview.emergentagent.com';
+const BASE_URL = 'https://chess-mentor-36.preview.emergentagent.com';
 
 /**
  * Practice Mode from Lab Alternate Timeline Tests
