@@ -9785,6 +9785,116 @@ async def end_coach_play_session(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.post("/coach/play/analysis")
+async def get_postgame_analysis(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get comprehensive post-game analysis.
+    
+    Includes:
+    - Performance rating (estimated rating based on move quality)
+    - Mistake breakdown with explanations
+    - Habit check (comparing to known weaknesses)
+    - Personalized recommendations
+    - Coach summary and encouragement
+    
+    Body:
+    - session_id: Session ID
+    
+    Returns:
+    - PostGameAnalysis object with all components
+    """
+    from services.postgame_analysis import analyze_postgame
+    from dataclasses import asdict
+    
+    session_id = request.get("session_id")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    # Get session data
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    try:
+        # Get evaluations from stored data
+        evaluations = session_doc.get("evaluations", [])
+        
+        # Perform analysis
+        analysis = await analyze_postgame(
+            db=db,
+            session_id=session_id,
+            user_id=user.user_id,
+            move_history=session_doc.get("move_history", []),
+            evaluations=evaluations,
+            game_result=session_doc.get("result", "draw"),
+            user_rating=session_doc.get("user_rating", 1200),
+            user_color=session_doc.get("user_color", "white"),
+            time_controls=session_doc.get("time_controls")
+        )
+        
+        # Convert to dict for JSON response
+        result = {
+            "session_id": analysis.session_id,
+            "game_result": analysis.game_result,
+            "performance_rating": {
+                "estimated": analysis.performance_rating.estimated_rating,
+                "confidence": analysis.performance_rating.confidence,
+                "vs_actual": analysis.performance_rating.comparison_to_actual,
+                "factors": analysis.performance_rating.key_factors
+            },
+            "accuracy": analysis.accuracy_percentage,
+            "mistakes": {
+                "blunders": analysis.total_blunders,
+                "mistakes": analysis.total_mistakes,
+                "inaccuracies": analysis.total_inaccuracies,
+                "details": [
+                    {
+                        "move_number": m.move_number,
+                        "move": m.move_played,
+                        "type": m.mistake_type.value,
+                        "severity": m.severity,
+                        "explanation": m.explanation,
+                        "better_move": m.better_move
+                    }
+                    for m in analysis.mistakes[:5]  # Top 5 mistakes
+                ]
+            },
+            "habits": {
+                "violations": [
+                    {
+                        "habit": v.habit_type.value,
+                        "move_number": v.move_number,
+                        "description": v.description
+                    }
+                    for v in analysis.habit_violations
+                ],
+                "improved": analysis.habits_improved,
+                "still_weak": analysis.habits_still_weak
+            },
+            "recommendations": {
+                "priority": analysis.priority_focus,
+                "suggestions": analysis.training_suggestions,
+                "opening_to_learn": analysis.opening_to_learn
+            },
+            "coach_summary": analysis.coach_summary,
+            "encouragement": analysis.encouragement
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error generating post-game analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.get("/coach/play/active")
 async def get_active_coach_sessions(
     user: User = Depends(get_current_user)

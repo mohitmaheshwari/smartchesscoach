@@ -1,12 +1,12 @@
 /**
  * PostGameLesson.jsx - Post-Game Teaching Summary
  * 
- * Shows a structured lesson summary after the game ends:
- * - Result and congratulations/encouragement
- * - Concepts that were taught
- * - Good moments and learning opportunities
- * - Key takeaways
- * - Opening played
+ * Shows a comprehensive analysis after the game ends:
+ * - Performance Rating (estimated vs actual)
+ * - Mistake breakdown with explanations
+ * - Habit check (progress on weaknesses)
+ * - Personalized recommendations
+ * - Coach summary and encouragement
  */
 
 import { useState, useEffect } from "react";
@@ -14,6 +14,7 @@ import { API } from "@/App";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Trophy,
   Target,
@@ -24,7 +25,14 @@ import {
   ChevronRight,
   Star,
   TrendingUp,
-  Award
+  TrendingDown,
+  Award,
+  Brain,
+  Zap,
+  XCircle,
+  ArrowUp,
+  ArrowDown,
+  Minus
 } from "lucide-react";
 
 /**
@@ -71,21 +79,201 @@ const ResultBanner = ({ result }) => {
 };
 
 /**
- * Takeaway Card - Shows a key lesson from the game
+ * Performance Rating Display
  */
-const TakeawayCard = ({ takeaway, index }) => {
+const PerformanceRatingCard = ({ rating, userRating }) => {
+  const diff = rating.estimated - userRating;
+  const isAbove = diff > 50;
+  const isBelow = diff < -50;
+  
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg bg-card/50 border border-border">
-      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold">
-        {index + 1}
+    <div className="p-4 rounded-lg bg-card border border-border">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-medium flex items-center gap-2">
+          <Brain className="w-4 h-4 text-primary" />
+          Performance Rating
+        </h4>
+        <Badge variant={rating.confidence === "high" ? "default" : "outline"}>
+          {rating.confidence} confidence
+        </Badge>
       </div>
-      <p className="text-sm flex-1">{takeaway}</p>
+      
+      <div className="flex items-center gap-4">
+        <div className="text-3xl font-bold">{rating.estimated}</div>
+        <div className="flex items-center gap-1 text-sm">
+          {isAbove ? (
+            <>
+              <ArrowUp className="w-4 h-4 text-green-400" />
+              <span className="text-green-400">+{diff} from your {userRating}</span>
+            </>
+          ) : isBelow ? (
+            <>
+              <ArrowDown className="w-4 h-4 text-orange-400" />
+              <span className="text-orange-400">{diff} from your {userRating}</span>
+            </>
+          ) : (
+            <>
+              <Minus className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">At your level ({userRating})</span>
+            </>
+          )}
+        </div>
+      </div>
+      
+      {rating.factors?.length > 0 && (
+        <div className="mt-3 text-xs text-muted-foreground">
+          {rating.factors.map((f, i) => (
+            <p key={i} className="flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> {f}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
 /**
- * Main PostGameLesson Component
+ * Mistake Breakdown Component
+ */
+const MistakeBreakdown = ({ mistakes }) => {
+  const { blunders, mistakes: mistakeCount, inaccuracies, details } = mistakes;
+  const total = blunders + mistakeCount + inaccuracies;
+  
+  return (
+    <div className="space-y-3">
+      <h4 className="text-sm font-medium flex items-center gap-2">
+        <AlertTriangle className="w-4 h-4 text-orange-400" />
+        Mistakes Analysis
+      </h4>
+      
+      <div className="grid grid-cols-3 gap-2">
+        <div className={`p-3 rounded-lg text-center ${blunders > 0 ? "bg-red-500/10 border border-red-500/20" : "bg-muted/30"}`}>
+          <div className={`text-xl font-bold ${blunders > 0 ? "text-red-400" : "text-muted-foreground"}`}>{blunders}</div>
+          <div className="text-xs text-muted-foreground">Blunders</div>
+        </div>
+        <div className={`p-3 rounded-lg text-center ${mistakeCount > 0 ? "bg-orange-500/10 border border-orange-500/20" : "bg-muted/30"}`}>
+          <div className={`text-xl font-bold ${mistakeCount > 0 ? "text-orange-400" : "text-muted-foreground"}`}>{mistakeCount}</div>
+          <div className="text-xs text-muted-foreground">Mistakes</div>
+        </div>
+        <div className={`p-3 rounded-lg text-center ${inaccuracies > 0 ? "bg-yellow-500/10 border border-yellow-500/20" : "bg-muted/30"}`}>
+          <div className={`text-xl font-bold ${inaccuracies > 0 ? "text-yellow-400" : "text-muted-foreground"}`}>{inaccuracies}</div>
+          <div className="text-xs text-muted-foreground">Inaccuracies</div>
+        </div>
+      </div>
+      
+      {details?.length > 0 && (
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-muted-foreground font-medium">Key errors:</p>
+          {details.slice(0, 3).map((d, i) => (
+            <div key={i} className="p-2 rounded bg-muted/20 text-xs">
+              <span className="font-mono text-primary">Move {d.move_number}. {d.move}</span>
+              <span className={`ml-2 ${d.type === "blunder" ? "text-red-400" : "text-orange-400"}`}>
+                ({d.type})
+              </span>
+              <p className="text-muted-foreground mt-1">{d.explanation}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Habit Progress Component
+ */
+const HabitProgress = ({ habits }) => {
+  const { violations, improved, still_weak } = habits;
+  
+  const habitLabels = {
+    early_queen: "Early queen moves",
+    one_move_blunder: "One-move blunders",
+    impatience: "Rushing moves",
+    time_management: "Time management",
+    calculation_errors: "Calculation errors"
+  };
+  
+  return (
+    <div className="space-y-3">
+      <h4 className="text-sm font-medium flex items-center gap-2">
+        <TrendingUp className="w-4 h-4 text-primary" />
+        Habit Check
+      </h4>
+      
+      {improved?.length > 0 && (
+        <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+          <p className="text-xs font-medium text-green-400 mb-1">Improvements!</p>
+          <ul className="text-xs text-muted-foreground">
+            {improved.map((h, i) => (
+              <li key={i} className="flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-green-400" />
+                {habitLabels[h] || h} - avoided this game!
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {violations?.length > 0 && (
+        <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+          <p className="text-xs font-medium text-orange-400 mb-1">Areas to work on:</p>
+          <ul className="text-xs text-muted-foreground space-y-1">
+            {violations.map((v, i) => (
+              <li key={i} className="flex items-start gap-1">
+                <XCircle className="w-3 h-3 text-orange-400 mt-0.5 flex-shrink-0" />
+                <span>{v.description}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {!improved?.length && !violations?.length && (
+        <p className="text-xs text-muted-foreground">No habit data for this game yet.</p>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Recommendations Component
+ */
+const Recommendations = ({ recommendations }) => {
+  const { priority, suggestions, opening_to_learn } = recommendations;
+  
+  return (
+    <div className="space-y-3">
+      <h4 className="text-sm font-medium flex items-center gap-2">
+        <Lightbulb className="w-4 h-4 text-amber-400" />
+        What to Practice
+      </h4>
+      
+      {opening_to_learn && (
+        <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+          <div className="flex items-center gap-2 text-sm">
+            <BookOpen className="w-4 h-4 text-primary" />
+            <span>{opening_to_learn}</span>
+          </div>
+        </div>
+      )}
+      
+      {suggestions?.length > 0 && (
+        <ul className="space-y-2">
+          {suggestions.map((s, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm p-2 rounded bg-muted/20">
+              <Zap className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+              <span>{s}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Main PostGameLesson Component - Enhanced with full analysis
  */
 const PostGameLesson = ({ 
   sessionId,
@@ -93,47 +281,40 @@ const PostGameLesson = ({
   studentColor,
   moves,
   onPlayAgain,
-  onClose 
+  onClose,
+  userRating = 1200
 }) => {
-  const [lesson, setLesson] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchLesson();
+    fetchAnalysis();
   }, [sessionId]);
 
-  const fetchLesson = async () => {
+  const fetchAnalysis = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Fetch the game summary from the API
-      const response = await fetch(`${API}/coach/teaching/game-summary`, {
+      // Fetch comprehensive analysis
+      const response = await fetch(`${API}/coach/play/analysis`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          session_id: sessionId,
-          result: result,
-          student_color: studentColor,
-          moves: moves || [],
-          concepts_taught: [], // Would be populated from session
-          mistakes: [],
-          good_moves: [],
-          user_rating: 1200
-        })
+        body: JSON.stringify({ session_id: sessionId })
       });
 
       if (response.ok) {
         const data = await response.json();
-        setLesson(data);
+        setAnalysis(data);
       } else {
-        setError("Failed to load lesson");
+        // Fallback to basic summary
+        setError("Analysis not available");
       }
     } catch (err) {
-      console.error("Lesson fetch error:", err);
-      setError("Failed to load lesson");
+      console.error("Analysis fetch error:", err);
+      setError("Failed to load analysis");
     } finally {
       setLoading(false);
     }
@@ -141,108 +322,81 @@ const PostGameLesson = ({
 
   if (loading) {
     return (
-      <Card className="w-full max-w-lg mx-auto">
+      <Card className="w-full">
         <CardContent className="p-6 text-center">
           <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-muted-foreground">Preparing your lesson...</p>
+          <p className="text-muted-foreground">Analyzing your game...</p>
+          <p className="text-xs text-muted-foreground mt-1">Checking habits, calculating performance...</p>
         </CardContent>
       </Card>
     );
   }
 
-  if (error || !lesson) {
+  if (error || !analysis) {
     return (
-      <Card className="w-full max-w-lg mx-auto">
-        <CardContent className="p-6 text-center">
-          <AlertTriangle className="w-8 h-8 text-orange-400 mx-auto mb-4" />
-          <p className="text-muted-foreground">{error || "No lesson available"}</p>
-          <Button onClick={onPlayAgain} className="mt-4">
-            Play Again
-          </Button>
+      <Card className="w-full">
+        <CardContent className="p-6">
+          <ResultBanner result={result} />
+          <div className="mt-4 text-center">
+            <p className="text-muted-foreground">{error || "Analysis not available"}</p>
+            <Button onClick={onPlayAgain} className="mt-4">
+              Play Again
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="w-full max-w-lg mx-auto border-primary/20" data-testid="post-game-lesson">
+    <Card className="w-full border-primary/20" data-testid="post-game-analysis">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <BookOpen className="w-5 h-5 text-primary" />
-          Game Lesson
+          <Brain className="w-5 h-5 text-primary" />
+          Game Analysis
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         {/* Result Banner */}
-        <ResultBanner result={lesson.result_for_student} />
+        <ResultBanner result={analysis.game_result} />
 
-        {/* Summary */}
-        <div className="p-4 rounded-lg bg-muted/30">
-          <p className="text-sm leading-relaxed">{lesson.summary}</p>
+        {/* Coach Summary */}
+        <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
+          <p className="text-sm">{analysis.coach_summary}</p>
+          <p className="text-sm text-primary mt-2 font-medium">{analysis.encouragement}</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          {lesson.good_moments > 0 && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-              <Star className="w-4 h-4 text-green-400" />
-              <div>
-                <div className="text-lg font-bold text-green-400">{lesson.good_moments}</div>
-                <div className="text-xs text-muted-foreground">Great moves</div>
-              </div>
-            </div>
-          )}
-          {lesson.learning_opportunities > 0 && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-              <TrendingUp className="w-4 h-4 text-orange-400" />
-              <div>
-                <div className="text-lg font-bold text-orange-400">{lesson.learning_opportunities}</div>
-                <div className="text-xs text-muted-foreground">Learning moments</div>
-              </div>
-            </div>
-          )}
+        {/* Accuracy Bar */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Accuracy</span>
+            <span className="text-sm font-bold">{analysis.accuracy}%</span>
+          </div>
+          <Progress value={analysis.accuracy} className="h-2" />
         </div>
 
-        {/* Opening */}
-        {lesson.opening_played && (
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Opening played:</span>
-            <Badge variant="secondary">{lesson.opening_played}</Badge>
-          </div>
+        {/* Performance Rating */}
+        {analysis.performance_rating && (
+          <PerformanceRatingCard 
+            rating={analysis.performance_rating} 
+            userRating={userRating}
+          />
         )}
 
-        {/* Concepts Covered */}
-        {lesson.concepts_covered?.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-primary" />
-              Concepts Covered
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {lesson.concepts_covered.map((concept, i) => (
-                <Badge key={i} variant="outline" className="capitalize">
-                  {concept.replace(/_/g, " ")}
-                </Badge>
-              ))}
-            </div>
-          </div>
+        {/* Mistakes */}
+        {analysis.mistakes && (
+          <MistakeBreakdown mistakes={analysis.mistakes} />
         )}
 
-        {/* Key Takeaways */}
-        {lesson.key_takeaways?.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-primary" />
-              Key Takeaways
-            </h4>
-            <div className="space-y-2">
-              {lesson.key_takeaways.map((takeaway, i) => (
-                <TakeawayCard key={i} takeaway={takeaway} index={i} />
-              ))}
-            </div>
-          </div>
+        {/* Habits */}
+        {analysis.habits && (
+          <HabitProgress habits={analysis.habits} />
+        )}
+
+        {/* Recommendations */}
+        {analysis.recommendations && (
+          <Recommendations recommendations={analysis.recommendations} />
         )}
       </CardContent>
 
