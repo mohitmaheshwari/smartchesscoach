@@ -19,7 +19,7 @@ import pytest
 import time
 import uuid
 
-BASE_URL = "https://chess-mentor-36.preview.emergentagent.com"
+BASE_URL = "https://chess-tutor-pro-1.preview.emergentagent.com"
 
 
 class TestBehaviorExtraction:

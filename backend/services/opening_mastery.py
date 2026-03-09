@@ -517,51 +517,120 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
     """
     Detect which opening family we're in based on moves played.
     
+    IMPORTANT: Only detects when we have enough characteristic moves.
+    
+    Detection requirements:
+    - Italian Game: e4 e5 Nf3 Nc6 Bc4 (5 moves)
+    - Queen's Gambit: d4 d5 c4 (3 moves)
+    - London System: d4 [any] Bf4 (3 moves, White's 2nd must be Bf4)
+    - Sicilian: e4 c5 (2 moves)
+    - Caro-Kann: e4 c6 (2 moves)
+    
     Returns:
-        Dict with opening info or None if not recognized
+        Dict with opening info or None if not recognized yet
     """
     if not moves:
         return None
     
-    moves_str = " ".join(moves[:10]).lower()  # First 10 moves
+    # Minimum moves to start detection
+    if len(moves) < 2:
+        return None
     
-    # Check each opening family
-    for key, opening in OPENING_DATABASE.items():
-        first_moves_str = " ".join(opening.first_moves).lower()
-        
-        # Check if the game moves match this opening's first moves
-        if moves_str.startswith(first_moves_str) or _moves_match_opening(moves, opening):
-            # Find the specific variation
-            variation = _find_variation(moves, opening)
-            
-            return {
-                "opening_key": key,
-                "opening_name": opening.name,
-                "variation": variation.name if variation else None,
-                "description": opening.description,
-                "character": opening.character,
-                "introduction": opening.introduction_message,
-                "has_traps": len(opening.variations[0].traps) > 0 if opening.variations else False,
-                "trap_names": [t.name for v in opening.variations for t in v.traps]
-            }
+    moves_lower = [m.lower() for m in moves]
+    
+    # Manual priority-based detection for accuracy
+    # Check most specific openings first
+    
+    # Italian Game: e4 e5 Nf3 Nc6 Bc4
+    if len(moves_lower) >= 5:
+        if moves_lower[:5] == ["e4", "e5", "nf3", "nc6", "bc4"]:
+            return _build_opening_result("italian_game", moves)
+        # Two Knights: e4 e5 Nf3 Nc6 Bc4 Nf6
+        if len(moves_lower) >= 6 and moves_lower[:6] == ["e4", "e5", "nf3", "nc6", "bc4", "nf6"]:
+            return _build_opening_result("italian_game", moves, "Two Knights Defense")
+    
+    # Queen's Gambit: d4 d5 c4
+    if len(moves_lower) >= 3:
+        if moves_lower[:3] == ["d4", "d5", "c4"]:
+            return _build_opening_result("queens_gambit", moves)
+    
+    # London System: d4 [any] Bf4 (White's 2nd move must be Bf4)
+    if len(moves_lower) >= 3:
+        if moves_lower[0] == "d4" and moves_lower[2].lower() == "bf4":
+            return _build_opening_result("london_system", moves)
+    
+    # Sicilian Defense: e4 c5
+    if len(moves_lower) >= 2:
+        if moves_lower[:2] == ["e4", "c5"]:
+            return _build_opening_result("sicilian_defense", moves)
+    
+    # Caro-Kann: e4 c6
+    if len(moves_lower) >= 2:
+        if moves_lower[:2] == ["e4", "c6"]:
+            return _build_opening_result("caro_kann", moves)
+    
+    # French Defense: e4 e6 (add if we have it)
+    # Scandinavian: e4 d5 (add if we have it)
     
     return None
 
 
+def _build_opening_result(opening_key: str, moves: List[str], override_variation: str = None) -> Optional[Dict]:
+    """Build the opening detection result dict."""
+    opening = OPENING_DATABASE.get(opening_key)
+    if not opening:
+        return None
+    
+    variation = _find_variation(moves, opening) if not override_variation else None
+    variation_name = override_variation or (variation.name if variation else None)
+    
+    return {
+        "opening_key": opening_key,
+        "opening_name": opening.name,
+        "variation": variation_name,
+        "description": opening.description,
+        "character": opening.character,
+        "introduction": opening.introduction_message,
+        "has_traps": any(len(v.traps) > 0 for v in opening.variations),
+        "trap_names": list(set(t.name for v in opening.variations for t in v.traps))
+    }
+
+
 def _moves_match_opening(game_moves: List[str], opening: OpeningFamily) -> bool:
-    """Check if game moves match an opening's characteristic moves."""
-    game_moves_lower = [m.lower() for m in game_moves[:len(opening.first_moves)]]
+    """
+    Check if game moves match an opening's characteristic moves.
+    
+    IMPORTANT: Only returns True if we have ALL the defining moves.
+    We don't want to say "Queen's Gambit" after just d4.
+    """
+    if not game_moves:
+        return False
+    
+    game_moves_lower = [m.lower() for m in game_moves]
     opening_moves_lower = [m.lower() for m in opening.first_moves]
     
-    # Exact match
-    if game_moves_lower == opening_moves_lower[:len(game_moves_lower)]:
+    # We need AT LEAST all the opening's first moves to be played
+    # to confidently identify the opening
+    min_required_moves = len(opening_moves_lower)
+    
+    if len(game_moves_lower) < min_required_moves:
+        # Not enough moves yet to identify this opening
+        return False
+    
+    # Check if the game moves contain all the opening's characteristic moves
+    # in the correct order
+    game_prefix = game_moves_lower[:min_required_moves]
+    if game_prefix == opening_moves_lower:
         return True
     
-    # Check variations
+    # Also check variations - they might have different move orders
     for variation in opening.variations:
-        var_moves_lower = [m.lower() for m in variation.moves[:len(game_moves)]]
-        if game_moves_lower == var_moves_lower:
-            return True
+        var_moves_lower = [m.lower() for m in variation.moves]
+        var_min_moves = min(len(var_moves_lower), min_required_moves)
+        
+        if len(game_moves_lower) >= var_min_moves:
+            if game_moves_lower[:var_min_moves] == var_moves_lower[:var_min_moves]:
+                return True
     
     return False
 
