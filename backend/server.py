@@ -9046,6 +9046,41 @@ async def _process_move_and_respond(
             if session_doc:
                 board = chess.Board(fen_after_user)
                 
+                # === NEW: Check for opening and offer interactive teaching ===
+                move_history = session_doc.get("move_history", [])
+                user_id = session_doc.get("user_id", "unknown")
+                
+                # Only check in opening phase (first 12 moves per side)
+                if len(move_history) <= 24 and not session_doc.get("opening_offer_shown"):
+                    try:
+                        from services.opening_teaching_integration import check_opening_and_offer_teaching
+                        
+                        opening_offer = await check_opening_and_offer_teaching(
+                            db=db,
+                            session_id=session_id,
+                            move_history=move_history,
+                            user_color=user_color,
+                            user_id=user_id
+                        )
+                        
+                        if opening_offer:
+                            # Store the teaching offer as a coach message
+                            await db.coach_messages.insert_one({
+                                "session_id": session_id,
+                                "type": "opening_teaching_offer",
+                                "message": opening_offer["message"],
+                                "trigger": "opening_detected",
+                                "opening_name": opening_offer["opening_name"],
+                                "opening_key": opening_offer["opening_key"],
+                                "options": opening_offer["options"],
+                                "trap_name": opening_offer.get("trap_name"),
+                                "created_at": datetime.now(timezone.utc),
+                                "read": False,
+                            })
+                            logger.info(f"Opening detected: {opening_offer['opening_name']} - offered teaching")
+                    except Exception as e:
+                        logger.warning(f"Opening detection failed: {e}")
+                
                 # Get student weaknesses from their profile (if available)
                 student_weaknesses = session_doc.get("student_weaknesses", [])
                 teaching_focus = session_doc.get("teaching_focus", None)
@@ -10056,6 +10091,171 @@ async def get_opening_plan(
             "simple_explanation": "Focus on basic opening principles.",
             "eco_codes": [],
         }
+
+
+
+# ========================================
+# OPENING TEACHING ENDPOINTS
+# ========================================
+
+@api_router.post("/coach/play/teaching/start")
+async def start_opening_teaching(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Start an interactive opening lesson during the game.
+    
+    Called when user clicks a teaching option (e.g., "Learn the Fried Liver").
+    
+    Body:
+    - session_id: Current game session
+    - lesson_type: "learn_trap" | "learn_main_line"
+    
+    Returns:
+    - success: bool
+    - mode: Teaching mode
+    - instruction: First teaching step
+    - teaching_fen: Position to display
+    """
+    from services.opening_teaching_integration import start_opening_lesson
+    
+    session_id = request.get("session_id")
+    lesson_type = request.get("lesson_type", "learn_trap")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    result = await start_opening_lesson(db, session_id, user.user_id, lesson_type)
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+
+@api_router.post("/coach/play/teaching/move")
+async def process_teaching_move(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Process a move during opening teaching mode.
+    
+    Validates the move, provides feedback, and advances the lesson.
+    
+    Body:
+    - session_id: Current game session
+    - move: Move played by user (SAN notation)
+    
+    Returns:
+    - correct: bool
+    - message: Feedback message
+    - next_instruction: Next teaching step (if correct)
+    - teaching_fen: Updated position
+    """
+    from services.opening_teaching_integration import process_teaching_move as process_move
+    
+    session_id = request.get("session_id")
+    move = request.get("move")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not move:
+        raise HTTPException(status_code=400, detail="move is required")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    result = await process_move(db, session_id, move)
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+
+@api_router.post("/coach/play/teaching/exit")
+async def exit_teaching_mode(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Exit teaching mode after lesson completion.
+    
+    Body:
+    - session_id: Current game session
+    - choice: "continue_game" | "new_game" | "try_another"
+    
+    Returns:
+    - action: What happens next
+    - restored_fen: Position to return to (if continuing)
+    """
+    from services.opening_teaching_integration import exit_teaching_mode as exit_mode
+    
+    session_id = request.get("session_id")
+    choice = request.get("choice", "continue_game")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    result = await exit_mode(db, session_id, choice)
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+
+@api_router.post("/coach/play/teaching/skip")
+async def skip_opening_offer(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Skip the opening teaching offer (user chose "Just play").
+    
+    Body:
+    - session_id: Current game session
+    """
+    session_id = request.get("session_id")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    # Mark as skipped so we don't show again
+    await db.coach_sessions.update_one(
+        {"session_id": session_id},
+        {"$set": {"opening_offer_shown": True}}
+    )
+    
+    return {"success": True, "message": "Got it! Let's play on."}
+
 
 
 

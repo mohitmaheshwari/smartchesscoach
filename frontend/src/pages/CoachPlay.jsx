@@ -53,6 +53,11 @@ import {
 import TeachingPanel from "@/components/TeachingPanel";
 import PostGameLesson from "@/components/PostGameLesson";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
+import { 
+  OpeningTeachingOffer, 
+  ActiveLessonPanel, 
+  LessonCompletePanel 
+} from "@/components/coach/OpeningTeachingPanel";
 
 /**
  * EvalBar - Visual evaluation bar showing position advantage
@@ -205,6 +210,13 @@ const CoachPlay = ({ user }) => {
   // NEW: Emotional state tracking for Human Coach
   const [blundersThisGame, setBlundersThisGame] = useState(0);
   const [recentResults, setRecentResults] = useState([]);
+  
+  // NEW: Opening Teaching State
+  const [teachingOffer, setTeachingOffer] = useState(null);
+  const [activeLesson, setActiveLesson] = useState(null);
+  const [lessonInstruction, setLessonInstruction] = useState(null);
+  const [lessonComplete, setLessonComplete] = useState(null);
+  const [isInTeachingMode, setIsInTeachingMode] = useState(false);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -228,6 +240,9 @@ const CoachPlay = ({ user }) => {
   const pollCoachMessages = async () => {
     if (!session?.session_id) return;
     
+    // Don't poll during teaching mode - handled separately
+    if (isInTeachingMode) return;
+    
     try {
       const response = await fetch(`${API}/coach/play/messages/${session.session_id}`, {
         credentials: "include"
@@ -236,34 +251,58 @@ const CoachPlay = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         if (data.messages && data.messages.length > 0) {
+          // Check for opening teaching offers
+          const teachingOffers = data.messages.filter(msg => 
+            msg.type === "opening_teaching_offer"
+          );
+          
+          if (teachingOffers.length > 0 && !teachingOffer) {
+            // Show the first teaching offer
+            const offer = teachingOffers[0];
+            setTeachingOffer({
+              opening_name: offer.opening_name,
+              opening_key: offer.opening_key,
+              message: offer.message,
+              options: offer.options,
+              trap_name: offer.trap_name
+            });
+          }
+          
+          // Filter out teaching offers from regular messages
+          const regularMessages = data.messages.filter(msg => 
+            msg.type !== "opening_teaching_offer"
+          );
+          
           // Track blunders for emotional state
-          const newBlunders = data.messages.filter(msg => 
+          const newBlunders = regularMessages.filter(msg => 
             msg.trigger === "warning" || msg.trigger === "blunder"
           ).length;
           if (newBlunders > 0) {
             setBlundersThisGame(prev => prev + newBlunders);
           }
           
-          // Add new messages to chat (preserve id for feedback button!)
-          setChatMessages(prev => [
-            ...prev,
-            ...data.messages.map(msg => ({
-              id: msg.id,  // CRITICAL: Preserve ID for feedback button
-              type: msg.type,
-              message: msg.message,
-              trigger: msg.trigger,
-              move: msg.move,
-              question: msg.question,  // For Socratic questions
-              isSocratic: msg.is_socratic,  // Track Socratic messages
-              emotionalState: msg.emotional_state,  // Track emotional adaptation
-              context: {
-                fen: msg.fen,
-                move_number: msg.move_number,
-                classification: msg.trigger
-              },
-              timestamp: Date.now()
-            }))
-          ]);
+          // Add regular messages to chat (preserve id for feedback button!)
+          if (regularMessages.length > 0) {
+            setChatMessages(prev => [
+              ...prev,
+              ...regularMessages.map(msg => ({
+                id: msg.id,  // CRITICAL: Preserve ID for feedback button
+                type: msg.type,
+                message: msg.message,
+                trigger: msg.trigger,
+                move: msg.move,
+                question: msg.question,  // For Socratic questions
+                isSocratic: msg.is_socratic,  // Track Socratic messages
+                emotionalState: msg.emotional_state,  // Track emotional adaptation
+                context: {
+                  fen: msg.fen,
+                  move_number: msg.move_number,
+                  classification: msg.trigger
+                },
+                timestamp: Date.now()
+              }))
+            ]);
+          }
         }
       }
     } catch (error) {
@@ -826,6 +865,11 @@ const CoachPlay = ({ user }) => {
   };
 
   const makeMove = useCallback(async (sourceSquare, targetSquare, piece) => {
+    // If in teaching mode, use teaching move handler
+    if (isInTeachingMode && activeLesson) {
+      return await handleTeachingMove(sourceSquare, targetSquare);
+    }
+    
     if (!session || !isPlayerTurn || gameOver) return false;
 
     // Try to make the move locally first
@@ -879,7 +923,7 @@ const CoachPlay = ({ user }) => {
     }
 
     return true;
-  }, [session, currentFen, isPlayerTurn, gameOver, moveStartTime]);
+  }, [session, currentFen, isPlayerTurn, gameOver, moveStartTime, isInTeachingMode, activeLesson]);
 
   const resignGame = async () => {
     if (!session) return;
@@ -926,6 +970,159 @@ const CoachPlay = ({ user }) => {
     setIsPlayerTurn(true);
     setGuardianIntervention(null);
     setPendingMove(null);
+    // Reset teaching state
+    setTeachingOffer(null);
+    setActiveLesson(null);
+    setLessonInstruction(null);
+    setLessonComplete(null);
+    setIsInTeachingMode(false);
+  };
+
+  // ========================================
+  // OPENING TEACHING HANDLERS
+  // ========================================
+  
+  const handleStartLesson = (lessonData) => {
+    setTeachingOffer(null);
+    setActiveLesson(lessonData);
+    setLessonInstruction(lessonData.instruction);
+    setIsInTeachingMode(true);
+    setCurrentFen(lessonData.teaching_fen);
+    setLastMove(null);
+    
+    // Add lesson start message to chat
+    setChatMessages(prev => [...prev, {
+      type: "coach",
+      trigger: "teaching",
+      message: `Let's learn the ${lessonData.lesson_name}! Follow along and play the moves.`,
+      timestamp: Date.now()
+    }]);
+    
+    toast.success(`Starting lesson: ${lessonData.lesson_name}`);
+  };
+  
+  const handleSkipTeachingOffer = () => {
+    setTeachingOffer(null);
+    setChatMessages(prev => [...prev, {
+      type: "coach",
+      trigger: "encouragement",
+      message: "No problem! Let's continue playing. I'll guide you as we go.",
+      timestamp: Date.now()
+    }]);
+  };
+  
+  const handleTeachingMoveValidated = (result) => {
+    // Update instruction for next move
+    if (result.next_instruction) {
+      setLessonInstruction(result.next_instruction);
+    }
+    
+    // Update board position
+    if (result.teaching_fen) {
+      setCurrentFen(result.teaching_fen);
+    }
+    
+    // If there was an auto-play (opponent move), show it
+    if (result.auto_played) {
+      setChatMessages(prev => [...prev, {
+        type: "coach",
+        trigger: "teaching",
+        message: result.message,
+        timestamp: Date.now()
+      }]);
+    }
+  };
+  
+  const handleLessonComplete = (completion) => {
+    setLessonInstruction(null);
+    setLessonComplete(completion);
+    
+    // Add celebration message to chat
+    setChatMessages(prev => [...prev, {
+      type: "coach",
+      trigger: "encouragement",
+      message: completion.message,
+      timestamp: Date.now()
+    }]);
+    
+    toast.success("Lesson complete!");
+  };
+  
+  const handleExitLesson = async (choice, result) => {
+    setActiveLesson(null);
+    setLessonComplete(null);
+    setIsInTeachingMode(false);
+    
+    if (choice === "continue_game" && result?.restored_fen) {
+      // Restore original game position
+      setCurrentFen(result.restored_fen);
+      setChatMessages(prev => [...prev, {
+        type: "coach",
+        trigger: "teaching",
+        message: "Game restored! Your turn to continue.",
+        timestamp: Date.now()
+      }]);
+    } else if (choice === "new_game") {
+      // Start a fresh game
+      newGame();
+      // Auto-start after a brief delay
+      setTimeout(() => startGame(), 500);
+    }
+  };
+  
+  // Handle moves during teaching mode
+  const handleTeachingMove = async (from, to) => {
+    if (!activeLesson || !session) return false;
+    
+    // Build the move SAN
+    const chess = new Chess(currentFen);
+    let moveObj;
+    try {
+      moveObj = chess.move({ from, to, promotion: "q" });
+    } catch {
+      return false;
+    }
+    
+    if (!moveObj) return false;
+    
+    // Validate with backend
+    try {
+      const response = await fetch(`${API}/coach/play/teaching/move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          session_id: session.session_id,
+          move: moveObj.san
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        
+        if (result.complete) {
+          handleLessonComplete(result);
+        } else if (result.correct) {
+          // Update board
+          setCurrentFen(result.teaching_fen);
+          handleTeachingMoveValidated(result);
+          return true;
+        } else {
+          // Wrong move - show hint
+          toast.error(result.message);
+          setChatMessages(prev => [...prev, {
+            type: "coach",
+            trigger: "teaching",
+            message: `${result.message} ${result.hint || ""}`,
+            timestamp: Date.now()
+          }]);
+        }
+      }
+    } catch (error) {
+      console.error("Teaching move error:", error);
+    }
+    
+    return false;
   };
 
   // Pre-game setup screen
@@ -1370,6 +1567,43 @@ const CoachPlay = ({ user }) => {
                 studentColor={session.user_color}
                 moves={(session.move_history || []).map(m => m.move)}
                 onPlayAgain={newGame}
+              />
+            </div>
+          )}
+          
+          {/* Opening Teaching Offer - Shows when opening is detected */}
+          {session && teachingOffer && !isInTeachingMode && !gameOver && (
+            <div className="p-4 border-b border-border">
+              <OpeningTeachingOffer
+                offer={teachingOffer}
+                sessionId={session.session_id}
+                onStartLesson={handleStartLesson}
+                onSkip={handleSkipTeachingOffer}
+              />
+            </div>
+          )}
+          
+          {/* Active Lesson Panel - Shows during interactive teaching */}
+          {session && activeLesson && isInTeachingMode && !lessonComplete && (
+            <div className="p-4 border-b border-border">
+              <ActiveLessonPanel
+                lesson={activeLesson}
+                sessionId={session.session_id}
+                currentInstruction={lessonInstruction}
+                onMoveValidated={handleTeachingMoveValidated}
+                onLessonComplete={handleLessonComplete}
+                onExitLesson={(choice) => handleExitLesson(choice, {})}
+              />
+            </div>
+          )}
+          
+          {/* Lesson Complete Panel - Shows after finishing a lesson */}
+          {session && lessonComplete && (
+            <div className="p-4 border-b border-border">
+              <LessonCompletePanel
+                completion={lessonComplete}
+                sessionId={session.session_id}
+                onChoice={handleExitLesson}
               />
             </div>
           )}

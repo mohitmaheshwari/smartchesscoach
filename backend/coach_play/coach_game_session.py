@@ -85,6 +85,18 @@ class CoachGameSession:
     last_coach_move: Optional[Dict] = None  # Last move made by coach
     evaluation: Optional[Dict] = None  # Current position evaluation
     
+    # Opening Teaching State (Interactive Learning)
+    teaching_mode: Optional[str] = None  # "main_line", "trap", or None
+    teaching_opening: Optional[str] = None  # Opening key being taught
+    teaching_data: Optional[Dict] = field(default_factory=dict)  # Current teaching state
+    detected_opening: Optional[str] = None  # Opening detected in this game
+    opening_offer_shown: bool = False  # Whether we've offered teaching for this opening
+    
+    # Learning Progress (per game)
+    openings_taught_this_game: List[str] = field(default_factory=list)
+    habits_checked: List[str] = field(default_factory=list)  # Which habits were monitored
+    habit_violations: List[Dict] = field(default_factory=list)  # Habit violations detected
+    
     def to_dict(self) -> Dict:
         """Convert to dictionary for MongoDB storage"""
         data = asdict(self)
