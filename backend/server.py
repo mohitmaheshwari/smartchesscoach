@@ -9143,13 +9143,18 @@ async def _process_move_and_respond(
                 student_weaknesses = session_doc.get("student_weaknesses", [])
                 teaching_focus = session_doc.get("teaching_focus", None)
                 
+                # Get move history for opening guidance
+                move_history = session_doc.get("move_history", [])
+                move_history_san = [m.get("move") for m in move_history if m.get("move")]
+                
                 # Use Pedagogical Opponent with Teaching Move Selector
                 from coach_play.coach_opponent import PedagogicalOpponent
                 opponent = PedagogicalOpponent(
                     user_rating=user_rating,
                     teaching_mode="balanced",
                     student_weaknesses=student_weaknesses,
-                    teaching_focus=teaching_focus
+                    teaching_focus=teaching_focus,
+                    move_history=move_history_san  # Pass move history for opening guidance
                 )
                 coach_move = await opponent.get_move(fen_after_user)
                 teaching_context = opponent.get_teaching_context()

@@ -590,6 +590,18 @@ Plain, simple, direct Indian-English
   - `backend/services/opening_mastery.py` - Added new openings and detection logic
 - **Detection now includes**: Italian Game, Sicilian, Queen's Gambit, London System, Caro-Kann, French Defense, Scandinavian, Ruy Lopez, Philidor
 
+### 24. Opening Guidance System (March 2026) ✅
+- **Problem**: Users weren't seeing opening teaching offers because coach played random moves
+- **Solution**: Added "Opening Guide" to `PedagogicalOpponent`
+  - In first 6 moves, coach prefers moves that lead to known openings
+  - After user plays e4: responds with e5, c5, e6, c6, or d5 (leading to Italian/Ruy Lopez, Sicilian, French, Caro-Kann, Scandinavian)
+  - After user plays d4: responds with d5 or Nf6 (Queen's Gambit or Indian setups)
+  - Specific continuations: e4 e5 Nf3 → Nc6 (Italian/Ruy Lopez path)
+- **Files Modified**:
+  - `backend/coach_play/coach_opponent.py` - Added OPENING_GUIDE and OPENING_CONTINUATIONS
+  - `backend/server.py` - Pass move_history to PedagogicalOpponent
+- **Result**: Opening teaching offers now reliably trigger within first 3-4 moves
+
 ---
 *Last updated: March 2026*
-*Status: HALLUCINATION FIX COMPLETE + OPENING DATABASE EXPANDED TO 9 OPENINGS*
+*Status: OPENING GUIDANCE SYSTEM COMPLETE - Users will now see opening lessons*

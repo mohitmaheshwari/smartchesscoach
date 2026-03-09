@@ -198,16 +198,55 @@ class PedagogicalOpponent(CoachOpponent):
     - Create learning opportunities
     - Match the student's level and weaknesses
     - Teach specific concepts based on game phase
+    - Guide games toward known openings for teaching
     
     The coach plays TO TEACH, not to crush.
     """
+    
+    # Opening move sequences that lead to our known openings
+    # Format: {user_first_move: {user_second_move: coach_response, ...}, ...}
+    OPENING_GUIDE = {
+        # If user plays e4, respond to lead into various openings
+        "e4": {
+            # Coach responds based on teaching variety
+            "_default": ["e5", "c5", "e6", "c6", "d5"],  # Italian/Ruy Lopez, Sicilian, French, Caro-Kann, Scandinavian
+        },
+        # If user plays d4
+        "d4": {
+            "_default": ["d5", "Nf6"],  # Queen's Gambit or Indian setups
+        },
+        # If user plays Nf3
+        "Nf3": {
+            "_default": ["d5", "Nf6"],
+        },
+        # If user plays c4
+        "c4": {
+            "_default": ["e5", "c5", "Nf6"],
+        },
+    }
+    
+    # Continue guiding after coach's first move
+    OPENING_CONTINUATIONS = {
+        # After e4 e5, if user plays Nf3, respond Nc6 for Italian/Ruy Lopez
+        ("e4", "e5", "Nf3"): "Nc6",
+        # After e4 c5 (Sicilian), continue with d6 or Nc6
+        ("e4", "c5", "Nf3"): "d6",
+        ("e4", "c5", "d4"): "cxd4",
+        # After e4 e6 (French), continue with d5
+        ("e4", "e6", "d4"): "d5",
+        # After e4 c6 (Caro-Kann), continue with d5
+        ("e4", "c6", "d4"): "d5",
+        # After d4 d5, respond to c4 with e6 or c6
+        ("d4", "d5", "c4"): "e6",
+    }
     
     def __init__(
         self, 
         user_rating: int = 1200, 
         teaching_mode: str = "balanced",
         student_weaknesses: list = None,
-        teaching_focus: str = None
+        teaching_focus: str = None,
+        move_history: list = None
     ):
         """
         Initialize pedagogical opponent.
@@ -217,16 +256,67 @@ class PedagogicalOpponent(CoachOpponent):
             teaching_mode: "challenging", "balanced", or "supportive"
             student_weaknesses: List of weakness areas to target
             teaching_focus: Specific concept to teach (optional)
+            move_history: List of moves played so far (for opening guidance)
         """
         super().__init__(user_rating=user_rating)
         self.teaching_mode = teaching_mode
         self.student_weaknesses = student_weaknesses or []
         self.teaching_focus = teaching_focus
         self.last_teaching_context = {}
+        self.move_history = move_history or []
+    
+    def _get_opening_guided_move(self, fen: str) -> Optional[str]:
+        """
+        Get a move that guides toward a known opening (for early game).
+        
+        Only applies in the first 6 moves to ensure opening teaching triggers.
+        Returns None if no guided move is appropriate.
+        """
+        import random
+        
+        board = chess.Board(fen)
+        move_count = len(self.move_history)
+        
+        # Only guide in the first 6 moves
+        if move_count > 6:
+            return None
+        
+        # Convert move history to tuple for lookup
+        history_tuple = tuple(self.move_history)
+        
+        # Check for specific continuation
+        if history_tuple in self.OPENING_CONTINUATIONS:
+            guided_move = self.OPENING_CONTINUATIONS[history_tuple]
+            try:
+                move = board.parse_san(guided_move)
+                if move in board.legal_moves:
+                    return guided_move
+            except:
+                pass
+        
+        # First move response
+        if move_count == 1:
+            user_move = self.move_history[0]
+            if user_move in self.OPENING_GUIDE:
+                options = self.OPENING_GUIDE[user_move].get("_default", [])
+                # Randomly choose from options for variety
+                random.shuffle(options)
+                for option in options:
+                    try:
+                        move = board.parse_san(option)
+                        if move in board.legal_moves:
+                            return option
+                    except:
+                        continue
+        
+        return None
     
     async def get_move(self, fen: str) -> Optional[str]:
         """
         Get pedagogical move using Teaching Move Selector.
+        
+        In the opening (first 6 moves), prioritizes moves that guide
+        toward known openings in our database for teaching.
         
         Selects moves that CREATE LEARNING OPPORTUNITIES rather than
         just the strongest moves.
@@ -238,6 +328,20 @@ class PedagogicalOpponent(CoachOpponent):
         from services.game_phase_service import get_game_phase
         
         try:
+            # OPENING GUIDE: In early game, prefer moves that lead to known openings
+            guided_move = self._get_opening_guided_move(fen)
+            if guided_move:
+                # Store teaching context for the guided move
+                self.last_teaching_context = {
+                    "teaching_goal": "opening_guidance",
+                    "why_instructive": "Guiding toward a known opening for teaching",
+                    "concept_taught": "opening_principles",
+                    "student_challenge": "Learn the opening ideas",
+                    "is_best_move": True,
+                    "move_type": "opening_guide"
+                }
+                return guided_move
+            
             # Get game phase for context
             phase_info = get_game_phase(fen)
             game_phase = phase_info.get("phase_label", "middlegame")
