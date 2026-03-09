@@ -720,3 +720,48 @@ async def get_identity_summary(user: User = Depends(get_current_user)):
     summary = await get_identity_trajectory_summary(db, user.user_id)
     return summary
 
+
+
+
+@router.post("/analyze/phase")
+async def analyze_game_phase(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Analyze game phase for a position.
+    
+    Request body:
+        {"fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"}
+    
+    Returns:
+        - Phase percentage (0=opening, 100=endgame)
+        - Phase label (opening/middlegame/endgame)
+        - Endgame type if applicable
+        - Coaching priorities for this phase
+        - Endgame-specific concepts and techniques
+    """
+    import chess
+    from services.game_phase_service import GamePhaseCalculator, get_phase_coaching
+    
+    fen = request.get("fen", chess.STARTING_FEN)
+    
+    try:
+        board = chess.Board(fen)
+    except Exception as e:
+        return {"error": f"Invalid FEN: {str(e)}"}
+    
+    calculator = GamePhaseCalculator()
+    phase_info = calculator.calculate_phase(board)
+    coaching = get_phase_coaching(phase_info)
+    
+    return {
+        "phase_percent": phase_info.phase_percent,
+        "phase_label": phase_info.phase_label.value,
+        "endgame_weight": round(phase_info.endgame_weight, 2),
+        "raw_phase": phase_info.raw_phase,
+        "max_phase": 24,
+        "white_material": phase_info.white_material,
+        "black_material": phase_info.black_material,
+        "coaching": coaching
+    }

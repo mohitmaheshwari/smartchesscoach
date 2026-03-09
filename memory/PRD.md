@@ -189,6 +189,17 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 - Mobile App
 - Deprecate remaining `learned_rules` code references (tech debt cleanup)
 
+### 14. Game Phase Calculator ✅ (NEW)
+- **Created**: `services/game_phase_service.py`
+- **Features**:
+  - Stockfish-style continuous phase calculation (0-100%)
+  - Piece-based phase values (Q=4, R=2, B=1, N=1)
+  - Granular phase labels (opening → early_middlegame → middlegame → late_middlegame → early_endgame → endgame → deep_endgame)
+  - Endgame type classification (18 types including Rook endgame, K+P vs K, Opposite color bishops, etc.)
+  - Phase-specific coaching priorities and weights
+  - Endgame-specific teaching content (concepts, techniques, common mistakes)
+- **New endpoint**: `POST /api/coach/analyze/phase` - Returns phase info + coaching content for any position
+
 ## Database Collections
 
 | Collection | Count | Purpose |
