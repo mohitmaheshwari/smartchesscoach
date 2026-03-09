@@ -558,6 +558,26 @@ Plain, simple, direct Indian-English
   5. User's progress saved: "Learned Fried Liver Attack"
   6. Later in real game analysis: "You played the Italian! But missed the trap move on turn 6"
 
+### 22. Hallucination Fix (March 2026) ✅
+- **Problem**: Coach was mentioning pieces on squares that didn't exist (e.g., "pawn on e2" when no pawn there)
+- **Root Causes**:
+  1. LLM prompts didn't include the actual board position (FEN)
+  2. BLOCKED_BISHOP_BY_OWN_PAWN rule triggered for bishops on starting squares in early opening
+- **Fixes Applied**:
+  1. Added FEN to all LLM coaching prompts (`coach_commentary.py`)
+  2. Added explicit anti-hallucination instructions in prompts
+  3. Added early opening check (move_number < 6) to blocked bishop rule
+  4. Added starting square check (c1, f1, c8, f8) to skip undeveloped bishops
+- **Files Modified**:
+  - `backend/coach_play/coach_commentary.py` - LLM prompts now include FEN
+  - `backend/coach_engine/rule_validator.py` - Blocked bishop rule improved
+- **Test Files Created**:
+  - `backend/tests/test_hallucination_fix.py`
+  - `backend/tests/test_blocked_bishop_rule.py`
+  - `backend/tests/test_llm_fen_inclusion.py`
+  - `backend/tests/test_opening_detection.py`
+- **Status**: FIXED - All 43 tests pass (32 backend, 11 frontend E2E)
+
 ---
-*Last updated: December 2025*
-*Status: OPENING MASTERY SYSTEM COMPLETE - Backend ready with 5 openings, 6 traps, teaching and progress tracking*
+*Last updated: March 2026*
+*Status: HALLUCINATION FIX COMPLETE - Coach no longer mentions non-existent pieces*
