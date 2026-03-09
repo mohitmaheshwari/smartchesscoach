@@ -1010,9 +1010,26 @@ async def generate_response_to_user(
         "give me", "show me", "best move", "recommend"
     ])
     
+    # NEW: Detect if asking about COACH's move (not user's move)
+    asking_about_coach_move = any(phrase in msg_lower for phrase in [
+        "why did you play", "why you play", "your move", "you played",
+        "idea behind", "what's the idea behind"
+    ])
+    
+    # Extract specific move being asked about (e.g., "why did you play Qd7?")
+    asked_about_move = None
+    import re
+    move_match = re.search(r'(?:play(?:ed)?|behind)\s+([A-Za-z][a-z]?\d?[x]?[a-z]\d[=]?[QRBN]?[+#]?)', msg_lower)
+    if move_match:
+        asked_about_move = move_match.group(1)
+    
     # Find user's last move
     user_moves = [m for m in move_history if m.get("by") == "player"]
     last_user_move = user_moves[-1] if user_moves else None
+    
+    # Find coach's last move
+    coach_moves = [m for m in move_history if m.get("by") == "coach"]
+    last_coach_move = coach_moves[-1] if coach_moves else None
     
     # Build personal context section for prompt
     personal_section = ""
@@ -1157,6 +1174,31 @@ Consider: What does {best_move_san} achieve? Does it attack something? Improve p
         except Exception as e:
             logger.warning(f"Failed to get best move: {e}")
     
+    # NEW: If asking about COACH's move, provide context about it
+    coach_move_context = ""
+    if asking_about_coach_move:
+        # Find the specific move they're asking about, or use last coach move
+        target_move = asked_about_move or (last_coach_move.get("move") if last_coach_move else None)
+        
+        if target_move and last_coach_move:
+            fen_before_coach = last_coach_move.get("fen_before", "")
+            fen_after_coach = last_coach_move.get("fen_after", "")
+            
+            coach_move_context = f"""
+THE USER IS ASKING ABOUT MY (COACH'S) MOVE: {target_move}
+>>> IMPORTANT: The user wants to understand YOUR move, not their move!
+>>> Explain WHY you played {target_move}. What was the idea? What does it achieve?
+
+Consider:
+- What squares/pieces does this move attack or defend?
+- What is the strategic idea behind this move?
+- How does it improve my (coach's) position?
+- What should the student learn from this move?
+
+DO NOT talk about the student's move or what they should do next.
+FOCUS on explaining your reasoning for playing {target_move}.
+"""
+    
     # Build the full prompt
     prompt = f"""You are a PERSONALIZED chess coach who KNOWS this player. 
 You've analyzed their past games and know their tendencies.
@@ -1168,6 +1210,7 @@ CURRENT POSITION:
 - Evaluation: {position.evaluation:+.2f}
 - Phase: {position.phase}
 - Opening: {position.opening_name or 'N/A'}
+{coach_move_context}
 {best_move_suggestion}
 {move_analysis_context}
 {personal_section}

@@ -1714,17 +1714,17 @@ const CoachPlay = ({ user }) => {
                         {msg.isCoachMove || 
                          msg.message?.toLowerCase().includes("i played") || 
                          msg.message?.toLowerCase().includes("i moved") ? (
-                          // Coach explaining their own move
+                          // Coach explaining their own move - include the move in the question!
                           <>
                             <button
-                              onClick={() => sendChatMessage("Why did you play that?")}
+                              onClick={() => sendChatMessage(`Why did you play ${msg.move || "that move"}?`)}
                               className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                               data-testid={`why-coach-btn-${i}`}
                             >
                               Why that move?
                             </button>
                             <button
-                              onClick={() => sendChatMessage("What's the idea behind it?")}
+                              onClick={() => sendChatMessage(`What's the idea behind ${msg.move || "your move"}?`)}
                               className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                               data-testid={`idea-btn-${i}`}
                             >
@@ -1732,17 +1732,17 @@ const CoachPlay = ({ user }) => {
                             </button>
                           </>
                         ) : (
-                          // Coach teaching about user's move
+                          // Coach teaching about user's move - include the move!
                           <>
                             <button
-                              onClick={() => sendChatMessage("Why was that bad?")}
+                              onClick={() => sendChatMessage(`Why was ${msg.move || "my move"} bad?`)}
                               className="text-xs px-2 py-1 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
                               data-testid={`why-btn-${i}`}
                             >
                               Why?
                             </button>
                             <button
-                              onClick={() => sendChatMessage("What should I have done?")}
+                              onClick={() => sendChatMessage(`What should I have played instead of ${msg.move || "that"}?`)}
                               className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                               data-testid={`what-btn-${i}`}
                             >
