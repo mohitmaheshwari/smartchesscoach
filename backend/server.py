@@ -9531,6 +9531,11 @@ async def confirm_risky_move(
     This is called after evaluate returns should_intervene=True
     and the user explicitly confirms they want to make the move anyway.
     
+    Uses the same async flow as /coach/play/move:
+    1. Record user's move immediately
+    2. Fire background task for coach analysis and response
+    3. Return immediately with awaiting_coach=True
+    
     Body:
     - session_id: Session ID
     - move: Move in SAN notation
@@ -9541,7 +9546,8 @@ async def confirm_risky_move(
     Same as /coach/play/move but also:
     - intervention_consumed: Whether an intervention was used
     """
-    from coach_play import make_player_move
+    import asyncio
+    import chess
     
     session_id = request.get("session_id")
     move = request.get("move")
@@ -9561,6 +9567,7 @@ async def confirm_risky_move(
         raise HTTPException(status_code=403, detail="Not your session")
     
     # Record that user overrode the warning
+    remaining_interventions = session_doc.get("remaining_interventions", 3)
     if risk_acknowledged:
         override_record = {
             "move": move,
@@ -9577,27 +9584,87 @@ async def confirm_risky_move(
                 "$inc": {"remaining_interventions": -1}
             }
         )
+        remaining_interventions = max(0, remaining_interventions - 1)
     
-    # Now make the move
+    # Use the same async flow as /coach/play/move
+    fen_before = session_doc.get("current_fen")
+    user_rating = session_doc.get("user_rating", 1200)
+    user_color = session_doc.get("user_color", "white")
+    
     try:
-        result = await make_player_move(
-            db=db,
-            session_id=session_id,
-            move_san=move,
-            time_spent=time_spent
+        board = chess.Board(fen_before)
+        chess_move = board.parse_san(move)
+        
+        # Record user's move
+        board.push(chess_move)
+        fen_after_user = board.fen()
+        
+        move_history = session_doc.get("move_history", [])
+        move_number = len([m for m in move_history if m.get("by") == "player"]) + 1
+        
+        # Add user's move to history
+        move_history.append({
+            "move": move,
+            "uci": chess_move.uci(),
+            "by": "player",
+            "fen_before": fen_before,
+            "fen_after": fen_after_user,
+            "time_spent": time_spent,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "guardian_override": bool(risk_acknowledged)
+        })
+        
+        # Update session with user's move (coach move pending)
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {
+                "current_fen": fen_after_user,
+                "move_history": move_history,
+                "coach_move_pending": True
+            }}
         )
         
-        if not result.get("success"):
-            raise HTTPException(status_code=400, detail=result.get("error", "Move failed"))
+        # Check if game is over after user's move
+        game_over = board.is_game_over()
+        result = None
+        if game_over:
+            if board.is_checkmate():
+                result = "win"
+            elif board.is_stalemate() or board.is_insufficient_material():
+                result = "draw"
         
-        result["intervention_consumed"] = bool(risk_acknowledged)
-        result["remaining_interventions"] = max(0, session_doc.get("remaining_interventions", 3) - (1 if risk_acknowledged else 0))
+        # Fire background task: analyze → message → coach move
+        asyncio.create_task(
+            _process_move_and_respond(
+                session_id=session_id,
+                user_move=move,
+                fen_before=fen_before,
+                fen_after_user=fen_after_user,
+                user_rating=user_rating,
+                user_color=user_color,
+                move_number=move_number,
+                game_over=game_over
+            )
+        )
         
-        return result
-    except HTTPException:
-        raise
+        return {
+            "success": True,
+            "user_move_recorded": True,
+            "move": move,
+            "current_fen": fen_after_user,
+            "awaiting_coach": not game_over,
+            "game_over": game_over,
+            "result": result,
+            "intervention_consumed": bool(risk_acknowledged),
+            "remaining_interventions": remaining_interventions
+        }
+        
+    except chess.InvalidMoveError:
+        raise HTTPException(status_code=400, detail="Invalid move")
+    except chess.AmbiguousMoveError:
+        raise HTTPException(status_code=400, detail="Ambiguous move - please be more specific")
     except Exception as e:
-        logger.error(f"Error confirming move: {e}")
+        logger.error(f"Error confirming risky move: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

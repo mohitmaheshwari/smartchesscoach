@@ -776,13 +776,16 @@ const CoachPlay = ({ user }) => {
   const confirmRiskyMove = async () => {
     if (!pendingMove) return;
     
-    const { moveSan, timeSpent, riskType, chess } = pendingMove;
+    const { moveSan, timeSpent, riskType, chess, originalFen } = pendingMove;
     
-    // Update board
+    // Store original FEN for potential revert
+    const fenBeforeMove = originalFen;
+    
+    // Update board to show the move
     setCurrentFen(chess.fen());
     setIsPlayerTurn(false);
     
-    // Clear intervention state
+    // Clear intervention state BEFORE the async call
     setGuardianIntervention(null);
     setPendingMove(null);
     
@@ -790,9 +793,14 @@ const CoachPlay = ({ user }) => {
     const success = await executeMove(moveSan, timeSpent, true, riskType);
     
     if (!success) {
-      // Revert
-      setCurrentFen(currentFen);
+      // Revert to the position BEFORE the attempted move
+      setCurrentFen(fenBeforeMove);
       setIsPlayerTurn(true);
+      
+      // Also reset the board ref if available
+      if (boardRef.current?.setPosition) {
+        boardRef.current.setPosition(fenBeforeMove);
+      }
     }
   };
 
