@@ -7,44 +7,54 @@ Provides comprehensive game analysis including:
 2. Habit Check - Track if user is improving on known weaknesses
 3. Mistake Breakdown - Categorize and explain errors
 4. Personalized Recommendations - Based on this game + history
+5. MEMORY INTEGRATION - Uses coach_memory for personalized, history-aware feedback
 
 This integrates with coach memory to provide continuity across sessions.
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
 import logging
 import chess
 
+# Import coach memory for personalization
+from services.coach_memory import (
+    get_or_create_memory,
+    get_coaching_context,
+    update_memory_after_game,
+    CoachMemory,
+    DETECTABLE_WEAKNESSES
+)
+
 logger = logging.getLogger(__name__)
 
 
 class MistakeType(str, Enum):
     """Types of chess mistakes"""
-    BLUNDER = "blunder"           # Loses significant material or game
-    MISTAKE = "mistake"           # Loses some advantage
-    INACCURACY = "inaccuracy"     # Suboptimal but not losing
-    MISSED_WIN = "missed_win"     # Missed winning opportunity
-    TACTICAL_MISS = "tactical_miss"  # Missed tactic
-    POSITIONAL_ERROR = "positional_error"  # Structural weakness
-    TIME_TROUBLE = "time_trouble"  # Mistake due to time pressure
-    OPENING_ERROR = "opening_error"  # Theory deviation
+    BLUNDER = "blunder"
+    MISTAKE = "mistake"
+    INACCURACY = "inaccuracy"
+    MISSED_WIN = "missed_win"
+    TACTICAL_MISS = "tactical_miss"
+    POSITIONAL_ERROR = "positional_error"
+    TIME_TROUBLE = "time_trouble"
+    OPENING_ERROR = "opening_error"
 
 
 class HabitType(str, Enum):
     """Trackable chess habits"""
-    EARLY_QUEEN = "early_queen"           # Moving queen too early
-    ONE_MOVE_BLUNDER = "one_move_blunder"  # Missing immediate threats
-    WEAK_ENDGAME = "weak_endgame"          # Poor endgame technique
-    POOR_PIECE_ACTIVITY = "poor_piece_activity"  # Passive pieces
-    KING_SAFETY = "king_safety"            # Neglecting king safety
-    PAWN_STRUCTURE = "pawn_structure"      # Weakening pawns
-    CALCULATION_ERRORS = "calculation_errors"  # Miscalculations
-    TIME_MANAGEMENT = "time_management"    # Using time poorly
-    IMPATIENCE = "impatience"              # Moving too fast
-    OVERCONFIDENCE = "overconfidence"      # Playing risky in winning positions
+    EARLY_QUEEN = "early_queen"
+    ONE_MOVE_BLUNDER = "one_move_blunder"
+    WEAK_ENDGAME = "weak_endgame"
+    POOR_PIECE_ACTIVITY = "poor_piece_activity"
+    KING_SAFETY = "king_safety"
+    PAWN_STRUCTURE = "pawn_structure"
+    CALCULATION_ERRORS = "calculation_errors"
+    TIME_MANAGEMENT = "time_management"
+    IMPATIENCE = "impatience"
+    OVERCONFIDENCE = "overconfidence"
 
 
 @dataclass
@@ -53,7 +63,7 @@ class MistakeAnalysis:
     move_number: int
     move_played: str
     mistake_type: MistakeType
-    severity: str  # "critical", "moderate", "minor"
+    severity: str
     explanation: str
     better_move: Optional[str] = None
     evaluation_change: float = 0.0
@@ -66,17 +76,27 @@ class HabitViolation:
     habit_type: HabitType
     move_number: int
     description: str
-    is_improvement: bool = False  # True if user showed improvement
+    is_improvement: bool = False
 
 
 @dataclass
 class PerformanceRating:
     """Estimated performance rating for this game"""
     estimated_rating: int
-    confidence: str  # "high", "medium", "low"
-    comparison_to_actual: str  # "above", "at", "below"
-    rating_change_suggested: int  # +/- from actual
+    confidence: str
+    comparison_to_actual: str
+    rating_change_suggested: int
     key_factors: List[str] = field(default_factory=list)
+
+
+@dataclass
+class MemoryInsight:
+    """Insight from coach memory - makes the coach feel human"""
+    insight_type: str  # "recurring_pattern", "improvement", "first_time", "habit_check"
+    message: str  # The actual personalized message
+    pattern_name: Optional[str] = None
+    occurrence_count: int = 0
+    is_improving: bool = False
 
 
 @dataclass
@@ -84,7 +104,7 @@ class PostGameAnalysis:
     """Complete post-game analysis"""
     session_id: str
     user_id: str
-    game_result: str  # "win", "loss", "draw"
+    game_result: str
     
     # Performance
     performance_rating: PerformanceRating
@@ -102,14 +122,18 @@ class PostGameAnalysis:
     habits_still_weak: List[str]
     
     # Recommendations
-    priority_focus: str  # Main thing to work on
+    priority_focus: str
     training_suggestions: List[str]
     
     # Summary
     coach_summary: str
     encouragement: str
     
-    # Optional
+    # Fields with defaults must come last
+    # MEMORY-BASED PERSONALIZATION
+    memory_insights: List[MemoryInsight] = field(default_factory=list)
+    games_together: int = 0
+    coach_knows_you: bool = False
     opening_to_learn: Optional[str] = None
 
 
@@ -125,57 +149,67 @@ async def analyze_postgame(
     time_controls: Optional[Dict] = None
 ) -> PostGameAnalysis:
     """
-    Perform comprehensive post-game analysis.
+    Perform comprehensive post-game analysis WITH MEMORY INTEGRATION.
     
-    Args:
-        db: Database connection
-        session_id: Game session ID
-        user_id: User ID
-        move_history: List of moves with metadata
-        evaluations: Position evaluations for each move
-        game_result: "win", "loss", "draw"
-        user_rating: User's actual rating
-        user_color: "white" or "black"
-        time_controls: Time spent on each move
-    
-    Returns:
-        PostGameAnalysis with all components
+    This is the key function that makes the coach feel human by:
+    1. Fetching user's history BEFORE analysis
+    2. Cross-referencing current mistakes with past patterns
+    3. Generating personalized insights based on memory
+    4. Updating memory AFTER analysis for future sessions
     """
     
-    # 1. Analyze mistakes
+    # ========== STEP 0: FETCH COACH MEMORY ==========
+    # This is what makes the coach REMEMBER the player
+    memory_context = await get_coaching_context(db, user_id)
+    memory = await get_or_create_memory(db, user_id)
+    
+    games_together = memory_context.get("games_played", 0)
+    known_weaknesses = memory_context.get("watch_for", [])
+    avg_accuracy = memory_context.get("avg_accuracy", 0)
+    avg_blunders = memory_context.get("avg_blunders", 0)
+    is_improving = memory_context.get("improving", False)
+    
+    logger.info(f"Coach memory loaded: {games_together} games, {len(known_weaknesses)} known weaknesses")
+    
+    # ========== STEP 1: ANALYZE MISTAKES ==========
     mistakes = await _analyze_mistakes(move_history, evaluations, user_color)
     
-    # 2. Calculate performance rating
+    # ========== STEP 2: CALCULATE PERFORMANCE RATING ==========
     perf_rating = _calculate_performance_rating(
-        mistakes, 
-        move_history, 
-        evaluations, 
-        user_rating,
-        game_result
+        mistakes, move_history, evaluations, user_rating, game_result
     )
     
-    # 3. Check habits against user's known weaknesses
-    habit_violations, habits_improved, habits_weak = await _check_habits(
-        db, user_id, move_history, evaluations, user_color, time_controls
+    # ========== STEP 3: CHECK HABITS WITH MEMORY ==========
+    habit_violations, habits_improved, habits_weak = await _check_habits_with_memory(
+        db, user_id, move_history, evaluations, user_color, time_controls, known_weaknesses
     )
     
-    # 4. Generate recommendations
+    # ========== STEP 4: GENERATE MEMORY INSIGHTS ==========
+    # This is what makes the coach feel like it KNOWS you
+    memory_insights = _generate_memory_insights(
+        mistakes, habit_violations, habits_improved, 
+        known_weaknesses, games_together, avg_accuracy, avg_blunders,
+        perf_rating.estimated_rating, user_rating
+    )
+    
+    # ========== STEP 5: GENERATE RECOMMENDATIONS ==========
     priority_focus, training_suggestions = _generate_recommendations(
-        mistakes, habit_violations, habits_weak, perf_rating
+        mistakes, habit_violations, habits_weak, perf_rating, known_weaknesses
     )
     
-    # 5. Determine if opening study is needed
+    # ========== STEP 6: SUGGEST OPENING ==========
     opening_to_learn = await _suggest_opening(db, user_id, move_history, user_color)
     
-    # 6. Generate coach summary and encouragement
-    summary, encouragement = _generate_summary(
-        game_result, perf_rating, mistakes, habits_improved, user_rating
+    # ========== STEP 7: GENERATE PERSONALIZED SUMMARY ==========
+    summary, encouragement = _generate_personalized_summary(
+        game_result, perf_rating, mistakes, habits_improved, 
+        user_rating, memory_insights, games_together, is_improving
     )
     
-    # 7. Calculate accuracy
-    accuracy = _calculate_accuracy(mistakes, len(move_history) // 2)
+    # ========== STEP 8: CALCULATE ACCURACY ==========
+    accuracy = _calculate_accuracy(mistakes, len([m for m in move_history if m.get("by") == "player"]))
     
-    # Count mistake types
+    # Count mistakes
     blunders = len([m for m in mistakes if m.mistake_type == MistakeType.BLUNDER])
     mistake_count = len([m for m in mistakes if m.mistake_type == MistakeType.MISTAKE])
     inaccuracies = len([m for m in mistakes if m.mistake_type == MistakeType.INACCURACY])
@@ -193,6 +227,9 @@ async def analyze_postgame(
         habit_violations=habit_violations,
         habits_improved=habits_improved,
         habits_still_weak=habits_weak,
+        memory_insights=memory_insights,
+        games_together=games_together + 1,
+        coach_knows_you=games_together >= 3,
         priority_focus=priority_focus,
         training_suggestions=training_suggestions,
         opening_to_learn=opening_to_learn,
@@ -200,13 +237,237 @@ async def analyze_postgame(
         encouragement=encouragement
     )
     
-    # Save analysis to database for future reference
+    # ========== STEP 9: SAVE ANALYSIS ==========
     await _save_analysis(db, analysis)
     
-    # Update user's habit tracking
-    await _update_habit_tracking(db, user_id, habit_violations, habits_improved)
+    # ========== STEP 10: UPDATE COACH MEMORY ==========
+    # This is critical - saves patterns for NEXT game's personalization
+    await _update_coach_memory_after_game(
+        db, user_id, game_result, accuracy, blunders, mistake_count,
+        habit_violations, habits_improved, move_history, perf_rating.estimated_rating
+    )
     
     return analysis
+
+
+def _generate_memory_insights(
+    mistakes: List[MistakeAnalysis],
+    habit_violations: List[HabitViolation],
+    habits_improved: List[str],
+    known_weaknesses: List[Dict],
+    games_together: int,
+    avg_accuracy: float,
+    avg_blunders: float,
+    perf_rating: int,
+    actual_rating: int
+) -> List[MemoryInsight]:
+    """
+    Generate personalized insights based on coach memory.
+    
+    This is what makes the coach feel HUMAN - it remembers patterns,
+    acknowledges improvement, and gives context-aware feedback.
+    """
+    insights = []
+    
+    # Count current game stats
+    current_blunders = len([m for m in mistakes if m.mistake_type == MistakeType.BLUNDER])
+    current_accuracy = 100 - (len(mistakes) * 5)  # Rough estimate
+    
+    # ===== RECURRING PATTERN CHECK =====
+    # Check if current mistakes match known weaknesses
+    for weakness in known_weaknesses:
+        weakness_name = weakness.get("name", "")
+        weakness_count = weakness.get("count", 0)
+        weakness_improving = weakness.get("improving", False)
+        
+        # Check if this weakness appeared again
+        weakness_appeared = False
+        for violation in habit_violations:
+            habit_name = violation.habit_type.value.replace("_", " ")
+            if habit_name.lower() in weakness_name.lower() or weakness_name.lower() in habit_name.lower():
+                weakness_appeared = True
+                break
+        
+        if weakness_appeared and weakness_count >= 2:
+            # This is a RECURRING pattern - the coach remembers!
+            if weakness_count >= 5:
+                msg = f"I've seen '{weakness_name}' in {weakness_count} of your games now. This is your main habit to fix."
+            elif weakness_count >= 3:
+                msg = f"'{weakness_name}' again - that's {weakness_count} times now. Let's focus on this."
+            else:
+                msg = f"We've seen '{weakness_name}' before. Stay aware of this pattern."
+            
+            insights.append(MemoryInsight(
+                insight_type="recurring_pattern",
+                message=msg,
+                pattern_name=weakness_name,
+                occurrence_count=weakness_count + 1,
+                is_improving=weakness_improving
+            ))
+    
+    # ===== IMPROVEMENT ACKNOWLEDGMENT =====
+    for habit in habits_improved:
+        habit_name = habit.replace("_", " ")
+        # Check if this was a known weakness
+        was_known = any(w.get("name", "").lower() in habit_name.lower() for w in known_weaknesses)
+        
+        if was_known:
+            msg = f"You avoided '{habit_name}' this game - that's real progress!"
+            insights.append(MemoryInsight(
+                insight_type="improvement",
+                message=msg,
+                pattern_name=habit_name,
+                is_improving=True
+            ))
+    
+    # ===== PERFORMANCE COMPARISON =====
+    if games_together >= 3:
+        if current_blunders == 0 and avg_blunders > 0.5:
+            insights.append(MemoryInsight(
+                insight_type="performance_comparison",
+                message=f"Zero blunders! You usually average {avg_blunders:.1f} per game. Excellent discipline today.",
+                is_improving=True
+            ))
+        elif current_blunders > avg_blunders + 1:
+            insights.append(MemoryInsight(
+                insight_type="performance_comparison",
+                message=f"More blunders than usual ({current_blunders} vs your avg {avg_blunders:.1f}). What happened?",
+                is_improving=False
+            ))
+        
+        # Rating performance
+        if perf_rating > actual_rating + 100:
+            insights.append(MemoryInsight(
+                insight_type="performance_comparison",
+                message=f"You played above your level today ({perf_rating} vs {actual_rating}). This is what improvement looks like!",
+                is_improving=True
+            ))
+    
+    # ===== FIRST-TIME PATTERNS =====
+    for violation in habit_violations:
+        habit_name = violation.habit_type.value.replace("_", " ")
+        is_new = not any(w.get("name", "").lower() in habit_name.lower() for w in known_weaknesses)
+        
+        if is_new and len(insights) < 4:
+            insights.append(MemoryInsight(
+                insight_type="first_time",
+                message=f"New pattern spotted: '{habit_name}'. I'll watch for this in future games.",
+                pattern_name=habit_name,
+                occurrence_count=1
+            ))
+    
+    # ===== GAMES TOGETHER MILESTONE =====
+    if games_together in [5, 10, 25, 50]:
+        insights.append(MemoryInsight(
+            insight_type="milestone",
+            message=f"This was game #{games_together} together! I'm starting to understand your style.",
+            occurrence_count=games_together
+        ))
+    
+    return insights[:5]  # Max 5 insights
+
+
+async def _check_habits_with_memory(
+    db,
+    user_id: str,
+    move_history: List[Dict],
+    evaluations: List[Dict],
+    user_color: str,
+    time_controls: Optional[Dict],
+    known_weaknesses: List[Dict]
+) -> Tuple[List[HabitViolation], List[str], List[str]]:
+    """Check for habit violations using coach memory for context."""
+    
+    violations = []
+    improved = []
+    still_weak = []
+    
+    # Get known weakness names for comparison
+    known_weakness_names = [w.get("name", "").lower() for w in known_weaknesses]
+    
+    # Check for early queen moves
+    queen_moved_early = False
+    for i, move in enumerate(move_history[:12]):
+        if move.get("by") == "player":
+            move_san = move.get("move", "")
+            if move_san.startswith("Q") and i < 10:
+                queen_moved_early = True
+                violations.append(HabitViolation(
+                    habit_type=HabitType.EARLY_QUEEN,
+                    move_number=(i // 2) + 1,
+                    description=f"Queen moved early ({move_san}). Develop minor pieces first!"
+                ))
+                break
+    
+    # Track habit status with memory
+    if any("early queen" in name or "queen" in name for name in known_weakness_names):
+        if not queen_moved_early:
+            improved.append("early_queen")
+        else:
+            still_weak.append("early_queen")
+    elif queen_moved_early:
+        still_weak.append("early_queen")
+    
+    # Check for blunders when winning (overconfidence)
+    winning_blunders = 0
+    for i, move in enumerate(move_history):
+        if move.get("by") == "player":
+            eval_before = move.get("eval_before", 0)
+            eval_after = move.get("eval_after", 0)
+            
+            # Normalize for color
+            if user_color == "black":
+                eval_before = -eval_before
+                eval_after = -eval_after
+            
+            # Was winning (>1.5) but made a big mistake
+            if eval_before > 1.5 and (eval_before - eval_after) > 1.5:
+                winning_blunders += 1
+    
+    if winning_blunders > 0:
+        violations.append(HabitViolation(
+            habit_type=HabitType.OVERCONFIDENCE,
+            move_number=0,
+            description=f"Made {winning_blunders} big mistake(s) while winning. Stay focused when ahead!"
+        ))
+        
+        if any("overconfidence" in name or "winning" in name for name in known_weakness_names):
+            still_weak.append("overconfidence")
+        else:
+            still_weak.append("overconfidence")
+    elif any("overconfidence" in name for name in known_weakness_names):
+        improved.append("overconfidence")
+    
+    # Check for one-move blunders
+    one_move_blunders = 0
+    for move in move_history:
+        if move.get("by") == "player" and move.get("missed_threat"):
+            one_move_blunders += 1
+            violations.append(HabitViolation(
+                habit_type=HabitType.ONE_MOVE_BLUNDER,
+                move_number=move.get("move_number", 0),
+                description="Missed an immediate threat from opponent"
+            ))
+    
+    if one_move_blunders == 0 and any("one move" in name or "blunder" in name for name in known_weakness_names):
+        improved.append("one_move_blunder")
+    elif one_move_blunders > 0:
+        still_weak.append("one_move_blunder")
+    
+    # Check time management
+    if time_controls:
+        fast_moves = sum(1 for t in time_controls.values() if t < 3)
+        if fast_moves > 5:
+            violations.append(HabitViolation(
+                habit_type=HabitType.IMPATIENCE,
+                move_number=0,
+                description=f"Made {fast_moves} moves in under 3 seconds each. Slow down!"
+            ))
+            still_weak.append("impatience")
+        elif any("impatience" in name or "time" in name for name in known_weakness_names):
+            improved.append("impatience")
+    
+    return violations, improved, still_weak
 
 
 async def _analyze_mistakes(
@@ -217,7 +478,7 @@ async def _analyze_mistakes(
     """Analyze all mistakes in the game using stored evaluations."""
     mistakes = []
     
-    # Build evaluation lookup by move number (evaluations only contain player moves)
+    # Build evaluation lookup
     eval_by_move = {}
     for ev in evaluations:
         if ev.get("by") == "player":
@@ -228,30 +489,27 @@ async def _analyze_mistakes(
         if move.get("by") != "player":
             continue
         
-        # Get evaluation data from the move itself or from evaluations list
         eval_before = move.get("eval_before", 0)
         eval_after = move.get("eval_after", 0)
         
-        # Also check evaluations list if move doesn't have eval data
-        move_num = (i // 2) + 1  # Calculate move number
+        # Also check evaluations list
+        move_num = (i // 2) + 1
         if eval_before == 0 and eval_after == 0 and move_num in eval_by_move:
             ev = eval_by_move[move_num]
             eval_before = ev.get("eval_before", 0)
             eval_after = ev.get("eval_after", 0)
         
-        # Skip if no evaluation data
         if eval_before == 0 and eval_after == 0:
             continue
         
-        # Normalize scores for black (negative is good for black)
+        # Normalize for black
         if user_color == "black":
             eval_before = -eval_before
             eval_after = -eval_after
         
-        # Calculate centipawn loss (in pawns)
         eval_change = eval_after - eval_before
         
-        # Classify mistake based on centipawn loss
+        # Classify mistake
         if eval_change < -2.0:
             mistake_type = MistakeType.BLUNDER
             severity = "critical"
@@ -265,9 +523,8 @@ async def _analyze_mistakes(
             severity = "minor"
             explanation = f"Small inaccuracy - lost {abs(eval_change):.1f} pawns."
         else:
-            continue  # Good move, skip
+            continue
         
-        # Get better move suggestion
         better_move = move.get("best_move")
         
         mistakes.append(MistakeAnalysis(
@@ -291,9 +548,8 @@ def _calculate_performance_rating(
     user_rating: int,
     game_result: str
 ) -> PerformanceRating:
-    """Calculate estimated performance rating based on move quality."""
+    """Calculate estimated performance rating."""
     
-    # Base rating adjustment based on mistake count
     user_moves = len([m for m in move_history if m.get("by") == "player"])
     if user_moves == 0:
         user_moves = 1
@@ -302,23 +558,18 @@ def _calculate_performance_rating(
     mistake_count = len([m for m in mistakes if m.mistake_type == MistakeType.MISTAKE])
     inaccuracies = len([m for m in mistakes if m.mistake_type == MistakeType.INACCURACY])
     
-    # Calculate error rate
     error_rate = (blunders * 3 + mistake_count * 2 + inaccuracies) / user_moves
     
-    # Base performance estimate
-    # 0 errors = +200 from rating, 1 error per 10 moves = at rating, more = below
     rating_adjustment = int((0.1 - error_rate) * 1000)
-    rating_adjustment = max(-400, min(300, rating_adjustment))  # Cap adjustment
+    rating_adjustment = max(-400, min(300, rating_adjustment))
     
     estimated = user_rating + rating_adjustment
     
-    # Adjust for game result
     if game_result == "win":
         estimated += 50
     elif game_result == "loss":
         estimated -= 50
     
-    # Determine confidence
     if user_moves >= 30:
         confidence = "high"
     elif user_moves >= 15:
@@ -326,7 +577,6 @@ def _calculate_performance_rating(
     else:
         confidence = "low"
     
-    # Comparison
     diff = estimated - user_rating
     if diff > 100:
         comparison = "above"
@@ -335,7 +585,6 @@ def _calculate_performance_rating(
     else:
         comparison = "at"
     
-    # Key factors
     factors = []
     if blunders == 0:
         factors.append("No blunders - excellent discipline!")
@@ -356,101 +605,46 @@ def _calculate_performance_rating(
     )
 
 
-async def _check_habits(
-    db,
-    user_id: str,
-    move_history: List[Dict],
-    evaluations: List[Dict],
-    user_color: str,
-    time_controls: Optional[Dict]
-) -> tuple[List[HabitViolation], List[str], List[str]]:
-    """Check for habit violations and improvements."""
-    
-    # Get user's known weaknesses from memory
-    user_memory = await db.user_memory.find_one({"user_id": user_id})
-    known_weaknesses = user_memory.get("weaknesses", []) if user_memory else []
-    
-    violations = []
-    improved = []
-    still_weak = []
-    
-    # Check for early queen moves
-    queen_moved_early = False
-    for i, move in enumerate(move_history[:12]):  # First 6 moves per side
-        if move.get("by") == "player":
-            move_san = move.get("move", "")
-            if move_san.startswith("Q") and i < 10:
-                queen_moved_early = True
-                violations.append(HabitViolation(
-                    habit_type=HabitType.EARLY_QUEEN,
-                    move_number=(i // 2) + 1,
-                    description=f"Queen moved early ({move_san}). Develop minor pieces first!"
-                ))
-                break
-    
-    # Track habit status
-    if "early_queen" in known_weaknesses:
-        if not queen_moved_early:
-            improved.append("early_queen")
-        else:
-            still_weak.append("early_queen")
-    elif queen_moved_early:
-        still_weak.append("early_queen")
-    
-    # Check for one-move blunders (missing immediate threats)
-    for i, move in enumerate(move_history):
-        if move.get("by") == "player" and move.get("missed_threat"):
-            violations.append(HabitViolation(
-                habit_type=HabitType.ONE_MOVE_BLUNDER,
-                move_number=(i // 2) + 1,
-                description="Missed an immediate threat from opponent"
-            ))
-    
-    # Check time management if data available
-    if time_controls:
-        fast_moves = sum(1 for t in time_controls.values() if t < 3)
-        if fast_moves > 5:
-            violations.append(HabitViolation(
-                habit_type=HabitType.IMPATIENCE,
-                move_number=0,
-                description=f"Made {fast_moves} moves in under 3 seconds each. Slow down!"
-            ))
-            still_weak.append("impatience")
-    
-    return violations, improved, still_weak
-
-
 def _generate_recommendations(
     mistakes: List[MistakeAnalysis],
     habit_violations: List[HabitViolation],
     habits_weak: List[str],
-    perf_rating: PerformanceRating
-) -> tuple[str, List[str]]:
-    """Generate personalized recommendations."""
+    perf_rating: PerformanceRating,
+    known_weaknesses: List[Dict]
+) -> Tuple[str, List[str]]:
+    """Generate personalized recommendations based on memory."""
     
     suggestions = []
     priority = "general_improvement"
     
-    # Analyze mistake patterns
     blunders = [m for m in mistakes if m.mistake_type == MistakeType.BLUNDER]
+    
+    # Check for recurring weaknesses first (memory-based)
+    recurring = [w for w in known_weaknesses if w.get("count", 0) >= 3]
+    if recurring:
+        worst = max(recurring, key=lambda w: w.get("count", 0))
+        priority = f"fixing_{worst.get('name', 'habit').replace(' ', '_').lower()}"
+        suggestions.append(f"Priority: Fix '{worst.get('name')}' - it's appeared {worst.get('count')} times")
     
     if len(blunders) >= 2:
         priority = "reducing_blunders"
-        suggestions.append("Practice tactics puzzles for 15 minutes daily - your blunder rate is too high")
+        suggestions.append("Practice tactics puzzles for 15 minutes daily")
         suggestions.append("Before each move, ask: 'What is my opponent threatening?'")
     
-    # Habit-based recommendations
     if "early_queen" in habits_weak:
         suggestions.append("Focus on developing knights and bishops before the queen")
     
     if "impatience" in habits_weak:
         suggestions.append("Set a rule: spend at least 10 seconds on each move")
-        priority = "time_management"
+        if priority == "general_improvement":
+            priority = "time_management"
+    
+    if "overconfidence" in habits_weak:
+        suggestions.append("When ahead, ask yourself: 'What could go wrong?'")
     
     if "one_move_blunder" in habits_weak:
         suggestions.append("Practice 'blunder check' - verify your move doesn't hang a piece")
     
-    # Performance-based recommendations
     if perf_rating.comparison_to_actual == "below":
         suggestions.append("Consider playing longer time controls to improve accuracy")
     
@@ -460,7 +654,84 @@ def _generate_recommendations(
             "Try analyzing your games to find patterns in your play"
         ]
     
-    return priority, suggestions[:4]  # Max 4 suggestions
+    return priority, suggestions[:4]
+
+
+def _generate_personalized_summary(
+    game_result: str,
+    perf_rating: PerformanceRating,
+    mistakes: List[MistakeAnalysis],
+    habits_improved: List[str],
+    user_rating: int,
+    memory_insights: List[MemoryInsight],
+    games_together: int,
+    is_overall_improving: bool
+) -> Tuple[str, str]:
+    """Generate personalized summary using memory insights."""
+    
+    blunders = len([m for m in mistakes if m.mistake_type == MistakeType.BLUNDER])
+    
+    # Build summary
+    summary_parts = []
+    
+    # Performance comparison
+    if perf_rating.comparison_to_actual == "above":
+        summary_parts.append(f"You played like a {perf_rating.estimated_rating} player today - above your {user_rating} rating!")
+    elif perf_rating.comparison_to_actual == "below":
+        summary_parts.append(f"This was a bit below your usual level ({perf_rating.estimated_rating} vs {user_rating}).")
+    else:
+        summary_parts.append(f"Solid performance at your level ({perf_rating.estimated_rating}).")
+    
+    # Blunder comment
+    if blunders == 0:
+        summary_parts.append("No blunders - excellent discipline!")
+    elif blunders == 1:
+        summary_parts.append("One blunder to learn from.")
+    else:
+        summary_parts.append(f"{blunders} blunders to work on.")
+    
+    # Add memory insight if available
+    for insight in memory_insights:
+        if insight.insight_type == "recurring_pattern":
+            summary_parts.append(insight.message)
+            break
+        elif insight.insight_type == "improvement":
+            summary_parts.append(insight.message)
+            break
+    
+    # Habits improved
+    if habits_improved:
+        habit_names = {
+            "early_queen": "early queen moves",
+            "impatience": "rushing",
+            "overconfidence": "overconfidence",
+            "one_move_blunder": "one-move blunders"
+        }
+        improved_text = ", ".join(habit_names.get(h, h.replace("_", " ")) for h in habits_improved)
+        summary_parts.append(f"Good news: you avoided {improved_text} this game!")
+    
+    summary = " ".join(summary_parts[:4])
+    
+    # Generate encouragement based on context
+    if game_result == "win":
+        if is_overall_improving:
+            encouragement = "You're on an upward trend! Keep this momentum going."
+        elif perf_rating.comparison_to_actual == "above":
+            encouragement = "Brilliant game! This is your true potential."
+        else:
+            encouragement = "A win is a win! Nice job closing out the game."
+    elif game_result == "loss":
+        if blunders > 0:
+            encouragement = "Losses are lessons. Let's review those blunders and turn them into wins."
+        else:
+            encouragement = "Close game! You played well but chess is tough. Keep grinding!"
+    else:
+        if games_together >= 5:
+            encouragement = "Solid draw. I'm watching your patterns - you're getting more consistent."
+        else:
+            encouragement = "A solid draw. Every game teaches something."
+    
+    return summary, encouragement
 
 
 async def _suggest_opening(
@@ -470,73 +741,27 @@ async def _suggest_opening(
     user_color: str
 ) -> Optional[str]:
     """Suggest an opening to learn based on game and history."""
-    from services.opening_mastery import detect_opening_from_moves, OPENING_DATABASE
-    
-    moves = [m.get("move", "") for m in move_history if m.get("move")]
-    opening_info = detect_opening_from_moves(moves[:10])  # Check first 10 moves
-    
-    if opening_info:
-        opening_key = opening_info.get("opening_key")
-        opening = OPENING_DATABASE.get(opening_key)
-        if opening and opening.variations:
-            # Check if user knows this opening
-            progress = await db.user_opening_progress.find_one({
-                "user_id": user_id,
-                "opening_name": opening.name
-            })
-            
-            if not progress or progress.get("mastery_level") in ["unknown", "introduced"]:
-                return f"Learn the {opening.name} - you played it but may not know the key ideas!"
+    try:
+        from services.opening_mastery import detect_opening_from_moves, OPENING_DATABASE
+        
+        moves = [m.get("move", "") for m in move_history if m.get("move")]
+        opening_info = detect_opening_from_moves(moves[:10])
+        
+        if opening_info:
+            opening_key = opening_info.get("opening_key")
+            opening = OPENING_DATABASE.get(opening_key)
+            if opening and opening.variations:
+                progress = await db.user_opening_progress.find_one({
+                    "user_id": user_id,
+                    "opening_name": opening.name
+                })
+                
+                if not progress or progress.get("mastery_level") in ["unknown", "introduced"]:
+                    return f"Learn the {opening.name} - you played it but may not know the key ideas!"
+    except Exception as e:
+        logger.warning(f"Opening suggestion error: {e}")
     
     return None
-
-
-def _generate_summary(
-    game_result: str,
-    perf_rating: PerformanceRating,
-    mistakes: List[MistakeAnalysis],
-    habits_improved: List[str],
-    user_rating: int
-) -> tuple[str, str]:
-    """Generate coach summary and encouragement."""
-    
-    blunders = len([m for m in mistakes if m.mistake_type == MistakeType.BLUNDER])
-    
-    # Summary
-    if perf_rating.comparison_to_actual == "above":
-        summary = f"You played like a {perf_rating.estimated_rating} player today - that's above your rating of {user_rating}! "
-    elif perf_rating.comparison_to_actual == "below":
-        summary = f"This game was a bit below your usual level ({perf_rating.estimated_rating} vs your {user_rating} rating). "
-    else:
-        summary = f"You played right at your level ({perf_rating.estimated_rating}). "
-    
-    if blunders == 0:
-        summary += "No blunders - excellent discipline! "
-    elif blunders == 1:
-        summary += "One blunder to learn from. "
-    else:
-        summary += f"{blunders} blunders - let's work on reducing these. "
-    
-    if habits_improved:
-        habit_names = {"early_queen": "early queen moves", "impatience": "rushing"}
-        improved_text = ", ".join(habit_names.get(h, h) for h in habits_improved)
-        summary += f"Great news: you avoided {improved_text} this game!"
-    
-    # Encouragement based on result and performance
-    if game_result == "win":
-        if perf_rating.comparison_to_actual == "above":
-            encouragement = "Brilliant game! You're definitely improving. Keep this up!"
-        else:
-            encouragement = "A win is a win! Nice job closing out the game."
-    elif game_result == "loss":
-        if blunders > 0:
-            encouragement = "Losses are lessons. Let's review those blunders and turn them into wins next time."
-        else:
-            encouragement = "Close game! You played well but chess is tough. Keep grinding!"
-    else:
-        encouragement = "A solid draw. Every game teaches something - what did you learn from this one?"
-    
-    return summary, encouragement
 
 
 def _calculate_accuracy(mistakes: List[MistakeAnalysis], total_moves: int) -> float:
@@ -551,7 +776,6 @@ def _calculate_accuracy(mistakes: List[MistakeAnalysis], total_moves: int) -> fl
         for m in mistakes
     )
     
-    # Each move can contribute up to 3 error points, so max = total_moves * 3
     max_error = total_moves * 3
     accuracy = max(0, (1 - (error_points / max_error))) * 100
     
@@ -559,7 +783,7 @@ def _calculate_accuracy(mistakes: List[MistakeAnalysis], total_moves: int) -> fl
 
 
 async def _save_analysis(db, analysis: PostGameAnalysis):
-    """Save analysis to database for future reference."""
+    """Save analysis to database."""
     doc = {
         "session_id": analysis.session_id,
         "user_id": analysis.user_id,
@@ -571,49 +795,65 @@ async def _save_analysis(db, analysis: PostGameAnalysis):
         "inaccuracies": analysis.total_inaccuracies,
         "habits_improved": analysis.habits_improved,
         "habits_weak": analysis.habits_still_weak,
+        "memory_insights": [asdict(i) for i in analysis.memory_insights],
+        "games_together": analysis.games_together,
         "created_at": datetime.now(timezone.utc)
     }
     
-    await db.game_analyses.update_one(
+    await db.postgame_analyses.update_one(
         {"session_id": analysis.session_id},
         {"$set": doc},
         upsert=True
     )
 
 
-async def _update_habit_tracking(
+async def _update_coach_memory_after_game(
     db,
     user_id: str,
-    violations: List[HabitViolation],
-    improved: List[str]
+    game_result: str,
+    accuracy: float,
+    blunders: int,
+    mistakes: int,
+    habit_violations: List[HabitViolation],
+    habits_improved: List[str],
+    move_history: List[Dict],
+    performance_rating: int
 ):
-    """Update user's habit tracking in memory."""
+    """
+    Update coach memory after game analysis.
     
-    # Get current memory
-    memory = await db.user_memory.find_one({"user_id": user_id})
-    if not memory:
-        memory = {"user_id": user_id, "weaknesses": [], "strengths": [], "habit_history": []}
+    This is CRITICAL for making the coach remember patterns across games.
+    """
+    # Extract habit IDs that were violated
+    habits_violated = [v.habit_type.value for v in habit_violations]
     
-    weaknesses = set(memory.get("weaknesses", []))
-    strengths = set(memory.get("strengths", []))
+    # Check if opening was played
+    opening_played = None
+    try:
+        from services.opening_mastery import detect_opening_from_moves
+        moves = [m.get("move", "") for m in move_history if m.get("move")]
+        opening_info = detect_opening_from_moves(moves[:10])
+        if opening_info:
+            opening_played = opening_info.get("opening_name")
+    except:
+        pass
     
-    # Add new weaknesses from violations
-    for v in violations:
-        weaknesses.add(v.habit_type.value)
+    # Check if endgame was reached (roughly, if game went >40 moves and few pieces left)
+    endgame_reached = len(move_history) > 80  # 40 moves each side
     
-    # Track improvements
-    for habit in improved:
-        # If improved 3 games in a row, move to strength
-        # For now, just remove from weaknesses
-        if habit in weaknesses:
-            weaknesses.discard(habit)
-    
-    await db.user_memory.update_one(
-        {"user_id": user_id},
-        {"$set": {
-            "weaknesses": list(weaknesses),
-            "strengths": list(strengths),
-            "last_analysis": datetime.now(timezone.utc).isoformat()
-        }},
-        upsert=True
+    # Call the coach memory update function
+    await update_memory_after_game(
+        db=db,
+        user_id=user_id,
+        game_result=game_result,
+        accuracy=accuracy,
+        blunders=blunders,
+        mistakes=mistakes,
+        habits_violated=habits_violated,
+        habits_improved=habits_improved,
+        opening_played=opening_played,
+        endgame_reached=endgame_reached,
+        performance_rating=performance_rating
     )
+    
+    logger.info(f"Coach memory updated for user {user_id}: result={game_result}, blunders={blunders}, habits_violated={habits_violated}")

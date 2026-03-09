@@ -273,6 +273,101 @@ const Recommendations = ({ recommendations }) => {
 };
 
 /**
+ * Coach Memory Insights - Shows personalized insights based on history
+ * This is what makes the coach feel HUMAN - it remembers patterns
+ */
+const CoachMemoryInsights = ({ memory }) => {
+  if (!memory || !memory.insights?.length) return null;
+  
+  const getInsightStyle = (type) => {
+    switch (type) {
+      case "recurring_pattern":
+        return { 
+          bg: "bg-orange-500/10", 
+          border: "border-orange-500/20", 
+          icon: AlertTriangle,
+          iconColor: "text-orange-400"
+        };
+      case "improvement":
+        return { 
+          bg: "bg-green-500/10", 
+          border: "border-green-500/20", 
+          icon: TrendingUp,
+          iconColor: "text-green-400"
+        };
+      case "performance_comparison":
+        return { 
+          bg: "bg-blue-500/10", 
+          border: "border-blue-500/20", 
+          icon: Brain,
+          iconColor: "text-blue-400"
+        };
+      case "milestone":
+        return { 
+          bg: "bg-purple-500/10", 
+          border: "border-purple-500/20", 
+          icon: Star,
+          iconColor: "text-purple-400"
+        };
+      default:
+        return { 
+          bg: "bg-muted/20", 
+          border: "border-border", 
+          icon: Lightbulb,
+          iconColor: "text-muted-foreground"
+        };
+    }
+  };
+  
+  return (
+    <div className="space-y-3" data-testid="coach-memory-insights">
+      <h4 className="text-sm font-medium flex items-center gap-2">
+        <Brain className="w-4 h-4 text-primary" />
+        Coach Memory
+        {memory.games_together > 0 && (
+          <span className="text-xs text-muted-foreground ml-auto">
+            Game #{memory.games_together}
+          </span>
+        )}
+      </h4>
+      
+      {memory.coach_knows_you && (
+        <p className="text-xs text-muted-foreground italic">
+          I&apos;m starting to understand your style...
+        </p>
+      )}
+      
+      <div className="space-y-2">
+        {memory.insights.map((insight, i) => {
+          const style = getInsightStyle(insight.type);
+          const Icon = style.icon;
+          
+          return (
+            <div 
+              key={i} 
+              className={`p-3 rounded-lg ${style.bg} border ${style.border}`}
+              data-testid={`memory-insight-${insight.type}`}
+            >
+              <div className="flex items-start gap-2">
+                <Icon className={`w-4 h-4 ${style.iconColor} mt-0.5 flex-shrink-0`} />
+                <div className="flex-1">
+                  <p className="text-sm">{insight.message}</p>
+                  {insight.pattern && insight.count > 1 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Pattern: {insight.pattern} ({insight.count} times)
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+/**
  * Main PostGameLesson Component - Enhanced with full analysis
  */
 const PostGameLesson = ({ 
@@ -366,6 +461,11 @@ const PostGameLesson = ({
           <p className="text-sm">{analysis.coach_summary}</p>
           <p className="text-sm text-primary mt-2 font-medium">{analysis.encouragement}</p>
         </div>
+
+        {/* COACH MEMORY INSIGHTS - The key personalization */}
+        {analysis.memory && (
+          <CoachMemoryInsights memory={analysis.memory} />
+        )}
 
         {/* Accuracy Bar */}
         <div>

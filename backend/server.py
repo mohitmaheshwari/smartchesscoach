@@ -10061,7 +10061,7 @@ async def get_postgame_analysis(
             time_controls=session_doc.get("time_controls")
         )
         
-        # Convert to dict for JSON response
+        # Convert to dict for JSON response - includes MEMORY INSIGHTS
         result = {
             "session_id": analysis.session_id,
             "game_result": analysis.game_result,
@@ -10085,7 +10085,7 @@ async def get_postgame_analysis(
                         "explanation": m.explanation,
                         "better_move": m.better_move
                     }
-                    for m in analysis.mistakes[:5]  # Top 5 mistakes
+                    for m in analysis.mistakes[:5]
                 ]
             },
             "habits": {
@@ -10099,6 +10099,21 @@ async def get_postgame_analysis(
                 ],
                 "improved": analysis.habits_improved,
                 "still_weak": analysis.habits_still_weak
+            },
+            # MEMORY INSIGHTS - This is what makes the coach feel human
+            "memory": {
+                "games_together": analysis.games_together,
+                "coach_knows_you": analysis.coach_knows_you,
+                "insights": [
+                    {
+                        "type": insight.insight_type,
+                        "message": insight.message,
+                        "pattern": insight.pattern_name,
+                        "count": insight.occurrence_count,
+                        "improving": insight.is_improving
+                    }
+                    for insight in analysis.memory_insights
+                ]
             },
             "recommendations": {
                 "priority": analysis.priority_focus,
