@@ -399,6 +399,34 @@ class HumanCoachService:
             - expects_response: True (waiting for student input)
             - emotional_adaptation: How message was adapted for emotion
         """
+        # Input validation
+        if not fen or not fen.strip():
+            return {
+                "error": "fen is required",
+                "message": "I need to see the position to help you. What position were we looking at?",
+                "dialogue_id": None,
+                "state": "error",
+                "expects_response": False
+            }
+        
+        if not move_played or not move_played.strip():
+            return {
+                "error": "move_played is required",
+                "message": "What move did you play? I'd like to understand your thinking.",
+                "dialogue_id": None,
+                "state": "error",
+                "expects_response": False
+            }
+        
+        if not best_move or not best_move.strip():
+            return {
+                "error": "best_move is required",
+                "message": "Let me analyze the position first to find the best move.",
+                "dialogue_id": None,
+                "state": "error",
+                "expects_response": False
+            }
+        
         from services.socratic_engine import create_socratic_dialogue
         
         # Start Socratic dialogue
