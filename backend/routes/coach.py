@@ -765,3 +765,140 @@ async def analyze_game_phase(
         "black_material": phase_info.black_material,
         "coaching": coaching
     }
+
+
+
+@router.post("/analyze/structure")
+async def analyze_pawn_structure(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Analyze pawn structure for a position.
+    
+    Request body:
+        {"fen": "...", "for_color": "white"}
+    
+    Returns:
+        - Structure type and name
+        - Plans for both sides
+        - Pawn features (isolated, doubled, passed, etc.)
+        - Outposts and weak squares
+        - Teaching content
+    """
+    import chess
+    from services.pawn_structure_service import PawnStructureClassifier, get_structure_teaching
+    
+    fen = request.get("fen", chess.STARTING_FEN)
+    for_color = request.get("for_color", "white")
+    
+    try:
+        board = chess.Board(fen)
+    except Exception as e:
+        return {"error": f"Invalid FEN: {str(e)}"}
+    
+    classifier = PawnStructureClassifier()
+    analysis = classifier.analyze(board)
+    teaching = get_structure_teaching(analysis, for_color)
+    
+    return {
+        "structure_type": analysis.structure_type.value,
+        "structure_name": analysis.structure_name,
+        "confidence": round(analysis.confidence, 2),
+        "white_pawns": analysis.white_pawns,
+        "black_pawns": analysis.black_pawns,
+        "features": [
+            {
+                "type": f.type,
+                "square": f.square,
+                "color": f.color,
+                "description": f.description,
+                "is_weakness": f.is_weakness,
+                "teaching_note": f.teaching_note
+            }
+            for f in analysis.features
+        ],
+        "isolated_pawns": analysis.isolated_pawns,
+        "doubled_pawns": analysis.doubled_pawns,
+        "passed_pawns": analysis.passed_pawns,
+        "pawn_chains": analysis.pawn_chains,
+        "outposts": analysis.outposts,
+        "weak_squares": analysis.weak_squares,
+        "white_plans": analysis.white_plans,
+        "black_plans": analysis.black_plans,
+        "teaching": teaching
+    }
+
+
+@router.post("/analyze/position")
+async def analyze_position_complete(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Complete position analysis combining phase, structure, and teaching.
+    
+    Request body:
+        {"fen": "...", "for_color": "white"}
+    
+    Returns:
+        Combined analysis with phase, structure, and coaching
+    """
+    import chess
+    from services.game_phase_service import GamePhaseCalculator, get_phase_coaching
+    from services.pawn_structure_service import PawnStructureClassifier, get_structure_teaching
+    
+    fen = request.get("fen", chess.STARTING_FEN)
+    for_color = request.get("for_color", "white")
+    
+    try:
+        board = chess.Board(fen)
+    except Exception as e:
+        return {"error": f"Invalid FEN: {str(e)}"}
+    
+    # Phase analysis
+    phase_calc = GamePhaseCalculator()
+    phase_info = phase_calc.calculate_phase(board)
+    phase_coaching = get_phase_coaching(phase_info)
+    
+    # Structure analysis
+    structure_classifier = PawnStructureClassifier()
+    structure_analysis = structure_classifier.analyze(board)
+    structure_teaching = get_structure_teaching(structure_analysis, for_color)
+    
+    return {
+        "fen": fen,
+        "for_color": for_color,
+        
+        # Phase info
+        "phase": {
+            "percent": phase_info.phase_percent,
+            "label": phase_info.phase_label.value,
+            "endgame_type": phase_info.endgame_type.value if phase_info.phase_percent >= 50 else None
+        },
+        
+        # Structure info
+        "structure": {
+            "type": structure_analysis.structure_type.value,
+            "name": structure_analysis.structure_name,
+            "confidence": round(structure_analysis.confidence, 2)
+        },
+        
+        # Key features
+        "features": {
+            "isolated_pawns": structure_analysis.isolated_pawns,
+            "passed_pawns": structure_analysis.passed_pawns,
+            "outposts": structure_analysis.outposts,
+            "weak_squares": structure_analysis.weak_squares
+        },
+        
+        # Teaching content
+        "teaching": {
+            "phase_priorities": phase_coaching.get("priorities", [])[:3],
+            "your_plans": structure_teaching["your_plans"][:3],
+            "opponent_plans": structure_teaching["opponent_plans"][:2],
+            "key_concepts": structure_teaching["key_concepts"][:2],
+            "common_mistakes": structure_teaching["common_mistakes"][:2],
+            "endgame_concepts": phase_coaching.get("endgame_concepts", [])[:2]
+        }
+    }

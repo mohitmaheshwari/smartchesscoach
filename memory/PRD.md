@@ -200,6 +200,21 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
   - Endgame-specific teaching content (concepts, techniques, common mistakes)
 - **New endpoint**: `POST /api/coach/analyze/phase` - Returns phase info + coaching content for any position
 
+### 15. Pawn Structure Classifier ✅ (NEW)
+- **Created**: `services/pawn_structure_service.py`
+- **Structure Types**: Sicilian (Scheveningen, Najdorf, Dragon), French (Advance, Exchange), Caro-Kann, King's Indian, Grünfeld, Benoni, IQP, Hanging Pawns, Carlsbad, etc.
+- **Features**:
+  - Pawn structure classification with confidence scores
+  - Feature detection (isolated, doubled, backward, passed pawns)
+  - Pawn chain identification
+  - Outpost and weak square detection
+  - Structure → Plans mapping for both sides
+  - Piece placement recommendations
+  - Teaching content (key concepts, common mistakes, famous examples)
+- **New endpoints**:
+  - `POST /api/coach/analyze/structure` - Structure analysis
+  - `POST /api/coach/analyze/position` - Combined phase + structure + teaching
+
 ## Database Collections
 
 | Collection | Count | Purpose |

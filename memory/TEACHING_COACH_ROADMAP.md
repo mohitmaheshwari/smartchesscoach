@@ -16,11 +16,26 @@ Build an AI coach that TEACHES like a human coach - not defeating you, but activ
   - Endgame teaching database (Lucena, Philidor, Opposition, etc.)
 - **Endpoint**: `POST /api/coach/analyze/phase`
 
+### 2. Pawn Structure Classifier
+- **File**: `/app/backend/services/pawn_structure_service.py`
+- **Features**:
+  - 25+ structure types (Sicilian, French, KID, IQP, etc.)
+  - Pawn feature detection (isolated, doubled, backward, passed)
+  - Outpost and weak square identification
+  - Structure → Plans mapping for both sides
+  - Teaching content (concepts, mistakes, famous examples)
+- **Endpoints**: 
+  - `POST /api/coach/analyze/structure`
+  - `POST /api/coach/analyze/position` (combined analysis)
+
 ---
 
 ## TO BUILD 🔨
 
-### Priority 1: Teaching Move Selector
+### Priority 1: Pawn Structure Classifier ✅ DONE
+Built with 25+ structure types, feature detection, and teaching content.
+
+### Priority 2: Teaching Move Selector
 **Goal**: Coach selects moves that CREATE learning opportunities, not just best moves.
 
 ```
@@ -37,7 +52,10 @@ Features:
 └── Generate explanation of WHY this move was chosen
 ```
 
-### Priority 2: Position Teaching Engine (CUS)
+### Priority 2: Enhanced Tactical Pattern Detector ✅ EXISTS (needs enhancement)
+Existing in `position_strategy_analyzer.py` - needs pin/skewer/discovered attack additions.
+
+### Priority 3: Move Effect Analyzer
 **Goal**: For any position, know WHAT to teach.
 
 ```
@@ -210,7 +228,7 @@ Features:
 
 ### Week 1: Core Teaching Infrastructure
 1. ✅ Game Phase Calculator (DONE)
-2. 🔨 Pawn Structure Classifier
+2. ✅ Pawn Structure Classifier (DONE)
 3. 🔨 Enhanced Tactical Pattern Detector
 4. 🔨 Move Effect Analyzer
 
