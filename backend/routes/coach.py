@@ -1834,3 +1834,381 @@ async def get_session_summary(
         "summary": summary,
         "total_sessions": coach.memory.total_sessions + 1
     }
+
+
+
+# ==================== OPENING MASTERY SYSTEM ====================
+
+@router.get("/openings/available")
+async def get_available_openings_list(user: User = Depends(get_current_user)):
+    """
+    Get list of all openings available to learn.
+    
+    Returns:
+        List of openings with name, description, character, traps count.
+    """
+    from services.opening_mastery import get_available_openings
+    
+    return {"openings": get_available_openings()}
+
+
+@router.get("/openings/{opening_key}")
+async def get_opening_details_endpoint(
+    opening_key: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get full details of a specific opening.
+    
+    Returns:
+        Opening details with variations, traps, key ideas.
+    """
+    from services.opening_mastery import get_opening_details
+    
+    details = get_opening_details(opening_key)
+    if not details:
+        raise HTTPException(status_code=404, detail="Opening not found")
+    
+    return details
+
+
+@router.post("/openings/detect")
+async def detect_opening_from_game(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Detect which opening is being played from moves.
+    
+    Request body:
+        {"moves": ["e4", "e5", "Nf3", "Nc6", "Bc4"]}
+    
+    Returns:
+        Opening info if detected, with available teaching options.
+    """
+    from services.opening_mastery import detect_opening_from_moves, OpeningTeacher, get_user_opening_progress
+    
+    moves = request.get("moves", [])
+    if not moves:
+        return {"detected": False, "message": "No moves provided"}
+    
+    opening_info = detect_opening_from_moves(moves)
+    if not opening_info:
+        return {
+            "detected": False,
+            "message": "Opening not recognized yet. Keep playing!",
+            "moves_played": len(moves)
+        }
+    
+    # Check user's progress with this opening
+    progress = await get_user_opening_progress(db, user.user_id, opening_info["opening_name"])
+    
+    # Get teaching introduction
+    teacher = OpeningTeacher(opening_info["opening_key"], progress)
+    intro = teacher.get_introduction()
+    
+    return {
+        "detected": True,
+        "opening": opening_info,
+        "user_knows_opening": progress is not None and progress.mastery_level.value != "unknown",
+        "teaching_options": intro.get("options", []),
+        "introduction_message": intro.get("message", ""),
+        "has_traps": opening_info.get("has_traps", False),
+        "trap_names": opening_info.get("trap_names", [])
+    }
+
+
+@router.post("/openings/teach/start")
+async def start_opening_teaching(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Start teaching an opening (main line or trap).
+    
+    Request body:
+        {
+            "opening_key": "italian_game",
+            "mode": "main_line" | "trap",
+            "trap_index": 0  # Optional, for trap mode
+        }
+    
+    Returns:
+        Teaching session info with first instruction.
+    """
+    from services.opening_mastery import (
+        OpeningTeacher, 
+        get_user_opening_progress, 
+        update_user_opening_progress,
+        UserOpeningProgress,
+        MasteryLevel
+    )
+    from datetime import datetime, timezone
+    
+    opening_key = request.get("opening_key")
+    mode = request.get("mode", "main_line")
+    trap_index = request.get("trap_index", 0)
+    
+    if not opening_key:
+        raise HTTPException(status_code=400, detail="opening_key is required")
+    
+    # Get or create user progress
+    progress = await get_user_opening_progress(db, user.user_id, opening_key)
+    if not progress:
+        # First time learning this opening
+        from services.opening_mastery import OPENING_DATABASE
+        opening_data = OPENING_DATABASE.get(opening_key)
+        if not opening_data:
+            raise HTTPException(status_code=404, detail="Opening not found")
+        
+        progress = UserOpeningProgress(
+            user_id=user.user_id,
+            opening_name=opening_data.name,
+            mastery_level=MasteryLevel.INTRODUCED,
+            introduced_at=datetime.now(timezone.utc),
+            last_practiced_at=datetime.now(timezone.utc),
+            times_practiced=0,
+            times_applied_in_games=0,
+            correct_applications=0,
+            traps_learned=[],
+            variations_learned=[],
+            quiz_scores=[],
+            notes=""
+        )
+        await update_user_opening_progress(db, progress)
+    
+    # Create teacher and start teaching
+    teacher = OpeningTeacher(opening_key, progress)
+    
+    if mode == "trap":
+        result = teacher.start_trap_teaching(trap_index)
+    else:
+        result = teacher.start_main_line_teaching()
+    
+    return result
+
+
+@router.post("/openings/teach/next-move")
+async def get_next_teaching_move(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the next move in the teaching sequence.
+    
+    Request body:
+        {
+            "opening_key": "italian_game",
+            "mode": "main_line" | "trap",
+            "current_move_index": 3
+        }
+    
+    Returns:
+        Next move instruction or completion message.
+    """
+    from services.opening_mastery import OpeningTeacher, get_user_opening_progress
+    
+    opening_key = request.get("opening_key")
+    mode = request.get("mode", "main_line")
+    move_index = request.get("current_move_index", 0)
+    
+    if not opening_key:
+        raise HTTPException(status_code=400, detail="opening_key is required")
+    
+    progress = await get_user_opening_progress(db, user.user_id, opening_key)
+    teacher = OpeningTeacher(opening_key, progress)
+    
+    # Start from the requested index
+    if mode == "trap":
+        teacher.start_trap_teaching()
+        teacher.teaching_move_index = move_index
+        return teacher._get_next_trap_move()
+    else:
+        teacher.start_main_line_teaching()
+        teacher.teaching_move_index = move_index
+        return teacher._get_next_teaching_move()
+
+
+@router.get("/openings/progress")
+async def get_user_opening_progress_list(user: User = Depends(get_current_user)):
+    """
+    Get all openings the user has learned or started learning.
+    
+    Returns:
+        List of openings with mastery levels and stats.
+    """
+    from services.opening_mastery import get_all_user_openings
+    
+    openings = await get_all_user_openings(db, user.user_id)
+    
+    return {
+        "openings_learned": openings,
+        "total_openings_available": 5,  # Update as we add more
+        "suggested_next": _suggest_next_opening(openings)
+    }
+
+
+def _suggest_next_opening(learned_openings: List[Dict]) -> Optional[str]:
+    """Suggest the next opening to learn based on what user knows."""
+    learned_names = {o["opening_name"].lower() for o in learned_openings}
+    
+    # Priority order for beginners
+    priority = ["italian_game", "london_system", "queens_gambit", "sicilian_defense", "caro_kann"]
+    
+    for opening_key in priority:
+        opening_name = opening_key.replace("_", " ").title()
+        if opening_name.lower() not in learned_names:
+            return opening_key
+    
+    return None
+
+
+@router.post("/openings/quiz")
+async def get_opening_quiz(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get a quiz question for an opening.
+    
+    Request body:
+        {"opening_key": "italian_game"}
+    
+    Returns:
+        Quiz question with answer (hidden until answered).
+    """
+    from services.opening_mastery import OpeningTeacher, get_user_opening_progress
+    
+    opening_key = request.get("opening_key")
+    if not opening_key:
+        raise HTTPException(status_code=400, detail="opening_key is required")
+    
+    progress = await get_user_opening_progress(db, user.user_id, opening_key)
+    teacher = OpeningTeacher(opening_key, progress)
+    
+    quiz = teacher.get_quiz_question()
+    
+    # Store the answer separately so frontend can check
+    return {
+        "question": quiz.get("question"),
+        "type": quiz.get("type"),
+        "hint": quiz.get("hint"),
+        "quiz_id": f"{opening_key}_{quiz.get('type')}_{hash(quiz.get('question', ''))}"
+    }
+
+
+@router.post("/openings/quiz/answer")
+async def check_quiz_answer(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Check a quiz answer.
+    
+    Request body:
+        {
+            "opening_key": "italian_game",
+            "quiz_id": "...",
+            "answer": "Nf3"
+        }
+    
+    Returns:
+        Whether answer was correct with explanation.
+    """
+    from services.opening_mastery import (
+        OpeningTeacher, 
+        get_user_opening_progress,
+        update_user_opening_progress
+    )
+    from datetime import datetime, timezone
+    
+    opening_key = request.get("opening_key")
+    user_answer = request.get("answer", "").strip()
+    
+    if not opening_key or not user_answer:
+        raise HTTPException(status_code=400, detail="opening_key and answer are required")
+    
+    progress = await get_user_opening_progress(db, user.user_id, opening_key)
+    teacher = OpeningTeacher(opening_key, progress)
+    
+    # Generate a new quiz to get the answer (simplified - in production store quiz state)
+    quiz = teacher.get_quiz_question()
+    correct_answer = quiz.get("answer", "")
+    correct_answers = quiz.get("answers", [correct_answer])
+    
+    is_correct = user_answer.lower() in [a.lower() for a in correct_answers] if correct_answers else user_answer.lower() == correct_answer.lower()
+    
+    # Update progress with quiz result
+    if progress:
+        progress.quiz_scores.append({
+            "question_type": quiz.get("type"),
+            "correct": is_correct,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        progress.last_practiced_at = datetime.now(timezone.utc)
+        await update_user_opening_progress(db, progress)
+    
+    return {
+        "correct": is_correct,
+        "correct_answer": correct_answer if not is_correct else None,
+        "all_correct_answers": correct_answers if not is_correct else None,
+        "message": "Correct! Well done!" if is_correct else f"Not quite. The answer is: {correct_answer}"
+    }
+
+
+@router.post("/openings/mark-practiced")
+async def mark_opening_practiced(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Mark an opening as practiced (after completing a teaching session).
+    
+    Request body:
+        {
+            "opening_key": "italian_game",
+            "trap_learned": "Fried Liver Attack"  # Optional
+        }
+    
+    Returns:
+        Updated progress.
+    """
+    from services.opening_mastery import (
+        get_user_opening_progress,
+        update_user_opening_progress,
+        MasteryLevel,
+        OPENING_DATABASE
+    )
+    from datetime import datetime, timezone
+    
+    opening_key = request.get("opening_key")
+    trap_learned = request.get("trap_learned")
+    
+    if not opening_key:
+        raise HTTPException(status_code=400, detail="opening_key is required")
+    
+    progress = await get_user_opening_progress(db, user.user_id, opening_key)
+    if not progress:
+        raise HTTPException(status_code=404, detail="Start learning this opening first")
+    
+    # Update progress
+    progress.times_practiced += 1
+    progress.last_practiced_at = datetime.now(timezone.utc)
+    
+    if progress.mastery_level == MasteryLevel.INTRODUCED:
+        progress.mastery_level = MasteryLevel.LEARNING
+    elif progress.times_practiced >= 3 and progress.mastery_level == MasteryLevel.LEARNING:
+        progress.mastery_level = MasteryLevel.PRACTICED
+    
+    if trap_learned and trap_learned not in progress.traps_learned:
+        progress.traps_learned.append(trap_learned)
+    
+    await update_user_opening_progress(db, progress)
+    
+    return {
+        "success": True,
+        "mastery_level": progress.mastery_level.value,
+        "times_practiced": progress.times_practiced,
+        "traps_learned": progress.traps_learned,
+        "message": f"Great practice! You've practiced {progress.opening_name} {progress.times_practiced} times."
+    }

@@ -522,3 +522,42 @@ Plain, simple, direct Indian-English
 ---
 *Last updated: December 2025*
 *Status: LAB REDESIGN COMPLETE - Coach-style game review that feels like a teaching session, not an engine report*
+
+### 28. Opening Mastery System ✅ (NEW - COMPLETE)
+- **Created**: `services/opening_mastery.py` (900+ lines)
+- **Purpose**: Complete opening teaching system with memory and progression
+- **Opening Database** (5 openings with traps):
+  - Italian Game (Fried Liver Attack, Legal's Mate)
+  - Sicilian Defense (Siberian Trap)
+  - Queen's Gambit (Elephant Trap)
+  - London System
+  - Caro-Kann (Smothered Mate)
+- **Features**:
+  - Opening detection from moves
+  - Interactive trap teaching (move by move)
+  - Main line teaching
+  - Quiz system
+  - Progress tracking per user
+  - Mastery levels: Unknown → Introduced → Learning → Practiced → Applied → Mastered
+  - Cross-game tracking (checks if user applies learned openings in real games)
+- **New API Endpoints**:
+  - `GET /api/coach/openings/available` - List all openings
+  - `GET /api/coach/openings/{key}` - Opening details
+  - `POST /api/coach/openings/detect` - Detect opening from moves
+  - `POST /api/coach/openings/teach/start` - Start main line or trap teaching
+  - `POST /api/coach/openings/teach/next-move` - Get next teaching move
+  - `GET /api/coach/openings/progress` - User's opening mastery progress
+  - `POST /api/coach/openings/quiz` - Get quiz question
+  - `POST /api/coach/openings/quiz/answer` - Check quiz answer
+  - `POST /api/coach/openings/mark-practiced` - Mark opening as practiced
+- **Example Flow**:
+  1. User plays e4 e5 Nf3 Nc6 Bc4
+  2. Coach: "Welcome to the Italian Game! Want to learn a deadly trap?"
+  3. User: "See a trap"
+  4. Coach shows Fried Liver Attack move by move
+  5. User's progress saved: "Learned Fried Liver Attack"
+  6. Later in real game analysis: "You played the Italian! But missed the trap move on turn 6"
+
+---
+*Last updated: December 2025*
+*Status: OPENING MASTERY SYSTEM COMPLETE - Backend ready with 5 openings, 6 traps, teaching and progress tracking*
