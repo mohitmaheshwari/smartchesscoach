@@ -63,7 +63,7 @@ import {
  * EvalBar - Visual evaluation bar showing position advantage
  * 
  * A vertical bar that fills its container height:
- * - Score displayed inside the bar at the boundary between black/white
+ * - Score displayed in the CENTER of the bar for readability
  */
 const EvalBar = ({ evaluation, userColor, gameOver }) => {
   const { score, mate_in } = evaluation || { score: 0, mate_in: null };
@@ -117,21 +117,17 @@ const EvalBar = ({ evaluation, userColor, gameOver }) => {
         style={{ height: `${whitePercent}%` }}
       />
       
-      {/* Score displayed at the boundary between black and white portions */}
+      {/* Score displayed in the CENTER of the bar for readability */}
       <div 
-        className="absolute left-0 right-0 flex items-center justify-center transition-all duration-500 ease-out pointer-events-none"
-        style={{ 
-          top: `${100 - whitePercent}%`,
-          transform: 'translateY(-50%)'
-        }}
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
       >
         <div 
-          className={`px-0.5 py-0.5 rounded text-[9px] font-bold leading-none whitespace-nowrap ${
+          className={`px-1 py-1 rounded text-[10px] font-bold leading-none whitespace-nowrap shadow-md ${
             userWinning 
               ? "bg-green-500 text-white" 
               : userLosing 
                 ? "bg-red-500 text-white"
-                : "bg-zinc-500 text-white"
+                : "bg-zinc-600 text-white"
           }`}
           data-testid="eval-text"
         >
