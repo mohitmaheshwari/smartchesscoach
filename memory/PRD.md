@@ -668,6 +668,57 @@ Plain, simple, direct Indian-English
 - Post-game: 77.8% accuracy, 1 mistake detected
 - Opening detection: Caro-Kann detected and teaching offered
 
+### 27. Deep Memory Integration for Post-Game Analysis (March 2026) ✅
+**THE CORE USER REQUEST - COACH NOW REMEMBERS**
+
+- **Problem**: Post-game analysis was technically accurate but felt generic ("like chess.com")
+  - `coach_memory.py` existed with rich tracking functions but was NOT connected to analysis
+  - `postgame_analysis.py` read from empty `user_memory` collection instead of `coach_memory`
+  - No personalization across games
+
+- **Solution**: Integrated `coach_memory.py` into `postgame_analysis.py`:
+  1. **Before analysis**: Fetch user's history via `get_coaching_context()`
+  2. **During analysis**: Generate personalized `MemoryInsight` objects
+  3. **After analysis**: Update memory via `update_memory_after_game()`
+
+- **New API Response Fields** (`POST /api/coach/play/analysis`):
+  ```json
+  "memory": {
+    "games_together": 6,
+    "coach_knows_you": true,
+    "insights": [
+      {
+        "type": "recurring_pattern",
+        "message": "'Early Queen Development' again - that's 3 times now. Let's focus on this.",
+        "pattern": "Early Queen Development",
+        "count": 4,
+        "improving": false
+      }
+    ]
+  }
+  ```
+
+- **Memory Insight Types**:
+  - `recurring_pattern`: When a weakness appears 2+ times (urgency increases at 3+, 5+)
+  - `improvement`: When user avoids a known weakness
+  - `performance_comparison`: After 3+ games, compares to averages
+  - `milestone`: At game 5, 10, 25, 50 - "I'm starting to understand your style"
+  - `first_time`: New pattern spotted
+
+- **Coach Summary Personalization**:
+  - Summary now includes memory context: "This was a bit below your usual level (750 vs 1200). 'Early Queen Development' again - that's 3 times now. Let's focus on this."
+  - `coach_knows_you` flag triggers after 3+ games together
+
+- **Files Modified**:
+  - `backend/services/postgame_analysis.py` - Complete rewrite with memory integration
+  - `backend/server.py` - API response includes `memory` section
+  - `frontend/src/components/PostGameLesson.jsx` - New `CoachMemoryInsights` component
+
+- **Test Coverage**:
+  - 21 backend tests (10 API integration + 11 unit tests)
+  - 9 frontend E2E tests
+  - All tests pass (100%)
+
 ---
 *Last updated: March 2026*
-*Status: POST-GAME ANALYSIS NOW SHOWS REAL DATA - MISTAKES DETECTED*
+*Status: COACH NOW REMEMBERS - POST-GAME ANALYSIS IS PERSONALIZED*
