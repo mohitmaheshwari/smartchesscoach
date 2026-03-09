@@ -9505,6 +9505,9 @@ async def evaluate_coach_play_move(
     This is the key differentiator: Stop bad moves before they happen.
     Returns intervention info if the move is risky.
     
+    IMPORTANT: Uses Stockfish as the PRIMARY arbiter.
+    If Stockfish says a move is fine, we DON'T warn - it's tactical awareness!
+    
     Body:
     - session_id: Session ID
     - move: Move in SAN notation to evaluate
@@ -9518,8 +9521,10 @@ async def evaluate_coach_play_move(
     - explanation: Detailed explanation
     - alternative_moves: Better moves to suggest
     - remaining_interventions: How many warnings left this game
+    - tactical_awareness: True if move was good despite looking risky
     """
-    from coach_play import evaluate_move_for_guardian
+    import chess
+    from stockfish_service import StockfishEngine
     
     session_id = request.get("session_id")
     move = request.get("move")
@@ -9542,15 +9547,60 @@ async def evaluate_coach_play_move(
     if session_doc.get("status") != "active":
         raise HTTPException(status_code=400, detail="Session not active")
     
-    # Evaluate the move with guardian
-    result = evaluate_move_for_guardian(
-        fen=session_doc.get("current_fen"),
+    current_fen = session_doc.get("current_fen")
+    user_color = session_doc.get("user_color")
+    
+    # === STOCKFISH-FIRST EVALUATION ===
+    # Get evaluation BEFORE and AFTER the move
+    eval_before = None
+    eval_after = None
+    
+    try:
+        engine = StockfishEngine()
+        engine.start()
+        
+        try:
+            # Evaluate position BEFORE the move
+            board_before = chess.Board(current_fen)
+            eval_before_cp, _ = engine.evaluate_position(board_before, depth=12)
+            eval_before = eval_before_cp / 100.0  # Convert centipawns to pawns
+            
+            # Apply the move and evaluate AFTER
+            chess_move = board_before.parse_san(move)
+            board_before.push(chess_move)
+            
+            eval_after_cp, _ = engine.evaluate_position(board_before, depth=12)
+            eval_after = eval_after_cp / 100.0
+            
+        finally:
+            engine.stop()
+            
+    except Exception as e:
+        logger.warning(f"Stockfish evaluation failed: {e}")
+        # Continue with heuristics-only if Stockfish fails
+    
+    # Import the guardian with Stockfish support
+    from coach_play.pre_move_guardian import PreMoveGuardian
+    
+    guardian = PreMoveGuardian(session_doc.get("remaining_interventions", 3))
+    guardian_result = guardian.evaluate_move(
+        fen=current_fen,
         move_san=move,
-        user_color=session_doc.get("user_color"),
-        remaining_interventions=session_doc.get("remaining_interventions", 3)
+        user_color=user_color,
+        stockfish_eval_before=eval_before,
+        stockfish_eval_after=eval_after
     )
     
+    result = guardian_result.to_dict()
     result["remaining_interventions"] = session_doc.get("remaining_interventions", 3)
+    
+    # Add tactical awareness indicator if applicable
+    details = result.get("details", {})
+    if details.get("tactical_awareness"):
+        result["tactical_awareness"] = True
+        result["tactical_message"] = "Good capture! This trade is favorable."
+    elif details.get("stockfish_approved"):
+        result["stockfish_approved"] = True
     
     return result
 

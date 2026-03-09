@@ -127,15 +127,23 @@ class PreMoveGuardian:
         self,
         fen: str,
         move_san: str,
-        user_color: str
+        user_color: str,
+        stockfish_eval_before: float = None,
+        stockfish_eval_after: float = None
     ) -> GuardianResult:
         """
         Evaluate a move before it's made.
+        
+        IMPORTANT: Stockfish evaluation is the PRIMARY check.
+        Heuristics are only used when Stockfish confirms the move is bad.
+        If Stockfish says a move is fine, we DON'T intervene - it's tactical awareness!
         
         Args:
             fen: Current position in FEN
             move_san: Move in SAN notation (e.g., "Nf3", "Bxe5")
             user_color: "white" or "black"
+            stockfish_eval_before: Eval before move (optional, will use heuristics if None)
+            stockfish_eval_after: Eval after move (optional)
         
         Returns:
             GuardianResult with intervention decision
@@ -173,6 +181,76 @@ class PreMoveGuardian:
                 details={"in_check": True, "note": "User is in check, must address it"},
                 processing_time_ms=processing_time
             )
+        
+        # === STOCKFISH-FIRST APPROACH ===
+        # If we have Stockfish evaluations, use them as the PRIMARY arbiter
+        # Only intervene if Stockfish says the move loses significant value
+        
+        if stockfish_eval_before is not None and stockfish_eval_after is not None:
+            # Normalize for color (positive = good for user)
+            if user_color == "black":
+                eval_before = -stockfish_eval_before
+                eval_after = -stockfish_eval_after
+            else:
+                eval_before = stockfish_eval_before
+                eval_after = stockfish_eval_after
+            
+            eval_drop = eval_before - eval_after
+            
+            # If eval doesn't drop significantly, the move is FINE
+            # Even if heuristics flag something, Stockfish knows better!
+            if eval_drop < 0.5:
+                # Move is good or neutral - could be tactical awareness!
+                processing_time = (time.time() - start_time) * 1000
+                
+                # Check if this was a "risky-looking" but good move
+                is_capture = board.is_capture(move)
+                captured_piece = board.piece_at(move.to_square) if is_capture else None
+                
+                # If they captured a defended piece but Stockfish says it's fine = tactical awareness
+                if is_capture and captured_piece:
+                    board_copy = board.copy()
+                    board_copy.push(move)
+                    if board_copy.is_attacked_by(not board.turn, move.to_square):
+                        # Captured defended piece, but Stockfish approves!
+                        return GuardianResult(
+                            should_intervene=False,
+                            intervention_type=InterventionType.NONE,
+                            risk_level=RiskLevel.NONE,
+                            risk_type=None,
+                            message="",
+                            explanation="",
+                            alternative_moves=[],
+                            details={
+                                "tactical_awareness": True,
+                                "note": "Good capture! Stockfish approves this trade."
+                            },
+                            processing_time_ms=processing_time
+                        )
+                
+                return GuardianResult(
+                    should_intervene=False,
+                    intervention_type=InterventionType.NONE,
+                    risk_level=RiskLevel.NONE,
+                    risk_type=None,
+                    message="",
+                    explanation="",
+                    alternative_moves=[],
+                    details={"stockfish_approved": True},
+                    processing_time_ms=processing_time
+                )
+            
+            # Significant eval drop - this IS a mistake
+            # Now use heuristics to explain WHY it's bad
+            if eval_drop >= 2.0:
+                risk_level = RiskLevel.CRITICAL
+            elif eval_drop >= 1.0:
+                risk_level = RiskLevel.HIGH
+            else:
+                risk_level = RiskLevel.MEDIUM
+        
+        # === HEURISTIC FALLBACK ===
+        # When no Stockfish data, use heuristics (less accurate)
         
         # Run all risk detectors
         risks = []

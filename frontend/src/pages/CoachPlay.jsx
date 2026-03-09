@@ -578,7 +578,20 @@ const CoachPlay = ({ user }) => {
       });
 
       if (response.ok) {
-        return await response.json();
+        const result = await response.json();
+        
+        // If Stockfish approved a "risky-looking" move, show positive feedback!
+        if (result.tactical_awareness) {
+          toast.success(result.tactical_message || "Good tactical awareness!");
+          setChatMessages(prev => [...prev, {
+            type: "coach",
+            trigger: "encouragement",
+            message: `Nice capture! Stockfish confirms this is a good trade. That's tactical awareness! 👏`,
+            timestamp: Date.now()
+          }]);
+        }
+        
+        return result;
       }
     } catch (error) {
       console.error("Guardian evaluation error:", error);
