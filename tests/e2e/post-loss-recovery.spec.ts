@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://chess-growth-hub.preview.emergentagent.com';
+const BASE_URL = 'https://move-effect.preview.emergentagent.com';
 const TEST_GAME_ID = '2d46940d-dfce-4534-9935-9b1ba3829c92';
 
 test.describe('Post-Loss Recovery Page', () => {

@@ -830,6 +830,45 @@ async def analyze_pawn_structure(
     }
 
 
+@router.post("/analyze/move-effect")
+async def analyze_move_effect(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Analyze the effects of a specific move.
+    
+    This is the core teaching API - explains WHY a move works.
+    
+    Request body:
+        {"fen": "...", "move": "e2e4"}  (move in UCI format)
+    
+    Returns:
+        - Main idea of the move
+        - Teaching explanation
+        - Threats created
+        - Lines opened
+        - Forcing nature
+        - Follow-up suggestions
+    """
+    import chess
+    from services.move_effect_analyzer import explain_move
+    
+    fen = request.get("fen", chess.STARTING_FEN)
+    move_uci = request.get("move")
+    
+    if not move_uci:
+        return {"error": "Move is required (in UCI format, e.g., 'e2e4')"}
+    
+    try:
+        board = chess.Board(fen)
+    except Exception as e:
+        return {"error": f"Invalid FEN: {str(e)}"}
+    
+    result = explain_move(board, move_uci)
+    return result
+
+
 @router.post("/analyze/position")
 async def analyze_position_complete(
     request: dict,

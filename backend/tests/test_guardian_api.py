@@ -12,7 +12,7 @@ import pytest
 import uuid
 import time
 
-BASE_URL = "https://chess-growth-hub.preview.emergentagent.com"
+BASE_URL = "https://move-effect.preview.emergentagent.com"
 
 
 class TestGuardianEvaluate:

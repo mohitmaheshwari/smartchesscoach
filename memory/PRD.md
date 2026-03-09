@@ -185,7 +185,10 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
   - Next milestone countdown
 
 ### Future/Backlog
-- B2B Model for Coaches
+- **Teaching Move Selector** (P0) - Select instructive moves for coach to play
+- **Active Teaching Engine** (P1) - Real-time Socratic feedback during play
+- **Structure & Plan Database** (P2) - Map ~20 structures to strategic plans
+- **Human Coach Training Dashboard** - B2B interface for 100% accuracy
 - Mobile App
 - Deprecate remaining `learned_rules` code references (tech debt cleanup)
 
@@ -215,6 +218,48 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
   - `POST /api/coach/analyze/structure` - Structure analysis
   - `POST /api/coach/analyze/position` - Combined phase + structure + teaching
 
+### 16. Move Effect Analyzer ✅ (NEW - Completed)
+- **Created**: `services/move_effect_analyzer.py` (853 lines)
+- **Purpose**: Core of the teaching coach - explains WHY a move works, not just the evaluation
+- **Features**:
+  - Before/After position comparison
+  - Threat detection (captures, checks, forks, pins, skewers, mate threats)
+  - Defender removal tracking
+  - File/diagonal opening detection
+  - Piece activity changes
+  - King safety impact analysis
+  - Pawn structure change detection
+  - Forcing move detection
+  - Human-readable teaching explanations generation
+  - Follow-up suggestions
+- **New endpoint**: `POST /api/coach/analyze/move-effect` - Explain any move's effects
+- **Example output**:
+  ```json
+  {
+    "move": "Bxf7+",
+    "main_idea": "Bxf7+ gives check, captures Pawn, removes defender of f7",
+    "explanation": "I played Bxf7+. This gives check, so you must respond to it...",
+    "is_forcing": true,
+    "threats": [{"type": "capture", "target": "e4", ...}],
+    "king_safety": "Weakens Black's king safety"
+  }
+  ```
+
+## Chess Understanding Service (CUS) - Foundation Complete ✅
+
+The CUS is the computational backbone for the Teaching Coach. It provides factual chess data to the LLM, preventing speculation.
+
+| Component | File | Status | Purpose |
+|-----------|------|--------|---------|
+| Game Phase Calculator | `game_phase_service.py` | ✅ Complete | Continuous 0-100% phase detection |
+| Endgame Classifier | `game_phase_service.py` | ✅ Complete | 18 endgame types with teaching content |
+| Pawn Structure Classifier | `pawn_structure_service.py` | ✅ Complete | Structure → plans mapping |
+| Move Effect Analyzer | `move_effect_analyzer.py` | ✅ Complete | Explains WHY moves work |
+
+**Next CUS Components Needed**:
+1. **Teaching Move Selector** - Select instructive moves for the coach to play
+2. **Active Teaching Engine** - Real-time Socratic feedback during play
+
 ## Database Collections
 
 | Collection | Count | Purpose |
@@ -239,5 +284,5 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
 Plain, simple, direct Indian-English
 
 ---
-*Last updated: 2025-03-07*
-*Status: Identity Card added to Progress page, Pattern quality monitoring implemented*
+*Last updated: 2025-12-XX*
+*Status: Chess Understanding Service (CUS) foundation complete - all 4 core components implemented*

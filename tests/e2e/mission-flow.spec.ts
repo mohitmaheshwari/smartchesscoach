@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://chess-growth-hub.preview.emergentagent.com';
+const BASE_URL = 'https://move-effect.preview.emergentagent.com';
 
 test.describe('Mission System - Dashboard and Mission Flow', () => {
   
