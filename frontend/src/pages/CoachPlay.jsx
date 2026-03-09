@@ -62,89 +62,106 @@ import {
 /**
  * EvalBar - Visual evaluation bar showing position advantage
  * 
- * Props:
- * - evaluation: { score: number, mate_in: number|null }
- *   - score: Centipawn evaluation from white's perspective (-10 to +10)
- *   - mate_in: Number of moves to mate (positive=white wins, negative=black wins)
- * - userColor: "white" | "black" - which color the user is playing
- * - gameOver: boolean - if the game has ended
+ * A vertical bar showing who is winning:
+ * - White portion grows from bottom when white is winning
+ * - Black portion grows from top when black is winning
+ * - Clear numeric display with +/- sign
+ * - Color-coded advantage indicators
  */
 const EvalBar = ({ evaluation, userColor, gameOver }) => {
   const { score, mate_in } = evaluation || { score: 0, mate_in: null };
   
   // Calculate percentage for the bar (50% = equal, >50% = white advantage)
-  // Score is capped at ±10, map to 5-95% range for visual clarity
   const getBarPercentage = () => {
     if (mate_in !== null) {
-      return mate_in > 0 ? 95 : 5; // Forced mate
+      return mate_in > 0 ? 98 : 2;
     }
-    // Map score from [-10, 10] to [5, 95]
     const clamped = Math.max(-10, Math.min(10, score));
     return 50 + (clamped * 4.5);
   };
   
   const whitePercent = getBarPercentage();
-  const blackPercent = 100 - whitePercent;
   
-  // Determine display text
+  // Determine display text with sign
   const getEvalText = () => {
     if (mate_in !== null) {
-      return `M${Math.abs(mate_in)}`;
+      const sign = mate_in > 0 ? "+" : "-";
+      return `${sign}M${Math.abs(mate_in)}`;
     }
-    if (score === 0) return "0.0";
-    const sign = score > 0 ? "+" : "";
-    return `${sign}${score.toFixed(1)}`;
+    if (Math.abs(score) < 0.1) return "0.0";
+    const sign = score > 0 ? "+" : "-";
+    return `${sign}${Math.abs(score).toFixed(1)}`;
   };
   
-  // Determine who is winning and if it's the user
-  const isWhiteWinning = score > 0.3 || mate_in > 0;
+  // Determine who is winning
+  const isWhiteWinning = score > 0.3 || (mate_in !== null && mate_in > 0);
   const isBlackWinning = score < -0.3 || (mate_in !== null && mate_in < 0);
-  const userWinning = (userColor === "white" && isWhiteWinning) || 
-                      (userColor === "black" && isBlackWinning);
-  const opponentWinning = (userColor === "white" && isBlackWinning) || 
-                          (userColor === "black" && isWhiteWinning);
+  const isEqual = !isWhiteWinning && !isBlackWinning;
+  
+  // Color coding based on user's perspective
+  const userIsWhite = userColor === "white";
+  const userWinning = (userIsWhite && isWhiteWinning) || (!userIsWhite && isBlackWinning);
+  const userLosing = (userIsWhite && isBlackWinning) || (!userIsWhite && isWhiteWinning);
+  
+  // Evaluation text color based on who's winning
+  const getEvalColor = () => {
+    if (isEqual) return "text-zinc-400";
+    if (userWinning) return "text-green-400";
+    if (userLosing) return "text-red-400";
+    return "text-zinc-400";
+  };
   
   return (
     <div 
-      className="w-6 h-full min-h-[400px] flex flex-col rounded-lg overflow-hidden relative"
+      className="flex flex-col items-center gap-1 select-none"
       data-testid="eval-bar"
       title={`Evaluation: ${getEvalText()}`}
     >
-      {/* Black portion (top) */}
+      {/* Evaluation number on top */}
       <div 
-        className="bg-gray-800 transition-all duration-300 ease-out"
-        style={{ height: `${blackPercent}%` }}
-      />
-      
-      {/* White portion (bottom) */}
-      <div 
-        className="bg-gray-100 transition-all duration-300 ease-out flex-1"
-        style={{ height: `${whitePercent}%` }}
-      />
-      
-      {/* Eval text overlay */}
-      <div 
-        className={`absolute left-1/2 transform -translate-x-1/2 px-1 py-0.5 rounded text-xs font-bold ${
-          isWhiteWinning 
-            ? "top-auto bottom-1 bg-gray-100 text-gray-900" 
-            : isBlackWinning
-              ? "top-1 bottom-auto bg-gray-800 text-gray-100"
-              : "top-1/2 -translate-y-1/2 bg-gray-500 text-white"
-        }`}
+        className={`text-sm font-bold tabular-nums ${getEvalColor()}`}
         data-testid="eval-text"
       >
         {getEvalText()}
       </div>
       
-      {/* Advantage indicator icons */}
-      {!gameOver && (userWinning || opponentWinning) && (
-        <div className={`absolute left-1/2 transform -translate-x-1/2 ${
-          userWinning ? "bottom-8" : "top-8"
-        }`}>
-          {userWinning ? (
-            <TrendingUp className="w-3 h-3 text-green-500" />
+      {/* The bar itself */}
+      <div className="w-4 flex-1 min-h-[350px] flex flex-col rounded-sm overflow-hidden border border-zinc-700 shadow-inner bg-zinc-900">
+        {/* Black portion (top) - shrinks when white is winning */}
+        <div 
+          className="bg-zinc-800 transition-all duration-500 ease-out relative"
+          style={{ height: `${100 - whitePercent}%` }}
+        >
+          {/* Subtle gradient for depth */}
+          <div className="absolute inset-0 bg-gradient-to-r from-zinc-700/20 to-transparent" />
+        </div>
+        
+        {/* Divider line at 50% mark (when equal) */}
+        {isEqual && (
+          <div className="absolute top-1/2 left-0 right-0 h-px bg-zinc-500/50" />
+        )}
+        
+        {/* White portion (bottom) - grows when white is winning */}
+        <div 
+          className="bg-zinc-200 transition-all duration-500 ease-out relative"
+          style={{ height: `${whitePercent}%` }}
+        >
+          {/* Subtle gradient for depth */}
+          <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent" />
+        </div>
+      </div>
+      
+      {/* Arrow indicator showing direction of advantage */}
+      {!gameOver && !isEqual && (
+        <div className="flex items-center justify-center w-4 h-4">
+          {isWhiteWinning ? (
+            <svg className={`w-3 h-3 ${userIsWhite ? "text-green-400" : "text-red-400"}`} viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 4l-8 8h6v8h4v-8h6z"/>
+            </svg>
           ) : (
-            <TrendingDown className="w-3 h-3 text-red-500" />
+            <svg className={`w-3 h-3 ${!userIsWhite ? "text-green-400" : "text-red-400"} rotate-180`} viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 4l-8 8h6v8h4v-8h6z"/>
+            </svg>
           )}
         </div>
       )}
