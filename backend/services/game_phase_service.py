@@ -662,3 +662,36 @@ def get_phase_coaching(phase_info: PhaseInfo) -> Dict:
         result["drawing_method"] = endgame_coaching.get("drawing_method", "")
     
     return result
+
+
+
+# Convenience function for backward compatibility
+def get_game_phase(fen_or_board) -> Dict:
+    """
+    Get game phase information from a FEN string or chess.Board.
+    
+    Convenience wrapper around GamePhaseCalculator.
+    
+    Args:
+        fen_or_board: FEN string or chess.Board object
+        
+    Returns:
+        Dict with phase_label, phase_percent, is_endgame, etc.
+    """
+    import chess
+    
+    if isinstance(fen_or_board, str):
+        board = chess.Board(fen_or_board)
+    else:
+        board = fen_or_board
+    
+    calculator = GamePhaseCalculator()
+    phase_info = calculator.calculate_phase(board)
+    
+    return {
+        "phase_label": phase_info.phase_label.value,
+        "phase_percent": phase_info.phase_percent,
+        "is_endgame": phase_info.is_endgame,
+        "endgame_type": phase_info.endgame_type.value if phase_info.endgame_type else None,
+        "material_balance": phase_info.material_balance
+    }
