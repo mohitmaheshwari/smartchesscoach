@@ -719,6 +719,53 @@ Plain, simple, direct Indian-English
   - 9 frontend E2E tests
   - All tests pass (100%)
 
+### 28. In-Game Memory Integration (March 2026) ✅
+**Coach now remembers your patterns DURING the game**
+
+- **Problem**: In-game commentary was generic - coach didn't reference user's history
+- **Solution**: Integrated `coach_memory.py` into `human_coach_service.py`
+
+- **New Response Fields** in Socratic responses:
+  - `memory_insight`: "We've seen this before - 'one-move blunders'."
+  - `pattern_connection`: "I recall seeing this type of position before. Think back..."
+  - `focus_note`: "Focus on avoiding Early Queen Development today"
+  - `games_together`: Tracks game count for relationship building
+
+- **Files Modified**:
+  - `backend/services/human_coach_service.py` - Now imports `get_coaching_context`, `get_or_create_memory` from coach_memory
+  - `backend/server.py` - coach_messages now store memory fields
+
+### 29. Opening Mastery Quiz Mode (March 2026) ✅
+**Test your opening knowledge with interactive quizzes**
+
+- **New API Endpoints**:
+  - `GET /api/training/openings/{key}/quiz` - Returns questions array
+  - `POST /api/training/openings/{key}/quiz/submit` - Scores answers, returns mastery_level
+
+- **Question Types**:
+  - `concept`: Multiple choice on key ideas
+  - `position`: Find the winning move (uses FEN and board)
+  - `move_order`: Enter the main line
+
+- **Mastery Levels**:
+  - `mastered` (90%+)
+  - `practiced` (70-89%)
+  - `learning` (50-69%)
+  - `introduced` (<50%)
+
+- **Files Created**:
+  - `frontend/src/components/OpeningQuiz.jsx` - Quiz component
+  - `frontend/src/pages/OpeningQuizPage.jsx` - Page wrapper
+
+- **Files Modified**:
+  - `backend/server.py` - New quiz submit endpoint
+  - `frontend/src/components/OpeningTrainer.jsx` - Added "Quiz Me" button
+  - `frontend/src/App.js` - Added quiz route
+
+- **Test Coverage**:
+  - Backend: 16 tests (100% pass)
+  - Frontend: 10 E2E tests (100% pass)
+
 ---
 *Last updated: March 2026*
-*Status: COACH NOW REMEMBERS - POST-GAME ANALYSIS IS PERSONALIZED*
+*Status: DEEP MEMORY ACTIVE - IN-GAME + POST-GAME + QUIZ MODE COMPLETE*
