@@ -769,3 +769,30 @@ Plain, simple, direct Indian-English
 ---
 *Last updated: March 2026*
 *Status: DEEP MEMORY ACTIVE - IN-GAME + POST-GAME + QUIZ MODE COMPLETE*
+
+### 30. Coach Memory Panel Replaces Teaching Insights (March 2026) ✅
+**Shows REAL personalized data - not generic fluff**
+
+- **Problem**: Teaching Insights panel showed "Opening (0%)" and generic chess principles - zero value
+- **Solution**: Replaced with Coach Memory Panel showing real data from `coach_memory` system
+
+- **What It Shows**:
+  - Game #68 together - relationship count
+  - **Today's Focus**: "Focus on avoiding Early Queen Development today"
+  - **I'm Watching For**: Patterns with count (4x) and improvement indicators
+  - **Last Game Insight**: "You avoided Early Queen Development this game! That's improvement!"
+  - **Stats**: "67 games together | 97% avg | 3 openings"
+
+- **API Used**: `GET /api/coach/memory` returns:
+  - `greeting`: Personalized greeting based on context
+  - `context.games_played`, `avg_accuracy`, `watch_for`, `focus_suggestion`, `last_game_insights`, `openings_known`
+
+- **Files Modified**:
+  - Created: `frontend/src/components/CoachMemoryPanel.jsx`
+  - Modified: `frontend/src/pages/CoachPlay.jsx` - replaced TeachingPanel import
+
+- **Test Coverage**: 22 tests (13 backend + 9 frontend) - 100% pass
+
+---
+*Last updated: March 2026*
+*Status: COACH NOW KNOWS YOU - REAL PERSONALIZED DATA DURING GAME*
