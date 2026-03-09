@@ -122,7 +122,7 @@ const EvalBar = ({ evaluation, userColor, gameOver }) => {
         className="absolute inset-0 flex items-center justify-center pointer-events-none"
       >
         <div 
-          className={`px-1 py-1 rounded text-[10px] font-bold leading-none whitespace-nowrap shadow-md ${
+          className={`px-1.5 py-1 rounded text-xs font-bold leading-none whitespace-nowrap shadow-md ${
             userWinning 
               ? "bg-green-500 text-white" 
               : userLosing 
@@ -1347,8 +1347,8 @@ const CoachPlay = ({ user }) => {
             
             {/* Eval Bar + Board in same row */}
             <div className="flex gap-2 items-stretch">
-              {/* Eval Bar - narrow strip that stretches to match board height */}
-              <div className="w-5 shrink-0">
+              {/* Eval Bar - wider to fit text like -10.0 */}
+              <div className="w-10 shrink-0">
                 <EvalBar 
                   evaluation={evaluation} 
                   userColor={selectedColor}
