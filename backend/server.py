@@ -9494,8 +9494,12 @@ async def evaluate_coach_play_move(
     if not move:
         raise HTTPException(status_code=400, detail="move is required")
     
-    # Verify session belongs to user
+    # Verify session belongs to user - check both collections
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        # Also check play_sessions collection (alternative play endpoint)
+        session_doc = await db.play_sessions.find_one({"session_id": session_id})
+    
     if not session_doc:
         raise HTTPException(status_code=404, detail="Session not found")
     if session_doc.get("user_id") != user.user_id:

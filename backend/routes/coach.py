@@ -384,82 +384,12 @@ async def deactivate_focus_lock(user: User = Depends(get_current_user)):
 
 
 # ==================== PLAY WITH COACH ====================
+# NOTE: The main /play/start and /play/move endpoints are in server.py
+# which has the full implementation with coach opponent, guardian, etc.
+# The endpoints below were simplified duplicates that caused routing conflicts.
+# They have been removed to ensure the full implementation is used.
 
-@router.post("/play/start")
-async def start_play_session(
-    request: Dict = Body(...),
-    user: User = Depends(get_current_user)
-):
-    """Start a new Play with Coach session."""
-    global db
-    
-    session_id = f"play_{uuid.uuid4().hex[:12]}"
-    color = request.get("color", "white")
-    time_control = request.get("time_control", "10+0")
-    
-    session = {
-        "session_id": session_id,
-        "user_id": user.user_id,
-        "user_color": color,
-        "time_control": time_control,
-        "moves": [],
-        "coach_comments": [],
-        "started_at": datetime.now(timezone.utc).isoformat(),
-        "status": "active"
-    }
-    
-    await db.play_sessions.insert_one(session)
-    
-    return {
-        "session_id": session_id,
-        "user_color": color,
-        "message": "Let's play! I'll give you hints as we go."
-    }
-
-
-@router.post("/play/move")
-async def record_play_move(
-    request: CoachMoveRequest,
-    user: User = Depends(get_current_user)
-):
-    """Record a move in the Play with Coach session."""
-    global db
-    
-    session = await db.play_sessions.find_one({
-        "session_id": request.session_id,
-        "user_id": user.user_id
-    })
-    
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    moves = session.get("moves", [])
-    move_number = len(moves) + 1
-    
-    move_data = {
-        "move_number": move_number,
-        "move": request.move,
-        "thinking_time_ms": request.thinking_time_ms,
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }
-    
-    moves.append(move_data)
-    
-    await db.play_sessions.update_one(
-        {"session_id": request.session_id},
-        {"$set": {"moves": moves}}
-    )
-    
-    # Generate coach comment (simplified - real implementation uses engine)
-    comment = None
-    if move_number % 5 == 0:
-        comment = "Good progress! Keep thinking about piece activity."
-    
-    return {
-        "move_number": move_number,
-        "coach_comment": comment,
-        "status": "ok"
-    }
+# Legacy endpoints removed - use server.py's /coach/play/start and /coach/play/move
 
 
 @router.get("/play/identity")
