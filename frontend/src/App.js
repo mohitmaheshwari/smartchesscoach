@@ -9,6 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import CoachHome from "@/pages/CoachHome";
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
+import LabV2 from "@/pages/LabV2";
 import WeaknessTracker from "@/pages/WeaknessTracker";
 import Training from "@/pages/TrainingNew";  // NEW interactive training
 import PrescribedTraining from "@/pages/PrescribedTraining";  // Coached puzzles based on weaknesses
@@ -187,10 +188,15 @@ function AppRouter() {
       } />
       <Route path="/game/:gameId" element={
         <ProtectedRoute>
-          {({ user }) => <Lab user={user} />}
+          {({ user }) => <LabV2 user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/lab/game/:gameId" element={
+        <ProtectedRoute>
+          {({ user }) => <LabV2 user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/game-old/:gameId" element={
         <ProtectedRoute>
           {({ user }) => <Lab user={user} />}
         </ProtectedRoute>
