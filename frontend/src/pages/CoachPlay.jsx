@@ -1360,7 +1360,7 @@ const CoachPlay = ({ user }) => {
                 sessionId={session.session_id}
                 result={session.result || "1/2-1/2"}
                 studentColor={session.user_color}
-                moves={moveHistory.map(m => m.move)}
+                moves={(session.move_history || []).map(m => m.move)}
                 onPlayAgain={newGame}
               />
             </div>
