@@ -296,17 +296,11 @@ The CUS is the computational backbone for the Teaching Coach. It provides factua
 3. ~~Structure & Plan Database~~ ✅ DONE
 
 ### 19. Structure & Plan Database ✅ (NEW - Completed)
-- **Created**: `services/structure_plan_database.py` (1200+ lines)
+- **Created**: `services/structure_plan_database.py` (1800+ lines)
 - **Purpose**: Maps pawn structures to concrete strategic plans with teaching content
-- **Structures Covered** (8 total):
-  - Isolated Queen Pawn (IQP)
-  - French Advance
-  - Sicilian Scheveningen
-  - King's Indian Defense
-  - Carlsbad Structure
-  - Rook Endgame Fundamentals
-  - King and Pawn Endgame
-  - Opposite Color Bishops Endgame
+- **Structures Covered** (18 total):
+  - Opening/Middlegame: IQP, French Advance, Sicilian (Scheveningen, Najdorf), King's Indian, Carlsbad, QGD, Caro-Kann, Nimzo-Indian, London System, Slav, Benoni, Grünfeld
+  - Endgames: Rook Endgame, King+Pawn, Opposite Color Bishops, Bishop vs Knight, Queen Endgame
 - **Features per Structure**:
   - White and Black strategic plans
   - Key moves, piece maneuvers, pawn breaks
@@ -316,18 +310,20 @@ The CUS is the computational backbone for the Teaching Coach. It provides factua
   - Famous game examples
   - Difficulty rating
 - **New endpoints**:
-  - `GET /api/coach/teaching/structures` - List all structures
+  - `GET /api/coach/teaching/structures` - List all structures (18)
   - `POST /api/coach/teaching/structure-plans` - Get plans for a structure
 
-### 20. PedagogicalOpponent Integration ✅ (NEW - Completed)
-- **Updated**: `coach_play/coach_opponent.py`
-- **Purpose**: Integrates Teaching Move Selector into the Play with Coach game flow
+### 20. Frontend Teaching Panel ✅ (NEW - Completed)
+- **Created**: `frontend/src/components/TeachingPanel.jsx`
+- **Purpose**: Real-time teaching insights in the Play with Coach UI
 - **Features**:
-  - Uses Teaching Move Selector for move selection
-  - Provides teaching context with each move
-  - Adapts to student weaknesses
-  - Avoids crushing moves to preserve learning opportunities
-- **Backend Integration**: Updated `server.py` to use `PedagogicalOpponent` and `ActiveTeachingEngine`
+  - Game phase indicator with visual styling
+  - Coaching priorities (develop, control center, castle)
+  - Pawn structure identification
+  - Strategic plans for both sides (expandable)
+  - Key concepts and teaching points
+  - Endgame type detection with specific guidance
+- **Integration**: Added to `CoachPlay.jsx` right panel
 
 ## Teaching Coach API Summary
 
@@ -366,4 +362,4 @@ Plain, simple, direct Indian-English
 
 ---
 *Last updated: December 2025*
-*Status: Teaching Coach core complete - Move Selector, Active Teaching Engine, Structure Database all implemented and integrated*
+*Status: Teaching Coach fully integrated - 18 structures, Frontend Teaching Panel live*

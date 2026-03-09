@@ -893,6 +893,876 @@ class StructurePlanDatabase:
                 ],
                 difficulty="intermediate",
                 prerequisites=["Basic bishop endgames", "Pawn structure concepts"]
+            ),
+            
+            # ============================================
+            # QUEEN'S GAMBIT DECLINED
+            # ============================================
+            "queens_gambit_declined": StructureTeaching(
+                structure_name="Queen's Gambit Declined",
+                structure_type="queens_gambit_declined",
+                main_idea="Black maintains solid central pawn structure with d5-e6, White has space advantage",
+                key_characteristics=[
+                    "Black pawns on d5 and e6 - solid but slightly cramped",
+                    "White controls more space with d4-c4",
+                    "The c8 bishop is often Black's problem piece",
+                    "White often develops with Bg5, pinning the knight",
+                    "Both sides often castle kingside"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="Minority Attack",
+                        description="Push b4-b5 to create weaknesses on Black's queenside",
+                        key_moves=["b4", "b5", "bxc6"],
+                        piece_maneuvers=["Rb1", "a4-b4-b5"],
+                        pawn_breaks=["b4-b5 targeting c6"],
+                        when_to_use="After exchanging on d5 (Carlsbad structure)",
+                        what_to_avoid=["Rushing b5 without preparation"],
+                        teaching_explanation="The minority attack creates a weakness on c6. You attack with fewer pawns to create an isolated pawn or backward pawn for Black."
+                    ),
+                    StrategicPlan(
+                        name="Central Pressure",
+                        description="Maintain tension and pressure Black's center",
+                        key_moves=["Rc1", "Qc2", "e4 break"],
+                        piece_maneuvers=["Nf3-e5", "Bd3"],
+                        pawn_breaks=["e3-e4 to challenge d5"],
+                        when_to_use="When Black hasn't equalized",
+                        what_to_avoid=["Releasing tension too early"],
+                        teaching_explanation="Keep the tension in the center. Black is slightly cramped, so don't let them free their position with easy exchanges."
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="Freeing Break with ...c5",
+                        description="Play ...c5 to challenge White's center and free the position",
+                        key_moves=["c5", "cxd4", "exd4"],
+                        piece_maneuvers=["Nc6-b4", "Bb7"],
+                        pawn_breaks=["c5 is the main freeing break"],
+                        when_to_use="Standard freeing plan",
+                        what_to_avoid=["Playing ...c5 when it loses a pawn"],
+                        teaching_explanation="The ...c5 break is your key to equality. It challenges White's center and frees your pieces. Time it right!"
+                    ),
+                    StrategicPlan(
+                        name="Develop the Bad Bishop",
+                        description="Activate the light-squared bishop which is blocked by e6",
+                        key_moves=["b6", "Bb7", "Bd7-b5"],
+                        piece_maneuvers=["Bc8-d7-b5 or Bc8-a6"],
+                        pawn_breaks=[],
+                        when_to_use="After basic development",
+                        what_to_avoid=["Leaving the bishop passive on c8"],
+                        teaching_explanation="Your c8 bishop is blocked by your own pawns. Get it out via b7 or a6 to make it active."
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"N": ["f3", "d2"], "B": ["d3", "g5"], "R": ["c1", "e1"]},
+                    "black": {"N": ["f6", "d7"], "B": ["e7", "b7"], "R": ["c8", "e8"]}
+                },
+                critical_squares=["d5", "e4", "c5"],
+                outposts=["e5 (for White)", "e4 (for Black after ...c5)"],
+                weak_squares=["c6 (after minority attack)", "e6"],
+                teaching_points=[
+                    "Black's position is solid but slightly cramped",
+                    "The c8 bishop is the 'problem piece' - activate it",
+                    "...c5 is Black's main freeing break",
+                    "White often plays for the minority attack",
+                    "Don't release central tension without a good reason"
+                ],
+                common_mistakes=[
+                    "Black: Leaving the c8 bishop passive",
+                    "Black: Playing ...c5 too early or too late",
+                    "White: Exchanging pieces when you have more space",
+                    "White: Not exploiting Black's cramped position"
+                ],
+                famous_games=[
+                    "Capablanca's games in the QGD",
+                    "Karpov vs Kasparov World Championship matches",
+                    "Carlsen's QGD games"
+                ],
+                difficulty="intermediate",
+                prerequisites=["Basic opening principles", "Pawn structure concepts"]
+            ),
+            
+            # ============================================
+            # CARO-KANN DEFENSE
+            # ============================================
+            "caro_kann": StructureTeaching(
+                structure_name="Caro-Kann Defense",
+                structure_type="caro_kann",
+                main_idea="Black gets a solid position with good light-squared bishop, but less central control",
+                key_characteristics=[
+                    "Black plays ...c6 to support ...d5",
+                    "Unlike the French, Black's light-squared bishop is NOT blocked",
+                    "White often gets more space but Black is solid",
+                    "The c6 pawn can become a target",
+                    "Black often plays ...Bf5 early to develop actively"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="Advance Variation Attack",
+                        description="Push e5 and attack on the kingside",
+                        key_moves=["e5", "f4", "Nf3", "Be3"],
+                        piece_maneuvers=["Nd2-f3", "Be2", "0-0"],
+                        pawn_breaks=["f4-f5 to open lines"],
+                        when_to_use="In the Advance variation",
+                        what_to_avoid=["Overextending without piece support"],
+                        teaching_explanation="With e5, you gain space. Use it to attack on the kingside. But watch out for Black's counterplay against d4."
+                    ),
+                    StrategicPlan(
+                        name="Classical Development",
+                        description="Develop naturally and maintain central control",
+                        key_moves=["Nc3", "Nf3", "Bd3", "0-0"],
+                        piece_maneuvers=["Natural development"],
+                        pawn_breaks=["c3 to support d4"],
+                        when_to_use="In the Classical variation",
+                        what_to_avoid=["Allowing Black to equalize easily"],
+                        teaching_explanation="Develop your pieces to good squares and castle. Your space advantage is small but real. Don't let Black equalize easily."
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="Solid Development with ...Bf5",
+                        description="Develop the bishop actively before playing ...e6",
+                        key_moves=["Bf5", "e6", "Nf6", "Be7"],
+                        piece_maneuvers=["Bc8-f5 BEFORE ...e6"],
+                        pawn_breaks=["c5 break when appropriate"],
+                        when_to_use="Standard Caro-Kann development",
+                        what_to_avoid=["Blocking the bishop with ...e6 too early"],
+                        teaching_explanation="The beauty of the Caro-Kann: develop your bishop to f5 BEFORE playing ...e6. This is why it's better than the French for the light-squared bishop."
+                    ),
+                    StrategicPlan(
+                        name="Counterattack on d4",
+                        description="Target White's d4 pawn with ...c5",
+                        key_moves=["c5", "Nc6", "Qb6"],
+                        piece_maneuvers=["Nc6 attacking d4", "Qb6 pressure"],
+                        pawn_breaks=["c5 challenging the center"],
+                        when_to_use="When you want active counterplay",
+                        what_to_avoid=["Playing ...c5 when it loses a pawn"],
+                        teaching_explanation="Like in the French, attack the base of White's pawn chain. The ...c5 break challenges d4 and gives you counterplay."
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"N": ["c3", "f3"], "B": ["d3", "c4"], "R": ["e1", "d1"]},
+                    "black": {"N": ["d7", "f6"], "B": ["f5", "e7"], "R": ["c8", "e8"]}
+                },
+                critical_squares=["d4", "e5", "c5", "f5"],
+                outposts=["d3 (for White B)", "f5 (for Black B)", "d5 (contested)"],
+                weak_squares=["c6 (can become weak)", "d5 (contested)"],
+                teaching_points=[
+                    "Develop the light-squared bishop BEFORE playing ...e6",
+                    "The Caro-Kann is solid but can be passive",
+                    "...c5 is the key counterattacking break",
+                    "White gets more space but Black is hard to break down",
+                    "This opening is great for players who like solid positions"
+                ],
+                common_mistakes=[
+                    "Black: Playing ...e6 before ...Bf5",
+                    "Black: Being too passive - you need counterplay",
+                    "White: Underestimating Black's solidity",
+                    "White: Overextending and getting counterattacked"
+                ],
+                famous_games=[
+                    "Karpov's Caro-Kann games",
+                    "Petrosian's defensive masterpieces",
+                    "Many top GM games with the Caro"
+                ],
+                difficulty="intermediate",
+                prerequisites=["Basic opening principles", "Understanding of space"]
+            ),
+            
+            # ============================================
+            # NIMZO-INDIAN DEFENSE
+            # ============================================
+            "nimzo_indian": StructureTeaching(
+                structure_name="Nimzo-Indian Defense",
+                structure_type="nimzo_indian",
+                main_idea="Black pins the knight and is willing to trade bishop for knight to damage White's pawns",
+                key_characteristics=[
+                    "Black's bishop on b4 pins White's knight",
+                    "The main strategic idea is ...Bxc3 doubling White's pawns",
+                    "White often gets the bishop pair as compensation",
+                    "Black aims for solid center and good piece play",
+                    "Very popular at the highest levels"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="Accept Doubled Pawns for Bishop Pair",
+                        description="Allow ...Bxc3 and use the two bishops",
+                        key_moves=["Qc2", "a3", "Bxc3"],
+                        piece_maneuvers=["Develop bishops actively"],
+                        pawn_breaks=["e4 to open the position for bishops"],
+                        when_to_use="When you want to play with two bishops",
+                        what_to_avoid=["Keeping the position too closed"],
+                        teaching_explanation="If Black takes on c3, you get doubled pawns but TWO BISHOPS. Open the position to make them powerful. The pawns can be a strength too!"
+                    ),
+                    StrategicPlan(
+                        name="Avoid the Trade with a3",
+                        description="Play a3 to force the bishop to decide",
+                        key_moves=["a3", "Bd6/Be7", "e4"],
+                        piece_maneuvers=["Gain space after bishop retreats"],
+                        pawn_breaks=["e4 for central control"],
+                        when_to_use="When you don't want doubled pawns",
+                        what_to_avoid=["Wasting time if Black won't take anyway"],
+                        teaching_explanation="If you don't want doubled pawns, play a3 to ask the bishop what it wants. But you use a tempo, so make sure it's worth it."
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="Double the Pawns",
+                        description="Play ...Bxc3 to damage White's pawn structure",
+                        key_moves=["Bxc3", "bxc3", "d5", "c5"],
+                        piece_maneuvers=["Attack the doubled pawns"],
+                        pawn_breaks=["c5 and d5 for central control"],
+                        when_to_use="When you want structural advantage",
+                        what_to_avoid=["Opening the position for White's bishops"],
+                        teaching_explanation="Take on c3 to double White's pawns. But keep the position CLOSED - you don't want White's two bishops to become strong."
+                    ),
+                    StrategicPlan(
+                        name="Keep the Bishop",
+                        description="Retreat and keep the bishop for later",
+                        key_moves=["Be7", "d5", "c5"],
+                        piece_maneuvers=["Bishop stays active"],
+                        pawn_breaks=["d5 for central presence"],
+                        when_to_use="When you don't want to give up the bishop",
+                        what_to_avoid=["Losing too much time retreating"],
+                        teaching_explanation="Sometimes it's better to keep your bishop. Retreat to e7 and play a solid game. You still have good piece play."
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"N": ["e2", "f3"], "B": ["d3", "b2"], "R": ["c1", "e1"]},
+                    "black": {"N": ["c6", "f6"], "B": ["b4", "b7"], "R": ["c8", "e8"]}
+                },
+                critical_squares=["c3", "d4", "e4", "c5"],
+                outposts=["d3 (for White)", "d5 (for Black)", "c4"],
+                weak_squares=["c3/c4 (after doubling)", "d4 (can be weak)"],
+                teaching_points=[
+                    "The ...Bxc3 trade is the heart of the Nimzo",
+                    "White gets two bishops but damaged pawns",
+                    "Black should keep the position CLOSED after doubling",
+                    "This is one of the most strategic openings",
+                    "Both sides have real chances - very balanced"
+                ],
+                common_mistakes=[
+                    "Black: Opening the position after ...Bxc3",
+                    "Black: Trading too early or too late",
+                    "White: Not using the bishop pair effectively",
+                    "White: Letting the doubled pawns become weak"
+                ],
+                famous_games=[
+                    "Nimzowitsch's original games",
+                    "Kasparov's Nimzo-Indian battles",
+                    "Modern GM practice"
+                ],
+                difficulty="advanced",
+                prerequisites=["Pawn structure understanding", "Strategic planning"]
+            ),
+            
+            # ============================================
+            # SICILIAN NAJDORF
+            # ============================================
+            "sicilian_najdorf": StructureTeaching(
+                structure_name="Sicilian Najdorf",
+                structure_type="sicilian_najdorf",
+                main_idea="Black plays ...a6 to control b5 and prepare ...e5 or ...b5 counterplay",
+                key_characteristics=[
+                    "The ...a6 move is multi-purpose: stops Bb5, prepares ...b5 or ...e5",
+                    "Very sharp and tactical opening",
+                    "White often attacks the kingside, Black the queenside",
+                    "One of the most analyzed openings in chess",
+                    "Requires precise knowledge from both sides"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="English Attack (Be3/f3/g4)",
+                        description="Kingside pawn storm with Be3, f3, Qd2, g4, 0-0-0",
+                        key_moves=["Be3", "f3", "Qd2", "g4", "0-0-0"],
+                        piece_maneuvers=["Be3", "Qd2", "0-0-0", "Rg1"],
+                        pawn_breaks=["g4-g5-g6 pawn storm"],
+                        when_to_use="Standard attacking setup",
+                        what_to_avoid=["Being too slow - Black will attack first"],
+                        teaching_explanation="The English Attack is direct: castle queenside and storm the kingside with g4-g5. It's a race - whoever attacks faster wins!"
+                    ),
+                    StrategicPlan(
+                        name="Positional with Be2",
+                        description="Solid development with Be2 and 0-0",
+                        key_moves=["Be2", "0-0", "f4", "Kh1"],
+                        piece_maneuvers=["Be2", "0-0", "Qe1-g3"],
+                        pawn_breaks=["f4-f5 or e5"],
+                        when_to_use="When you want a slower game",
+                        what_to_avoid=["Being too passive against Black's counterplay"],
+                        teaching_explanation="The Be2 systems are quieter but still have bite. You can attack later with f4-f5 while keeping a solid position."
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="Queenside Counterattack",
+                        description="Push ...b5-b4 and attack on the queenside",
+                        key_moves=["b5", "b4", "Rb8", "Qa5"],
+                        piece_maneuvers=["Nc6-a5-c4", "Rb8"],
+                        pawn_breaks=["b5-b4 is the main break"],
+                        when_to_use="Against Be3/f3 setups",
+                        what_to_avoid=["Being too slow - the kingside attack is deadly"],
+                        teaching_explanation="In the Najdorf, you MUST counterattack. Push ...b5-b4 to open lines on the queenside while White attacks your king. Speed is everything!"
+                    ),
+                    StrategicPlan(
+                        name="...e5 Central Break",
+                        description="Play ...e5 to challenge the center",
+                        key_moves=["e5", "Be7", "0-0"],
+                        piece_maneuvers=["Prepare ...e5 carefully"],
+                        pawn_breaks=["e5 gaining central space"],
+                        when_to_use="When you want a more stable center",
+                        what_to_avoid=["Playing ...e5 when it weakens d5 too much"],
+                        teaching_explanation="The ...e5 break gives you more space but weakens d5. Make sure you can control d5 before playing it!"
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"N": ["c3", "f3"], "B": ["e3", "c4/e2"], "R": ["d1", "g1"]},
+                    "black": {"N": ["c6", "f6", "d7"], "B": ["e7", "b7"], "R": ["c8", "b8"]}
+                },
+                critical_squares=["d5", "e5", "b5", "g6"],
+                outposts=["d5 (critical for White)", "c4 (for Black knight)"],
+                weak_squares=["d5 (if Black plays ...e5)", "g7 (kingside attack target)"],
+                teaching_points=[
+                    "This is one of the sharpest openings - study it well!",
+                    "Speed is critical for both sides",
+                    "...a6 is multi-purpose: controls b5, prepares counterplay",
+                    "White attacks kingside, Black attacks queenside",
+                    "Precise move order knowledge is essential"
+                ],
+                common_mistakes=[
+                    "Black: Being too slow with counterplay",
+                    "Black: Not knowing the theory - it's deadly",
+                    "White: Attacking without preparation",
+                    "White: Letting Black get ...b5-b4 rolling first"
+                ],
+                famous_games=[
+                    "Fischer's Najdorf games",
+                    "Kasparov's legendary Najdorf battles",
+                    "Modern super-GM games"
+                ],
+                difficulty="advanced",
+                prerequisites=["Tactical skill", "Opening theory knowledge", "Sharp play"]
+            ),
+            
+            # ============================================
+            # LONDON SYSTEM
+            # ============================================
+            "london_system": StructureTeaching(
+                structure_name="London System",
+                structure_type="london_system",
+                main_idea="White develops Bf4 early and creates a solid pyramid structure",
+                key_characteristics=[
+                    "White plays d4, Bf4, e3, c3, Nf3, Bd3 - the 'London setup'",
+                    "Very solid and hard to break down",
+                    "White's dark-squared bishop is outside the pawn chain",
+                    "Can be played against almost anything",
+                    "Popular at club level for its simplicity"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="Standard London Setup",
+                        description="Complete the pyramid: d4, Bf4, e3, c3, Nf3, Bd3",
+                        key_moves=["d4", "Bf4", "e3", "c3", "Nf3", "Bd3"],
+                        piece_maneuvers=["Bf4 BEFORE e3", "Nbd2-f3 if needed"],
+                        pawn_breaks=["e4 or c4 later"],
+                        when_to_use="Default setup",
+                        what_to_avoid=["Playing e3 before Bf4 (blocks the bishop)"],
+                        teaching_explanation="The London is simple: get your bishop out with Bf4, then build the e3/c3/d4 pyramid. It's solid and you always know what to do."
+                    ),
+                    StrategicPlan(
+                        name="Kingside Attack",
+                        description="Attack the kingside after solid development",
+                        key_moves=["h3", "Qe2", "Ne5", "g4"],
+                        piece_maneuvers=["Nf3-e5", "Qe2-g4"],
+                        pawn_breaks=["e4 to open the center"],
+                        when_to_use="After completing development",
+                        what_to_avoid=["Attacking without proper preparation"],
+                        teaching_explanation="Once you have the London setup, you can attack! Ne5 is often strong, and you can push h3/g4 for a kingside attack."
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="Challenge with ...c5",
+                        description="Strike at White's center with ...c5",
+                        key_moves=["c5", "cxd4", "Nc6"],
+                        piece_maneuvers=["Develop actively, don't be passive"],
+                        pawn_breaks=["c5 challenging d4"],
+                        when_to_use="Standard counterplay",
+                        what_to_avoid=["Being too passive"],
+                        teaching_explanation="Against the London, don't be passive! Challenge the center with ...c5 and develop your pieces actively."
+                    ),
+                    StrategicPlan(
+                        name="Fianchetto Setup",
+                        description="Play ...g6 and ...Bg7 to challenge the center",
+                        key_moves=["g6", "Bg7", "0-0", "d5"],
+                        piece_maneuvers=["Bg7 pressures the center"],
+                        pawn_breaks=["d5 and c5"],
+                        when_to_use="If you like solid positions",
+                        what_to_avoid=["Letting White attack without counterplay"],
+                        teaching_explanation="The Bg7 puts pressure on the center from the side. Combined with ...d5, you can challenge White's setup effectively."
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"N": ["f3", "d2"], "B": ["f4", "d3"], "R": ["e1", "c1"]},
+                    "black": {"N": ["f6", "c6"], "B": ["d6", "g7"], "R": ["e8", "c8"]}
+                },
+                critical_squares=["e5", "d4", "c5"],
+                outposts=["e5 (for White knight)"],
+                weak_squares=["c3 (can become a target)"],
+                teaching_points=[
+                    "The London is simple and solid - great for club players",
+                    "Always play Bf4 BEFORE e3",
+                    "The pyramid structure (e3/d4/c3) is hard to break",
+                    "Black should challenge actively, not sit passively",
+                    "White can attack after completing development"
+                ],
+                common_mistakes=[
+                    "White: Playing e3 before Bf4 (blocks the bishop!)",
+                    "White: Being too passive - you can attack too!",
+                    "Black: Being too passive against the solid setup",
+                    "Black: Not challenging with ...c5"
+                ],
+                famous_games=[
+                    "Kamsky's London System games",
+                    "Carlsen's occasional London games",
+                    "Popular at all levels"
+                ],
+                difficulty="beginner",
+                prerequisites=["Basic opening principles"]
+            ),
+            
+            # ============================================
+            # SLAV DEFENSE
+            # ============================================
+            "slav_defense": StructureTeaching(
+                structure_name="Slav Defense",
+                structure_type="slav_defense",
+                main_idea="Black supports d5 with ...c6 while keeping the light-squared bishop free",
+                key_characteristics=[
+                    "Black plays ...c6 to support d5 (like Caro-Kann idea)",
+                    "The light-squared bishop can develop to f5 or g4",
+                    "Very solid opening, popular at all levels",
+                    "Can transpose to many other structures",
+                    "Both sides have clear plans"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="Exchange Variation",
+                        description="Exchange on d5 and play for minority attack",
+                        key_moves=["cxd5", "cxd5", "Bf4", "Nc3"],
+                        piece_maneuvers=["Minority attack setup"],
+                        pawn_breaks=["b4-b5 minority attack"],
+                        when_to_use="For a quiet positional game",
+                        what_to_avoid=["Letting Black equalize too easily"],
+                        teaching_explanation="The Exchange Slav leads to the Carlsbad structure. Use the minority attack (b4-b5) to create a weakness on c6."
+                    ),
+                    StrategicPlan(
+                        name="Main Line with e3",
+                        description="Solid development with e3 and Bd3",
+                        key_moves=["e3", "Bd3", "Nf3", "0-0"],
+                        piece_maneuvers=["Natural development"],
+                        pawn_breaks=["e4 break when prepared"],
+                        when_to_use="Standard main line play",
+                        what_to_avoid=["Being too passive"],
+                        teaching_explanation="Develop solidly with e3 and Bd3. You have a small space advantage. Look for the e4 break when the time is right."
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="...Bf5 Development",
+                        description="Develop the bishop actively to f5",
+                        key_moves=["Bf5", "e6", "Nf6", "Bd6"],
+                        piece_maneuvers=["Bc8-f5 before ...e6"],
+                        pawn_breaks=["dxc4 and ...e5"],
+                        when_to_use="Standard Slav development",
+                        what_to_avoid=["Blocking the bishop with ...e6 too early"],
+                        teaching_explanation="Like the Caro-Kann, get your bishop out to f5 BEFORE playing ...e6. This is the Slav's main advantage over the QGD."
+                    ),
+                    StrategicPlan(
+                        name="...dxc4 and ...b5",
+                        description="Capture on c4 and hold the pawn with ...b5",
+                        key_moves=["dxc4", "b5", "a6"],
+                        piece_maneuvers=["Hold the c4 pawn"],
+                        pawn_breaks=["b5 to hold c4"],
+                        when_to_use="In the Slav Gambit lines",
+                        what_to_avoid=["Getting your pawns overextended"],
+                        teaching_explanation="You can grab the c4 pawn and try to hold it with ...b5. It's risky but gives you a pawn. Be careful of your queenside pawns!"
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"N": ["c3", "f3"], "B": ["d3", "g5"], "R": ["c1", "e1"]},
+                    "black": {"N": ["d7", "f6"], "B": ["f5", "e7"], "R": ["c8", "e8"]}
+                },
+                critical_squares=["d5", "e4", "c4"],
+                outposts=["e5 (for White)", "d5 (for Black)"],
+                weak_squares=["c6 (can become weak)"],
+                teaching_points=[
+                    "The Slav is solid and reliable",
+                    "Develop the bishop to f5 BEFORE ...e6",
+                    "The ...dxc4 lines are sharp and tactical",
+                    "Can transpose to many other openings",
+                    "Both sides have clear, understandable plans"
+                ],
+                common_mistakes=[
+                    "Black: Playing ...e6 before ...Bf5",
+                    "Black: Being too passive",
+                    "White: Not preparing e4 properly",
+                    "White: Underestimating Black's counterplay"
+                ],
+                famous_games=[
+                    "Anand's Slav games",
+                    "Kramnik's Slav Defense",
+                    "Modern GM practice"
+                ],
+                difficulty="intermediate",
+                prerequisites=["Basic opening principles", "QGD understanding"]
+            ),
+            
+            # ============================================
+            # BENONI DEFENSE
+            # ============================================
+            "benoni": StructureTeaching(
+                structure_name="Modern Benoni",
+                structure_type="benoni",
+                main_idea="Black accepts space disadvantage for dynamic counterplay with ...c5",
+                key_characteristics=[
+                    "Asymmetric pawn structure after d5-c5 exchange",
+                    "White has central space advantage (d5 pawn)",
+                    "Black's queenside majority can become powerful",
+                    "Very dynamic and unbalanced positions",
+                    "Not for the faint of heart!"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="e4-e5 Central Breakthrough",
+                        description="Push e5 to gain more space and attack",
+                        key_moves=["e4", "f4", "e5"],
+                        piece_maneuvers=["Bd3", "0-0", "f4-e5"],
+                        pawn_breaks=["e4-e5 is the dream"],
+                        when_to_use="When you can prepare e5 safely",
+                        what_to_avoid=["Playing e5 when Black can blockade on d6"],
+                        teaching_explanation="The e5 break is your goal! If you can play e5 effectively, Black is in trouble. But you need to prepare it carefully."
+                    ),
+                    StrategicPlan(
+                        name="Squeeze and Restrict",
+                        description="Keep Black restricted and slowly improve",
+                        key_moves=["Nf3", "Be2", "0-0", "a4"],
+                        piece_maneuvers=["Control b5 square with a4"],
+                        pawn_breaks=["a4 to stop ...b5"],
+                        when_to_use="For a slower, positional approach",
+                        what_to_avoid=["Letting Black get ...b5 counterplay"],
+                        teaching_explanation="If you can stop ...b5, Black is very cramped. Play a4 and slowly improve your position. Black will struggle."
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="...b5 Queenside Expansion",
+                        description="Push ...b5 to activate the queenside majority",
+                        key_moves=["b5", "b4", "Rb8"],
+                        piece_maneuvers=["Nc6-a5-c4", "Rb8"],
+                        pawn_breaks=["b5-b4 is the key break"],
+                        when_to_use="The main plan in the Benoni",
+                        what_to_avoid=["Being too slow - White will crush you"],
+                        teaching_explanation="You MUST get ...b5 in! Your whole position depends on queenside counterplay. If White stops ...b5, you're in big trouble."
+                    ),
+                    StrategicPlan(
+                        name="...f5 Kingside Break",
+                        description="Play ...f5 to challenge e4",
+                        key_moves=["f5", "exf5", "gxf5"],
+                        piece_maneuvers=["Prepare ...f5 with Re8"],
+                        pawn_breaks=["f5 attacking e4"],
+                        when_to_use="When ...b5 is blocked",
+                        what_to_avoid=["Weakening your king too much"],
+                        teaching_explanation="If ...b5 isn't working, try ...f5! It's risky because it weakens your king, but it can give you counterplay."
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"N": ["c3", "f3"], "B": ["d3", "e2"], "R": ["e1", "b1"]},
+                    "black": {"N": ["a6", "f6", "e7"], "B": ["g7", "d7"], "R": ["b8", "e8"]}
+                },
+                critical_squares=["d5", "e5", "b5", "c4"],
+                outposts=["d5 (White's powerful pawn)", "c4 (for Black knight)"],
+                weak_squares=["d6 (Black's eternal weakness)", "e6"],
+                teaching_points=[
+                    "The Benoni is SHARP - you must know the theory!",
+                    "Black MUST get ...b5 counterplay",
+                    "If White plays e5 effectively, Black is lost",
+                    "Not for passive players - requires active play",
+                    "The d6 pawn is Black's structural weakness"
+                ],
+                common_mistakes=[
+                    "Black: Being too slow with ...b5",
+                    "Black: Playing the Benoni without knowing theory",
+                    "White: Not controlling b5",
+                    "White: Allowing Black's counterplay to develop"
+                ],
+                famous_games=[
+                    "Tal's Benoni sacrifices",
+                    "Kasparov's Benoni games",
+                    "Modern Benoni theory"
+                ],
+                difficulty="advanced",
+                prerequisites=["Dynamic play", "Opening theory", "Calculation"]
+            ),
+            
+            # ============================================
+            # GRUNFELD DEFENSE
+            # ============================================
+            "grunfeld": StructureTeaching(
+                structure_name="Grünfeld Defense",
+                structure_type="grunfeld",
+                main_idea="Black lets White build a big center, then attacks it with pieces",
+                key_characteristics=[
+                    "Black plays ...d5 to challenge then exchanges: exd5 Nxd5",
+                    "White gets a big pawn center (c4/d4/e4)",
+                    "Black attacks the center with pieces, not pawns",
+                    "The Bg7 is Black's most important piece",
+                    "Very theoretical and sharp"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="Maintain the Center",
+                        description="Keep the big center and squeeze Black",
+                        key_moves=["e4", "Be3", "Qd2", "Rc1"],
+                        piece_maneuvers=["Protect d4 and e4"],
+                        pawn_breaks=["d5 to gain more space"],
+                        when_to_use="The classical approach",
+                        what_to_avoid=["Losing a center pawn for nothing"],
+                        teaching_explanation="Your big center is your advantage. Protect it and try to advance d5 or use the space to attack. Don't let Black destroy it!"
+                    ),
+                    StrategicPlan(
+                        name="Exchange on d5",
+                        description="Simplify and keep a solid position",
+                        key_moves=["cxd5", "Nxd5", "e4", "Nxc3"],
+                        piece_maneuvers=["Develop simply"],
+                        pawn_breaks=[],
+                        when_to_use="For a simpler game",
+                        what_to_avoid=["Being too passive"],
+                        teaching_explanation="The Exchange variation is simpler. You don't get a huge center but also don't have to defend it. More balanced but less exciting."
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="Attack the Center",
+                        description="Use pieces to pressure d4 and c4",
+                        key_moves=["c5", "Nc6", "Qa5", "cxd4"],
+                        piece_maneuvers=["Nc6 pressures d4", "Qa5 adds pressure"],
+                        pawn_breaks=["c5 challenging d4"],
+                        when_to_use="The classic Grünfeld strategy",
+                        what_to_avoid=["Letting White consolidate the center"],
+                        teaching_explanation="Your strategy is to ATTACK the center, not build your own. The Bg7 and ...c5 put pressure on d4. If the center falls, you win!"
+                    ),
+                    StrategicPlan(
+                        name="...e5 Counterblow",
+                        description="Strike in the center with ...e5",
+                        key_moves=["e5", "dxe5", "Qa5"],
+                        piece_maneuvers=["Prepare ...e5 carefully"],
+                        pawn_breaks=["e5 destroying the center"],
+                        when_to_use="In some variations",
+                        what_to_avoid=["Playing ...e5 when it loses material"],
+                        teaching_explanation="Sometimes ...e5 can destroy White's center in one blow. But calculate carefully - it's a committal move!"
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"N": ["c3", "f3"], "B": ["e3", "e2"], "R": ["c1", "d1"]},
+                    "black": {"N": ["c6", "d5"], "B": ["g7", "e6"], "R": ["c8", "d8"]}
+                },
+                critical_squares=["d4", "c4", "e4", "d5"],
+                outposts=["d5 (contested)", "c4"],
+                weak_squares=["d4 (can become weak)", "c3 (after ...Bxc3)"],
+                teaching_points=[
+                    "The Grünfeld is all about ATTACKING the center",
+                    "Black's Bg7 is the most important piece",
+                    "Don't try to build a pawn center as Black",
+                    "White must protect the center or it will collapse",
+                    "Very theoretical - study the main lines!"
+                ],
+                common_mistakes=[
+                    "Black: Trying to build a pawn center",
+                    "Black: Not putting enough pressure on d4",
+                    "White: Losing a center pawn carelessly",
+                    "White: Overextending the center"
+                ],
+                famous_games=[
+                    "Kasparov's legendary Grünfeld games",
+                    "Svidler's Grünfeld expertise",
+                    "Modern super-GM theory"
+                ],
+                difficulty="advanced",
+                prerequisites=["Dynamic play", "Piece activity concepts", "Opening theory"]
+            ),
+            
+            # ============================================
+            # BISHOP VS KNIGHT ENDGAME
+            # ============================================
+            "bishop_vs_knight_endgame": StructureTeaching(
+                structure_name="Bishop vs Knight Endgame",
+                structure_type="bishop_vs_knight_endgame",
+                main_idea="Bishop is better in open positions, knight is better in closed positions",
+                key_characteristics=[
+                    "Bishop is long-range, knight is short-range",
+                    "In open positions, bishop dominates",
+                    "In closed positions, knight can be superior",
+                    "Pawns on both flanks favor the bishop",
+                    "Knight needs outposts to be effective"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="Open the Position (if you have bishop)",
+                        description="Create pawn breaks to open lines for your bishop",
+                        key_moves=["Pawn breaks to open position"],
+                        piece_maneuvers=["Keep bishop on long diagonal"],
+                        pawn_breaks=["Any pawn break that opens lines"],
+                        when_to_use="When you have the bishop",
+                        what_to_avoid=["Closing the position"],
+                        teaching_explanation="If you have the bishop, OPEN the position! Create pawn breaks to give your bishop long diagonals. The knight can't compete in open positions."
+                    ),
+                    StrategicPlan(
+                        name="Create Outposts (if you have knight)",
+                        description="Find strong squares for your knight",
+                        key_moves=["Knight to outpost", "Support with pawns"],
+                        piece_maneuvers=["Knight to central outpost"],
+                        pawn_breaks=["Avoid opening the position"],
+                        when_to_use="When you have the knight",
+                        what_to_avoid=["Opening the position"],
+                        teaching_explanation="If you have the knight, find an OUTPOST - a square where your knight can't be attacked by pawns. From there, it can dominate."
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="Pawns on Both Flanks",
+                        description="Keep pawns on both sides to maximize bishop's range",
+                        key_moves=["Keep pawns spread out"],
+                        piece_maneuvers=["Bishop controls long diagonal"],
+                        pawn_breaks=[],
+                        when_to_use="When you have the bishop",
+                        what_to_avoid=["Trading all pawns to one side"],
+                        teaching_explanation="Bishops love pawns on BOTH sides of the board. The knight can only cover one side at a time, but your bishop covers everything!"
+                    ),
+                    StrategicPlan(
+                        name="Block the Bishop",
+                        description="Use pawns to block the bishop's diagonals",
+                        key_moves=["Fixed pawns", "Knight to strong square"],
+                        piece_maneuvers=["Knight dominates fixed position"],
+                        pawn_breaks=["Avoid pawn breaks"],
+                        when_to_use="When you have the knight",
+                        what_to_avoid=["Opening the position"],
+                        teaching_explanation="Block the bishop's diagonals with fixed pawns. Your knight becomes stronger than the 'bad' bishop in closed positions."
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"B": ["long diagonal"], "N": ["central outpost"]},
+                    "black": {"B": ["long diagonal"], "N": ["central outpost"]}
+                },
+                critical_squares=["Central outposts", "Key diagonals"],
+                outposts=["Central squares unreachable by pawns"],
+                weak_squares=["Fixed pawns on bishop's color"],
+                teaching_points=[
+                    "Bishop is better in OPEN positions",
+                    "Knight is better in CLOSED positions",
+                    "Pawns on both sides favor the bishop",
+                    "Knight needs outposts to be effective",
+                    "Judge the position to know which is better"
+                ],
+                common_mistakes=[
+                    "Opening position when you have knight",
+                    "Closing position when you have bishop",
+                    "Not using pawns to support your piece",
+                    "Trading into a bad minor piece endgame"
+                ],
+                famous_games=[
+                    "Fischer's bishop endgames",
+                    "Capablanca's technique",
+                    "Classic endgame treatises"
+                ],
+                difficulty="intermediate",
+                prerequisites=["Basic endgame knowledge", "Minor piece understanding"]
+            ),
+            
+            # ============================================
+            # QUEEN ENDGAME
+            # ============================================
+            "queen_endgame": StructureTeaching(
+                structure_name="Queen Endgame",
+                structure_type="queen_endgame",
+                main_idea="Queens are powerful but often lead to perpetual checks and draws",
+                key_characteristics=[
+                    "Queens can give perpetual check easily",
+                    "Even extra pawns can be hard to convert",
+                    "King safety is paramount",
+                    "Passed pawns become very dangerous",
+                    "Many queen endgames are drawn"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="Protect Your King",
+                        description="Ensure your king is safe from perpetual check",
+                        key_moves=["King to corner", "Pawns shield king"],
+                        piece_maneuvers=["Queen supports pawns and defends"],
+                        pawn_breaks=["Push passed pawn when king is safe"],
+                        when_to_use="Always prioritize king safety",
+                        what_to_avoid=["Leaving your king exposed"],
+                        teaching_explanation="In queen endgames, your king MUST be safe from perpetual check. Even if you're up a pawn, a perpetual is a draw!"
+                    ),
+                    StrategicPlan(
+                        name="Push Passed Pawns",
+                        description="Advance passed pawns with queen support",
+                        key_moves=["Queen escorts the pawn"],
+                        piece_maneuvers=["Queen ahead of pawn, or supporting from behind"],
+                        pawn_breaks=["Create a passed pawn if you don't have one"],
+                        when_to_use="When your king is safe",
+                        what_to_avoid=["Pushing pawns when your king is exposed"],
+                        teaching_explanation="Once your king is safe, push your passed pawn. The queen can support it while still checking or threatening the enemy king."
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="Perpetual Check Defense",
+                        description="Try to get perpetual check to draw",
+                        key_moves=["Queen checks", "Keep checking"],
+                        piece_maneuvers=["Queen hunts the enemy king"],
+                        pawn_breaks=[],
+                        when_to_use="When you're losing",
+                        what_to_avoid=["Letting your opponent's king escape"],
+                        teaching_explanation="If you're worse in a queen endgame, look for PERPETUAL CHECK. Even if you're down material, a perpetual is a draw!"
+                    ),
+                    StrategicPlan(
+                        name="Counterattack",
+                        description="Create threats against opponent's king",
+                        key_moves=["Queen attacks king", "Push passed pawns"],
+                        piece_maneuvers=["Queen active on both flanks"],
+                        pawn_breaks=["Create your own passed pawn"],
+                        when_to_use="When you have counterplay",
+                        what_to_avoid=["Being purely defensive"],
+                        teaching_explanation="Queens are powerful attackers. Even if you're defending, look for counterattacking chances. A threat against their king can save you!"
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"Q": ["active, supporting pawns"]},
+                    "black": {"Q": ["active, threatening perpetual"]}
+                },
+                critical_squares=["Queening squares", "King escape squares"],
+                outposts=[],
+                weak_squares=["Exposed king positions"],
+                teaching_points=[
+                    "King safety is MORE important than material",
+                    "Perpetual check is always a resource",
+                    "Passed pawns are very dangerous in queen endgames",
+                    "Many queen endgames end in draws",
+                    "Calculate checks and counter-checks carefully"
+                ],
+                common_mistakes=[
+                    "Leaving your king exposed to perpetual",
+                    "Not looking for perpetual when you're worse",
+                    "Pushing pawns when your king is unsafe",
+                    "Forgetting that queens can give check from far away"
+                ],
+                famous_games=[
+                    "World Championship queen endgames",
+                    "Famous perpetual check saves",
+                    "Queen endgame studies"
+                ],
+                difficulty="intermediate",
+                prerequisites=["Basic endgame knowledge", "Calculation skills"]
             )
         }
     

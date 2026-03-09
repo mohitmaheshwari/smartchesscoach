@@ -47,8 +47,10 @@ import {
   ThumbsDown,
   Target,
   X,
-  History
+  History,
+  BookOpen
 } from "lucide-react";
+import TeachingPanel from "@/components/TeachingPanel";
 
 /**
  * EvalBar - Visual evaluation bar showing position advantage
@@ -1318,6 +1320,17 @@ const CoachPlay = ({ user }) => {
                   )}
                 </CardContent>
               </Card>
+            </div>
+          )}
+          
+          {/* Teaching Insights Panel - Shows structure and phase analysis */}
+          {session && !gameOver && (
+            <div className="p-4 border-b border-border">
+              <TeachingPanel 
+                fen={currentFen} 
+                userColor={session.user_color}
+                sessionId={session.session_id}
+              />
             </div>
           )}
           
