@@ -50,7 +50,7 @@ import {
   History,
   BookOpen
 } from "lucide-react";
-import TeachingPanel from "@/components/TeachingPanel";
+import CoachMemoryPanel from "@/components/CoachMemoryPanel";
 import PostGameLesson from "@/components/PostGameLesson";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 import { 
@@ -1557,14 +1557,10 @@ const CoachPlay = ({ user }) => {
             </div>
           )}
           
-          {/* Teaching Insights Panel - Shows structure and phase analysis */}
+          {/* Coach Memory Panel - Shows what the coach KNOWS about you */}
           {session && !gameOver && (
             <div className="p-4 border-b border-border">
-              <TeachingPanel 
-                fen={currentFen} 
-                userColor={session.user_color}
-                sessionId={session.session_id}
-              />
+              <CoachMemoryPanel sessionId={session.session_id} />
             </div>
           )}
           

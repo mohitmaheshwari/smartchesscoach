@@ -2,13 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: '/app/tests/e2e',
-  outputDir: '/root/.emergent/automation_output/20260309_152938/test-results',
+  outputDir: '/root/.emergent/automation_output/20260309_154648/test-results',
   timeout: 60000,
   retries: 0,
   workers: 1,
   reporter: [
     ['line'],
-    ['json', { outputFile: '/root/.emergent/automation_output/20260309_152938/results.json' }],
+    ['json', { outputFile: '/root/.emergent/automation_output/20260309_154648/results.json' }],
   ],
   use: {
     baseURL: 'https://coach-memory-1.preview.emergentagent.com',

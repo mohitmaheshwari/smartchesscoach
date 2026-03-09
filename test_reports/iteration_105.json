@@ -1,0 +1,73 @@
+{
+  "summary": "Tested CoachMemoryPanel feature - GET /api/coach/memory endpoint and CoachMemoryPanel component. All 22 tests pass (13 backend + 9 frontend). The panel correctly displays games_together count, watch_for patterns with improvement indicators, focus_suggestion, last_game_insights, avg_accuracy, and openings_known.",
+  "mode": "generate",
+  "baseline_commit": "85f84cb6350cad4746d443d7b6e8e6fbee8a240f",
+  "head_commit": "e67a59f7033b2903d3e0e7a23928e52c0061c255",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 22,
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_coach_memory_api.py",
+    "/app/tests/e2e/coach-memory-panel.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/test_reports/pytest/coach_memory_api_results.xml",
+    "/app/backend/tests/test_coach_memory_api.py",
+    "/app/tests/e2e/coach-memory-panel.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_coach_memory_api.py",
+    "/app/tests/e2e/coach-memory-panel.spec.ts"
+  ],
+  "success_rate": {
+    "backend": "100% (13 passed)",
+    "frontend": "100% (9 passed)"
+  },
+  "seed_data_creation": "N/A - Used existing dev user data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "CoachMemoryPanel is fully tested and working. The panel fetches from GET /api/coach/memory and displays personalized data: games_together, focus_suggestion, watch_for patterns with improving status indicators, last_game_insights, avg_accuracy percentage, and openings_known count. The panel uses data-testid='coach-memory-panel' with sub-sections: focus-today, watch-for-patterns, last-insight. Note: Navigation to /coach-play page requires SPA sidebar navigation, not direct URL access.",
+  "features_tested": {
+    "backend_api": [
+      "GET /api/coach/memory returns 200 OK",
+      "Response includes greeting field (personalized)",
+      "Response includes context object",
+      "context.games_played returns numeric count",
+      "context.avg_accuracy returns numeric percentage",
+      "context.watch_for returns array of patterns",
+      "watch_for patterns have name, count, improving fields",
+      "context.focus_suggestion returns string or null",
+      "context.last_game_insights returns array",
+      "context.openings_known returns array",
+      "context.improving returns boolean flag",
+      "Dev mode works without explicit auth",
+      "POST /api/coach/memory/update returns success"
+    ],
+    "frontend_e2e": [
+      "CoachMemoryPanel renders with data-testid='coach-memory-panel'",
+      "Panel shows games together count (e.g., '69 games together')",
+      "Panel shows watch_for patterns with counts (e.g., 4x)",
+      "Panel shows focus_suggestion in 'Today's Focus' section",
+      "Panel shows last_game_insights",
+      "Panel shows Game #X count",
+      "Panel shows avg accuracy percentage",
+      "API integration returns correct structure",
+      "watch_for patterns have correct field structure"
+    ]
+  }
+}
