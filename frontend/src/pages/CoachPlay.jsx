@@ -245,13 +245,20 @@ const CoachPlay = ({ user }) => {
           if (teachingOffers.length > 0 && !teachingOffer) {
             // Show the first teaching offer
             const offer = teachingOffers[0];
-            setTeachingOffer({
-              opening_name: offer.opening_name,
-              opening_key: offer.opening_key,
-              message: offer.message,
-              options: offer.options,
-              trap_name: offer.trap_name
-            });
+            // Only set if we have valid data
+            if (offer.opening_name) {
+              setTeachingOffer({
+                opening_name: offer.opening_name,
+                opening_key: offer.opening_key,
+                message: offer.message || `We're in the ${offer.opening_name}! Want to learn more?`,
+                options: offer.options || [
+                  { id: "learn_trap", label: "Learn a trap", description: "Interactive trap lesson" },
+                  { id: "learn_main_line", label: "Learn the main line", description: "Step-by-step opening theory" },
+                  { id: "just_play", label: "Just play", description: "Continue without lesson" }
+                ],
+                trap_name: offer.trap_name
+              });
+            }
           }
           
           // Filter out teaching offers from regular messages

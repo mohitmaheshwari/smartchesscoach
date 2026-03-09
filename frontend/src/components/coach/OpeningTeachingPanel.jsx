@@ -34,6 +34,18 @@ export const OpeningTeachingOffer = ({
 }) => {
   const [loading, setLoading] = useState(false);
 
+  // Safety check - if offer is invalid, don't render
+  if (!offer || !offer.opening_name) {
+    return null;
+  }
+
+  // Default options if not provided
+  const options = offer.options || [
+    { id: "learn_trap", label: "Learn a trap", description: "Interactive trap lesson" },
+    { id: "learn_main_line", label: "Learn the main line", description: "Step-by-step opening theory" },
+    { id: "just_play", label: "Just play", description: "Continue without lesson" }
+  ];
+
   const handleOption = async (optionId) => {
     setLoading(true);
     
@@ -94,7 +106,7 @@ export const OpeningTeachingOffer = ({
         )}
         
         <div className="space-y-2">
-          {offer.options.map((option) => (
+          {options.map((option) => (
             <Button
               key={option.id}
               variant={option.id === "learn_trap" ? "default" : "outline"}
