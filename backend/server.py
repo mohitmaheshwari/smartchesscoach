@@ -6856,6 +6856,104 @@ async def get_opening_quiz(opening_key: str, user: User = Depends(get_current_us
     }
 
 
+@api_router.post("/training/openings/{opening_key}/quiz/submit")
+async def submit_opening_quiz(opening_key: str, request: Request, user: User = Depends(get_current_user)):
+    """
+    Submit quiz answers and get score with feedback.
+    """
+    data = await request.json()
+    answers = data.get("answers", [])
+    
+    from opening_trainer_service import get_opening_quiz, OPENINGS_DATABASE
+    from services.coach_memory import update_memory_after_game
+    
+    opening = OPENINGS_DATABASE.get(opening_key)
+    if not opening:
+        raise HTTPException(status_code=404, detail="Opening not found")
+    
+    # Get questions to compare answers
+    questions = await get_opening_quiz(db, user.user_id, opening_key)
+    
+    # Score the quiz
+    results = []
+    correct_count = 0
+    total = len(questions)
+    
+    for i, q in enumerate(questions):
+        user_answer = answers[i] if i < len(answers) else None
+        
+        is_correct = False
+        if q["type"] == "position":
+            # Check if user found the winning move
+            is_correct = user_answer and user_answer.lower() == q["correct_move"].lower()
+        elif q["type"] == "concept":
+            # Check if answer is in the options
+            is_correct = user_answer in q.get("options", [q["correct_answer"]])
+        elif q["type"] == "move_order":
+            # Check if user got the main line
+            is_correct = user_answer and user_answer.lower().replace(" ", "") == q["correct_answer"].lower().replace(" ", "")
+        
+        if is_correct:
+            correct_count += 1
+        
+        results.append({
+            "question_index": i,
+            "type": q["type"],
+            "user_answer": user_answer,
+            "correct_answer": q.get("correct_move") or q.get("correct_answer"),
+            "is_correct": is_correct,
+            "explanation": q.get("explanation", "")
+        })
+    
+    # Calculate score and mastery level
+    score = (correct_count / total * 100) if total > 0 else 0
+    
+    if score >= 90:
+        mastery_feedback = "Excellent! You've mastered this opening."
+        new_level = "mastered"
+    elif score >= 70:
+        mastery_feedback = "Good job! Keep practicing the traps."
+        new_level = "practiced"
+    elif score >= 50:
+        mastery_feedback = "Getting there. Focus on the key ideas."
+        new_level = "learning"
+    else:
+        mastery_feedback = "This opening needs more study. Let's practice it in games!"
+        new_level = "introduced"
+    
+    # Update user progress
+    await db.user_opening_progress.update_one(
+        {"user_id": user.user_id, "opening_name": opening["name"]},
+        {
+            "$set": {
+                "last_quiz_score": score,
+                "last_quiz_date": datetime.now(timezone.utc).isoformat(),
+                "mastery_level": new_level
+            },
+            "$push": {
+                "quiz_scores": {
+                    "score": score,
+                    "date": datetime.now(timezone.utc).isoformat(),
+                    "questions_count": total,
+                    "correct_count": correct_count
+                }
+            }
+        },
+        upsert=True
+    )
+    
+    return {
+        "opening": opening_key,
+        "opening_name": opening["name"],
+        "score": score,
+        "correct": correct_count,
+        "total": total,
+        "mastery_level": new_level,
+        "mastery_feedback": mastery_feedback,
+        "results": results
+    }
+
+
 @api_router.get("/training/openings-database")
 async def get_openings_database():
     """
@@ -9044,6 +9142,10 @@ async def _process_move_and_respond(
                         "emotional_state": socratic_response.get("emotional_state"),
                         "expects_response": socratic_response.get("expects_response", True),
                         "pattern_connection": socratic_response.get("pattern_connection"),
+                        # MEMORY INSIGHTS - makes coach feel human
+                        "memory_insight": socratic_response.get("memory_insight"),
+                        "focus_note": socratic_response.get("focus_note"),
+                        "games_together": socratic_response.get("games_together", 0),
                     })
                     
                 except Exception as e:

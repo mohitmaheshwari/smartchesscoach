@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
 import { API } from "@/App";
@@ -62,6 +63,8 @@ const MASTERY_STYLES = {
  * - Practice positions
  */
 const OpeningTrainer = () => {
+  const navigate = useNavigate();
+  
   // State
   const [loading, setLoading] = useState(true);
   const [userOpenings, setUserOpenings] = useState([]);
@@ -971,13 +974,30 @@ const OpeningTrainer = () => {
             <div className={`p-2 rounded-lg ${opening?.color === "white" ? "bg-amber-500/10" : "bg-slate-500/10"}`}>
               <BookOpen className={`w-6 h-6 ${opening?.color === "white" ? "text-amber-500" : "text-slate-400"}`} />
             </div>
-            <div>
+            <div className="flex-1">
               <h3 className="text-xl font-bold">{opening?.name || selectedOpening.name}</h3>
               <p className="text-sm text-muted-foreground">
                 {opening?.eco} • Play as {opening?.color || selectedOpening.color}
                 {fromLichess && <Badge variant="outline" className="ml-2 text-xs">Lichess Data</Badge>}
               </p>
             </div>
+            {/* Quiz Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const openingKey = opening?.key || selectedOpening?.key;
+                const openingName = opening?.name || selectedOpening?.name;
+                if (openingKey) {
+                  navigate(`/training/quiz/${openingKey}?name=${encodeURIComponent(openingName)}`);
+                }
+              }}
+              className="flex items-center gap-2"
+              data-testid="take-quiz-btn"
+            >
+              <GraduationCap className="w-4 h-4" />
+              Quiz Me
+            </Button>
           </div>
           
           {/* Lichess Statistics */}

@@ -13,6 +13,7 @@ import LabV2 from "@/pages/LabV2";
 import WeaknessTracker from "@/pages/WeaknessTracker";
 import Training from "@/pages/TrainingNew";  // NEW interactive training
 import PrescribedTraining from "@/pages/PrescribedTraining";  // Coached puzzles based on weaknesses
+import OpeningQuizPage from "@/pages/OpeningQuizPage";  // Opening mastery quiz
 import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
@@ -214,6 +215,11 @@ function AppRouter() {
       <Route path="/training/prescribed" element={
         <ProtectedRoute>
           {({ user }) => <PrescribedTraining user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/training/quiz/:openingKey" element={
+        <ProtectedRoute>
+          {({ user }) => <OpeningQuizPage user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/challenge" element={

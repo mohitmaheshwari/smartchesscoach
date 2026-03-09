@@ -41,6 +41,9 @@ from datetime import datetime, timezone, timedelta
 from enum import Enum
 import random
 
+# Import coach memory for deep personalization
+from services.coach_memory import get_coaching_context, get_or_create_memory
+
 logger = logging.getLogger(__name__)
 
 
@@ -218,9 +221,12 @@ class HumanCoachService:
             }
     
     async def load_memory(self) -> CoachMemory:
-        """Load coach's memory of this player from database."""
+        """Load coach's memory of this player from database - integrates with coach_memory system."""
         if self.memory:
             return self.memory
+        
+        # ========== LOAD FROM coach_memory SYSTEM (PRIMARY SOURCE) ==========
+        coach_memory_context = await get_coaching_context(self.db, self.user_id)
         
         # Get session history
         sessions = await self.db.coach_sessions.find(
@@ -228,7 +234,7 @@ class HumanCoachService:
             {"_id": 0, "result": 1, "created_at": 1, "concepts_taught": 1, "user_color": 1}
         ).sort("created_at", -1).limit(20).to_list(20)
         
-        # Get weakness analysis
+        # Get weakness analysis from legacy system
         weakness_doc = await self.db.user_weaknesses.find_one(
             {"user_id": self.user_id},
             {"_id": 0}
@@ -242,13 +248,15 @@ class HumanCoachService:
         
         # Build memory
         memory = CoachMemory()
-        memory.total_sessions = len(sessions)
+        
+        # Use coach_memory data as primary source
+        memory.total_sessions = coach_memory_context.get("games_played", len(sessions))
         
         if sessions:
             memory.last_session_date = sessions[0].get("created_at", "")
             memory.recent_results = [s.get("result", "unknown") for s in sessions[:5]]
             
-            # Detect streak
+            # Detect streak from coach_memory if available
             if memory.recent_results:
                 first_result = memory.recent_results[0]
                 streak = 1
@@ -267,12 +275,35 @@ class HumanCoachService:
                 memory.concepts_practiced.extend(concepts)
             memory.concepts_practiced = list(set(memory.concepts_practiced))[:10]
         
-        if weakness_doc:
+        # ========== MERGE WEAKNESSES FROM coach_memory ==========
+        # Use watch_for from coach_memory as primary source of weaknesses
+        watch_for = coach_memory_context.get("watch_for", [])
+        if watch_for:
+            # Convert coach_memory weaknesses to the format expected
+            memory.top_weaknesses = [w.get("name", "") for w in watch_for if w.get("name")]
+            memory.recurring_mistakes = [
+                {"type": w.get("name", ""), "count": w.get("count", 0), "improving": w.get("improving", False)}
+                for w in watch_for if w.get("count", 0) >= 2
+            ]
+        elif weakness_doc:
+            # Fallback to legacy system
             memory.top_weaknesses = weakness_doc.get("top_weaknesses", [])[:5]
             memory.recurring_mistakes = weakness_doc.get("recurring_patterns", [])[:3]
         
+        # ========== ADD OPENINGS/CONCEPTS FROM coach_memory ==========
+        openings_known = coach_memory_context.get("openings_known", [])
+        if openings_known:
+            memory.concepts_practiced = list(set(memory.concepts_practiced + openings_known))[:15]
+        
         if focus_lock:
             memory.current_focus = focus_lock.get("focus_type")
+        
+        # Store focus suggestion from coach_memory
+        self._focus_suggestion = coach_memory_context.get("focus_suggestion")
+        self._greeting_context = coach_memory_context.get("greeting_context")
+        self._avg_accuracy = coach_memory_context.get("avg_accuracy", 0)
+        self._avg_blunders = coach_memory_context.get("avg_blunders", 0)
+        self._is_improving = coach_memory_context.get("improving", False)
         
         self.memory = memory
         return memory
@@ -447,19 +478,44 @@ class HumanCoachService:
             emotional_prefix = random.choice(self.EMOTIONAL_PREFIXES[self.emotional_state])
             message = f"{emotional_prefix} {message}"
         
-        # Check for recurring mistake pattern
+        # Check for recurring mistake pattern - USE DEEP MEMORY
         memory = await self.load_memory()
         pattern_connection = None
+        memory_insight = None
         
         if memory.recurring_mistakes:
-            # Check if this mistake type matches a recurring pattern
+            # Check if this mistake type matches a recurring pattern from coach_memory
             for pattern in memory.recurring_mistakes:
-                if pattern.get("type") == position_type:
-                    pattern_connection = (
-                        "This reminds me of something we've seen before. "
-                        "Do you remember the pattern?"
-                    )
+                pattern_type = pattern.get("type", "").lower().replace("_", " ")
+                pattern_count = pattern.get("count", 0)
+                is_improving = pattern.get("improving", False)
+                
+                # Match various mistake types to patterns
+                position_lower = position_type.lower()
+                if (position_lower in pattern_type or 
+                    pattern_type in position_lower or
+                    (position_lower == "blunder" and "blunder" in pattern_type) or
+                    (position_lower == "tactical" and any(x in pattern_type for x in ["tactic", "fork", "pin", "threat"]))):
+                    
+                    # Generate personalized memory insight
+                    if pattern_count >= 5:
+                        memory_insight = f"I've seen this pattern {pattern_count} times now. This is your main habit to work on."
+                        pattern_connection = f"We've seen '{pattern_type}' multiple times. Remember what we discussed?"
+                    elif pattern_count >= 3:
+                        memory_insight = f"'{pattern_type}' again - that's {pattern_count} times now."
+                        pattern_connection = "This pattern is familiar. What do you remember about it?"
+                    elif pattern_count >= 2:
+                        memory_insight = f"We've seen this before - '{pattern_type}'."
+                        pattern_connection = "I recall seeing this type of position before. Think back..."
+                    
+                    if is_improving:
+                        memory_insight += " Though you've been improving on this!"
                     break
+        
+        # Add focus suggestion if relevant
+        focus_note = None
+        if hasattr(self, '_focus_suggestion') and self._focus_suggestion:
+            focus_note = self._focus_suggestion
         
         return {
             "message": message,
@@ -470,6 +526,9 @@ class HumanCoachService:
             "emotional_state": self.emotional_state.value,
             "emotional_adaptation": emotional_prefix,
             "pattern_connection": pattern_connection,
+            "memory_insight": memory_insight,
+            "focus_note": focus_note,
+            "games_together": memory.total_sessions,
             "context": {
                 "fen": fen,
                 "move_played": move_played,

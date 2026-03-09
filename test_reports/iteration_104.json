@@ -1,0 +1,81 @@
+{
+  "summary": "Tested new features: Opening Quiz Mode and In-Game Memory Integration. Found and fixed a bug in OpeningQuiz.jsx where API URLs were double-prefixed with /api. Created 16 backend tests (all passing) and 10 frontend E2E tests (all passing). Quiz API returns proper question types (concept, position, move_order) and scoring works correctly.",
+  "mode": "generate",
+  "baseline_commit": "597964a1e42311e6d6d8b68dad29c4b56b96ab5a",
+  "head_commit": "85f84cb6350cad4746d443d7b6e8e6fbee8a240f",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 26,
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_quiz_and_memory.py",
+    "/app/tests/e2e/opening-quiz.spec.ts"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/test_reports/pytest/quiz_memory_results.xml",
+    "/app/backend/tests/test_quiz_and_memory.py",
+    "/app/tests/e2e/opening-quiz.spec.ts"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_quiz_and_memory.py",
+    "/app/tests/e2e/opening-quiz.spec.ts",
+    "/app/frontend/src/components/OpeningQuiz.jsx"
+  ],
+  "success_rate": {
+    "backend": "100% (16 passed)",
+    "frontend": "100% (10 passed)"
+  },
+  "seed_data_creation": "N/A - Used dev user",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Opening Quiz Mode is fully tested and working. Quiz API at /api/training/openings/{key}/quiz returns questions with concept, position, move_order types. Submit endpoint at POST /api/training/openings/{key}/quiz/submit scores answers and updates user_opening_progress collection. Fixed bug in OpeningQuiz.jsx - API URLs were double-prefixed with /api. Memory fields (memory_insight, pattern_connection, focus_note, games_together) are correctly defined in HumanCoachService and stored in coach_messages collection when Socratic dialogue triggers.",
+  "features_tested": {
+    "backend_api": [
+      "GET /api/training/openings/{key}/quiz returns questions array",
+      "Quiz questions include concept, position, move_order types",
+      "Concept questions have question, correct_answer, options fields",
+      "Position questions have question, fen, correct_move fields",
+      "Move order questions have question, correct_answer fields",
+      "POST /api/training/openings/{key}/quiz/submit returns score and results",
+      "Quiz submit returns mastery_level (mastered/practiced/learning/introduced)",
+      "Quiz submit returns results array with per-question breakdown",
+      "Quiz returns 404 for non-existent opening",
+      "Quiz handles empty answers array",
+      "Coach session state endpoint works",
+      "Coach messages endpoint returns proper structure",
+      "Memory fields are defined in HumanCoachService (memory_insight, pattern_connection, focus_note, games_together)"
+    ],
+    "frontend_e2e": [
+      "Quiz Me button visible in OpeningTrainer when opening selected",
+      "Quiz navigation works from Opening Trainer",
+      "Quiz page loads with questions for Italian Game",
+      "Quiz displays proper structure (progress bar, question, options)",
+      "Concept questions show clickable options",
+      "Answer submission works and shows result",
+      "Next question button appears after answering",
+      "Exit Quiz navigates back to training",
+      "Training page shows Opening Trainer tab",
+      "Opening Library section expands to show openings"
+    ]
+  },
+  "bug_fixed": {
+    "file": "/app/frontend/src/components/OpeningQuiz.jsx",
+    "issue": "API URLs were double-prefixed with /api (e.g., /api/api/training/openings/...)",
+    "lines_fixed": "55, 143",
+    "fix": "Changed `${API}/api/training/...` to `${API}/training/...`"
+  }
+}
