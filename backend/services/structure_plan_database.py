@@ -1763,6 +1763,180 @@ class StructurePlanDatabase:
                 ],
                 difficulty="intermediate",
                 prerequisites=["Basic endgame knowledge", "Calculation skills"]
+            ),
+            
+            # ============================================
+            # SICILIAN DRAGON
+            # ============================================
+            "sicilian_dragon": StructureTeaching(
+                structure_name="Sicilian Dragon",
+                structure_type="sicilian_dragon",
+                main_idea="Black fianchettoes the bishop to g7, creating a 'dragon' formation for kingside counterplay",
+                key_characteristics=[
+                    "Black's Bg7 is the 'dragon' - powerful on the long diagonal",
+                    "White often castles queenside and storms the kingside",
+                    "Black attacks on the queenside with ...a6, ...b5, ...Rb8",
+                    "The Yugoslav Attack (Be3, Qd2, 0-0-0) is White's sharpest option",
+                    "One of the most tactical and double-edged openings"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="Yugoslav Attack",
+                        description="Castle queenside and storm the kingside with h4-h5-h6",
+                        key_moves=["Be3", "Qd2", "0-0-0", "h4", "h5", "Bh6"],
+                        piece_maneuvers=["Be3", "Qd2", "0-0-0", "Bh6 trading the dragon bishop"],
+                        pawn_breaks=["h4-h5-h6 to weaken Black's king"],
+                        when_to_use="The main attacking approach",
+                        what_to_avoid=["Being too slow - Black's attack is fast too"],
+                        teaching_explanation="The Yugoslav Attack is brutal. Castle queenside, trade off the dragon bishop with Bh6, and storm with h4-h5. It's a race to checkmate!"
+                    ),
+                    StrategicPlan(
+                        name="Classical Approach",
+                        description="Castle kingside and play more positionally",
+                        key_moves=["Be2", "0-0", "Nb3", "f4"],
+                        piece_maneuvers=["Natural development, f4 for central control"],
+                        pawn_breaks=["f4-f5 to attack"],
+                        when_to_use="If you prefer a quieter game",
+                        what_to_avoid=["Letting Black get full counterplay"],
+                        teaching_explanation="The Classical approach is safer but less sharp. You don't attack as fast, but you also don't get mated as fast!"
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="Queenside Counterattack",
+                        description="Push ...a6, ...b5, ...b4 to attack White's king",
+                        key_moves=["a6", "b5", "Rb8", "b4"],
+                        piece_maneuvers=["Rc8-b8", "Qa5-a4", "Nc6-e5-c4"],
+                        pawn_breaks=["b5-b4 opening lines to White's king"],
+                        when_to_use="Against the Yugoslav Attack",
+                        what_to_avoid=["Being too slow - it's a race!"],
+                        teaching_explanation="When White castles queenside, you attack there! Push ...b5-b4 as fast as possible. First one to break through wins!"
+                    ),
+                    StrategicPlan(
+                        name="Exchange Sacrifice on c3",
+                        description="Sacrifice the rook on c3 to destroy White's pawn shelter",
+                        key_moves=["Rxc3", "bxc3"],
+                        piece_maneuvers=["Rb8-c8, then ...Rxc3!"],
+                        pawn_breaks=["The rook sacrifice IS the break"],
+                        when_to_use="When ...Rxc3 destroys White's defenses",
+                        what_to_avoid=["Sacrificing without sufficient compensation"],
+                        teaching_explanation="The exchange sacrifice ...Rxc3 is a classic Dragon theme. You give up the rook, but White's pawns are ruined and your queen and bishop dominate."
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"N": ["c3", "f3"], "B": ["c4", "e3"], "R": ["d1", "h1"], "Q": ["d2"]},
+                    "black": {"N": ["c6", "f6"], "B": ["g7", "e6"], "R": ["c8", "d8"], "Q": ["a5", "b6"]}
+                },
+                critical_squares=["c3", "h6", "g7", "d5"],
+                outposts=["d5 (for White)", "c4 (for Black knight)"],
+                weak_squares=["h6 (entry point)", "c3 (sac target)"],
+                teaching_points=[
+                    "The Dragon is one of the sharpest openings - know the theory!",
+                    "Both sides attack - it's a race to checkmate",
+                    "The dragon bishop on g7 is Black's most important piece",
+                    "Trading the dragon bishop (Bh6) is often White's goal",
+                    "The ...Rxc3 exchange sacrifice is a key theme"
+                ],
+                common_mistakes=[
+                    "Black: Being too slow with queenside counterplay",
+                    "Black: Not knowing the theory (it's very sharp)",
+                    "White: Attacking without Bh6 to trade the dragon",
+                    "White: Allowing Black's attack to hit first"
+                ],
+                famous_games=[
+                    "Kasparov's Dragon games",
+                    "Shirov's attacking masterpieces",
+                    "Modern Dragon theory"
+                ],
+                difficulty="advanced",
+                prerequisites=["Sharp tactical play", "Opening theory knowledge", "Attack and defense"]
+            ),
+            
+            # ============================================
+            # ENGLISH OPENING
+            # ============================================
+            "english_opening": StructureTeaching(
+                structure_name="English Opening",
+                structure_type="english_opening",
+                main_idea="White plays c4 first, aiming for flexible development and control of d5",
+                key_characteristics=[
+                    "White plays c4 before d4, keeping options open",
+                    "Can transpose to many other openings (QGD, KID, etc.)",
+                    "Often leads to reversed Sicilian structures",
+                    "Highly flexible - White can choose the type of game",
+                    "Less theoretical than 1.e4 or 1.d4"
+                ],
+                white_plans=[
+                    StrategicPlan(
+                        name="Fianchetto Setup (g3, Bg2)",
+                        description="Play g3 and Bg2 to control d5 and the long diagonal",
+                        key_moves=["c4", "Nc3", "g3", "Bg2", "Nf3"],
+                        piece_maneuvers=["Bg2 on long diagonal", "Nc3-e4 or Nd5"],
+                        pawn_breaks=["d3-d4 when ready"],
+                        when_to_use="For a flexible, positional game",
+                        what_to_avoid=["Committing too early to a structure"],
+                        teaching_explanation="The fianchetto setup is flexible. Your Bg2 controls d5 and the long diagonal. You can play d4 later or keep it quiet."
+                    ),
+                    StrategicPlan(
+                        name="Four Knights English",
+                        description="Quick development with Nc3, Nf3, then choose direction",
+                        key_moves=["c4", "Nc3", "Nf3", "d4 or g3"],
+                        piece_maneuvers=["Rapid piece development"],
+                        pawn_breaks=["d4 or e4 when appropriate"],
+                        when_to_use="When you want quick development",
+                        what_to_avoid=["Creating weaknesses with early pawn moves"],
+                        teaching_explanation="Develop your knights first, then decide whether to play d4 or g3 based on Black's setup. Maximum flexibility!"
+                    )
+                ],
+                black_plans=[
+                    StrategicPlan(
+                        name="Reversed Sicilian (...e5)",
+                        description="Play ...e5 to take central space - like a Sicilian with colors reversed",
+                        key_moves=["e5", "Nc6", "Nf6", "d6"],
+                        piece_maneuvers=["Typical Sicilian-reversed setup"],
+                        pawn_breaks=["d6-d5 when appropriate"],
+                        when_to_use="If you're comfortable with reversed positions",
+                        what_to_avoid=["Overextending in the center"],
+                        teaching_explanation="With ...e5, you get a reversed Sicilian. Black has an extra tempo, so this should be at least equal. Play naturally!"
+                    ),
+                    StrategicPlan(
+                        name="Symmetrical Defense (...c5)",
+                        description="Mirror White's setup with ...c5",
+                        key_moves=["c5", "Nc6", "g6", "Bg7"],
+                        piece_maneuvers=["Symmetric development"],
+                        pawn_breaks=["d6-d5 to break symmetry"],
+                        when_to_use="For a solid, symmetric game",
+                        what_to_avoid=["Being too passive"],
+                        teaching_explanation="Play ...c5 to mirror White. The position is symmetric and should be equal. Be ready to break symmetry with ...d5 at the right moment."
+                    )
+                ],
+                ideal_piece_placement={
+                    "white": {"N": ["c3", "f3"], "B": ["g2", "e3/d2"], "R": ["c1", "d1"]},
+                    "black": {"N": ["c6", "f6"], "B": ["g7", "e7"], "R": ["c8", "e8"]}
+                },
+                critical_squares=["d5", "e4", "c4"],
+                outposts=["d5 (for White)", "d4 (can become weak for White)"],
+                weak_squares=["d4 (if White doesn't play d4)", "d5 (contested)"],
+                teaching_points=[
+                    "The English is flexible - don't commit too early",
+                    "Control of d5 is often key",
+                    "Can transpose to QGD, KID, or stay independent",
+                    "The g3/Bg2 setup is very popular",
+                    "Less forcing than 1.e4 - more maneuvering"
+                ],
+                common_mistakes=[
+                    "White: Committing to a structure too early",
+                    "White: Ignoring Black's central play",
+                    "Black: Being too passive against the flexible setup",
+                    "Black: Not breaking with ...d5 at the right moment"
+                ],
+                famous_games=[
+                    "Botvinnik's English games",
+                    "Kasparov's use of the English",
+                    "Modern super-GM games"
+                ],
+                difficulty="intermediate",
+                prerequisites=["Positional understanding", "Flexibility in planning"]
             )
         }
     
