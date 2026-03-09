@@ -17,7 +17,7 @@ import pytest
 import time
 import uuid
 
-BASE_URL = "https://ai-chess-mentor-1.preview.emergentagent.com"
+BASE_URL = "https://coach-memory-1.preview.emergentagent.com"
 
 
 class TestCoachChatNoHallucinations:

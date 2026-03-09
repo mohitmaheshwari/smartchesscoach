@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://ai-chess-mentor-1.preview.emergentagent.com';
+const BASE_URL = 'https://coach-memory-1.preview.emergentagent.com';
 
 /**
  * Coach Home V2 - Personalized Chess Coaching Tests
