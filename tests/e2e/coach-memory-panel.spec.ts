@@ -134,7 +134,8 @@ test.describe('Coach Memory Panel - UI Tests', () => {
     await expect(memoryPanel).toBeVisible({ timeout: 10000 });
     
     // Should show accuracy percentage (e.g., 97% avg) - text shows "97%" followed by "avg"
-    await expect(memoryPanel.locator('text=/\\d+%/')).toBeVisible();
+    // Use .first() since there may be multiple percentage mentions
+    await expect(memoryPanel.locator('text=/\\d+%/').first()).toBeVisible();
   });
 });
 

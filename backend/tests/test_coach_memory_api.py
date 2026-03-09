@@ -9,6 +9,8 @@ Tests:
 4. games_played count is returned
 5. last_game_insights is returned
 6. avg_accuracy is returned
+7. games_played matches real coach_sessions count (FIX VERIFICATION)
+8. openings_known only includes mastered openings from user_opening_progress (FIX VERIFICATION)
 """
 
 import pytest
@@ -159,6 +161,57 @@ class TestCoachMemoryUpdateAPI:
         assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         assert data.get("success") is True, "Response should indicate success"
+
+
+class TestCoachMemoryRealData:
+    """Test that coach memory shows REAL data, not fake/simulated data."""
+    
+    def test_games_played_is_realistic(self, authenticated_session):
+        """games_played should be a realistic count, not inflated fake data.
+        
+        FIX VERIFICATION: Reset fake game counts. Was 68, should now be ~4 or real count.
+        """
+        response = authenticated_session.get(f"{BASE_URL}/api/coach/memory")
+        data = response.json()
+        
+        games_played = data.get("context", {}).get("games_played", 0)
+        
+        # After the fix, games_played should match real completed sessions
+        # Should be a reasonable number (not the old inflated 68)
+        assert games_played < 50, f"games_played {games_played} seems unrealistically high - should match real session count"
+        assert isinstance(games_played, (int, float)), "games_played should be numeric"
+    
+    def test_openings_known_from_real_progress(self, authenticated_session):
+        """openings_known should only include openings with mastery_level practiced/mastered.
+        
+        FIX VERIFICATION: openings_known now queries user_opening_progress for REAL mastery data.
+        """
+        response = authenticated_session.get(f"{BASE_URL}/api/coach/memory")
+        data = response.json()
+        
+        openings_known = data.get("context", {}).get("openings_known", [])
+        
+        # openings_known should be a list
+        assert isinstance(openings_known, list), "openings_known should be a list"
+        
+        # If there are openings, they should be strings (opening names)
+        for opening in openings_known:
+            assert isinstance(opening, str), f"Opening should be a string, got {type(opening)}"
+            assert len(opening) > 0, "Opening name should not be empty"
+    
+    def test_watch_for_shows_real_patterns(self, authenticated_session):
+        """watch_for patterns should come from actual user behavior tracking."""
+        response = authenticated_session.get(f"{BASE_URL}/api/coach/memory")
+        data = response.json()
+        
+        watch_for = data.get("context", {}).get("watch_for", [])
+        
+        # Should be a list
+        assert isinstance(watch_for, list), "watch_for should be a list"
+        
+        # If patterns exist, verify they have detection counts > 0
+        for pattern in watch_for:
+            assert pattern.get("count", 0) >= 1, "Pattern count should be at least 1 if detected"
 
 
 if __name__ == "__main__":

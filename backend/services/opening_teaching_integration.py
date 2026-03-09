@@ -183,6 +183,10 @@ async def start_opening_lesson(
     if not opening:
         return {"error": "Opening not found"}
     
+    # Get user's color - critical for knowing which moves are user's vs coach's
+    user_color = session_doc.get("user_color", "white")
+    user_plays_white = user_color == "white"
+    
     # Get user's progress
     progress = await get_user_opening_progress(db, user_id, opening.name)
     teacher = OpeningTeacher(opening_key, progress)
@@ -210,6 +214,7 @@ async def start_opening_lesson(
             "explanation": trap.explanation,
             "refutation": trap.refutation,
             "victim_color": trap.victim_color,
+            "user_plays_white": user_plays_white,  # Critical: know which moves are user's
             "teaching_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",  # Start position
             "original_fen": session_doc.get("current_fen"),  # Save to restore later
             "original_move_history": session_doc.get("move_history", [])
@@ -230,6 +235,7 @@ async def start_opening_lesson(
             "key_ideas": var.key_ideas,
             "plans_white": var.plans_for_white,
             "plans_black": var.plans_for_black,
+            "user_plays_white": user_plays_white,  # Critical: know which moves are user's
             "teaching_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             "original_fen": session_doc.get("current_fen"),
             "original_move_history": session_doc.get("move_history", [])
@@ -249,7 +255,7 @@ async def start_opening_lesson(
     # Get first teaching instruction
     first_instruction = _get_teaching_instruction(teaching_data, mode, 0)
     
-    return {
+    result = {
         "success": True,
         "mode": mode,
         "opening_name": opening.name,
@@ -257,8 +263,20 @@ async def start_opening_lesson(
         "total_moves": len(teaching_data.get("trap_moves", teaching_data.get("main_line_moves", []))),
         "instruction": first_instruction,
         "teaching_fen": teaching_data["teaching_fen"],
-        "key_ideas": teaching_data.get("key_ideas", [])
+        "key_ideas": teaching_data.get("key_ideas", []),
+        "user_plays_white": user_plays_white
     }
+    
+    # If first move is coach's move (user plays black), auto-play it
+    if not first_instruction.get("is_user_move") and not first_instruction.get("complete"):
+        # Auto-play the coach's first move
+        auto_result = await _auto_play_teaching_move(db, session_id, teaching_data, mode, 0)
+        if auto_result.get("auto_played"):
+            result["auto_played_first_move"] = auto_result.get("move_played")
+            result["instruction"] = auto_result.get("next_instruction")
+            result["teaching_fen"] = auto_result.get("teaching_fen")
+    
+    return result
 
 
 def _get_teaching_instruction(teaching_data: Dict, mode: str, move_index: int) -> Dict:
@@ -278,20 +296,29 @@ def _get_teaching_instruction(teaching_data: Dict, mode: str, move_index: int) -
     move = moves[move_index]
     is_white = move_index % 2 == 0
     move_number = (move_index // 2) + 1
+    user_plays_white = teaching_data.get("user_plays_white", True)
+    
+    # Determine if this move is by the user or the coach
+    is_user_move = (is_white and user_plays_white) or (not is_white and not user_plays_white)
     
     # Determine who plays this move and provide appropriate instruction
     if is_white:
         side = "White"
-        instruction_text = f"White plays {move}. "
     else:
         side = "Black"
-        instruction_text = f"Black plays {move}. "
     
-    # Add context based on move index
-    if move_index == 0:
-        instruction_text += "This is how the opening begins."
-    elif mode == "trap" and move_index == len(moves) - 1:
-        instruction_text = f"Now the trap! {move}! " + teaching_data.get("explanation", "")
+    if is_user_move:
+        # User's turn - tell them to play
+        instruction_text = f"Your turn! Play {move}."
+        if move_index == 0:
+            instruction_text += " This is how the opening begins."
+        elif mode == "trap" and move_index == len(moves) - 1:
+            instruction_text = f"Now the trap! Play {move}! " + teaching_data.get("explanation", "")
+    else:
+        # Coach's turn - this move will be auto-played
+        instruction_text = f"I'll play {move} as {side}."
+        if move_index == 0:
+            instruction_text += " Watch the opening begin."
     
     return {
         "complete": False,
@@ -301,7 +328,8 @@ def _get_teaching_instruction(teaching_data: Dict, mode: str, move_index: int) -
         "side": side,
         "message": instruction_text,
         "remaining": len(moves) - move_index - 1,
-        "should_user_play": True  # User plays along for interactive feel
+        "should_user_play": is_user_move,  # True only if it's user's turn
+        "is_user_move": is_user_move  # Clear flag for frontend
     }
 
 

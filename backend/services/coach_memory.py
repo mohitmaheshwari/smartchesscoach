@@ -53,6 +53,7 @@ class LearningProgress:
     """Track what the user has learned"""
     openings_learned: List[str] = field(default_factory=list)
     traps_learned: List[str] = field(default_factory=list)
+    traps_mastered: List[str] = field(default_factory=list)  # Backward compatibility
     endgames_learned: List[str] = field(default_factory=list)
     concepts_mastered: List[str] = field(default_factory=list)
     current_focus: Optional[str] = None
@@ -397,6 +398,22 @@ async def get_coaching_context(db, user_id: str) -> Dict:
     """
     memory = await get_or_create_memory(db, user_id)
     
+    # Get REAL opening mastery from user_opening_progress
+    opening_progress = await db.user_opening_progress.find({
+        "user_id": user_id,
+        "mastery_level": {"$in": ["practiced", "mastered", "comfortable"]}
+    }).to_list(10)
+    
+    real_openings_known = [p.get("opening_name") for p in opening_progress if p.get("opening_name")]
+    
+    # Get REAL trap statistics
+    trap_stats = await db.user_trap_stats.find_one({"user_id": user_id})
+    real_traps_known = []
+    if trap_stats:
+        for trap_key, stats in trap_stats.get("traps", {}).items():
+            if stats.get("success_rate", 0) >= 70:  # Mastered = 70%+ success rate
+                real_traps_known.append(trap_key.replace("_", " ").title())
+    
     # Build context for the coach
     context = {
         "games_played": memory.performance.games_played,
@@ -411,9 +428,9 @@ async def get_coaching_context(db, user_id: str) -> Dict:
             for w in sorted(memory.weaknesses, key=lambda x: x.detection_count, reverse=True)[:3]
         ],
         
-        # What they've learned
-        "openings_known": memory.learning.openings_learned[:5],
-        "traps_known": memory.learning.traps_learned[:3],
+        # What they've ACTUALLY learned (from real progress data)
+        "openings_known": real_openings_known[:5],
+        "traps_known": real_traps_known[:3],
         "endgames_known": memory.learning.endgames_learned[:3],
         
         # Recent insights
