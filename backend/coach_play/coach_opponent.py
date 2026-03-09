@@ -192,34 +192,111 @@ class CoachOpponent:
 
 class PedagogicalOpponent(CoachOpponent):
     """
-    Future: Pedagogical opponent that creates instructive scenarios.
+    Pedagogical opponent that creates instructive scenarios.
     
-    Will be implemented in later phases.
-    For now, just uses parent class (strongest move).
+    Uses the Teaching Move Selector to choose moves that:
+    - Create learning opportunities
+    - Match the student's level and weaknesses
+    - Teach specific concepts based on game phase
+    
+    The coach plays TO TEACH, not to crush.
     """
     
-    def __init__(self, user_rating: int = 1200, teaching_mode: str = "balanced"):
+    def __init__(
+        self, 
+        user_rating: int = 1200, 
+        teaching_mode: str = "balanced",
+        student_weaknesses: list = None,
+        teaching_focus: str = None
+    ):
         """
         Initialize pedagogical opponent.
         
         Args:
             user_rating: User's estimated rating for difficulty matching
             teaching_mode: "challenging", "balanced", or "supportive"
+            student_weaknesses: List of weakness areas to target
+            teaching_focus: Specific concept to teach (optional)
         """
-        super().__init__()
-        self.user_rating = user_rating
+        super().__init__(user_rating=user_rating)
         self.teaching_mode = teaching_mode
+        self.student_weaknesses = student_weaknesses or []
+        self.teaching_focus = teaching_focus
+        self.last_teaching_context = {}
     
     async def get_move(self, fen: str) -> Optional[str]:
         """
-        Get pedagogical move.
+        Get pedagogical move using Teaching Move Selector.
         
-        Future implementation will:
-        - Sometimes play sub-optimal moves to create learning opportunities
-        - Match difficulty to user level
-        - Create tactical scenarios based on user's weaknesses
+        Selects moves that CREATE LEARNING OPPORTUNITIES rather than
+        just the strongest moves.
         
-        For now, just plays strongest move.
+        Returns:
+            Move in SAN notation
         """
-        # TODO: Implement pedagogical logic in Phase 3+
-        return await super().get_move(fen)
+        from services.teaching_move_selector import TeachingMoveSelector, TeachingGoal
+        from services.game_phase_service import get_game_phase
+        
+        try:
+            # Get game phase for context
+            phase_info = get_game_phase(fen)
+            game_phase = phase_info.get("phase_label", "middlegame")
+            
+            # Map teaching mode to avoid_crushing
+            avoid_crushing = self.teaching_mode != "challenging"
+            
+            # Convert teaching_focus string to enum if provided
+            focus = None
+            if self.teaching_focus:
+                try:
+                    focus = TeachingGoal(self.teaching_focus)
+                except ValueError:
+                    pass
+            
+            # Use Teaching Move Selector
+            selector = TeachingMoveSelector()
+            result = selector.select_move(
+                board=chess.Board(fen),
+                student_rating=self.user_rating,
+                student_weaknesses=self.student_weaknesses,
+                teaching_focus=focus,
+                game_phase=game_phase,
+                avoid_crushing=avoid_crushing
+            )
+            
+            if result.get("error"):
+                # Fallback to regular move
+                return await super().get_move(fen)
+            
+            # Store teaching context for later use
+            self.last_teaching_context = {
+                "teaching_goal": result.get("teaching_goal"),
+                "why_instructive": result.get("why_instructive"),
+                "concept_taught": result.get("concept_taught"),
+                "student_challenge": result.get("student_challenge"),
+                "teaching_content": result.get("teaching_content", {}),
+                "is_best_move": result.get("is_best_move", False),
+                "move_type": result.get("move_type"),
+                "eval_rank": result.get("eval_rank", 1)
+            }
+            
+            return result.get("selected_move")
+            
+        except Exception as e:
+            print(f"Teaching Move Selector error: {e}")
+            # Fallback to regular move
+            return await super().get_move(fen)
+    
+    def get_teaching_context(self) -> dict:
+        """Get the teaching context from the last move selection."""
+        return self.last_teaching_context
+    
+    async def get_move_with_teaching(self, fen: str) -> Tuple[Optional[str], dict]:
+        """
+        Get move along with teaching content.
+        
+        Returns:
+            Tuple of (move_san, teaching_context)
+        """
+        move = await self.get_move(fen)
+        return move, self.last_teaching_context

@@ -290,15 +290,12 @@ class ActiveTeachingEngine:
         challenge = context.get("student_challenge", "What would you play now?")
         
         # Build the teaching message
-        move_san = context.get("move_san", board.san(move) if move in board.legal_moves else str(move))
-        
-        # Get previous position to generate proper SAN
-        board_before = board.copy()
-        board_before.pop()  # Go back one move
-        try:
-            move_san = board_before.san(move)
-        except ValueError:
-            move_san = str(move)
+        move_san = context.get("move_san", "")
+        if not move_san and move:
+            try:
+                move_san = str(move)
+            except Exception:
+                move_san = "that move"
         
         messages = {
             "tactics": f"I played {move_san}. This creates some tactical pressure. {challenge}",

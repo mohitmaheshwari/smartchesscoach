@@ -978,6 +978,51 @@ async def get_teaching_feedback(
     return result
 
 
+@router.get("/teaching/structures")
+async def list_all_structures(user: User = Depends(get_current_user)):
+    """
+    List all available pawn structures with basic info.
+    
+    Returns list of structures with name, type, main idea, and difficulty.
+    """
+    from services.structure_plan_database import get_all_structures
+    
+    structures = get_all_structures()
+    return {"structures": structures, "count": len(structures)}
+
+
+@router.post("/teaching/structure-plans")
+async def get_structure_plans(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get strategic plans for a specific pawn structure.
+    
+    Request body:
+        {
+            "structure_type": "isolated_queen_pawn",
+            "color": "white"
+        }
+    
+    Returns:
+        - Structure name and main idea
+        - Plans with key moves, maneuvers, breaks
+        - Teaching explanations
+        - Common mistakes to avoid
+        - Famous games for study
+    """
+    from services.structure_plan_database import get_structure_plans
+    
+    structure_type = request.get("structure_type", "")
+    color = request.get("color", "white")
+    
+    if not structure_type:
+        return {"error": "structure_type is required"}
+    
+    return get_structure_plans(structure_type, color)
+
+
 @router.post("/analyze/position")
 async def analyze_position_complete(
     request: dict,

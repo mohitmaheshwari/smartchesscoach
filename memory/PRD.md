@@ -293,7 +293,53 @@ The CUS is the computational backbone for the Teaching Coach. It provides factua
 **Next CUS Components Needed**:
 1. ~~Teaching Move Selector~~ ✅ DONE
 2. ~~Active Teaching Engine~~ ✅ DONE
-3. **Structure & Plan Database** - Map ~20 structures to strategic plans (P2)
+3. ~~Structure & Plan Database~~ ✅ DONE
+
+### 19. Structure & Plan Database ✅ (NEW - Completed)
+- **Created**: `services/structure_plan_database.py` (1200+ lines)
+- **Purpose**: Maps pawn structures to concrete strategic plans with teaching content
+- **Structures Covered** (8 total):
+  - Isolated Queen Pawn (IQP)
+  - French Advance
+  - Sicilian Scheveningen
+  - King's Indian Defense
+  - Carlsbad Structure
+  - Rook Endgame Fundamentals
+  - King and Pawn Endgame
+  - Opposite Color Bishops Endgame
+- **Features per Structure**:
+  - White and Black strategic plans
+  - Key moves, piece maneuvers, pawn breaks
+  - When to use / what to avoid
+  - Teaching explanations in plain language
+  - Common mistakes
+  - Famous game examples
+  - Difficulty rating
+- **New endpoints**:
+  - `GET /api/coach/teaching/structures` - List all structures
+  - `POST /api/coach/teaching/structure-plans` - Get plans for a structure
+
+### 20. PedagogicalOpponent Integration ✅ (NEW - Completed)
+- **Updated**: `coach_play/coach_opponent.py`
+- **Purpose**: Integrates Teaching Move Selector into the Play with Coach game flow
+- **Features**:
+  - Uses Teaching Move Selector for move selection
+  - Provides teaching context with each move
+  - Adapts to student weaknesses
+  - Avoids crushing moves to preserve learning opportunities
+- **Backend Integration**: Updated `server.py` to use `PedagogicalOpponent` and `ActiveTeachingEngine`
+
+## Teaching Coach API Summary
+
+| API | Endpoint | Purpose |
+|-----|----------|---------|
+| Game Phase | `POST /api/coach/analyze/phase` | Calculate phase 0-100%, detect endgame type |
+| Structure | `POST /api/coach/analyze/structure` | Classify pawn structure, get plans |
+| Move Effect | `POST /api/coach/analyze/move-effect` | Explain WHY a move works |
+| Move Selector | `POST /api/coach/teaching/select-move` | Select instructive (not strongest) move |
+| Feedback | `POST /api/coach/teaching/feedback` | Generate Socratic coaching feedback |
+| Structures List | `GET /api/coach/teaching/structures` | List all structure types |
+| Structure Plans | `POST /api/coach/teaching/structure-plans` | Get detailed plans for structure |
 
 ## Database Collections
 
@@ -319,5 +365,5 @@ The CUS is the computational backbone for the Teaching Coach. It provides factua
 Plain, simple, direct Indian-English
 
 ---
-*Last updated: 2025-12-XX*
-*Status: Chess Understanding Service (CUS) foundation complete - all 4 core components implemented*
+*Last updated: December 2025*
+*Status: Teaching Coach core complete - Move Selector, Active Teaching Engine, Structure Database all implemented and integrated*

@@ -8966,16 +8966,27 @@ async def _process_move_and_respond(
             if session_doc:
                 board = chess.Board(fen_after_user)
                 
-                # Get coach's move
-                opponent = CoachOpponent(user_rating=user_rating)
+                # Get student weaknesses from their profile (if available)
+                student_weaknesses = session_doc.get("student_weaknesses", [])
+                teaching_focus = session_doc.get("teaching_focus", None)
+                
+                # Use Pedagogical Opponent with Teaching Move Selector
+                from coach_play.coach_opponent import PedagogicalOpponent
+                opponent = PedagogicalOpponent(
+                    user_rating=user_rating,
+                    teaching_mode="balanced",
+                    student_weaknesses=student_weaknesses,
+                    teaching_focus=teaching_focus
+                )
                 coach_move = await opponent.get_move(fen_after_user)
+                teaching_context = opponent.get_teaching_context()
                 
                 if coach_move:
                     chess_move = board.parse_san(coach_move)
                     board.push(chess_move)
                     fen_after_coach = board.fen()
                     
-                    # Update move history
+                    # Update move history with teaching context
                     move_history = session_doc.get("move_history", [])
                     move_history.append({
                         "move": coach_move,
@@ -8983,7 +8994,9 @@ async def _process_move_and_respond(
                         "by": "coach",
                         "fen_before": fen_after_user,
                         "fen_after": fen_after_coach,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "teaching_goal": teaching_context.get("teaching_goal"),
+                        "is_best_move": teaching_context.get("is_best_move", True)
                     })
                     
                     # Check if game over after coach move
@@ -9000,72 +9013,73 @@ async def _process_move_and_respond(
                     # Get new evaluation
                     eval_score, mate_in = await opponent.get_evaluation(fen_after_coach)
                     
-                    # === OPENING TEACHING: Explain coach's move in opening phase ===
+                    # === TEACHING: Generate coach's teaching message using Active Teaching Engine ===
                     coach_move_number = len(move_history) // 2
-                    if coach_move_number <= 12 and not coach_game_over:
+                    if not coach_game_over:
                         try:
-                            from coach_engine.opening_plans import get_opening_by_moves, get_teaching_for_move
-                            from coach_engine.opening_teaching_db import get_curated_teaching
+                            from services.active_teaching_engine import generate_teaching_feedback
                             
-                            # Get all moves for opening detection
-                            all_moves = [m.get("move", "") for m in move_history]
-                            opening = get_opening_by_moves(all_moves)
+                            # Use the new Active Teaching Engine for post-move coaching
+                            feedback = generate_teaching_feedback(
+                                fen=fen_after_coach,
+                                last_move_uci=chess_move.uci(),
+                                student_rating=user_rating,
+                                phase="after_coach_move",
+                                student_color=user_color,
+                                move_context={
+                                    "teaching_goal": teaching_context.get("teaching_goal", "natural_play"),
+                                    "why_instructive": teaching_context.get("why_instructive", ""),
+                                    "concept_taught": teaching_context.get("concept_taught", ""),
+                                    "student_challenge": teaching_context.get("student_challenge", ""),
+                                    "move_san": coach_move,
+                                    "game_phase": teaching_context.get("teaching_content", {}).get("game_phase", "middlegame")
+                                }
+                            )
                             
-                            # First, try our curated teaching database
-                            curated = await get_curated_teaching(fen_after_user, coach_move)
-                            
-                            # Generate teaching message for coach's move
-                            teaching_msg = None
-                            opening_name = ""
-                            
-                            if curated.get("found") and curated.get("move_teaching"):
-                                # Use curated teaching from our database
-                                teaching_msg = curated["move_teaching"]
-                                opening_name = curated.get("opening_name", "")
-                            elif opening:
-                                # Fall back to opening_plans teaching moments
-                                teaching_msg = get_teaching_for_move(opening, coach_move)
-                                opening_name = opening.name
-                            
-                            # If we have teaching, or it's an early move, explain the plan
-                            if teaching_msg or coach_move_number <= 5:
-                                if not opening_name and opening:
-                                    opening_name = opening.name
+                            # Also try opening-specific teaching for early moves
+                            opening_msg = None
+                            if coach_move_number <= 12:
+                                from coach_engine.opening_plans import get_opening_by_moves, get_teaching_for_move
+                                from coach_engine.opening_teaching_db import get_curated_teaching
                                 
-                                # Create coach message explaining the move - TEACHING STYLE
-                                if teaching_msg:
-                                    # Use the teaching message directly (already conversational)
-                                    msg_text = teaching_msg
-                                elif opening_name and coach_move_number <= 4:
-                                    # Guide them through the opening
-                                    msg_text = f"In the {opening_name}, {coach_move} is a key move. Can you see what it's preparing?"
-                                else:
-                                    # Generate position-specific teaching
-                                    msg_text = _get_teaching_explanation(coach_move, fen_after_user, fen_after_coach, coach_move_number)
+                                all_moves = [m.get("move", "") for m in move_history]
+                                opening = get_opening_by_moves(all_moves)
                                 
-                                # Generate a question for early moves
-                                question_data = None
-                                if coach_move_number in [2, 4, 6] and opening:
-                                    from coach_engine.question_system import generate_opening_plan_question
-                                    question = generate_opening_plan_question(opening, coach_move_number, coach_move)
-                                    question_data = question.to_dict()
-                                    msg_text = f"I played {coach_move}. {question.text}"
-                                
-                                if msg_text:
-                                    await db.coach_messages.insert_one({
-                                        "session_id": session_id,
-                                        "type": "coach",
-                                        "message": msg_text,
-                                        "trigger": "opening_teaching",
-                                        "move": coach_move,
-                                        "move_number": coach_move_number,
-                                        "created_at": datetime.now(timezone.utc),
-                                        "read": False,
-                                        "is_opening_teaching": True,
-                                        "opening_name": opening_name,
-                                        "question": question_data,
-                                        "expects_response": question_data is not None,
-                                    })
+                                curated = await get_curated_teaching(fen_after_user, coach_move)
+                                if curated.get("found") and curated.get("move_teaching"):
+                                    opening_msg = curated["move_teaching"]
+                                elif opening:
+                                    opening_msg = get_teaching_for_move(opening, coach_move)
+                            
+                            # Prefer opening-specific teaching if available, else use Active Teaching Engine
+                            if opening_msg:
+                                msg_text = opening_msg
+                                trigger = "opening_teaching"
+                            elif not feedback.get("error"):
+                                msg_text = feedback.get("message", "")
+                                trigger = "teaching"
+                            else:
+                                # Fallback to teaching context from Move Selector
+                                why = teaching_context.get("why_instructive", "")
+                                concept = teaching_context.get("concept_taught", "")
+                                challenge = teaching_context.get("student_challenge", "What will you play now?")
+                                msg_text = f"I played {coach_move}. {why} {challenge}"
+                                trigger = "teaching"
+                            
+                            if msg_text:
+                                await db.coach_messages.insert_one({
+                                    "session_id": session_id,
+                                    "type": "coach",
+                                    "message": msg_text,
+                                    "trigger": trigger,
+                                    "move": coach_move,
+                                    "move_number": coach_move_number,
+                                    "created_at": datetime.now(timezone.utc),
+                                    "read": False,
+                                    "teaching_goal": teaching_context.get("teaching_goal"),
+                                    "concept": feedback.get("concept") if feedback else teaching_context.get("concept_taught"),
+                                    "hints": feedback.get("hints", []) if feedback else [],
+                                })
                         except Exception as e:
                             logger.warning(f"Opening teaching generation failed: {e}")
                     
