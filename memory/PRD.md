@@ -641,6 +641,30 @@ Plain, simple, direct Indian-English
 | French Defense | Winawer Poisoned Pawn |
 | Scandinavian | Queen Trap |
 
+### 26. Fixed Opening Teaching & Post-Game Analysis (March 2026) ✅
+- **Bug 1: Post-game analysis not working**
+  - Fixed `PostGameAnalysis` dataclass field order (non-default after default argument error)
+  - Analysis now returns: performance rating, accuracy, mistakes, coach summary
+  
+- **Bug 2: Opening teaching offers not showing**
+  - Messages endpoint was missing `opening_name`, `opening_key`, `options`, `trap_name` fields
+  - Fixed `/api/coach/play/messages` to include all opening/endgame teaching fields
+  
+- **Bug 3: Robotic "Stockfish confirms" messages**
+  - Removed "tactical awareness" praise for simple trades
+  - Removed "Stockfish confirms" from user-facing messages
+  - Simple trades now pass silently
+
+**Files Modified:**
+- `backend/services/postgame_analysis.py` - Fixed field order
+- `backend/server.py` - Added opening/endgame fields to messages endpoint
+- `backend/coach_play/pre_move_guardian.py` - Removed robotic messages
+
+**Verified Working:**
+- Opening detection: Caro-Kann detected after e4 c6 d4
+- Teaching offer includes: trap name, options, opening key
+- Post-game analysis returns performance rating & coach summary
+
 ---
 *Last updated: March 2026*
-*Status: 19 TRAPS ACROSS 9 OPENINGS - COMPREHENSIVE TRAP DATABASE*
+*Status: OPENING TEACHING & POST-GAME ANALYSIS WORKING*

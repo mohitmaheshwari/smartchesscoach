@@ -9367,7 +9367,7 @@ async def get_coach_messages(
     message_ids = []
     
     async for msg in cursor:
-        messages.append({
+        msg_data = {
             "id": str(msg["_id"]),  # Include message ID for feedback!
             "type": msg.get("type", "coach"),
             "message": msg.get("message", ""),
@@ -9375,7 +9375,23 @@ async def get_coach_messages(
             "move": msg.get("move"),
             "move_number": msg.get("move_number"),
             "timestamp": msg.get("created_at").isoformat() if msg.get("created_at") else None
-        })
+        }
+        
+        # Include opening teaching offer fields
+        if msg.get("type") == "opening_teaching_offer":
+            msg_data["opening_name"] = msg.get("opening_name")
+            msg_data["opening_key"] = msg.get("opening_key")
+            msg_data["options"] = msg.get("options")
+            msg_data["trap_name"] = msg.get("trap_name")
+        
+        # Include endgame teaching offer fields
+        if msg.get("type") == "endgame_teaching_offer":
+            msg_data["endgame_type"] = msg.get("endgame_type")
+            msg_data["lesson_name"] = msg.get("lesson_name")
+            msg_data["key_concepts"] = msg.get("key_concepts")
+            msg_data["options"] = msg.get("options")
+        
+        messages.append(msg_data)
         message_ids.append(msg["_id"])
     
     # Mark as read

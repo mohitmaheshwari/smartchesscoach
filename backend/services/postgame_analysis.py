@@ -104,11 +104,13 @@ class PostGameAnalysis:
     # Recommendations
     priority_focus: str  # Main thing to work on
     training_suggestions: List[str]
-    opening_to_learn: Optional[str] = None
     
     # Summary
     coach_summary: str
     encouragement: str
+    
+    # Optional
+    opening_to_learn: Optional[str] = None
 
 
 async def analyze_postgame(
