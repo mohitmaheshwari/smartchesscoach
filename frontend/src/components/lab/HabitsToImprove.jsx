@@ -30,9 +30,21 @@ const HabitsToImprove = ({
 }) => {
   // Extract pattern detected from this game
   const getPatternDetected = () => {
-    // From pattern context
+    // From pattern context - check if summary is a string or object
     if (patternContext?.summary) {
-      return patternContext.summary;
+      const summary = patternContext.summary;
+      // If it's an object with coach_summary, use that
+      if (typeof summary === 'object' && summary.coach_summary) {
+        return summary.coach_summary;
+      }
+      // If it's a string, use it directly
+      if (typeof summary === 'string') {
+        return summary;
+      }
+      // If it has dominant_pattern
+      if (typeof summary === 'object' && summary.dominant_pattern) {
+        return `Your main pattern this game: ${summary.dominant_label || summary.dominant_pattern.replace(/_/g, ' ')}`;
+      }
     }
     
     // From recurring patterns
