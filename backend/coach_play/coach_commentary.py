@@ -967,8 +967,15 @@ async def generate_response_to_user(
     ])
     
     # === FAST PATH: Use pattern matching first (no LLM needed) ===
-    # BUT: Skip fast path if asking about a specific move
-    if not asking_about_last_move_fast_check:
+    # BUT: Skip fast path if asking about a specific move OR asking for plans
+    # (plans need actual position analysis)
+    asking_for_suggestions = any(phrase in msg_lower for phrase in [
+        "what can i", "what should i", "what do i", "suggest", "help",
+        "plan", "strategy", "what now", "how do i", "what's the idea",
+        "what to do", "out of plans", "any ideas", "stuck", "don't know"
+    ])
+    
+    if not asking_about_last_move_fast_check and not asking_for_suggestions:
         try:
             from coach_engine.question_system import ResponseUnderstanding, generate_response_to_answer
             from coach_engine.opening_plans import get_opening_by_moves
@@ -979,8 +986,8 @@ async def generate_response_to_user(
             all_moves = [m.get("move", "") for m in move_history]
             opening = get_opening_by_moves(all_moves)
             
-            # For simple intents, use pattern-matched response (faster, no hallucination)
-            if intent in ["confused", "affirmative", "negative", "asking_plan"] and confidence >= 0.7:
+            # For simple intents (NOT plan requests), use pattern-matched response
+            if intent in ["confused", "affirmative", "negative"] and confidence >= 0.7:
                 response = generate_response_to_answer(
                     user_message=user_message,
                     question=None,  # No pending question in this context
@@ -998,7 +1005,9 @@ async def generate_response_to_user(
     
     asking_about_plan = any(phrase in msg_lower for phrase in [
         "what should i", "what do i", "plan", "strategy", "what now",
-        "how do i", "what's the idea", "what to do"
+        "how do i", "what's the idea", "what to do", "suggest", "help",
+        "what can i", "out of plans", "stuck", "don't know", "any ideas",
+        "give me", "show me", "best move", "recommend"
     ])
     
     # Find user's last move
@@ -1120,6 +1129,34 @@ MOVE ANALYSIS:
     # Get position info
     position = await coach.analyze_position(current_fen)
     
+    # If user is asking for suggestions, get Stockfish best move
+    best_move_suggestion = ""
+    if asking_about_plan:
+        try:
+            import chess
+            from stockfish_service import StockfishEngine
+            
+            board = chess.Board(current_fen)
+            engine = StockfishEngine()
+            engine.start()
+            try:
+                best_move_obj, eval_score, _ = engine.get_best_move(board, depth=14)
+                best_move_san = board.san(best_move_obj)
+                result["best_move"] = best_move_san
+                result["suggestion_arrow"] = best_move_obj.uci()
+                
+                # Add to prompt context
+                best_move_suggestion = f"""
+STOCKFISH RECOMMENDATION:
+Best move: {best_move_san}
+>>> Suggest this move and explain WHY it's good in simple terms!
+Consider: What does {best_move_san} achieve? Does it attack something? Improve position? Create threats?
+"""
+            finally:
+                engine.stop()
+        except Exception as e:
+            logger.warning(f"Failed to get best move: {e}")
+    
     # Build the full prompt
     prompt = f"""You are a PERSONALIZED chess coach who KNOWS this player. 
 You've analyzed their past games and know their tendencies.
@@ -1131,6 +1168,7 @@ CURRENT POSITION:
 - Evaluation: {position.evaluation:+.2f}
 - Phase: {position.phase}
 - Opening: {position.opening_name or 'N/A'}
+{best_move_suggestion}
 {move_analysis_context}
 {personal_section}
 {plan_section}
