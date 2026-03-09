@@ -435,6 +435,38 @@ Plain, simple, direct Indian-English
   Coach: "Yes! You found it! That's exactly right. And you found it without any hints!"
   ```
 
+### 25. Human Coach Service ✅ (NEW - COMPLETE)
+- **Created**: `services/human_coach_service.py` (770 lines)
+- **Purpose**: Makes the coach feel human through memory, emotion, and Socratic teaching
+- **Components**:
+  1. **Emotional Intelligence Layer** - Detects frustration, tilt, confidence, rushing
+  2. **Progressive Curriculum System** - Weekly training plans based on weaknesses
+  3. **Memory Surfacing** - Remembers past sessions, connects patterns
+  4. **Socratic Integration** - Combines all elements with guided discovery
+- **Emotional States Detected**:
+  - `confident` - Winning streak, quick decisive moves
+  - `frustrated` - Losing streak, long pauses
+  - `tilted` - Multiple blunders in a row
+  - `rushed` - Very fast moves, impatient
+  - `uncertain` - Long pauses, tentative moves
+- **Curriculum Features**:
+  - Analyzes weaknesses (tactics, piece_safety, king_safety, pawn_structure, etc.)
+  - Generates focused exercises (puzzles by theme, drills, games)
+  - Sets weekly targets (games, puzzles, sessions)
+  - Provides motivation based on emotional state
+- **New API Endpoints**:
+  - `GET /api/coach/human-coach/welcome` - Memory-aware welcome message
+  - `GET /api/coach/human-coach/memory` - What coach remembers about player
+  - `POST /api/coach/human-coach/emotional-state` - Detect emotional state
+  - `GET /api/coach/human-coach/curriculum` - Weekly training plan
+  - `POST /api/coach/human-coach/surface-memory` - Surface relevant memory
+  - `POST /api/coach/human-coach/mistake-response` - Socratic + emotional response
+  - `POST /api/coach/human-coach/session-summary` - End-of-session summary
+- **Integration Points**:
+  - Game start now uses memory-aware welcome
+  - Move analysis now uses Socratic Engine with emotional adaptation
+  - Messages adapt tone based on detected emotional state
+
 ---
 *Last updated: December 2025*
-*Status: Teaching Coach COMPLETE + Socratic Engine COMPLETE - Human-like coaching foundation built*
+*Status: HUMAN COACH COMPLETE - Socratic Engine + Emotional Intelligence + Progressive Curriculum + Memory Surfacing all operational*

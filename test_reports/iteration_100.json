@@ -1,0 +1,80 @@
+{
+  "summary": "Tested all 7 Human Coach Service API endpoints. All endpoints working correctly: welcome, memory, emotional-state, curriculum, surface-memory, mistake-response, and session-summary. The Human Coach Service combines Socratic Engine with Emotional Intelligence Layer, Progressive Curriculum System, and Memory Surfacing. One bug found: missing input validation causes 500 error.",
+  "mode": "generate",
+  "baseline_commit": "8a9a4e8e4e1903d0f88abf4b6785e8cdd295dde9",
+  "head_commit": "99a3fc1de68bd258267c7196191992b86278d6d6",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/coach/human-coach/mistake-response",
+        "issue": "Returns 500 Internal Server Error when 'fen' parameter is empty or missing. Should validate input and return 400/422 with helpful error message instead.",
+        "priority": "MEDIUM",
+        "root_cause": "chess.Board(fen) raises ValueError('empty fen') in socratic_engine.py:_analyze_discovery_target(). No input validation before this call.",
+        "recommended_fix": "Add input validation in get_socratic_mistake_response() to check for required fields (fen, move_played, best_move) before calling create_socratic_dialogue()"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "regression_results": {
+    "total_specs": 35,
+    "passed": 35,
+    "failed": 0,
+    "skipped": 0
+  },
+  "specs_created": [
+    "/app/backend/tests/test_human_coach_api.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_human_coach_api.py",
+    "/app/test_reports/pytest/human_coach_api_results.xml"
+  ],
+  "action_items": [
+    "Add input validation in /api/coach/human-coach/mistake-response to return 400/422 when 'fen' is empty instead of 500 Internal Server Error"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (35 passed, 0 failed)",
+    "frontend": "N/A - backend-only testing requested"
+  },
+  "seed_data_creation": "N/A - Used existing dev user via /api/auth/dev-login",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Human Coach Service API is fully tested. All 7 endpoints validated: welcome (personalized with memory), memory (coach's memory of player), emotional-state (detects frustrated/confident/tilted/rushed/uncertain states), curriculum (weekly training plan), surface-memory (recalls relevant past sessions), mistake-response (Socratic questioning with emotional adaptation), session-summary (end-of-session summary with progress tracking). One bug to fix: missing input validation in mistake-response endpoint causes 500 error when fen is empty.",
+  "features_tested": {
+    "backend": [
+      "GET /api/coach/human-coach/welcome - Personalized welcome message with memory",
+      "GET /api/coach/human-coach/memory - Full coach memory of player (sessions, results, weaknesses, concepts)",
+      "POST /api/coach/human-coach/emotional-state - Detects emotional states (frustrated, confident, tilted, rushed, uncertain)",
+      "GET /api/coach/human-coach/curriculum - Weekly training plan with exercises and targets",
+      "POST /api/coach/human-coach/surface-memory - Surfaces relevant memories based on current context",
+      "POST /api/coach/human-coach/mistake-response - Socratic mistake response with emotional adaptation",
+      "POST /api/coach/human-coach/session-summary - End-of-session summary with memory connection"
+    ],
+    "test_coverage": {
+      "welcome": 3,
+      "memory": 3,
+      "emotional_state": 7,
+      "curriculum": 4,
+      "surface_memory": 3,
+      "mistake_response": 5,
+      "session_summary": 5,
+      "integration_flows": 2,
+      "error_handling": 3
+    }
+  },
+  "emotional_states_tested": [
+    "frustrated (loss streak detection)",
+    "confident (win streak detection)",
+    "tilted (multiple blunders detection)",
+    "rushed (fast move time detection)",
+    "uncertain (long think time detection)",
+    "neutral (default state)"
+  ]
+}

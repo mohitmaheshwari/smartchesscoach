@@ -1630,3 +1630,277 @@ async def test_socratic_engine(
             "best_move": best_move
         }
     }
+
+
+
+# ==================== HUMAN COACH SERVICE ====================
+
+@router.get("/human-coach/welcome")
+async def get_human_coach_welcome(user: User = Depends(get_current_user)):
+    """
+    Get a personalized welcome message with memory.
+    
+    The coach remembers:
+    - Last session and what was practiced
+    - Recent results and streaks
+    - Current focus area
+    
+    Returns:
+        Personalized welcome message that shows the coach remembers the student.
+    """
+    from services.human_coach_service import create_human_coach
+    
+    # Get user rating
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    coach = await create_human_coach(db, user.user_id, user_rating)
+    welcome = await coach.get_welcome_message()
+    
+    return {
+        "message": welcome,
+        "has_memory": coach.memory.total_sessions > 0,
+        "total_sessions": coach.memory.total_sessions,
+        "current_focus": coach.memory.current_focus,
+        "streak": {
+            "type": coach.memory.streak_type,
+            "count": coach.memory.streak_count
+        } if coach.memory.streak_type else None
+    }
+
+
+@router.get("/human-coach/memory")
+async def get_coach_memory(user: User = Depends(get_current_user)):
+    """
+    Get what the coach remembers about the student.
+    
+    Returns:
+        Memory object with session history, weaknesses, concepts, etc.
+    """
+    from services.human_coach_service import create_human_coach
+    
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    coach = await create_human_coach(db, user.user_id, user_rating)
+    memory = coach.memory
+    
+    return {
+        "total_sessions": memory.total_sessions,
+        "last_session_date": memory.last_session_date,
+        "recent_results": memory.recent_results,
+        "top_weaknesses": memory.top_weaknesses,
+        "concepts_practiced": memory.concepts_practiced,
+        "current_focus": memory.current_focus,
+        "streak": {
+            "type": memory.streak_type,
+            "count": memory.streak_count
+        } if memory.streak_type else None,
+        "recurring_mistakes": memory.recurring_mistakes
+    }
+
+
+@router.post("/human-coach/emotional-state")
+async def detect_emotional_state(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Detect player's emotional state based on game signals.
+    
+    Request body:
+        {
+            "recent_results": ["win", "loss", "loss"],  # Recent game results
+            "avg_move_time": 15.5,                       # Average seconds per move
+            "blunders_this_game": 2,                     # Blunders in current game
+            "time_since_last_move": 45                   # Seconds thinking on last move
+        }
+    
+    Returns:
+        Detected emotional state with coaching recommendations.
+    """
+    from services.human_coach_service import create_human_coach, EmotionalState
+    
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    coach = await create_human_coach(db, user.user_id, user_rating)
+    
+    state = coach.detect_emotional_state(
+        recent_results=request.get("recent_results"),
+        avg_move_time=request.get("avg_move_time", 0),
+        blunders_this_game=request.get("blunders_this_game", 0),
+        time_since_last_move=request.get("time_since_last_move", 0)
+    )
+    
+    # Get adapted message
+    adapted = coach.adapt_message_for_emotion("Let's continue.")
+    
+    return {
+        "emotional_state": state.value,
+        "should_offer_break": adapted.should_offer_break,
+        "encouragement_level": adapted.encouragement_level,
+        "tone_recommendation": adapted.tone,
+        "sample_prefix": adapted.emotional_prefix,
+        "sample_suffix": adapted.emotional_suffix
+    }
+
+
+@router.get("/human-coach/curriculum")
+async def get_weekly_curriculum(user: User = Depends(get_current_user)):
+    """
+    Get a progressive weekly training plan based on weaknesses.
+    
+    Analyzes:
+    - Recent game patterns
+    - Identified weaknesses
+    - What's been practiced already
+    
+    Returns:
+        Focused training plan for the week.
+    """
+    from services.human_coach_service import create_human_coach
+    
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    coach = await create_human_coach(db, user.user_id, user_rating)
+    curriculum = await coach.generate_weekly_curriculum()
+    
+    return {
+        "focus_area": curriculum.focus_area,
+        "reason": curriculum.reason,
+        "exercises": curriculum.exercises,
+        "targets": {
+            "games": curriculum.target_games,
+            "puzzles": curriculum.target_puzzles,
+            "sessions": curriculum.estimated_sessions
+        },
+        "concepts_to_practice": curriculum.concepts_to_practice,
+        "motivation": curriculum.motivation_message
+    }
+
+
+@router.post("/human-coach/surface-memory")
+async def surface_relevant_memory(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Surface relevant memory for the current position/theme.
+    
+    Request body:
+        {
+            "current_fen": "...",           # Current position (optional)
+            "current_theme": "fork",        # Current tactical theme (optional)
+            "current_opening": "Italian"    # Current opening (optional)
+        }
+    
+    Returns:
+        Relevant memory connection if found.
+    """
+    from services.human_coach_service import create_human_coach
+    
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    coach = await create_human_coach(db, user.user_id, user_rating)
+    
+    memory_msg = await coach.surface_relevant_memory(
+        current_fen=request.get("current_fen", ""),
+        current_theme=request.get("current_theme", ""),
+        current_opening=request.get("current_opening", "")
+    )
+    
+    return {
+        "has_memory": memory_msg is not None,
+        "message": memory_msg
+    }
+
+
+@router.post("/human-coach/mistake-response")
+async def get_socratic_mistake_response(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get a human-like Socratic response to a mistake.
+    
+    Combines:
+    - Socratic questioning (never gives answer first)
+    - Emotional intelligence (adapts tone)
+    - Memory (connects to past patterns)
+    
+    Request body:
+        {
+            "fen": "...",                   # Position before move
+            "move_played": "Nf3",           # What they played
+            "best_move": "Bxh7+",           # What was better
+            "eval_loss": 150,               # Centipawns lost
+            "position_type": "blunder",     # blunder, mistake, missed_tactic
+            "emotional_context": {          # Optional
+                "recent_results": ["loss", "loss"],
+                "avg_move_time": 8,
+                "blunders_this_game": 2
+            }
+        }
+    
+    Returns:
+        Socratic dialogue with emotional adaptation.
+    """
+    from services.human_coach_service import get_socratic_response
+    
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    response = await get_socratic_response(
+        db=db,
+        user_id=user.user_id,
+        user_rating=user_rating,
+        fen=request.get("fen", ""),
+        move_played=request.get("move_played", ""),
+        best_move=request.get("best_move", ""),
+        eval_loss=request.get("eval_loss", 0),
+        emotional_context=request.get("emotional_context")
+    )
+    
+    return response
+
+
+@router.post("/human-coach/session-summary")
+async def get_session_summary(
+    request: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get end-of-session summary with memory connection.
+    
+    Request body:
+        {
+            "session_result": "win",
+            "concepts_covered": ["tactics", "development"],
+            "mistakes_made": 3,
+            "good_moves": 5
+        }
+    
+    Returns:
+        Summary that connects to long-term progress.
+    """
+    from services.human_coach_service import create_human_coach
+    
+    user_doc = await db.users.find_one({"user_id": user.user_id})
+    user_rating = user_doc.get("assessed_rating", 1200) if user_doc else 1200
+    
+    coach = await create_human_coach(db, user.user_id, user_rating)
+    
+    summary = await coach.get_session_summary_with_memory(
+        session_result=request.get("session_result", "draw"),
+        concepts_covered=request.get("concepts_covered", []),
+        mistakes_made=request.get("mistakes_made", 0),
+        good_moves=request.get("good_moves", 0)
+    )
+    
+    return {
+        "summary": summary,
+        "total_sessions": coach.memory.total_sessions + 1
+    }

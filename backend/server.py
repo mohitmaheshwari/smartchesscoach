@@ -8624,13 +8624,29 @@ async def start_play_with_coach(
         if practice_mode:
             message = f"Practice mode! Playing from a position in your game. You are {user_color}."
         
+        # Get memory-aware welcome message from Human Coach
+        welcome_message = message
+        try:
+            from services.human_coach_service import create_human_coach
+            coach = await create_human_coach(db, user.user_id, session.user_rating)
+            welcome_message = await coach.get_welcome_message()
+            
+            # Also check for relevant memory to surface
+            if starting_fen:
+                memory_note = await coach.surface_relevant_memory(current_fen=starting_fen)
+                if memory_note:
+                    welcome_message = f"{welcome_message}\n\n{memory_note}"
+        except Exception as e:
+            logger.warning(f"Human coach welcome failed: {e}")
+            welcome_message = message
+        
         return {
             "success": True,
             "session_id": session.session_id,
             "session": session.to_dict(),
             "current_fen": session.current_fen,
             "is_player_turn": is_player_turn,
-            "message": message,
+            "message": welcome_message,
             "evaluation": {
                 "score": eval_score,
                 "mate_in": mate_in
@@ -8876,35 +8892,99 @@ async def _process_move_and_respond(
                     "is_wisdom_based": True,
                 })
             else:
-                # Fall back to simple factual message (NO LLM - no hallucination risk)
-                # TEACHING STYLE: Guide the student, don't just evaluate
+                # Use SOCRATIC ENGINE for human-like coaching
+                # Never give the answer first - guide them to discover
+                from services.human_coach_service import get_socratic_response
+                
                 eval_before = analysis.get("eval_before", 0)
                 eval_after = analysis.get("eval_after", 0)
                 best_move = analysis.get("best_move", "")
                 delta = int((eval_after - eval_before) * 100)
                 
+                # Determine position type for Socratic engine
                 if abs(delta) >= 200:
-                    # Big mistake - but teach, don't scold
-                    coach_message = f"Hmm, {user_move} changes things significantly. Let's look at {best_move} - do you see why it's stronger here?"
+                    position_type = "blunder"
                 elif abs(delta) >= 100:
-                    # Inaccuracy - gentle guidance
-                    coach_message = f"{user_move} is okay, but {best_move} was a bit more precise. Can you spot the difference?"
+                    position_type = "mistake"
+                elif analysis.get("missed_tactic"):
+                    position_type = "missed_tactic"
                 else:
-                    # Good move - reinforce and ask
-                    coach_message = f"Good thinking with {user_move}! What's your plan from here?"
+                    position_type = "strategic"
                 
-                await db.coach_messages.insert_one({
-                    "session_id": session_id,
-                    "type": "coach",
-                    "message": coach_message,
-                    "trigger": trigger.trigger_type.value,
-                    "move": user_move,
-                    "move_number": move_number,
-                    "created_at": datetime.now(timezone.utc),
-                    "read": False,
-                    "is_wisdom_based": False,
-                    "is_factual_fallback": True,  # Mark as simple factual message
-                })
+                # Get Socratic response with emotional adaptation
+                try:
+                    # Get session for emotional context
+                    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+                    
+                    # Build emotional context from session
+                    emotional_context = None
+                    if session_doc:
+                        move_history = session_doc.get("move_history", [])
+                        blunders_count = sum(1 for m in move_history if m.get("classification") == "BLUNDER")
+                        emotional_context = {
+                            "blunders_this_game": blunders_count
+                        }
+                    
+                    socratic_response = await get_socratic_response(
+                        db=db,
+                        user_id=session_doc.get("user_id") if session_doc else "unknown",
+                        user_rating=user_rating,
+                        fen=fen_before,
+                        move_played=user_move,
+                        best_move=best_move,
+                        eval_loss=abs(delta),
+                        emotional_context=emotional_context
+                    )
+                    
+                    coach_message = socratic_response.get("message", "")
+                    
+                    # Store Socratic dialogue context for continuing the conversation
+                    dialogue_context = {
+                        "dialogue_id": socratic_response.get("dialogue_id"),
+                        "fen": fen_before,
+                        "move_played": user_move,
+                        "best_move": best_move,
+                        "hints_given": 0
+                    }
+                    
+                    await db.coach_messages.insert_one({
+                        "session_id": session_id,
+                        "type": "coach",
+                        "message": coach_message,
+                        "trigger": trigger.trigger_type.value,
+                        "move": user_move,
+                        "move_number": move_number,
+                        "created_at": datetime.now(timezone.utc),
+                        "read": False,
+                        "is_socratic": True,
+                        "socratic_dialogue": dialogue_context,
+                        "emotional_state": socratic_response.get("emotional_state"),
+                        "expects_response": socratic_response.get("expects_response", True),
+                        "pattern_connection": socratic_response.get("pattern_connection"),
+                    })
+                    
+                except Exception as e:
+                    logger.warning(f"Socratic engine failed, using fallback: {e}")
+                    # Fallback to simple Socratic-style message
+                    if abs(delta) >= 200:
+                        coach_message = f"Interesting choice with {user_move}. What were you trying to achieve?"
+                    elif abs(delta) >= 100:
+                        coach_message = f"Let me ask about {user_move} - what was your thinking there?"
+                    else:
+                        coach_message = f"Good thinking with {user_move}! What's your plan from here?"
+                    
+                    await db.coach_messages.insert_one({
+                        "session_id": session_id,
+                        "type": "coach",
+                        "message": coach_message,
+                        "trigger": trigger.trigger_type.value,
+                        "move": user_move,
+                        "move_number": move_number,
+                        "created_at": datetime.now(timezone.utc),
+                        "read": False,
+                        "is_wisdom_based": False,
+                        "is_factual_fallback": True,
+                    })
         
         # Step 3.5: Proactive teaching for GOOD moves and consequence detection
         # Even if trigger didn't fire, we can praise good moves or warn about consequences
