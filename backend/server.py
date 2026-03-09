@@ -9189,6 +9189,7 @@ async def _process_move_and_respond(
                                     "trigger": trigger,
                                     "move": coach_move,
                                     "move_number": coach_move_number,
+                                    "is_coach_move": True,  # Flag to distinguish coach's move explanations
                                     "created_at": datetime.now(timezone.utc),
                                     "read": False,
                                     "teaching_goal": teaching_context.get("teaching_goal"),

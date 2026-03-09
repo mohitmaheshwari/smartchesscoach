@@ -291,6 +291,7 @@ const CoachPlay = ({ user }) => {
                 message: msg.message,
                 trigger: msg.trigger,
                 move: msg.move,
+                isCoachMove: msg.is_coach_move,  // Track if this is about coach's move
                 question: msg.question,  // For Socratic questions
                 isSocratic: msg.is_socratic,  // Track Socratic messages
                 emotionalState: msg.emotional_state,  // Track emotional adaptation
@@ -1706,23 +1707,49 @@ const CoachPlay = ({ user }) => {
                       {msg.message}
                     </p>
                     
-                    {/* Quick Action Buttons for Socratic Coaching */}
+                    {/* Quick Action Buttons - Context-aware based on whose move */}
                     {msg.type === "coach" && msg.trigger === "teaching" && !msg.question && (
                       <div className="mt-2 flex items-center gap-2">
-                        <button
-                          onClick={() => sendChatMessage("Why was that bad?")}
-                          className="text-xs px-2 py-1 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
-                          data-testid={`why-btn-${i}`}
-                        >
-                          Why?
-                        </button>
-                        <button
-                          onClick={() => sendChatMessage("What should I have done?")}
-                          className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                          data-testid={`what-btn-${i}`}
-                        >
-                          What instead?
-                        </button>
+                        {/* Use the isCoachMove flag, fallback to text detection */}
+                        {msg.isCoachMove || 
+                         msg.message?.toLowerCase().includes("i played") || 
+                         msg.message?.toLowerCase().includes("i moved") ? (
+                          // Coach explaining their own move
+                          <>
+                            <button
+                              onClick={() => sendChatMessage("Why did you play that?")}
+                              className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              data-testid={`why-coach-btn-${i}`}
+                            >
+                              Why that move?
+                            </button>
+                            <button
+                              onClick={() => sendChatMessage("What's the idea behind it?")}
+                              className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              data-testid={`idea-btn-${i}`}
+                            >
+                              What's the idea?
+                            </button>
+                          </>
+                        ) : (
+                          // Coach teaching about user's move
+                          <>
+                            <button
+                              onClick={() => sendChatMessage("Why was that bad?")}
+                              className="text-xs px-2 py-1 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                              data-testid={`why-btn-${i}`}
+                            >
+                              Why?
+                            </button>
+                            <button
+                              onClick={() => sendChatMessage("What should I have done?")}
+                              className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              data-testid={`what-btn-${i}`}
+                            >
+                              What instead?
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                     
