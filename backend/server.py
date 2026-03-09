@@ -9694,11 +9694,11 @@ async def evaluate_coach_play_move(
     result = guardian_result.to_dict()
     result["remaining_interventions"] = session_doc.get("remaining_interventions", 3)
     
-    # Add tactical awareness indicator if applicable
+    # Add good trade indicator if applicable (no praise message for normal trades)
     details = result.get("details", {})
-    if details.get("tactical_awareness"):
-        result["tactical_awareness"] = True
-        result["tactical_message"] = "Good capture! This trade is favorable."
+    if details.get("good_trade"):
+        result["good_trade"] = True
+        # No message - trades don't need commentary
     elif details.get("stockfish_approved"):
         result["stockfish_approved"] = True
     

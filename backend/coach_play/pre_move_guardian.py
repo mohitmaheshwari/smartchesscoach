@@ -136,7 +136,7 @@ class PreMoveGuardian:
         
         IMPORTANT: Stockfish evaluation is the PRIMARY check.
         Heuristics are only used when Stockfish confirms the move is bad.
-        If Stockfish says a move is fine, we DON'T intervene - it's tactical awareness!
+        # If Stockfish says a move is fine, we DON'T intervene - it's a good move!
         
         Args:
             fen: Current position in FEN
@@ -200,19 +200,19 @@ class PreMoveGuardian:
             # If eval doesn't drop significantly, the move is FINE
             # Even if heuristics flag something, Stockfish knows better!
             if eval_drop < 0.5:
-                # Move is good or neutral - could be tactical awareness!
+                # Move is good or neutral - no intervention needed
                 processing_time = (time.time() - start_time) * 1000
                 
-                # Check if this was a "risky-looking" but good move
+                # Check if this was a capture that looks risky but engine approves
                 is_capture = board.is_capture(move)
                 captured_piece = board.piece_at(move.to_square) if is_capture else None
                 
-                # If they captured a defended piece but Stockfish says it's fine = tactical awareness
+                # If they captured a defended piece but engine says it's fine
                 if is_capture and captured_piece:
                     board_copy = board.copy()
                     board_copy.push(move)
                     if board_copy.is_attacked_by(not board.turn, move.to_square):
-                        # Captured defended piece, but Stockfish approves!
+                        # Captured defended piece, engine approves
                         return GuardianResult(
                             should_intervene=False,
                             intervention_type=InterventionType.NONE,
@@ -222,8 +222,8 @@ class PreMoveGuardian:
                             explanation="",
                             alternative_moves=[],
                             details={
-                                "tactical_awareness": True,
-                                "note": "Good capture! Stockfish approves this trade."
+                                "good_trade": True,
+                                "note": ""  # No message needed for normal trades
                             },
                             processing_time_ms=processing_time
                         )
