@@ -144,6 +144,39 @@ def _build_opening_database():
             victim_color="black",
             difficulty="beginner"
         ),
+        OpeningTrap(
+            name="Blackburne Shilling Gambit",
+            moves=["e4", "e5", "Nf3", "Nc6", "Bc4", "Nd4", "Nxe5"],
+            trap_move="Nxe5",
+            explanation="After Nxe5?, Black plays Qg5! attacking g2 and e5. If Nxf7, Qxg2 threatens mate!",
+            refutation="Don't take on e5! Play Nxd4 or c3 to kick the knight away.",
+            fen_before_trap="r1bqkbnr/pppp1ppp/8/4p3/2BnP3/5N2/PPPP1PPP/RNBQK2R w KQkq - 3 4",
+            fen_after_trap="r1bqkbnr/pppp1ppp/8/4N3/2BnP3/8/PPPP1PPP/RNBQK2R b KQkq - 0 4",
+            victim_color="white",
+            difficulty="beginner"
+        ),
+        OpeningTrap(
+            name="Traxler Counterattack",
+            moves=["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5", "Bc5", "Nxf7", "Bxf2+"],
+            trap_move="Bxf2+",
+            explanation="Black ignores the rook! After Kf1 (or Kxf2), Qe7 and Black's attack is ferocious despite being down material.",
+            refutation="White should not take on f7. Play d4 or d3 instead for a safe advantage.",
+            fen_before_trap="r1bqk2r/pppp1ppp/2n2n2/2b1p1N1/2B1P3/8/PPPP1PPP/RNBQK2R w KQkq - 4 5",
+            fen_after_trap="r1bqk2r/pppp1Npp/2n2n2/2b1p3/2B1P3/8/PPPP1bPP/RNBQK2R w KQkq - 0 6",
+            victim_color="white",
+            difficulty="advanced"
+        ),
+        OpeningTrap(
+            name="Jerome Gambit",
+            moves=["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5", "Bxf7+", "Kxf7", "Nxe5+"],
+            trap_move="Nxe5+",
+            explanation="White sacrifices BOTH minor pieces! The king is exposed and Qh5+ creates chaos.",
+            refutation="After Nxe5+, play Ke8! (not Nxe5). Black is winning but must defend carefully.",
+            fen_before_trap="r1bqk1nr/pppp1Bpp/2n5/2b1p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 4",
+            fen_after_trap="r1bqk1nr/pppp2pp/2n5/2b1N3/4P3/8/PPPP1PPP/RNBQK2R b KQkq - 0 5",
+            victim_color="black",
+            difficulty="advanced"
+        ),
     ]
     
     italian_variations = [
@@ -171,7 +204,7 @@ def _build_opening_database():
                 "Neglecting development for pawn grabbing",
                 "Leaving the king in the center too long"
             ],
-            traps=italian_traps[:1],  # Fried Liver
+            traps=italian_traps[:2],  # Fried Liver, Legal's Mate for Giuoco Piano
             model_games=[]
         ),
         OpeningVariation(
@@ -198,7 +231,7 @@ def _build_opening_database():
                 "Panicking after Ng5",
                 "Taking the e4 pawn too early"
             ],
-            traps=italian_traps,
+            traps=italian_traps[2:],  # Blackburne Shilling, Traxler, Jerome for Two Knights
             model_games=[]
         ),
     ]
@@ -231,6 +264,17 @@ def _build_opening_database():
             fen_before_trap="r1bqk2r/pp1p1ppp/2n1pn2/4P3/1b1N4/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 7",
             fen_after_trap="r1bqk2r/pp1p1ppp/2n1p3/4P3/1b1Nn3/2N5/PPP2PPP/R1BQKB1R w KQkq - 1 8",
             victim_color="white",
+            difficulty="intermediate"
+        ),
+        OpeningTrap(
+            name="Magnus Smith Trap",
+            moves=["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "g6", "Bc4", "Bg7", "Nxc6"],
+            trap_move="bxc6",
+            explanation="After bxc6, White plays Bxf7+! Kxf7 e5! opens devastating lines against Black's king.",
+            refutation="Black should play Nbd7 before developing the bishop to g7.",
+            fen_before_trap="rn1qk2r/pp2ppbp/3p1np1/2N5/2B1P3/2N5/PPP2PPP/R1BQK2R b KQkq - 0 8",
+            fen_after_trap="rn1qk2r/pp2ppbp/2pp1np1/8/2B1P3/2N5/PPP2PPP/R1BQK2R w KQkq - 0 9",
+            victim_color="black",
             difficulty="intermediate"
         ),
     ]
@@ -397,6 +441,31 @@ def _build_opening_database():
     )
     
     # ==================== LONDON SYSTEM ====================
+    london_traps = [
+        OpeningTrap(
+            name="London System Trap",
+            moves=["d4", "d5", "Bf4", "c5", "e3", "Nc6", "c3", "Qb6", "Qb3", "c4", "Qc2"],
+            trap_move="Qc2",
+            explanation="White threatens Qxh7! The h7 pawn is undefended because the bishop on f4 covers it.",
+            refutation="Black should play g6 early or develop the kingside faster.",
+            fen_before_trap="r1b1kbnr/pp2pppp/1qn5/3p4/2pP1B2/2P1P3/PP3PPP/RN1QKBNR w KQkq - 0 7",
+            fen_after_trap="r1b1kbnr/pp2pppp/1qn5/3p4/2pP1B2/2P1P3/PPQ2PPP/RN2KBNR b KQkq - 1 7",
+            victim_color="black",
+            difficulty="beginner"
+        ),
+        OpeningTrap(
+            name="London System Greek Gift",
+            moves=["d4", "d5", "Bf4", "Nf6", "e3", "e6", "Nf3", "Bd6", "Bg3", "O-O", "Bd3", "Nc6", "Nbd2", "Nb4"],
+            trap_move="Bxh7+",
+            explanation="The classic Greek Gift sacrifice! Bxh7+ Kxh7 Ng5+ leads to a winning attack.",
+            refutation="Black should not castle into the attack. Play h6 first or develop differently.",
+            fen_before_trap="r1bq1rk1/ppp2ppp/3bpn2/3p4/3P4/3BPN2/PPP2PPP/RN1QK2R w KQ - 5 8",
+            fen_after_trap="r1bq1rk1/ppp2pBp/3bpn2/3p4/3P4/4PN2/PPP2PPP/RN1QK2R b KQ - 0 8",
+            victim_color="black",
+            difficulty="intermediate"
+        ),
+    ]
+    
     london_variations = [
         OpeningVariation(
             name="London System",
@@ -422,7 +491,7 @@ def _build_opening_database():
                 "White: Pushing pawns without development",
                 "Black: Not challenging the center"
             ],
-            traps=[],
+            traps=london_traps,
             model_games=[]
         ),
     ]
@@ -455,6 +524,17 @@ def _build_opening_database():
             fen_after_trap="r1bqkb1r/pp1npppp/2pN1n2/8/3P4/8/PPP1QPPP/R1B1KBNR b KQkq - 3 6",
             victim_color="black",
             difficulty="beginner"
+        ),
+        OpeningTrap(
+            name="Caro-Kann Fantasy Trap",
+            moves=["e4", "c6", "d4", "d5", "f3", "dxe4", "fxe4", "e5", "Nf3", "exd4", "Bc4"],
+            trap_move="Bc4",
+            explanation="After Bc4, White threatens Bxf7+ and has a powerful attack. Black's center collapses.",
+            refutation="Black should not play e5 in the Fantasy Variation - it opens too many lines.",
+            fen_before_trap="rnbqkbnr/pp3ppp/2p5/8/2BpP3/5N2/PPP3PP/RNBQK2R b KQkq - 1 6",
+            fen_after_trap="rnbqkbnr/pp3ppp/2p5/8/2BpP3/5N2/PPP3PP/RNBQK2R b KQkq - 1 6",
+            victim_color="black",
+            difficulty="intermediate"
         ),
     ]
     
@@ -648,6 +728,17 @@ def _build_opening_database():
             refutation="Don't take the knight with the h-pawn - play d3 or Be2 instead.",
             fen_before_trap="r1bqkb1r/pppp1pp1/2n5/1B2p3/4P1p1/5N2/PPPP1PP1/RNBQ1RK1 w kq - 0 7",
             fen_after_trap="r1bqkb1r/pppp1pp1/2n5/1B2p3/4P1p1/5N2/PPPP1PP1/RNBQ1RK1 w kq - 0 7",
+            victim_color="white",
+            difficulty="intermediate"
+        ),
+        OpeningTrap(
+            name="Mortimer Trap",
+            moves=["e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6", "d3", "Ne7", "Bxc6", "dxc6", "Nxe5"],
+            trap_move="dxc6",
+            explanation="After Bxc6?? dxc6, White thinks they're winning a piece with Nxe5, but Nxe4! wins material since dxe4 allows Qxd1+!",
+            refutation="White should not take on c6. Play Nc3 or O-O instead - Ne7 is a signal of the trap.",
+            fen_before_trap="r1bqkb1r/ppppnppp/2B2n2/4p3/4P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 6",
+            fen_after_trap="r1bqkb1r/ppp1nppp/2p2n2/4p3/4P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 7",
             victim_color="white",
             difficulty="intermediate"
         ),

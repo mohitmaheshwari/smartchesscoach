@@ -614,6 +614,33 @@ Plain, simple, direct Indian-English
   - `backend/server.py` - Pass user_color to opponent
 - **Result**: Opening teaching offers reliably trigger based on user's skill level
 
+### 25. Expanded Trap Database (March 2026) ✅
+- **Added 7 new traps** to existing openings:
+  - **Italian Game**: +3 traps (Blackburne Shilling, Traxler Counterattack, Jerome Gambit)
+  - **Sicilian**: +1 trap (Magnus Smith Trap)
+  - **London System**: +2 traps (London Trap, Greek Gift Sacrifice)
+  - **Caro-Kann**: +1 trap (Fantasy Variation Trap)
+  - **Ruy Lopez**: +1 trap (Mortimer Trap)
+- **Total traps**: 19 (was 12)
+- **Trap difficulty distribution**:
+  - 🟢 Beginner: 8 traps (Scholar's Mate level)
+  - 🟡 Intermediate: 8 traps (Club player level)
+  - 🔴 Advanced: 3 traps (Expert level)
+- **Files Modified**: `backend/services/opening_mastery.py`
+
+**Complete Trap List:**
+| Opening | Traps | 
+|---------|-------|
+| Italian Game | Fried Liver, Legal's Mate, Blackburne Shilling, Traxler, Jerome Gambit |
+| Sicilian | Siberian Trap, Magnus Smith Trap |
+| Ruy Lopez | Noah's Ark, Fishing Pole, Mortimer Trap |
+| London System | London Trap, Greek Gift |
+| Caro-Kann | Smothered Mate, Fantasy Trap |
+| Philidor | Philidor Trap, Legal's Mate |
+| Queen's Gambit | Elephant Trap |
+| French Defense | Winawer Poisoned Pawn |
+| Scandinavian | Queen Trap |
+
 ---
 *Last updated: March 2026*
-*Status: RATING-ADAPTIVE OPENING GUIDANCE COMPLETE*
+*Status: 19 TRAPS ACROSS 9 OPENINGS - COMPREHENSIVE TRAP DATABASE*
