@@ -199,45 +199,110 @@ class PedagogicalOpponent(CoachOpponent):
     - Match the student's level and weaknesses
     - Teach specific concepts based on game phase
     - Guide games toward known openings for teaching
+    - Adapt opening complexity to user rating
     
     The coach plays TO TEACH, not to crush.
     """
     
-    # Opening move sequences that lead to our known openings
-    # Format: {user_first_move: {user_second_move: coach_response, ...}, ...}
-    OPENING_GUIDE = {
-        # If user plays e4, respond to lead into various openings
+    # Opening complexity ratings (1-5, where 1=beginner, 5=advanced)
+    OPENING_COMPLEXITY = {
+        "italian_game": 2,      # Simple, good for beginners
+        "london_system": 1,     # Very simple, solid
+        "caro_kann": 2,         # Solid, straightforward
+        "french_defense": 3,    # Moderate complexity, pawn chains
+        "scandinavian_defense": 2,  # Simple but queen out early
+        "philidor_defense": 2,  # Solid, passive
+        "sicilian_defense": 4,  # Complex, many variations
+        "ruy_lopez": 4,         # Deep theory, complex
+        "queens_gambit": 3,     # Moderate, positional
+    }
+    
+    # Rating thresholds for opening complexity
+    # Below 1000: complexity 1-2 only
+    # 1000-1400: complexity 1-3
+    # 1400-1800: complexity 1-4
+    # Above 1800: all openings
+    
+    # === COACH PLAYS WHITE (user is Black) ===
+    # These are the coach's first moves to guide into openings
+    WHITE_OPENING_MOVES = {
+        # Beginner-friendly (rating < 1200)
+        "beginner": [
+            ("e4", ["italian_game", "philidor_defense"]),  # e4 leads to Italian/Philidor
+            ("d4", ["london_system", "queens_gambit"]),     # d4 leads to London/QG
+        ],
+        # Intermediate (1200-1600)
+        "intermediate": [
+            ("e4", ["italian_game", "french_defense", "caro_kann", "scandinavian_defense"]),
+            ("d4", ["queens_gambit", "london_system"]),
+            ("Nf3", ["ruy_lopez"]),  # Reti-style into Ruy Lopez
+        ],
+        # Advanced (1600+)
+        "advanced": [
+            ("e4", ["sicilian_defense", "french_defense", "caro_kann", "ruy_lopez"]),
+            ("d4", ["queens_gambit"]),
+        ],
+    }
+    
+    # === COACH PLAYS BLACK (user is White) ===
+    # Response moves based on what user plays
+    BLACK_RESPONSES = {
+        # When user plays e4
         "e4": {
-            # Coach responds based on teaching variety
-            "_default": ["e5", "c5", "e6", "c6", "d5"],  # Italian/Ruy Lopez, Sicilian, French, Caro-Kann, Scandinavian
+            "beginner": ["e5", "e6"],           # Italian/Philidor path, French
+            "intermediate": ["e5", "c6", "e6", "d5"],  # + Caro-Kann, Scandinavian
+            "advanced": ["c5", "e6", "c6", "e5"],      # Sicilian priority for advanced
         },
-        # If user plays d4
+        # When user plays d4
         "d4": {
-            "_default": ["d5", "Nf6"],  # Queen's Gambit or Indian setups
+            "beginner": ["d5"],                 # Simple Queen's Gambit
+            "intermediate": ["d5", "Nf6"],      # + Indian setups
+            "advanced": ["d5", "Nf6"],
         },
-        # If user plays Nf3
+        # When user plays Nf3
         "Nf3": {
-            "_default": ["d5", "Nf6"],
+            "beginner": ["d5"],
+            "intermediate": ["d5", "Nf6"],
+            "advanced": ["d5", "c5", "Nf6"],
         },
-        # If user plays c4
+        # When user plays c4
         "c4": {
-            "_default": ["e5", "c5", "Nf6"],
+            "beginner": ["e5"],
+            "intermediate": ["e5", "Nf6"],
+            "advanced": ["e5", "c5", "Nf6"],
         },
     }
     
-    # Continue guiding after coach's first move
+    # Continuation moves to complete opening detection
     OPENING_CONTINUATIONS = {
-        # After e4 e5, if user plays Nf3, respond Nc6 for Italian/Ruy Lopez
-        ("e4", "e5", "Nf3"): "Nc6",
-        # After e4 c5 (Sicilian), continue with d6 or Nc6
-        ("e4", "c5", "Nf3"): "d6",
-        ("e4", "c5", "d4"): "cxd4",
-        # After e4 e6 (French), continue with d5
-        ("e4", "e6", "d4"): "d5",
-        # After e4 c6 (Caro-Kann), continue with d5
-        ("e4", "c6", "d4"): "d5",
-        # After d4 d5, respond to c4 with e6 or c6
-        ("d4", "d5", "c4"): "e6",
+        # Italian Game / Ruy Lopez path (user White, coach Black)
+        ("e4", "e5", "Nf3"): "Nc6",      # Leads to Italian (Bc4) or Ruy Lopez (Bb5)
+        ("e4", "e5", "Nf3", "Nc6", "Bc4"): "Bc5",  # Italian Game main line
+        ("e4", "e5", "Nf3", "Nc6", "Bb5"): "a6",   # Ruy Lopez Morphy Defense
+        
+        # Sicilian paths
+        ("e4", "c5", "Nf3"): "d6",       # Sicilian Najdorf/Dragon setup
+        ("e4", "c5", "d4"): "cxd4",      # Open Sicilian
+        ("e4", "c5", "Nc3"): "Nc6",      # Closed Sicilian
+        
+        # French Defense
+        ("e4", "e6", "d4"): "d5",        # French main line
+        
+        # Caro-Kann
+        ("e4", "c6", "d4"): "d5",        # Caro-Kann main line
+        
+        # Scandinavian
+        ("e4", "d5", "exd5"): "Qxd5",    # Scandinavian main line
+        
+        # Queen's Gambit
+        ("d4", "d5", "c4"): "e6",        # QGD
+        
+        # Philidor
+        ("e4", "e5", "Nf3", "d6"): "d4", # Philidor main line (coach as White)
+        
+        # London System (coach as White)
+        ("d4", "d5", "Bf4"): "Nf6",      # London main line
+        ("d4", "Nf6", "Bf4"): "e6",      # London vs Indian
     }
     
     def __init__(
@@ -246,7 +311,8 @@ class PedagogicalOpponent(CoachOpponent):
         teaching_mode: str = "balanced",
         student_weaknesses: list = None,
         teaching_focus: str = None,
-        move_history: list = None
+        move_history: list = None,
+        user_color: str = "white"  # What color is the USER playing
     ):
         """
         Initialize pedagogical opponent.
@@ -257,6 +323,7 @@ class PedagogicalOpponent(CoachOpponent):
             student_weaknesses: List of weakness areas to target
             teaching_focus: Specific concept to teach (optional)
             move_history: List of moves played so far (for opening guidance)
+            user_color: What color the user is playing ("white" or "black")
         """
         super().__init__(user_rating=user_rating)
         self.teaching_mode = teaching_mode
@@ -264,12 +331,40 @@ class PedagogicalOpponent(CoachOpponent):
         self.teaching_focus = teaching_focus
         self.last_teaching_context = {}
         self.move_history = move_history or []
+        self.user_color = user_color.lower() if user_color else "white"
+        self.skill_tier = self._get_skill_tier(user_rating)
+    
+    def _get_skill_tier(self, rating: int) -> str:
+        """Get skill tier based on rating for opening selection."""
+        if rating < 1200:
+            return "beginner"
+        elif rating < 1600:
+            return "intermediate"
+        else:
+            return "advanced"
+    
+    def _get_max_complexity(self) -> int:
+        """Get maximum opening complexity for this user's rating."""
+        if self.skill_tier == "beginner":
+            return 2
+        elif self.skill_tier == "intermediate":
+            return 3
+        else:
+            return 5
+    
+    def _filter_openings_by_complexity(self, openings: list) -> list:
+        """Filter openings to only include those appropriate for user's level."""
+        max_complexity = self._get_max_complexity()
+        return [op for op in openings if self.OPENING_COMPLEXITY.get(op, 3) <= max_complexity]
     
     def _get_opening_guided_move(self, fen: str) -> Optional[str]:
         """
         Get a move that guides toward a known opening (for early game).
         
-        Only applies in the first 6 moves to ensure opening teaching triggers.
+        - Adapts to user's rating (simpler openings for beginners)
+        - Works for both colors (coach as White or Black)
+        - Only applies in the first 8 moves
+        
         Returns None if no guided move is appropriate.
         """
         import random
@@ -277,14 +372,14 @@ class PedagogicalOpponent(CoachOpponent):
         board = chess.Board(fen)
         move_count = len(self.move_history)
         
-        # Only guide in the first 6 moves
-        if move_count > 6:
+        # Only guide in the first 8 moves
+        if move_count > 8:
             return None
         
         # Convert move history to tuple for lookup
         history_tuple = tuple(self.move_history)
         
-        # Check for specific continuation
+        # Check for specific continuation first
         if history_tuple in self.OPENING_CONTINUATIONS:
             guided_move = self.OPENING_CONTINUATIONS[history_tuple]
             try:
@@ -294,20 +389,43 @@ class PedagogicalOpponent(CoachOpponent):
             except:
                 pass
         
-        # First move response
-        if move_count == 1:
-            user_move = self.move_history[0]
-            if user_move in self.OPENING_GUIDE:
-                options = self.OPENING_GUIDE[user_move].get("_default", [])
-                # Randomly choose from options for variety
-                random.shuffle(options)
-                for option in options:
-                    try:
-                        move = board.parse_san(option)
-                        if move in board.legal_moves:
-                            return option
-                    except:
-                        continue
+        # === COACH PLAYS WHITE (user is Black) ===
+        # Coach makes the FIRST move
+        if self.user_color == "black" and move_count == 0:
+            # Select opening based on user's skill level
+            opening_options = self.WHITE_OPENING_MOVES.get(self.skill_tier, [])
+            if opening_options:
+                random.shuffle(opening_options)
+                for first_move, target_openings in opening_options:
+                    # Filter by complexity
+                    valid_openings = self._filter_openings_by_complexity(target_openings)
+                    if valid_openings:
+                        try:
+                            move = board.parse_san(first_move)
+                            if move in board.legal_moves:
+                                return first_move
+                        except:
+                            continue
+        
+        # === COACH PLAYS BLACK (user is White) ===
+        # Respond to user's move
+        if self.user_color == "white" and move_count >= 1:
+            last_user_move = self.move_history[-1] if self.move_history else None
+            
+            # Get response options for this user move
+            if last_user_move and last_user_move in self.BLACK_RESPONSES:
+                options = self.BLACK_RESPONSES[last_user_move].get(self.skill_tier, [])
+                if options:
+                    # Shuffle for variety
+                    shuffled = options.copy()
+                    random.shuffle(shuffled)
+                    for option in shuffled:
+                        try:
+                            move = board.parse_san(option)
+                            if move in board.legal_moves:
+                                return option
+                        except:
+                            continue
         
         return None
     

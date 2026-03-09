@@ -9147,6 +9147,9 @@ async def _process_move_and_respond(
                 move_history = session_doc.get("move_history", [])
                 move_history_san = [m.get("move") for m in move_history if m.get("move")]
                 
+                # Get user's color (coach plays opposite)
+                user_color = session_doc.get("user_color", "white")
+                
                 # Use Pedagogical Opponent with Teaching Move Selector
                 from coach_play.coach_opponent import PedagogicalOpponent
                 opponent = PedagogicalOpponent(
@@ -9154,7 +9157,8 @@ async def _process_move_and_respond(
                     teaching_mode="balanced",
                     student_weaknesses=student_weaknesses,
                     teaching_focus=teaching_focus,
-                    move_history=move_history_san  # Pass move history for opening guidance
+                    move_history=move_history_san,  # Pass move history for opening guidance
+                    user_color=user_color  # Pass user's color for correct opening guidance
                 )
                 coach_move = await opponent.get_move(fen_after_user)
                 teaching_context = opponent.get_teaching_context()

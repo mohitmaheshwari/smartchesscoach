@@ -592,16 +592,28 @@ Plain, simple, direct Indian-English
 
 ### 24. Opening Guidance System (March 2026) ✅
 - **Problem**: Users weren't seeing opening teaching offers because coach played random moves
-- **Solution**: Added "Opening Guide" to `PedagogicalOpponent`
-  - In first 6 moves, coach prefers moves that lead to known openings
-  - After user plays e4: responds with e5, c5, e6, c6, or d5 (leading to Italian/Ruy Lopez, Sicilian, French, Caro-Kann, Scandinavian)
-  - After user plays d4: responds with d5 or Nf6 (Queen's Gambit or Indian setups)
-  - Specific continuations: e4 e5 Nf3 → Nc6 (Italian/Ruy Lopez path)
+- **Solution**: Added rating-adaptive "Opening Guide" to `PedagogicalOpponent`
+
+  **Rating-Adaptive Complexity:**
+  - Beginner (<1200): Only complexity 1-2 openings (Italian, London, Caro-Kann, Philidor)
+  - Intermediate (1200-1600): Complexity 1-3 (+ French, Queen's Gambit, Scandinavian)
+  - Advanced (1600+): All openings including Sicilian and Ruy Lopez
+  
+  **Both Colors Supported:**
+  - Coach as White (user Black): Plays e4 or d4 to lead into appropriate openings
+  - Coach as Black (user White): Responds with moves leading to known openings
+  
+  **Opening Complexity Ratings:**
+  - London System: 1 (simplest)
+  - Italian Game, Caro-Kann, Philidor, Scandinavian: 2
+  - French Defense, Queen's Gambit: 3
+  - Sicilian Defense, Ruy Lopez: 4 (advanced)
+
 - **Files Modified**:
-  - `backend/coach_play/coach_opponent.py` - Added OPENING_GUIDE and OPENING_CONTINUATIONS
-  - `backend/server.py` - Pass move_history to PedagogicalOpponent
-- **Result**: Opening teaching offers now reliably trigger within first 3-4 moves
+  - `backend/coach_play/coach_opponent.py` - Rating-adaptive opening guidance for both colors
+  - `backend/server.py` - Pass user_color to opponent
+- **Result**: Opening teaching offers reliably trigger based on user's skill level
 
 ---
 *Last updated: March 2026*
-*Status: OPENING GUIDANCE SYSTEM COMPLETE - Users will now see opening lessons*
+*Status: RATING-ADAPTIVE OPENING GUIDANCE COMPLETE*
