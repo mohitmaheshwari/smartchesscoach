@@ -8725,18 +8725,55 @@ async def start_play_with_coach(
         # Get memory-aware welcome message from Coach Memory + Human Coach
         welcome_message = message
         coaching_context = {}
+        opening_guidance = None
+        
         try:
             # Get coaching context from memory
             from services.coach_memory import get_coaching_context, get_personalized_greeting
+            from services.opening_mastery import suggest_opening_for_session
+            
             coaching_context = await get_coaching_context(db, user.user_id)
             personalized_greeting = await get_personalized_greeting(db, user.user_id)
             
-            # Start with personalized greeting
-            welcome_message = personalized_greeting
-            
-            # Add focus suggestion if available
-            if coaching_context.get("focus_suggestion"):
-                welcome_message += f" {coaching_context['focus_suggestion']}."
+            # ALWAYS suggest an opening to learn at game start (proactive teaching)
+            if not practice_mode:
+                opening_guidance = await suggest_opening_for_session(
+                    db, user.user_id, user_color, session.user_rating
+                )
+                
+                if opening_guidance:
+                    # Store the opening guidance in the session for teaching
+                    await db.coach_sessions.update_one(
+                        {"session_id": session.session_id},
+                        {"$set": {
+                            "opening_to_teach": opening_guidance["opening_key"],
+                            "opening_teaching_moves": opening_guidance["full_moves"],
+                            "opening_teaching_index": 0,
+                            "opening_teaching_active": True,
+                            "suggested_trap": opening_guidance.get("suggested_trap"),
+                            "available_traps": opening_guidance.get("traps", [])
+                        }}
+                    )
+                    
+                    # Build the welcome message with opening guidance
+                    welcome_message = f"{personalized_greeting}\n\n{opening_guidance['teaching_message']}"
+                    
+                    # Add first move guidance if it's user's turn
+                    if is_player_turn:
+                        first_move = opening_guidance["first_moves"][0] if opening_guidance["first_moves"] else None
+                        if first_move:
+                            welcome_message += f"\n\nYour first move: Play **{first_move}** to start."
+                else:
+                    welcome_message = personalized_greeting
+                    if coaching_context.get("focus_suggestion"):
+                        welcome_message += f" {coaching_context['focus_suggestion']}."
+            else:
+                # Practice mode - use standard personalized greeting
+                welcome_message = personalized_greeting
+                
+                # Add focus suggestion if available
+                if coaching_context.get("focus_suggestion"):
+                    welcome_message += f" {coaching_context['focus_suggestion']}."
             
             # Surface any recurring patterns
             if coaching_context.get("watch_for"):
@@ -9013,6 +9050,43 @@ async def _process_move_and_respond(
                     "evaluations": evaluations
                 }}
             )
+            
+            # === OPENING TEACHING: Advance teaching index if correct move played ===
+            if session_doc.get("opening_teaching_active"):
+                teaching_moves = session_doc.get("opening_teaching_moves", [])
+                teaching_index = session_doc.get("opening_teaching_index", 0)
+                
+                if teaching_index < len(teaching_moves):
+                    expected_move = teaching_moves[teaching_index]
+                    # Check if user played the expected opening move
+                    if user_move.lower().replace("+", "").replace("#", "") == expected_move.lower().replace("+", "").replace("#", ""):
+                        # Correct move! Advance the teaching index by 2 (user move + upcoming coach move)
+                        new_index = teaching_index + 2
+                        
+                        if new_index >= len(teaching_moves):
+                            # Opening teaching complete!
+                            await db.coach_sessions.update_one(
+                                {"session_id": session_id},
+                                {"$set": {
+                                    "opening_teaching_active": False,
+                                    "opening_teaching_complete": True,
+                                    "opening_teaching_index": new_index
+                                }}
+                            )
+                            # Add completion message
+                            await db.coach_messages.insert_one({
+                                "session_id": session_id,
+                                "type": "coach",
+                                "message": f"Excellent! You've completed the opening! Now let's play freely. Remember the key ideas we learned!",
+                                "trigger": "opening_complete",
+                                "created_at": datetime.now(timezone.utc),
+                                "read": False
+                            })
+                        else:
+                            await db.coach_sessions.update_one(
+                                {"session_id": session_id},
+                                {"$set": {"opening_teaching_index": new_index}}
+                            )
         
         # Step 3: Generate and store message if triggered
         if trigger.should_speak:

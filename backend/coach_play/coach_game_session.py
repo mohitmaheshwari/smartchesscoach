@@ -100,6 +100,14 @@ class CoachGameSession:
     # Move evaluations for post-game analysis
     evaluations: List[Dict] = field(default_factory=list)  # [{move_number, move, score, eval_before, eval_after}]
     
+    # Proactive Opening Teaching State
+    opening_to_teach: Optional[str] = None  # Opening key to teach this game
+    opening_teaching_moves: List[str] = field(default_factory=list)  # Moves to guide player through
+    opening_teaching_index: int = 0  # Current teaching move index
+    opening_teaching_active: bool = False  # Whether we're actively teaching
+    suggested_trap: Optional[Dict] = field(default_factory=dict)  # Trap suggestion for this opening
+    available_traps: List[Dict] = field(default_factory=list)  # All traps available in this opening
+    
     def to_dict(self) -> Dict:
         """Convert to dictionary for MongoDB storage"""
         data = asdict(self)
@@ -381,6 +389,28 @@ async def get_session_state(
     opponent = CoachOpponent(user_rating=session.user_rating)
     eval_score, mate_in = await opponent.get_evaluation(session.current_fen)
     
+    # Check for opening teaching guidance
+    opening_guidance = None
+    if session_doc.get("opening_teaching_active"):
+        from services.opening_mastery import get_move_guidance
+        
+        opening_key = session_doc.get("opening_to_teach")
+        teaching_index = session_doc.get("opening_teaching_index", 0)
+        suggested_trap = session_doc.get("suggested_trap")
+        available_traps = session_doc.get("available_traps", [])
+        
+        if opening_key:
+            guidance = get_move_guidance(opening_key, teaching_index, session.user_color)
+            if guidance:
+                opening_guidance = {
+                    "opening_key": opening_key,
+                    "teaching_active": True,
+                    "move_index": teaching_index,
+                    "guidance": guidance,
+                    "suggested_trap": suggested_trap,
+                    "available_traps": available_traps
+                }
+    
     return {
         "session": session.to_dict(),
         "current_fen": session.current_fen,
@@ -391,7 +421,8 @@ async def get_session_state(
         "evaluation": {
             "score": eval_score,  # From white's perspective
             "mate_in": mate_in    # None or number of moves to mate
-        }
+        },
+        "opening_teaching": opening_guidance
     }
 
 

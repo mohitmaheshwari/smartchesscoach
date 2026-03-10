@@ -12,7 +12,7 @@ Tests:
 import pytest
 import uuid
 
-BASE_URL = "https://coach-memory-1.preview.emergentagent.com"
+BASE_URL = "https://personalized-play.preview.emergentagent.com"
 
 
 class TestCoachPlayStart:

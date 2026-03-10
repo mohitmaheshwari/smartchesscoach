@@ -1406,3 +1406,266 @@ def get_opening_details(opening_key: str) -> Optional[Dict]:
         ],
         "introduction": opening.introduction_message
     }
+
+
+
+async def suggest_opening_for_session(db, user_id: str, user_color: str, user_rating: int) -> Dict:
+    """
+    Suggest an opening for this game session and set up teaching.
+    
+    ALWAYS suggests an opening with traps - proactive teaching at every game start.
+    
+    Returns:
+        - opening_key: Key of the suggested opening
+        - opening_name: Display name
+        - why: Why this opening was chosen
+        - first_moves: The moves to guide the player through
+        - teaching_message: What to tell the player
+        - traps: List of available traps in this opening
+        - suggested_trap: The trap we recommend learning (if any)
+    """
+    # Get user's opening progress
+    progress_list = await db.user_opening_progress.find({"user_id": user_id}).to_list(20)
+    progress_by_name = {p["opening_name"]: p for p in progress_list}
+    
+    # Get user's trap progress
+    trap_progress_list = await db.user_trap_stats.find({"user_id": user_id}).to_list(50)
+    learned_traps = {t["trap_name"]: t for t in trap_progress_list if t.get("success_rate", 0) >= 0.5}
+    
+    # Find openings suitable for this color and rating
+    suitable_openings = []
+    for key, opening in OPENING_DATABASE.items():
+        # Determine opening color from first move
+        # White openings start with moves like e4, d4, c4, Nf3
+        # The database typically has openings for White (e4/d4 based)
+        first_move = opening.first_moves[0] if opening.first_moves else ""
+        opening_for_white = first_move in ["e4", "d4", "c4", "Nf3", "g3", "b3"]
+        
+        # Check if opening matches the color the user is playing
+        if (user_color == "white" and not opening_for_white) or (user_color == "black" and opening_for_white):
+            continue
+        
+        # Check rating suitability - parse from suitable_for field
+        # suitable_for is a list like ["beginners", "tactical players"]
+        suitable = opening.suitable_for
+        rating_ok = True
+        if user_rating < 1000 and "advanced" in str(suitable).lower():
+            rating_ok = False
+        if user_rating > 1800 and "beginner" in str(suitable).lower() and "intermediate" not in str(suitable).lower():
+            rating_ok = False
+        
+        if not rating_ok:
+            continue
+        
+        # Get user's mastery level
+        progress = progress_by_name.get(opening.name)
+        mastery = progress.get("mastery_level", "unknown") if progress else "unknown"
+        games_played = progress.get("games_played", 0) if progress else 0
+        
+        # Count unlearned traps
+        all_traps = []
+        for var in opening.variations:
+            all_traps.extend(var.traps)
+        unlearned_traps = [t for t in all_traps if t.name not in learned_traps]
+        
+        suitable_openings.append({
+            "key": key,
+            "opening": opening,
+            "mastery": mastery,
+            "games_played": games_played,
+            "all_traps": all_traps,
+            "unlearned_traps": unlearned_traps
+        })
+    
+    if not suitable_openings:
+        # Fallback to any opening
+        for key, opening in OPENING_DATABASE.items():
+            all_traps = []
+            for var in opening.variations:
+                all_traps.extend(var.traps)
+            suitable_openings.append({
+                "key": key,
+                "opening": opening,
+                "mastery": "unknown",
+                "games_played": 0,
+                "all_traps": all_traps,
+                "unlearned_traps": all_traps
+            })
+            break
+    
+    if not suitable_openings:
+        return None
+    
+    # Priority: unknown > introduced > learning > practiced (review) > mastered (skip)
+    # Also prioritize openings with unlearned traps
+    priority_order = ["unknown", "introduced", "learning", "practiced"]
+    
+    selected = None
+    for priority in priority_order:
+        candidates = [o for o in suitable_openings if o["mastery"] == priority]
+        if candidates:
+            # Prioritize openings with unlearned traps
+            with_traps = [c for c in candidates if len(c["unlearned_traps"]) > 0]
+            if with_traps:
+                selected = min(with_traps, key=lambda x: x["games_played"])
+            else:
+                selected = min(candidates, key=lambda x: x["games_played"])
+            break
+    
+    if not selected:
+        # All mastered, pick one to review (preferably with traps)
+        with_traps = [o for o in suitable_openings if len(o.get("unlearned_traps", [])) > 0]
+        selected = with_traps[0] if with_traps else suitable_openings[0]
+    
+    opening = selected["opening"]
+    mastery = selected["mastery"]
+    all_traps = selected.get("all_traps", [])
+    unlearned_traps = selected.get("unlearned_traps", [])
+    
+    # Select a trap to suggest (prioritize by difficulty)
+    suggested_trap = None
+    if unlearned_traps:
+        # Sort by difficulty: beginner < intermediate < advanced
+        difficulty_order = {"beginner": 0, "intermediate": 1, "advanced": 2}
+        sorted_traps = sorted(unlearned_traps, key=lambda t: difficulty_order.get(t.difficulty, 1))
+        suggested_trap = sorted_traps[0]
+    
+    # Build teaching message based on mastery level
+    if mastery == "unknown":
+        why = "I noticed you haven't tried this opening yet"
+        teaching_message = (
+            f"Today let's learn the {opening.name}! "
+            f"{opening.introduction_message}"
+        )
+    elif mastery == "introduced":
+        why = "We started learning this but need more practice"
+        teaching_message = (
+            f"Let's continue learning the {opening.name}. "
+            f"Follow my guidance for each move."
+        )
+    elif mastery == "learning":
+        why = "You're learning this opening"
+        teaching_message = (
+            f"Good! Let's practice the {opening.name} again. "
+            f"Try to remember the main moves."
+        )
+    elif mastery == "practiced":
+        why = "Time to reinforce what you've learned"
+        teaching_message = (
+            f"Let's review the {opening.name}. "
+            f"Show me what you remember!"
+        )
+    else:
+        why = "Keeping your skills sharp"
+        teaching_message = f"Let's play the {opening.name} - you know this one well!"
+    
+    # Add trap information to the message
+    if suggested_trap:
+        teaching_message += (
+            f"\n\nThere's a famous trap here: the **{suggested_trap.name}**. "
+            f"Want to learn it?"
+        )
+    
+    # Get first moves for this opening
+    first_moves = opening.first_moves
+    
+    # Get the first variation's moves for full teaching
+    if opening.variations:
+        main_variation = opening.variations[0]
+        full_moves = main_variation.moves
+        key_ideas = main_variation.key_ideas[:3] if main_variation.key_ideas else []
+    else:
+        full_moves = first_moves
+        key_ideas = []
+    
+    # Build trap info for response
+    trap_list = []
+    for trap in all_traps:
+        trap_list.append({
+            "name": trap.name,
+            "difficulty": trap.difficulty,
+            "moves": trap.moves,
+            "trap_move": trap.trap_move,
+            "explanation": trap.explanation,
+            "refutation": trap.refutation,
+            "victim_color": trap.victim_color,
+            "learned": trap.name in learned_traps,
+            "fen_before": trap.fen_before_trap,
+            "fen_after": trap.fen_after_trap
+        })
+    
+    return {
+        "opening_key": selected["key"],
+        "opening_name": opening.name,
+        "why": why,
+        "first_moves": first_moves,
+        "full_moves": full_moves,
+        "teaching_message": teaching_message,
+        "key_ideas": key_ideas,
+        "mastery_level": mastery,
+        "traps": trap_list,
+        "suggested_trap": {
+            "name": suggested_trap.name,
+            "difficulty": suggested_trap.difficulty,
+            "moves": suggested_trap.moves,
+            "trap_move": suggested_trap.trap_move,
+            "explanation": suggested_trap.explanation,
+            "refutation": suggested_trap.refutation,
+            "victim_color": suggested_trap.victim_color
+        } if suggested_trap else None
+    }
+
+
+def get_move_guidance(opening_key: str, move_index: int, user_color: str) -> Optional[Dict]:
+    """
+    Get guidance for what move the user should play next in the opening.
+    
+    Returns instruction for the user's next move in the opening sequence.
+    """
+    opening = OPENING_DATABASE.get(opening_key)
+    if not opening or not opening.variations:
+        return None
+    
+    # Get main variation
+    main_var = opening.variations[0]
+    moves = main_var.moves
+    
+    if move_index >= len(moves):
+        return {
+            "complete": True,
+            "message": f"Excellent! You've completed the main line of the {opening.name}. Now let's play!"
+        }
+    
+    move = moves[move_index]
+    is_white_move = (move_index % 2 == 0)
+    
+    # Check if this is the user's move
+    is_user_move = (is_white_move and user_color == "white") or (not is_white_move and user_color == "black")
+    
+    move_number = (move_index // 2) + 1
+    
+    if is_user_move:
+        # User should play this move - give guidance
+        explanation = ""
+        if move_index == 0 and main_var.key_ideas:
+            explanation = main_var.key_ideas[0]
+        elif move_index < len(main_var.key_ideas or []):
+            explanation = main_var.key_ideas[move_index] if main_var.key_ideas else ""
+        
+        return {
+            "complete": False,
+            "your_turn": True,
+            "suggested_move": move,
+            "move_number": move_number,
+            "message": f"Play {move}. {explanation}".strip(),
+            "hint": f"The main line continues with {move}"
+        }
+    else:
+        # This is the coach's move
+        return {
+            "complete": False,
+            "your_turn": False,
+            "coach_move": move,
+            "move_number": move_number,
+            "message": f"I'll play {move}."
+        }
