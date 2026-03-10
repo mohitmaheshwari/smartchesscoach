@@ -1411,42 +1411,90 @@ def get_opening_details(opening_key: str) -> Optional[Dict]:
 
 async def suggest_opening_for_session(db, user_id: str, user_color: str, user_rating: int) -> Dict:
     """
-    Suggest an opening for this game session and set up teaching.
-    
-    ALWAYS suggests an opening with traps - proactive teaching at every game start.
+    INTELLIGENT opening suggestion based on:
+    1. User's chosen color (white/black)
+    2. What was recently taught (avoid repetition)
+    3. Real game performance (from user's actual games)
+    4. Mastery progress from coach lessons
+    5. Prioritize weak areas, not random selection
     
     Returns:
         - opening_key: Key of the suggested opening
         - opening_name: Display name
-        - why: Why this opening was chosen
+        - why: Why this opening was chosen (personalized)
         - first_moves: The moves to guide the player through
         - teaching_message: What to tell the player
         - traps: List of available traps in this opening
         - suggested_trap: The trap we recommend learning (if any)
     """
-    # Get user's opening progress
-    progress_list = await db.user_opening_progress.find({"user_id": user_id}).to_list(20)
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # ============================================
+    # STEP 1: Gather all data sources
+    # ============================================
+    
+    # Get user's lesson progress (what coach has taught)
+    progress_list = await db.user_opening_progress.find({"user_id": user_id}).to_list(50)
     progress_by_name = {p["opening_name"]: p for p in progress_list}
     
     # Get user's trap progress
     trap_progress_list = await db.user_trap_stats.find({"user_id": user_id}).to_list(50)
     learned_traps = {t["trap_name"]: t for t in trap_progress_list if t.get("success_rate", 0) >= 0.5}
     
-    # Find openings suitable for this color and rating
+    # Get recently taught openings (last 5 coach sessions)
+    recent_sessions = await db.coach_sessions.find(
+        {"user_id": user_id, "opening_to_teach": {"$exists": True, "$ne": None}},
+        {"_id": 0, "opening_to_teach": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(5).to_list(5)
+    recently_taught = [s.get("opening_to_teach") for s in recent_sessions if s.get("opening_to_teach")]
+    
+    # Get real game statistics (win/loss by opening from actual games)
+    real_game_stats = {}
+    try:
+        from opening_trainer_service import get_user_opening_stats
+        stats_list = await get_user_opening_stats(db, user_id)
+        for stat in stats_list:
+            # Normalize name for matching
+            name_key = stat.get("name", "").lower().replace(" ", "_").replace("-", "_")
+            real_game_stats[name_key] = {
+                "games": stat.get("games", 0),
+                "wins": stat.get("wins", 0),
+                "losses": stat.get("losses", 0),
+                "win_rate": stat.get("win_rate", 0),
+                "as_white": stat.get("as_white", 0),
+                "as_black": stat.get("as_black", 0),
+                "avg_accuracy": stat.get("avg_accuracy", 0)
+            }
+    except Exception as e:
+        logger.warning(f"Could not get real game stats: {e}")
+    
+    # ============================================
+    # STEP 2: Filter openings by user's color
+    # ============================================
+    
     suitable_openings = []
     for key, opening in OPENING_DATABASE.items():
-        # Determine opening color from first move
-        # White openings start with moves like e4, d4, c4, Nf3
-        # The database typically has openings for White (e4/d4 based)
+        # Determine if this opening is for white or black
         first_move = opening.first_moves[0] if opening.first_moves else ""
-        opening_for_white = first_move in ["e4", "d4", "c4", "Nf3", "g3", "b3"]
         
-        # Check if opening matches the color the user is playing
-        if (user_color == "white" and not opening_for_white) or (user_color == "black" and opening_for_white):
+        # White starts with e4, d4, c4, Nf3, etc.
+        # Black responds to white's moves (e.g., Sicilian starts with e4, c5)
+        is_white_opening = first_move in ["e4", "d4", "c4", "Nf3", "g3", "b3", "f4"]
+        
+        # For black openings, we look at the SECOND move or opening name
+        # Sicilian, French, Caro-Kann are black responses to e4
+        black_openings = ["sicilian", "french", "caro_kann", "scandinavian", "pirc", "alekhine", 
+                         "kings_indian", "queens_gambit_declined", "nimzo_indian", "grunfeld", "dutch"]
+        is_black_opening = any(b in key.lower() for b in black_openings)
+        
+        # Match to user's chosen color
+        if user_color == "white" and is_black_opening:
+            continue
+        if user_color == "black" and is_white_opening and not is_black_opening:
             continue
         
-        # Check rating suitability - parse from suitable_for field
-        # suitable_for is a list like ["beginners", "tactical players"]
+        # Check rating suitability
         suitable = opening.suitable_for
         rating_ok = True
         if user_rating < 1000 and "advanced" in str(suitable).lower():
@@ -1457,10 +1505,24 @@ async def suggest_opening_for_session(db, user_id: str, user_color: str, user_ra
         if not rating_ok:
             continue
         
-        # Get user's mastery level
+        # ============================================
+        # STEP 3: Calculate priority score for each opening
+        # ============================================
+        
+        # Get lesson progress
         progress = progress_by_name.get(opening.name)
         mastery = progress.get("mastery_level", "unknown") if progress else "unknown"
-        games_played = progress.get("games_played", 0) if progress else 0
+        times_practiced = progress.get("times_practiced", 0) if progress else 0
+        times_applied = progress.get("times_applied_in_games", 0) if progress else 0
+        correct_applications = progress.get("correct_applications", 0) if progress else 0
+        _ = progress.get("last_practiced_at") if progress else None  # Reserved for future use
+        
+        # Get real game stats for this opening
+        name_key = opening.name.lower().replace(" ", "_").replace("-", "_").replace("'", "")
+        real_stats = real_game_stats.get(name_key, {})
+        real_games = real_stats.get("games", 0)
+        real_win_rate = real_stats.get("win_rate", 0)
+        real_accuracy = real_stats.get("avg_accuracy", 0)
         
         # Count unlearned traps
         all_traps = []
@@ -1468,61 +1530,116 @@ async def suggest_opening_for_session(db, user_id: str, user_color: str, user_ra
             all_traps.extend(var.traps)
         unlearned_traps = [t for t in all_traps if t.name not in learned_traps]
         
+        # ============================================
+        # STEP 4: Calculate smart priority score
+        # ============================================
+        
+        priority_score = 0
+        suggestion_reason = ""
+        
+        # PENALTY: Recently taught (avoid repetition)
+        if key in recently_taught:
+            # Strong penalty - skip unless it's the only option
+            priority_score -= 100
+            # Even stronger if it was taught in the last session
+            if recently_taught and key == recently_taught[0]:
+                priority_score -= 200
+        
+        # BONUS: Never learned this opening
+        if mastery == "unknown":
+            priority_score += 50
+            suggestion_reason = "Let's learn something new"
+        
+        # BONUS: Introduced but not practiced enough
+        elif mastery == "introduced" and times_practiced < 3:
+            priority_score += 40
+            suggestion_reason = "We started this - let's continue"
+        
+        # BONUS: Learning but struggling in real games
+        elif mastery == "learning":
+            if real_games > 0 and real_win_rate < 40:
+                priority_score += 60  # High priority - needs help!
+                suggestion_reason = f"You're struggling with this in real games ({int(real_win_rate)}% win rate)"
+            elif real_games == 0:
+                priority_score += 30
+                suggestion_reason = "You haven't tried this in real games yet"
+            else:
+                priority_score += 20
+                suggestion_reason = "Keep practicing"
+        
+        # BONUS: Practiced but low win rate in real games
+        elif mastery == "practiced":
+            if real_games >= 3 and real_win_rate < 50:
+                priority_score += 45  # Needs reinforcement
+                suggestion_reason = f"Your win rate is {int(real_win_rate)}% - let's improve this"
+            elif real_accuracy > 0 and real_accuracy < 70:
+                priority_score += 35
+                suggestion_reason = f"Your accuracy is {int(real_accuracy)}% - room for improvement"
+            else:
+                priority_score += 5  # Low priority, doing fine
+                suggestion_reason = "Quick review"
+        
+        # BONUS: Has unlearned traps (always valuable)
+        if len(unlearned_traps) > 0:
+            priority_score += 15
+        
+        # BONUS: User hasn't applied in real games despite lessons
+        if times_practiced >= 2 and times_applied == 0:
+            priority_score += 25
+            suggestion_reason = "You've practiced this but haven't used it in real games"
+        
+        # BONUS: Applied but with poor success rate
+        if times_applied > 0 and correct_applications == 0:
+            priority_score += 35
+            suggestion_reason = "You've tried this but it hasn't worked out - let's fix that"
+        
         suitable_openings.append({
             "key": key,
             "opening": opening,
             "mastery": mastery,
-            "games_played": games_played,
+            "times_practiced": times_practiced,
+            "real_games": real_games,
+            "real_win_rate": real_win_rate,
+            "real_accuracy": real_accuracy,
+            "priority_score": priority_score,
+            "suggestion_reason": suggestion_reason,
             "all_traps": all_traps,
             "unlearned_traps": unlearned_traps
         })
     
-    if not suitable_openings:
-        # Fallback to any opening
-        for key, opening in OPENING_DATABASE.items():
-            all_traps = []
-            for var in opening.variations:
-                all_traps.extend(var.traps)
-            suitable_openings.append({
-                "key": key,
-                "opening": opening,
-                "mastery": "unknown",
-                "games_played": 0,
-                "all_traps": all_traps,
-                "unlearned_traps": all_traps
-            })
-            break
+    # ============================================
+    # STEP 5: Select the best opening
+    # ============================================
     
     if not suitable_openings:
+        logger.warning(f"No suitable openings for {user_color} at rating {user_rating}")
         return None
     
-    # Priority: unknown > introduced > learning > practiced (review) > mastered (skip)
-    # Also prioritize openings with unlearned traps
-    priority_order = ["unknown", "introduced", "learning", "practiced"]
+    # Sort by priority score (highest first)
+    suitable_openings.sort(key=lambda x: x["priority_score"], reverse=True)
     
-    selected = None
-    for priority in priority_order:
-        candidates = [o for o in suitable_openings if o["mastery"] == priority]
-        if candidates:
-            # Prioritize openings with unlearned traps
-            with_traps = [c for c in candidates if len(c["unlearned_traps"]) > 0]
-            if with_traps:
-                selected = min(with_traps, key=lambda x: x["games_played"])
-            else:
-                selected = min(candidates, key=lambda x: x["games_played"])
-            break
+    # Select the top priority opening
+    selected = suitable_openings[0]
     
-    if not selected:
-        # All mastered, pick one to review (preferably with traps)
-        with_traps = [o for o in suitable_openings if len(o.get("unlearned_traps", [])) > 0]
-        selected = with_traps[0] if with_traps else suitable_openings[0]
+    # If top choice was recently taught and there are alternatives, pick the next best
+    if selected["priority_score"] < 0 and len(suitable_openings) > 1:
+        for candidate in suitable_openings[1:]:
+            if candidate["priority_score"] >= 0:
+                selected = candidate
+                break
     
     opening = selected["opening"]
     mastery = selected["mastery"]
     all_traps = selected.get("all_traps", [])
     unlearned_traps = selected.get("unlearned_traps", [])
+    suggestion_reason = selected.get("suggestion_reason", "")
+    real_win_rate = selected.get("real_win_rate", 0)
+    real_games = selected.get("real_games", 0)
     
-    # Select a trap to suggest (prioritize by difficulty)
+    # ============================================
+    # STEP 6: Select trap to suggest
+    # ============================================
+    
     suggested_trap = None
     if unlearned_traps:
         # Sort by difficulty: beginner < intermediate < advanced
@@ -1530,46 +1647,59 @@ async def suggest_opening_for_session(db, user_id: str, user_color: str, user_ra
         sorted_traps = sorted(unlearned_traps, key=lambda t: difficulty_order.get(t.difficulty, 1))
         suggested_trap = sorted_traps[0]
     
-    # Build teaching message based on mastery level
+    # ============================================
+    # STEP 7: Build personalized teaching message
+    # ============================================
+    
     if mastery == "unknown":
-        why = "I noticed you haven't tried this opening yet"
+        why = suggestion_reason or "I noticed you haven't tried this opening yet"
         teaching_message = (
             f"Today let's learn the {opening.name}! "
             f"{opening.introduction_message}"
         )
     elif mastery == "introduced":
-        why = "We started learning this but need more practice"
+        why = suggestion_reason or "We started learning this but need more practice"
         teaching_message = (
             f"Let's continue learning the {opening.name}. "
             f"Follow my guidance for each move."
         )
     elif mastery == "learning":
-        why = "You're learning this opening"
-        teaching_message = (
-            f"Good! Let's practice the {opening.name} again. "
-            f"Try to remember the main moves."
-        )
+        why = suggestion_reason or "You're learning this opening"
+        if real_games > 0 and real_win_rate < 40:
+            teaching_message = (
+                f"I see you've been struggling with the {opening.name} in your real games "
+                f"({int(real_win_rate)}% win rate). Let's work on that together!"
+            )
+        else:
+            teaching_message = (
+                f"Good! Let's practice the {opening.name} again. "
+                f"Try to remember the main moves."
+            )
     elif mastery == "practiced":
-        why = "Time to reinforce what you've learned"
-        teaching_message = (
-            f"Let's review the {opening.name}. "
-            f"Show me what you remember!"
-        )
+        why = suggestion_reason or "Time to reinforce what you've learned"
+        if real_games > 0 and real_win_rate < 50:
+            teaching_message = (
+                f"Your {opening.name} could use some work - you're at {int(real_win_rate)}% win rate. "
+                f"Let's sharpen it up!"
+            )
+        else:
+            teaching_message = (
+                f"Let's review the {opening.name}. "
+                f"Show me what you remember!"
+            )
     else:
-        why = "Keeping your skills sharp"
+        why = suggestion_reason or "Keeping your skills sharp"
         teaching_message = f"Let's play the {opening.name} - you know this one well!"
     
-    # Add trap information to the message
+    # Add trap mention if available
     if suggested_trap:
         teaching_message += (
             f"\n\nThere's a famous trap here: the **{suggested_trap.name}**. "
             f"Want to learn it?"
         )
     
-    # Get first moves for this opening
+    # Get moves for teaching
     first_moves = opening.first_moves
-    
-    # Get the first variation's moves for full teaching
     if opening.variations:
         main_variation = opening.variations[0]
         full_moves = main_variation.moves
@@ -1594,6 +1724,8 @@ async def suggest_opening_for_session(db, user_id: str, user_color: str, user_ra
             "fen_after": trap.fen_after_trap
         })
     
+    logger.info(f"Selected opening '{opening.name}' for {user_color} (priority: {selected['priority_score']}, reason: {why})")
+    
     return {
         "opening_key": selected["key"],
         "opening_name": opening.name,
@@ -1612,7 +1744,12 @@ async def suggest_opening_for_session(db, user_id: str, user_color: str, user_ra
             "explanation": suggested_trap.explanation,
             "refutation": suggested_trap.refutation,
             "victim_color": suggested_trap.victim_color
-        } if suggested_trap else None
+        } if suggested_trap else None,
+        # Additional context for UI
+        "real_game_stats": {
+            "games_played": real_games,
+            "win_rate": real_win_rate
+        } if real_games > 0 else None
     }
 
 
