@@ -8,10 +8,10 @@
  * - Tracks progress over time
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
 import {
   ArrowLeft,
@@ -91,6 +91,7 @@ export default function PrescribedTraining() {
   // Board state
   const [game, setGame] = useState(new Chess());
   const [boardOrientation, setBoardOrientation] = useState("white");
+  const boardRef = useRef(null);
   
   // Fetch prescribed training
   useEffect(() => {
@@ -152,11 +153,13 @@ export default function PrescribedTraining() {
       // Check if correct
       const solution = currentPuzzle.solution || [];
       const correctMove = solution[0];
+      const userMoveUci = `${sourceSquare}${targetSquare}`;
       
-      // Compare moves (handle different notation)
+      // Compare moves (handle SAN or UCI notation)
       const isCorrect = move.san === correctMove || 
-                       move.lan === correctMove ||
-                       `${sourceSquare}${targetSquare}` === correctMove;
+                       move.san === currentPuzzle.solution_san ||
+                       userMoveUci === correctMove ||
+                       move.lan?.toLowerCase() === correctMove?.toLowerCase();
       
       if (isCorrect) {
         setPuzzleState("correct");
@@ -307,14 +310,36 @@ export default function PrescribedTraining() {
           <div>
             {currentPuzzle?.fen ? (
               <div className="rounded-lg overflow-hidden border border-border">
-                <Chessboard
-                  position={game.fen()}
-                  onPieceDrop={onDrop}
-                  boardOrientation={boardOrientation}
-                  arePiecesDraggable={puzzleState === "thinking"}
-                  customBoardStyle={{
-                    borderRadius: "0"
+                <LichessBoard
+                  ref={boardRef}
+                  fen={game.fen()}
+                  orientation={boardOrientation}
+                  onMove={(moveData) => {
+                    if (puzzleState === "thinking" && moveData) {
+                      onDrop(moveData.from, moveData.to);
+                    }
                   }}
+                  interactive={puzzleState === "thinking"}
+                  viewOnly={puzzleState !== "thinking"}
+                  arrows={
+                    // Show arrow for best move when solution is revealed or incorrect
+                    (showSolution || puzzleState === "incorrect") && currentPuzzle.solution?.[0]
+                      ? [[
+                          currentPuzzle.solution[0].slice(0, 2),
+                          currentPuzzle.solution[0].slice(2, 4),
+                          "green"
+                        ]]
+                      : []
+                  }
+                  highlights={
+                    // Highlight the move that was played (mistake) when from own game
+                    currentPuzzle.your_move_uci && (showSolution || puzzleState === "incorrect")
+                      ? [
+                          currentPuzzle.your_move_uci.slice(0, 2),
+                          currentPuzzle.your_move_uci.slice(2, 4)
+                        ]
+                      : []
+                  }
                 />
               </div>
             ) : currentPuzzle?.game_url ? (
@@ -371,7 +396,24 @@ export default function PrescribedTraining() {
                 {encouragement && (
                   <p className="text-sm text-red-400/80 ml-7">{encouragement}</p>
                 )}
+                {/* Show the correct answer */}
+                <p className="text-sm text-muted-foreground mt-2 ml-7">
+                  The best move was <span className="text-green-400 font-medium">{currentPuzzle.solution_san || currentPuzzle.solution?.[0]}</span>
+                  {currentPuzzle.your_move && (
+                    <> — in your game you played <span className="text-red-400">{currentPuzzle.your_move}</span></>
+                  )}
+                </p>
               </motion.div>
+            )}
+            
+            {/* Show move comparison for own games */}
+            {currentPuzzle?.source === "your_game" && puzzleState === "thinking" && (
+              <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <p className="text-sm text-amber-400">
+                  <span className="font-medium">From your game:</span> You played <span className="text-red-400">{currentPuzzle.your_move}</span>. 
+                  Can you find the better move?
+                </p>
+              </div>
             )}
             
             {/* Controls */}

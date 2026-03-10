@@ -206,19 +206,36 @@ class CoachingPuzzleService:
                 
                 # Check if this move matches the weakness pattern
                 if cp_loss >= 100 and self._move_matches_weakness(move, weakness_pattern):
+                    # Get UCI moves for arrows
+                    your_move_uci = move.get("move_uci", "")
+                    best_move_san = move.get("best_move", "")
+                    best_move_uci = ""
+                    
+                    # Try to convert best move SAN to UCI
+                    try:
+                        import chess
+                        fen = move.get("fen_before")
+                        if fen and best_move_san:
+                            board = chess.Board(fen)
+                            chess_move = board.parse_san(best_move_san)
+                            best_move_uci = chess_move.uci()
+                    except Exception as e:
+                        logger.warning(f"Could not convert {best_move_san} to UCI: {e}")
+                    
                     puzzle = {
                         "source": "your_game",
                         "game_id": game.get("game_id"),
                         "fen": move.get("fen_before"),
-                        "solution": [move.get("best_move")],
-                        "solution_san": move.get("best_move"),
+                        "solution": [best_move_uci] if best_move_uci else [best_move_san],
+                        "solution_san": best_move_san,
                         "your_move": move.get("move"),
+                        "your_move_uci": your_move_uci,
                         "threat": threat,
                         "cp_loss": cp_loss,
                         "move_number": move.get("move_number"),
                         "rating": None,  # From your game, not rated
                         "themes": [weakness_pattern],
-                        "context": f"From your game - you played {move.get('move')} but {move.get('best_move')} was better"
+                        "context": f"From your game - you played {move.get('move')} but {best_move_san} was better"
                     }
                     puzzles.append(puzzle)
                     
