@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -212,16 +212,12 @@ const DrillMode = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Board - Static view */}
         <div className="flex flex-col items-center">
-          <div className="w-full max-w-[320px]">
-            <Chessboard
-              position={currentPosition?.fen_before || "start"}
-              boardWidth={320}
-              arePiecesDraggable={false}
-              boardOrientation={currentPosition?.user_color || "white"}
-              customBoardStyle={{
-                borderRadius: '8px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
-              }}
+          <div className="w-full max-w-[320px] aspect-square">
+            <LichessBoard
+              fen={currentPosition?.fen_before || "start"}
+              orientation={currentPosition?.user_color || "white"}
+              viewOnly={true}
+              interactive={false}
             />
           </div>
           

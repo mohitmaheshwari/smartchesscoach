@@ -20,7 +20,7 @@ import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import {
   X,
   ChevronRight,
@@ -367,11 +367,11 @@ const TeachingStep = ({ content }) => {
           <p className="text-xs text-muted-foreground mb-2">
             {content.position.label || "Critical moment"}
           </p>
-          <div className="w-48 mx-auto">
-            <Chessboard 
-              position={content.position.fen}
-              boardWidth={192}
-              arePiecesDraggable={false}
+          <div className="w-48 h-48 mx-auto">
+            <LichessBoard 
+              fen={content.position.fen}
+              viewOnly={true}
+              interactive={false}
             />
           </div>
         </div>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
 import { 
   Target,
@@ -459,11 +459,11 @@ const MistakeMastery = ({ token, onComplete }) => {
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 max-w-md mx-auto lg:mx-0">
             <div className="aspect-square">
-              <Chessboard 
-                position={boardPosition || currentCard.fen}
-                boardOrientation={getBoardOrientation()}
-                arePiecesDraggable={false}
-                customBoardStyle={{ borderRadius: "8px", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}
+              <LichessBoard 
+                fen={boardPosition || currentCard.fen}
+                orientation={getBoardOrientation()}
+                viewOnly={true}
+                interactive={false}
               />
             </div>
             <div className="mt-3 space-y-2">

@@ -10,7 +10,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, GitBranch, Play, ArrowRight, Swords } from 'lucide-react';
 import { Chess } from 'chess.js';
-import { Chessboard } from 'react-chessboard';
+import LichessBoard from '@/components/LichessBoard';
 
 const AlternateTimeline = ({ 
   fen,              // Position before the mistake
@@ -124,15 +124,11 @@ const AlternateTimeline = ({
           {/* Mini board preview */}
           <div className="flex gap-3">
             <div className="w-[140px] h-[140px] rounded overflow-hidden border border-emerald-500/20">
-              <Chessboard
-                position={previewFen}
-                boardOrientation={userColor}
-                arePiecesDraggable={false}
-                customBoardStyle={{
-                  borderRadius: '0',
-                }}
-                customDarkSquareStyle={{ backgroundColor: '#1a4d3e' }}
-                customLightSquareStyle={{ backgroundColor: '#2d7d64' }}
+              <LichessBoard
+                fen={previewFen}
+                orientation={userColor}
+                viewOnly={true}
+                interactive={false}
               />
             </div>
             

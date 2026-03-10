@@ -11,7 +11,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1383,18 +1383,14 @@ const Lab = ({ user }) => {
           <div className={`flex-1 p-4 overflow-auto ${rightPanelCollapsed ? 'max-w-3xl mx-auto' : ''}`}>
             <div className="flex flex-col items-center gap-4">
               {/* Board */}
-              <div className="relative w-full max-w-[500px]">
-                <Chessboard
-                  position={positionObject}
-                  boardOrientation={boardOrientation}
-                  customSquareStyles={lastMoveSquares}
-                  customArrows={customArrows}
-                  arePiecesDraggable={false}
-                  animationDuration={0}
-                  customBoardStyle={{
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-                  }}
+              <div className="relative w-full max-w-[500px] aspect-square">
+                <LichessBoard
+                  fen={typeof positionObject === 'string' ? positionObject : game.fen()}
+                  orientation={boardOrientation}
+                  lastMove={lastMove ? [lastMove.slice(0, 2), lastMove.slice(2, 4)] : null}
+                  arrows={customArrows?.map(arr => [arr[0], arr[1], arr[2]?.replace?.('#', '') || 'green']) || []}
+                  viewOnly={true}
+                  interactive={false}
                 />
               </div>
               
@@ -3240,15 +3236,12 @@ const PracticeModeOverlay = ({ positions, currentIndex, onNext, onClose, userCol
         
         <div className="flex gap-6">
           {/* Board */}
-          <div className="w-[400px] shrink-0">
-            <Chessboard
-              position={pos?.fen || "start"}
-              boardOrientation={userColor}
-              arePiecesDraggable={false}
-              customBoardStyle={{
-                borderRadius: '8px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
-              }}
+          <div className="w-[400px] h-[400px] shrink-0">
+            <LichessBoard
+              fen={pos?.fen || "start"}
+              orientation={userColor}
+              viewOnly={true}
+              interactive={false}
             />
             
             {/* Context info below board */}

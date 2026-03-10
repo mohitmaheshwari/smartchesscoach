@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -160,15 +160,11 @@ const EvidenceModal = ({
             {evidence[previewIndex] ? (
               <>
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="w-full max-w-[280px]">
-                    <Chessboard
-                      position={evidence[previewIndex].fen_before || "start"}
-                      boardWidth={280}
-                      arePiecesDraggable={false}
-                      customBoardStyle={{
-                        borderRadius: '4px',
-                        boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
-                      }}
+                  <div className="w-full max-w-[280px] aspect-square">
+                    <LichessBoard
+                      fen={evidence[previewIndex].fen_before || "start"}
+                      viewOnly={true}
+                      interactive={false}
                     />
                   </div>
                 </div>

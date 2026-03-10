@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle, useRef } from "react";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { 
@@ -295,16 +295,27 @@ const ChessBoardViewer = forwardRef(({
     return JSON.stringify(positionObject);
   }, [positionObject]);
 
+  // Get current FEN from position object
+  const currentFen = useMemo(() => {
+    if (currentMoveIndex < 0) return initialFen;
+    return allFens[currentMoveIndex + 1] || initialFen;
+  }, [currentMoveIndex, allFens, initialFen]);
+  
+  // Get last move as array for LichessBoard
+  const lastMoveArray = useMemo(() => {
+    if (!lastMove) return null;
+    return [lastMove.slice(0, 2), lastMove.slice(2, 4)];
+  }, [lastMove]);
+
   return (
     <div className="space-y-4">
       <div className="relative aspect-square w-full max-w-[500px] mx-auto">
-        <Chessboard
-          key={boardKey}
-          position={positionObject}
-          boardOrientation={boardOrientation}
-          customSquareStyles={lastMoveSquares}
-          arePiecesDraggable={false}
-          animationDuration={0}
+        <LichessBoard
+          fen={currentFen}
+          orientation={boardOrientation}
+          lastMove={lastMoveArray}
+          viewOnly={true}
+          interactive={false}
         />
       </div>
 

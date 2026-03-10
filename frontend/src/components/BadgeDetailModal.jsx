@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
 import { API } from "@/App";
 import { Button } from "@/components/ui/button";
@@ -352,15 +352,12 @@ const InteractiveBoard = ({
       
       {/* Chess Board */}
       <div className="w-full max-w-[320px] aspect-square rounded-lg overflow-hidden border-2 border-border shadow-lg">
-        <Chessboard 
-          position={currentFen}
-          boardWidth={320}
-          arePiecesDraggable={false}
-          boardOrientation={userColor === "black" ? "black" : "white"}
-          customSquareStyles={highlightSquares}
-          customBoardStyle={{
-            borderRadius: "4px"
-          }}
+        <LichessBoard 
+          fen={currentFen}
+          orientation={userColor === "black" ? "black" : "white"}
+          viewOnly={true}
+          interactive={false}
+          highlights={Object.keys(highlightSquares || {})}
         />
       </div>
       
