@@ -50,6 +50,7 @@ import CriticalMoments from "@/components/lab/CriticalMoments";
 import StrategicThemes from "@/components/lab/StrategicThemes";
 import MissedTactics from "@/components/lab/MissedTactics";
 import HabitsToImprove from "@/components/lab/HabitsToImprove";
+import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 
 // Feedback modal (reused from Lab.jsx)
 import FeedbackModal from "@/components/FeedbackModal";
@@ -415,6 +416,10 @@ const LabV2 = ({ user }) => {
                   <Zap className="w-3.5 h-3.5" />
                   Habits
                 </TabsTrigger>
+                <TabsTrigger value="memory" className="gap-1.5 text-xs">
+                  <Brain className="w-3.5 h-3.5" />
+                  Memory
+                </TabsTrigger>
               </TabsList>
               
               {/* Tab content - scrollable */}
@@ -487,6 +492,16 @@ const LabV2 = ({ user }) => {
                     deepStrategy={deepStrategy}
                     onStartTraining={() => navigate("/training/prescribed")}
                   />
+                </TabsContent>
+                
+                {/* Memory Tab - Deep Coach Memory Profile */}
+                <TabsContent value="memory" className="p-4 m-0">
+                  <div className="space-y-4">
+                    <div className="text-sm text-muted-foreground mb-4">
+                      Your coach's memory of your playing patterns, style, and areas for improvement.
+                    </div>
+                    <DeepMemoryPanel compact={false} />
+                  </div>
                 </TabsContent>
               </div>
             </Tabs>

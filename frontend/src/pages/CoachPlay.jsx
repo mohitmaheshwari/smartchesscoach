@@ -51,6 +51,7 @@ import {
   BookOpen
 } from "lucide-react";
 import CoachMemoryPanel from "@/components/CoachMemoryPanel";
+import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 import PostGameLesson from "@/components/PostGameLesson";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 import { 
@@ -1598,10 +1599,10 @@ const CoachPlay = ({ user }) => {
             </div>
           )}
           
-          {/* Coach Memory Panel - Shows what the coach KNOWS about you */}
+          {/* Coach Memory Panel - Shows what the coach KNOWS about you (Deep Memory System) */}
           {session && !gameOver && (
             <div className="p-4 border-b border-border">
-              <CoachMemoryPanel sessionId={session.session_id} />
+              <DeepMemoryPanel compact={true} />
             </div>
           )}
           

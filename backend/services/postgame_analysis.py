@@ -889,6 +889,7 @@ async def _update_coach_memory_after_game(
     Update coach memory after game analysis.
     
     This is CRITICAL for making the coach remember patterns across games.
+    Now also updates the NEW PlayerIdentity system for deep memory.
     """
     # Extract habit IDs that were violated
     habits_violated = [v.habit_type.value for v in habit_violations]
@@ -907,7 +908,7 @@ async def _update_coach_memory_after_game(
     # Check if endgame was reached (roughly, if game went >40 moves and few pieces left)
     endgame_reached = len(move_history) > 80  # 40 moves each side
     
-    # Call the coach memory update function
+    # Call the LEGACY coach memory update function
     await update_memory_after_game(
         db=db,
         user_id=user_id,
@@ -921,5 +922,58 @@ async def _update_coach_memory_after_game(
         endgame_reached=endgame_reached,
         performance_rating=performance_rating
     )
+    
+    # === NEW: Update PlayerIdentity system for deep memory ===
+    try:
+        from services.player_identity import record_game_to_memory
+        
+        # Build moves analysis for the new system
+        moves_analysis = []
+        for i, m in enumerate(move_history):
+            if m.get("by") == "player":  # Only user moves
+                moves_analysis.append({
+                    "move_number": m.get("move_number", i // 2 + 1),
+                    "move": m.get("move", ""),
+                    "fen_before": m.get("fen_before", ""),
+                    "best_move": m.get("best_move", ""),
+                    "cp_loss": m.get("cp_loss", 0),
+                    "eval_before": m.get("eval_before", 0),
+                    "time_spent": m.get("time_spent", 10),
+                    "time_remaining": m.get("time_remaining", 300)
+                })
+        
+        # Determine user color
+        user_color = "white"  # Default
+        if move_history and len(move_history) > 0:
+            first_player_move = next((m for m in move_history if m.get("by") == "player"), None)
+            if first_player_move:
+                move_num = first_player_move.get("move_number", 1)
+                # If first player move has even index in history, they're black
+                idx = move_history.index(first_player_move)
+                user_color = "white" if idx % 2 == 0 else "black"
+        
+        # Game phases estimation
+        total_moves = len(move_history)
+        game_phases = {
+            "opening": min(20, total_moves // 4),
+            "middlegame": min(50, total_moves // 2),
+            "endgame": max(0, total_moves - 70)
+        }
+        
+        await record_game_to_memory(
+            db=db,
+            user_id=user_id,
+            game_id=f"game_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+            game_result=game_result,
+            user_color=user_color,
+            opponent="Coach",
+            moves_analysis=moves_analysis,
+            opening_played=opening_played,
+            game_phases=game_phases,
+            rating_after=performance_rating
+        )
+        logger.info(f"PlayerIdentity updated for user {user_id}")
+    except Exception as e:
+        logger.warning(f"Failed to update PlayerIdentity: {e}")
     
     logger.info(f"Coach memory updated for user {user_id}: result={game_result}, blunders={blunders}, habits_violated={habits_violated}")

@@ -10792,6 +10792,229 @@ async def update_coach_memory(
 
 
 
+# ========================================
+# PLAYER IDENTITY (DEEP MEMORY) ENDPOINTS
+# ========================================
+
+@api_router.get("/coach/deep-memory")
+async def get_deep_memory(user: User = Depends(get_current_user)):
+    """
+    Get the deep memory profile for the user.
+    
+    This is the NEW 9/10 memory system that tracks:
+    - Granular blunder taxonomy (WHY mistakes happen)
+    - Playing style profile
+    - Behavioral patterns (tilt, time management)
+    - Opening repertoire
+    - Learning velocity
+    - Pattern history for "remember when..." coaching
+    
+    Returns the complete PlayerIdentity document.
+    """
+    from services.player_identity import PlayerIdentityService
+    
+    service = PlayerIdentityService(db)
+    identity = await service.get_or_create(user.user_id)
+    
+    return {
+        "has_data": identity.games_analyzed > 0,
+        "games_analyzed": identity.games_analyzed,
+        "identity": identity.to_dict(),
+        "summary": {
+            "primary_style": identity.style_profile.primary_style.value,
+            "most_common_blunder": identity.blunder_taxonomy.most_common_type.value if identity.blunder_taxonomy.most_common_type else None,
+            "blunder_trend": identity.blunder_taxonomy.trend,
+            "worst_phase": identity.blunder_taxonomy.worst_phase.value if identity.blunder_taxonomy.worst_phase else None,
+            "is_tilted": identity.consecutive_losses >= 2,
+            "priority_focus": identity.priority_focus,
+            "coach_notes": identity.coach_notes
+        }
+    }
+
+
+@api_router.get("/coach/deep-memory/blunder-profile")
+async def get_blunder_profile(user: User = Depends(get_current_user)):
+    """
+    Get detailed blunder analysis for the user.
+    
+    Returns:
+    - Blunder taxonomy breakdown
+    - Most common mistakes by type, phase, piece
+    - Time-related patterns
+    - Trend analysis
+    """
+    from services.player_identity import PlayerIdentityService
+    
+    service = PlayerIdentityService(db)
+    identity = await service.get_or_create(user.user_id)
+    
+    tax = identity.blunder_taxonomy
+    
+    return {
+        "total_blunders": tax.total_blunders,
+        "by_type": tax.by_type,
+        "by_phase": tax.by_phase,
+        "by_piece": tax.by_piece,
+        "context_breakdown": {
+            "when_winning": tax.when_winning,
+            "when_equal": tax.when_equal,
+            "when_losing": tax.when_losing
+        },
+        "time_patterns": {
+            "under_time_pressure": tax.under_time_pressure,
+            "impulse_moves": tax.impulse_moves
+        },
+        "trend": {
+            "recent_rate": tax.recent_rate,
+            "historical_rate": tax.historical_rate,
+            "direction": tax.trend
+        },
+        "primary_weakness": tax.most_common_type.value if tax.most_common_type else None,
+        "vulnerable_piece": tax.most_vulnerable_piece,
+        "worst_phase": tax.worst_phase.value if tax.worst_phase else None
+    }
+
+
+@api_router.get("/coach/deep-memory/style")
+async def get_style_profile(user: User = Depends(get_current_user)):
+    """
+    Get user's playing style analysis.
+    """
+    from services.player_identity import PlayerIdentityService
+    
+    service = PlayerIdentityService(db)
+    identity = await service.get_or_create(user.user_id)
+    
+    style = identity.style_profile
+    
+    return {
+        "primary_style": style.primary_style.value,
+        "confidence": style.confidence,
+        "metrics": {
+            "aggression": style.aggression_score,
+            "positional": style.positional_score,
+            "tactical": style.tactical_score,
+            "defensive": style.defensive_score
+        },
+        "opening_preferences": {
+            "as_white": style.opening_as_white,
+            "vs_e4": style.opening_as_black_vs_e4,
+            "vs_d4": style.opening_as_black_vs_d4,
+            "prefers_open_games": style.prefers_open_games
+        },
+        "piece_handling": {
+            "preference": style.piece_preference.value,
+            "trades_early": style.trades_pieces_early,
+            "keeps_queens": style.keeps_queens
+        },
+        "endgame": {
+            "comfort": style.endgame_comfort,
+            "rook_skill": style.rook_endgame_skill,
+            "pawn_skill": style.pawn_endgame_skill
+        }
+    }
+
+
+@api_router.get("/coach/deep-memory/behavioral")
+async def get_behavioral_profile(user: User = Depends(get_current_user)):
+    """
+    Get user's behavioral patterns.
+    
+    Includes tilt triggers, time management, post-blunder behavior.
+    """
+    from services.player_identity import PlayerIdentityService
+    
+    service = PlayerIdentityService(db)
+    identity = await service.get_or_create(user.user_id)
+    
+    beh = identity.behavioral_profile
+    
+    return {
+        "tilt": {
+            "trigger": beh.tilt_trigger.value,
+            "recovery_games": beh.tilt_recovery_games,
+            "times_detected": beh.tilt_detected_count,
+            "currently_tilted": identity.consecutive_losses >= 2,
+            "losing_streak": identity.consecutive_losses
+        },
+        "time_management": {
+            "avg_opening": beh.avg_move_time_opening,
+            "avg_middlegame": beh.avg_move_time_middlegame,
+            "avg_endgame": beh.avg_move_time_endgame,
+            "time_trouble_frequency": beh.time_trouble_frequency,
+            "rushes_when_winning": beh.rushes_in_winning_positions
+        },
+        "post_blunder": {
+            "accuracy_after": beh.post_blunder_accuracy,
+            "spiral_rate": beh.blunder_spiral_rate,
+            "recovery": beh.recovery_capability
+        },
+        "emotional": {
+            "worse_after_loss": beh.plays_worse_after_loss,
+            "better_after_win": beh.plays_better_after_win,
+            "consistency": beh.consistency_score
+        },
+        "session": {
+            "first_game_accuracy": beh.first_game_accuracy,
+            "fatigue_threshold": beh.fatigue_game_threshold,
+            "best_time": beh.best_time_of_day
+        }
+    }
+
+
+@api_router.get("/coach/deep-memory/pattern-history")
+async def get_pattern_history(
+    user: User = Depends(get_current_user),
+    limit: int = 20
+):
+    """
+    Get recent pattern history for "remember when..." coaching.
+    
+    Returns specific game references where patterns occurred.
+    """
+    from services.player_identity import PlayerIdentityService
+    
+    service = PlayerIdentityService(db)
+    identity = await service.get_or_create(user.user_id)
+    
+    # Get most recent patterns
+    recent = identity.pattern_history[-limit:] if identity.pattern_history else []
+    
+    # Group by type
+    by_type = {}
+    for p in recent:
+        t = p.pattern_type
+        if t not in by_type:
+            by_type[t] = []
+        by_type[t].append(p.to_dict())
+    
+    return {
+        "total_patterns": len(identity.pattern_history),
+        "recent_patterns": [p.to_dict() for p in reversed(recent)],
+        "grouped_by_type": by_type,
+        "most_recent_types": list(dict.fromkeys([p.pattern_type for p in reversed(recent)]))[:5]
+    }
+
+
+@api_router.post("/coach/deep-memory/reset")
+async def reset_deep_memory(user: User = Depends(get_current_user)):
+    """
+    Reset the deep memory system for the user.
+    
+    USE WITH CAUTION - this erases all learning history.
+    """
+    # Delete the player identity document
+    result = await db.player_identities.delete_one({"user_id": user.user_id})
+    
+    return {
+        "success": True,
+        "deleted": result.deleted_count > 0,
+        "message": "Deep memory has been reset. The coach will start fresh with you."
+    }
+
+
+
+
 
 
 @api_router.get("/coach/play/opening-plan")

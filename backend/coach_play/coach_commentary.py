@@ -906,7 +906,9 @@ async def generate_response_to_user(
     user_color: str,
     user_rating: int,
     personal_context: Dict = None,
-    position_plan: Dict = None
+    position_plan: Dict = None,
+    db = None,  # NEW: Database connection for memory
+    user_id: str = None  # NEW: User ID for memory lookup
 ) -> Dict[str, Any]:
     """
     Generate PERSONALIZED coach response to user's message.
@@ -915,6 +917,7 @@ async def generate_response_to_user(
     - References the user's past games and mistakes
     - Gives plan-based advice, not just engine evaluations
     - Speaks like a coach who KNOWS you
+    - NOW WITH DEEP MEMORY via PlayerIdentityService
     
     Returns dict with:
     - response: The personalized text response
@@ -924,6 +927,20 @@ async def generate_response_to_user(
     import sys
     sys.path.insert(0, '/app/backend')
     from llm_service import call_llm
+    
+    # === NEW: INJECT MEMORY CONTEXT ===
+    memory_context = None
+    if db and user_id:
+        try:
+            from services.memory_injection import inject_memory_context, CoachingContext
+            memory_context = await inject_memory_context(
+                db=db,
+                user_id=user_id,
+                context_type=CoachingContext.GENERAL_CHAT
+            )
+            logger.info(f"Memory injected for {user_id}: knows_user={memory_context.get('knows_user')}")
+        except Exception as e:
+            logger.warning(f"Memory injection failed: {e}")
     
     coach = CoachCommentary()
     msg_lower = user_message.lower()
@@ -1012,7 +1029,18 @@ async def generate_response_to_user(
     
     # Build personal context section for prompt
     personal_section = ""
-    if personal_context:
+    
+    # === NEW: Use deep memory injection if available ===
+    if memory_context and memory_context.get("injection_text"):
+        personal_section = memory_context["injection_text"]
+        
+        # Add behavioral alert if present
+        if memory_context.get("behavioral_alert"):
+            alert = memory_context["behavioral_alert"]
+            personal_section += f"\n>>> BEHAVIORAL NOTE: {alert.get('message', '')}\n"
+    
+    # Fallback to legacy personal_context if no memory injection
+    elif personal_context:
         if personal_context.get("similar_mistake"):
             sm = personal_context["similar_mistake"]
             personal_section += f"""
