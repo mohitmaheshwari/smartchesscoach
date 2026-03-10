@@ -303,6 +303,12 @@ const LichessBoard = forwardRef(({
         newFen: fen?.substring(0, 30)
       });
       
+      // If nothing changed, don't update the board (this preserves selection state)
+      if (!fenChanged && !interactivityChanged && !lastMove) {
+        return;  // Early return WITHOUT updating refs
+      }
+      
+      // NOW update refs AFTER we know we're proceeding with the update
       prevFenRef.current = fen;
       prevInteractiveRef.current = interactive;
       prevViewOnlyRef.current = viewOnly;
@@ -333,8 +339,8 @@ const LichessBoard = forwardRef(({
       // Build config - only include properties that need updating
       const config = {};
       
-      // Only set fen if it actually changed from props
-      if (fenChanged) {
+      // Set fen if it changed OR if interactivity changed (board may need FEN re-applied)
+      if (fenChanged || interactivityChanged) {
         config.fen = fen;
         config.turnColor = getTurnColor(chessRef.current.fen());
       }
