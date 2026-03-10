@@ -819,3 +819,67 @@ Plain, simple, direct Indian-English
 ---
 *Last updated: March 2026*
 *Status: ALL DATA IS REAL AND ACCURATE*
+
+### 32. Proactive Opening Guidance with Trap Teaching (March 2026) ✅
+**Coach now PROACTIVELY suggests openings and traps at game start**
+
+- **Problem**: When user started a new game, coach said "Let's explore an opening" but never specified which one or guided the player through it. User had to figure it out on their own.
+
+- **Solution**: At EVERY new game start, the coach now:
+  1. **Selects an opening** based on user's mastery level and color
+  2. **Guides through moves** with "Opening Guide" panel showing:
+     - Suggested move (e.g., "Play e4")
+     - Explanation (e.g., "Asymmetrical pawn structure creates imbalance")
+  3. **Offers trap teaching** if traps exist in that opening:
+     - Shows trap name (e.g., "Siberian Trap")
+     - "Learn Trap" button to start interactive lesson
+     - "Skip" button to continue playing
+
+- **Backend Changes**:
+  - `suggest_opening_for_session()` now ALWAYS called (not just when memory suggests)
+  - Returns `opening_key`, `teaching_message`, `suggested_trap`, `available_traps`
+  - `CoachGameSession` dataclass extended with new fields:
+    - `opening_to_teach`, `opening_teaching_moves`, `opening_teaching_index`
+    - `opening_teaching_active`, `suggested_trap`, `available_traps`
+  - `get_session_state()` returns complete `opening_teaching` data
+
+- **Frontend Changes**:
+  - "Opening Guide" panel rendered below player info bar
+  - Shows suggested move when it's user's turn
+  - Trap section with "Learn Trap" / "Skip" buttons
+  - State fetched immediately after game start
+
+- **API Response** (`GET /api/coach/play/state/{session_id}`):
+  ```json
+  {
+    "opening_teaching": {
+      "teaching_active": true,
+      "opening_key": "sicilian_defense",
+      "guidance": {
+        "your_turn": true,
+        "suggested_move": "e4",
+        "message": "Play e4. Asymmetrical pawn structure..."
+      },
+      "suggested_trap": {
+        "name": "Siberian Trap",
+        "difficulty": "intermediate",
+        "moves": ["e4", "c5", ...],
+        "explanation": "After Qg4, Black plays Qa5+!..."
+      },
+      "available_traps": [...]
+    }
+  }
+  ```
+
+- **Files Modified**:
+  - `backend/services/opening_mastery.py` - Enhanced `suggest_opening_for_session()` with trap info
+  - `backend/coach_play/coach_game_session.py` - Added opening teaching fields
+  - `backend/server.py` - Always calls opening suggestion at game start
+  - `frontend/src/pages/CoachPlay.jsx` - Opening Guide panel with trap buttons
+
+- **Test Coverage**: 20 tests (11 backend + 9 frontend) - 100% pass
+
+---
+*Last updated: March 2026*
+*Status: PROACTIVE OPENING GUIDANCE WITH TRAPS ACTIVE*
+
