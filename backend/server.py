@@ -6954,6 +6954,97 @@ async def submit_opening_quiz(opening_key: str, request: Request, user: User = D
     }
 
 
+@api_router.get("/training/opening-progress")
+async def get_opening_progress(user: User = Depends(get_current_user)):
+    """
+    Get combined opening progress: coach lessons + real game stats.
+    Used by Lab page Habits tab to show complete opening journey.
+    """
+    from opening_trainer_service import get_user_opening_stats
+    
+    # Get coach lesson progress
+    coach_progress = await db.user_opening_progress.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).to_list(50)
+    
+    # Get real game stats
+    real_stats = await get_user_opening_stats(db, user.user_id)
+    
+    # Create lookup by name
+    real_stats_by_name = {}
+    for stat in real_stats:
+        name_key = stat.get("name", "").lower().strip()
+        real_stats_by_name[name_key] = stat
+    
+    # Combine the data
+    combined = []
+    seen_openings = set()
+    
+    # First, add all coach-taught openings with their real game stats
+    for progress in coach_progress:
+        opening_name = progress.get("opening_name", "")
+        name_key = opening_name.lower().strip()
+        seen_openings.add(name_key)
+        
+        # Find matching real game stats
+        real = real_stats_by_name.get(name_key, {})
+        
+        # Get loss phase data
+        loss_phases = progress.get("loss_phases", {})
+        total_losses = progress.get("total_losses", 0)
+        dominant_loss_phase = None
+        if loss_phases and total_losses > 0:
+            # Find which phase has the most losses
+            max_losses = 0
+            for phase, count in loss_phases.items():
+                if count > max_losses:
+                    max_losses = count
+                    dominant_loss_phase = phase
+        
+        combined.append({
+            "opening_name": opening_name,
+            "mastery_level": progress.get("mastery_level", "unknown"),
+            "times_practiced": progress.get("times_practiced", 0),
+            "last_practiced": progress.get("last_practiced_at"),
+            "last_quiz_score": progress.get("last_quiz_score"),
+            "coach_taught": True,
+            "real_games": real.get("games", 0),
+            "real_win_rate": real.get("win_rate", 0),
+            "real_accuracy": real.get("avg_accuracy", 0),
+            "needs_work": real.get("games", 0) > 2 and real.get("win_rate", 0) < 50,
+            "loss_phases": loss_phases,  # {"opening": 2, "middlegame": 5, "endgame": 1}
+            "total_losses": total_losses,
+            "dominant_loss_phase": dominant_loss_phase  # "middlegame" - where user loses most
+        })
+    
+    # Add openings played in real games but not taught by coach
+    for stat in real_stats:
+        name_key = stat.get("name", "").lower().strip()
+        if name_key not in seen_openings and stat.get("games", 0) >= 2:
+            combined.append({
+                "opening_name": stat.get("name", "Unknown"),
+                "mastery_level": "unknown",
+                "times_practiced": 0,
+                "coach_taught": False,
+                "real_games": stat.get("games", 0),
+                "real_win_rate": stat.get("win_rate", 0),
+                "real_accuracy": stat.get("avg_accuracy", 0),
+                "needs_work": stat.get("win_rate", 0) < 50
+            })
+    
+    # Sort: needs_work first, then by real_games
+    combined.sort(key=lambda x: (-int(x.get("needs_work", False)), -x.get("real_games", 0)))
+    
+    return {
+        "progress": combined,
+        "total_taught": len([c for c in combined if c.get("coach_taught")]),
+        "total_played": len([c for c in combined if c.get("real_games", 0) > 0]),
+        "needs_attention": len([c for c in combined if c.get("needs_work")])
+    }
+
+
+
 @api_router.get("/training/openings-database")
 async def get_openings_database():
     """
@@ -9532,17 +9623,27 @@ async def _process_move_and_respond(
             # === UPDATE COACH MEMORY AFTER GAME ===
             try:
                 from services.coach_memory import update_memory_after_game
+                from phase_theory_service import detect_game_phase
                 
                 session_doc = await db.coach_sessions.find_one({"session_id": session_id})
                 if session_doc:
                     # Determine result from user's perspective
                     result = "draw"
+                    loss_phase = None
                     if game_over:
                         import chess
                         board = chess.Board(fen_after_user)
                         if board.is_checkmate():
                             # User delivered checkmate
                             result = "win"
+                        else:
+                            # User lost - determine phase
+                            result = "loss"
+                            # Get move count to determine phase
+                            move_count = len(session_doc.get("move_history", []))
+                            move_number = (move_count // 2) + 1
+                            loss_phase = detect_game_phase(board, move_number)
+                            logger.info(f"Game lost in {loss_phase} phase (move {move_number})")
                     
                     await update_memory_after_game(
                         db=db,
@@ -9555,7 +9656,8 @@ async def _process_move_and_respond(
                         habits_improved=[],
                         opening_played=session_doc.get("detected_opening"),
                         endgame_reached=session_doc.get("endgame_offer_shown", False),
-                        performance_rating=session_doc.get("user_rating", 1200)
+                        performance_rating=session_doc.get("user_rating", 1200),
+                        loss_phase=loss_phase
                     )
                     logger.info(f"Updated coach memory after game {session_id}")
             except Exception as e:

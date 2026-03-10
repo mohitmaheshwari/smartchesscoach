@@ -216,7 +216,8 @@ async def update_memory_after_game(
     habits_improved: List[str],
     opening_played: Optional[str],
     endgame_reached: bool,
-    performance_rating: int
+    performance_rating: int,
+    loss_phase: Optional[str] = None  # "opening", "middlegame", "endgame" - where the game was lost
 ) -> CoachMemory:
     """
     Update coach memory after a game.
@@ -264,6 +265,22 @@ async def update_memory_after_game(
     # Track opening if played
     if opening_played and opening_played not in memory.learning.openings_learned:
         memory.learning.openings_learned.append(opening_played)
+    
+    # Track loss phase for this opening (helps identify WHERE user struggles)
+    if opening_played and game_result == "loss" and loss_phase:
+        try:
+            # Update opening-specific loss phase stats
+            await db.user_opening_progress.update_one(
+                {"user_id": user_id, "opening_name": opening_played},
+                {
+                    "$inc": {f"loss_phases.{loss_phase}": 1, "total_losses": 1},
+                    "$set": {"last_loss_phase": loss_phase, "updated_at": now}
+                },
+                upsert=True
+            )
+            logger.info(f"Tracked loss in {loss_phase} phase for {opening_played}")
+        except Exception as e:
+            logger.warning(f"Failed to track loss phase: {e}")
     
     # Generate insights from this game
     insights = _generate_game_insights(

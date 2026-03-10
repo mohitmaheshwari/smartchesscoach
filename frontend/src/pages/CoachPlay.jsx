@@ -58,6 +58,7 @@ import {
   ActiveLessonPanel, 
   LessonCompletePanel 
 } from "@/components/coach/OpeningTeachingPanel";
+import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
 
 /**
  * EvalBar - Visual evaluation bar showing position advantage
@@ -1427,93 +1428,13 @@ const CoachPlay = ({ user }) => {
             </div>
 
             {/* Opening Guidance - Shows during opening teaching */}
-            {openingGuidance?.teaching_active && openingGuidance.guidance && !openingGuidance.guidance.complete && (
-              <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/30" data-testid="opening-guidance">
-                <div className="flex items-center gap-2 mb-2">
-                  <BookOpen className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium text-primary">Opening Guide</span>
-                </div>
-                {openingGuidance.guidance.your_turn ? (
-                  <div className="space-y-1">
-                    <p className="text-sm">{openingGuidance.guidance.message}</p>
-                    <p className="text-xs text-primary font-medium">
-                      Suggested: {openingGuidance.guidance.suggested_move}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{openingGuidance.guidance.message}</p>
-                )}
-                
-                {/* Show Trap Learning Option if available */}
-                {openingGuidance.suggested_trap && !activeLesson && (
-                  <div className="mt-3 pt-3 border-t border-primary/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Target className="w-4 h-4 text-amber-500" />
-                      <span className="text-xs font-medium text-amber-500">
-                        Trap: {openingGuidance.suggested_trap.name}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 h-8 text-xs bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20"
-                        onClick={() => {
-                          // Start trap teaching
-                          fetch(`${API}/coach/play/teaching/start`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            credentials: "include",
-                            body: JSON.stringify({ 
-                              session_id: session.session_id,
-                              lesson_type: "learn_trap"
-                            })
-                          }).then(r => r.json()).then(data => {
-                            if (data.success) {
-                              handleStartLesson(data);
-                            }
-                          });
-                        }}
-                      >
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        Learn Trap
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="flex-1 h-8 text-xs"
-                        onClick={() => {
-                          // Skip and continue
-                          fetch(`${API}/coach/play/teaching/skip`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            credentials: "include",
-                            body: JSON.stringify({ session_id: session.session_id })
-                          });
-                          setOpeningGuidance(prev => ({
-                            ...prev,
-                            suggested_trap: null
-                          }));
-                          toast.info("No problem! Let's continue playing.");
-                        }}
-                      >
-                        Skip
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {/* Opening Complete Message */}
-            {openingGuidance?.guidance?.complete && (
-              <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30" data-testid="opening-complete">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  <span className="text-sm text-green-500">{openingGuidance.guidance.message}</span>
-                </div>
-              </div>
-            )}
+            <OpeningGuidePanel
+              openingGuidance={openingGuidance}
+              activeLesson={activeLesson}
+              sessionId={session?.session_id}
+              onStartLesson={handleStartLesson}
+              onSkipTrap={() => setOpeningGuidance(prev => ({ ...prev, suggested_trap: null }))}
+            />
 
             {/* Controls */}
             <div className="flex items-center justify-center gap-2 mt-4">
