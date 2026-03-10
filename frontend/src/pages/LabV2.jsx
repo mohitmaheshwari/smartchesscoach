@@ -251,9 +251,12 @@ const LabV2 = ({ user }) => {
     // Move number to index: move 24 by white = index 46-47 area
     // For white moves: (moveNum - 1) * 2
     // For black moves: (moveNum - 1) * 2 + 1
+    // We want to show the position BEFORE the user's move (so they can see/make it)
     const baseIndex = (moveNum - 1) * 2;
-    const targetIndex = userColor === "black" ? baseIndex + 1 : baseIndex;
-    goToMove(Math.min(targetIndex, moves.length - 1), false); // Don't clear arrows
+    // For black, show position after white's move (baseIndex), not after black's move
+    // For white, show position after black's previous move (baseIndex - 1)
+    const targetIndex = userColor === "black" ? baseIndex : baseIndex - 1;
+    goToMove(Math.max(-1, Math.min(targetIndex, moves.length - 1)), false); // Don't clear arrows
     
     // Set arrows if moves are provided
     const newArrows = [];
@@ -358,10 +361,11 @@ const LabV2 = ({ user }) => {
     }
     
     // Fallback: Use move number based navigation
+    // Show position BEFORE the user's move
     const baseIndex = (moment.move_number - 1) * 2;
-    const targetIndex = userColor === "black" ? baseIndex + 1 : baseIndex;
+    const targetIndex = userColor === "black" ? baseIndex : baseIndex - 1;
     console.log("Fallback: move number", moment.move_number, "-> index", targetIndex);
-    goToMove(Math.min(targetIndex, moves.length - 1), false);
+    goToMove(Math.max(-1, Math.min(targetIndex, moves.length - 1)), false);
     setBoardArrows([]);
   };
   
@@ -566,7 +570,8 @@ const LabV2 = ({ user }) => {
                   orientation={boardOrientation}
                   viewOnly={!interactiveMoment}
                   interactive={!!interactiveMoment}
-                  planMode={!!interactiveMoment}
+                  planMode={false}
+                  movableColor={interactiveMoment ? userColor : undefined}
                   lastMove={displayLastMove}
                   arrows={boardArrows}
                   onMove={interactiveMoment ? (moveData) => {

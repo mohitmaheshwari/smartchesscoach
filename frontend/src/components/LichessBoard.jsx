@@ -24,7 +24,8 @@ const LichessBoard = forwardRef(({
   highlights = [],
   lastMove = null,
   viewOnly = false,
-  planMode = false,  // NEW: Allow moving both colors
+  planMode = false,  // Allow moving both colors (for analysis)
+  movableColor = null, // Specific color that can move (overrides turn-based logic)
 }, ref) => {
   const boardRef = useRef(null);
   const groundRef = useRef(null);
@@ -134,6 +135,39 @@ const LichessBoard = forwardRef(({
     return dests;
   };
 
+  // Get moves for a specific color (regardless of whose turn it is)
+  const getMovesForColor = (chess, color) => {
+    const dests = new Map();
+    const currentTurn = chess.turn(); // 'w' or 'b'
+    const targetTurn = color === 'white' ? 'w' : 'b';
+    
+    let tempChess = chess;
+    
+    // If it's not the target color's turn, switch it temporarily
+    if (currentTurn !== targetTurn) {
+      const currentFen = chess.fen();
+      const parts = currentFen.split(' ');
+      parts[1] = targetTurn;
+      try {
+        tempChess = new Chess(parts.join(' '));
+      } catch (e) {
+        console.warn("Could not switch turn for color:", e);
+        return dests;
+      }
+    }
+    
+    const moves = tempChess.moves({ verbose: true });
+    for (const move of moves) {
+      if (dests.has(move.from)) {
+        dests.get(move.from).push(move.to);
+      } else {
+        dests.set(move.from, [move.to]);
+      }
+    }
+    
+    return dests;
+  };
+
   // Use ref for onMove to avoid recreating the board when callback changes
   const onMoveRef = useRef(onMove);
   useEffect(() => {
@@ -141,7 +175,7 @@ const LichessBoard = forwardRef(({
   }, [onMove]);
   
   // Key to force re-creation when interactivity changes
-  const shouldBeInteractive = planMode || (interactive && !viewOnly);
+  const shouldBeInteractive = planMode || movableColor || (interactive && !viewOnly);
   
   // Initialize and recreate chessground when interactivity mode changes
   useEffect(() => {
@@ -154,14 +188,25 @@ const LichessBoard = forwardRef(({
     if (boardRef.current) {
       chessRef.current = new Chess(fen);
       
-      const dests = shouldBeInteractive && showDests 
-        ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current)) 
-        : new Map();
+      // Calculate movable destinations based on mode
+      let dests = new Map();
+      if (shouldBeInteractive && showDests) {
+        if (movableColor) {
+          // Only show moves for the specified color
+          dests = getMovesForColor(chessRef.current, movableColor);
+        } else if (planMode) {
+          // Plan mode: show moves for both colors
+          dests = getAllPossibleDests(chessRef.current);
+        } else {
+          // Normal mode: only current turn's moves
+          dests = getMovableDests(chessRef.current);
+        }
+      }
       
-      console.log("LichessBoard dests check:", "size=" + dests.size, "b8=" + JSON.stringify(dests.get('b8')));
+      console.log("LichessBoard dests check:", "size=" + dests.size, "movableColor=" + movableColor);
       
       console.log("LichessBoard creating instance:", { 
-        shouldBeInteractive, planMode, interactive, viewOnly, 
+        shouldBeInteractive, planMode, interactive, viewOnly, movableColor,
         fen: fen?.substring(0, 50)
       });
       
@@ -170,9 +215,14 @@ const LichessBoard = forwardRef(({
         orientation: orientation,
         turnColor: getTurnColor(fen),
         viewOnly: !shouldBeInteractive,
+        events: {
+          select: (key) => {
+            console.log("LichessBoard piece selected:", key);
+          }
+        },
         movable: {
           free: false,
-          color: shouldBeInteractive ? "both" : undefined,
+          color: shouldBeInteractive ? (movableColor || (planMode ? "both" : getTurnColor(fen))) : undefined,
           dests: dests,
           showDests: showDests && shouldBeInteractive,
           events: {
@@ -278,7 +328,7 @@ const LichessBoard = forwardRef(({
         groundRef.current = null;
       }
     };
-  }, [shouldBeInteractive, planMode]);  // Re-create only when interactivity mode changes
+  }, [shouldBeInteractive, planMode, movableColor]);  // Re-create only when interactivity mode changes
 
   // Track the previous fen to detect if we need to update it
   const prevFenRef = useRef(fen);
@@ -290,7 +340,7 @@ const LichessBoard = forwardRef(({
   // Combined effect to avoid race conditions between fen updates and interactivity changes
   useEffect(() => {
     if (groundRef.current) {
-      const shouldBeInteractive = planMode || (interactive && !viewOnly);
+      const shouldBeInteractive = planMode || movableColor || (interactive && !viewOnly);
       const fenChanged = prevFenRef.current !== fen;
       const interactivityChanged = prevInteractiveRef.current !== interactive || 
                                    prevViewOnlyRef.current !== viewOnly ||
