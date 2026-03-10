@@ -154,7 +154,16 @@ const LichessBoard = forwardRef(({
     if (boardRef.current) {
       chessRef.current = new Chess(fen);
       
-      console.log("LichessBoard creating instance:", { shouldBeInteractive, planMode, interactive, viewOnly });
+      const dests = shouldBeInteractive && showDests 
+        ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current)) 
+        : new Map();
+      
+      console.log("LichessBoard dests check:", "size=" + dests.size, "b8=" + JSON.stringify(dests.get('b8')));
+      
+      console.log("LichessBoard creating instance:", { 
+        shouldBeInteractive, planMode, interactive, viewOnly, 
+        fen: fen?.substring(0, 50)
+      });
       
       groundRef.current = Chessground(boardRef.current, {
         fen: fen,
@@ -164,10 +173,65 @@ const LichessBoard = forwardRef(({
         movable: {
           free: false,
           color: shouldBeInteractive ? "both" : undefined,
-          dests: shouldBeInteractive && showDests 
-            ? (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current)) 
-            : new Map(),
+          dests: dests,
           showDests: showDests && shouldBeInteractive,
+          events: {
+            after: (orig, dest, metadata) => {
+              console.log("LichessBoard movable.events.after:", { orig, dest, metadata });
+              const currentOnMove = onMoveRef.current;
+              if (currentOnMove) {
+                const chess = chessRef.current;
+                let move = null;
+                
+                // Try to make the move normally
+                try {
+                  move = chess.move({ from: orig, to: dest, promotion: "q" });
+                } catch (e) {
+                  // If move fails (wrong turn), try switching turn in plan mode
+                  if (planMode) {
+                    const currentFen = chess.fen();
+                    const parts = currentFen.split(' ');
+                    parts[1] = parts[1] === 'w' ? 'b' : 'w';
+                    try {
+                      chessRef.current = new Chess(parts.join(' '));
+                      move = chessRef.current.move({ from: orig, to: dest, promotion: "q" });
+                    } catch (e2) {
+                      console.warn("Could not make move in plan mode:", e2);
+                    }
+                  }
+                }
+                
+                if (move) {
+                  currentOnMove({
+                    from: orig,
+                    to: dest,
+                    san: move.san,
+                    fen: chessRef.current.fen(),
+                    isCapture: move.captured !== undefined,
+                    isCheck: chessRef.current.inCheck(),
+                    isCheckmate: chessRef.current.isCheckmate(),
+                  });
+                  
+                  // Update board state - in plan mode, show moves for both colors
+                  const newDests = planMode 
+                    ? getAllPossibleDests(chessRef.current) 
+                    : getMovableDests(chessRef.current);
+                  
+                  groundRef.current.set({
+                    fen: chessRef.current.fen(),
+                    turnColor: getTurnColor(chessRef.current.fen()),
+                    movable: {
+                      dests: newDests,
+                    },
+                    lastMove: [orig, dest],
+                  });
+                } else {
+                  // Invalid move - reset position
+                  groundRef.current.set({ fen: chess.fen() });
+                }
+              }
+            }
+          }
         },
         draggable: {
           enabled: shouldBeInteractive,
@@ -205,62 +269,6 @@ const LichessBoard = forwardRef(({
             return { orig: from, dest: to, brush };
           }) : [],
         },
-        events: {
-          move: (orig, dest) => {
-            const currentOnMove = onMoveRef.current;
-            if (currentOnMove) {
-              const chess = chessRef.current;
-              let move = null;
-              
-              // Try to make the move normally
-              try {
-                move = chess.move({ from: orig, to: dest, promotion: "q" });
-              } catch (e) {
-                // If move fails (wrong turn), try switching turn in plan mode
-                if (planMode) {
-                  const currentFen = chess.fen();
-                  const parts = currentFen.split(' ');
-                  parts[1] = parts[1] === 'w' ? 'b' : 'w';
-                  try {
-                    chessRef.current = new Chess(parts.join(' '));
-                    move = chessRef.current.move({ from: orig, to: dest, promotion: "q" });
-                  } catch (e2) {
-                    console.warn("Could not make move in plan mode:", e2);
-                  }
-                }
-              }
-              
-              if (move) {
-                currentOnMove({
-                  from: orig,
-                  to: dest,
-                  san: move.san,
-                  fen: chessRef.current.fen(),
-                  isCapture: move.captured !== undefined,
-                  isCheck: chessRef.current.inCheck(),
-                  isCheckmate: chessRef.current.isCheckmate(),
-                });
-                
-                // Update board state - in plan mode, show moves for both colors
-                const newDests = planMode 
-                  ? getAllPossibleDests(chessRef.current) 
-                  : getMovableDests(chessRef.current);
-                
-                groundRef.current.set({
-                  fen: chessRef.current.fen(),
-                  turnColor: getTurnColor(chessRef.current.fen()),
-                  movable: {
-                    dests: newDests,
-                  },
-                  lastMove: [orig, dest],
-                });
-              } else {
-                // Invalid move - reset position
-                groundRef.current.set({ fen: chess.fen() });
-              }
-            }
-          },
-        },
       });
     }
 
@@ -287,6 +295,13 @@ const LichessBoard = forwardRef(({
       const interactivityChanged = prevInteractiveRef.current !== interactive || 
                                    prevViewOnlyRef.current !== viewOnly ||
                                    prevPlanModeRef.current !== planMode;
+      
+      console.log("LichessBoard update effect:", {
+        fenChanged,
+        interactivityChanged,
+        prevFen: prevFenRef.current?.substring(0, 30),
+        newFen: fen?.substring(0, 30)
+      });
       
       prevFenRef.current = fen;
       prevInteractiveRef.current = interactive;

@@ -106,6 +106,9 @@ const LabV2 = ({ user }) => {
   const [isPlayingBestLine, setIsPlayingBestLine] = useState(false); // Auto-playing best line
   const [bestLineIndex, setBestLineIndex] = useState(0); // Current position in best line
   const [currentBestLine, setCurrentBestLine] = useState(null); // Current best line being played
+  const [interactiveMoment, setInteractiveMoment] = useState(null); // Current moment user is trying to solve
+  const [userAttemptResult, setUserAttemptResult] = useState(null); // Result of user's move attempt
+  const [interactiveFen, setInteractiveFen] = useState(null); // FEN for interactive mode (to allow resetting)
   
   // UI states
   const [activeTab, setActiveTab] = useState("summary");
@@ -323,6 +326,118 @@ const LabV2 = ({ user }) => {
     }
   };
   
+  // Start interactive mode for a critical moment - user can try to find the best move
+  const startInteractiveMoment = (moment) => {
+    console.log("Starting interactive moment:", moment);
+    console.log("Moment FEN:", moment?.fen);
+    console.log("Best move:", moment?.best_move);
+    
+    setInteractiveMoment(moment);
+    setUserAttemptResult(null);
+    setInteractiveFen(moment.fen); // Set the FEN for interactive mode
+    // Stop any playing line
+    setIsPlayingBestLine(false);
+    setCurrentBestLine(null);
+    
+    // Find the correct move index for this moment's position
+    // The moment has the FEN, we need to find when this FEN appeared
+    const momentFenPrefix = moment.fen?.split(' ')[0]; // Just the position part
+    
+    if (momentFenPrefix) {
+      console.log("Looking for FEN prefix:", momentFenPrefix);
+      // Find the move index where this position occurs
+      for (let i = 0; i < allFens.length; i++) {
+        if (allFens[i]?.startsWith(momentFenPrefix)) {
+          console.log("Found FEN at index:", i);
+          goToMove(i - 1, false); // -1 because allFens[0] is start position
+          setBoardArrows([]);
+          return;
+        }
+      }
+      console.log("FEN not found in game history, using fallback");
+    }
+    
+    // Fallback: Use move number based navigation
+    const baseIndex = (moment.move_number - 1) * 2;
+    const targetIndex = userColor === "black" ? baseIndex + 1 : baseIndex;
+    console.log("Fallback: move number", moment.move_number, "-> index", targetIndex);
+    goToMove(Math.min(targetIndex, moves.length - 1), false);
+    setBoardArrows([]);
+  };
+  
+  // Handle user's move attempt on a critical moment
+  const handleUserMoveAttempt = (from, to) => {
+    console.log("handleUserMoveAttempt called:", { from, to, interactiveMoment: !!interactiveMoment });
+    if (!interactiveMoment) return false;
+    
+    const userMoveUci = from + to;
+    
+    // Get the best move in UCI format
+    let bestMoveUci = null;
+    try {
+      const chess = new Chess(interactiveMoment.fen);
+      const bestMove = chess.move(interactiveMoment.best_move, { sloppy: true });
+      if (bestMove) {
+        bestMoveUci = bestMove.from + bestMove.to;
+      }
+    } catch (e) {
+      console.log("Could not parse best move:", e);
+    }
+    
+    // Check if user found the best move
+    const isCorrect = userMoveUci === bestMoveUci;
+    
+    if (isCorrect) {
+      setUserAttemptResult({
+        correct: true,
+        message: "Excellent! You found the best move!",
+        userMove: userMoveUci,
+        bestMove: bestMoveUci
+      });
+      // Show green arrow for correct move
+      setBoardArrows([[from, to, "green"]]);
+      // Store the moment before clearing interactive state
+      const momentToPlay = interactiveMoment;
+      // Clear interactive mode since user got it right
+      setInteractiveMoment(null);
+      setInteractiveFen(null);
+      // Play the line after a short delay
+      setTimeout(() => playBestLine(momentToPlay), 1500);
+      // Show toast for positive reinforcement
+      toast.success("Correct! Great find!");
+    } else {
+      setUserAttemptResult({
+        correct: false,
+        message: "Not quite. Try again or reveal the best move.",
+        userMove: userMoveUci,
+        bestMove: bestMoveUci
+      });
+      // Show red arrow for wrong move briefly
+      setBoardArrows([[from, to, "red"]]);
+      toast.error("Not quite right. Try again!");
+      
+      // Reset to original position after showing the wrong move briefly
+      // This allows the user to try again on the same position
+      setTimeout(() => {
+        setBoardArrows([]);
+        // Toggle interactiveFen to force board reset
+        setInteractiveFen(null);
+        setTimeout(() => {
+          setInteractiveFen(interactiveMoment.fen);
+        }, 50);
+      }, 1000);
+    }
+    
+    return isCorrect;
+  };
+  
+  // Clear interactive mode
+  const clearInteractiveMoment = () => {
+    setInteractiveMoment(null);
+    setUserAttemptResult(null);
+    setInteractiveFen(null);
+  };
+  
   // Auto-play best line
   useEffect(() => {
     if (!isPlayingBestLine || !currentBestLine) return;
@@ -344,15 +459,24 @@ const LabV2 = ({ user }) => {
     return () => clearInterval(interval);
   }, [isPlayingBestLine, currentBestLine]);
   
-  // Get the current FEN - either from best line or from game
+  // Get the current FEN - either from best line, interactive moment, or game
   const displayFen = isPlayingBestLine && currentBestLine 
     ? currentBestLine.fens[bestLineIndex]
-    : currentFen;
+    : interactiveFen || currentFen;
+  
+  // Debug: Log when interactive mode is active
+  if (interactiveFen) {
+    console.log("Interactive FEN active:", interactiveFen.substring(0, 50));
+    console.log("Display FEN:", displayFen.substring(0, 50));
+    console.log("Current FEN:", currentFen?.substring(0, 50));
+  }
   
   // Get the last move for highlighting
   const displayLastMove = isPlayingBestLine && currentBestLine && bestLineIndex > 0
     ? [currentBestLine.moves[bestLineIndex - 1].from, currentBestLine.moves[bestLineIndex - 1].to]
-    : (currentMoveIndex >= 0 && moves[currentMoveIndex] ? [moves[currentMoveIndex].from, moves[currentMoveIndex].to] : null);
+    : interactiveFen 
+      ? null // No last move highlighting in interactive mode
+      : (currentMoveIndex >= 0 && moves[currentMoveIndex] ? [moves[currentMoveIndex].from, moves[currentMoveIndex].to] : null);
   
   // Auto-play game review
   useEffect(() => {
@@ -440,14 +564,35 @@ const LabV2 = ({ user }) => {
                 <LichessBoard
                   fen={displayFen}
                   orientation={boardOrientation}
-                  viewOnly={true}
+                  viewOnly={!interactiveMoment}
+                  interactive={!!interactiveMoment}
+                  planMode={!!interactiveMoment}
                   lastMove={displayLastMove}
                   arrows={boardArrows}
+                  onMove={interactiveMoment ? (moveData) => {
+                    handleUserMoveAttempt(moveData.from, moveData.to);
+                  } : undefined}
                 />
                 {/* Best Line indicator */}
                 {isPlayingBestLine && currentBestLine && (
                   <div className="absolute top-2 left-2 bg-emerald-600/90 text-white px-3 py-1 rounded text-sm font-medium">
                     Best line: {bestLineIndex}/{currentBestLine.fens.length - 1}
+                  </div>
+                )}
+                {/* Interactive mode indicator */}
+                {interactiveFen && !userAttemptResult && (
+                  <div className="absolute top-2 left-2 bg-amber-600/90 text-white px-3 py-1 rounded text-sm font-medium animate-pulse">
+                    Your turn - find the best move!
+                  </div>
+                )}
+                {/* User attempt feedback */}
+                {userAttemptResult && interactiveMoment && (
+                  <div className={`absolute top-2 left-2 px-3 py-1 rounded text-sm font-medium ${
+                    userAttemptResult.correct 
+                      ? 'bg-emerald-600/90 text-white' 
+                      : 'bg-red-600/90 text-white'
+                  }`}>
+                    {userAttemptResult.correct ? '✓ Correct!' : '✗ Try again'}
                   </div>
                 )}
               </div>
@@ -573,6 +718,9 @@ const LabV2 = ({ user }) => {
                       onNavigateToMove={navigateToMoveNumber}
                       onFeedback={handleFeedback}
                       onPlayBestLine={playBestLine}
+                      onStartInteractive={startInteractiveMoment}
+                      onClearInteractive={clearInteractiveMoment}
+                      userAttemptResult={userAttemptResult}
                       gameId={gameId}
                     />
                   )}

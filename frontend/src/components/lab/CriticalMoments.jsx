@@ -38,7 +38,10 @@ const CriticalMoments = ({
   userColor,
   onNavigateToMove,
   onFeedback,
-  onPlayBestLine, // NEW: Callback to play the best line
+  onPlayBestLine,
+  onStartInteractive, // Start interactive mode so user can try the move
+  onClearInteractive, // Clear interactive mode
+  userAttemptResult, // Result of user's move attempt
   gameId
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -217,7 +220,28 @@ const CriticalMoments = ({
                 </p>
               </div>
               
+              {/* User attempt feedback */}
+              {userAttemptResult && (
+                <div className={`mb-4 p-3 rounded-lg ${
+                  userAttemptResult.correct 
+                    ? 'bg-emerald-500/10 text-emerald-400' 
+                    : 'bg-red-500/10 text-red-400'
+                }`}>
+                  <p className="font-medium">{userAttemptResult.message}</p>
+                </div>
+              )}
+              
               <div className="flex gap-3 justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onStartInteractive?.(moment);
+                  }}
+                  className="gap-2"
+                >
+                  <Play className="w-4 h-4" />
+                  Try Move on Board
+                </Button>
                 <Button
                   onClick={handleReveal}
                   className="gap-2"

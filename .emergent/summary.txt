@@ -12,173 +12,175 @@ The application should feature a Teaching Coach that plays against the user with
 **User's preferred language**: English. The application's tone should be in **plain, simple, and direct Indian-English.**
 
 **what currently exists?**
-The application is a full-stack React/FastAPI app featuring a core Chess Understanding Service (CUS), a Socratic Engine, a pedagogical opponent, and a deeply integrated  service.
+The application is a full-stack React/FastAPI app. The last session was a major overhaul focused on building a 9/10 memory system as requested by the user, and significantly enhancing the game review () page.
 
-In this session, the agent performed a major overhaul to align the application with the user's core vision, addressing several critical bugs and implementing key features:
--   **Fixed Post-Game Analysis:** Resolved a severe bug where analysis reported 100% accuracy despite blunders. The fix involved correcting evaluation logic based on player color and implementing a more realistic, centipawn loss (CPL)-based accuracy formula.
--   **Integrated Deep Memory:** The  service is now fully integrated into both post-game analysis and in-game commentary, providing personalized feedback based on the player's history.
--   **Implemented Coach Knows You Panel:** Replaced a generic Teaching Insights UI with a valuable, data-driven Coach Memory panel that displays accurate stats like games played, recurring patterns, and daily focus areas. The panel was also made compact to improve UX.
--   **Fixed Data Integrity:** Purged simulated test data from the user's memory to ensure all displayed stats are based on real gameplay.
--   **Implemented Opening Mastery Quiz:** A full quiz feature was built with backend endpoints and a frontend UI to allow users to test their opening knowledge.
--   **Fixed Opening Learning Flow:** Corrected a bug where the user had to play both sides during an opening lesson. The coach now correctly auto-plays its moves.
+-   **Deep Memory System ():** A new, comprehensive backend service () was created to build a structured profile for each user, tracking blunder types, playing style, behavioral patterns, opening repertoires, and learning velocity. This data is stored in a new  MongoDB collection.
+-   **Memory Injection:** A  service ensures this deep memory is consistently used in coaching prompts. Post-game analysis now populates this new data model.
+-   ** Component:** A new frontend component was built to visualize the  profile, showing trends, weaknesses, and a history of specific mistakes with **clickable links** to the exact game and move.
+-   **Enhanced Game Review () Page:**
+    -   A new Memory tab was added to display the .
+    -   The  component was fixed to be fully interactive, displaying colored arrows for the user's move vs. the best move.
+    -   A Play Line feature was added to  to automatically play out the best stockfish continuation, showing the user the missed opportunity.
+    -   An interactive Try Move mode was added to , allowing the user to play on the board to find the best move before revealing the solution.
+-   **Personalized Coach Signal:** The Coach Weekly Signal on the main dashboard was upgraded to use the  system, replacing generic messages with specific, data-driven insights.
 
 **Last working item**:
--   **Last item agent was working:** The user pointed out that the coach suggests exploring a new opening but fails to provide any concrete guidance. The agent began implementing a proactive teaching feature where, at the start of a new game, the coach suggests a specific opening and guides the player through the initial moves.
+-   **Last item agent was working:** Making the  board fully interactive. The user requested the ability to try moves on the board. The agent successfully implemented the interactive state, allowing the user to click a piece and see its possible moves highlighted.
 -   **Status:** IN PROGRESS
--   **Agent Testing Done:** N
--   **Which testing method agent to use?** both. Backend testing should verify that a new game session state contains  data. Frontend testing with the screenshot tool should confirm the guidance panel appears correctly at the start of a new game.
+-   **Agent Testing Done:** Y (Visual confirmation of interactive state via screenshots)
+-   **Which testing method agent to use?** Frontend testing agent. The test should verify the complete feedback loop: 1. User clicks Try Move on Board. 2. Board becomes interactive. 3. User makes the correct move. 4. A Correct! message appears. 5. User makes an incorrect move. 6. A Not quite, try again message appears.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Proactive opening guidance is not implemented (P0)
--   Issue 2: Frontend fragility in  (P1, Recurring Risk)
+-   Issue 1: Complete the interactive move feedback loop in  (P0)
+-   Issue 2: Show missed threat on  page (P1)
+-   Issue 3: Frontend fragility in  (P2, Recurring Risk)
+-   Issue 4: Game number confusion (P2)
 
 **Issues Detail:**
--   **Issue 1: Proactive opening guidance is not implemented**
-    -   **Attempted fixes:** The agent created a  function in  and began integrating it into the  and move handling logic in . Frontend work to display the guidance was also started. The implementation is incomplete.
+-   **Issue 1: Complete the interactive move feedback loop in **
+    -   **Attempted fixes:** The  function was created in , and the board was made interactive. The logic to provide feedback *after* a move is made is present but not fully connected or verified.
     -   **Next debug checklist:**
-        1.  Finalize the backend logic in  to ensure the  state is correctly initialized for new games.
-        2.  Complete the frontend implementation in  to display the opening name and the next move to be played.
-        3.  Ensure the teaching state correctly advances as the user plays the suggested moves.
-        4.  Test the full end-to-end flow: start a new game, receive the opening suggestion, play the moves, and see the guidance update.
-    -   **Why fix this issue and what will be achieved with the fix?** This addresses a core user complaint and fulfills the Active Teaching Framework requirement, making the coach a proactive teacher rather than a passive tool.
+        1.  In , within the  function, add logic to compare the user's move () with the correct best move from the .
+        2.  If the move is correct, update the UI state to show a success message (e.g., using a toast or a text element) and disable the interactive mode.
+        3.  If the move is incorrect, show a Try again message and keep the board interactive.
+    -   **Why fix this issue and what will be achieved with the fix?** To fulfill the user's direct request and complete the interactive training feature, making it a functional feedback loop.
     -   **Status:** IN PROGRESS
     -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** both
+    -   **Should Test frontend/backend/both after fix?** frontend
     -   **Blocked on other issue:** none
 
--   **Issue 2: Frontend fragility in **
-    -   **Attempted fixes:** No direct refactoring was done in this session. New features were built as separate components (, ), but  remains a large, central component managing significant state, posing a risk for future development.
-    -   **Next debug checklist:** Plan and execute a refactor of . Break it down into smaller, single-responsibility components (e.g., , , ) and use a more robust state management solution if needed.
-    -   **Why fix this issue and what will be achieved with the fix?** Refactoring will improve stability, reduce the risk of recurring bugs, and make the application easier to maintain and extend.
+-   **Issue 2: Show missed threat on  page**
+    -   **Attempted fixes:** None. This was the priority task from the previous fork but was deferred to build the memory system.
+    -   **Next debug checklist:** See  from the previous session. The plan involves modifying  to draw a second arrow for the opponent's threat when the solution is shown.
+    -   **Why fix this issue and what will be achieved with the fix?** Addresses a direct user request for more insightful training feedback by visually showing tactical consequences.
     -   **Status:** NOT STARTED
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** frontend
+    -   **Blocked on other issue:** none
+
+-   **Issue 3: Frontend fragility in **
+    -   **Attempted fixes:**  was created, which helps, but the main file was not refactored.
+    -   **Why fix this issue and what will be achieved with the fix?** Improve stability and maintainability.
+    -   **Status:** IN PROGRESS
     -   **Is recurring issue?** Y
     -   **Should Test frontend/backend/both after fix?** frontend
     -   **Blocked on other issue:** none
 
+-   **Issue 4: Game number confusion**
+    -   **Attempted fixes:** The agent previously explained the cause (test data) but has not implemented a solution.
+    -   **Next debug checklist:** Propose and implement a Reset Game History button that clears relevant user data via a new backend endpoint.
+    -   **Why fix this issue and what will be achieved with the fix?** Improves user experience by removing confusing test data.
+    -   **Status:** NOT STARTED
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** backend
+    -   **Blocked on other issue:** none
+
 **In progress Task List**:
--   **Task 1: System-wide Deep Memory Integration (P0)**
-    -   **Where to resume:** Focus on completing the proactive opening guidance feature, which is the last piece of the active teaching framework.
-    -   **What will be achieved with this?** The coach will actively guide users into new openings, fulfilling a key user request and making the learning experience more structured.
+-   **Task 1: Complete the Deep Memory System implementation (P0)**
+    -   **Where to resume:** Finalize the interactive move feedback in 's  feature.
+    -   **What will be achieved with this?** A fully interactive, memory-driven chess coaching experience as requested by the user.
     -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** both
-    -   **Blocked on something:** None.
+    -   **Should Test frontend/backend/both after fix?** frontend
+    -   **Blocked on something:** None
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **P1: Connect Teaching Progress to Lab Page:** Integrate the user's opening and endgame mastery progress into the  tab of the  page.
+    -   P1: Implement the missed threat arrow on the  page.
+    -   P1: Backend Refactoring: Continue modularizing  by extracting routes.
 -   **Future Tasks:**
-    -   **Backend Refactoring:** Continue extracting endpoints from the  monolith into dedicated route files.
-    -   **Frontend Mega-file Refactoring:** Break down  and the still-large .
-    -   **Human Coach Training Dashboard:** Build the interface for human coaches to review and approve AI explanations.
+    -   Frontend Refactoring: Break down large components like  and .
+    -   Human Coach Training Dashboard: Build the interface for human coaches to review AI-generated explanations.
 
 **Completed work in this session**
--   **Post-Game Analysis Accuracy Fixed:** Resolved the 100% accuracy with blunders bug by implementing a realistic, centipawn loss-based accuracy formula.
--   **Deep Memory Integration (Post-Game & In-Game):** Successfully connected the  service to provide personalized Habit Check feedback and in-game commentary.
--   **Coach Knows You UI Panel:** Replaced a useless UI panel with a valuable and accurate Coach Memory panel, which was later made compact and expandable.
--   **Coach Memory Data Integrity Fix:** Purged simulated data from the user's memory to ensure only real game results are tracked.
--   **Opening Mastery Quiz Mode:** Built the complete backend and frontend for a quiz feature.
--   **Opening Learning Flow Fixed:** Corrected logic so the coach auto-plays its moves during opening lessons.
--   **UI/UX Improvement:** Made the Coach Memory panel compact to provide more space for the chat.
-
-**Earlier issues found/mentioned but not fixed**
--   The root architectural issue of a monolithic  component has not been addressed, posing a high risk of recurring frontend bugs.
+-   **Implemented 9/10 Deep Memory System:** Created  and  services, a new  MongoDB collection, and a data migration script.
+-   **Created :** A new UI component to visualize a player's deep profile, including clickable links to specific mistake moments.
+-   **Enhanced  (Game Review Page):**
+    -   Added a Memory tab with the .
+    -   Fixed  to be interactive and display SAN-to-UCI converted arrows correctly.
+    -   Added a Play Line feature to animate the best move continuation in .
+    -   Added an interactive Try Move mode for users to play on the board during .
+-   **Enhanced Coach Weekly Signal:** Replaced the generic dashboard message with personalized insights from the  system.
 
 **Known issue recurrence from previous fork**
 -   **Issue recurrence in previous fork:** Frontend Fragility in .
 -   **Recurrence count:** High.
--   **Status:** NOT RESOLVED.
+-   **Status:** IN PROGRESS.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Centipawn Loss (CPL) for Accuracy:** The application now uses a CPL-based model () for more realistic accuracy scores in post-game analysis.
--   **Perspective-Aware Evaluation:** The agent correctly debugged and handled Stockfish evaluations, which are relative to the player-to-move. This was the key to fixing blunder detection, especially when the user plays as Black.
--   **Data Integrity:** The coach memory system was fixed to distinguish between real and simulated games, ensuring the user is only shown accurate historical data.
--   **Proactive Teaching Logic:** The agent began building logic for the coach to initiate and guide opening lessons at the start of a new game.
+-   **Structured Player Profile:** Using a detailed, deterministic MongoDB document () for storing and querying complex player data, correctly avoiding the overhead of RAG for this use case.
+-   **Frontend State Management for Interactivity:** Using multiple React  hooks in  to manage complex UI modes like , , , and the Play Line animation.
+-   **Dynamic Component Props:** Dynamically passing props (, , ) to the  component to switch it between view-only, plan, and interactive modes.
+-   **Client-Side SAN to UCI Conversion:** Using the  library on the frontend to convert human-readable SAN moves (e.g., Qc1+) to programmatic UCI format (e.g., c4c1) needed for drawing arrows.
 
 **key DB schema**
--   : Stores game data, including  and a crucial  list which contains  for each player move.
--   : Stores long-term user habits. Now correctly integrated and provides data for both post-game and in-game feedback.
--   : Stores real opening mastery data, which is now used to populate the Coach Knows You panel.
+-   ** (NEW collection):**
+    -   : string
+    -   : { : { count, by_piece }, ... }
+    -   : { , , ... }
+    -   : { , , ... }
+    -   : [ { , , ,  }, ... ]
 
 **All files of reference**
--    (Core logic for the now-accurate game analysis)
--    (Handles in-game memory-driven commentary)
--    (Manages user's long-term memory)
--    (Contains quiz and proactive teaching logic)
--    (Main integration point for all new features and bug fixes)
--    (Central UI component, displays the new memory panel)
--    (New component displaying personalized stats)
--    (New page for the quiz feature)
+-    (Core new memory service)
+-    (New endpoints and modified signal logic)
+-    (Major changes for Memory tab and board interactivity)
+-    (New UI for player profile)
+-    (UI changes for new interactive buttons)
+-    (Reference for component props)
 
 **Areas that need refactoring**:
--   **:** This remains the top priority. Its large size and complex state management are a recurring source of bugs.
--   **:** This file is still a monolith and should be broken down into more modular route files to improve maintainability.
+-   **:** This file has grown significantly to manage the new interactive state and could be broken down into smaller, more manageable hooks or components.
+-   **:** This remains a large, monolithic component that is a high-priority candidate for future refactoring.
+-   **:** Still contains a large number of endpoints and would benefit from being split into modular route files.
 
 **key api endpoints**
--   : (FIXED & ENHANCED) Now provides accurate, personalized, memory-driven analysis.
--   : New endpoint that returns coaching context for the in-game UI panel.
--    & : New endpoints for the Opening Mastery Quiz feature.
--   : Modified to support proactive opening teaching guidance.
--   : Modified to handle and advance opening teaching state.
+-   : Returns the full PlayerIdentity document for a user.
+-   : (MODIFIED) Now returns an enhanced weekly signal using insights from the deep memory system.
+-   : Provides the data for the game review page, including critical moments with best move continuations ().
 
 **Critical Info for New Agent**
--   **The user's top priority is a coach that feels human, intelligent, and personalized.** All work should serve this goal. The user is very direct and has a last chance mentality; accuracy and delivering on the vision are non-negotiable.
--   **The immediate task is to complete the proactive opening guidance feature.** The coach must suggest a specific opening at the start of a new game and guide the player through it.
--   **Data integrity is paramount.** The user has previously called out fake data (e.g., 68 games played). All data shown in the UI must be real and derived from the user's actual aplay history.
--   **The post-game analysis accuracy was a major source of user frustration.** The new centipawn loss-based system is a critical fix that must be preserved.
+-   The user is highly invested in the quality of the memory system. The immediate priority is to polish the existing implementation, not start new features.
+-   The #1 task is to **finish the interactive move feature in **. The user must be able to make a move on the board and receive immediate Correct or Incorrect feedback.
+-   A key bug was discovered and fixed where the backend server was using a different database () than the agent's manual CLI/scripting commands (). Be mindful of this if data appears inconsistent between the API and manual queries.
+-   The long-pending task to show a missed threat arrow on the  page should be addressed after the current interactive feature is fully completed and verified.
 
 **documents and test reports created in this job**
--    (Updated with completed features)
--    (and several subsequent reports)
+-    (Updated with Deep Memory System details)
+-    (New data migration script)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  : User points out the lack of proactive opening guidance. **(PENDING/IN PROGRESS)**
-2.  : User correctly identified that the accuracy calculation was too lenient even after the initial fix. **(FIXED)**
-3.  : User reports that post-game analysis is still broken and not detecting blunders. **(FIXED)**
-4.  : User complains about the UI layout. **(FIXED)**
-5.  : User calls out fake/simulated data in the Coach Memory panel. **(FIXED)**
-6.  : User approves replacing the Teaching Insights panel but demands the data be accurate and valuable. **(IMPLEMENTED)**
-7.  : User suggests replacing the useless Teaching Insights panel. **(IMPLEMENTED)**
-8.  : User gives approval to continue after the first major fix (post-game memory), reinforcing their high expectations.
-9.  : User expresses extreme frustration after the agent initially failed to properly integrate the memory service.
-10. : User correctly calls out the agent for repeating handoff summary information without verifying the code first.
+1.  ****: User directly requested the interactive board feature, noting the UI implies it but it's not functional. **(In Progress)**
+2.  ****: User specified requirements for the interactive moment: coach should play the best line, arrows should work, and feedback options should be present. **(Mostly Done, needs final polish)**
+3.  ****: User questioned the generic No special signal on the dashboard. **(Fixed)**
+4.  ****: User reported that the board on the game review page was static and broken. **(Fixed)**
+5.  ****: User asked for the memory system to be on the lab page and for mistake history to link to the specific games. **(Done)**
+6.  ****: User approved starting the 9/10 memory system implementation.
+7.  ****: User expressed extreme frustration with previous promises and demanded the memory system be built properly.
+8.  ****: User asked a technical question about the implementation approach for memory. **(Answered: No RAG needed)**
+9.  ****: User requested an honest assessment of the memory system's capabilities. **(Answered: 6.5/10, leading to the major rebuild)**
+10. **PENDING:** The user's last interaction was a request to make the critical moments board interactive, which is the current .
 
 **Project Health Check:**
--   **Broken:**
-    -   The proactive opening guidance flow is incomplete. The coach suggests exploring an opening but doesn't follow through, which is the user's current primary complaint.
--   **Mocked:**
-    -   None.
+-   **Broken:** The feedback loop for the interactive move feature in  is incomplete. A user can try a move, but the app doesn't yet confirm if it's correct or incorrect.
+-   **Mocked:** None.
 
 **3rd Party Integrations**
 -   **Stockfish:** Used via the  library for engine analysis.
 -   **OpenAI GPT-4o-mini:** Used for generating natural language explanations.
+-   **chess.js:** Used on the frontend for move validation and SAN-to-UCI conversion.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. The agent used the testing agent multiple times to verify the memory integration, quiz feature, and post-game analysis fixes.
+-   **Testing agent used after significant changes:** NO
 -   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** The testing agent created and updated numerous ============================= test session starts ==============================
-platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0
-rootdir: /app
-plugins: anyio-4.12.1, asyncio-1.3.0
-asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 1645 items / 1 error
-
-==================================== ERRORS ====================================
-__________ ERROR collecting backend/tests/test_positional_coaching.py __________
-backend/tests/test_positional_coaching.py:16: in <module>
-    raise ValueError("REACT_APP_BACKEND_URL environment variable is required")
-E   ValueError: REACT_APP_BACKEND_URL environment variable is required
-=========================== short test summary info ============================
-ERROR backend/tests/test_positional_coaching.py - ValueError: REACT_APP_BACKE...
-!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
-=============================== 1 error in 2.58s =============================== and Playwright () tests. Key tests verify the  response, the  endpoint, and the frontend rendering of the memory panel.
--   **Known regressions:** The architectural weakness of  remains a significant risk for future regressions.
+-   **Test files created:** None.
+-   **Known regressions:** None from this session.
 
 **Credentials to test flow:**
 The backend is in  and will automatically use the default test user . No login is required.
 
 **What agent forgot to execute**
--   The agent did not fully complete the proactive opening guidance feature before the session ended. While the backend and frontend work was started, it was not finished or tested.</analysis>
+The agent has implemented the UI and state for making the  board interactive but has not yet fully implemented the logic that executes *after* the user makes a move. The system does not yet provide the Correct! or Not quite, try again feedback to complete the interactive loop.</analysis>
