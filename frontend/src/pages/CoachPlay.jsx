@@ -1021,7 +1021,11 @@ const CoachPlay = ({ user }) => {
     setActiveLesson(lessonData);
     setLessonInstruction(lessonData.instruction);
     setIsInTeachingMode(true);
-    setCurrentFen(lessonData.teaching_fen);
+    
+    // Update board position - use teaching_fen which may include auto-played moves
+    if (lessonData.teaching_fen) {
+      setCurrentFen(lessonData.teaching_fen);
+    }
     setLastMove(null);
     
     // Add lesson start message to chat
@@ -1031,6 +1035,16 @@ const CoachPlay = ({ user }) => {
       message: `Let's learn the ${lessonData.lesson_name}! Follow along and play the moves.`,
       timestamp: Date.now()
     }]);
+    
+    // If coach auto-played a move, show it
+    if (lessonData.auto_played_move) {
+      setChatMessages(prev => [...prev, {
+        type: "coach",
+        trigger: "teaching",
+        message: `I played ${lessonData.auto_played_move}. Now your turn!`,
+        timestamp: Date.now()
+      }]);
+    }
     
     toast.success(`Starting lesson: ${lessonData.lesson_name}`);
   };

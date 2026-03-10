@@ -222,18 +222,55 @@ async def start_opening_lesson(
             
             trap = all_traps[0]
         
-        # Build teaching state
+        # Get current position and move history
+        current_fen = session_doc.get("current_fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        move_history = session_doc.get("move_history", [])
+        moves_played = len(move_history)
+        
+        # Figure out where we are in the trap sequence
+        # Compare moves played to trap moves to find current index
+        trap_moves = trap.moves
+        current_move_index = 0
+        on_trap_line = True
+        
+        # Match moves played to trap moves
+        for i, trap_move in enumerate(trap_moves):
+            if i < moves_played:
+                # Move history uses 'move' key, not 'san'
+                played_move = move_history[i].get("move", "") or move_history[i].get("san", "")
+                # Normalize moves for comparison (remove check/mate symbols)
+                played_normalized = played_move.replace("+", "").replace("#", "").strip()
+                trap_normalized = trap_move.replace("+", "").replace("#", "").strip()
+                if played_normalized == trap_normalized:
+                    current_move_index = i + 1
+                else:
+                    # Moves diverged from trap line
+                    on_trap_line = False
+                    logger.info(f"Moves diverged at index {i}: played={played_normalized}, expected={trap_normalized}")
+                    break
+            else:
+                break
+        
+        # If moves don't match trap line at all (even first move), this trap doesn't apply
+        if not on_trap_line and current_move_index == 0:
+            return {
+                "error": f"This trap requires starting with {trap_moves[0]}, but you played {move_history[0].get('move', '?')}. Start a new game to learn this trap, or continue playing!"
+            }
+        
+        logger.info(f"Starting trap lesson at move index {current_move_index} (moves played: {moves_played}, on_trap_line: {on_trap_line})")
+        
+        # Build teaching state - continue from current position, not reset
         teaching_data = {
             "trap_name": trap.name,
             "trap_moves": trap.moves,
-            "current_move_index": 0,
+            "current_move_index": current_move_index,
             "explanation": trap.explanation,
             "refutation": trap.refutation,
             "victim_color": trap.victim_color,
-            "user_plays_white": user_plays_white,  # Critical: know which moves are user's
-            "teaching_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",  # Start position
-            "original_fen": session_doc.get("current_fen"),  # Save to restore later
-            "original_move_history": session_doc.get("move_history", [])
+            "user_plays_white": user_plays_white,
+            "teaching_fen": current_fen,  # Keep current position!
+            "original_fen": current_fen,
+            "original_move_history": move_history
         }
         
     else:  # learn_main_line
@@ -257,19 +294,20 @@ async def start_opening_lesson(
             "original_move_history": session_doc.get("move_history", [])
         }
     
-    # Update session to teaching mode
+    # Update session to teaching mode - DON'T reset FEN, keep current position
     await db.coach_sessions.update_one(
         {"session_id": session_id},
         {"$set": {
             "teaching_mode": mode,
             "teaching_opening": opening_key,
-            "teaching_data": teaching_data,
-            "current_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+            "teaching_data": teaching_data
+            # Note: current_fen is NOT reset - we continue from current position
         }}
     )
     
-    # Get first teaching instruction
-    first_instruction = _get_teaching_instruction(teaching_data, mode, 0)
+    # Get teaching instruction for current position
+    current_idx = teaching_data.get("current_move_index", 0)
+    first_instruction = _get_teaching_instruction(teaching_data, mode, current_idx)
     
     result = {
         "success": True,
@@ -277,20 +315,22 @@ async def start_opening_lesson(
         "opening_name": opening.name,
         "lesson_name": teaching_data.get("trap_name") or teaching_data.get("variation_name"),
         "total_moves": len(teaching_data.get("trap_moves", teaching_data.get("main_line_moves", []))),
+        "current_move_index": current_idx,
         "instruction": first_instruction,
         "teaching_fen": teaching_data["teaching_fen"],
         "key_ideas": teaching_data.get("key_ideas", []),
         "user_plays_white": user_plays_white
     }
     
-    # If first move is coach's move (user plays black), auto-play it
+    # If current move is coach's move, auto-play it
     if not first_instruction.get("is_user_move") and not first_instruction.get("complete"):
-        # Auto-play the coach's first move
-        auto_result = await _auto_play_teaching_move(db, session_id, teaching_data, mode, 0)
+        # Auto-play the coach's move
+        auto_result = await _auto_play_teaching_move(db, session_id, teaching_data, mode, current_idx)
         if auto_result.get("auto_played"):
-            result["auto_played_first_move"] = auto_result.get("move_played")
+            result["auto_played_move"] = auto_result.get("move_played")
             result["instruction"] = auto_result.get("next_instruction")
             result["teaching_fen"] = auto_result.get("teaching_fen")
+            result["current_move_index"] = auto_result.get("new_move_index", current_idx + 1)
     
     return result
 
@@ -457,7 +497,11 @@ async def _auto_play_teaching_move(db, session_id: str, teaching_data: Dict, mod
         return await _complete_teaching(db, session_id, teaching_data)
     
     move = moves[move_index]
-    current_fen = teaching_data.get("teaching_fen")
+    
+    # Get current FEN from database (most up-to-date)
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    current_fen = session_doc.get("current_fen") if session_doc else teaching_data.get("teaching_fen")
+    
     board = chess.Board(current_fen)
     
     try:
@@ -491,6 +535,7 @@ async def _auto_play_teaching_move(db, session_id: str, teaching_data: Dict, mod
     return {
         "auto_played": True,
         "move_played": move,
+        "new_move_index": new_index,
         "message": f"I played {move}. Now your turn!",
         "next_instruction": next_instruction,
         "teaching_fen": new_fen,

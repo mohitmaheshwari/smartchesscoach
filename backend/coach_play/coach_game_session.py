@@ -392,7 +392,7 @@ async def get_session_state(
     # Check for opening teaching guidance
     opening_guidance = None
     if session_doc.get("opening_teaching_active"):
-        from services.opening_mastery import get_move_guidance
+        from services.opening_mastery import get_move_guidance, OPENING_DATABASE
         
         opening_key = session_doc.get("opening_to_teach")
         teaching_index = session_doc.get("opening_teaching_index", 0)
@@ -401,14 +401,36 @@ async def get_session_state(
         
         if opening_key:
             guidance = get_move_guidance(opening_key, teaching_index, session.user_color)
+            
+            # Check if moves played match the trap line (only show trap if on correct line)
+            trap_valid = False
+            if suggested_trap and session.move_history:
+                opening = OPENING_DATABASE.get(opening_key)
+                if opening:
+                    # Find the trap
+                    trap_moves = suggested_trap.get("moves", [])
+                    if trap_moves:
+                        trap_valid = True
+                        for i, trap_move in enumerate(trap_moves):
+                            if i < len(session.move_history):
+                                played = session.move_history[i].get("move", "")
+                                if played.replace("+", "").replace("#", "") != trap_move.replace("+", "").replace("#", ""):
+                                    trap_valid = False
+                                    break
+                            else:
+                                break
+            elif suggested_trap and not session.move_history:
+                # No moves yet - trap is still valid
+                trap_valid = True
+            
             if guidance:
                 opening_guidance = {
                     "opening_key": opening_key,
                     "teaching_active": True,
                     "move_index": teaching_index,
                     "guidance": guidance,
-                    "suggested_trap": suggested_trap,
-                    "available_traps": available_traps
+                    "suggested_trap": suggested_trap if trap_valid else None,  # Only include if valid
+                    "available_traps": available_traps if trap_valid else []
                 }
     
     return {
