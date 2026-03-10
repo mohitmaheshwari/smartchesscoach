@@ -148,6 +148,40 @@ A hyper-personalized, data-driven chess coaching application that moves beyond g
   - `GET /api/coach/identity/insight` - Human-readable insight
   - `GET /api/coach/identity/summary` - **NEW** Summarized trajectory for UI display
 - **New collection**: `identity_snapshots` - Stores periodic identity snapshots with rich metrics
+
+### 12. Deep Memory System (9/10) ✅ (NEW - March 2026)
+- **Created**: `services/player_identity.py` - Comprehensive player memory system
+- **Created**: `services/memory_injection.py` - Ensures memory is ALWAYS injected into coaching prompts
+- **Created**: `components/DeepMemoryPanel.jsx` - Frontend component to display memory with clickable game links
+- **New API Endpoints**:
+  - `GET /api/coach/deep-memory` - Full PlayerIdentity document with summary
+  - `GET /api/coach/deep-memory/blunder-profile` - Detailed blunder taxonomy
+  - `GET /api/coach/deep-memory/style` - Playing style profile
+  - `GET /api/coach/deep-memory/behavioral` - Behavioral patterns (tilt, time management)
+  - `GET /api/coach/deep-memory/pattern-history` - Pattern history with clickable game references
+  - `POST /api/coach/deep-memory/reset` - Reset memory for fresh start
+- **New MongoDB Collection**: `player_identities` - Stores comprehensive player profiles
+- **7 Memory Pillars**:
+  1. **BlunderTaxonomy**: Tracks blunders by type (missed_fork, hanging_piece, impulse_move, etc.), phase, piece, and context (winning/losing/equal)
+  2. **StyleProfile**: Aggression score, positional score, opening preferences, piece preferences, endgame comfort
+  3. **BehavioralProfile**: Tilt triggers, time management patterns, post-blunder behavior
+  4. **OpeningRepertoire**: Tracked openings, win rates, traps known/fell for
+  5. **LearningVelocity**: Pattern gaps, improving/stagnant/worsening areas
+  6. **PatternHistory**: Exact game references for "remember when..." coaching (with game_id, move_number, opponent, date)
+  7. **BlunderRecord**: Detailed record of each blunder
+- **Frontend Features**:
+  - Memory tab in Lab page (Game Review)
+  - Compact view in Coach Play page
+  - **Clickable mistake history** - Each pattern links to specific game and move
+  - Grouped "Mistakes by Type" badges
+  - Trend indicators (improving/worsening)
+  - Tilt warnings and winning streak celebrations
+- **Integration Points**:
+  - `generate_response_to_user()` now injects memory context
+  - `postgame_analysis` saves to PlayerIdentity after each game
+  - Memory injection service provides formatted text for LLM prompts
+
+
 - **Features**:
   - Automatic snapshots every 7 days (if 5+ new games)
   - Change detection between snapshots

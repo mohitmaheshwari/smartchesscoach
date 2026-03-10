@@ -41,7 +41,8 @@ import {
   Zap,
   BookOpen,
   MessageSquare,
-  ChevronDown
+  ChevronDown,
+  History
 } from "lucide-react";
 
 // Import new coach-style components
@@ -399,7 +400,7 @@ const LabV2 = ({ user }) => {
           <div className="w-[45%] flex flex-col overflow-hidden">
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="grid w-full grid-cols-4 rounded-none border-b shrink-0">
+              <TabsList className="grid w-full grid-cols-5 rounded-none border-b shrink-0">
                 <TabsTrigger value="summary" className="gap-1.5 text-xs">
                   <BookOpen className="w-3.5 h-3.5" />
                   Summary
@@ -417,7 +418,7 @@ const LabV2 = ({ user }) => {
                   Habits
                 </TabsTrigger>
                 <TabsTrigger value="memory" className="gap-1.5 text-xs">
-                  <Brain className="w-3.5 h-3.5" />
+                  <History className="w-3.5 h-3.5" />
                   Memory
                 </TabsTrigger>
               </TabsList>
