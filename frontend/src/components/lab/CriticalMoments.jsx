@@ -38,6 +38,7 @@ const CriticalMoments = ({
   userColor,
   onNavigateToMove,
   onFeedback,
+  onPlayBestLine, // NEW: Callback to play the best line
   gameId
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -246,10 +247,29 @@ const CriticalMoments = ({
                         Best Move
                       </span>
                     </div>
+                    {/* Play Best Line Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onPlayBestLine?.(moment)}
+                      className="text-emerald-400 hover:text-emerald-300 gap-1"
+                    >
+                      <Play className="w-3 h-3" />
+                      Play Line
+                    </Button>
                   </div>
                   <p className="text-xl font-bold text-emerald-400 mb-2">
                     {moment.best_move}
                   </p>
+                  
+                  {/* Show best line if available */}
+                  {(moment.pv_after_best || moment.best_line) && (
+                    <p className="text-xs text-emerald-300/70 mb-2 font-mono">
+                      {moment.best_move} {Array.isArray(moment.pv_after_best) 
+                        ? moment.pv_after_best.slice(0, 5).join(' ')
+                        : moment.best_line?.split(' ').slice(0, 5).join(' ')}
+                    </p>
+                  )}
                   
                   {/* Why it works */}
                   {insight.what_best_move_achieves && (

@@ -102,7 +102,10 @@ const LabV2 = ({ user }) => {
   const [boardOrientation, setBoardOrientation] = useState("white");
   const [lastMoveSquares, setLastMoveSquares] = useState({});
   const [isPlaying, setIsPlaying] = useState(false);
-  const [boardArrows, setBoardArrows] = useState([]); // NEW: Arrows for the board
+  const [boardArrows, setBoardArrows] = useState([]); // Arrows for the board
+  const [isPlayingBestLine, setIsPlayingBestLine] = useState(false); // Auto-playing best line
+  const [bestLineIndex, setBestLineIndex] = useState(0); // Current position in best line
+  const [currentBestLine, setCurrentBestLine] = useState(null); // Current best line being played
   
   // UI states
   const [activeTab, setActiveTab] = useState("summary");
@@ -266,7 +269,92 @@ const LabV2 = ({ user }) => {
     setBoardArrows(newArrows);
   };
   
-  // Auto-play
+  // Play Best Line - Shows the continuation after the best move
+  const playBestLine = (moment) => {
+    if (!moment || !moment.fen || !moment.best_move) {
+      return;
+    }
+    
+    try {
+      const chess = new Chess(moment.fen);
+      const lineMoves = [];
+      const lineFens = [moment.fen];
+      
+      // First, play the best move
+      const bestMove = chess.move(moment.best_move, { sloppy: true });
+      if (bestMove) {
+        lineMoves.push({ san: moment.best_move, from: bestMove.from, to: bestMove.to });
+        lineFens.push(chess.fen());
+      } else {
+        console.log("Could not play best move:", moment.best_move);
+        return;
+      }
+      
+      // Then play the PV continuation if available
+      const pvLine = moment.pv_after_best || moment.best_line?.split(/\s+/) || [];
+      
+      for (const moveStr of pvLine.slice(0, 5)) { // Limit to 5 more moves
+        try {
+          const move = chess.move(moveStr, { sloppy: true });
+          if (move) {
+            lineMoves.push({ san: moveStr, from: move.from, to: move.to });
+            lineFens.push(chess.fen());
+          } else {
+            break;
+          }
+        } catch {
+          break;
+        }
+      }
+      
+      if (lineMoves.length > 0) {
+        setCurrentBestLine({
+          startFen: moment.fen,
+          moves: lineMoves,
+          fens: lineFens
+        });
+        setBestLineIndex(0);
+        setIsPlayingBestLine(true);
+        // Clear arrows while playing line
+        setBoardArrows([]);
+      }
+    } catch (e) {
+      console.log("Could not parse best line:", e);
+    }
+  };
+  
+  // Auto-play best line
+  useEffect(() => {
+    if (!isPlayingBestLine || !currentBestLine) return;
+    
+    const interval = setInterval(() => {
+      setBestLineIndex(prev => {
+        if (prev >= currentBestLine.fens.length - 1) {
+          // Keep showing the final position for 2 seconds, then reset
+          setTimeout(() => {
+            setIsPlayingBestLine(false);
+            setCurrentBestLine(null);
+          }, 2000);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 1200);
+    
+    return () => clearInterval(interval);
+  }, [isPlayingBestLine, currentBestLine]);
+  
+  // Get the current FEN - either from best line or from game
+  const displayFen = isPlayingBestLine && currentBestLine 
+    ? currentBestLine.fens[bestLineIndex]
+    : currentFen;
+  
+  // Get the last move for highlighting
+  const displayLastMove = isPlayingBestLine && currentBestLine && bestLineIndex > 0
+    ? [currentBestLine.moves[bestLineIndex - 1].from, currentBestLine.moves[bestLineIndex - 1].to]
+    : (currentMoveIndex >= 0 && moves[currentMoveIndex] ? [moves[currentMoveIndex].from, moves[currentMoveIndex].to] : null);
+  
+  // Auto-play game review
   useEffect(() => {
     if (!isPlaying) return;
     
@@ -348,14 +436,20 @@ const LabV2 = ({ user }) => {
           <div className="w-[55%] flex flex-col border-r border-border">
             {/* Board */}
             <div className="flex-1 flex items-center justify-center p-4">
-              <div className="w-full max-w-[560px] aspect-square">
+              <div className="w-full max-w-[560px] aspect-square relative">
                 <LichessBoard
-                  fen={currentFen}
+                  fen={displayFen}
                   orientation={boardOrientation}
                   viewOnly={true}
-                  lastMove={currentMoveIndex >= 0 && moves[currentMoveIndex] ? [moves[currentMoveIndex].from, moves[currentMoveIndex].to] : null}
+                  lastMove={displayLastMove}
                   arrows={boardArrows}
                 />
+                {/* Best Line indicator */}
+                {isPlayingBestLine && currentBestLine && (
+                  <div className="absolute top-2 left-2 bg-emerald-600/90 text-white px-3 py-1 rounded text-sm font-medium">
+                    Best line: {bestLineIndex}/{currentBestLine.fens.length - 1}
+                  </div>
+                )}
               </div>
             </div>
             
@@ -478,6 +572,7 @@ const LabV2 = ({ user }) => {
                       userColor={userColor}
                       onNavigateToMove={navigateToMoveNumber}
                       onFeedback={handleFeedback}
+                      onPlayBestLine={playBestLine}
                       gameId={gameId}
                     />
                   )}
