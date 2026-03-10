@@ -883,3 +883,49 @@ Plain, simple, direct Indian-English
 *Last updated: March 2026*
 *Status: PROACTIVE OPENING GUIDANCE WITH TRAPS ACTIVE*
 
+### 33. Intelligent Opening Suggestion System (March 2026) ✅
+**Coach now makes SMART opening choices - no repetition, uses real game data**
+
+- **Problem**: Coach was suggesting the same opening repeatedly and not considering user's actual game performance.
+
+- **Solution**: Complete rewrite of `suggest_opening_for_session()` with intelligent priority scoring:
+
+1. **Anti-Repetition**:
+   - Tracks last 5 taught openings from `coach_sessions` collection
+   - Strong penalty (-100 to -200) for recently taught openings
+   - Ensures variety in learning
+
+2. **Color-Appropriate Suggestions**:
+   - White player gets: Italian Game, Ruy Lopez, London System, Queen's Gambit, etc.
+   - Black player gets: Sicilian Defense, French Defense, Caro-Kann, etc.
+   - Based on first move analysis and opening name patterns
+
+3. **Real Game Stats Integration**:
+   - Calls `get_user_opening_stats()` from opening_trainer_service
+   - Gets actual win rate, games played, accuracy from user's Chess.com/Lichess games
+   - Prioritizes openings where user is struggling (low win rate = high priority)
+
+4. **Priority Scoring Algorithm**:
+   - `+50` for unknown openings (new learning opportunity)
+   - `+60` for openings with <40% win rate in real games (needs help!)
+   - `+35` for applied but never won (need to fix this)
+   - `-100 to -200` for recently taught (avoid repetition)
+   - `+15` for openings with unlearned traps (bonus content)
+
+5. **Personalized Messages**:
+   - "I see you've been struggling with the French Defense in your real games (35% win rate). Let's work on that!"
+   - "You've practiced this but haven't used it in real games yet"
+   - "Your Queen's Gambit could use some work - you're at 40% win rate"
+
+- **Files Modified**:
+   - `backend/services/opening_mastery.py` - Complete rewrite of `suggest_opening_for_session()`
+
+- **Test Coverage**: 32 tests (20 backend + 12 frontend) - 100% pass
+- **Test Evidence**:
+   - Anti-repetition: First game → philidor_defense, Second game → italian_game
+   - Black player: Correctly received sicilian_defense
+
+---
+*Last updated: March 2026*
+*Status: INTELLIGENT OPENING SUGGESTION SYSTEM ACTIVE - NO REPETITION, USES REAL GAME DATA*
+
