@@ -410,19 +410,43 @@ async def _check_habits_with_memory(
     
     # Check for blunders when winning (overconfidence)
     winning_blunders = 0
+    
+    # Build eval lookup by move SAN
+    eval_by_san = {ev.get("move", ""): ev for ev in evaluations if ev.get("move")}
+    
     for i, move in enumerate(move_history):
-        if move.get("by") == "player":
-            eval_before = move.get("eval_before", 0)
-            eval_after = move.get("eval_after", 0)
-            
-            # Normalize for color
-            if user_color == "black":
-                eval_before = -eval_before
-                eval_after = -eval_after
-            
-            # Was winning (>1.5) but made a big mistake
-            if eval_before > 1.5 and (eval_before - eval_after) > 1.5:
-                winning_blunders += 1
+        move_san = move.get("move", "")
+        
+        # Determine if this is user's move
+        is_white_move = (i % 2 == 0)
+        is_user_move = (is_white_move and user_color == "white") or (not is_white_move and user_color == "black")
+        
+        if not is_user_move:
+            continue
+        
+        # Get evaluation
+        eval_before = 0
+        eval_after = 0
+        
+        if move_san in eval_by_san:
+            ev = eval_by_san[move_san]
+            eval_before = ev.get("eval_before") or 0
+            eval_after = ev.get("eval_after") or 0
+        elif move.get("eval_before") is not None:
+            eval_before = move.get("eval_before") or 0
+            eval_after = move.get("eval_after") or 0
+        
+        if eval_before == 0 and eval_after == 0:
+            continue
+        
+        # Evals are already from user's perspective
+        # For user's advantage: positive eval is good
+        user_advantage_before = eval_before
+        user_advantage_after = eval_after
+        
+        # Was user winning (>1.5) but made a big mistake (lost >1.5)?
+        if user_advantage_before > 1.5 and (user_advantage_before - user_advantage_after) > 1.5:
+            winning_blunders += 1
     
     if winning_blunders > 0:
         violations.append(HabitViolation(
@@ -478,38 +502,53 @@ async def _analyze_mistakes(
     """Analyze all mistakes in the game using stored evaluations."""
     mistakes = []
     
-    # Build evaluation lookup
+    # Build evaluation lookup by actual move SAN
     eval_by_move = {}
     for ev in evaluations:
-        if ev.get("by") == "player":
-            eval_by_move[ev.get("move_number")] = ev
+        move_san = ev.get("move", "")
+        eval_by_move[move_san] = ev
     
-    # Check each player move
+    # Check each move in history
+    player_move_count = 0
     for i, move in enumerate(move_history):
-        if move.get("by") != "player":
+        move_san = move.get("move", "")
+        
+        # Determine if this is user's move based on position in game and user color
+        # In a standard game: move 0 = White, move 1 = Black, move 2 = White, etc.
+        is_white_move = (i % 2 == 0)
+        is_user_move = (is_white_move and user_color == "white") or (not is_white_move and user_color == "black")
+        
+        if not is_user_move:
             continue
         
-        eval_before = move.get("eval_before", 0)
-        eval_after = move.get("eval_after", 0)
+        player_move_count += 1
         
-        # Also check evaluations list
-        move_num = (i // 2) + 1
-        if eval_before == 0 and eval_after == 0 and move_num in eval_by_move:
-            ev = eval_by_move[move_num]
-            eval_before = ev.get("eval_before", 0)
-            eval_after = ev.get("eval_after", 0)
+        # Get evaluation data
+        eval_before = 0
+        eval_after = 0
+        best_move = None
+        
+        # First try direct lookup by move SAN
+        if move_san in eval_by_move:
+            ev = eval_by_move[move_san]
+            eval_before = ev.get("eval_before") or 0
+            eval_after = ev.get("eval_after") or 0
+            best_move = ev.get("best_move")
+        # Fallback to move_history eval data
+        elif move.get("eval_before") is not None:
+            eval_before = move.get("eval_before") or 0
+            eval_after = move.get("eval_after") or 0
+            best_move = move.get("best_move")
         
         if eval_before == 0 and eval_after == 0:
             continue
         
-        # Normalize for black
-        if user_color == "black":
-            eval_before = -eval_before
-            eval_after = -eval_after
-        
+        # Calculate eval change FROM USER'S PERSPECTIVE
+        # The stored evals are ALREADY from user's perspective (due to flip in coach_commentary)
+        # So for both colors: negative change = lost advantage
         eval_change = eval_after - eval_before
         
-        # Classify mistake
+        # Classify mistake (eval_change < 0 means user lost advantage)
         if eval_change < -2.0:
             mistake_type = MistakeType.BLUNDER
             severity = "critical"
@@ -525,15 +564,13 @@ async def _analyze_mistakes(
         else:
             continue
         
-        better_move = move.get("best_move")
-        
         mistakes.append(MistakeAnalysis(
-            move_number=(i // 2) + 1,
-            move_played=move.get("move", "?"),
+            move_number=player_move_count,
+            move_played=move_san,
             mistake_type=mistake_type,
             severity=severity,
             explanation=explanation,
-            better_move=better_move,
+            better_move=best_move,
             evaluation_change=eval_change,
             fen_before=move.get("fen_before", "")
         ))
