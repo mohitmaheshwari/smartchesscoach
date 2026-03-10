@@ -175,7 +175,8 @@ async def start_opening_lesson(
     if not session_doc:
         return {"error": "Session not found"}
     
-    opening_key = session_doc.get("detected_opening")
+    # Check for opening - either detected during play OR proactively set at game start
+    opening_key = session_doc.get("detected_opening") or session_doc.get("opening_to_teach")
     if not opening_key:
         return {"error": "No opening detected"}
     
@@ -195,16 +196,31 @@ async def start_opening_lesson(
         result = teacher.start_trap_teaching()
         mode = "trap"
         
-        # For trap teaching, we start from a specific position
-        # Get the trap's setup moves
-        all_traps = []
-        for var in opening.variations:
-            all_traps.extend(var.traps)
+        # For trap teaching, use suggested_trap if available, else pick first trap
+        suggested_trap = session_doc.get("suggested_trap")
+        trap = None
         
-        if not all_traps:
-            return {"error": "No traps available"}
+        if suggested_trap and suggested_trap.get("name"):
+            # Find the trap by name from the opening
+            trap_name = suggested_trap.get("name")
+            for var in opening.variations:
+                for t in var.traps:
+                    if t.name == trap_name:
+                        trap = t
+                        break
+                if trap:
+                    break
         
-        trap = all_traps[0]
+        # Fallback to first trap if suggested not found
+        if not trap:
+            all_traps = []
+            for var in opening.variations:
+                all_traps.extend(var.traps)
+            
+            if not all_traps:
+                return {"error": "No traps available"}
+            
+            trap = all_traps[0]
         
         # Build teaching state
         teaching_data = {
