@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Chess } from "chess.js";
 import {
   Eye,
   EyeOff,
@@ -74,9 +75,41 @@ const CriticalMoments = ({
   
   const handleReveal = () => {
     setRevealed(prev => ({ ...prev, [currentIndex]: true }));
-    // Navigate to the position on the board
+    // Navigate to the position on the board with arrows
     if (onNavigateToMove) {
-      onNavigateToMove(moment.move_number);
+      // Convert SAN to UCI for arrows using the FEN position
+      let yourMoveUci = null;
+      let bestMoveUci = null;
+      
+      try {
+        const chess = new Chess(moment.fen);
+        
+        // Convert best move to UCI
+        if (moment.best_move) {
+          const bestMove = chess.move(moment.best_move, { sloppy: true });
+          if (bestMove) {
+            bestMoveUci = bestMove.from + bestMove.to;
+            chess.undo(); // Undo the move
+          }
+        }
+        
+        // Convert your move to UCI
+        if (moment.your_move) {
+          const yourMove = chess.move(moment.your_move, { sloppy: true });
+          if (yourMove) {
+            yourMoveUci = yourMove.from + yourMove.to;
+          }
+        }
+      } catch (e) {
+        console.log("Could not convert moves to UCI:", e);
+      }
+      
+      // Pass move number, your move (red arrow), and best move (green arrow)
+      onNavigateToMove(
+        moment.move_number,
+        yourMoveUci,  // UCI for red arrow
+        bestMoveUci   // UCI for green arrow
+      );
     }
   };
   

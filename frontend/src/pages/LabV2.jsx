@@ -102,6 +102,7 @@ const LabV2 = ({ user }) => {
   const [boardOrientation, setBoardOrientation] = useState("white");
   const [lastMoveSquares, setLastMoveSquares] = useState({});
   const [isPlaying, setIsPlaying] = useState(false);
+  const [boardArrows, setBoardArrows] = useState([]); // NEW: Arrows for the board
   
   // UI states
   const [activeTab, setActiveTab] = useState("summary");
@@ -226,9 +227,12 @@ const LabV2 = ({ user }) => {
   }, [currentMoveIndex, allFens, moves]);
   
   // Navigation functions
-  const goToMove = (index) => {
+  const goToMove = (index, clearArrows = true) => {
     setCurrentMoveIndex(Math.max(-1, Math.min(index, moves.length - 1)));
     setIsPlaying(false);
+    if (clearArrows) {
+      setBoardArrows([]); // Clear arrows on manual navigation
+    }
   };
   
   const goToStart = () => goToMove(-1);
@@ -236,14 +240,30 @@ const LabV2 = ({ user }) => {
   const goToPrev = () => goToMove(currentMoveIndex - 1);
   const goToNext = () => goToMove(currentMoveIndex + 1);
   
-  // Navigate to a specific move number (from critical moments)
-  const navigateToMoveNumber = (moveNum) => {
+  // Navigate to a specific move number (from critical moments) with optional arrows
+  const navigateToMoveNumber = (moveNum, yourMove = null, bestMove = null) => {
     // Move number to index: move 24 by white = index 46-47 area
     // For white moves: (moveNum - 1) * 2
     // For black moves: (moveNum - 1) * 2 + 1
     const baseIndex = (moveNum - 1) * 2;
     const targetIndex = userColor === "black" ? baseIndex + 1 : baseIndex;
-    goToMove(Math.min(targetIndex, moves.length - 1));
+    goToMove(Math.min(targetIndex, moves.length - 1), false); // Don't clear arrows
+    
+    // Set arrows if moves are provided
+    const newArrows = [];
+    if (yourMove && yourMove.length >= 4) {
+      // Red arrow for user's move
+      const from = yourMove.substring(0, 2);
+      const to = yourMove.substring(2, 4);
+      newArrows.push([from, to, "red"]);
+    }
+    if (bestMove && bestMove.length >= 4) {
+      // Green arrow for best move
+      const from = bestMove.substring(0, 2);
+      const to = bestMove.substring(2, 4);
+      newArrows.push([from, to, "green"]);
+    }
+    setBoardArrows(newArrows);
   };
   
   // Auto-play
@@ -330,9 +350,11 @@ const LabV2 = ({ user }) => {
             <div className="flex-1 flex items-center justify-center p-4">
               <div className="w-full max-w-[560px] aspect-square">
                 <LichessBoard
-                  position={positionObject}
+                  fen={currentFen}
                   orientation={boardOrientation}
-                  customSquareStyles={lastMoveSquares}
+                  viewOnly={true}
+                  lastMove={currentMoveIndex >= 0 && moves[currentMoveIndex] ? [moves[currentMoveIndex].from, moves[currentMoveIndex].to] : null}
+                  arrows={boardArrows}
                 />
               </div>
             </div>
