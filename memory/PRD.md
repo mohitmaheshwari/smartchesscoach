@@ -929,3 +929,49 @@ Plain, simple, direct Indian-English
 *Last updated: March 2026*
 *Status: INTELLIGENT OPENING SUGGESTION SYSTEM ACTIVE - NO REPETITION, USES REAL GAME DATA*
 
+### 34. Frontend Refactoring & Lab Integration (March 2026) ✅
+**Code organization + Opening Progress in Lab + Loss Phase Tracking**
+
+**Step 1: Frontend Refactoring - OpeningGuidePanel Extraction**
+- Extracted `OpeningGuidePanel.jsx` from `CoachPlay.jsx` (140 lines)
+- Component handles: suggested moves, trap options (Learn/Skip), completion status
+- No logic changes - pure code organization for maintainability
+- Files: `/app/frontend/src/components/coach/OpeningGuidePanel.jsx`
+
+**Step 2: Connect Teaching Progress to Lab Page**
+- Added **Opening Progress** section to Habits tab in LabV2
+- Shows: mastery levels, game counts, win rates, "needs work" indicators
+- New endpoint: `GET /api/training/opening-progress`
+- Combines coach lesson progress + real game stats from Chess.com/Lichess
+- Expandable list with "Show All (X)" button
+- Files: `/app/frontend/src/components/lab/HabitsToImprove.jsx`
+
+**Step 3: Track WHY User Loses - Loss Phase Tracking**
+- Added `loss_phase` parameter to `update_memory_after_game()`
+- Tracks: opening, middlegame, endgame phase at time of loss
+- Stored in `user_opening_progress.loss_phases` (e.g., `{opening: 2, middlegame: 5}`)
+- `dominant_loss_phase` calculated to show where user struggles most
+- UI displays "Loses in middlegame" under opening name
+
+**API Response** (`GET /api/training/opening-progress`):
+```json
+{
+  "progress": [{
+    "opening_name": "Italian Game",
+    "mastery_level": "learning",
+    "real_win_rate": 35,
+    "loss_phases": {"middlegame": 3, "endgame": 1},
+    "dominant_loss_phase": "middlegame",
+    "needs_work": true
+  }],
+  "total_taught": 4,
+  "needs_attention": 2
+}
+```
+
+**Test Coverage**: 27 tests (20 backend + 7 frontend) - 100% pass
+
+---
+*Last updated: March 2026*
+*Status: ALL THREE ENHANCEMENTS COMPLETE - REFACTORING, LAB INTEGRATION, LOSS PHASE TRACKING*
+
