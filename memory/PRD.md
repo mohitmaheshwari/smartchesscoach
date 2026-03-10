@@ -975,3 +975,19 @@ Plain, simple, direct Indian-English
 *Last updated: March 2026*
 *Status: ALL THREE ENHANCEMENTS COMPLETE - REFACTORING, LAB INTEGRATION, LOSS PHASE TRACKING*
 
+### 35. UI Fixes - Opening Guide Position & Responsive Board (March 2026) ✅
+
+**Issues Fixed:**
+1. **Opening Guide moved to Chat panel (RIGHT side)** - Was appearing at bottom below board
+2. **Board made responsive** - Now uses `max-w-[min(550px,calc(100vh-180px),calc(100vw-450px))]`
+3. **Compact info bars** - Reduced padding/margin to fit on smaller screens
+
+**Changes:**
+- `CoachPlay.jsx`: Opening Guide panel now renders in chat area after CoachMemoryPanel
+- `CoachPlay.jsx`: Board size now responsive to both viewport height AND width
+- Info bars made more compact (p-2 instead of p-3)
+
+---
+*Last updated: March 2026*
+*Status: ALL UI ISSUES FIXED - OPENING GUIDE IN CHAT, RESPONSIVE BOARD*
+

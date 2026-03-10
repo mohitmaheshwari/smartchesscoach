@@ -1361,18 +1361,18 @@ const CoachPlay = ({ user }) => {
     <Layout user={user}>
       <div className="h-[calc(100vh-80px)] flex" data-testid="coach-play-game">
         {/* Left: Board + Eval Bar */}
-        <div className="flex-1 flex flex-col items-center justify-center p-4">
-          <div className="w-full max-w-[600px]">
+        <div className="flex-1 flex flex-col items-center p-2 md:p-4 overflow-auto">
+          <div className="w-full max-w-[min(550px,calc(100vh-180px),calc(100vw-450px))]">
             {/* Coach info bar */}
-            <div className="flex items-center justify-between mb-3 p-3 rounded-lg bg-muted/50">
+            <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-muted/50 text-sm">
               <div className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-primary" />
+                <Brain className="w-4 h-4 text-primary" />
                 <span className="font-medium">Coach</span>
                 <Badge variant="secondary" className="text-xs">
-                  Level {session?.coach_skill_level || 8}
+                  Lvl {session?.coach_skill_level || 8}
                 </Badge>
               </div>
-              <Badge variant="outline">
+              <Badge variant="outline" className="text-xs">
                 <Clock className="w-3 h-3 mr-1" />
                 {Math.floor((session?.coach_time_remaining || 900) / 60)}:
                 {String(Math.floor((session?.coach_time_remaining || 900) % 60)).padStart(2, "0")}
@@ -1382,7 +1382,7 @@ const CoachPlay = ({ user }) => {
             {/* Eval Bar + Board in same row */}
             <div className="flex gap-2 items-stretch">
               {/* Eval Bar - wider to fit text like -10.0 */}
-              <div className="w-10 shrink-0">
+              <div className="w-8 md:w-10 shrink-0">
                 <EvalBar 
                   evaluation={evaluation} 
                   userColor={selectedColor}
@@ -1390,7 +1390,7 @@ const CoachPlay = ({ user }) => {
                 />
               </div>
               
-              {/* Chessboard - square aspect ratio, this sets the row height */}
+              {/* Chessboard - responsive square */}
               <div className="flex-1 rounded-lg overflow-hidden aspect-square" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
                 <LichessBoard
                   ref={boardRef}
@@ -1410,31 +1410,22 @@ const CoachPlay = ({ user }) => {
             </div>
 
             {/* Player info bar */}
-            <div className="flex items-center justify-between mt-3 p-3 rounded-lg bg-muted/50">
+            <div className="flex items-center justify-between mt-2 p-2 rounded-lg bg-muted/50 text-sm">
               <div className="flex items-center gap-2">
                 <div className={`w-4 h-4 rounded-full ${selectedColor === "white" ? "bg-white border" : "bg-gray-900"}`} />
                 <span className="font-medium">You</span>
                 {isPlayerTurn && !gameOver && (
-                  <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
+                  <Badge className="bg-green-500/20 text-green-500 border-green-500/30 text-xs">
                     Your turn
                   </Badge>
                 )}
               </div>
-              <Badge variant="outline">
+              <Badge variant="outline" className="text-xs">
                 <Clock className="w-3 h-3 mr-1" />
                 {Math.floor((session?.user_time_remaining || 900) / 60)}:
                 {String(Math.floor((session?.user_time_remaining || 900) % 60)).padStart(2, "0")}
               </Badge>
             </div>
-
-            {/* Opening Guidance - Shows during opening teaching */}
-            <OpeningGuidePanel
-              openingGuidance={openingGuidance}
-              activeLesson={activeLesson}
-              sessionId={session?.session_id}
-              onStartLesson={handleStartLesson}
-              onSkipTrap={() => setOpeningGuidance(prev => ({ ...prev, suggested_trap: null }))}
-            />
 
             {/* Controls */}
             <div className="flex items-center justify-center gap-2 mt-4">
@@ -1597,6 +1588,19 @@ const CoachPlay = ({ user }) => {
           {session && !gameOver && (
             <div className="p-4 border-b border-border">
               <CoachMemoryPanel sessionId={session.session_id} />
+            </div>
+          )}
+          
+          {/* Opening Guidance Panel - Shows during opening teaching (RIGHT SIDE - in chat area) */}
+          {session && !gameOver && openingGuidance?.teaching_active && openingGuidance.guidance && (
+            <div className="px-4 pb-4 border-b border-border">
+              <OpeningGuidePanel
+                openingGuidance={openingGuidance}
+                activeLesson={activeLesson}
+                sessionId={session?.session_id}
+                onStartLesson={handleStartLesson}
+                onSkipTrap={() => setOpeningGuidance(prev => ({ ...prev, suggested_trap: null }))}
+              />
             </div>
           )}
           
