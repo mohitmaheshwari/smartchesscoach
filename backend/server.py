@@ -11312,12 +11312,35 @@ async def get_breakthrough_signal(
         
         # Count blunders and mistakes from move evaluations
         move_evals = sf.get("move_evaluations", [])
-        blunders = sum(1 for m in move_evals if m.get("is_blunder") and m.get("is_user_move"))
-        mistakes = sum(1 for m in move_evals if m.get("is_mistake") and m.get("is_user_move"))
         
-        # Get average cp_loss
-        user_moves = [m for m in move_evals if m.get("is_user_move")]
-        avg_cp = sum(m.get("cp_loss", 0) for m in user_moves) / max(len(user_moves), 1)
+        # Determine which moves are user's based on user_color
+        user_color = analysis.get("user_color", "white")
+        
+        blunders = 0
+        mistakes = 0
+        total_cp_loss = 0
+        user_move_count = 0
+        
+        for i, m in enumerate(move_evals):
+            # Determine if this is user's move based on move number parity
+            # White plays on odd move numbers (1, 3, 5...), Black on even (2, 4, 6...)
+            move_num = m.get("move_number", i + 1)
+            is_user_move = (user_color == "white" and move_num % 2 == 1) or \
+                          (user_color == "black" and move_num % 2 == 0)
+            
+            if is_user_move:
+                cp_loss = m.get("cp_loss", 0)
+                total_cp_loss += cp_loss
+                user_move_count += 1
+                
+                # Classify based on cp_loss thresholds
+                if cp_loss >= 200:  # Blunder
+                    blunders += 1
+                elif cp_loss >= 100:  # Mistake
+                    mistakes += 1
+        
+        # Calculate average cp_loss for user moves
+        avg_cp = total_cp_loss / max(user_move_count, 1)
         
         # Determine result
         result = analysis.get("result", "draw")
@@ -11419,12 +11442,58 @@ async def get_breakthrough_signal(
     elif signal.state == "TILT_RISK":
         cta_payload = {"duration_games": 3, "lock_theme": True}
     
+    # === ENHANCE WITH DEEP MEMORY INSIGHTS ===
+    # If state is NORMAL, add personalized insights from PlayerIdentity
+    enhanced_message = signal.coach_message
+    enhanced_headline = signal.headline
+    
+    if signal.state == "NORMAL":
+        try:
+            from services.player_identity import PlayerIdentityService
+            identity_service = PlayerIdentityService(db)
+            identity = await identity_service.get_or_create(user.user_id)
+            
+            if identity.games_analyzed >= 5:
+                insights = []
+                
+                # Blunder focus
+                if identity.blunder_taxonomy.most_common_type:
+                    blunder_type = identity.blunder_taxonomy.most_common_type.value.replace("_", " ")
+                    insights.append(f"Your main weakness: {blunder_type}")
+                
+                # Phase focus
+                if identity.blunder_taxonomy.worst_phase:
+                    phase = identity.blunder_taxonomy.worst_phase.value
+                    insights.append(f"Focus on: {phase} play")
+                
+                # Trend
+                if identity.blunder_taxonomy.trend == "improving":
+                    enhanced_headline = "Making progress!"
+                    insights.append("Your blunder rate is decreasing")
+                elif identity.blunder_taxonomy.trend == "worsening":
+                    enhanced_headline = "Let's refocus."
+                    insights.append("Blunder rate increasing - slow down")
+                
+                # Behavioral
+                if identity.consecutive_losses >= 2:
+                    enhanced_headline = "Take a breath."
+                    insights.append(f"You've lost {identity.consecutive_losses} in a row")
+                elif identity.consecutive_wins >= 3:
+                    enhanced_headline = "On fire!"
+                    insights.append(f"{identity.consecutive_wins}-game win streak!")
+                
+                # Build enhanced message
+                if insights:
+                    enhanced_message = " | ".join(insights)
+        except Exception as e:
+            logger.warning(f"Could not enhance signal with deep memory: {e}")
+    
     return {
         "show_card": True,
         "state": signal.state,
         "confidence": signal.confidence,
-        "headline": signal.headline,
-        "message": signal.coach_message,
+        "headline": enhanced_headline,
+        "message": enhanced_message,
         "cta": {
             "label": signal.cta,
             "action": signal.recommended_action,
