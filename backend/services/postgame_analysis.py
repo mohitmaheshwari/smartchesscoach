@@ -207,7 +207,12 @@ async def analyze_postgame(
     )
     
     # ========== STEP 8: CALCULATE ACCURACY ==========
-    accuracy = _calculate_accuracy(mistakes, len([m for m in move_history if m.get("by") == "player"]))
+    # Count user moves correctly based on color
+    user_move_count = sum(
+        1 for i, m in enumerate(move_history)
+        if ((i % 2 == 0 and user_color == "white") or (i % 2 == 1 and user_color == "black"))
+    )
+    accuracy = _calculate_accuracy(mistakes, user_move_count)
     
     # Count mistakes
     blunders = len([m for m in mistakes if m.mistake_type == MistakeType.BLUNDER])
@@ -802,21 +807,45 @@ async def _suggest_opening(
 
 
 def _calculate_accuracy(mistakes: List[MistakeAnalysis], total_moves: int) -> float:
-    """Calculate accuracy percentage."""
+    """
+    Calculate accuracy percentage based on centipawn loss.
+    
+    This mimics chess.com/lichess accuracy calculation:
+    - Perfect play = 100%
+    - Average centipawn loss determines accuracy
+    - Blunders heavily penalize accuracy
+    """
     if total_moves == 0:
         return 100.0
     
-    error_points = sum(
-        3 if m.mistake_type == MistakeType.BLUNDER else
-        2 if m.mistake_type == MistakeType.MISTAKE else
-        1
-        for m in mistakes
-    )
+    # Calculate total centipawn loss
+    total_cp_loss = 0
+    for m in mistakes:
+        # eval_change is negative for mistakes, so negate it
+        cp_loss = abs(m.evaluation_change) * 100  # Convert to centipawns
+        total_cp_loss += cp_loss
     
-    max_error = total_moves * 3
-    accuracy = max(0, (1 - (error_points / max_error))) * 100
+    # Average centipawn loss per move
+    avg_cp_loss = total_cp_loss / total_moves
     
-    return round(accuracy, 1)
+    # Convert to accuracy using a formula similar to chess.com
+    # 0 cp loss = 100%, 50 avg cp loss ≈ 80%, 100 avg cp loss ≈ 60%
+    # Formula: accuracy = 103.1668 * exp(-0.04354 * avg_cp_loss) - 3.1669
+    # Simplified version:
+    if avg_cp_loss <= 0:
+        accuracy = 100.0
+    elif avg_cp_loss < 10:
+        accuracy = 100 - (avg_cp_loss * 0.5)  # 95-100%
+    elif avg_cp_loss < 25:
+        accuracy = 95 - ((avg_cp_loss - 10) * 1.0)  # 80-95%
+    elif avg_cp_loss < 50:
+        accuracy = 80 - ((avg_cp_loss - 25) * 0.8)  # 60-80%
+    elif avg_cp_loss < 100:
+        accuracy = 60 - ((avg_cp_loss - 50) * 0.4)  # 40-60%
+    else:
+        accuracy = max(20, 40 - ((avg_cp_loss - 100) * 0.2))  # 20-40%
+    
+    return round(max(0, min(100, accuracy)), 1)
 
 
 async def _save_analysis(db, analysis: PostGameAnalysis):
