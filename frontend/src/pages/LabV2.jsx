@@ -410,26 +410,74 @@ const LabV2 = ({ user }) => {
       // Show toast for positive reinforcement
       toast.success("Correct! Great find!");
     } else {
+      // User played wrong move - show them what they missed
+      
+      // Get the threat or best continuation to explain what was missed
+      const threat = interactiveMoment.threat;
+      const pvAfterBest = interactiveMoment.pv_after_best || [];
+      const nextBestMove = pvAfterBest[0]; // Opponent's response after best move
+      
+      // Build explanation of what was missed
+      let missedExplanation = "You missed the best move.";
+      if (threat) {
+        missedExplanation = `You missed defending against ${threat}.`;
+      } else if (nextBestMove) {
+        missedExplanation = `After the best move, you could play ${nextBestMove}.`;
+      }
+      
+      // Show user's wrong move in red, best move in green
+      const arrows = [[from, to, "red"]];
+      if (bestMoveUci) {
+        arrows.push([bestMoveUci.substring(0, 2), bestMoveUci.substring(2, 4), "green"]);
+      }
+      setBoardArrows(arrows);
+      
+      // Make the user's move on a temp board to show the position
+      try {
+        const tempChess = new Chess(interactiveMoment.fen);
+        const userMove = tempChess.move({ from, to, promotion: 'q' });
+        if (userMove) {
+          // Show position after user's wrong move briefly
+          setInteractiveFen(tempChess.fen());
+          
+          // If we have opponent's threat, show what happens next
+          if (threat) {
+            // Try to parse and show threat arrow
+            try {
+              const threatChess = new Chess(tempChess.fen());
+              // Switch turn to opponent
+              const fenParts = threatChess.fen().split(' ');
+              fenParts[1] = fenParts[1] === 'w' ? 'b' : 'w';
+              const oppChess = new Chess(fenParts.join(' '));
+              const threatMove = oppChess.move(threat, { sloppy: true });
+              if (threatMove) {
+                // Add threat arrow in orange
+                setTimeout(() => {
+                  setBoardArrows([
+                    [from, to, "red"],
+                    [threatMove.from, threatMove.to, "orange"]
+                  ]);
+                }, 800);
+              }
+            } catch (e) {
+              console.log("Could not show threat:", e);
+            }
+          }
+        }
+      } catch (e) {
+        console.log("Could not make user move:", e);
+      }
+      
       setUserAttemptResult({
         correct: false,
-        message: "Not quite. Try again or reveal the best move.",
+        message: missedExplanation,
         userMove: userMoveUci,
-        bestMove: bestMoveUci
+        bestMove: bestMoveUci,
+        threat: threat,
+        showTryAgain: true
       });
-      // Show red arrow for wrong move briefly
-      setBoardArrows([[from, to, "red"]]);
-      toast.error("Not quite right. Try again!");
       
-      // Reset to original position after showing the wrong move briefly
-      // This allows the user to try again on the same position
-      setTimeout(() => {
-        setBoardArrows([]);
-        // Toggle interactiveFen to force board reset
-        setInteractiveFen(null);
-        setTimeout(() => {
-          setInteractiveFen(interactiveMoment.fen);
-        }, 50);
-      }, 1000);
+      toast.error("Not quite right. See what you missed.");
     }
     
     return isCorrect;
@@ -440,6 +488,15 @@ const LabV2 = ({ user }) => {
     setInteractiveMoment(null);
     setUserAttemptResult(null);
     setInteractiveFen(null);
+  };
+  
+  // Reset for try again - go back to original position
+  const handleTryAgain = () => {
+    if (interactiveMoment) {
+      setUserAttemptResult(null);
+      setBoardArrows([]);
+      setInteractiveFen(interactiveMoment.fen);
+    }
   };
   
   // Auto-play best line
@@ -725,6 +782,7 @@ const LabV2 = ({ user }) => {
                       onPlayBestLine={playBestLine}
                       onStartInteractive={startInteractiveMoment}
                       onClearInteractive={clearInteractiveMoment}
+                      onTryAgain={handleTryAgain}
                       userAttemptResult={userAttemptResult}
                       gameId={gameId}
                     />

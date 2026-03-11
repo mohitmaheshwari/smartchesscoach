@@ -11,7 +11,7 @@ export default defineConfig({
     ['json', { outputFile: './test-results/results.json' }],
   ],
   use: {
-    baseURL: process.env.BASE_URL || 'https://chess-coach-ai-8.preview.emergentagent.com',
+    baseURL: process.env.BASE_URL || 'https://deep-memory-chess.preview.emergentagent.com',
     screenshot: 'on',
     trace: 'on-first-retry',
     headless: true,

@@ -2,16 +2,16 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: '/app/tests/e2e',
-  outputDir: '/root/.emergent/automation_output/20260310_091239/test-results',
+  outputDir: '/root/.emergent/automation_output/20260311_172617/test-results',
   timeout: 60000,
   retries: 0,
   workers: 1,
   reporter: [
     ['line'],
-    ['json', { outputFile: '/root/.emergent/automation_output/20260310_091239/results.json' }],
+    ['json', { outputFile: '/root/.emergent/automation_output/20260311_172617/results.json' }],
   ],
   use: {
-    baseURL: 'https://chess-coach-ai-8.preview.emergentagent.com',
+    baseURL: 'https://deep-memory-chess.preview.emergentagent.com',
     screenshot: 'only-on-failure',
     trace: 'off',
     headless: true,

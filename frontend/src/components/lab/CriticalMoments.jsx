@@ -42,6 +42,7 @@ const CriticalMoments = ({
   onPlayBestLine,
   onStartInteractive, // Start interactive mode so user can try the move
   onClearInteractive, // Clear interactive mode
+  onTryAgain, // Reset to try again after wrong move
   userAttemptResult, // Result of user's move attempt
   gameId
 }) => {
@@ -319,14 +320,52 @@ const CriticalMoments = ({
                 </div>
               )}
               
-              {/* User attempt feedback */}
+              {/* User attempt feedback - enhanced for wrong moves */}
               {userAttemptResult && (
-                <div className={`mb-4 p-3 rounded-lg ${
+                <div className={`mb-4 p-4 rounded-lg ${
                   userAttemptResult.correct 
-                    ? 'bg-emerald-500/10 text-emerald-400' 
-                    : 'bg-red-500/10 text-red-400'
+                    ? 'bg-emerald-500/10 border border-emerald-500/20' 
+                    : 'bg-red-500/10 border border-red-500/20'
                 }`}>
-                  <p className="font-medium">{userAttemptResult.message}</p>
+                  <div className="flex items-start gap-3">
+                    {userAttemptResult.correct ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-red-400 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <p className={`font-medium mb-1 ${
+                        userAttemptResult.correct ? 'text-emerald-400' : 'text-red-400'
+                      }`}>
+                        {userAttemptResult.correct ? "Excellent!" : "Not the best move"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {userAttemptResult.message}
+                      </p>
+                      
+                      {/* Show what was missed for wrong moves */}
+                      {!userAttemptResult.correct && userAttemptResult.threat && (
+                        <div className="mt-2 p-2 bg-orange-500/10 rounded border border-orange-500/20">
+                          <p className="text-xs text-orange-400">
+                            <span className="font-medium">Threat you missed:</span> {userAttemptResult.threat}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Try Again button for wrong moves */}
+                      {!userAttemptResult.correct && userAttemptResult.showTryAgain && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onTryAgain?.()}
+                          className="mt-3 gap-2"
+                        >
+                          <Play className="w-3 h-3" />
+                          Try Again
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
               
