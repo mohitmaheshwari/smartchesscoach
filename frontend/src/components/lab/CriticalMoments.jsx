@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Chess } from "chess.js";
+import { toast } from "sonner";
 import {
   Eye,
   EyeOff,
@@ -434,7 +435,20 @@ const CriticalMoments = ({
                     Did this explanation help?
                   </p>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 text-xs gap-1"
+                      onClick={() => {
+                        // Just move to next moment - no modal needed for positive feedback
+                        if (currentIndex < moments.length - 1) {
+                          handleNext();
+                        } else {
+                          // Last moment - could show a completion message
+                          toast.success("Great job reviewing all moments!");
+                        }
+                      }}
+                    >
                       <ThumbsUp className="w-3 h-3" />
                       Yes, I get it
                     </Button>
