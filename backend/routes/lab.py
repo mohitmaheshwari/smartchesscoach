@@ -60,6 +60,17 @@ from mistake_explanation_service import (
     get_quick_explanation
 )
 
+# Import Coach Personality Service for personalized language
+from services.coach_personality import (
+    get_player_level,
+    get_level_display_name,
+    get_level_emoji,
+    get_personalized_coaching_context,
+    CoachLanguage,
+    CoachVoice,
+    PlayerLevel
+)
+
 
 # ==================== MODELS ====================
 
@@ -411,12 +422,25 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
         user_color
     )
     
+    # Get player profile for personalized coaching
+    player_profile = await db.player_profiles.find_one({"user_id": user.user_id}, {"_id": 0})
+    user_rating = player_profile.get("current_rating", 1200) if player_profile else 1200
+    games_played = player_profile.get("games_analyzed", 0) if player_profile else 0
+    
+    # Get personalized coaching context
+    coaching_context = get_personalized_coaching_context(user_rating, games_played)
+    player_level = PlayerLevel(coaching_context["level"])
+    
     # If we have critical moments, use LLM to generate human-readable explanations
     if critical_moments and len(critical_moments) > 0 and call_llm:
         try:
-            # Use LLM to write natural explanations
+            # Use LLM to write natural explanations WITH PERSONALIZED VOICE
             top_moment = critical_moments[0]
-            prompt = f"""You are a chess coach explaining a mistake to a student. 
+            voice_prefix = CoachVoice.get_prompt_prefix(player_level)
+            
+            prompt = f"""{voice_prefix}
+
+You are explaining a mistake to a student.
 Be specific about THIS position, not generic advice.
 
 POSITION (FEN): {top_moment['fen']}
@@ -434,7 +458,7 @@ Write a 2-3 sentence explanation that:
 2. Explains what the student missed in THIS position
 3. Gives a concrete pattern to look for next time
 
-Be direct and specific. Example tone: "Your knight on e6 could have captured the bishop on d4. After Nxd4, you win a piece because the bishop was only defended by the queen, which would then be overloaded."
+ADAPT YOUR LANGUAGE TO THE PLAYER'S LEVEL. Be direct and specific to THIS position.
 """
             llm_explanation = await call_llm(prompt, max_tokens=200)
             if llm_explanation:
@@ -447,5 +471,12 @@ Be direct and specific. Example tone: "Your knight on e6 could have captured the
         "user_color": user_color,
         "critical_moments": critical_moments[:5],  # Top 5 moments
         "lesson": lesson,
-        "total_mistakes": len(critical_moments)
+        "total_mistakes": len(critical_moments),
+        # Add personalized coaching data
+        "player_level": coaching_context["level"],
+        "player_level_display": coaching_context["level_display"],
+        "player_level_emoji": coaching_context["level_emoji"],
+        "coaching_voice": coaching_context["voice_style"],
+        "player_rating": user_rating,
+        "games_analyzed": games_played
     }

@@ -218,6 +218,17 @@ from time_analysis_service import (
     analyze_time_management,
 )
 
+# === COACH PERSONALITY SERVICE ===
+from services.coach_personality import (
+    get_player_level,
+    get_level_display_name,
+    get_level_emoji,
+    get_personalized_coaching_context,
+    CoachLanguage,
+    CoachVoice,
+    PlayerLevel
+)
+
 # === MISSION ENGINE IMPORTS ===
 from mission_generation_service import (
     generate_daily_mission,

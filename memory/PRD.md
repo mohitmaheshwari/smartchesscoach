@@ -13,8 +13,10 @@ The user's vision is to create a hyper-personalized, data-driven chess coaching 
 
 ### Backend (FastAPI)
 - `/app/backend/server.py` - Main API routes
+- `/app/backend/routes/lab.py` - Lab/game review routes
 - `/app/backend/services/player_identity.py` - Deep memory/profile system
 - `/app/backend/services/memory_injection.py` - Memory injection for coaching prompts
+- `/app/backend/services/coach_personality.py` - Personalized coaching language by player level
 - `/app/backend/services/breakthrough_service.py` - Analysis services
 
 ### Frontend (React)
@@ -47,10 +49,27 @@ The user's vision is to create a hyper-personalized, data-driven chess coaching 
 - ✅ Automatic play of best line continuation after correct move
 - ✅ Position Hint feature - contextual clue before user attempts (e.g., "Opponent's Q on c2 is undefended")
 - ✅ Enhanced wrong move feedback - shows missed threat explanation + "Try Again" button
-- ✅ **NEW: Punishing counter-move animation** - opponent plays their best response after wrong move
-- ✅ **NEW: Sound effects** - thud sound on punishment, success chime on correct, buzz on wrong
+- ✅ **Punishing counter-move animation** - opponent plays their best response after wrong move
+- ✅ **Sound effects** - thud sound on punishment, success chime on correct, buzz on wrong
 - ✅ Navigation between moments (prev/next buttons) working correctly
 - ✅ "Yes, I get it" button advances to next moment
+
+### Session 3 - Personalized Coaching Language (COMPLETED March 2025)
+**Completed:**
+- ✅ **Player Level System** - Categorizes players as Rookie, Beginner, Casual, Amateur, Intermediate, Advanced, Expert, Master
+- ✅ **Rating-based categorization**: 0-800 Rookie, 800-1000 Beginner, 1000-1200 Casual, 1200-1400 Amateur, etc.
+- ✅ **Personalized coaching language**: All prompts, feedback, and explanations adapt to player level
+- ✅ **Player level badge**: Shows in Critical Moments header (e.g., "⭐ Amateur")
+- ✅ **Level-specific Socratic prompts**: From "Look at the board carefully" (Rookie) to "Your move" (Master)
+- ✅ **Level-specific wrong move feedback**: From gentle encouragement (Rookie) to direct analysis (Expert)
+- ✅ **Level-specific try again prompts**: From "No rush" (Rookie) to "Recalculate" (Advanced)
+- ✅ **Backend coach_personality.py service**: Complete language template system
+- ✅ **API returns player level**: deep-strategy endpoint includes player_level, player_level_display, coaching_voice
+
+**Player Level Language Examples:**
+- Rookie: "Look at the board carefully. What piece can help you here?"
+- Amateur: "Critical position. Find the best continuation."
+- Expert: "Find the optimal move."
 
 **How It Works:**
 1. User navigates to "Moments" tab in Game Review

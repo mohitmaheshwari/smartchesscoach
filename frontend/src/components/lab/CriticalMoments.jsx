@@ -35,6 +35,98 @@ import {
   Zap
 } from "lucide-react";
 
+// =============================================================================
+// PERSONALIZED COACHING LANGUAGE
+// =============================================================================
+
+// Language templates adapted to player level
+const COACHING_LANGUAGE = {
+  // Socratic prompts (before user tries)
+  socraticPrompt: {
+    rookie: "Look at the board carefully. What piece can help you here?",
+    beginner: "Take your time. What would you play?",
+    casual: "Pause here. Look at the board. What would you play?",
+    amateur: "Critical position. Find the best continuation.",
+    intermediate: "Key moment. Calculate carefully.",
+    advanced: "Precise calculation needed here.",
+    expert: "Find the optimal move.",
+    master: "Your move."
+  },
+  
+  // Correct move praise
+  correctPraise: {
+    rookie: "Yes! Perfect! You found it! Great job!",
+    beginner: "Great find! That's exactly right!",
+    casual: "Nice! You got it!",
+    amateur: "Excellent! Precisely right.",
+    intermediate: "Correct. Clean calculation.",
+    advanced: "Accurate.",
+    expert: "Precise.",
+    master: "Indeed."
+  },
+  
+  // Wrong move feedback
+  wrongFeedback: {
+    rookie: "Hmm, not that one. Let me show you a better move.",
+    beginner: "Close! But there's a better option here.",
+    casual: "Not quite. See what you missed.",
+    amateur: "Missed it. There was a stronger continuation.",
+    intermediate: "Not the best. More precision needed.",
+    advanced: "Inaccurate. There's a more forcing line.",
+    expert: "Second-best.",
+    master: "Suboptimal."
+  },
+  
+  // Try again encouragement
+  tryAgainPrompt: {
+    rookie: "It's okay! Want to try again? No rush.",
+    beginner: "Good thinking, but let's try again.",
+    casual: "Give it another shot.",
+    amateur: "Retry - check all captures and checks first.",
+    intermediate: "Again - calculate the forcing sequence.",
+    advanced: "Recalculate.",
+    expert: "Find the engine move.",
+    master: "What does the position demand?"
+  },
+  
+  // Position hint prefix
+  hintPrefix: {
+    rookie: "Hint: ",
+    beginner: "Look: ",
+    casual: "",
+    amateur: "",
+    intermediate: "",
+    advanced: "",
+    expert: "",
+    master: ""
+  },
+  
+  // Explanation prefix
+  explanationPrefix: {
+    rookie: "See, when you moved there, ",
+    beginner: "That move has a problem - ",
+    casual: "The issue is ",
+    amateur: "The tactical flaw: ",
+    intermediate: "Critical issue: ",
+    advanced: "Evaluation error: ",
+    expert: "The improvement: ",
+    master: "Analysis: "
+  }
+};
+
+// Helper to get personalized text
+const getCoachText = (textType, playerLevel) => {
+  const texts = COACHING_LANGUAGE[textType] || {};
+  return texts[playerLevel] || texts.casual || "";
+};
+
+// Helper to format hint based on player level
+const formatHint = (hint, playerLevel) => {
+  if (!hint) return null;
+  const prefix = getCoachText("hintPrefix", playerLevel);
+  return `${prefix}${hint}`;
+};
+
 const CriticalMoments = ({ 
   moments = [],
   userColor,
@@ -45,7 +137,12 @@ const CriticalMoments = ({
   onClearInteractive, // Clear interactive mode
   onTryAgain, // Reset to try again after wrong move
   userAttemptResult, // Result of user's move attempt
-  gameId
+  gameId,
+  // Player level props for personalized coaching
+  playerLevel = "casual",
+  playerLevelDisplay = "Player",
+  playerLevelEmoji = "♟️",
+  coachingVoice = {}
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [revealed, setRevealed] = useState({});
@@ -234,11 +331,21 @@ const CriticalMoments = ({
   
   return (
     <div className="space-y-4">
-      {/* Header with navigation */}
+      {/* Header with navigation and player level */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold">Critical Moments</h3>
           <Badge variant="outline">{moments.length} to review</Badge>
+          {/* Player level badge */}
+          {playerLevel && (
+            <Badge 
+              variant="secondary" 
+              className="bg-primary/10 text-primary border-primary/20"
+              data-testid="player-level-badge"
+            >
+              {playerLevelEmoji} {playerLevelDisplay}
+            </Badge>
+          )}
         </div>
         
         <div className="flex items-center gap-2">
@@ -302,10 +409,10 @@ const CriticalMoments = ({
               <div className="mb-6">
                 <HelpCircle className="w-12 h-12 text-primary mx-auto mb-3 opacity-50" />
                 <h4 className="text-lg font-medium mb-2">
-                  Pause here.
+                  {getCoachText("socraticPrompt", playerLevel).split(".")[0]}.
                 </h4>
                 <p className="text-muted-foreground">
-                  Look at the board. What would you play?
+                  {getCoachText("socraticPrompt", playerLevel).split(".").slice(1).join(".").trim() || "What would you play?"}
                 </p>
               </div>
               
@@ -315,7 +422,7 @@ const CriticalMoments = ({
                   <div className="flex items-center gap-2 justify-center">
                     <Lightbulb className="w-4 h-4 text-amber-400" />
                     <p className="text-sm text-amber-300 font-medium">
-                      {positionHint}
+                      {formatHint(positionHint, playerLevel)}
                     </p>
                   </div>
                 </div>
@@ -338,7 +445,10 @@ const CriticalMoments = ({
                       <p className={`font-medium mb-1 ${
                         userAttemptResult.correct ? 'text-emerald-400' : 'text-red-400'
                       }`}>
-                        {userAttemptResult.correct ? "Excellent!" : "Not the best move"}
+                        {userAttemptResult.correct 
+                          ? getCoachText("correctPraise", playerLevel)
+                          : getCoachText("wrongFeedback", playerLevel)
+                        }
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {userAttemptResult.message}
@@ -376,7 +486,7 @@ const CriticalMoments = ({
                       {!userAttemptResult.correct && userAttemptResult.showTryAgain && (
                         <div className="mt-3 space-y-2">
                           <p className="text-xs text-muted-foreground">
-                            Now you see why your move didn't work. Want to try again?
+                            {getCoachText("tryAgainPrompt", playerLevel)}
                           </p>
                           <Button
                             variant="outline"

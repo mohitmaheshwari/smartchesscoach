@@ -986,6 +986,10 @@ const LabV2 = ({ user }) => {
                       onTryAgain={handleTryAgain}
                       userAttemptResult={userAttemptResult}
                       gameId={gameId}
+                      playerLevel={deepStrategy?.player_level}
+                      playerLevelDisplay={deepStrategy?.player_level_display}
+                      playerLevelEmoji={deepStrategy?.player_level_emoji}
+                      coachingVoice={deepStrategy?.coaching_voice}
                     />
                   )}
                 </TabsContent>
