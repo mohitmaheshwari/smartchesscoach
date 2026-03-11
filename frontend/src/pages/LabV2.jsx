@@ -14,7 +14,7 @@
  * 5. Habits to Improve - Homework
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Chess } from "chess.js";
 import { motion } from "framer-motion";
@@ -58,6 +58,119 @@ import FeedbackModal from "@/components/FeedbackModal";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+// Sound effects using Web Audio API for chess moves
+const useChessSounds = () => {
+  const audioContextRef = useRef(null);
+  
+  const getAudioContext = useCallback(() => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  }, []);
+  
+  // Play a "thud" sound for punishing moves
+  const playPunishSound = useCallback(() => {
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      // Low frequency "thud" sound
+      oscillator.frequency.setValueAtTime(80, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.15);
+      oscillator.type = 'sine';
+      
+      // Quick fade out for impact
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.2);
+    } catch (e) {
+      console.log("Could not play sound:", e);
+    }
+  }, [getAudioContext]);
+  
+  // Play a "success" sound for correct moves
+  const playSuccessSound = useCallback(() => {
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      // Rising pleasant tone
+      oscillator.frequency.setValueAtTime(440, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.2);
+    } catch (e) {
+      console.log("Could not play sound:", e);
+    }
+  }, [getAudioContext]);
+  
+  // Play a standard move sound (light click)
+  const playMoveSound = useCallback(() => {
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.frequency.setValueAtTime(600, ctx.currentTime);
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.05);
+    } catch (e) {
+      console.log("Could not play sound:", e);
+    }
+  }, [getAudioContext]);
+  
+  // Play an error sound for wrong moves
+  const playErrorSound = useCallback(() => {
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      // Descending "wrong" tone
+      oscillator.frequency.setValueAtTime(300, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.15);
+      oscillator.type = 'sawtooth';
+      
+      gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.15);
+    } catch (e) {
+      console.log("Could not play sound:", e);
+    }
+  }, [getAudioContext]);
+  
+  return { playPunishSound, playSuccessSound, playMoveSound, playErrorSound };
+};
+
 // Helper to convert FEN to position object
 const fenToPositionObject = (fen) => {
   const chess = new Chess(fen);
@@ -84,6 +197,9 @@ const fenToPositionObject = (fen) => {
 const LabV2 = ({ user }) => {
   const { gameId } = useParams();
   const navigate = useNavigate();
+  
+  // Sound effects
+  const { playPunishSound, playSuccessSound, playMoveSound, playErrorSound } = useChessSounds();
   
   // Data states
   const [loading, setLoading] = useState(true);
@@ -392,6 +508,9 @@ const LabV2 = ({ user }) => {
     const isCorrect = userMoveUci === bestMoveUci;
     
     if (isCorrect) {
+      // Play success sound
+      playSuccessSound();
+      
       setUserAttemptResult({
         correct: true,
         message: "Excellent! You found the best move!",
@@ -410,6 +529,9 @@ const LabV2 = ({ user }) => {
       // Show toast for positive reinforcement
       toast.success("Correct! Great find!");
     } else {
+      // Play error sound for wrong move
+      playErrorSound();
+      
       // User played wrong move - show punishing counter-move animation
       
       // Get the threat or best continuation to explain what was missed
@@ -505,6 +627,9 @@ const LabV2 = ({ user }) => {
               }
               
               if (punishMove) {
+                // Play the punishing "thud" sound
+                playPunishSound();
+                
                 // Animate the punishing move on the board
                 setInteractiveFen(punishChess.fen());
                 

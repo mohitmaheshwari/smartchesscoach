@@ -48,6 +48,7 @@ The user's vision is to create a hyper-personalized, data-driven chess coaching 
 - ✅ Position Hint feature - contextual clue before user attempts (e.g., "Opponent's Q on c2 is undefended")
 - ✅ Enhanced wrong move feedback - shows missed threat explanation + "Try Again" button
 - ✅ **NEW: Punishing counter-move animation** - opponent plays their best response after wrong move
+- ✅ **NEW: Sound effects** - thud sound on punishment, success chime on correct, buzz on wrong
 - ✅ Navigation between moments (prev/next buttons) working correctly
 - ✅ "Yes, I get it" button advances to next moment
 
