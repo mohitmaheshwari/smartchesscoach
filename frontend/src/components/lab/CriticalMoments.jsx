@@ -176,6 +176,60 @@ const CriticalMoments = ({
     }
   };
   
+  // Generate a brief position hint (under 20 words) to help player understand the position
+  const getPositionHint = () => {
+    const analysis = moment.position_analysis;
+    if (!analysis) return null;
+    
+    const hints = [];
+    
+    // Check for threats against user
+    const threats = analysis.threats || [];
+    const userThreats = threats.filter(t => !t.is_defended);
+    if (userThreats.length > 0) {
+      const threat = userThreats[0];
+      hints.push(`Threat: ${threat.attacker} targets your ${threat.target.split(' ')[0]}`);
+    }
+    
+    // Check for undefended pieces
+    const undefended = analysis.piece_activity?.undefended || [];
+    const attackedUndefended = undefended.filter(p => p.is_attacked);
+    if (attackedUndefended.length > 0 && hints.length === 0) {
+      const piece = attackedUndefended[0];
+      hints.push(`Your ${piece.piece} on ${piece.square} is under attack and undefended!`);
+    }
+    
+    // Check for opponent's undefended pieces (opportunity)
+    const oppPieces = analysis.pieces?.opponent || [];
+    const oppUndefended = oppPieces.filter(p => !p.is_defended && p.piece !== 'K');
+    if (oppUndefended.length > 0 && hints.length === 0) {
+      const piece = oppUndefended[0];
+      hints.push(`Opponent's ${piece.piece} on ${piece.square} is undefended. Can you attack it?`);
+    }
+    
+    // Check for passive pieces (need development)
+    const passive = analysis.piece_activity?.passive || [];
+    if (passive.length > 0 && hints.length === 0) {
+      const piece = passive[0];
+      hints.push(`Your ${piece.piece} on ${piece.square} is passive. Activate it!`);
+    }
+    
+    // Fallback based on tags
+    if (hints.length === 0 && moment.tags) {
+      if (moment.tags.primary_tag === 'hung_piece') {
+        hints.push("A piece is hanging! Check for captures.");
+      } else if (moment.tags.primary_tag === 'missed_tactic') {
+        hints.push("There's a tactic in this position. Look carefully.");
+      } else if (moment.tags.phase === 'endgame') {
+        hints.push("Endgame technique required. King activity matters.");
+      }
+    }
+    
+    return hints.length > 0 ? hints[0] : null;
+  };
+  
+  const positionHint = getPositionHint();
+  
   return (
     <div className="space-y-4">
       {/* Header with navigation */}
@@ -252,6 +306,18 @@ const CriticalMoments = ({
                   Look at the board. What would you play?
                 </p>
               </div>
+              
+              {/* Position Hint - Brief explanation to help understand the position */}
+              {positionHint && (
+                <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 justify-center">
+                    <Lightbulb className="w-4 h-4 text-amber-400" />
+                    <p className="text-sm text-amber-300 font-medium">
+                      {positionHint}
+                    </p>
+                  </div>
+                </div>
+              )}
               
               {/* User attempt feedback */}
               {userAttemptResult && (
