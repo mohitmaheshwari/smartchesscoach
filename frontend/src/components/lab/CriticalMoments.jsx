@@ -13,7 +13,7 @@
  * 6. Pattern to remember
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,16 @@ const CriticalMoments = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [revealed, setRevealed] = useState({});
   const [userGuess, setUserGuess] = useState({});
+  
+  // Navigate to the current moment's position when the component mounts or moment changes
+  useEffect(() => {
+    if (moments.length > 0 && onNavigateToMove) {
+      const currentMoment = moments[currentIndex];
+      if (currentMoment) {
+        onNavigateToMove(currentMoment.move_number, null, null);
+      }
+    }
+  }, [moments.length]); // Only run when moments are loaded, not on every index change
   
   if (!moments || moments.length === 0) {
     return (
@@ -119,13 +129,33 @@ const CriticalMoments = ({
   
   const handleNext = () => {
     if (currentIndex < moments.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      const nextIndex = currentIndex + 1;
+      setCurrentIndex(nextIndex);
+      // Navigate to the new moment's position
+      const nextMoment = moments[nextIndex];
+      if (onNavigateToMove && nextMoment) {
+        onNavigateToMove(nextMoment.move_number, null, null);
+      }
+      // Clear any interactive mode
+      if (onClearInteractive) {
+        onClearInteractive();
+      }
     }
   };
   
   const handlePrev = () => {
     if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
+      const prevIndex = currentIndex - 1;
+      setCurrentIndex(prevIndex);
+      // Navigate to the new moment's position
+      const prevMoment = moments[prevIndex];
+      if (onNavigateToMove && prevMoment) {
+        onNavigateToMove(prevMoment.move_number, null, null);
+      }
+      // Clear any interactive mode
+      if (onClearInteractive) {
+        onClearInteractive();
+      }
     }
   };
   
@@ -161,6 +191,7 @@ const CriticalMoments = ({
             onClick={handlePrev}
             disabled={currentIndex === 0}
             className="h-8 w-8 p-0"
+            data-testid="moment-prev-btn"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -173,6 +204,7 @@ const CriticalMoments = ({
             onClick={handleNext}
             disabled={currentIndex === moments.length - 1}
             className="h-8 w-8 p-0"
+            data-testid="moment-next-btn"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
