@@ -424,8 +424,9 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
     
     # Get player profile for personalized coaching
     player_profile = await db.player_profiles.find_one({"user_id": user.user_id}, {"_id": 0})
-    user_rating = player_profile.get("current_rating", 1200) if player_profile else 1200
-    games_played = player_profile.get("games_analyzed", 0) if player_profile else 0
+    # Profile schema uses estimated_elo, not current_rating
+    user_rating = player_profile.get("estimated_elo", player_profile.get("current_rating", 1200)) if player_profile else 1200
+    games_played = player_profile.get("games_analyzed_count", player_profile.get("games_analyzed", 0)) if player_profile else 0
     
     # Get personalized coaching context
     coaching_context = get_personalized_coaching_context(user_rating, games_played)
