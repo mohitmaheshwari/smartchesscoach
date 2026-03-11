@@ -47,6 +47,7 @@ The user's vision is to create a hyper-personalized, data-driven chess coaching 
 - ✅ Automatic play of best line continuation after correct move
 - ✅ Position Hint feature - contextual clue before user attempts (e.g., "Opponent's Q on c2 is undefended")
 - ✅ Enhanced wrong move feedback - shows missed threat explanation + "Try Again" button
+- ✅ **NEW: Punishing counter-move animation** - opponent plays their best response after wrong move
 - ✅ Navigation between moments (prev/next buttons) working correctly
 - ✅ "Yes, I get it" button advances to next moment
 
@@ -57,8 +58,9 @@ The user's vision is to create a hyper-personalized, data-driven chess coaching 
 4. Board shows "Your turn - find the best move!" indicator
 5. User makes a move by clicking/dragging piece
 6. If correct: Shows "Excellent!" + green arrow + auto-plays best line continuation
-7. If incorrect: Shows feedback with red arrow + missed threat explanation + "Try Again" button
-8. "Try Again" resets board to original position for another attempt
+7. If incorrect: Shows feedback with red arrow + opponent plays punishing counter-move + explanation
+8. User sees the consequence of their wrong move on the board (e.g., "Opponent punishes with Qxg2+!")
+9. "Try Again" resets board to original position for another attempt
 9. After reviewing, "Yes, I get it" advances to next moment
 
 ## Prioritized Backlog

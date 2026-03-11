@@ -31,7 +31,8 @@ import {
   CheckCircle2,
   HelpCircle,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Zap
 } from "lucide-react";
 
 const CriticalMoments = ({ 
@@ -320,7 +321,7 @@ const CriticalMoments = ({
                 </div>
               )}
               
-              {/* User attempt feedback - enhanced for wrong moves */}
+              {/* User attempt feedback - enhanced with punishing move animation */}
               {userAttemptResult && (
                 <div className={`mb-4 p-4 rounded-lg ${
                   userAttemptResult.correct 
@@ -343,26 +344,51 @@ const CriticalMoments = ({
                         {userAttemptResult.message}
                       </p>
                       
-                      {/* Show what was missed for wrong moves */}
-                      {!userAttemptResult.correct && userAttemptResult.threat && (
+                      {/* Show punishing move animation feedback */}
+                      {!userAttemptResult.correct && userAttemptResult.showPunishment && userAttemptResult.punishingMove && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mt-3 p-3 bg-orange-500/20 rounded-lg border border-orange-500/30"
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <Zap className="w-4 h-4 text-orange-400" />
+                            <p className="text-sm font-medium text-orange-300">
+                              Opponent punishes with {userAttemptResult.punishingMove}!
+                            </p>
+                          </div>
+                          <p className="text-xs text-orange-200/80">
+                            Watch the board - this is what happens after your move.
+                          </p>
+                        </motion.div>
+                      )}
+                      
+                      {/* Show threat info before punishment */}
+                      {!userAttemptResult.correct && !userAttemptResult.showPunishment && userAttemptResult.threat && (
                         <div className="mt-2 p-2 bg-orange-500/10 rounded border border-orange-500/20">
                           <p className="text-xs text-orange-400">
-                            <span className="font-medium">Threat you missed:</span> {userAttemptResult.threat}
+                            <span className="font-medium">Watch the board...</span> Opponent's response coming
                           </p>
                         </div>
                       )}
                       
-                      {/* Try Again button for wrong moves */}
+                      {/* Try Again button - appears after punishment animation */}
                       {!userAttemptResult.correct && userAttemptResult.showTryAgain && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onTryAgain?.()}
-                          className="mt-3 gap-2"
-                        >
-                          <Play className="w-3 h-3" />
-                          Try Again
-                        </Button>
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs text-muted-foreground">
+                            Now you see why your move didn't work. Want to try again?
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onTryAgain?.()}
+                            className="gap-2"
+                            data-testid="try-again-btn"
+                          >
+                            <Play className="w-3 h-3" />
+                            Try Again
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>

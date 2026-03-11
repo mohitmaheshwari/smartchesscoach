@@ -410,7 +410,7 @@ const LabV2 = ({ user }) => {
       // Show toast for positive reinforcement
       toast.success("Correct! Great find!");
     } else {
-      // User played wrong move - show them what they missed
+      // User played wrong move - show punishing counter-move animation
       
       // Get the threat or best continuation to explain what was missed
       const threat = interactiveMoment.threat;
@@ -420,49 +420,115 @@ const LabV2 = ({ user }) => {
       // Build explanation of what was missed
       let missedExplanation = "You missed the best move.";
       if (threat) {
-        missedExplanation = `You missed defending against ${threat}.`;
+        missedExplanation = `You missed defending against the threat.`;
       } else if (nextBestMove) {
         missedExplanation = `After the best move, you could play ${nextBestMove}.`;
       }
       
-      // Show user's wrong move in red, best move in green
-      const arrows = [[from, to, "red"]];
-      if (bestMoveUci) {
-        arrows.push([bestMoveUci.substring(0, 2), bestMoveUci.substring(2, 4), "green"]);
-      }
-      setBoardArrows(arrows);
+      // Show user's wrong move in red
+      setBoardArrows([[from, to, "red"]]);
       
       // Make the user's move on a temp board to show the position
       try {
         const tempChess = new Chess(interactiveMoment.fen);
         const userMove = tempChess.move({ from, to, promotion: 'q' });
         if (userMove) {
-          // Show position after user's wrong move briefly
+          // Step 1: Show position after user's wrong move
           setInteractiveFen(tempChess.fen());
           
-          // If we have opponent's threat, show what happens next
-          if (threat) {
-            // Try to parse and show threat arrow
+          // Step 2: After a delay, find and play the opponent's best punishing response
+          setTimeout(() => {
             try {
-              const threatChess = new Chess(tempChess.fen());
-              // Switch turn to opponent
-              const fenParts = threatChess.fen().split(' ');
-              fenParts[1] = fenParts[1] === 'w' ? 'b' : 'w';
-              const oppChess = new Chess(fenParts.join(' '));
-              const threatMove = oppChess.move(threat, { sloppy: true });
-              if (threatMove) {
-                // Add threat arrow in orange
-                setTimeout(() => {
-                  setBoardArrows([
-                    [from, to, "red"],
-                    [threatMove.from, threatMove.to, "orange"]
-                  ]);
-                }, 800);
+              // The position is now after user's move, so it's opponent's turn
+              const punishChess = new Chess(tempChess.fen());
+              
+              // Find a punishing move - priority: checks > captures > attacks
+              const allMoves = punishChess.moves({ verbose: true });
+              let punishMove = null;
+              let punishMoveNotation = null;
+              
+              // First try the specific threat if it matches
+              if (threat) {
+                try {
+                  const threatMove = punishChess.move(threat, { sloppy: true });
+                  if (threatMove) {
+                    punishMove = threatMove;
+                    punishMoveNotation = threat;
+                  }
+                } catch (e) {
+                  // Threat doesn't apply to this position, find another move
+                }
+              }
+              
+              // If no specific threat, find the most punishing move
+              if (!punishMove) {
+                // Priority 1: Checkmates
+                const checkmates = allMoves.filter(m => {
+                  const testChess = new Chess(punishChess.fen());
+                  testChess.move(m);
+                  return testChess.isCheckmate();
+                });
+                if (checkmates.length > 0) {
+                  punishMove = punishChess.move(checkmates[0]);
+                  punishMoveNotation = checkmates[0].san;
+                }
+                
+                // Priority 2: Checks
+                if (!punishMove) {
+                  const checks = allMoves.filter(m => {
+                    const testChess = new Chess(punishChess.fen());
+                    testChess.move(m);
+                    return testChess.inCheck();
+                  });
+                  if (checks.length > 0) {
+                    punishMove = punishChess.move(checks[0]);
+                    punishMoveNotation = checks[0].san;
+                  }
+                }
+                
+                // Priority 3: Captures (sorted by value: Q > R > B/N > P)
+                if (!punishMove) {
+                  const pieceValues = { q: 9, r: 5, b: 3, n: 3, p: 1 };
+                  const captures = allMoves.filter(m => m.captured);
+                  captures.sort((a, b) => (pieceValues[b.captured] || 0) - (pieceValues[a.captured] || 0));
+                  if (captures.length > 0) {
+                    punishMove = punishChess.move(captures[0]);
+                    punishMoveNotation = captures[0].san;
+                  }
+                }
+                
+                // Priority 4: Any attacking move (just take the first one as fallback)
+                if (!punishMove && allMoves.length > 0) {
+                  punishMove = punishChess.move(allMoves[0]);
+                  punishMoveNotation = allMoves[0].san;
+                }
+              }
+              
+              if (punishMove) {
+                // Animate the punishing move on the board
+                setInteractiveFen(punishChess.fen());
+                
+                // Show orange arrow for the punishing move
+                setBoardArrows([
+                  [from, to, "red"],
+                  [punishMove.from, punishMove.to, "orange"]
+                ]);
+                
+                // Update the result to show what happened
+                setUserAttemptResult(prev => ({
+                  ...prev,
+                  punishingMove: punishMoveNotation,
+                  punishingMoveFrom: punishMove.from,
+                  punishingMoveTo: punishMove.to,
+                  showPunishment: true
+                }));
+                
+                toast.error(`Opponent plays ${punishMoveNotation}!`, { duration: 3000 });
               }
             } catch (e) {
-              console.log("Could not show threat:", e);
+              console.log("Could not calculate punishing move:", e);
             }
-          }
+          }, 1000); // Wait 1 second before showing punishment
         }
       } catch (e) {
         console.log("Could not make user move:", e);
@@ -474,10 +540,20 @@ const LabV2 = ({ user }) => {
         userMove: userMoveUci,
         bestMove: bestMoveUci,
         threat: threat,
-        showTryAgain: true
+        showTryAgain: false, // Will show after punishment animation
+        showPunishment: false,
+        punishingMove: null
       });
       
-      toast.error("Not quite right. See what you missed.");
+      // Show Try Again after the punishment is shown
+      setTimeout(() => {
+        setUserAttemptResult(prev => prev ? ({
+          ...prev,
+          showTryAgain: true
+        }) : null);
+      }, 2500); // Wait for punishment animation
+      
+      toast.error("Not quite right. Watch what happens...");
     }
     
     return isCorrect;
