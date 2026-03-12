@@ -9,7 +9,7 @@
 
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'https://real-time-feedback.preview.emergentagent.com';
+const BASE_URL = 'https://opening-trainer-pro-1.preview.emergentagent.com';
 
 // Helper to login via dev login API
 async function devLogin(page) {

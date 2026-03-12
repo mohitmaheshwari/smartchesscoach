@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://real-time-feedback.preview.emergentagent.com';
+const BASE_URL = 'https://opening-trainer-pro-1.preview.emergentagent.com';
 
 /**
  * Practice Mode from Lab Alternate Timeline Tests

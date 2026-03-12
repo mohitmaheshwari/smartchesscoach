@@ -11,7 +11,7 @@ export default defineConfig({
     ['json', { outputFile: '/root/.emergent/automation_output/20260312_075845/results.json' }],
   ],
   use: {
-    baseURL: 'https://real-time-feedback.preview.emergentagent.com',
+    baseURL: 'https://opening-trainer-pro-1.preview.emergentagent.com',
     screenshot: 'only-on-failure',
     trace: 'off',
     headless: true,

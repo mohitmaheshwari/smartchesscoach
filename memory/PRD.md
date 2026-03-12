@@ -41,6 +41,17 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## What's Been Implemented
 
+### March 12, 2026 - Opening Library Matching Bug Fix
+- **P0 Fix:** Opening variations now correctly match to the library
+  - "Giuoco Piano Game" now maps to "Italian Game"
+  - "Sicilian Najdorf" maps to "Sicilian Defense"
+  - All Italian Game variations (Two Knights, Evans Gambit, etc.) map correctly
+- **New Backend Endpoint:** `GET /api/openings/match?opening_name=X&eco=Y`
+  - Intelligent matching using ECO codes and opening aliases
+  - Returns `library_key` and `library_name` if matched
+- **Frontend Update:** HabitsToImprove component now uses backend matching instead of naive substring comparison
+- **"Learn This Opening" button** now appears correctly for all opening variations
+
 ### March 12, 2026 - Real-time Move Feedback
 - **MoveFeedbackPanel Component:** Comprehensive feedback display after each user move
   - Shows move quality (excellent/good/inaccuracy/mistake/blunder) with emoji indicators
@@ -85,7 +96,11 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Prioritized Backlog
 
+### P0 - Completed
+- [x] Opening library matching bug fix (Giuoco Piano -> Italian Game)
+
 ### P1 - High Priority
+- [ ] Interactive Practice Mode in Opening Training Lab
 - [ ] Backend Refactoring: Modularize `server.py` into service files
 - [ ] Frontend Refactoring: Break down `LabV2.jsx` into smaller components
 

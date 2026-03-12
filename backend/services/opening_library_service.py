@@ -480,24 +480,158 @@ def get_openings_for_color(color: str) -> List[Dict]:
     ]
 
 
-def match_opening_to_library(opening_name: str) -> Optional[str]:
+def match_opening_to_library(opening_name: str, eco: str = None) -> Optional[str]:
     """
     Match a game's opening name to our library.
     Returns the opening key if found.
+    
+    Uses multiple matching strategies:
+    1. Direct name match
+    2. ECO code range match
+    3. Variation/alias match
     """
-    if not opening_name:
+    if not opening_name and not eco:
         return None
     
-    normalized = opening_name.lower().replace("-", " ").replace("_", " ")
+    normalized = (opening_name or "").lower().replace("-", " ").replace("_", " ")
+    eco_code = (eco or "").upper()
     
+    # Opening aliases - map common variations to library keys
+    OPENING_ALIASES = {
+        # Italian Game variations
+        "giuoco piano": "italian-game",
+        "giuoco pianissimo": "italian-game",
+        "italian": "italian-game",
+        "two knights": "italian-game",
+        "fried liver": "italian-game",
+        "evans gambit": "italian-game",
+        
+        # Sicilian variations
+        "sicilian": "sicilian-defense",
+        "najdorf": "sicilian-defense",
+        "dragon": "sicilian-defense",
+        "scheveningen": "sicilian-defense",
+        "sveshnikov": "sicilian-defense",
+        "kan": "sicilian-defense",
+        "taimanov": "sicilian-defense",
+        "accelerated dragon": "sicilian-defense",
+        
+        # Queen's Gambit variations
+        "queen's gambit": "queens-gambit",
+        "queens gambit": "queens-gambit",
+        "qgd": "queens-gambit",
+        "qga": "queens-gambit",
+        "slav": "queens-gambit",
+        "semi slav": "queens-gambit",
+        "tarrasch": "queens-gambit",
+        
+        # London System
+        "london": "london-system",
+        
+        # Caro-Kann variations
+        "caro kann": "caro-kann",
+        "caro-kann": "caro-kann",
+        
+        # King's Indian variations
+        "king's indian": "kings-indian-defense",
+        "kings indian": "kings-indian-defense",
+        "kid": "kings-indian-defense",
+        
+        # Scandinavian
+        "scandinavian": "scandinavian-defense",
+        "center counter": "scandinavian-defense",
+        
+        # Nimzowitsch
+        "nimzowitsch": "nimzowitsch-defense",
+        "nimzo": "nimzowitsch-defense",
+    }
+    
+    # ECO code to opening mapping
+    ECO_MAPPING = {
+        # Italian Game: C50-C54
+        "C50": "italian-game", "C51": "italian-game", "C52": "italian-game",
+        "C53": "italian-game", "C54": "italian-game",
+        # Also C55-C59 is Two Knights (Italian family)
+        "C55": "italian-game", "C56": "italian-game", "C57": "italian-game",
+        "C58": "italian-game", "C59": "italian-game",
+        
+        # Sicilian: B20-B99
+        "B20": "sicilian-defense", "B21": "sicilian-defense", "B22": "sicilian-defense",
+        "B23": "sicilian-defense", "B24": "sicilian-defense", "B25": "sicilian-defense",
+        "B26": "sicilian-defense", "B27": "sicilian-defense", "B28": "sicilian-defense",
+        "B29": "sicilian-defense", "B30": "sicilian-defense", "B31": "sicilian-defense",
+        "B32": "sicilian-defense", "B33": "sicilian-defense", "B34": "sicilian-defense",
+        "B35": "sicilian-defense", "B36": "sicilian-defense", "B37": "sicilian-defense",
+        "B38": "sicilian-defense", "B39": "sicilian-defense", "B40": "sicilian-defense",
+        "B41": "sicilian-defense", "B42": "sicilian-defense", "B43": "sicilian-defense",
+        "B44": "sicilian-defense", "B45": "sicilian-defense", "B46": "sicilian-defense",
+        "B47": "sicilian-defense", "B48": "sicilian-defense", "B49": "sicilian-defense",
+        "B50": "sicilian-defense", "B51": "sicilian-defense", "B52": "sicilian-defense",
+        "B53": "sicilian-defense", "B54": "sicilian-defense", "B55": "sicilian-defense",
+        "B56": "sicilian-defense", "B57": "sicilian-defense", "B58": "sicilian-defense",
+        "B59": "sicilian-defense", "B60": "sicilian-defense",
+        
+        # Queen's Gambit: D00-D69
+        "D00": "queens-gambit", "D01": "queens-gambit", "D02": "queens-gambit",
+        "D03": "queens-gambit", "D04": "queens-gambit", "D05": "queens-gambit",
+        "D06": "queens-gambit", "D07": "queens-gambit", "D08": "queens-gambit",
+        "D09": "queens-gambit", "D10": "queens-gambit", "D11": "queens-gambit",
+        "D12": "queens-gambit", "D13": "queens-gambit", "D14": "queens-gambit",
+        "D15": "queens-gambit", "D16": "queens-gambit", "D17": "queens-gambit",
+        "D30": "queens-gambit", "D31": "queens-gambit", "D32": "queens-gambit",
+        "D33": "queens-gambit", "D34": "queens-gambit", "D35": "queens-gambit",
+        "D36": "queens-gambit", "D37": "queens-gambit", "D38": "queens-gambit",
+        "D39": "queens-gambit", "D40": "queens-gambit", "D41": "queens-gambit",
+        "D42": "queens-gambit", "D43": "queens-gambit", "D44": "queens-gambit",
+        "D45": "queens-gambit", "D46": "queens-gambit", "D47": "queens-gambit",
+        
+        # Caro-Kann: B10-B19
+        "B10": "caro-kann", "B11": "caro-kann", "B12": "caro-kann",
+        "B13": "caro-kann", "B14": "caro-kann", "B15": "caro-kann",
+        "B16": "caro-kann", "B17": "caro-kann", "B18": "caro-kann", "B19": "caro-kann",
+        
+        # King's Indian: E60-E99
+        "E60": "kings-indian-defense", "E61": "kings-indian-defense",
+        "E62": "kings-indian-defense", "E63": "kings-indian-defense",
+        "E64": "kings-indian-defense", "E65": "kings-indian-defense",
+        "E66": "kings-indian-defense", "E67": "kings-indian-defense",
+        "E68": "kings-indian-defense", "E69": "kings-indian-defense",
+        "E70": "kings-indian-defense", "E71": "kings-indian-defense",
+        "E72": "kings-indian-defense", "E73": "kings-indian-defense",
+        "E74": "kings-indian-defense", "E75": "kings-indian-defense",
+        "E76": "kings-indian-defense", "E77": "kings-indian-defense",
+        "E78": "kings-indian-defense", "E79": "kings-indian-defense",
+        "E80": "kings-indian-defense", "E81": "kings-indian-defense",
+        "E82": "kings-indian-defense", "E83": "kings-indian-defense",
+        "E84": "kings-indian-defense", "E85": "kings-indian-defense",
+        "E86": "kings-indian-defense", "E87": "kings-indian-defense",
+        "E88": "kings-indian-defense", "E89": "kings-indian-defense",
+        "E90": "kings-indian-defense", "E91": "kings-indian-defense",
+        "E92": "kings-indian-defense", "E93": "kings-indian-defense",
+        "E94": "kings-indian-defense", "E95": "kings-indian-defense",
+        "E96": "kings-indian-defense", "E97": "kings-indian-defense",
+        "E98": "kings-indian-defense", "E99": "kings-indian-defense",
+        
+        # Scandinavian: B01
+        "B01": "scandinavian-defense",
+        
+        # Nimzowitsch: B00
+        "B00": "nimzowitsch-defense",
+    }
+    
+    # 1. Try ECO code first (most reliable)
+    if eco_code and eco_code in ECO_MAPPING:
+        return ECO_MAPPING[eco_code]
+    
+    # 2. Try alias matching
+    for alias, key in OPENING_ALIASES.items():
+        if alias in normalized:
+            return key
+    
+    # 3. Try direct name match with library
     for key, data in OPENING_DATABASE.items():
         lib_name = data["name"].lower()
         if lib_name in normalized or normalized in lib_name:
-            return key
-        
-        # Also check ECO codes
-        eco_range = data["eco"].lower()
-        if eco_range in normalized:
             return key
     
     return None

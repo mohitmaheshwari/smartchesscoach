@@ -7122,6 +7122,39 @@ async def get_opening_library():
     return {"openings": get_all_openings()}
 
 
+@api_router.get("/openings/match")
+async def match_opening_to_library_endpoint(opening_name: str, eco: str = None):
+    """
+    Match an opening name to our library using intelligent aliasing.
+    
+    This handles variations like "Giuoco Piano Game" -> "italian-game".
+    
+    Args:
+        opening_name: The opening name from a game (e.g., "Giuoco Piano Game")
+        eco: Optional ECO code (e.g., "C54")
+    
+    Returns:
+        library_key: The key in our library, or null if not found
+    """
+    from services.opening_library_service import match_opening_to_library, get_opening_data
+    
+    library_key = match_opening_to_library(opening_name, eco)
+    
+    if library_key:
+        opening_data = get_opening_data(library_key)
+        return {
+            "found": True,
+            "library_key": library_key,
+            "library_name": opening_data["name"] if opening_data else None
+        }
+    
+    return {
+        "found": False,
+        "library_key": None,
+        "library_name": None
+    }
+
+
 @api_router.get("/openings/{opening_key}")
 async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_user)):
     """

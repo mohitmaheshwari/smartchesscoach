@@ -72,17 +72,16 @@ const HabitsToImprove = ({
           }
         }
         
-        // Also check if this opening is in our library
-        const libRes = await fetch(`${API}/openings/library`, { credentials: "include" });
-        if (libRes.ok) {
-          const libData = await libRes.json();
-          const normalizedOpening = currentOpening.toLowerCase().replace(/[-_]/g, ' ');
-          const match = libData.openings?.find(o => {
-            const libName = o.name.toLowerCase().replace(/[-_]/g, ' ');
-            return libName.includes(normalizedOpening) || normalizedOpening.includes(libName);
-          });
-          if (match) {
-            setOpeningLibraryKey(match.key);
+        // Use the backend's intelligent matching endpoint instead of naive substring matching
+        // This handles variations like "Giuoco Piano Game" -> "italian-game"
+        const matchRes = await fetch(
+          `${API}/openings/match?opening_name=${encodeURIComponent(currentOpening)}${currentEco ? `&eco=${encodeURIComponent(currentEco)}` : ''}`,
+          { credentials: "include" }
+        );
+        if (matchRes.ok) {
+          const matchData = await matchRes.json();
+          if (matchData.found && matchData.library_key) {
+            setOpeningLibraryKey(matchData.library_key);
           }
         }
       } catch (err) {
@@ -92,7 +91,7 @@ const HabitsToImprove = ({
       }
     };
     fetchProgress();
-  }, [currentOpening]);
+  }, [currentOpening, currentEco]);
 
   // Extract pattern detected from this game
   const getPatternDetected = () => {
