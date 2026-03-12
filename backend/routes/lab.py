@@ -421,8 +421,8 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
                 
                 critical_moments.append(moment_data)
     
-    # Sort by cp_loss to get most important first
-    critical_moments.sort(key=lambda x: abs(x["cp_loss"]), reverse=True)
+    # Sort by move number (chronological order) - first mistake appears first
+    critical_moments.sort(key=lambda x: x.get("move_number", 0))
     
     # Generate overall lesson
     lesson = generate_strategic_lesson(
