@@ -1,0 +1,711 @@
+"""
+Opening Library Service
+========================
+
+Provides opening data, main lines, traps, and teaching content
+for the Opening Training Lab.
+
+Features:
+- Opening database with main lines and explanations
+- Trap library for each opening
+- User progress tracking
+- Personalized recommendations based on playing style
+"""
+
+import logging
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
+
+
+# Opening database with teaching content
+OPENING_DATABASE = {
+    "italian-game": {
+        "name": "Italian Game",
+        "eco": "C50-C54",
+        "description": "A classic opening focusing on quick development and central control. Great for tactical players who like open games.",
+        "color": "white",
+        "first_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+        "main_line": [
+            {"move": "e4", "explanation": "Control the center and open lines for your bishop and queen."},
+            {"move": "e5", "explanation": "Black mirrors, fighting for the center."},
+            {"move": "Nf3", "explanation": "Develop with tempo, attacking the e5 pawn."},
+            {"move": "Nc6", "explanation": "Black defends the pawn and develops."},
+            {"move": "Bc4", "explanation": "The Italian! Targeting the weak f7 square."},
+            {"move": "Bc5", "explanation": "The Giuoco Piano - Black develops actively."},
+            {"move": "c3", "explanation": "Preparing d4 to build a strong center."},
+            {"move": "Nf6", "explanation": "Black develops and attacks e4."},
+            {"move": "d4", "explanation": "Strike in the center! This is the key move."},
+            {"move": "exd4", "explanation": "Black captures, opening the position."},
+            {"move": "cxd4", "explanation": "Recapture, maintaining the center."},
+            {"move": "Bb4+", "explanation": "Black checks, disrupting your development."},
+            {"move": "Bd2", "explanation": "Block and develop. You're ready to castle."}
+        ],
+        "key_ideas": [
+            "Control the center with pawns on e4 and d4",
+            "Target the f7 square - it's only defended by the king",
+            "Develop all pieces before attacking",
+            "Castle early for king safety"
+        ],
+        "common_mistakes": [
+            {"move": "d3", "instead_of": "c3", "explanation": "d3 is passive. c3 prepares the strong d4 push."},
+            {"move": "Ng5", "instead_of": "c3", "explanation": "Too early! Ng5 can be met with d5, and you lose time."}
+        ],
+        "traps": [
+            {
+                "name": "Fried Liver Attack",
+                "description": "A deadly sacrifice on f7 that wins material or delivers checkmate.",
+                "setup_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5"],
+                "trap_line": [
+                    {"move": "Ng5", "explanation": "Threatening Nxf7 - a double attack on queen and rook!"},
+                    {"move": "d5", "explanation": "Black's best defense, but..."},
+                    {"move": "exd5", "explanation": "Take the pawn."},
+                    {"move": "Nxd5", "explanation": "Black takes back, but now..."},
+                    {"move": "Nxf7", "explanation": "The Fried Liver! Sacrificing the knight."},
+                    {"move": "Kxf7", "explanation": "Black must take."},
+                    {"move": "Qf3+", "explanation": "Check! Attacking the knight on d5. You win material."}
+                ],
+                "success_message": "The Fried Liver is deadly! Black's king is exposed and you win the knight."
+            },
+            {
+                "name": "Legal's Mate Trap",
+                "description": "A beautiful queen sacrifice leading to checkmate.",
+                "setup_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "d6", "Nc3", "Bg4"],
+                "trap_line": [
+                    {"move": "h3", "explanation": "Attack the bishop, inviting it to take."},
+                    {"move": "Bh5", "explanation": "Black retreats, pinning your knight."},
+                    {"move": "Nxe5", "explanation": "Sacrifice! If Black takes the queen..."},
+                    {"move": "Bxd1", "explanation": "Black takes the queen, falling into the trap!"},
+                    {"move": "Bxf7+", "explanation": "Check!"},
+                    {"move": "Ke7", "explanation": "Forced."},
+                    {"move": "Nd5#", "explanation": "Checkmate! The Legal's Mate."}
+                ],
+                "success_message": "Legal's Mate! A beautiful queen sacrifice leading to checkmate."
+            }
+        ],
+        "what_if": [
+            {
+                "deviation": "Nf6 instead of Bc5",
+                "name": "Two Knights Defense",
+                "response": "After Bc5 Nf6, you can play Ng5 for the Fried Liver or d3 for a quieter game.",
+                "recommendation": "Ng5 is aggressive and good for tactical players!"
+            },
+            {
+                "deviation": "d6 instead of Bc5", 
+                "name": "Hungarian Defense",
+                "response": "Black plays passively. Simply play d4 and you get a great center.",
+                "recommendation": "d4 immediately, then Nc3. You'll have a nice advantage."
+            }
+        ]
+    },
+    "sicilian-defense": {
+        "name": "Sicilian Defense",
+        "eco": "B20-B99",
+        "description": "The most popular response to e4. Black fights for counterplay from move one. Sharp and complex.",
+        "color": "black",
+        "first_moves": ["e4", "c5"],
+        "main_line": [
+            {"move": "e4", "explanation": "White takes the center."},
+            {"move": "c5", "explanation": "The Sicilian! Fighting for d4 control without mirroring."},
+            {"move": "Nf3", "explanation": "White develops, preparing d4."},
+            {"move": "d6", "explanation": "Solid. Preparing ...Nf6 and ...e5 or ...e6."},
+            {"move": "d4", "explanation": "White opens the position."},
+            {"move": "cxd4", "explanation": "Exchange, creating an open c-file for your rook."},
+            {"move": "Nxd4", "explanation": "White recaptures with the knight."},
+            {"move": "Nf6", "explanation": "Develop and attack e4."},
+            {"move": "Nc3", "explanation": "White defends e4 and develops."},
+            {"move": "a6", "explanation": "The Najdorf! Preparing ...b5 and controlling b5."}
+        ],
+        "key_ideas": [
+            "Use the half-open c-file for your rook",
+            "Play ...d5 break when ready to free your position",
+            "Your queenside pawn majority can become dangerous in endgames",
+            "Don't rush - Black's position is solid but needs careful play"
+        ],
+        "common_mistakes": [
+            {"move": "e5", "instead_of": "d6", "explanation": "e5 weakens d5 and d6 squares. The position becomes hard to play."},
+            {"move": "Nc6", "instead_of": "d6", "explanation": "Nc6 early allows Bb5, and after d4 you may face an awkward pin."}
+        ],
+        "traps": [
+            {
+                "name": "Siberian Trap",
+                "description": "A trap in the Sicilian where Black wins White's queen!",
+                "setup_moves": ["e4", "c5", "Nf3", "e6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "Bb4"],
+                "trap_line": [
+                    {"move": "Bb4", "explanation": "Pin the knight. White often plays e5 here..."},
+                    {"move": "e5", "explanation": "White attacks your knight, but..."},
+                    {"move": "Qa5", "explanation": "Threatening Bxc3+ winning the queen!"},
+                    {"move": "exf6", "explanation": "White takes the knight, but..."},
+                    {"move": "Bxc3+", "explanation": "Check! White must block."},
+                    {"move": "Bd2", "explanation": "Forced."},
+                    {"move": "Qxd2+", "explanation": "You win the queen! The Siberian Trap."}
+                ],
+                "success_message": "The Siberian Trap wins White's queen for just a bishop!"
+            }
+        ],
+        "what_if": [
+            {
+                "deviation": "Bc4 instead of d4",
+                "name": "Sicilian with Bc4",
+                "response": "Play e6 to block the bishop, then d5 when ready.",
+                "recommendation": "Don't fear it. e6 followed by d5 gives you a good game."
+            }
+        ]
+    },
+    "queens-gambit": {
+        "name": "Queen's Gambit",
+        "eco": "D00-D69",
+        "description": "A solid, strategic opening. White offers a pawn to gain central control. Not a real gambit - the pawn can be recovered.",
+        "color": "white",
+        "first_moves": ["d4", "d5", "c4"],
+        "main_line": [
+            {"move": "d4", "explanation": "Control the center with your d-pawn."},
+            {"move": "d5", "explanation": "Black stakes a claim in the center too."},
+            {"move": "c4", "explanation": "The Queen's Gambit! Attack Black's center."},
+            {"move": "e6", "explanation": "Queen's Gambit Declined - Black holds the center."},
+            {"move": "Nc3", "explanation": "Develop and add pressure on d5."},
+            {"move": "Nf6", "explanation": "Black develops, defending d5."},
+            {"move": "Bg5", "explanation": "Pin the knight! Adding pressure."},
+            {"move": "Be7", "explanation": "Black breaks the pin."},
+            {"move": "e3", "explanation": "Solid. Preparing Bd3 and O-O."},
+            {"move": "O-O", "explanation": "Black castles to safety."},
+            {"move": "Nf3", "explanation": "Complete development, ready to castle."}
+        ],
+        "key_ideas": [
+            "Control the center with pawns on d4 and eventually e4",
+            "The c4 pawn attacks d5 - don't worry about losing it temporarily",
+            "Develop pieces to active squares, then look for e4 break",
+            "Minority attack on the queenside (a4-b5) is a common plan"
+        ],
+        "common_mistakes": [
+            {"move": "e4", "instead_of": "Nc3", "explanation": "e4 too early weakens d4. Develop first!"},
+            {"move": "Bd3", "instead_of": "Nc3", "explanation": "Bd3 blocks your d-pawn. Nc3 is more flexible."}
+        ],
+        "traps": [
+            {
+                "name": "Elephant Trap",
+                "description": "Black traps White's bishop and wins a piece!",
+                "setup_moves": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Nbd7", "cxd5", "exd5", "Nxd5"],
+                "trap_line": [
+                    {"move": "Nxd5", "explanation": "White grabs the pawn, but..."},
+                    {"move": "Nxd5", "explanation": "Black recaptures."},
+                    {"move": "Bxd8", "explanation": "White wins the queen! Or so they think..."},
+                    {"move": "Bb4+", "explanation": "Check! White must deal with this."},
+                    {"move": "Qd2", "explanation": "Block with the queen."},
+                    {"move": "Bxd2+", "explanation": "Take the queen!"},
+                    {"move": "Kxd2", "explanation": "White takes back."},
+                    {"move": "Kxd8", "explanation": "Black takes the bishop. You're up a full piece!"}
+                ],
+                "success_message": "The Elephant Trap! Black wins a piece with a beautiful intermezzo."
+            }
+        ],
+        "what_if": [
+            {
+                "deviation": "dxc4 (Queen's Gambit Accepted)",
+                "name": "Queen's Gambit Accepted",
+                "response": "Play e3 or e4 and Bxc4. You'll easily regain the pawn with a great position.",
+                "recommendation": "Don't worry about the pawn. e3 followed by Bxc4 is simple and strong."
+            }
+        ]
+    },
+    "london-system": {
+        "name": "London System",
+        "eco": "D00",
+        "description": "A solid, easy-to-learn system. Same setup against almost anything Black plays. Great for beginners and club players.",
+        "color": "white",
+        "first_moves": ["d4", "Bf4"],
+        "main_line": [
+            {"move": "d4", "explanation": "Claim the center."},
+            {"move": "d5", "explanation": "Black responds symmetrically."},
+            {"move": "Bf4", "explanation": "The London! Develop the bishop before e3."},
+            {"move": "Nf6", "explanation": "Black develops naturally."},
+            {"move": "e3", "explanation": "Solid. Support d4 and prepare Bd3."},
+            {"move": "c5", "explanation": "Black challenges your center."},
+            {"move": "c3", "explanation": "Reinforce d4. Your structure is rock solid."},
+            {"move": "Nc6", "explanation": "Black continues developing."},
+            {"move": "Nd2", "explanation": "The knight goes here in the London, not c3."},
+            {"move": "e6", "explanation": "Black solidifies."},
+            {"move": "Ngf3", "explanation": "Complete development."},
+            {"move": "Bd6", "explanation": "Black challenges your bishop."},
+            {"move": "Bg3", "explanation": "Keep the bishop! It's valuable."}
+        ],
+        "key_ideas": [
+            "Always play Bf4 before e3 - don't trap your bishop!",
+            "The setup is Bf4, e3, Bd3, Nf3, Nbd2, c3 - same against everything",
+            "Don't trade your dark-squared bishop easily - it's your best piece",
+            "Play for a kingside attack with h4-h5 or central e4 break"
+        ],
+        "common_mistakes": [
+            {"move": "e3", "instead_of": "Bf4", "explanation": "e3 first traps your bishop on c1. Always Bf4 first!"},
+            {"move": "Bxd6", "instead_of": "Bg3", "explanation": "Don't trade! Your bishop is better than Black's."}
+        ],
+        "traps": [
+            {
+                "name": "Englund Gambit Trap",
+                "description": "If Black plays the dubious Englund Gambit, you can win material.",
+                "setup_moves": ["d4", "e5", "dxe5", "Nc6", "Nf3", "Qe7", "Bf4", "Qb4+"],
+                "trap_line": [
+                    {"move": "Qb4+", "explanation": "Black checks, hoping for Nc3 Qxb2."},
+                    {"move": "Bd2", "explanation": "Block with the bishop!"},
+                    {"move": "Qxb2", "explanation": "Black grabs the pawn, but..."},
+                    {"move": "Bc3", "explanation": "Attack the queen! It has no escape."},
+                    {"move": "Bb4", "explanation": "Trying to block, but..."},
+                    {"move": "Bxb4", "explanation": "Take! Black loses the queen or gets mated."}
+                ],
+                "success_message": "The Englund Gambit is refuted! You win Black's queen."
+            }
+        ],
+        "what_if": [
+            {
+                "deviation": "Nf6 before d5",
+                "name": "Indian Defense Setup",
+                "response": "Continue with Bf4, e3, Nf3. Your system works against everything!",
+                "recommendation": "Stick to your setup. The London works against all defenses."
+            }
+        ]
+    },
+    "caro-kann": {
+        "name": "Caro-Kann Defense",
+        "eco": "B10-B19",
+        "description": "A solid, reliable defense against e4. Black aims for a sound pawn structure and long-term play.",
+        "color": "black",
+        "first_moves": ["e4", "c6"],
+        "main_line": [
+            {"move": "e4", "explanation": "White takes the center."},
+            {"move": "c6", "explanation": "The Caro-Kann! Preparing d5 with support."},
+            {"move": "d4", "explanation": "White builds a big center."},
+            {"move": "d5", "explanation": "Challenge the center immediately."},
+            {"move": "Nc3", "explanation": "White defends e4."},
+            {"move": "dxe4", "explanation": "Exchange, leading to the main lines."},
+            {"move": "Nxe4", "explanation": "White recaptures with the knight."},
+            {"move": "Bf5", "explanation": "Develop the bishop BEFORE e6. This is key!"},
+            {"move": "Ng3", "explanation": "White attacks the bishop."},
+            {"move": "Bg6", "explanation": "Retreat but stay active on the diagonal."},
+            {"move": "h4", "explanation": "White gains space, threatening h5."},
+            {"move": "h6", "explanation": "Stop h5, keep your bishop safe."}
+        ],
+        "key_ideas": [
+            "Develop your light-squared bishop BEFORE playing e6",
+            "Your pawn structure is solid - no weaknesses",
+            "Play for ...c5 break to challenge White's center",
+            "Endgames often favor Black due to better pawn structure"
+        ],
+        "common_mistakes": [
+            {"move": "e6", "instead_of": "Bf5", "explanation": "e6 traps your bishop on c8. Always Bf5 first!"},
+            {"move": "Nf6", "instead_of": "Bf5", "explanation": "Nf6 allows Nxf6+ ruining your structure. Bf5 first!"}
+        ],
+        "traps": [],
+        "what_if": [
+            {
+                "deviation": "e5 (Advance Variation)",
+                "name": "Advance Variation",
+                "response": "Play Bf5 (before e6!), then e6, c5. Attack the d4 pawn.",
+                "recommendation": "Bf5, e6, c5. Your position is solid and you'll attack d4."
+            },
+            {
+                "deviation": "Nf3 (Two Knights)",
+                "name": "Two Knights Variation",
+                "response": "Play dxe4, then Nxe4 Nf6 or Bf5. Solid and equal.",
+                "recommendation": "After dxe4 Nxe4, play Nf6 to trade knights for an easy game."
+            }
+        ]
+    },
+    "kings-indian-defense": {
+        "name": "King's Indian Defense",
+        "eco": "E60-E99",
+        "description": "An aggressive, counterattacking defense. Black lets White build a center, then attacks it. For fighters!",
+        "color": "black",
+        "first_moves": ["d4", "Nf6", "c4", "g6"],
+        "main_line": [
+            {"move": "d4", "explanation": "White takes the center."},
+            {"move": "Nf6", "explanation": "Flexible. See what White plays."},
+            {"move": "c4", "explanation": "White expands."},
+            {"move": "g6", "explanation": "The King's Indian! Fianchetto coming."},
+            {"move": "Nc3", "explanation": "White develops."},
+            {"move": "Bg7", "explanation": "The fianchetto. Your bishop eyes the center."},
+            {"move": "e4", "explanation": "White builds a big center. Let them!"},
+            {"move": "d6", "explanation": "Prepare ...e5 or ...c5 counterplay."},
+            {"move": "Nf3", "explanation": "White completes development."},
+            {"move": "O-O", "explanation": "Castle and prepare your attack!"},
+            {"move": "Be2", "explanation": "White develops calmly."},
+            {"move": "e5", "explanation": "Strike! Challenge the center."}
+        ],
+        "key_ideas": [
+            "Let White build a big center - you'll attack it later",
+            "Kingside attack with f5-f4 is your main plan",
+            "Your dark-squared bishop on g7 is a monster - don't trade it",
+            "Play ...e5 then ...f5 to start your attack"
+        ],
+        "common_mistakes": [
+            {"move": "d5", "instead_of": "d6", "explanation": "d5 blocks your bishop. d6 keeps options open."},
+            {"move": "e6", "instead_of": "d6", "explanation": "e6 is passive and blocks your f-pawn. d6 is correct."}
+        ],
+        "traps": [],
+        "what_if": [
+            {
+                "deviation": "Bg5 (Averbakh)",
+                "name": "Averbakh Variation",
+                "response": "Play h6 to ask the bishop what it wants. Then continue normally.",
+                "recommendation": "h6 is simple. After Bh4, play g5 Bg3 Nh5 for active play."
+            }
+        ]
+    },
+    "scandinavian-defense": {
+        "name": "Scandinavian Defense",
+        "eco": "B01",
+        "description": "An aggressive defense where Black immediately challenges White's e4 pawn. Simple but solid.",
+        "color": "black",
+        "first_moves": ["e4", "d5"],
+        "main_line": [
+            {"move": "e4", "explanation": "White takes the center."},
+            {"move": "d5", "explanation": "The Scandinavian! Immediate counterattack."},
+            {"move": "exd5", "explanation": "White takes. Now you have a choice..."},
+            {"move": "Qxd5", "explanation": "Main line - recapture with the queen."},
+            {"move": "Nc3", "explanation": "White attacks your queen, gaining time."},
+            {"move": "Qa5", "explanation": "Safe square. The queen stays active."},
+            {"move": "d4", "explanation": "White builds a center."},
+            {"move": "Nf6", "explanation": "Develop and eye the d5 square."},
+            {"move": "Nf3", "explanation": "White develops."},
+            {"move": "Bf5", "explanation": "Develop your bishop actively!"},
+            {"move": "Bc4", "explanation": "White develops aggressively."},
+            {"move": "e6", "explanation": "Solid. Block the bishop's diagonal."}
+        ],
+        "key_ideas": [
+            "Your queen comes out early but finds a safe square on a5",
+            "Develop your light bishop to f5 before playing e6",
+            "Your structure is solid - no weaknesses",
+            "Play ...c6 and ...Nbd7 for a solid setup"
+        ],
+        "common_mistakes": [
+            {"move": "Qd8", "instead_of": "Qa5", "explanation": "Qd8 wastes time. Qa5 is active and safe."},
+            {"move": "e6", "instead_of": "Bf5", "explanation": "e6 traps your bishop. Always Bf5 first!"}
+        ],
+        "traps": [],
+        "what_if": [
+            {
+                "deviation": "d4 instead of Nc3",
+                "name": "d4 Line",
+                "response": "Play Qd8 or Qa5. Both are fine. Then develop normally.",
+                "recommendation": "Qa5 keeps the queen active. Then Nf6, Bf5, e6."
+            }
+        ]
+    },
+    "nimzowitsch-defense": {
+        "name": "Nimzowitsch Defense",
+        "eco": "B00",
+        "description": "An unusual defense where Black plays Nc6 against e4. Flexible and surprising.",
+        "color": "black",
+        "first_moves": ["e4", "Nc6"],
+        "main_line": [
+            {"move": "e4", "explanation": "White takes the center."},
+            {"move": "Nc6", "explanation": "The Nimzowitsch! Unusual but solid."},
+            {"move": "d4", "explanation": "White expands."},
+            {"move": "d5", "explanation": "Counter in the center!"},
+            {"move": "e5", "explanation": "White advances, gaining space."},
+            {"move": "Bf5", "explanation": "Develop the bishop actively."},
+            {"move": "Nf3", "explanation": "White develops."},
+            {"move": "e6", "explanation": "Solid. Support your d5 pawn."},
+            {"move": "Be2", "explanation": "White prepares to castle."},
+            {"move": "Nge7", "explanation": "The knight goes to e7 to support d5 and f5."}
+        ],
+        "key_ideas": [
+            "Fight for d5 - it's your key central square",
+            "Develop the light bishop before e6",
+            "Your knight structure (Nc6-Nge7) is flexible",
+            "Look for ...f6 to challenge White's e5 pawn"
+        ],
+        "common_mistakes": [
+            {"move": "e5", "instead_of": "d5", "explanation": "e5 is met by d5! attacking your knight with no good square."},
+            {"move": "e6", "instead_of": "Bf5", "explanation": "Always develop the bishop before e6!"}
+        ],
+        "traps": [],
+        "what_if": [
+            {
+                "deviation": "Nf3 instead of d4",
+                "name": "Quiet Line",
+                "response": "Play e5 grabbing central space, then d6 and normal development.",
+                "recommendation": "e5 is strong here since White can't play d4 immediately."
+            }
+        ]
+    }
+}
+
+
+@dataclass
+class OpeningProgress:
+    """Tracks user's progress on a specific opening."""
+    opening_key: str
+    user_id: str
+    main_line_progress: int = 0  # How many moves they know
+    traps_learned: List[str] = field(default_factory=list)
+    times_practiced: int = 0
+    last_practiced: Optional[datetime] = None
+    mastery_level: str = "unknown"  # unknown, learning, practiced, comfortable, mastered
+
+
+def get_opening_data(opening_key: str) -> Optional[Dict]:
+    """Get full opening data by key."""
+    return OPENING_DATABASE.get(opening_key)
+
+
+def get_all_openings() -> List[Dict]:
+    """Get list of all openings with basic info."""
+    result = []
+    for key, data in OPENING_DATABASE.items():
+        result.append({
+            "key": key,
+            "name": data["name"],
+            "eco": data["eco"],
+            "color": data["color"],
+            "description": data["description"],
+            "trap_count": len(data.get("traps", []))
+        })
+    return result
+
+
+def get_openings_for_color(color: str) -> List[Dict]:
+    """Get openings for a specific color."""
+    return [
+        {
+            "key": key,
+            "name": data["name"],
+            "eco": data["eco"],
+            "description": data["description"],
+            "trap_count": len(data.get("traps", []))
+        }
+        for key, data in OPENING_DATABASE.items()
+        if data["color"] == color
+    ]
+
+
+def match_opening_to_library(opening_name: str) -> Optional[str]:
+    """
+    Match a game's opening name to our library.
+    Returns the opening key if found.
+    """
+    if not opening_name:
+        return None
+    
+    normalized = opening_name.lower().replace("-", " ").replace("_", " ")
+    
+    for key, data in OPENING_DATABASE.items():
+        lib_name = data["name"].lower()
+        if lib_name in normalized or normalized in lib_name:
+            return key
+        
+        # Also check ECO codes
+        eco_range = data["eco"].lower()
+        if eco_range in normalized:
+            return key
+    
+    return None
+
+
+async def get_user_opening_repertoire(db, user_id: str) -> Dict:
+    """
+    Get user's opening repertoire with stats from their games.
+    """
+    from opening_trainer_service import get_user_opening_stats
+    
+    # Get user's actual game stats
+    user_stats = await get_user_opening_stats(db, user_id)
+    
+    # Get user progress on library openings
+    progress_records = await db.opening_learning_progress.find(
+        {"user_id": user_id}
+    ).to_list(100)
+    progress_map = {p["opening_key"]: p for p in progress_records}
+    
+    # Build repertoire
+    white_openings = []
+    black_openings = []
+    
+    # Add openings from user's games
+    for stat in user_stats:
+        opening_name = stat.get("name", "")
+        opening_key = match_opening_to_library(opening_name)
+        
+        entry = {
+            "name": opening_name,
+            "games_played": stat.get("games_played", 0),
+            "win_rate": stat.get("win_rate", 0),
+            "avg_accuracy": stat.get("avg_accuracy", 0),
+            "in_library": opening_key is not None,
+            "library_key": opening_key,
+            "learning_progress": progress_map.get(opening_key, {}).get("main_line_progress", 0) if opening_key else 0,
+            "traps_learned": progress_map.get(opening_key, {}).get("traps_learned", []) if opening_key else []
+        }
+        
+        # Determine color based on library or guess
+        if opening_key:
+            color = OPENING_DATABASE[opening_key]["color"]
+        else:
+            # Guess based on common opening names
+            color = "white" if any(w in opening_name.lower() for w in ["italian", "london", "queen's gambit", "ruy lopez", "scotch"]) else "black"
+        
+        if color == "white":
+            white_openings.append(entry)
+        else:
+            black_openings.append(entry)
+    
+    # Add recommended openings not yet played
+    recommended_white = []
+    recommended_black = []
+    
+    played_keys = {match_opening_to_library(s.get("name", "")) for s in user_stats}
+    
+    for key, data in OPENING_DATABASE.items():
+        if key not in played_keys:
+            rec = {
+                "key": key,
+                "name": data["name"],
+                "description": data["description"],
+                "reason": "Popular and instructive opening"
+            }
+            if data["color"] == "white":
+                recommended_white.append(rec)
+            else:
+                recommended_black.append(rec)
+    
+    return {
+        "white_repertoire": sorted(white_openings, key=lambda x: -x["games_played"]),
+        "black_repertoire": sorted(black_openings, key=lambda x: -x["games_played"]),
+        "recommended_white": recommended_white[:3],
+        "recommended_black": recommended_black[:3],
+        "total_openings_played": len(user_stats),
+        "library_openings_available": len(OPENING_DATABASE)
+    }
+
+
+async def get_opening_lesson(db, user_id: str, opening_key: str) -> Optional[Dict]:
+    """
+    Get a full opening lesson with user's specific mistakes.
+    """
+    opening = get_opening_data(opening_key)
+    if not opening:
+        return None
+    
+    # Get user's stats in this opening
+    from opening_trainer_service import get_user_opening_stats
+    user_stats = await get_user_opening_stats(db, user_id)
+    
+    user_opening_stats = None
+    for stat in user_stats:
+        if match_opening_to_library(stat.get("name", "")) == opening_key:
+            user_opening_stats = stat
+            break
+    
+    # Get user's mistakes in this opening from their games
+    user_mistakes = []
+    if user_opening_stats:
+        # Find games with this opening
+        games = await db.games.find({
+            "user_id": user_id,
+            "$or": [
+                {"opening": {"$regex": opening["name"], "$options": "i"}},
+                {"opening_name": {"$regex": opening["name"], "$options": "i"}}
+            ]
+        }, {"_id": 0, "game_id": 1}).limit(10).to_list(10)
+        
+        game_ids = [g["game_id"] for g in games]
+        
+        # Get mistakes from these games
+        for game_id in game_ids[:5]:
+            analysis = await db.games_analysis.find_one(
+                {"game_id": game_id},
+                {"_id": 0, "stockfish_analysis": 1}
+            )
+            if analysis:
+                moves = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+                for m in moves[:15]:  # Opening moves only
+                    if abs(m.get("cp_loss", 0)) >= 50:
+                        user_mistakes.append({
+                            "game_id": game_id,
+                            "move_number": m.get("move_number"),
+                            "your_move": m.get("move"),
+                            "best_move": m.get("best_move"),
+                            "cp_loss": m.get("cp_loss")
+                        })
+    
+    # Get learning progress
+    progress = await db.opening_learning_progress.find_one(
+        {"user_id": user_id, "opening_key": opening_key}
+    )
+    
+    return {
+        "opening": opening,
+        "user_stats": user_opening_stats,
+        "user_mistakes": user_mistakes[:5],
+        "learning_progress": {
+            "main_line_progress": progress.get("main_line_progress", 0) if progress else 0,
+            "traps_learned": progress.get("traps_learned", []) if progress else [],
+            "times_practiced": progress.get("times_practiced", 0) if progress else 0,
+            "mastery_level": progress.get("mastery_level", "unknown") if progress else "unknown"
+        }
+    }
+
+
+async def update_learning_progress(
+    db, 
+    user_id: str, 
+    opening_key: str, 
+    main_line_progress: int = None,
+    trap_learned: str = None,
+    practiced: bool = False
+) -> Dict:
+    """Update user's learning progress on an opening."""
+    
+    update = {"$set": {"last_practiced": datetime.now(timezone.utc)}}
+    
+    if main_line_progress is not None:
+        update["$set"]["main_line_progress"] = main_line_progress
+    
+    if practiced:
+        update["$inc"] = {"times_practiced": 1}
+    
+    if trap_learned:
+        update["$addToSet"] = {"traps_learned": trap_learned}
+    
+    await db.opening_learning_progress.update_one(
+        {"user_id": user_id, "opening_key": opening_key},
+        {
+            **update,
+            "$setOnInsert": {
+                "user_id": user_id,
+                "opening_key": opening_key,
+                "created_at": datetime.now(timezone.utc)
+            }
+        },
+        upsert=True
+    )
+    
+    # Recalculate mastery level
+    progress = await db.opening_learning_progress.find_one(
+        {"user_id": user_id, "opening_key": opening_key}
+    )
+    
+    opening = get_opening_data(opening_key)
+    total_moves = len(opening["main_line"]) if opening else 10
+    
+    moves_known = progress.get("main_line_progress", 0)
+    times_practiced = progress.get("times_practiced", 0)
+    
+    if moves_known >= total_moves and times_practiced >= 5:
+        mastery = "mastered"
+    elif moves_known >= total_moves * 0.7 and times_practiced >= 3:
+        mastery = "comfortable"
+    elif moves_known >= total_moves * 0.5 or times_practiced >= 2:
+        mastery = "practiced"
+    elif moves_known > 0 or times_practiced > 0:
+        mastery = "learning"
+    else:
+        mastery = "unknown"
+    
+    await db.opening_learning_progress.update_one(
+        {"user_id": user_id, "opening_key": opening_key},
+        {"$set": {"mastery_level": mastery}}
+    )
+    
+    return {"mastery_level": mastery}

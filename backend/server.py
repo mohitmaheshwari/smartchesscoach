@@ -7098,6 +7098,75 @@ async def get_openings_database():
 # ============================================================================
 # TRICK LIBRARY ENDPOINTS
 # ============================================================================
+# OPENING TRAINING LAB ENDPOINTS
+# ============================================================================
+
+@api_router.get("/openings/repertoire")
+async def get_opening_repertoire(user: User = Depends(get_current_user)):
+    """
+    Get user's opening repertoire - openings they've played + recommendations.
+    """
+    from services.opening_library_service import get_user_opening_repertoire
+    
+    repertoire = await get_user_opening_repertoire(db, user.user_id)
+    return repertoire
+
+
+@api_router.get("/openings/library")
+async def get_opening_library():
+    """
+    Get all openings in the teaching library.
+    """
+    from services.opening_library_service import get_all_openings
+    
+    return {"openings": get_all_openings()}
+
+
+@api_router.get("/openings/{opening_key}")
+async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_user)):
+    """
+    Get full opening lesson with main line, traps, and user's mistakes.
+    """
+    from services.opening_library_service import get_opening_lesson as get_lesson
+    
+    lesson = await get_lesson(db, user.user_id, opening_key)
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Opening not found in library")
+    
+    return lesson
+
+
+@api_router.post("/openings/{opening_key}/progress")
+async def update_opening_progress(
+    opening_key: str,
+    progress_data: dict,
+    user: User = Depends(get_current_user)
+):
+    """
+    Update user's learning progress on an opening.
+    
+    Body:
+    - main_line_progress: int (moves learned)
+    - trap_learned: str (trap name)
+    - practiced: bool (increment practice count)
+    """
+    from services.opening_library_service import update_learning_progress
+    
+    result = await update_learning_progress(
+        db,
+        user.user_id,
+        opening_key,
+        main_line_progress=progress_data.get("main_line_progress"),
+        trap_learned=progress_data.get("trap_learned"),
+        practiced=progress_data.get("practiced", False)
+    )
+    
+    return {"success": True, **result}
+
+
+# ============================================================================
+# TRICK TRAINING ENDPOINTS
+# ============================================================================
 
 @api_router.get("/training/tricks")
 async def get_all_tricks():

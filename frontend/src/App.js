@@ -14,6 +14,8 @@ import WeaknessTracker from "@/pages/WeaknessTracker";
 import Training from "@/pages/TrainingNew";  // NEW interactive training
 import PrescribedTraining from "@/pages/PrescribedTraining";  // Coached puzzles based on weaknesses
 import OpeningQuizPage from "@/pages/OpeningQuizPage";  // Opening mastery quiz
+import OpeningRepertoire from "@/pages/OpeningRepertoire";  // Opening Training Lab
+import OpeningLesson from "@/pages/OpeningLesson";  // Individual opening lessons
 import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
@@ -220,6 +222,16 @@ function AppRouter() {
       <Route path="/training/quiz/:openingKey" element={
         <ProtectedRoute>
           {({ user }) => <OpeningQuizPage user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/openings" element={
+        <ProtectedRoute>
+          {({ user }) => <OpeningRepertoire user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/openings/:openingKey" element={
+        <ProtectedRoute>
+          {({ user }) => <OpeningLesson user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/challenge" element={

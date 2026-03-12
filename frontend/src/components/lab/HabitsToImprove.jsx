@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from "lucide-react";
 
 const HabitsToImprove = ({ 
@@ -31,9 +33,12 @@ const HabitsToImprove = ({
   onStartTraining,
   onNavigateToMove
 }) => {
+  const navigate = useNavigate();
+  
   // Current game's opening stats from progress API
   const [openingStats, setOpeningStats] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(false);
+  const [openingLibraryKey, setOpeningLibraryKey] = useState(null);
   
   // Get the opening from the current game
   const currentOpening = deepStrategy?.game?.opening || deepStrategy?.game?.opening_name;
@@ -60,6 +65,24 @@ const HabitsToImprove = ({
           });
           if (thisOpening) {
             setOpeningStats(thisOpening);
+            // Check if it has a library key
+            if (thisOpening.library_key) {
+              setOpeningLibraryKey(thisOpening.library_key);
+            }
+          }
+        }
+        
+        // Also check if this opening is in our library
+        const libRes = await fetch(`${API}/openings/library`, { credentials: "include" });
+        if (libRes.ok) {
+          const libData = await libRes.json();
+          const normalizedOpening = currentOpening.toLowerCase().replace(/[-_]/g, ' ');
+          const match = libData.openings?.find(o => {
+            const libName = o.name.toLowerCase().replace(/[-_]/g, ' ');
+            return libName.includes(normalizedOpening) || normalizedOpening.includes(libName);
+          });
+          if (match) {
+            setOpeningLibraryKey(match.key);
           }
         }
       } catch (err) {
@@ -415,6 +438,20 @@ const HabitsToImprove = ({
                 <p className="text-xs text-muted-foreground mt-2">
                   First game with this opening
                 </p>
+              )}
+              
+              {/* Learn this opening button */}
+              {openingLibraryKey && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-3"
+                  onClick={() => navigate(`/openings/${openingLibraryKey}`)}
+                >
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Learn This Opening
+                  <ArrowRight className="w-4 h-4 ml-auto" />
+                </Button>
               )}
             </CardContent>
           </Card>
