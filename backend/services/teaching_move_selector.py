@@ -379,6 +379,11 @@ class TeachingMoveSelector:
             if loss > acceptable_loss:
                 candidate.too_weak = True
             
+            # CRITICAL: Check if move hangs a piece - NEVER allow this
+            if self._hangs_piece(board, candidate.move):
+                candidate.too_weak = True
+                candidate.teaching_value = 0  # Zero teaching value for blunders
+            
             # Check if creates tactics
             candidate.creates_tactics = self._creates_tactical_opportunity(
                 board, candidate.move
@@ -581,6 +586,43 @@ class TeachingMoveSelector:
         board.pop()
         return has_tactics
     
+    def _hangs_piece(self, board: chess.Board, move: chess.Move) -> bool:
+        """
+        Check if the move hangs a piece (leaves it undefended and attackable).
+        This is CRITICAL - we should NEVER play moves that hang pieces.
+        """
+        # Make the move
+        board.push(move)
+        our_color = not board.turn  # We just moved
+        
+        # Check all our pieces for hanging
+        hangs_material = False
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece and piece.color == our_color:
+                # Skip pawns for simplicity
+                if piece.piece_type == chess.PAWN:
+                    continue
+                
+                # Is this piece attacked?
+                if board.is_attacked_by(board.turn, square):
+                    # Is it defended?
+                    defenders = len([s for s in board.attackers(our_color, square)])
+                    attackers = len([s for s in board.attackers(board.turn, square)])
+                    
+                    if attackers > defenders:
+                        # Piece is hanging!
+                        # More attackers than defenders = piece is lost
+                        hangs_material = True
+                        break
+                    elif attackers > 0 and defenders == 0:
+                        # Undefended and attacked = hanging
+                        hangs_material = True
+                        break
+        
+        board.pop()
+        return hangs_material
+    
     def _calculate_teaching_value(
         self,
         candidate: MoveCandidate,
@@ -736,8 +778,12 @@ class TeachingMoveSelector:
     ) -> MoveCandidate:
         """Select the best move for teaching from evaluated candidates."""
         
-        # Filter out unacceptable moves
-        acceptable = [c for c in candidates if not c.too_weak]
+        # CRITICAL: Sort by evaluation first to ensure we never play blunders
+        # Even for teaching, we should not lose material needlessly
+        sorted_by_eval = sorted(candidates, key=lambda c: c.eval_score, reverse=True)
+        
+        # Filter out unacceptable moves (moves that are too weak)
+        acceptable = [c for c in sorted_by_eval if not c.too_weak]
         
         if avoid_crushing:
             # Also filter out crushing moves unless all are crushing
@@ -746,10 +792,21 @@ class TeachingMoveSelector:
                 acceptable = non_crushing
         
         if not acceptable:
-            acceptable = candidates
+            # If all moves are too weak or too strong, 
+            # at least pick the best evaluated move (don't blunder!)
+            acceptable = sorted_by_eval
         
-        # Return the highest scoring acceptable move
-        return acceptable[0] if acceptable else candidates[0]
+        # Sort acceptable moves by teaching value
+        acceptable.sort(key=lambda c: c.teaching_value, reverse=True)
+        
+        # Return the highest teaching value among acceptable moves
+        # But ensure it's in the top 3 evaluated moves to avoid blunders
+        for candidate in acceptable:
+            if candidate.eval_rank <= 3:  # Top 3 engine moves only
+                return candidate
+        
+        # Fallback: just return the best evaluated move
+        return sorted_by_eval[0] if sorted_by_eval else candidates[0]
     
     def _generate_teaching_content(
         self,
