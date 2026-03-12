@@ -56,18 +56,19 @@ OPENING_DATABASE = {
         "traps": [
             {
                 "name": "Fried Liver Attack",
-                "description": "A deadly sacrifice on f7 that wins material or delivers checkmate.",
+                "description": "A deadly knight sacrifice on f7 that wins material and exposes Black's king.",
                 "setup_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "Ng5"],
                 "trap_line": [
-                    {"move": "Ng5", "explanation": "Threatening Nxf7 - a double attack on queen and rook!"},
-                    {"move": "d5", "explanation": "Black's best defense, but..."},
-                    {"move": "exd5", "explanation": "Take the pawn."},
-                    {"move": "Nxd5", "explanation": "Black takes back, but now..."},
-                    {"move": "Nxf7", "explanation": "The Fried Liver! Sacrificing the knight."},
-                    {"move": "Kxf7", "explanation": "Black must take."},
-                    {"move": "Qf3+", "explanation": "Check! Attacking the knight on d5. You win material."}
+                    {"move": "d5", "explanation": "Black tries to block, but it's too late..."},
+                    {"move": "exd5", "explanation": "White captures the pawn."},
+                    {"move": "Nxd5", "explanation": "Black recaptures, but the knight is vulnerable."},
+                    {"move": "Nxf7", "explanation": "The Fried Liver sacrifice! Knight takes on f7."},
+                    {"move": "Kxf7", "explanation": "Black must capture."},
+                    {"move": "Qf3+", "explanation": "Check! Double attack on king and knight on d5."},
+                    {"move": "Ke6", "explanation": "The king is forced forward into danger."},
+                    {"move": "Nc3", "explanation": "Develop with tempo. White wins the knight and has a crushing attack."}
                 ],
-                "success_message": "The Fried Liver is deadly! Black's king is exposed and you win the knight."
+                "success_message": "The Fried Liver Attack! Black's king is exposed and you win material."
             },
             {
                 "name": "Legal's Mate Trap",
@@ -129,18 +130,19 @@ OPENING_DATABASE = {
         "traps": [
             {
                 "name": "Siberian Trap",
-                "description": "A trap in the Sicilian where Black wins White's queen!",
+                "description": "A deadly trap where Black wins White's queen with a bishop check!",
                 "setup_moves": ["e4", "c5", "Nf3", "e6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "Bb4"],
                 "trap_line": [
-                    {"move": "Bb4", "explanation": "Pin the knight. White often plays e5 here..."},
-                    {"move": "e5", "explanation": "White attacks your knight, but..."},
-                    {"move": "Qa5", "explanation": "Threatening Bxc3+ winning the queen!"},
-                    {"move": "exf6", "explanation": "White takes the knight, but..."},
-                    {"move": "Bxc3+", "explanation": "Check! White must block."},
-                    {"move": "Bd2", "explanation": "Forced."},
-                    {"move": "Qxd2+", "explanation": "You win the queen! The Siberian Trap."}
+                    {"move": "e5", "explanation": "White attacks the knight - a common but losing move!"},
+                    {"move": "Qa5", "explanation": "Black threatens Bxc3+ winning the queen."},
+                    {"move": "exf6", "explanation": "White captures, but falls into the trap..."},
+                    {"move": "Bxc3+", "explanation": "Check! The bishop takes the knight with check."},
+                    {"move": "Bd2", "explanation": "White blocks the check."},
+                    {"move": "Bxd2+", "explanation": "Take the bishop with another check!"},
+                    {"move": "Qxd2", "explanation": "White must take with the queen."},
+                    {"move": "Qxd2+", "explanation": "The Siberian Trap! Black wins White's queen."}
                 ],
-                "success_message": "The Siberian Trap wins White's queen for just a bishop!"
+                "success_message": "The Siberian Trap! Black wins White's queen for just a knight."
             }
         ],
         "what_if": [
@@ -184,19 +186,18 @@ OPENING_DATABASE = {
         "traps": [
             {
                 "name": "Elephant Trap",
-                "description": "Black traps White's bishop and wins a piece!",
+                "description": "Black wins a piece with a beautiful intermezzo check!",
                 "setup_moves": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Nbd7", "cxd5", "exd5", "Nxd5"],
                 "trap_line": [
-                    {"move": "Nxd5", "explanation": "White grabs the pawn, but..."},
-                    {"move": "Nxd5", "explanation": "Black recaptures."},
-                    {"move": "Bxd8", "explanation": "White wins the queen! Or so they think..."},
-                    {"move": "Bb4+", "explanation": "Check! White must deal with this."},
-                    {"move": "Qd2", "explanation": "Block with the queen."},
-                    {"move": "Bxd2+", "explanation": "Take the queen!"},
-                    {"move": "Kxd2", "explanation": "White takes back."},
-                    {"move": "Kxd8", "explanation": "Black takes the bishop. You're up a full piece!"}
+                    {"move": "Nxd5", "explanation": "Black recaptures the pawn."},
+                    {"move": "Bxd8", "explanation": "White thinks they win the queen! But..."},
+                    {"move": "Bb4+", "explanation": "Intermezzo! Check with the bishop."},
+                    {"move": "Qd2", "explanation": "White blocks with the queen."},
+                    {"move": "Bxd2+", "explanation": "Take the queen with check!"},
+                    {"move": "Kxd2", "explanation": "White must recapture."},
+                    {"move": "Kxd8", "explanation": "Now Black takes back the bishop. You're up a full piece!"}
                 ],
-                "success_message": "The Elephant Trap! Black wins a piece with a beautiful intermezzo."
+                "success_message": "The Elephant Trap! The intermezzo check wins a piece."
             }
         ],
         "what_if": [
@@ -242,17 +243,16 @@ OPENING_DATABASE = {
         "traps": [
             {
                 "name": "Englund Gambit Trap",
-                "description": "If Black plays the dubious Englund Gambit, you can win material.",
+                "description": "Refute the dubious Englund Gambit and trap Black's queen!",
                 "setup_moves": ["d4", "e5", "dxe5", "Nc6", "Nf3", "Qe7", "Bf4", "Qb4+"],
                 "trap_line": [
-                    {"move": "Qb4+", "explanation": "Black checks, hoping for Nc3 Qxb2."},
-                    {"move": "Bd2", "explanation": "Block with the bishop!"},
-                    {"move": "Qxb2", "explanation": "Black grabs the pawn, but..."},
-                    {"move": "Bc3", "explanation": "Attack the queen! It has no escape."},
-                    {"move": "Bb4", "explanation": "Trying to block, but..."},
-                    {"move": "Bxb4", "explanation": "Take! Black loses the queen or gets mated."}
+                    {"move": "Bd2", "explanation": "Block the check with the bishop."},
+                    {"move": "Qxb2", "explanation": "Black grabs the pawn greedily, but..."},
+                    {"move": "Bc3", "explanation": "The queen is trapped! No safe squares."},
+                    {"move": "Qb4", "explanation": "Black tries to escape, but..."},
+                    {"move": "Bxb4", "explanation": "Take the queen! She has nowhere to run."}
                 ],
-                "success_message": "The Englund Gambit is refuted! You win Black's queen."
+                "success_message": "The Englund Gambit refuted! Black's greed costs them the queen."
             }
         ],
         "what_if": [
