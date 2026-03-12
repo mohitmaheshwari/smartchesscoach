@@ -322,22 +322,76 @@ export default function PrescribedTraining() {
                   interactive={puzzleState === "thinking"}
                   viewOnly={puzzleState !== "thinking"}
                   arrows={
-                    // Show arrow for best move when solution is revealed or incorrect
-                    (showSolution || puzzleState === "incorrect") && currentPuzzle.solution?.[0]
-                      ? [[
-                          currentPuzzle.solution[0].slice(0, 2),
-                          currentPuzzle.solution[0].slice(2, 4),
-                          "green"
-                        ]]
+                    // Show arrows when solution is revealed or incorrect
+                    (showSolution || puzzleState === "incorrect")
+                      ? (() => {
+                          const arrows = [];
+                          
+                          // Green arrow for best move
+                          if (currentPuzzle.solution?.[0]) {
+                            arrows.push([
+                              currentPuzzle.solution[0].slice(0, 2),
+                              currentPuzzle.solution[0].slice(2, 4),
+                              "green"
+                            ]);
+                          }
+                          
+                          // Orange arrow for the threat (what you missed)
+                          if (currentPuzzle.threat) {
+                            // Try to parse the threat as a UCI move (e.g., "e2e4" or "fxe5")
+                            const threat = currentPuzzle.threat;
+                            
+                            // If threat is 4 chars, it's a UCI move
+                            if (threat.length === 4 && /^[a-h][1-8][a-h][1-8]$/.test(threat)) {
+                              arrows.push([threat.slice(0, 2), threat.slice(2, 4), "orange"]);
+                            }
+                            // If threat is like "fxe5" or "Nxe5", try to parse it
+                            else if (threat.includes('x')) {
+                              // Extract the target square from capture notation
+                              const match = threat.match(/x([a-h][1-8])/);
+                              if (match) {
+                                // We can show a highlight on the target square
+                                // For arrow, we'd need the from square - skip for now
+                              }
+                            }
+                            // If threat is just a square like "b5", highlight it
+                            // (This will be handled by highlights, not arrows)
+                          }
+                          
+                          return arrows;
+                        })()
                       : []
                   }
                   highlights={
-                    // Highlight the move that was played (mistake) when from own game
-                    currentPuzzle.your_move_uci && (showSolution || puzzleState === "incorrect")
-                      ? [
-                          currentPuzzle.your_move_uci.slice(0, 2),
-                          currentPuzzle.your_move_uci.slice(2, 4)
-                        ]
+                    // Highlight squares when solution is revealed or incorrect
+                    (showSolution || puzzleState === "incorrect")
+                      ? (() => {
+                          const highlights = [];
+                          
+                          // Highlight the move that was played (mistake) when from own game
+                          if (currentPuzzle.your_move_uci) {
+                            highlights.push(currentPuzzle.your_move_uci.slice(0, 2));
+                            highlights.push(currentPuzzle.your_move_uci.slice(2, 4));
+                          }
+                          
+                          // Highlight the threat square if it's a simple notation
+                          if (currentPuzzle.threat) {
+                            const threat = currentPuzzle.threat;
+                            // If threat is a square like "b5" or "e4"
+                            if (/^[a-h][1-8]$/.test(threat)) {
+                              highlights.push(threat);
+                            }
+                            // If threat is capture notation like "fxe5", highlight target
+                            else if (threat.includes('x')) {
+                              const match = threat.match(/x([a-h][1-8])/);
+                              if (match) {
+                                highlights.push(match[1]);
+                              }
+                            }
+                          }
+                          
+                          return highlights;
+                        })()
                       : []
                   }
                 />
@@ -403,6 +457,54 @@ export default function PrescribedTraining() {
                     <> — in your game you played <span className="text-red-400">{currentPuzzle.your_move}</span></>
                   )}
                 </p>
+                {/* Show the threat that was missed */}
+                {currentPuzzle.threat && (
+                  <div className="mt-2 ml-7 p-2 bg-orange-500/10 rounded border border-orange-500/20">
+                    <p className="text-xs text-orange-400">
+                      <span className="font-medium">Threat you missed:</span> {currentPuzzle.threat}
+                    </p>
+                  </div>
+                )}
+                {/* Show coaching note if available */}
+                {currentPuzzle.coaching?.what_you_missed && (
+                  <p className="text-xs text-muted-foreground mt-2 ml-7 italic">
+                    {currentPuzzle.coaching.what_you_missed}
+                  </p>
+                )}
+              </motion.div>
+            )}
+            
+            {/* Show solution revealed feedback */}
+            {puzzleState === "revealed" && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/30"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Eye className="w-5 h-5 text-blue-400" />
+                  <span className="font-medium text-blue-400">Solution</span>
+                </div>
+                <p className="text-sm text-muted-foreground ml-7">
+                  The best move was <span className="text-green-400 font-medium">{currentPuzzle.solution_san || currentPuzzle.solution?.[0]}</span>
+                  {currentPuzzle.your_move && (
+                    <> — in your game you played <span className="text-red-400">{currentPuzzle.your_move}</span></>
+                  )}
+                </p>
+                {/* Show the threat that was missed */}
+                {currentPuzzle.threat && (
+                  <div className="mt-2 ml-7 p-2 bg-orange-500/10 rounded border border-orange-500/20">
+                    <p className="text-xs text-orange-400">
+                      <span className="font-medium">Threat you missed:</span> {currentPuzzle.threat}
+                    </p>
+                  </div>
+                )}
+                {/* Show coaching note if available */}
+                {currentPuzzle.coaching?.what_you_missed && (
+                  <p className="text-xs text-muted-foreground mt-2 ml-7 italic">
+                    {currentPuzzle.coaching.what_you_missed}
+                  </p>
+                )}
               </motion.div>
             )}
             

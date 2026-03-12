@@ -88,6 +88,14 @@ The user's vision is to create a hyper-personalized, data-driven chess coaching 
 ### P0 (Immediate)
 - ✅ All P0 items completed
 
+### P1 (High Priority)  
+- ✅ Show missed threat on PrescribedTraining page (arrow + orange box)
+- ⏳ Backend refactoring: Continue modularizing server.py (lab.py done, training.py done)
+
+### P2 (Medium Priority)
+- ✅ "Reset Game History" button on Dashboard
+- ⏳ Frontend refactoring: Break down LabV2.jsx and CoachPlay.jsx
+
 ### P1 (High Priority)
 - Show missed threat arrow on PrescribedTraining page
 - Backend refactoring: modularize server.py into route files

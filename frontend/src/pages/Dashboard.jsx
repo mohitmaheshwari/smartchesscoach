@@ -35,7 +35,8 @@ import {
   Clock,
   CheckCircle2,
   FileQuestion,
-  Play
+  Play,
+  Trash2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -346,6 +347,41 @@ const Dashboard = ({ user }) => {
       return [];
     }
   });
+  
+  // Reset game history state
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  
+  // Handle reset game history
+  const handleResetGameHistory = async () => {
+    setResetting(true);
+    try {
+      const res = await fetch(`${API}/auth/reset-game-history`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Reset complete! ${data.games_deleted} games deleted.`);
+        setShowResetConfirm(false);
+        // Reload stats
+        setLoading(true);
+        const statsRes = await fetch(`${API}/dashboard-stats`, { credentials: 'include' });
+        if (statsRes.ok) {
+          setStats(await statsRes.json());
+        }
+        setLoading(false);
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || "Failed to reset game history");
+      }
+    } catch (err) {
+      toast.error("Failed to reset game history");
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const openStatsModal = (type) => {
     setModalType(type);
@@ -1077,6 +1113,66 @@ const Dashboard = ({ user }) => {
             </AnimatedItem>
           </AnimatedList>
         )}
+      </div>
+
+      {/* Danger Zone - Reset Game History */}
+      <div className="mt-8 mb-4">
+        <Card className="border-red-500/20 bg-red-500/5">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-500/10">
+                  <Trash2 className="w-5 h-5 text-red-500" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-red-500">Reset Game History</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Delete all games and start fresh. This cannot be undone.
+                  </p>
+                </div>
+              </div>
+              
+              {!showResetConfirm ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-red-500/30 text-red-500 hover:bg-red-500/10"
+                  onClick={() => setShowResetConfirm(true)}
+                  data-testid="reset-history-btn"
+                >
+                  Reset
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowResetConfirm(false)}
+                    disabled={resetting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleResetGameHistory}
+                    disabled={resetting}
+                    data-testid="confirm-reset-btn"
+                  >
+                    {resetting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Resetting...
+                      </>
+                    ) : (
+                      "Yes, Delete All"
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Stats Detail Modal */}

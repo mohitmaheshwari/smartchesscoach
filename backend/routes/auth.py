@@ -422,6 +422,58 @@ async def logout(request: Request, response: Response):
     return {"message": "Logged out successfully"}
 
 
+@router.post("/reset-game-history")
+async def reset_game_history(user: User = Depends(get_current_user)):
+    """
+    Reset all game history for the current user.
+    This clears games, analyses, and resets the player profile stats.
+    
+    WARNING: This action is irreversible!
+    """
+    global db
+    
+    user_id = user.user_id
+    logger.warning(f"🗑️ RESET GAME HISTORY requested for user: {user_id}")
+    
+    # Delete all games for this user
+    games_deleted = await db.games.delete_many({"user_id": user_id})
+    
+    # Delete all game analyses
+    analyses_deleted = await db.game_analyses.delete_many({"user_id": user_id})
+    
+    # Reset player profile stats (but keep the profile)
+    await db.player_profiles.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "games_analyzed_count": 0,
+            "total_blunders": 0,
+            "total_mistakes": 0,
+            "total_best_moves": 0,
+            "average_accuracy": 0,
+            "top_weaknesses": [],
+            "strengths": [],
+            "habits": [],
+            "recent_games": [],
+            "estimated_elo": 1200,  # Reset to default
+            "estimated_level": "casual"
+        }}
+    )
+    
+    # Delete chess understanding cache
+    await db.chess_understanding.delete_many({"user_id": user_id})
+    
+    # Delete training progress
+    await db.training_progress.delete_many({"user_id": user_id})
+    
+    logger.info(f"✅ Reset complete for {user_id}: {games_deleted.deleted_count} games, {analyses_deleted.deleted_count} analyses")
+    
+    return {
+        "message": "Game history reset successfully",
+        "games_deleted": games_deleted.deleted_count,
+        "analyses_deleted": analyses_deleted.deleted_count
+    }
+
+
 @router.post("/google/mobile")
 async def mobile_google_auth(request: MobileAuthRequest):
     """
