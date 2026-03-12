@@ -427,6 +427,162 @@ OPENING_DATABASE = {
                 "recommendation": "e5 is strong here since White can't play d4 immediately."
             }
         ]
+    },
+    
+    "ruy-lopez": {
+        "name": "Ruy Lopez",
+        "eco": "C60-C99",
+        "description": "The Spanish Game - one of the oldest and most classic openings. Rich in strategy and tactics.",
+        "color": "white",
+        "first_moves": ["e4", "e5", "Nf3", "Nc6", "Bb5"],
+        "main_line": [
+            {"move": "e4", "explanation": "Control the center."},
+            {"move": "e5", "explanation": "Black fights for the center."},
+            {"move": "Nf3", "explanation": "Attack the e5 pawn."},
+            {"move": "Nc6", "explanation": "Defend the pawn."},
+            {"move": "Bb5", "explanation": "The Ruy Lopez! Pinning the knight indirectly."},
+            {"move": "a6", "explanation": "The Morphy Defense - challenging the bishop."},
+            {"move": "Ba4", "explanation": "Maintain the pin."},
+            {"move": "Nf6", "explanation": "Develop and attack e4."},
+            {"move": "O-O", "explanation": "Castle for king safety."},
+            {"move": "Be7", "explanation": "Prepare to castle."},
+            {"move": "Re1", "explanation": "Support the e4 pawn."},
+            {"move": "b5", "explanation": "Chase the bishop."},
+            {"move": "Bb3", "explanation": "The bishop retreats to a strong diagonal."}
+        ],
+        "key_ideas": [
+            "The bishop on b5 indirectly pressures the e5 pawn through the knight",
+            "White aims for a slow strategic squeeze",
+            "Central control with pawns on e4 and d4 is the goal",
+            "The Marshall Attack is a dangerous gambit Black can play"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
+    },
+    
+    "philidor-defense": {
+        "name": "Philidor Defense",
+        "eco": "C41",
+        "description": "A solid but passive defense where Black plays d6 instead of Nc6. Can transpose to many setups.",
+        "color": "black",
+        "first_moves": ["e4", "e5", "Nf3", "d6"],
+        "main_line": [
+            {"move": "e4", "explanation": "White opens with the king's pawn."},
+            {"move": "e5", "explanation": "Black mirrors."},
+            {"move": "Nf3", "explanation": "Attacking the e5 pawn."},
+            {"move": "d6", "explanation": "The Philidor! Defending solidly."},
+            {"move": "d4", "explanation": "White strikes in the center."},
+            {"move": "Nf6", "explanation": "Develop and attack e4."},
+            {"move": "Nc3", "explanation": "Develop the knight."},
+            {"move": "Nbd7", "explanation": "Black develops."},
+            {"move": "Bc4", "explanation": "Targeting f7."},
+            {"move": "Be7", "explanation": "Prepare to castle."},
+            {"move": "O-O", "explanation": "Castle for safety."},
+            {"move": "O-O", "explanation": "Black also castles."}
+        ],
+        "key_ideas": [
+            "Black's setup is solid but passive",
+            "Watch out for the Legal's Mate trap!",
+            "Black often aims for ...c6 and ...d5 counter-strike",
+            "Piece activity can be limited if not careful"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
+    },
+    
+    "petrov-defense": {
+        "name": "Petrov Defense",
+        "eco": "C42-C43",
+        "description": "A symmetrical defense known for its solidity. Black mirrors White's play.",
+        "color": "black",
+        "first_moves": ["e4", "e5", "Nf3", "Nf6"],
+        "main_line": [
+            {"move": "e4", "explanation": "White opens."},
+            {"move": "e5", "explanation": "Black mirrors."},
+            {"move": "Nf3", "explanation": "Attacking e5."},
+            {"move": "Nf6", "explanation": "The Petrov! Counter-attacking e4."},
+            {"move": "Nxe5", "explanation": "White takes the pawn."},
+            {"move": "d6", "explanation": "Attacking the knight."},
+            {"move": "Nf3", "explanation": "Knight retreats."},
+            {"move": "Nxe4", "explanation": "Black wins the pawn back."},
+            {"move": "d4", "explanation": "White builds the center."},
+            {"move": "d5", "explanation": "Black holds the center."},
+            {"move": "Bd3", "explanation": "Develop and attack the knight."},
+            {"move": "Nc6", "explanation": "Develop the knight."}
+        ],
+        "key_ideas": [
+            "Very solid and drawish opening",
+            "Don't take on e5 too early - develop first!",
+            "The Stafford Gambit (Nc6 instead of d6) is risky but trappy",
+            "Often leads to equal, symmetrical positions"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
+    },
+    
+    "budapest-gambit": {
+        "name": "Budapest Gambit",
+        "eco": "A51-A52",
+        "description": "A sharp gambit where Black sacrifices a pawn for active piece play. Full of traps!",
+        "color": "black",
+        "first_moves": ["d4", "Nf6", "c4", "e5"],
+        "main_line": [
+            {"move": "d4", "explanation": "White plays the queen's pawn."},
+            {"move": "Nf6", "explanation": "Develop the knight."},
+            {"move": "c4", "explanation": "The English Attack."},
+            {"move": "e5", "explanation": "The Budapest Gambit! A pawn sacrifice."},
+            {"move": "dxe5", "explanation": "White takes the pawn."},
+            {"move": "Ng4", "explanation": "Attack the e5 pawn."},
+            {"move": "Bf4", "explanation": "Defend the pawn."},
+            {"move": "Nc6", "explanation": "Develop and attack e5."},
+            {"move": "Nf3", "explanation": "Defend and develop."},
+            {"move": "Bb4+", "explanation": "Check! Creating threats."},
+            {"move": "Nbd2", "explanation": "Block the check."},
+            {"move": "Qe7", "explanation": "Pressure on e5."}
+        ],
+        "key_ideas": [
+            "Black sacrifices a pawn for active piece play",
+            "Many tactical traps exist, especially the Kieninger Trap",
+            "If White is careless, Black can get a crushing attack",
+            "White must know the theory or risk getting trapped"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
+    },
+    
+    "dutch-defense": {
+        "name": "Dutch Defense",
+        "eco": "A80-A99",
+        "description": "An aggressive defense where Black plays f5, fighting for control of e4.",
+        "color": "black",
+        "first_moves": ["d4", "f5"],
+        "main_line": [
+            {"move": "d4", "explanation": "White opens."},
+            {"move": "f5", "explanation": "The Dutch! Fighting for e4."},
+            {"move": "g3", "explanation": "Fianchetto setup."},
+            {"move": "Nf6", "explanation": "Develop the knight."},
+            {"move": "Bg2", "explanation": "Fianchetto the bishop."},
+            {"move": "e6", "explanation": "Support d5 and the f5 pawn."},
+            {"move": "Nf3", "explanation": "Develop."},
+            {"move": "Be7", "explanation": "Develop the bishop."},
+            {"move": "O-O", "explanation": "Castle for safety."},
+            {"move": "O-O", "explanation": "Black castles."},
+            {"move": "c4", "explanation": "Control the center."},
+            {"move": "d6", "explanation": "Solid setup."}
+        ],
+        "key_ideas": [
+            "f5 controls the e4 square",
+            "The Leningrad Variation (g6, Bg7) is very popular",
+            "Watch out for early Bg5 pins!",
+            "Can lead to sharp kingside attacks"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
     }
 }
 
@@ -444,38 +600,62 @@ class OpeningProgress:
 
 
 def get_opening_data(opening_key: str) -> Optional[Dict]:
-    """Get full opening data by key."""
-    return OPENING_DATABASE.get(opening_key)
+    """Get full opening data by key, including traps from the trap library."""
+    from services.trap_library import get_traps_for_opening
+    
+    opening = OPENING_DATABASE.get(opening_key)
+    if not opening:
+        return None
+    
+    # Get traps from the comprehensive trap library
+    traps = get_traps_for_opening(opening_key)
+    
+    # Return opening with traps from the library
+    return {
+        **opening,
+        "traps": traps if traps else opening.get("traps", [])
+    }
 
 
 def get_all_openings() -> List[Dict]:
     """Get list of all openings with basic info."""
+    from services.trap_library import get_traps_for_opening
+    
     result = []
     for key, data in OPENING_DATABASE.items():
+        # Get trap count from trap library
+        traps = get_traps_for_opening(key)
+        trap_count = len(traps) if traps else len(data.get("traps", []))
+        
         result.append({
             "key": key,
             "name": data["name"],
             "eco": data["eco"],
             "color": data["color"],
             "description": data["description"],
-            "trap_count": len(data.get("traps", []))
+            "trap_count": trap_count
         })
     return result
 
 
 def get_openings_for_color(color: str) -> List[Dict]:
     """Get openings for a specific color."""
-    return [
-        {
-            "key": key,
-            "name": data["name"],
-            "eco": data["eco"],
-            "description": data["description"],
-            "trap_count": len(data.get("traps", []))
-        }
-        for key, data in OPENING_DATABASE.items()
-        if data["color"] == color
-    ]
+    from services.trap_library import get_traps_for_opening
+    
+    result = []
+    for key, data in OPENING_DATABASE.items():
+        if data["color"] == color:
+            traps = get_traps_for_opening(key)
+            trap_count = len(traps) if traps else len(data.get("traps", []))
+            
+            result.append({
+                "key": key,
+                "name": data["name"],
+                "eco": data["eco"],
+                "description": data["description"],
+                "trap_count": trap_count
+            })
+    return result
 
 
 def match_opening_to_library(opening_name: str, eco: str = None) -> Optional[str]:
