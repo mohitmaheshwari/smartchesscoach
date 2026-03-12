@@ -302,9 +302,16 @@ const OpeningLesson = () => {
     
     updateBoard(chessRef.current.fen());
     
-    // Start trap line
+    // Play first trap move automatically after a delay
     setTimeout(() => {
-      setTrapIndex(0);
+      if (trap.trap_line.length > 0) {
+        const firstMove = trap.trap_line[0];
+        const move = chessRef.current.move(firstMove.move);
+        if (move) {
+          updateBoard(chessRef.current.fen(), move.from + move.to);
+        }
+        setTrapIndex(0);
+      }
     }, 500);
   }, [updateBoard]);
   
@@ -318,6 +325,8 @@ const OpeningLesson = () => {
       if (move) {
         updateBoard(chessRef.current.fen(), move.from + move.to);
         setTrapIndex(nextIndex);
+      } else {
+        console.error("Invalid move in trap line:", moveData.move);
       }
     }
   }, [selectedTrap, trapIndex, updateBoard]);

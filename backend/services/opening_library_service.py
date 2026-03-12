@@ -72,15 +72,13 @@ OPENING_DATABASE = {
             {
                 "name": "Legal's Mate Trap",
                 "description": "A beautiful queen sacrifice leading to checkmate.",
-                "setup_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "d6", "Nc3", "Bg4"],
+                "setup_moves": ["e4", "e5", "Nf3", "d6", "Bc4", "Bg4", "Nc3", "g6"],
                 "trap_line": [
-                    {"move": "h3", "explanation": "Attack the bishop, inviting it to take."},
-                    {"move": "Bh5", "explanation": "Black retreats, pinning your knight."},
-                    {"move": "Nxe5", "explanation": "Sacrifice! If Black takes the queen..."},
+                    {"move": "Nxe5", "explanation": "Sacrifice! Offering the queen to set up checkmate."},
                     {"move": "Bxd1", "explanation": "Black takes the queen, falling into the trap!"},
-                    {"move": "Bxf7+", "explanation": "Check!"},
-                    {"move": "Ke7", "explanation": "Forced."},
-                    {"move": "Nd5#", "explanation": "Checkmate! The Legal's Mate."}
+                    {"move": "Bxf7+", "explanation": "Check! The king must move."},
+                    {"move": "Ke7", "explanation": "Forced - the only legal move."},
+                    {"move": "Nd5#", "explanation": "Checkmate! The Legal's Mate - a queen sacrifice for mate."}
                 ],
                 "success_message": "Legal's Mate! A beautiful queen sacrifice leading to checkmate."
             }
