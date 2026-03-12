@@ -7020,10 +7020,10 @@ async def get_opening_progress(user: User = Depends(get_current_user)):
             "last_practiced": progress.get("last_practiced_at"),
             "last_quiz_score": progress.get("last_quiz_score"),
             "coach_taught": True,
-            "real_games": real.get("games", 0),
+            "real_games": real.get("games_played", 0),
             "real_win_rate": real.get("win_rate", 0),
             "real_accuracy": real.get("avg_accuracy", 0),
-            "needs_work": real.get("games", 0) > 2 and real.get("win_rate", 0) < 50,
+            "needs_work": real.get("games_played", 0) > 2 and real.get("win_rate", 0) < 50,
             "loss_phases": loss_phases,  # {"opening": 2, "middlegame": 5, "endgame": 1}
             "total_losses": total_losses,
             "dominant_loss_phase": dominant_loss_phase  # "middlegame" - where user loses most
@@ -7032,13 +7032,13 @@ async def get_opening_progress(user: User = Depends(get_current_user)):
     # Add openings played in real games but not taught by coach
     for stat in real_stats:
         name_key = stat.get("name", "").lower().strip()
-        if name_key not in seen_openings and stat.get("games", 0) >= 2:
+        if name_key not in seen_openings and stat.get("games_played", 0) >= 2:
             combined.append({
                 "opening_name": stat.get("name", "Unknown"),
                 "mastery_level": "unknown",
                 "times_practiced": 0,
                 "coach_taught": False,
-                "real_games": stat.get("games", 0),
+                "real_games": stat.get("games_played", 0),
                 "real_win_rate": stat.get("win_rate", 0),
                 "real_accuracy": stat.get("avg_accuracy", 0),
                 "needs_work": stat.get("win_rate", 0) < 50
@@ -7050,6 +7050,7 @@ async def get_opening_progress(user: User = Depends(get_current_user)):
     return {
         "progress": combined,
         "total_taught": len([c for c in combined if c.get("coach_taught")]),
+        "total_learned": len([c for c in combined if c.get("mastery_level") in ["mastered", "comfortable", "practiced"]]),
         "total_played": len([c for c in combined if c.get("real_games", 0) > 0]),
         "needs_attention": len([c for c in combined if c.get("needs_work")])
     }
