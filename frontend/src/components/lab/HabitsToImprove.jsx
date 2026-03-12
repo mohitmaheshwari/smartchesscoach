@@ -20,10 +20,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
-  Sparkles,
-  BookOpen,
-  ChevronDown,
-  ChevronUp
+  Sparkles
 } from "lucide-react";
 
 const HabitsToImprove = ({ 
@@ -33,20 +30,30 @@ const HabitsToImprove = ({
   deepStrategy,
   onStartTraining
 }) => {
-  // Opening progress state
-  const [openingProgress, setOpeningProgress] = useState(null);
+  // Current game's opening progress (only fetch for this specific opening)
+  const [currentOpeningStats, setCurrentOpeningStats] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(false);
-  const [showAllOpenings, setShowAllOpenings] = useState(false);
   
-  // Fetch opening progress on mount
+  // Get the opening from the current game
+  const currentOpening = deepStrategy?.game?.opening || deepStrategy?.game?.opening_name;
+  
+  // Fetch opening progress only for the current game's opening
   useEffect(() => {
     const fetchProgress = async () => {
+      if (!currentOpening) return;
+      
       setLoadingProgress(true);
       try {
         const res = await fetch(`${API}/training/opening-progress`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
-          setOpeningProgress(data);
+          // Find this game's opening in the progress
+          const thisOpening = data.progress?.find(p => 
+            p.opening_name?.toLowerCase() === currentOpening.toLowerCase()
+          );
+          if (thisOpening && thisOpening.needs_work) {
+            setCurrentOpeningStats(thisOpening);
+          }
         }
       } catch (err) {
         console.error("Error fetching opening progress:", err);
@@ -55,7 +62,7 @@ const HabitsToImprove = ({
       }
     };
     fetchProgress();
-  }, []);
+  }, [currentOpening]);
 
   // Extract pattern detected from this game
   const getPatternDetected = () => {
@@ -263,93 +270,47 @@ const HabitsToImprove = ({
         </Card>
       </motion.div>
       
-      {/* Opening Progress Section */}
-      {openingProgress && openingProgress.progress?.length > 0 && (
+      {/* Current Game's Opening - Only if it needs work */}
+      {currentOpeningStats && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
         >
-          <Card className="border-primary/30 bg-primary/5">
+          <Card className="border-amber-500/30 bg-amber-500/5">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-primary" />
-                  <h4 className="text-xs font-medium text-primary uppercase tracking-wide">
-                    Opening Progress
-                  </h4>
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <h4 className="text-xs font-medium text-amber-400 uppercase tracking-wide">
+                  Opening Needs Work
+                </h4>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-amber-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  <div>
+                    <span className="text-sm font-medium">{currentOpeningStats.opening_name}</span>
+                    {currentOpeningStats.dominant_loss_phase && (
+                      <p className="text-xs text-muted-foreground">
+                        You tend to lose in the {currentOpeningStats.dominant_loss_phase}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-2 text-xs text-muted-foreground">
-                  <span>{openingProgress.total_taught} learned</span>
-                  {openingProgress.needs_attention > 0 && (
-                    <Badge variant="destructive" className="text-xs h-5">
-                      {openingProgress.needs_attention} needs work
-                    </Badge>
-                  )}
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-red-400">
+                    {currentOpeningStats.real_win_rate?.toFixed(0)}% win rate
+                  </span>
+                  <span className="text-muted-foreground">
+                    {currentOpeningStats.real_games} games
+                  </span>
                 </div>
               </div>
               
-              <div className="space-y-2">
-                {openingProgress.progress
-                  .slice(0, showAllOpenings ? undefined : 3)
-                  .map((opening, i) => (
-                    <div 
-                      key={i}
-                      className={`flex items-center justify-between p-2 rounded-lg ${
-                        opening.needs_work ? 'bg-red-500/10 border border-red-500/20' : 'bg-slate-800/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          opening.mastery_level === 'mastered' ? 'bg-green-500' :
-                          opening.mastery_level === 'practiced' ? 'bg-blue-500' :
-                          opening.mastery_level === 'learning' ? 'bg-amber-500' :
-                          opening.mastery_level === 'introduced' ? 'bg-purple-500' :
-                          'bg-gray-500'
-                        }`} />
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{opening.opening_name}</span>
-                          {opening.dominant_loss_phase && (
-                            <span className="text-xs text-red-400">
-                              Loses in {opening.dominant_loss_phase}
-                            </span>
-                          )}
-                        </div>
-                        {!opening.coach_taught && (
-                          <Badge variant="outline" className="text-xs h-4 px-1">
-                            Not learned
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        {opening.real_games > 0 && (
-                          <span className={opening.real_win_rate < 50 ? 'text-red-400' : 'text-green-400'}>
-                            {opening.real_win_rate.toFixed(0)}% win
-                          </span>
-                        )}
-                        <span>{opening.real_games} games</span>
-                        <Badge variant="secondary" className="text-xs h-5 capitalize">
-                          {opening.mastery_level}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-              
-              {openingProgress.progress.length > 3 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full mt-2 text-xs"
-                  onClick={() => setShowAllOpenings(!showAllOpenings)}
-                >
-                  {showAllOpenings ? (
-                    <>Show Less <ChevronUp className="w-3 h-3 ml-1" /></>
-                  ) : (
-                    <>Show All ({openingProgress.progress.length}) <ChevronDown className="w-3 h-3 ml-1" /></>
-                  )}
-                </Button>
-              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                Consider practicing this opening in the Journey page.
+              </p>
             </CardContent>
           </Card>
         </motion.div>
