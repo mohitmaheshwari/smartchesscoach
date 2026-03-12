@@ -364,26 +364,48 @@ const LabV2 = ({ user }) => {
   
   // Navigate to a specific move number (from critical moments) with optional arrows
   const navigateToMoveNumber = (moveNum, yourMove = null, bestMove = null) => {
-    // Move number to index: move 24 by white = index 46-47 area
-    // For white moves: (moveNum - 1) * 2
-    // For black moves: (moveNum - 1) * 2 + 1
-    // We want to show the position BEFORE the user's move (so they can see/make it)
-    const baseIndex = (moveNum - 1) * 2;
-    // For black, show position after white's move (baseIndex), not after black's move
-    // For white, show position after black's previous move (baseIndex - 1)
-    const targetIndex = userColor === "black" ? baseIndex : baseIndex - 1;
-    goToMove(Math.max(-1, Math.min(targetIndex, moves.length - 1)), false); // Don't clear arrows
+    // Navigate to show the position where the user needs to make a decision
+    // 
+    // UI shows "Move X / 67" where X is the half-move count (0 = start, 1 = after White's 1st, etc.)
+    // 
+    // For move 22 White (it's White's turn at full move 22):
+    // - Position is AFTER 21 full moves completed = after 42 half-moves
+    // - UI should show "Move 42"
+    // - goToMove index = 42 (since we pass the current move count)
+    //
+    // For move 22 Black (it's Black's turn at full move 22):
+    // - Position is AFTER White's 22nd move = after 43 half-moves
+    // - UI should show "Move 43"
+    // - goToMove index = 43
+    
+    let targetMoveCount;
+    if (userColor === "white") {
+      // White's turn at move N: after (N-1) full moves = after 2*(N-1) half-moves
+      targetMoveCount = (moveNum - 1) * 2;
+    } else {
+      // Black's turn at move N: after White's Nth move = after 2*(N-1)+1 = 2*N-1 half-moves
+      targetMoveCount = (moveNum * 2) - 1;
+    }
+    
+    // Ensure valid range
+    targetMoveCount = Math.max(0, Math.min(targetMoveCount, moves.length));
+    
+    console.log(`Navigating: move ${moveNum}, userColor=${userColor}, targetMoveCount=${targetMoveCount}, totalMoves=${moves.length}`);
+    
+    // goToMove expects the index in the moves array, which is moveCount - 1
+    // But if moveCount is 0, we want the start position (index -1)
+    goToMove(targetMoveCount - 1, false);
     
     // Set arrows if moves are provided
     const newArrows = [];
     if (yourMove && yourMove.length >= 4) {
-      // Red arrow for user's move
+      // Red arrow for user's move (what they played)
       const from = yourMove.substring(0, 2);
       const to = yourMove.substring(2, 4);
       newArrows.push([from, to, "red"]);
     }
     if (bestMove && bestMove.length >= 4) {
-      // Green arrow for best move
+      // Green arrow for best move (what they should have played)
       const from = bestMove.substring(0, 2);
       const to = bestMove.substring(2, 4);
       newArrows.push([from, to, "green"]);
@@ -1012,11 +1034,11 @@ const LabV2 = ({ user }) => {
                       <MissedTactics
                         deepStrategy={deepStrategy}
                         labData={labData}
-                        onNavigateToMove={(moveNum) => {
+                        onNavigateToMove={(moveNum, yourMove, bestMove) => {
                           // Switch to summary tab to see the board
                           setActiveTab("summary");
-                          // Navigate to the position
-                          navigateToMoveNumber(moveNum);
+                          // Navigate to the position with arrows showing the moves
+                          navigateToMoveNumber(moveNum, yourMove, bestMove);
                         }}
                       />
                     </>

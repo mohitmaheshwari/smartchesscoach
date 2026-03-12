@@ -12,11 +12,27 @@ import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Chess } from "chess.js";
 import {
   Zap,
   Play,
   Eye
 } from "lucide-react";
+
+// Helper function to convert SAN move to UCI format
+const sanToUci = (fen, sanMove) => {
+  if (!fen || !sanMove) return null;
+  try {
+    const chess = new Chess(fen);
+    const move = chess.move(sanMove, { sloppy: true });
+    if (move) {
+      return move.from + move.to + (move.promotion || '');
+    }
+  } catch (e) {
+    console.log("Could not convert SAN to UCI:", sanMove, e);
+  }
+  return null;
+};
 
 // Tactic type descriptions
 const TACTIC_LABELS = {
@@ -174,7 +190,12 @@ const MissedTactics = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onNavigateToMove?.(tactic.moveNumber)}
+                      onClick={() => {
+                        // Convert SAN moves to UCI for arrow display
+                        const bestMoveUci = sanToUci(tactic.fen, tactic.bestMove);
+                        const yourMoveUci = sanToUci(tactic.fen, tactic.yourMove);
+                        onNavigateToMove?.(tactic.moveNumber, yourMoveUci, bestMoveUci);
+                      }}
                       className="h-8 text-xs"
                     >
                       <Eye className="w-3 h-3 mr-1" />
