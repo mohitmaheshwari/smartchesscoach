@@ -18,7 +18,8 @@ import {
   ArrowRight,
   Brain,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  MessageCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,8 @@ import { toast } from "sonner";
 import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
+
+import InteractivePractice from "@/components/openings/InteractivePractice";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -485,6 +488,10 @@ const OpeningLesson = () => {
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-4">
                 <TabsTrigger value="learn">Learn</TabsTrigger>
+                <TabsTrigger value="practice">
+                  <MessageCircle className="w-3 h-3 mr-1" />
+                  Practice
+                </TabsTrigger>
                 <TabsTrigger value="traps">
                   Traps
                   {opening.traps?.length > 0 && (
@@ -578,6 +585,14 @@ const OpeningLesson = () => {
                     </div>
                   </CardContent>
                 </Card>
+              </TabsContent>
+              
+              <TabsContent value="practice" className="space-y-4">
+                <InteractivePractice
+                  openingKey={openingKey}
+                  openingName={opening.name}
+                  userColor={opening.color}
+                />
               </TabsContent>
               
               <TabsContent value="traps" className="space-y-4">

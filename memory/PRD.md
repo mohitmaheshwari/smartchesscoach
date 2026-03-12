@@ -17,10 +17,12 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 │   │   ├── realtime_coaching_feedback.py  # Real-time move feedback generation
 │   │   ├── coach_personality_service.py   # Defines player levels and coaching language
 │   │   ├── player_understanding_service.py # Multi-dimensional chess understanding
-│   │   └── chess_understanding.py         # Chess skills profiling
+│   │   ├── chess_understanding.py         # Chess skills profiling
+│   │   └── opening_library_service.py     # Opening training lab service
 │   ├── routes/
 │   │   ├── auth.py
-│   │   └── lab.py
+│   │   ├── lab.py
+│   │   └── openings.py                    # Opening Training Lab routes (NEW)
 │   ├── coach_play/
 │   │   └── coach_commentary.py            # Coach commentary and analysis
 │   └── server.py
@@ -31,8 +33,14 @@ Create a hyper-personalized, data-driven chess coaching application that functio
         ├── pages/
         │   ├── LabV2.jsx                  # Game review page
         │   ├── Dashboard.jsx              # User dashboard
-        │   └── CoachPlay.jsx              # Live coach play with feedback
+        │   ├── CoachPlay.jsx              # Live coach play with feedback
+        │   └── OpeningLesson.jsx          # Opening lessons with practice mode
         └── components/
+            ├── coach-play/                # Extracted CoachPlay components (NEW)
+            │   ├── EvalBar.jsx
+            │   └── MoveFeedbackPanel.jsx
+            ├── openings/                  # Opening Training components (NEW)
+            │   └── InteractivePractice.jsx
             ├── lab/
             │   ├── CriticalMoments.jsx
             │   └── MissedTactics.jsx
@@ -40,6 +48,22 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 ```
 
 ## What's Been Implemented
+
+### March 12, 2026 - Interactive Practice Mode & Refactoring
+- **P1 Feature: Interactive Practice Mode** in Opening Training Lab
+  - New backend endpoints: `/api/openings/{key}/practice/start`, `/api/openings/practice/move`, `/api/openings/practice/{id}/hint`
+  - Socratic feedback when user makes wrong moves
+  - Coach plays opponent's moves automatically
+  - Hint system with progressive detail (3 levels)
+  - Session tracking for practice progress
+- **P1 Backend Refactoring:**
+  - Created `routes/openings.py` - extracted all opening training endpoints from server.py
+  - Removed duplicate endpoints, server.py reduced by ~100 lines
+- **P2 Frontend Refactoring:**
+  - Extracted `EvalBar` component to `/components/coach-play/EvalBar.jsx`
+  - Extracted `MoveFeedbackPanel` to `/components/coach-play/MoveFeedbackPanel.jsx`
+  - Created `/components/openings/InteractivePractice.jsx` for practice mode
+  - CoachPlay.jsx reduced from 2252 to 2058 lines
 
 ### March 12, 2026 - Opening Library Matching Bug Fix
 - **P0 Fix:** Opening variations now correctly match to the library
@@ -81,6 +105,10 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 | `/api/coach/play/state/{session_id}` | GET | Get session state |
 | `/api/lab/deep-strategy/{game_id}` | GET | Game review data |
 | `/api/auth/reset-user-data` | POST | Clear user game data |
+| `/api/openings/match` | GET | Match opening name to library |
+| `/api/openings/{key}/practice/start` | POST | Start interactive practice |
+| `/api/openings/practice/move` | POST | Make practice move |
+| `/api/openings/practice/{id}/hint` | GET | Get practice hint |
 
 ## Database Schema
 - **player_profiles:** user_id, estimated_elo, top_weaknesses, strengths
@@ -99,13 +127,17 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 ### P0 - Completed
 - [x] Opening library matching bug fix (Giuoco Piano -> Italian Game)
 
-### P1 - High Priority
-- [ ] Interactive Practice Mode in Opening Training Lab
-- [ ] Backend Refactoring: Modularize `server.py` into service files
-- [ ] Frontend Refactoring: Break down `LabV2.jsx` into smaller components
+### P1 - Completed
+- [x] Interactive Practice Mode in Opening Training Lab
+- [x] Backend Refactoring: Created routes/openings.py (partial modularization)
+- [x] Frontend Refactoring: Extracted EvalBar and MoveFeedbackPanel from CoachPlay.jsx
+
+### P1 - Remaining
+- [ ] Continue Backend Refactoring: Extract coach/play routes from server.py (~2500 lines)
 
 ### P2 - Medium Priority
-- [ ] Refactor `CoachPlay.jsx` (known fragility) into smaller components and hooks
+- [ ] Continue refactoring `CoachPlay.jsx` - extract more hooks (useCoachSession, useChessboard)
+- [ ] Break down `LabV2.jsx` into smaller components
 - [ ] Add more sophisticated tactical analysis to move feedback
 - [ ] Implement move animation when showing best move
 
@@ -119,6 +151,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - No login required for testing
 
 ## Known Technical Debt
-- `CoachPlay.jsx` is fragile and should be refactored into smaller components
-- `LabV2.jsx` remains a very large component
-- `server.py` needs further modularization
+- `CoachPlay.jsx` still has ~2000 lines, needs more component extraction
+- `LabV2.jsx` remains a large component (~1000 lines)
+- `server.py` still has ~12,000 lines - coach/play routes (~2500 lines) should be extracted
+- Backend routes could be further modularized (training, journey, etc.)

@@ -5888,16 +5888,7 @@ async def get_xp_rewards():
 
 # ==================== OPENING REPERTOIRE ROUTES ====================
 
-from opening_service import analyze_opening_repertoire
-
-@api_router.get("/openings/repertoire")
-async def get_opening_repertoire(user: User = Depends(get_current_user)):
-    """
-    Analyze user's opening repertoire from all their games.
-    Returns detailed stats, problem areas, and personalized coaching.
-    """
-    result = await analyze_opening_repertoire(db, user.user_id)
-    return result
+# NOTE: Opening repertoire endpoint moved to routes/openings.py
 
 # NOTE: Notification routes moved to routes/notifications.py:
 # - GET /notifications
@@ -7098,103 +7089,8 @@ async def get_openings_database():
 # ============================================================================
 # TRICK LIBRARY ENDPOINTS
 # ============================================================================
-# OPENING TRAINING LAB ENDPOINTS
+# OPENING TRAINING LAB ENDPOINTS - MOVED TO routes/openings.py
 # ============================================================================
-
-@api_router.get("/openings/repertoire")
-async def get_opening_repertoire(user: User = Depends(get_current_user)):
-    """
-    Get user's opening repertoire - openings they've played + recommendations.
-    """
-    from services.opening_library_service import get_user_opening_repertoire
-    
-    repertoire = await get_user_opening_repertoire(db, user.user_id)
-    return repertoire
-
-
-@api_router.get("/openings/library")
-async def get_opening_library():
-    """
-    Get all openings in the teaching library.
-    """
-    from services.opening_library_service import get_all_openings
-    
-    return {"openings": get_all_openings()}
-
-
-@api_router.get("/openings/match")
-async def match_opening_to_library_endpoint(opening_name: str, eco: str = None):
-    """
-    Match an opening name to our library using intelligent aliasing.
-    
-    This handles variations like "Giuoco Piano Game" -> "italian-game".
-    
-    Args:
-        opening_name: The opening name from a game (e.g., "Giuoco Piano Game")
-        eco: Optional ECO code (e.g., "C54")
-    
-    Returns:
-        library_key: The key in our library, or null if not found
-    """
-    from services.opening_library_service import match_opening_to_library, get_opening_data
-    
-    library_key = match_opening_to_library(opening_name, eco)
-    
-    if library_key:
-        opening_data = get_opening_data(library_key)
-        return {
-            "found": True,
-            "library_key": library_key,
-            "library_name": opening_data["name"] if opening_data else None
-        }
-    
-    return {
-        "found": False,
-        "library_key": None,
-        "library_name": None
-    }
-
-
-@api_router.get("/openings/{opening_key}")
-async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_user)):
-    """
-    Get full opening lesson with main line, traps, and user's mistakes.
-    """
-    from services.opening_library_service import get_opening_lesson as get_lesson
-    
-    lesson = await get_lesson(db, user.user_id, opening_key)
-    if not lesson:
-        raise HTTPException(status_code=404, detail="Opening not found in library")
-    
-    return lesson
-
-
-@api_router.post("/openings/{opening_key}/progress")
-async def update_opening_progress(
-    opening_key: str,
-    progress_data: dict,
-    user: User = Depends(get_current_user)
-):
-    """
-    Update user's learning progress on an opening.
-    
-    Body:
-    - main_line_progress: int (moves learned)
-    - trap_learned: str (trap name)
-    - practiced: bool (increment practice count)
-    """
-    from services.opening_library_service import update_learning_progress
-    
-    result = await update_learning_progress(
-        db,
-        user.user_id,
-        opening_key,
-        main_line_progress=progress_data.get("main_line_progress"),
-        trap_learned=progress_data.get("trap_learned"),
-        practiced=progress_data.get("practiced", False)
-    )
-    
-    return {"success": True, **result}
 
 
 # ============================================================================
@@ -12229,6 +12125,7 @@ from routes import behavioral as behavioral_routes
 from routes import notifications as notifications_routes
 from routes import missions as missions_routes
 from routes import settings as settings_routes
+from routes import openings as openings_routes
 
 # Set database references for modular routers
 games_routes.set_db(db)
@@ -12255,6 +12152,8 @@ missions_routes.set_mission_services(
     get_reward_message_fn=get_reward_message
 )
 settings_routes.set_db(db)
+openings_routes.set_db(db)
+openings_routes.set_llm(call_llm)
 
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(feedback_routes.router, prefix="/api")
@@ -12269,6 +12168,7 @@ app.include_router(behavioral_routes.router, prefix="/api")
 app.include_router(notifications_routes.router, prefix="/api")
 app.include_router(missions_routes.router, prefix="/api")
 app.include_router(settings_routes.router, prefix="/api")
+app.include_router(openings_routes.router, prefix="/api")
 
 # Then include the legacy api_router
 app.include_router(api_router)
