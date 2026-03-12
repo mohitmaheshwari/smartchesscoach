@@ -577,3 +577,73 @@ Be warm and use simple language.
         "message": random.choice(questions),
         "encouragement": True
     }
+
+
+# ==================== TRAP LIBRARY ENDPOINTS ====================
+
+@router.get("/traps/statistics")
+async def get_trap_statistics():
+    """
+    Get statistics about the trap library.
+    """
+    from services.trap_library import get_all_trap_statistics
+    return get_all_trap_statistics()
+
+
+@router.get("/traps/checkmates")
+async def get_checkmate_traps():
+    """
+    Get all traps that end in checkmate.
+    """
+    from services.trap_library import get_checkmate_traps
+    return {"traps": get_checkmate_traps()}
+
+
+@router.get("/traps/difficulty/{difficulty}")
+async def get_traps_by_difficulty_level(difficulty: str):
+    """
+    Get traps filtered by difficulty level.
+    
+    Args:
+        difficulty: "beginner", "intermediate", or "advanced"
+    """
+    from services.trap_library import get_traps_by_difficulty
+    
+    if difficulty not in ["beginner", "intermediate", "advanced"]:
+        raise HTTPException(status_code=400, detail="Invalid difficulty. Use: beginner, intermediate, advanced")
+    
+    return {"traps": get_traps_by_difficulty(difficulty)}
+
+
+@router.post("/traps/suggest")
+async def suggest_trap_for_position(moves: List[str]):
+    """
+    Check if a trap is available from the current position.
+    
+    Args:
+        moves: List of moves played so far (SAN format)
+    
+    Returns:
+        Trap suggestion if available, or null
+    """
+    from services.trap_library import get_trap_for_position
+    
+    trap_data = get_trap_for_position(moves)
+    
+    if trap_data:
+        return {
+            "trap_available": True,
+            "trap": {
+                "name": trap_data.get("name"),
+                "description": trap_data.get("description"),
+                "setup_remaining": trap_data.get("setup_remaining", []),
+                "trap_line": trap_data.get("trap_line", []),
+                "moves_until_trap": trap_data.get("moves_until_trap", 0),
+                "result_type": trap_data.get("result_type"),
+                "difficulty": trap_data.get("difficulty"),
+                "opening_key": trap_data.get("opening_key")
+            }
+        }
+    
+    return {"trap_available": False, "trap": None}
+

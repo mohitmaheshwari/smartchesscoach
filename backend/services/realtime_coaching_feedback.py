@@ -53,8 +53,11 @@ class MoveFeedback:
     relates_to_weakness: Optional[str]  # If this relates to a known weakness
     encouragement: Optional[str]  # For good moves
     
+    # Trap suggestion
+    trap_suggestion: Optional[Dict] = None  # If a trap is available from this position
+    
     def to_dict(self) -> Dict:
-        return {
+        result = {
             "user_move": self.user_move,
             "user_move_quality": self.user_move_quality,
             "user_move_eval_change": self.user_move_eval_change,
@@ -69,6 +72,9 @@ class MoveFeedback:
             "relates_to_weakness": self.relates_to_weakness,
             "encouragement": self.encouragement
         }
+        if self.trap_suggestion:
+            result["trap_suggestion"] = self.trap_suggestion
+        return result
 
 
 def _get_piece_name(piece: chess.Piece) -> str:
@@ -387,6 +393,28 @@ async def generate_move_feedback(
     if quality in ["excellent", "good"]:
         encouragement = "Keep it up!" if quality == "good" else "That's the move!"
     
+    # Check if a trap is available from this position
+    trap_suggestion = None
+    try:
+        from services.trap_library import get_trap_for_position
+        
+        # Get the move history as SAN moves
+        san_history = [m.get("move") for m in move_history if m.get("move")]
+        trap_data = get_trap_for_position(san_history)
+        
+        if trap_data and trap_data.get("moves_until_trap", 999) <= 4:
+            # A trap is within reach!
+            trap_suggestion = {
+                "name": trap_data.get("name"),
+                "description": trap_data.get("description"),
+                "setup_remaining": trap_data.get("setup_remaining", []),
+                "moves_until_trap": trap_data.get("moves_until_trap", 0),
+                "result_type": trap_data.get("result_type"),
+                "opening_key": trap_data.get("opening_key")
+            }
+    except Exception as e:
+        logger.warning(f"Error checking for traps: {e}")
+    
     return MoveFeedback(
         user_move=user_move,
         user_move_quality=quality,
@@ -400,7 +428,8 @@ async def generate_move_feedback(
         threats_after_user_move=tactical.get("threats_created", [])[:3],
         missed_opportunities=tactical.get("best_move_attacks", [])[:3],
         relates_to_weakness=relates_to,
-        encouragement=encouragement
+        encouragement=encouragement,
+        trap_suggestion=trap_suggestion
     )
 
 

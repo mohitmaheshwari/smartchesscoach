@@ -8,7 +8,9 @@ import {
   Brain,
   CheckCircle2,
   Lightbulb,
-  Target
+  Target,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
 
 const MoveFeedbackPanel = ({ feedback, onDismiss }) => {
@@ -23,7 +25,8 @@ const MoveFeedbackPanel = ({ feedback, onDismiss }) => {
     coach_move_explanation,
     coaching_message,
     relates_to_weakness,
-    encouragement
+    encouragement,
+    trap_suggestion
   } = feedback;
   
   // Quality colors
@@ -71,6 +74,33 @@ const MoveFeedbackPanel = ({ feedback, onDismiss }) => {
       <p className="text-sm mb-3">
         {coaching_message}
       </p>
+      
+      {/* Trap Suggestion - NEW! */}
+      {trap_suggestion && trap_suggestion.moves_until_trap <= 3 && (
+        <div className="mb-3 p-2 rounded bg-purple-500/10 border border-purple-500/30">
+          <div className="flex items-center gap-2 text-xs mb-1">
+            <Sparkles className="w-3 h-3 text-purple-400" />
+            <span className="font-medium text-purple-400">
+              Trap Alert: {trap_suggestion.name}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground pl-5 mb-2">
+            {trap_suggestion.description}
+          </p>
+          {trap_suggestion.setup_remaining?.length > 0 && (
+            <div className="pl-5 flex items-center gap-1 text-xs">
+              <span className="text-purple-300">Play:</span>
+              {trap_suggestion.setup_remaining.map((move, i) => (
+                <span key={i} className="font-mono text-purple-400">
+                  {move}{i < trap_suggestion.setup_remaining.length - 1 ? "," : ""}
+                </span>
+              ))}
+              <ArrowRight className="w-3 h-3 text-purple-400 mx-1" />
+              <span className="text-purple-300">then spring the trap!</span>
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Best move explanation - only if move wasn't excellent */}
       {!isGoodMove && best_move && best_move !== user_move && (

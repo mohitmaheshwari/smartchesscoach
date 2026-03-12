@@ -583,6 +583,222 @@ OPENING_DATABASE = {
         "common_mistakes": [],
         "traps": [],
         "what_if": []
+    },
+    
+    "french-defense": {
+        "name": "French Defense",
+        "eco": "C00-C19",
+        "description": "A solid defense where Black locks the center with e6. Leads to strategic battles.",
+        "color": "black",
+        "first_moves": ["e4", "e6"],
+        "main_line": [
+            {"move": "e4", "explanation": "White opens."},
+            {"move": "e6", "explanation": "The French Defense! Preparing d5."},
+            {"move": "d4", "explanation": "White builds the center."},
+            {"move": "d5", "explanation": "Challenge the center!"},
+            {"move": "Nc3", "explanation": "Develop and defend."},
+            {"move": "Nf6", "explanation": "Attack e4."},
+            {"move": "Bg5", "explanation": "Pin the knight."},
+            {"move": "Be7", "explanation": "Break the pin."},
+            {"move": "e5", "explanation": "The Advance Variation."},
+            {"move": "Nfd7", "explanation": "Knight retreats."},
+            {"move": "Bxe7", "explanation": "Trade bishops."},
+            {"move": "Qxe7", "explanation": "Recapture."}
+        ],
+        "key_ideas": [
+            "Black's light-squared bishop can be passive",
+            "The c5 break is crucial for counterplay",
+            "The Winawer (Bb4) is the sharpest line",
+            "Black often attacks on the queenside"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
+    },
+    
+    "slav-defense": {
+        "name": "Slav Defense",
+        "eco": "D10-D19",
+        "description": "A solid response to the Queen's Gambit. Black keeps the light-squared bishop active.",
+        "color": "black",
+        "first_moves": ["d4", "d5", "c4", "c6"],
+        "main_line": [
+            {"move": "d4", "explanation": "White opens."},
+            {"move": "d5", "explanation": "Black mirrors."},
+            {"move": "c4", "explanation": "The Queen's Gambit."},
+            {"move": "c6", "explanation": "The Slav! Supporting d5 without blocking the bishop."},
+            {"move": "Nf3", "explanation": "Develop."},
+            {"move": "Nf6", "explanation": "Develop."},
+            {"move": "Nc3", "explanation": "Develop."},
+            {"move": "dxc4", "explanation": "Accept the gambit."},
+            {"move": "a4", "explanation": "Prevent b5."},
+            {"move": "Bf5", "explanation": "The key idea - develop the bishop before e6!"},
+            {"move": "e3", "explanation": "Prepare to recapture."},
+            {"move": "e6", "explanation": "Now e6 is fine."}
+        ],
+        "key_ideas": [
+            "Develop the light-squared bishop before playing e6!",
+            "The Semi-Slav (e6 before Bf5) is a different system",
+            "c6 supports d5 without blocking pieces",
+            "Very solid and reliable"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
+    },
+    
+    "nimzo-indian": {
+        "name": "Nimzo-Indian Defense",
+        "eco": "E20-E59",
+        "description": "One of Black's best responses to 1.d4. Black pins the knight and fights for control.",
+        "color": "black",
+        "first_moves": ["d4", "Nf6", "c4", "e6", "Nc3", "Bb4"],
+        "main_line": [
+            {"move": "d4", "explanation": "White opens."},
+            {"move": "Nf6", "explanation": "Develop."},
+            {"move": "c4", "explanation": "Expand."},
+            {"move": "e6", "explanation": "Prepare Bb4."},
+            {"move": "Nc3", "explanation": "Develop."},
+            {"move": "Bb4", "explanation": "The Nimzo-Indian! Pin the knight."},
+            {"move": "Qc2", "explanation": "The Classical variation."},
+            {"move": "O-O", "explanation": "Castle for safety."},
+            {"move": "a3", "explanation": "Challenge the bishop."},
+            {"move": "Bxc3+", "explanation": "Trade."},
+            {"move": "Qxc3", "explanation": "Recapture."},
+            {"move": "d5", "explanation": "Strike in the center!"}
+        ],
+        "key_ideas": [
+            "Bb4 pins the knight and doubles White's pawns if traded",
+            "Black often gives up the bishop pair for structural advantage",
+            "e5 is often a key break for Black",
+            "Very solid and strategically rich"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
+    },
+    
+    "vienna-game": {
+        "name": "Vienna Game",
+        "eco": "C25-C29",
+        "description": "A romantic opening where White delays Nf3 to play f4 quickly.",
+        "color": "white",
+        "first_moves": ["e4", "e5", "Nc3"],
+        "main_line": [
+            {"move": "e4", "explanation": "Open with the king's pawn."},
+            {"move": "e5", "explanation": "Black mirrors."},
+            {"move": "Nc3", "explanation": "The Vienna! Delaying Nf3."},
+            {"move": "Nf6", "explanation": "Black develops."},
+            {"move": "f4", "explanation": "The Vienna Gambit!"},
+            {"move": "d5", "explanation": "Black strikes in the center."},
+            {"move": "fxe5", "explanation": "Take the pawn."},
+            {"move": "Nxe4", "explanation": "Black wins it back."},
+            {"move": "Nf3", "explanation": "Develop."},
+            {"move": "Bg4", "explanation": "Pin the knight."},
+            {"move": "Qe2", "explanation": "Defend and prepare."}
+        ],
+        "key_ideas": [
+            "f4 is the main idea - Vienna Gambit",
+            "Can transpose to King's Gambit lines",
+            "Bc4 is also possible for quieter play",
+            "Sharp and tactical"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
+    },
+    
+    "queens-indian": {
+        "name": "Queen's Indian Defense",
+        "eco": "E12-E19",
+        "description": "A flexible defense where Black fianchettoes the queen's bishop.",
+        "color": "black",
+        "first_moves": ["d4", "Nf6", "c4", "e6", "Nf3", "b6"],
+        "main_line": [
+            {"move": "d4", "explanation": "White opens."},
+            {"move": "Nf6", "explanation": "Develop."},
+            {"move": "c4", "explanation": "Expand."},
+            {"move": "e6", "explanation": "Flexible."},
+            {"move": "Nf3", "explanation": "Develop."},
+            {"move": "b6", "explanation": "The Queen's Indian! Prepare Bb7."},
+            {"move": "g3", "explanation": "Fianchetto."},
+            {"move": "Bb7", "explanation": "Develop the bishop."},
+            {"move": "Bg2", "explanation": "Complete the fianchetto."},
+            {"move": "Be7", "explanation": "Develop."},
+            {"move": "O-O", "explanation": "Castle."},
+            {"move": "O-O", "explanation": "Black castles too."}
+        ],
+        "key_ideas": [
+            "Bb7 controls the long diagonal",
+            "Very flexible - can transpose to other systems",
+            "Black often plays d5 or c5",
+            "Strategic and positional"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
+    },
+    
+    "grunfeld-defense": {
+        "name": "Grunfeld Defense",
+        "eco": "D70-D99",
+        "description": "A hypermodern defense where Black lets White build a center to attack it later.",
+        "color": "black",
+        "first_moves": ["d4", "Nf6", "c4", "g6", "Nc3", "d5"],
+        "main_line": [
+            {"move": "d4", "explanation": "White opens."},
+            {"move": "Nf6", "explanation": "Develop."},
+            {"move": "c4", "explanation": "Expand."},
+            {"move": "g6", "explanation": "Prepare fianchetto."},
+            {"move": "Nc3", "explanation": "Develop."},
+            {"move": "d5", "explanation": "The Grunfeld! Strike at the center."},
+            {"move": "cxd5", "explanation": "Exchange Variation."},
+            {"move": "Nxd5", "explanation": "Recapture."},
+            {"move": "e4", "explanation": "Build a big center."},
+            {"move": "Nxc3", "explanation": "Trade."},
+            {"move": "bxc3", "explanation": "Recapture."},
+            {"move": "Bg7", "explanation": "Fianchetto - attacking the center!"}
+        ],
+        "key_ideas": [
+            "Black allows White a big center to attack it",
+            "The Bg7 is a monster piece",
+            "c5 and e5 breaks are key",
+            "Requires precise play from both sides"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
+    },
+    
+    "benoni-defense": {
+        "name": "Benoni Defense",
+        "eco": "A60-A79",
+        "description": "A sharp defense where Black creates an asymmetrical pawn structure.",
+        "color": "black",
+        "first_moves": ["d4", "Nf6", "c4", "c5", "d5"],
+        "main_line": [
+            {"move": "d4", "explanation": "White opens."},
+            {"move": "Nf6", "explanation": "Develop."},
+            {"move": "c4", "explanation": "Expand."},
+            {"move": "c5", "explanation": "Challenge d4!"},
+            {"move": "d5", "explanation": "White advances."},
+            {"move": "e6", "explanation": "Attack d5."},
+            {"move": "Nc3", "explanation": "Develop."},
+            {"move": "exd5", "explanation": "Open the e-file."},
+            {"move": "cxd5", "explanation": "Recapture."},
+            {"move": "d6", "explanation": "Solid structure."},
+            {"move": "e4", "explanation": "Build the center."},
+            {"move": "g6", "explanation": "Fianchetto setup."}
+        ],
+        "key_ideas": [
+            "Black has a queenside pawn majority",
+            "The e5 break is critical for White",
+            "Black aims for b5 counterplay",
+            "Sharp and double-edged"
+        ],
+        "common_mistakes": [],
+        "traps": [],
+        "what_if": []
     }
 }
 

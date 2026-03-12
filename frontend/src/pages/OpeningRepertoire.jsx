@@ -11,7 +11,8 @@ import {
   TrendingDown,
   Loader2,
   Crown,
-  Swords
+  Swords,
+  X
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -123,6 +124,8 @@ const OpeningRepertoire = () => {
   const [repertoire, setRepertoire] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("white");
+  const [showAllOpenings, setShowAllOpenings] = useState(false);
+  const [allOpenings, setAllOpenings] = useState([]);
   
   useEffect(() => {
     const fetchRepertoire = async () => {
@@ -133,6 +136,15 @@ const OpeningRepertoire = () => {
         if (res.ok) {
           const data = await res.json();
           setRepertoire(data);
+        }
+        
+        // Also fetch all openings for the browse modal
+        const libRes = await fetch(`${API}/openings/library`, {
+          credentials: "include"
+        });
+        if (libRes.ok) {
+          const libData = await libRes.json();
+          setAllOpenings(libData.openings || []);
         }
       } catch (err) {
         console.error("Error fetching repertoire:", err);
@@ -298,12 +310,59 @@ const OpeningRepertoire = () => {
           <Button 
             variant="outline" 
             className="w-full"
-            onClick={() => navigate("/openings/library")}
+            onClick={() => setShowAllOpenings(true)}
           >
             <BookOpen className="w-4 h-4 mr-2" />
             Browse All Opening Lessons
           </Button>
         </div>
+        
+        {/* All Openings Modal */}
+        {showAllOpenings && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-background rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden">
+              <div className="p-4 border-b flex items-center justify-between">
+                <h2 className="text-lg font-semibold">All Opening Lessons</h2>
+                <Button variant="ghost" size="sm" onClick={() => setShowAllOpenings(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="p-4 overflow-y-auto max-h-[60vh]">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {allOpenings.map((opening) => (
+                    <Card 
+                      key={opening.key}
+                      className="cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => {
+                        navigate(`/openings/${opening.key}`);
+                        setShowAllOpenings(false);
+                      }}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-medium text-sm">{opening.name}</h3>
+                            <p className="text-xs text-muted-foreground">{opening.eco}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={opening.color === "white" ? "outline" : "secondary"}>
+                              {opening.color}
+                            </Badge>
+                            {opening.trap_count > 0 && (
+                              <Badge variant="destructive" className="text-xs">
+                                {opening.trap_count} traps
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

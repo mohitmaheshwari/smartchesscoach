@@ -442,6 +442,185 @@ TRAP_LIBRARY: Dict[str, List[Dict]] = {
 }
 
 
+# ============================================================================
+# ADDITIONAL TRAPS - Added March 12, 2026
+# ============================================================================
+
+# French Defense
+TRAP_LIBRARY["french-defense"] = [
+    {
+        "name": "French Winawer Poisoned Pawn",
+        "description": "White wins material by grabbing pawns while Black's pieces are tangled.",
+        "setup_moves": ["e4", "e6", "d4", "d5", "Nc3", "Bb4", "e5", "c5", "a3", "Bxc3+", "bxc3", "Ne7", "Qg4", "Qc7"],
+        "trap_line": [
+            {"move": "Qxg7", "explanation": "White grabs the g-pawn!"},
+            {"move": "Rg8", "explanation": "Black attacks the queen."},
+            {"move": "Qxh7", "explanation": "Take another pawn!"},
+            {"move": "cxd4", "explanation": "Black tries counterplay."},
+            {"move": "Ne2", "explanation": "Develop and defend."},
+            {"move": "Nbc6", "explanation": "Black develops."},
+            {"move": "f4", "explanation": "Solid. White is up two pawns with a strong position."}
+        ],
+        "success_message": "The Poisoned Pawn variation! White wins material.",
+        "result_type": "wins_material",
+        "difficulty": "advanced"
+    },
+    {
+        "name": "French Advance Milner-Barry Gambit",
+        "description": "A sharp gambit where White sacrifices pawns for a strong attack.",
+        "setup_moves": ["e4", "e6", "d4", "d5", "e5", "c5", "c3", "Nc6", "Nf3", "Qb6", "Bd3", "cxd4", "cxd4", "Bd7", "O-O", "Nxd4"],
+        "trap_line": [
+            {"move": "Nxd4", "explanation": "Take the knight!"},
+            {"move": "Qxd4", "explanation": "Black captures."},
+            {"move": "Nc3", "explanation": "Develop with tempo."},
+            {"move": "Qxe5", "explanation": "Black grabs the pawn."},
+            {"move": "Re1", "explanation": "Pin the queen!"},
+            {"move": "Qb8", "explanation": "Queen retreats."},
+            {"move": "Nxd5", "explanation": "Win back material with interest!"}
+        ],
+        "success_message": "The Milner-Barry Gambit leads to a strong attack!",
+        "result_type": "wins_material",
+        "difficulty": "intermediate"
+    }
+]
+
+# Slav Defense
+TRAP_LIBRARY["slav-defense"] = [
+    {
+        "name": "Slav Main Line Trap",
+        "description": "A tactical sequence where Black wins material with a discovered attack.",
+        "setup_moves": ["d4", "d5", "c4", "c6", "Nf3", "Nf6", "Nc3", "dxc4", "a4", "Bf5", "Ne5", "e6"],
+        "trap_line": [
+            {"move": "f3", "explanation": "White tries to build a center."},
+            {"move": "Bb4", "explanation": "Pin the knight!"},
+            {"move": "e4", "explanation": "White pushes forward."},
+            {"move": "Bxe4", "explanation": "Take the pawn!"},
+            {"move": "fxe4", "explanation": "White recaptures."},
+            {"move": "Nxe4", "explanation": "Knight takes with a discovered attack on the queen!"},
+            {"move": "Bd2", "explanation": "White tries to save the bishop."},
+            {"move": "Qxd4", "explanation": "Win the d-pawn too!"}
+        ],
+        "success_message": "The Slav Trap wins material with a tactical combination!",
+        "result_type": "wins_material",
+        "difficulty": "intermediate"
+    }
+]
+
+# Nimzo-Indian Defense
+TRAP_LIBRARY["nimzo-indian"] = [
+    {
+        "name": "Nimzo-Indian Hubner Trap",
+        "description": "A kingside attack that wins the queen or leads to checkmate.",
+        "setup_moves": ["d4", "Nf6", "c4", "e6", "Nc3", "Bb4", "e3", "c5", "Bd3", "Nc6", "Nf3", "Bxc3+", "bxc3", "d6"],
+        "trap_line": [
+            {"move": "e4", "explanation": "Push forward!"},
+            {"move": "e5", "explanation": "Black blocks."},
+            {"move": "d5", "explanation": "Advance with tempo."},
+            {"move": "Ne7", "explanation": "Knight retreats."},
+            {"move": "Nh4", "explanation": "Knight eyes g6."},
+            {"move": "h6", "explanation": "Black tries to prevent Ng6."},
+            {"move": "Qh5", "explanation": "Threatening Qxf7+ and Ng6."},
+            {"move": "g6", "explanation": "Black defends."},
+            {"move": "Nxg6", "explanation": "Sacrifice!"},
+            {"move": "Nxg6", "explanation": "Black takes."},
+            {"move": "Qxg6+", "explanation": "Check! Winning the queen or mating."}
+        ],
+        "success_message": "The Hubner Trap leads to a devastating kingside attack!",
+        "result_type": "wins_queen",
+        "difficulty": "advanced"
+    }
+]
+
+# Vienna Game
+TRAP_LIBRARY["vienna-game"] = [
+    {
+        "name": "Frankenstein-Dracula Variation",
+        "description": "A wild gambit with attacking chances for both sides!",
+        "setup_moves": ["e4", "e5", "Nc3", "Nf6", "Bc4", "Nxe4", "Qh5", "Nd6", "Bb3", "Nc6", "Nb5", "g6", "Qf3", "f5"],
+        "trap_line": [
+            {"move": "Qd5", "explanation": "Centralize the queen with threats."},
+            {"move": "Qe7", "explanation": "Black defends."},
+            {"move": "Nxc7+", "explanation": "Fork! Knight takes with check."},
+            {"move": "Kd8", "explanation": "King moves."},
+            {"move": "Nxa8", "explanation": "Win the rook!"},
+            {"move": "b6", "explanation": "Black traps the knight."},
+            {"move": "d3", "explanation": "The knight is trapped but White has won the exchange."}
+        ],
+        "success_message": "The Frankenstein-Dracula leads to wild complications!",
+        "result_type": "wins_material",
+        "difficulty": "advanced"
+    }
+]
+
+# Queen's Indian Defense
+TRAP_LIBRARY["queens-indian"] = [
+    {
+        "name": "Queen's Indian Bishop Trap",
+        "description": "Black wins the light-squared bishop with a clever maneuver.",
+        "setup_moves": ["d4", "Nf6", "c4", "e6", "Nf3", "b6", "g3", "Bb7", "Bg2", "Be7", "O-O", "O-O", "Nc3", "Ne4"],
+        "trap_line": [
+            {"move": "Qc2", "explanation": "Attack the knight."},
+            {"move": "Nxc3", "explanation": "Trade knights."},
+            {"move": "Qxc3", "explanation": "Recapture."},
+            {"move": "Be4", "explanation": "The bishop dominates! It attacks the rook and controls key squares."}
+        ],
+        "success_message": "Black's bishop dominates the light squares!",
+        "result_type": "positional_advantage",
+        "difficulty": "intermediate"
+    }
+]
+
+# Grunfeld Defense
+TRAP_LIBRARY["grunfeld-defense"] = [
+    {
+        "name": "Grunfeld Exchange Trap",
+        "description": "A pawn storm that gives White a strong passed pawn.",
+        "setup_moves": ["d4", "Nf6", "c4", "g6", "Nc3", "d5", "cxd5", "Nxd5", "e4", "Nxc3", "bxc3", "Bg7", "Bc4", "O-O", "Ne2", "c5"],
+        "trap_line": [
+            {"move": "O-O", "explanation": "Castle for safety."},
+            {"move": "Nc6", "explanation": "Black develops."},
+            {"move": "Be3", "explanation": "Solid development."},
+            {"move": "Qc7", "explanation": "Black positions the queen."},
+            {"move": "Rc1", "explanation": "Double on the c-file."},
+            {"move": "Rd8", "explanation": "Black contests."},
+            {"move": "Qd2", "explanation": "Prepare the breakthrough."},
+            {"move": "e6", "explanation": "Black solidifies."},
+            {"move": "Bh6", "explanation": "Trade the fianchettoed bishop!"},
+            {"move": "Bh8", "explanation": "Black retreats."},
+            {"move": "d5", "explanation": "The breakthrough! White gets a strong passed pawn."}
+        ],
+        "success_message": "The d5 breakthrough gives White a powerful passed pawn!",
+        "result_type": "positional_advantage",
+        "difficulty": "advanced"
+    }
+]
+
+# Benoni Defense
+TRAP_LIBRARY["benoni-defense"] = [
+    {
+        "name": "Benoni Snake Trap",
+        "description": "A central breakthrough that opens lines for White's pieces.",
+        "setup_moves": ["d4", "Nf6", "c4", "c5", "d5", "e6", "Nc3", "exd5", "cxd5", "d6", "e4", "g6", "f4", "Bg7", "Bb5+", "Nfd7"],
+        "trap_line": [
+            {"move": "a4", "explanation": "Secure the queenside."},
+            {"move": "O-O", "explanation": "Black castles."},
+            {"move": "Nf3", "explanation": "Develop."},
+            {"move": "Na6", "explanation": "Knight maneuver."},
+            {"move": "O-O", "explanation": "Castle."},
+            {"move": "Nc7", "explanation": "Knight to c7."},
+            {"move": "Bc4", "explanation": "Reposition the bishop."},
+            {"move": "a6", "explanation": "Black expands."},
+            {"move": "a5", "explanation": "Lock the queenside."},
+            {"move": "Rb8", "explanation": "Black activates."},
+            {"move": "e5", "explanation": "The central breakthrough!"}
+        ],
+        "success_message": "The e5 breakthrough opens the position for White's pieces!",
+        "result_type": "positional_advantage",
+        "difficulty": "advanced"
+    }
+]
+
+
 def get_traps_for_opening(opening_key: str) -> List[Dict]:
     """Get all traps for a specific opening"""
     return TRAP_LIBRARY.get(opening_key, [])
@@ -479,3 +658,117 @@ def get_traps_by_difficulty(difficulty: str) -> List[Dict]:
             if trap.get("difficulty") == difficulty:
                 filtered_traps.append({**trap, "opening_key": opening_key})
     return filtered_traps
+
+
+def find_relevant_trap(fen: str, move_history: List[str]) -> Optional[Dict]:
+    """
+    Find if current position matches any trap setup.
+    Used by the coach to suggest traps during play.
+    
+    Args:
+        fen: Current board position in FEN format
+        move_history: List of moves played so far (SAN format)
+    
+    Returns:
+        Trap data if a trap setup matches, None otherwise
+    """
+    import chess
+    
+    # Convert move history to a comparable format (lowercase, no annotations)
+    normalized_history = [m.replace("+", "").replace("#", "").lower() for m in move_history]
+    history_len = len(normalized_history)
+    
+    for opening_key, traps in TRAP_LIBRARY.items():
+        for trap in traps:
+            setup_moves = trap.get("setup_moves", [])
+            setup_len = len(setup_moves)
+            
+            # Check if move history matches the trap setup (exactly or is a prefix)
+            if history_len >= setup_len - 2 and history_len <= setup_len:
+                # Normalize setup moves
+                normalized_setup = [m.replace("+", "").replace("#", "").lower() for m in setup_moves[:history_len]]
+                
+                if normalized_history == normalized_setup:
+                    # Position matches trap setup
+                    remaining_setup = setup_moves[history_len:]
+                    return {
+                        **trap,
+                        "opening_key": opening_key,
+                        "position_type": "at_trap" if history_len == setup_len else "approaching_trap",
+                        "moves_to_trap": remaining_setup,
+                        "trap_ready": history_len == setup_len
+                    }
+    
+    return None
+
+
+def get_trap_for_position(move_history: List[str]) -> Optional[Dict]:
+    """
+    Check if the current position leads into a known trap.
+    Returns the trap and how to set it up.
+    
+    Args:
+        move_history: List of moves played (SAN format)
+    
+    Returns:
+        Trap info if position matches, None otherwise
+    """
+    import chess
+    
+    history_str = " ".join(move_history).lower()
+    
+    best_match = None
+    best_match_len = 0
+    
+    for opening_key, traps in TRAP_LIBRARY.items():
+        for trap in traps:
+            setup_moves = trap.get("setup_moves", [])
+            setup_str = " ".join(setup_moves).lower()
+            
+            # Check if our move history is a prefix of the trap setup
+            if setup_str.startswith(history_str):
+                match_len = len(move_history)
+                if match_len > best_match_len:
+                    best_match_len = match_len
+                    remaining = setup_moves[len(move_history):]
+                    best_match = {
+                        **trap,
+                        "opening_key": opening_key,
+                        "setup_remaining": remaining,
+                        "trap_line": trap.get("trap_line", []),
+                        "moves_until_trap": len(remaining)
+                    }
+    
+    return best_match
+
+
+def get_all_trap_statistics() -> Dict:
+    """Get statistics about the trap library"""
+    total_traps = 0
+    checkmate_traps = 0
+    by_difficulty = {"beginner": 0, "intermediate": 0, "advanced": 0}
+    by_result = {}
+    by_opening = {}
+    
+    for opening_key, traps in TRAP_LIBRARY.items():
+        by_opening[opening_key] = len(traps)
+        total_traps += len(traps)
+        
+        for trap in traps:
+            result = trap.get("result_type", "unknown")
+            diff = trap.get("difficulty", "unknown")
+            
+            if result == "checkmate":
+                checkmate_traps += 1
+            
+            by_result[result] = by_result.get(result, 0) + 1
+            if diff in by_difficulty:
+                by_difficulty[diff] += 1
+    
+    return {
+        "total_traps": total_traps,
+        "checkmate_traps": checkmate_traps,
+        "by_difficulty": by_difficulty,
+        "by_result": by_result,
+        "by_opening": by_opening
+    }

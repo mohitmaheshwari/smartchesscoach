@@ -49,6 +49,24 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## What's Been Implemented
 
+### March 12, 2026 - Expanded Trap Library + Coach Integration
+- **Added 9 more openings** to database: French Defense, Slav Defense, Nimzo-Indian, Vienna Game, Queen's Indian, Grunfeld Defense, Benoni Defense (now 20 total)
+- **Added 9 more traps** (now 27 total):
+  - French Defense: Winawer Poisoned Pawn, Milner-Barry Gambit
+  - Slav Defense: Main Line Trap
+  - Nimzo-Indian: Hubner Trap (wins queen!)
+  - Vienna Game: Frankenstein-Dracula
+  - Queen's Indian: Bishop Trap
+  - Grunfeld: Exchange Trap
+  - Benoni: Snake Trap
+- **New API endpoints:**
+  - `GET /api/traps/statistics` - Trap library stats
+  - `GET /api/traps/checkmates` - All checkmate traps
+  - `GET /api/traps/difficulty/{level}` - Filter by difficulty
+  - `POST /api/traps/suggest` - Get trap suggestion for position
+- **Coach Integration:** Trap suggestions now appear in move feedback when a trap is within reach
+- **Frontend:** "Browse All Opening Lessons" modal with trap counts
+
 ### March 12, 2026 - Comprehensive Trap Library Created
 - **Created `/backend/services/trap_library.py`** with 18 chess-accurate traps:
   - Italian Game: 4 traps (Fried Liver, Legal's Mate, Blackburne Shilling, Scholar's Defense)
