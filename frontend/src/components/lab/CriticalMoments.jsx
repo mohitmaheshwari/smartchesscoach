@@ -569,6 +569,28 @@ const CriticalMoments = ({
                           </Button>
                         </div>
                       )}
+                      
+                      {/* Next Moment button - appears after CORRECT move */}
+                      {userAttemptResult.correct && (
+                        <div className="mt-3">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              // Clear the result and move to next moment
+                              if (currentIndex < moments.length - 1) {
+                                handleNext();
+                              }
+                            }}
+                            disabled={currentIndex >= moments.length - 1}
+                            className="gap-2"
+                            data-testid="next-moment-btn"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                            {currentIndex >= moments.length - 1 ? "All Done!" : "Next Moment"}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
