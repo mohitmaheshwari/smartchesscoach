@@ -71,6 +71,15 @@ from services.coach_personality import (
     PlayerLevel
 )
 
+# Import Chess Understanding Service for multi-dimensional analysis
+from services.chess_understanding import (
+    get_chess_understanding,
+    update_chess_understanding,
+    get_coaching_context_from_understanding,
+    UnderstandingBasedCoaching,
+    ChessUnderstanding
+)
+
 
 # ==================== MODELS ====================
 
@@ -428,20 +437,49 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
     user_rating = player_profile.get("estimated_elo", player_profile.get("current_rating", 1200)) if player_profile else 1200
     games_played = player_profile.get("games_analyzed_count", player_profile.get("games_analyzed", 0)) if player_profile else 0
     
-    # Get personalized coaching context
+    # Get MULTI-DIMENSIONAL chess understanding
+    chess_understanding = await get_chess_understanding(db, user.user_id)
+    understanding_context = get_coaching_context_from_understanding(chess_understanding)
+    
+    # Get simple level for backwards compatibility
     coaching_context = get_personalized_coaching_context(user_rating, games_played)
     player_level = PlayerLevel(coaching_context["level"])
     
     # If we have critical moments, use LLM to generate human-readable explanations
     if critical_moments and len(critical_moments) > 0 and call_llm:
         try:
-            # Use LLM to write natural explanations WITH PERSONALIZED VOICE
+            # Use LLM with UNDERSTANDING-BASED voice, not just rating-based
             top_moment = critical_moments[0]
+            
+            # Build personalized prompt based on multi-dimensional understanding
+            understanding_summary = f"""
+PLAYER PROFILE:
+- Overall: {chess_understanding.overall_understanding}
+- Tactical Vision: {chess_understanding.tactical_vision.level.value} (score: {chess_understanding.tactical_vision.score:.0f}/100)
+- Positional Sense: {chess_understanding.positional_sense.level.value} (score: {chess_understanding.positional_sense.score:.0f}/100)
+- Consistency: {chess_understanding.consistency.level.value} (score: {chess_understanding.consistency.score:.0f}/100)
+- Primary Strength: {chess_understanding.primary_strength}
+- Primary Weakness: {chess_understanding.primary_weakness}
+- Coaching Focus: {chess_understanding.coaching_focus}
+"""
+            
+            # Get language style based on understanding
+            language_style = understanding_context.get("language", {})
+            analysis_style = understanding_context.get("analysis_style", {})
+            
             voice_prefix = CoachVoice.get_prompt_prefix(player_level)
             
             prompt = f"""{voice_prefix}
 
-You are explaining a mistake to a student.
+{understanding_summary}
+
+COACHING STYLE FOR THIS PLAYER:
+- Tactical advice style: {language_style.get('tactical_advice', '')}
+- Focus reminder: {language_style.get('focus_reminder', '')}
+- Use jargon: {analysis_style.get('use_jargon', True)}
+- Explain concepts: {analysis_style.get('explain_concepts', True)}
+
+You are explaining a mistake to this specific student.
 Be specific about THIS position, not generic advice.
 
 POSITION (FEN): {top_moment['fen']}
@@ -457,11 +495,12 @@ Analysis found:
 Write a 2-3 sentence explanation that:
 1. Names the specific pieces and squares involved
 2. Explains what the student missed in THIS position
-3. Gives a concrete pattern to look for next time
+3. If their {chess_understanding.primary_weakness.lower()} is weak, relate to that
+4. Adapt complexity to their understanding level
 
-ADAPT YOUR LANGUAGE TO THE PLAYER'S LEVEL. Be direct and specific to THIS position.
+Be direct and specific to THIS position.
 """
-            llm_explanation = await call_llm(prompt, max_tokens=200)
+            llm_explanation = await call_llm(prompt)
             if llm_explanation:
                 critical_moments[0]["coach_explanation"] = llm_explanation
         except Exception as e:
@@ -473,11 +512,39 @@ ADAPT YOUR LANGUAGE TO THE PLAYER'S LEVEL. Be direct and specific to THIS positi
         "critical_moments": critical_moments[:5],  # Top 5 moments
         "lesson": lesson,
         "total_mistakes": len(critical_moments),
-        # Add personalized coaching data
+        # Simple level (backwards compatibility)
         "player_level": coaching_context["level"],
         "player_level_display": coaching_context["level_display"],
         "player_level_emoji": coaching_context["level_emoji"],
         "coaching_voice": coaching_context["voice_style"],
         "player_rating": user_rating,
-        "games_analyzed": games_played
+        "games_analyzed": games_played,
+        # NEW: Multi-dimensional understanding
+        "chess_understanding": {
+            "overall": chess_understanding.overall_understanding,
+            "primary_strength": chess_understanding.primary_strength,
+            "primary_weakness": chess_understanding.primary_weakness,
+            "coaching_focus": chess_understanding.coaching_focus,
+            "dimensions": {
+                "tactical_vision": {
+                    "level": chess_understanding.tactical_vision.level.value,
+                    "score": round(chess_understanding.tactical_vision.score, 1),
+                    "weaknesses": chess_understanding.tactical_vision.specific_weaknesses
+                },
+                "positional_sense": {
+                    "level": chess_understanding.positional_sense.level.value,
+                    "score": round(chess_understanding.positional_sense.score, 1),
+                    "weaknesses": chess_understanding.positional_sense.specific_weaknesses
+                },
+                "opening_knowledge": {
+                    "level": chess_understanding.opening_knowledge.level.value,
+                    "score": round(chess_understanding.opening_knowledge.score, 1)
+                },
+                "consistency": {
+                    "level": chess_understanding.consistency.level.value,
+                    "score": round(chess_understanding.consistency.score, 1),
+                    "weaknesses": chess_understanding.consistency.specific_weaknesses
+                }
+            }
+        }
     }

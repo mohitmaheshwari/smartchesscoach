@@ -142,11 +142,59 @@ const CriticalMoments = ({
   playerLevel = "casual",
   playerLevelDisplay = "Player",
   playerLevelEmoji = "♟️",
-  coachingVoice = {}
+  coachingVoice = {},
+  // NEW: Multi-dimensional chess understanding
+  chessUnderstanding = null
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [revealed, setRevealed] = useState({});
   const [userGuess, setUserGuess] = useState({});
+  
+  // Derive coaching language from understanding if available
+  const getPersonalizedPrompt = () => {
+    if (!chessUnderstanding) {
+      return getCoachText("socraticPrompt", playerLevel);
+    }
+    
+    const weakness = chessUnderstanding.primary_weakness;
+    const tacticalScore = chessUnderstanding.dimensions?.tactical_vision?.score || 50;
+    const consistencyScore = chessUnderstanding.dimensions?.consistency?.score || 50;
+    
+    // If low consistency (focus issues), remind them to slow down
+    if (consistencyScore < 45) {
+      return "Take your time. Focus on this one position.";
+    }
+    
+    // If low tactical vision, guide more explicitly
+    if (tacticalScore < 40) {
+      return "Look carefully. Check all captures and checks.";
+    }
+    
+    // Default to level-based
+    return getCoachText("socraticPrompt", playerLevel);
+  };
+  
+  // Get mistake feedback based on understanding
+  const getMistakeFeedback = () => {
+    if (!chessUnderstanding) {
+      return getCoachText("wrongFeedback", playerLevel);
+    }
+    
+    const tacticalScore = chessUnderstanding.dimensions?.tactical_vision?.score || 50;
+    const consistencyScore = chessUnderstanding.dimensions?.consistency?.score || 50;
+    
+    // If they're strong tactically but inconsistent, it's a focus issue
+    if (tacticalScore > 60 && consistencyScore < 50) {
+      return "Focus slip. You know better than this.";
+    }
+    
+    // If weak tactically, be more teaching-oriented
+    if (tacticalScore < 40) {
+      return "Let me show you the pattern here.";
+    }
+    
+    return getCoachText("wrongFeedback", playerLevel);
+  };
   
   // Navigate to the current moment's position when the component mounts or moment changes
   useEffect(() => {
@@ -331,20 +379,41 @@ const CriticalMoments = ({
   
   return (
     <div className="space-y-4">
-      {/* Header with navigation and player level */}
+      {/* Header with navigation and understanding summary */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <h3 className="font-semibold">Critical Moments</h3>
           <Badge variant="outline">{moments.length} to review</Badge>
-          {/* Player level badge */}
-          {playerLevel && (
-            <Badge 
-              variant="secondary" 
-              className="bg-primary/10 text-primary border-primary/20"
-              data-testid="player-level-badge"
-            >
-              {playerLevelEmoji} {playerLevelDisplay}
-            </Badge>
+          {/* Show understanding-based info if available */}
+          {chessUnderstanding ? (
+            <div className="flex items-center gap-1">
+              <Badge 
+                variant="secondary" 
+                className="bg-amber-500/10 text-amber-400 border-amber-500/20"
+                data-testid="focus-badge"
+              >
+                Focus: {chessUnderstanding.primary_weakness}
+              </Badge>
+              {chessUnderstanding.dimensions?.tactical_vision?.score < 50 && (
+                <Badge 
+                  variant="outline" 
+                  className="text-orange-400 border-orange-500/30 text-xs"
+                >
+                  Check tactics
+                </Badge>
+              )}
+            </div>
+          ) : (
+            /* Fallback to simple level badge */
+            playerLevel && (
+              <Badge 
+                variant="secondary" 
+                className="bg-primary/10 text-primary border-primary/20"
+                data-testid="player-level-badge"
+              >
+                {playerLevelEmoji} {playerLevelDisplay}
+              </Badge>
+            )
           )}
         </div>
         
@@ -409,10 +478,10 @@ const CriticalMoments = ({
               <div className="mb-6">
                 <HelpCircle className="w-12 h-12 text-primary mx-auto mb-3 opacity-50" />
                 <h4 className="text-lg font-medium mb-2">
-                  {getCoachText("socraticPrompt", playerLevel).split(".")[0]}.
+                  {getPersonalizedPrompt().split(".")[0]}.
                 </h4>
                 <p className="text-muted-foreground">
-                  {getCoachText("socraticPrompt", playerLevel).split(".").slice(1).join(".").trim() || "What would you play?"}
+                  {getPersonalizedPrompt().split(".").slice(1).join(".").trim() || "What would you play?"}
                 </p>
               </div>
               
@@ -447,7 +516,7 @@ const CriticalMoments = ({
                       }`}>
                         {userAttemptResult.correct 
                           ? getCoachText("correctPraise", playerLevel)
-                          : getCoachText("wrongFeedback", playerLevel)
+                          : getMistakeFeedback()
                         }
                       </p>
                       <p className="text-sm text-muted-foreground">

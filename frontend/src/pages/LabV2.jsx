@@ -990,6 +990,7 @@ const LabV2 = ({ user }) => {
                       playerLevelDisplay={deepStrategy?.player_level_display}
                       playerLevelEmoji={deepStrategy?.player_level_emoji}
                       coachingVoice={deepStrategy?.coaching_voice}
+                      chessUnderstanding={deepStrategy?.chess_understanding}
                     />
                   )}
                 </TabsContent>
