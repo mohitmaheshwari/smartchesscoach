@@ -204,12 +204,16 @@ def _generate_coaching_message(
         return " ".join(messages)
     
     elif quality == "inaccuracy":
-        messages.append(f"{user_move} is okay, but {best_move} was better here.")
+        # Check if user_move is same as best_move (edge case)
+        if user_move == best_move:
+            messages.append(f"{user_move} was fine, but the position needed more precision.")
+        else:
+            messages.append(f"{user_move} is okay, but {best_move} was better here.")
         
         # Add specific reason if available
-        if tactical_analysis.get("best_move_captures"):
+        if tactical_analysis.get("best_move_captures") and user_move != best_move:
             messages.append(f"With {best_move} you could have won the {tactical_analysis['best_move_captures']}.")
-        elif tactical_analysis.get("best_move_attacks"):
+        elif tactical_analysis.get("best_move_attacks") and user_move != best_move:
             attacks = tactical_analysis["best_move_attacks"][:2]
             if attacks:
                 messages.append(f"{best_move} {', '.join(attacks)}.")
@@ -221,7 +225,8 @@ def _generate_coaching_message(
             threat = tactical_analysis["threats_created"][0]
             messages.append(f"Now I can play {threat}.")
         
-        messages.append(f"{best_move} was the move to find.")
+        if user_move != best_move:
+            messages.append(f"{best_move} was the move to find.")
     
     elif quality == "blunder":
         messages.append(f"Oh, {user_move} is a tough one.")
