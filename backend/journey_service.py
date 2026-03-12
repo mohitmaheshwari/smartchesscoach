@@ -12,6 +12,7 @@ Handles:
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 import httpx
@@ -31,6 +32,102 @@ INITIAL_GAMES_TO_ANALYZE = FIRST_SYNC_MAX_GAMES
 INITIAL_IMPORT_MONTHS = FIRST_SYNC_MONTHS
 PREFERRED_TIME_CONTROLS = ["rapid", "classical", "correspondence"]
 SKIP_TIME_CONTROLS = ["bullet", "ultrabullet"]
+
+
+def extract_opening_from_pgn(pgn: str) -> Dict[str, str]:
+    """
+    Extract opening information from PGN headers.
+    
+    Returns dict with:
+    - eco: ECO code (e.g., "B00")
+    - opening: Opening name
+    - opening_url: URL to opening info (if available)
+    """
+    result = {
+        "eco": None,
+        "opening": None,
+        "opening_name": None,
+        "opening_url": None
+    }
+    
+    if not pgn:
+        return result
+    
+    # Extract ECO code
+    eco_match = re.search(r'\[ECO\s+"([^"]+)"\]', pgn)
+    if eco_match:
+        result["eco"] = eco_match.group(1)
+    
+    # Extract Opening name - try multiple header names
+    # Chess.com uses ECOUrl which contains the opening name
+    eco_url_match = re.search(r'\[ECOUrl\s+"([^"]+)"\]', pgn)
+    if eco_url_match:
+        result["opening_url"] = eco_url_match.group(1)
+        # Parse opening name from URL: https://www.chess.com/openings/Nimzowitsch-Defense-Declined-Williams-Variation
+        url = eco_url_match.group(1)
+        if "/openings/" in url:
+            opening_slug = url.split("/openings/")[-1]
+            # Convert slug to readable name
+            result["opening_name"] = opening_slug.replace("-", " ")
+            result["opening"] = result["opening_name"]
+    
+    # Try standard Opening header
+    opening_match = re.search(r'\[Opening\s+"([^"]+)"\]', pgn)
+    if opening_match and not result["opening"]:
+        result["opening"] = opening_match.group(1)
+        result["opening_name"] = opening_match.group(1)
+    
+    # Lichess uses "Opening" header directly
+    # Also check for Variant header on Lichess
+    variant_match = re.search(r'\[Variant\s+"([^"]+)"\]', pgn)
+    if variant_match:
+        variant = variant_match.group(1)
+        if variant.lower() != "standard":
+            result["opening"] = f"{variant} - {result.get('opening', 'Unknown')}"
+    
+    return result
+
+
+async def backfill_opening_info(db, user_id: str = None) -> int:
+    """
+    Backfill opening info for existing games that don't have it.
+    
+    Args:
+        db: Database connection
+        user_id: Optional - if provided, only backfill for this user
+    
+    Returns:
+        Number of games updated
+    """
+    query = {"opening": {"$in": [None, ""]}}
+    if user_id:
+        query["user_id"] = user_id
+    
+    games = await db.games.find(query, {"_id": 1, "game_id": 1, "pgn": 1}).to_list(1000)
+    
+    updated = 0
+    for game in games:
+        pgn = game.get("pgn", "")
+        if not pgn:
+            continue
+        
+        opening_info = extract_opening_from_pgn(pgn)
+        
+        if opening_info.get("opening"):
+            await db.games.update_one(
+                {"_id": game["_id"]},
+                {"$set": {
+                    "eco": opening_info.get("eco"),
+                    "opening": opening_info.get("opening"),
+                    "opening_name": opening_info.get("opening_name"),
+                    "opening_url": opening_info.get("opening_url")
+                }}
+            )
+            updated += 1
+            logger.info(f"Backfilled opening for game {game.get('game_id')}: {opening_info.get('opening')}")
+    
+    logger.info(f"Backfilled opening info for {updated} games")
+    return updated
 
 
 async def fetch_recent_chesscom_games(username: str, since_timestamp: int = None) -> List[Dict]:
@@ -885,6 +982,16 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                 game_doc["time_control"] = game_data.get("speed", "")
                 game_doc["result"] = game_data.get("status", "")
             
+            # Extract opening information from PGN
+            opening_info = extract_opening_from_pgn(pgn)
+            game_doc["eco"] = opening_info.get("eco")
+            game_doc["opening"] = opening_info.get("opening")
+            game_doc["opening_name"] = opening_info.get("opening_name")
+            game_doc["opening_url"] = opening_info.get("opening_url")
+            
+            if opening_info.get("opening"):
+                logger.info(f"Extracted opening: {opening_info.get('opening')} (ECO: {opening_info.get('eco')})")
+            
             await db.games.insert_one(game_doc)
             logger.info(f"Auto-synced game {game_doc['game_id']} for user {user_id} from {platform}")
             
@@ -991,9 +1098,9 @@ async def run_background_sync(db):
     # Find users with linked accounts (support both field naming conventions)
     users = await db.users.find({
         "$or": [
-            {"chess_com_username": {"$exists": True, "$ne": None, "$ne": ""}},
-            {"chesscom_username": {"$exists": True, "$ne": None, "$ne": ""}},
-            {"lichess_username": {"$exists": True, "$ne": None, "$ne": ""}}
+            {"chess_com_username": {"$exists": True, "$nin": [None, ""]}},
+            {"chesscom_username": {"$exists": True, "$nin": [None, ""]}},
+            {"lichess_username": {"$exists": True, "$nin": [None, ""]}}
         ]
     }).to_list(1000)
     

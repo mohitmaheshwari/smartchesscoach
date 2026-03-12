@@ -30,14 +30,15 @@ const HabitsToImprove = ({
   deepStrategy,
   onStartTraining
 }) => {
-  // Current game's opening progress (only fetch for this specific opening)
-  const [currentOpeningStats, setCurrentOpeningStats] = useState(null);
+  // Current game's opening stats from progress API
+  const [openingStats, setOpeningStats] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(false);
   
   // Get the opening from the current game
   const currentOpening = deepStrategy?.game?.opening || deepStrategy?.game?.opening_name;
+  const currentEco = deepStrategy?.game?.eco;
   
-  // Fetch opening progress only for the current game's opening
+  // Fetch opening progress to get stats for this opening
   useEffect(() => {
     const fetchProgress = async () => {
       if (!currentOpening) return;
@@ -47,12 +48,14 @@ const HabitsToImprove = ({
         const res = await fetch(`${API}/training/opening-progress`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
-          // Find this game's opening in the progress
-          const thisOpening = data.progress?.find(p => 
-            p.opening_name?.toLowerCase() === currentOpening.toLowerCase()
-          );
-          if (thisOpening && thisOpening.needs_work) {
-            setCurrentOpeningStats(thisOpening);
+          // Find this game's opening in the progress (case-insensitive match)
+          const normalizedOpening = currentOpening.toLowerCase().replace(/[-_]/g, ' ');
+          const thisOpening = data.progress?.find(p => {
+            const progressName = (p.opening_name || '').toLowerCase().replace(/[-_]/g, ' ');
+            return progressName.includes(normalizedOpening) || normalizedOpening.includes(progressName);
+          });
+          if (thisOpening) {
+            setOpeningStats(thisOpening);
           }
         }
       } catch (err) {
@@ -270,47 +273,81 @@ const HabitsToImprove = ({
         </Card>
       </motion.div>
       
-      {/* Current Game's Opening - Only if it needs work */}
-      {currentOpeningStats && (
+      {/* Current Game's Opening */}
+      {currentOpening && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
         >
-          <Card className="border-amber-500/30 bg-amber-500/5">
+          <Card className={`${
+            openingStats?.needs_work 
+              ? "border-amber-500/30 bg-amber-500/5" 
+              : "border-primary/30 bg-primary/5"
+          }`}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle className="w-4 h-4 text-amber-400" />
-                <h4 className="text-xs font-medium text-amber-400 uppercase tracking-wide">
-                  Opening Needs Work
+                {openingStats?.needs_work ? (
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <Target className="w-4 h-4 text-primary" />
+                )}
+                <h4 className={`text-xs font-medium uppercase tracking-wide ${
+                  openingStats?.needs_work ? "text-amber-400" : "text-primary"
+                }`}>
+                  This Game's Opening
                 </h4>
+                {currentEco && (
+                  <Badge variant="outline" className="text-xs ml-auto">
+                    {currentEco}
+                  </Badge>
+                )}
               </div>
               
-              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-amber-500/20">
+              <div className={`flex items-center justify-between p-3 rounded-lg ${
+                openingStats?.needs_work 
+                  ? "bg-slate-800/50 border border-amber-500/20" 
+                  : "bg-slate-800/50 border border-primary/20"
+              }`}>
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  <div className={`w-2 h-2 rounded-full ${
+                    openingStats?.needs_work ? "bg-amber-500" : "bg-primary"
+                  }`} />
                   <div>
-                    <span className="text-sm font-medium">{currentOpeningStats.opening_name}</span>
-                    {currentOpeningStats.dominant_loss_phase && (
+                    <span className="text-sm font-medium">{currentOpening}</span>
+                    {openingStats?.dominant_loss_phase && openingStats?.needs_work && (
                       <p className="text-xs text-muted-foreground">
-                        You tend to lose in the {currentOpeningStats.dominant_loss_phase}
+                        You tend to lose in the {openingStats.dominant_loss_phase}
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-red-400">
-                    {currentOpeningStats.real_win_rate?.toFixed(0)}% win rate
+                
+                {openingStats ? (
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className={
+                      openingStats.real_win_rate < 40 ? "text-red-400" :
+                      openingStats.real_win_rate >= 60 ? "text-green-400" : 
+                      "text-foreground"
+                    }>
+                      {openingStats.real_win_rate?.toFixed(0)}% win rate
+                    </span>
+                    <span className="text-muted-foreground">
+                      {openingStats.real_games} games
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    First game with this opening
                   </span>
-                  <span className="text-muted-foreground">
-                    {currentOpeningStats.real_games} games
-                  </span>
-                </div>
+                )}
               </div>
               
-              <p className="text-xs text-muted-foreground mt-2">
-                Consider practicing this opening in the Journey page.
-              </p>
+              {openingStats?.needs_work && (
+                <p className="text-xs text-amber-400/80 mt-2">
+                  Consider practicing this opening in the Journey page.
+                </p>
+              )}
             </CardContent>
           </Card>
         </motion.div>

@@ -3602,6 +3602,17 @@ async def send_all_weekly_summaries(user: User = Depends(get_current_user)):
     return result
 
 
+@api_router.post("/admin/backfill-openings")
+async def backfill_openings(user: User = Depends(get_current_user)):
+    """
+    Backfill opening info for all games that don't have it.
+    This extracts ECO code, opening name from PGN headers.
+    """
+    from journey_service import backfill_opening_info
+    updated = await backfill_opening_info(db, user.user_id)
+    return {"success": True, "games_updated": updated}
+
+
 @api_router.get("/coach/today")
 async def get_coach_today(user: User = Depends(get_current_user)):
     """
