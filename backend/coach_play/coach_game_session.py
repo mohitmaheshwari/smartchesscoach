@@ -105,6 +105,7 @@ class CoachGameSession:
     opening_teaching_moves: List[str] = field(default_factory=list)  # Moves to guide player through
     opening_teaching_index: int = 0  # Current teaching move index
     opening_teaching_active: bool = False  # Whether we're actively teaching
+    opening_teaching_complete: bool = False  # Whether teaching has been completed
     suggested_trap: Optional[Dict] = field(default_factory=dict)  # Trap suggestion for this opening
     available_traps: List[Dict] = field(default_factory=list)  # All traps available in this opening
     

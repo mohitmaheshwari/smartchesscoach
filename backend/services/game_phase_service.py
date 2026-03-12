@@ -86,7 +86,9 @@ class PhaseInfo:
     
     # Additional context
     is_in_opening_book: bool = False    # Set externally
+    is_endgame: bool = False            # True if in endgame phase
     endgame_type: EndgameType = EndgameType.NOT_ENDGAME
+    material_balance: int = 0           # Material balance (positive = white ahead)
     
     # Piece counts for context
     white_material: Dict[str, int] = None
@@ -145,8 +147,15 @@ class GamePhaseCalculator:
         
         # Detect endgame type if in endgame
         endgame_type = EndgameType.NOT_ENDGAME
-        if phase_percent >= 50:
+        is_endgame = phase_percent >= 50
+        if is_endgame:
             endgame_type = self._classify_endgame(board, white_material, black_material)
+        
+        # Calculate material balance
+        piece_values = {"Q": 9, "R": 5, "B": 3, "N": 3, "P": 1}
+        white_value = sum(count * piece_values.get(piece, 0) for piece, count in white_material.items())
+        black_value = sum(count * piece_values.get(piece, 0) for piece, count in black_material.items())
+        material_balance = white_value - black_value
         
         return PhaseInfo(
             raw_phase=current_phase,
@@ -154,7 +163,9 @@ class GamePhaseCalculator:
             phase_percent=phase_percent,
             phase_label=phase_label,
             opening_weight=opening_weight,
+            is_endgame=is_endgame,
             endgame_type=endgame_type,
+            material_balance=material_balance,
             white_material=white_material,
             black_material=black_material
         )

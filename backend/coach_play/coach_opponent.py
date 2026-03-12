@@ -458,9 +458,11 @@ class PedagogicalOpponent(CoachOpponent):
                     "is_best_move": True,
                     "move_type": "opening_guide"
                 }
+                print(f"[CoachOpponent] Using opening guide move: {guided_move} for FEN: {fen[:50]}...")
                 return guided_move
             
             # Get game phase for context
+            print(f"[CoachOpponent] Using TeachingMoveSelector for FEN: {fen[:50]}...")
             phase_info = get_game_phase(fen)
             game_phase = phase_info.get("phase_label", "middlegame")
             
@@ -502,7 +504,9 @@ class PedagogicalOpponent(CoachOpponent):
                 "eval_rank": result.get("eval_rank", 1)
             }
             
-            return result.get("selected_move")
+            selected_move = result.get("selected_move")
+            print(f"[CoachOpponent] Selected move: {selected_move}, eval_rank: {result.get('eval_rank')}")
+            return selected_move
             
         except Exception as e:
             print(f"Teaching Move Selector error: {e}")
