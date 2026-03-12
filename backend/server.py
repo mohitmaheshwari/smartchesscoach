@@ -10247,6 +10247,37 @@ async def get_coach_play_state(
     return state
 
 
+@api_router.get("/coach/play/feedback/{session_id}")
+async def get_coach_play_move_feedback(
+    session_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get comprehensive coaching feedback for the last move made.
+    
+    This is the key endpoint for real-time teaching - returns:
+    - Assessment of user's move quality
+    - Best move explanation
+    - Coach's response explanation
+    - Personalized coaching message
+    
+    Returns:
+    - feedback: Complete MoveFeedback object
+    """
+    from services.realtime_coaching_feedback import get_last_move_feedback
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    feedback = await get_last_move_feedback(db, session_id, user.user_id)
+    
+    return {"feedback": feedback}
+
+
 @api_router.post("/coach/play/end")
 async def end_coach_play_session(
     request: Dict = Body(...),

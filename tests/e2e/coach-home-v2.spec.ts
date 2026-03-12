@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://deep-memory-chess.preview.emergentagent.com';
+const BASE_URL = 'https://real-time-feedback.preview.emergentagent.com';
 
 /**
  * Coach Home V2 - Personalized Chess Coaching Tests

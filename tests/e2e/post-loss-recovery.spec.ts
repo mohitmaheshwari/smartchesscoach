@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://deep-memory-chess.preview.emergentagent.com';
+const BASE_URL = 'https://real-time-feedback.preview.emergentagent.com';
 const TEST_GAME_ID = '2d46940d-dfce-4534-9935-9b1ba3829c92';
 
 test.describe('Post-Loss Recovery Page', () => {
