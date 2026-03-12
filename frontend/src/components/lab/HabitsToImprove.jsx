@@ -446,7 +446,17 @@ const HabitsToImprove = ({
                   variant="outline"
                   size="sm"
                   className="w-full mt-3"
-                  onClick={() => navigate(`/openings/${openingLibraryKey}`)}
+                  onClick={() => {
+                    // Pass the current game's opening mistake if available
+                    const mistakeData = openingPerformance?.first_mistake_details ? {
+                      gameId: deepStrategy?.game_id,
+                      mistake: openingPerformance.first_mistake_details
+                    } : null;
+                    
+                    navigate(`/openings/${openingLibraryKey}`, {
+                      state: { currentGameMistake: mistakeData }
+                    });
+                  }}
                 >
                   <BookOpen className="w-4 h-4 mr-2" />
                   Learn This Opening

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
 import { Chessground } from "chessground";
@@ -17,7 +17,8 @@ import {
   Loader2,
   ArrowRight,
   Brain,
-  Sparkles
+  Sparkles,
+  ExternalLink
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,9 +36,13 @@ const API = process.env.REACT_APP_BACKEND_URL + "/api";
 const OpeningLesson = () => {
   const { openingKey } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const boardRef = useRef(null);
   const groundRef = useRef(null);
   const chessRef = useRef(new Chess());
+  
+  // Get current game mistake passed from Lab page
+  const currentGameMistake = location.state?.currentGameMistake;
   
   const [lesson, setLesson] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -690,6 +695,45 @@ const OpeningLesson = () => {
               </TabsContent>
               
               <TabsContent value="mistakes" className="space-y-4">
+                {/* Current game mistake from Lab page */}
+                {currentGameMistake && (
+                  <Card className="border-amber-500/30 bg-amber-500/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-400" />
+                        From Your Recent Game
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0">
+                      <div className="flex items-start gap-3">
+                        <div>
+                          <p className="text-sm">
+                            <span className="font-semibold">Move {currentGameMistake.mistake.move_number}:</span>{" "}
+                            You played <span className="text-red-400">{currentGameMistake.mistake.your_move}</span>
+                          </p>
+                          {currentGameMistake.mistake.best_move && (
+                            <p className="text-sm mt-1">
+                              Better was <span className="text-green-400">{currentGameMistake.mistake.best_move}</span>
+                            </p>
+                          )}
+                          {currentGameMistake.gameId && (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="px-0 mt-2 text-xs"
+                              onClick={() => navigate(`/game/${currentGameMistake.gameId}`)}
+                            >
+                              <ExternalLink className="w-3 h-3 mr-1" />
+                              View in game
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Historical mistakes from analyzed games */}
                 {user_mistakes?.length > 0 ? (
                   user_mistakes.map((mistake, i) => (
                     <Card key={i} className="border-red-500/30 bg-red-500/5">
@@ -714,7 +758,7 @@ const OpeningLesson = () => {
                       </CardContent>
                     </Card>
                   ))
-                ) : (
+                ) : !currentGameMistake ? (
                   <Card className="border-dashed">
                     <CardContent className="p-8 text-center">
                       <Sparkles className="w-8 h-8 text-primary mx-auto mb-2" />
@@ -726,7 +770,7 @@ const OpeningLesson = () => {
                       </p>
                     </CardContent>
                   </Card>
-                )}
+                ) : null}
               </TabsContent>
             </Tabs>
           </div>
