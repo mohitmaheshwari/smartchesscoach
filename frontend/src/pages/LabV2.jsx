@@ -1012,7 +1012,12 @@ const LabV2 = ({ user }) => {
                       <MissedTactics
                         deepStrategy={deepStrategy}
                         labData={labData}
-                        onNavigateToMove={navigateToMoveNumber}
+                        onNavigateToMove={(moveNum) => {
+                          // Switch to summary tab to see the board
+                          setActiveTab("summary");
+                          // Navigate to the position
+                          navigateToMoveNumber(moveNum);
+                        }}
                       />
                     </>
                   )}
