@@ -28,7 +28,8 @@ const HabitsToImprove = ({
   focusModule,
   labData,
   deepStrategy,
-  onStartTraining
+  onStartTraining,
+  onNavigateToMove
 }) => {
   // Current game's opening stats from progress API
   const [openingStats, setOpeningStats] = useState(null);
@@ -360,14 +361,29 @@ const HabitsToImprove = ({
                   )}
                   
                   {openingPerformance.first_mistake_details && (
-                    <div className="p-2 rounded bg-red-500/10 border border-red-500/20 text-xs">
-                      <span className="text-red-400">Move {openingPerformance.first_mistake_details.move_number}: </span>
-                      <span className="text-muted-foreground">
+                    <div 
+                      className="p-2 rounded bg-red-500/10 border border-red-500/20 text-xs cursor-pointer hover:bg-red-500/20 transition-colors"
+                      onClick={() => {
+                        if (onNavigateToMove) {
+                          onNavigateToMove(
+                            openingPerformance.first_mistake_details.move_number,
+                            openingPerformance.first_mistake_details.your_move,
+                            openingPerformance.first_mistake_details.best_move
+                          );
+                        }
+                      }}
+                      data-testid="opening-mistake-link"
+                    >
+                      <span className="text-red-400 underline hover:no-underline">
+                        Move {openingPerformance.first_mistake_details.move_number}:
+                      </span>
+                      <span className="text-muted-foreground ml-1">
                         You played <span className="text-foreground">{openingPerformance.first_mistake_details.your_move}</span>
                         {openingPerformance.first_mistake_details.best_move && (
                           <>, better was <span className="text-green-400">{openingPerformance.first_mistake_details.best_move}</span></>
                         )}
                       </span>
+                      <ArrowRight className="w-3 h-3 inline ml-2 text-muted-foreground" />
                     </div>
                   )}
                   

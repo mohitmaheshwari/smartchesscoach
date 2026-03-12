@@ -1053,6 +1053,7 @@ const LabV2 = ({ user }) => {
                     labData={labData}
                     deepStrategy={deepStrategy}
                     onStartTraining={() => navigate("/training/prescribed")}
+                    onNavigateToMove={navigateToMoveNumber}
                   />
                 </TabsContent>
                 
