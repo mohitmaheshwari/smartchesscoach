@@ -13,7 +13,7 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,96 @@ db = None
 
 # LLM function reference - will be set by server.py
 call_llm = None
+
+
+def analyze_opening_performance(move_evaluations: List[Dict], user_color: str) -> Dict:
+    """
+    Analyze how well the user played the opening phase (first 10-15 moves).
+    
+    Returns:
+    - played_well: bool - True if no significant mistakes in opening
+    - mistakes_in_opening: int - Number of mistakes (cp_loss >= 100) in opening
+    - inaccuracies_in_opening: int - Number of inaccuracies (50 <= cp_loss < 100)
+    - first_mistake_move: int | None - Move number of first mistake
+    - first_mistake_details: dict | None - Details of first mistake
+    - opening_accuracy: float - Percentage of good moves in opening
+    - verdict: str - "excellent", "good", "needs_work", "poor"
+    """
+    OPENING_MOVES = 15  # Consider first 15 moves as opening
+    MISTAKE_THRESHOLD = 100  # centipawns
+    INACCURACY_THRESHOLD = 50
+    
+    result = {
+        "played_well": True,
+        "mistakes_in_opening": 0,
+        "inaccuracies_in_opening": 0,
+        "first_mistake_move": None,
+        "first_mistake_details": None,
+        "opening_accuracy": 100.0,
+        "verdict": "excellent",
+        "opening_moves_analyzed": 0
+    }
+    
+    if not move_evaluations:
+        return result
+    
+    good_moves = 0
+    total_opening_moves = 0
+    
+    for m in move_evaluations:
+        move_num = m.get("move_number", 0)
+        
+        # Only analyze opening moves for the user's color
+        if move_num > OPENING_MOVES:
+            break
+        
+        # Check if this is user's move
+        is_user_move = (
+            (user_color == "white" and move_num % 2 == 1) or
+            (user_color == "black" and move_num % 2 == 0)
+        )
+        
+        if not is_user_move:
+            continue
+        
+        total_opening_moves += 1
+        cp_loss = abs(m.get("cp_loss", 0))
+        
+        if cp_loss >= MISTAKE_THRESHOLD:
+            result["mistakes_in_opening"] += 1
+            result["played_well"] = False
+            
+            if result["first_mistake_move"] is None:
+                result["first_mistake_move"] = move_num
+                result["first_mistake_details"] = {
+                    "move_number": move_num,
+                    "your_move": m.get("move", ""),
+                    "best_move": m.get("best_move", ""),
+                    "cp_loss": cp_loss,
+                    "fen": m.get("fen_before", "")
+                }
+        elif cp_loss >= INACCURACY_THRESHOLD:
+            result["inaccuracies_in_opening"] += 1
+        else:
+            good_moves += 1
+    
+    result["opening_moves_analyzed"] = total_opening_moves
+    
+    if total_opening_moves > 0:
+        result["opening_accuracy"] = round((good_moves / total_opening_moves) * 100, 1)
+    
+    # Determine verdict
+    if result["mistakes_in_opening"] == 0 and result["inaccuracies_in_opening"] <= 1:
+        result["verdict"] = "excellent"
+    elif result["mistakes_in_opening"] == 0 and result["inaccuracies_in_opening"] <= 2:
+        result["verdict"] = "good"
+    elif result["mistakes_in_opening"] <= 1:
+        result["verdict"] = "needs_work"
+    else:
+        result["verdict"] = "poor"
+    
+    return result
+
 
 def set_db(database):
     """Set the database reference for lab routes"""
@@ -506,9 +596,21 @@ Be direct and specific to THIS position.
         except Exception as e:
             logger.error(f"Error generating LLM explanation: {e}")
     
+    # Analyze opening performance for this specific game
+    opening_performance = analyze_opening_performance(move_evaluations, user_color)
+    
     return {
         "game_id": game_id,
         "user_color": user_color,
+        "game": {
+            "opening": game.get("opening") if game else None,
+            "opening_name": game.get("opening_name") if game else None,
+            "eco": game.get("eco") if game else None,
+            "opening_url": game.get("opening_url") if game else None,
+            "result": game.get("result") if game else None,
+            "opponent_name": game.get("opponent_name") if game else None
+        },
+        "opening_performance": opening_performance,
         "critical_moments": critical_moments[:5],  # Top 5 moments
         "lesson": lesson,
         "total_mistakes": len(critical_moments),

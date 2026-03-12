@@ -38,7 +38,10 @@ const HabitsToImprove = ({
   const currentOpening = deepStrategy?.game?.opening || deepStrategy?.game?.opening_name;
   const currentEco = deepStrategy?.game?.eco;
   
-  // Fetch opening progress to get stats for this opening
+  // Get opening performance from THIS game's analysis
+  const openingPerformance = deepStrategy?.opening_performance;
+  
+  // Fetch opening progress to get overall stats for this opening
   useEffect(() => {
     const fetchProgress = async () => {
       if (!currentOpening) return;
@@ -273,7 +276,7 @@ const HabitsToImprove = ({
         </Card>
       </motion.div>
       
-      {/* Current Game's Opening */}
+      {/* Current Game's Opening Performance */}
       {currentOpening && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -281,21 +284,29 @@ const HabitsToImprove = ({
           transition={{ delay: 0.15 }}
         >
           <Card className={`${
-            openingStats?.needs_work 
+            openingPerformance?.verdict === "poor" || openingPerformance?.verdict === "needs_work"
               ? "border-amber-500/30 bg-amber-500/5" 
+              : openingPerformance?.verdict === "excellent"
+              ? "border-green-500/30 bg-green-500/5"
               : "border-primary/30 bg-primary/5"
           }`}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
-                {openingStats?.needs_work ? (
+                {openingPerformance?.verdict === "poor" || openingPerformance?.verdict === "needs_work" ? (
                   <AlertTriangle className="w-4 h-4 text-amber-400" />
+                ) : openingPerformance?.verdict === "excellent" ? (
+                  <CheckCircle2 className="w-4 h-4 text-green-400" />
                 ) : (
                   <Target className="w-4 h-4 text-primary" />
                 )}
                 <h4 className={`text-xs font-medium uppercase tracking-wide ${
-                  openingStats?.needs_work ? "text-amber-400" : "text-primary"
+                  openingPerformance?.verdict === "poor" || openingPerformance?.verdict === "needs_work"
+                    ? "text-amber-400" 
+                    : openingPerformance?.verdict === "excellent"
+                    ? "text-green-400"
+                    : "text-primary"
                 }`}>
-                  This Game's Opening
+                  Opening Phase
                 </h4>
                 {currentEco && (
                   <Badge variant="outline" className="text-xs ml-auto">
@@ -304,48 +315,89 @@ const HabitsToImprove = ({
                 )}
               </div>
               
-              <div className={`flex items-center justify-between p-3 rounded-lg ${
-                openingStats?.needs_work 
+              {/* Opening name */}
+              <div className={`p-3 rounded-lg mb-3 ${
+                openingPerformance?.verdict === "poor" || openingPerformance?.verdict === "needs_work"
                   ? "bg-slate-800/50 border border-amber-500/20" 
+                  : openingPerformance?.verdict === "excellent"
+                  ? "bg-slate-800/50 border border-green-500/20"
                   : "bg-slate-800/50 border border-primary/20"
               }`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-2 h-2 rounded-full ${
-                    openingStats?.needs_work ? "bg-amber-500" : "bg-primary"
+                    openingPerformance?.verdict === "poor" || openingPerformance?.verdict === "needs_work"
+                      ? "bg-amber-500" 
+                      : openingPerformance?.verdict === "excellent"
+                      ? "bg-green-500"
+                      : "bg-primary"
                   }`} />
-                  <div>
-                    <span className="text-sm font-medium">{currentOpening}</span>
-                    {openingStats?.dominant_loss_phase && openingStats?.needs_work && (
-                      <p className="text-xs text-muted-foreground">
-                        You tend to lose in the {openingStats.dominant_loss_phase}
-                      </p>
-                    )}
-                  </div>
+                  <span className="text-sm font-medium">{currentOpening}</span>
                 </div>
-                
-                {openingStats ? (
-                  <div className="flex items-center gap-3 text-sm">
+              </div>
+              
+              {/* This game's opening performance */}
+              {openingPerformance && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">This game:</span>
+                    <span className={`font-medium capitalize ${
+                      openingPerformance.verdict === "excellent" ? "text-green-400" :
+                      openingPerformance.verdict === "good" ? "text-blue-400" :
+                      openingPerformance.verdict === "needs_work" ? "text-amber-400" :
+                      "text-red-400"
+                    }`}>
+                      {openingPerformance.verdict === "excellent" ? "Played Well" :
+                       openingPerformance.verdict === "good" ? "Solid" :
+                       openingPerformance.verdict === "needs_work" ? "Needs Work" :
+                       "Struggled"}
+                    </span>
+                  </div>
+                  
+                  {openingPerformance.mistakes_in_opening > 0 && (
+                    <p className="text-xs text-amber-400">
+                      {openingPerformance.mistakes_in_opening} mistake{openingPerformance.mistakes_in_opening > 1 ? 's' : ''} in first {openingPerformance.opening_moves_analyzed} moves
+                    </p>
+                  )}
+                  
+                  {openingPerformance.first_mistake_details && (
+                    <div className="p-2 rounded bg-red-500/10 border border-red-500/20 text-xs">
+                      <span className="text-red-400">Move {openingPerformance.first_mistake_details.move_number}: </span>
+                      <span className="text-muted-foreground">
+                        You played <span className="text-foreground">{openingPerformance.first_mistake_details.your_move}</span>
+                        {openingPerformance.first_mistake_details.best_move && (
+                          <>, better was <span className="text-green-400">{openingPerformance.first_mistake_details.best_move}</span></>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {openingPerformance.verdict === "excellent" && (
+                    <p className="text-xs text-green-400">
+                      No mistakes in the opening - well played!
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              {/* Overall stats for this opening */}
+              {openingStats && (
+                <div className="mt-3 pt-3 border-t border-border/30">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Overall with this opening:</span>
                     <span className={
                       openingStats.real_win_rate < 40 ? "text-red-400" :
                       openingStats.real_win_rate >= 60 ? "text-green-400" : 
                       "text-foreground"
                     }>
-                      {openingStats.real_win_rate?.toFixed(0)}% win rate
-                    </span>
-                    <span className="text-muted-foreground">
-                      {openingStats.real_games} games
+                      {openingStats.real_win_rate?.toFixed(0)}% win rate ({openingStats.real_games} games)
                     </span>
                   </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    First game with this opening
-                  </span>
-                )}
-              </div>
+                </div>
+              )}
               
-              {openingStats?.needs_work && (
-                <p className="text-xs text-amber-400/80 mt-2">
-                  Consider practicing this opening in the Journey page.
+              {!openingStats && !loadingProgress && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  First game with this opening
                 </p>
               )}
             </CardContent>
