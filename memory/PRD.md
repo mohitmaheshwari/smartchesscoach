@@ -9,78 +9,65 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - **Active Teaching Framework:** Proactively suggest and guide learning during gameplay and in post-game analysis
 - **Deep Post-Game Analysis:** Analyze performance accurately, check for recurring habits using memory, and provide personalized feedback
 
-## Code Architecture
-```
-/app
-├── backend/
-│   ├── services/
-│   │   ├── realtime_coaching_feedback.py  # Real-time move feedback with Socratic mode
-│   │   ├── human_coach_integration.py     # Unified human-like coaching (Indian-English)
-│   │   ├── coach_personality.py           # Defines player levels and coaching language
-│   │   ├── coach_memory.py                # Memory of past games and patterns
-│   │   ├── socratic_engine.py             # Socratic questioning system
-│   │   ├── player_understanding_service.py # Multi-dimensional chess understanding
-│   │   ├── chess_understanding.py         # Chess skills profiling
-│   │   ├── opening_library_service.py     # Opening training lab service
-│   │   └── trap_library.py                # Chess trap definitions (27+ traps)
-│   ├── routes/
-│   │   ├── auth.py
-│   │   ├── lab.py
-│   │   ├── coach.py                       # Coach routes: learning-path, memory-lane, habit-challenge
-│   │   ├── coach_play.py                  # Coach play routes (helper functions migrated)
-│   │   └── openings.py                    # Opening Training Lab routes
-│   └── server.py
-└── frontend/
-    └── src/
-        ├── pages/
-        │   ├── LabV2.jsx                  # Game review page
-        │   ├── Dashboard.jsx              # User dashboard with LearningPath, MemoryLane, HabitChallenge
-        │   ├── CoachPlay.jsx              # Live coach play with feedback
-        │   └── OpeningLesson.jsx          # Opening lessons with practice mode
-        └── components/
-            ├── LearningPath.jsx           # Personalized learning recommendations
-            ├── MemoryLane.jsx             # Coach's memories of past games
-            ├── HabitChallenge.jsx         # Break the Habit training mode (NEW)
-            ├── coach-play/
-            │   ├── EvalBar.jsx
-            │   └── MoveFeedbackPanel.jsx  # Socratic mode UI with input
-            ├── openings/
-            │   ├── InteractivePractice.jsx # Visual move indicators (✓/✗)
-            │   └── TrapPractice.jsx        # Interactive trap practice
-            └── lab/
-                ├── TrapAnalysis.jsx        # Trap detection in games
-                └── HabitsToImprove.jsx
-```
+## Backend Refactoring Progress
 
-## What's Been Implemented
+### Migrated to coach_play.py (✅ Complete)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/coach/play/stats` | GET | Session statistics |
+| `/api/coach/play/active` | GET | Active sessions |
+| `/api/coach/play/history` | GET | Session history |
+| `/api/coach/play/identity` | GET | Player cognitive identity |
+| `/api/coach/play/cpr/history` | GET | CPR score history |
+| `/api/coach/play/behaviors/{session_id}` | GET | Session behavior events |
+| `/api/coach/play/feedback` | POST | Submit feedback on coach message |
+| `/api/coach/play/state/{session_id}` | GET | Session state |
+| `/api/coach/play/move-feedback/{session_id}` | GET | Last move coaching feedback |
+| `/api/coach/play/end` | POST | End session (resign/abort) |
+| `/api/coach/play/analysis` | POST | Post-game analysis |
 
-### March 13, 2026 - "95% Vision" Achievement
+### Still in server.py (Remaining ~1500 lines)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/coach/play/start` | POST | Start new session |
+| `/api/coach/play/move` | POST | Make a move |
+| `/api/coach/play/messages/{session_id}` | GET | Get coach messages |
+| `/api/coach/play/reflect` | POST | Reflect on game |
+| `/api/coach/play/chat` | POST | Chat with coach |
+| `/api/coach/play/evaluate` | POST | Evaluate position |
+| `/api/coach/play/move/confirm` | POST | Confirm move |
+| `/api/coach/play/endgame/start` | POST | Start endgame lesson |
+| `/api/coach/play/endgame/move` | POST | Endgame lesson move |
+| `/api/coach/play/opening-plan` | GET | Opening plan |
+| `/api/coach/play/teaching/start` | POST | Start teaching mode |
+| `/api/coach/play/teaching/move` | POST | Teaching mode move |
+| `/api/coach/play/teaching/exit` | POST | Exit teaching mode |
+| `/api/coach/play/teaching/skip` | POST | Skip teaching |
 
-#### ✅ NEW: Break the Habit Challenge Mode
+## Features Implemented
+
+### March 13, 2026 - "95% Vision" + Backend Refactoring
+
+#### ✅ Break the Habit Challenge Mode
 - **HabitChallenge.jsx Component**: Interactive training from user's past mistakes
-- **Backend `/api/coach/habit-challenge` endpoint**: Extracts positions from user's blunders/mistakes
-- **Backend `/api/coach/habit-challenge/check` endpoint**: Validates user's answer
-- **Features**:
-  - Presents 5 positions from user's actual games where they made mistakes
-  - Shows original wrong move with centipawn loss
-  - User must find the correct move on an interactive board
-  - Hint system available
-  - Score tracking with personalized feedback
-  - Indian-English messages throughout
+- Backend `/api/coach/habit-challenge` and `/api/coach/habit-challenge/check` endpoints
+- Presents 5 positions from user's actual games with mistakes
+- Interactive chessboard with move validation
+- Score tracking with Indian-English feedback
 
 #### ✅ Memory Lane Feature
 - **MemoryLane.jsx Component**: Coach references specific past games
-- **Backend `/api/coach/memory-lane` endpoint**: Returns memorable moments from games
-- **Features**:
-  - "Mohit, yesterday you played Ba4 and it was costly. Watch out for similar positions!"
-  - "Dekho Mohit, you've had this pattern multiple times. Today, let's break the habit!"
-  - Links to specific games for review
+- Backend `/api/coach/memory-lane` endpoint
+- Indian-English conversational messages
 
 #### ✅ LearningPath Integration
-- **LearningPath.jsx Component** now visible in Dashboard
-- Shows "Today's Focus" with personalized recommendations
-- "Your Coach Says" section with Indian-English messages
-- "You're Improving" section showing progress areas
+- **LearningPath.jsx Component** in Dashboard
+- Personalized recommendations based on weaknesses
+
+#### ✅ Backend Refactoring Phase 1
+- Migrated 11 endpoints from server.py to coach_play.py
+- ~1000 lines of code modularized
+- All endpoints tested and working
 
 ### Previous Sessions
 - Multi-Dimensional Player Understanding
@@ -91,75 +78,55 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Visual Move Indicators (✓/✗) in practice mode
 - Interactive Trap Practice
 
-## Key API Endpoints
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/coach/habit-challenge` | GET | Get positions from user's past mistakes for practice |
-| `/api/coach/habit-challenge/check` | POST | Check if user's move is correct |
-| `/api/coach/memory-lane` | GET | Coach's memories of past games |
-| `/api/coach/learning-path` | GET | Personalized learning recommendations |
-| `/api/coach/play/feedback/{session_id}` | GET | Real-time move feedback |
-| `/api/coach/socratic/start` | POST | Start Socratic dialogue |
-| `/api/coach/socratic/respond` | POST | User responds to Socratic question |
-| `/api/openings/{key}/practice/start` | POST | Start interactive practice |
-| `/api/openings/practice/move` | POST | Make practice move |
-
-## Database Schema
-- **player_profiles:** user_id, estimated_elo, top_weaknesses, strengths
-- **games:** Game PGNs and metadata
-- **games_analysis:** Detailed analysis including move_evaluations, blunders
-- **coach_sessions:** Coach play sessions and move history
-- **coach_memory:** Habits, weaknesses, improving areas, recurring patterns
-
-## 3rd Party Integrations
-- **Stockfish:** Engine analysis via python-chess
-- **OpenAI GPT-4o-mini:** Natural language explanations
-- **chess.js:** Frontend move validation
-- **chessground:** Frontend chessboard library
-
-## Vision Progress: 95% Complete
-
-### ✅ Completed (The "Human-like Coach" Vision)
-1. **Personalized Learning Path** - Dashboard shows tailored recommendations
-2. **Memory Lane** - Coach references specific past games by name and date
-3. **Break the Habit Challenge** - Practice positions from user's actual mistakes
-4. **Socratic Mode UI** - Input field for user answers to Socratic questions
-5. **Visual Move Indicators** - Chess.com style feedback during practice
-6. **Interactive Trap Practice** - Learn and practice 27+ chess traps
-7. **Indian-English Conversational Style** - Throughout all coaching messages
-
-### Remaining 5%
-- [ ] **P1 Backend Refactoring** - Migrate ~2500 lines from server.py to coach_play.py
-- [ ] **P2 Frontend Refactoring** - Break down CoachPlay.jsx and LabV2.jsx
-- [ ] **Deep Memory in Real-time Play** - Reference past games during live coach play
+## Code Architecture
+```
+/app
+├── backend/
+│   ├── routes/
+│   │   ├── coach.py           # ~2500 lines - Coach routes
+│   │   ├── coach_play.py      # ~900 lines - Coach play routes (GROWING)
+│   │   └── ...
+│   └── server.py              # ~10000 lines - Still has remaining coach/play routes
+└── frontend/
+    └── src/
+        ├── components/
+        │   ├── LearningPath.jsx
+        │   ├── MemoryLane.jsx
+        │   ├── HabitChallenge.jsx
+        │   └── ...
+        └── pages/
+            ├── Dashboard.jsx
+            ├── CoachPlay.jsx   # ~2000 lines - Needs refactoring
+            └── LabV2.jsx       # ~1000 lines - Needs refactoring
+```
 
 ## Prioritized Backlog
 
-### P1 - Backend Refactoring
-- [ ] Continue migrating routes from server.py to coach_play.py
+### ✅ P0 - Complete
+- [x] Break the Habit Challenge
+- [x] Memory Lane
+- [x] LearningPath Integration
+- [x] Backend refactoring Phase 1 (11 endpoints)
+
+### P1 - Backend Refactoring Phase 2 (IN PROGRESS)
+- [ ] Migrate remaining ~13 coach/play endpoints from server.py
+- [ ] Focus on: /start, /move, /messages - the core gameplay endpoints
 
 ### P2 - Frontend Refactoring
-- [ ] Break down `CoachPlay.jsx` (~2000 lines) into smaller components
+- [ ] Break down `CoachPlay.jsx` (~2000 lines)
+- [ ] Break down `LabV2.jsx` (~1000 lines)
 - [ ] Extract custom hooks: useCoachSession, useChessboard
-- [ ] Break down `LabV2.jsx` into smaller components
 
-### P3 - Future Features
-- [ ] Human Coach Training Dashboard for reviewing AI explanations
-- [ ] Spaced repetition for opening memorization
-- [ ] Multi-game pattern recognition in real-time feedback
+### P3 - Deep Memory Integration
+- [ ] Reference past games during live coach play
+- [ ] Pattern recognition across multiple games
 
 ## Test Credentials
 - Backend runs in `DEV_MODE` with default test user
 - No login required for testing
 
-## Known Technical Debt
-- `server.py` still has ~9000+ lines - coach/play routes need migration
-- `CoachPlay.jsx` has ~2000 lines, needs component extraction
-- `LabV2.jsx` remains a large component (~1000 lines)
-
 ## Testing Status
-- Break the Habit API tested and working
-- HabitChallenge component rendering correctly with interactive board
-- Memory Lane API tested and working
-- LearningPath API returns proper data
-- Frontend components rendering correctly
+- All migrated endpoints tested and working
+- Break the Habit API tested
+- Memory Lane API tested
+- LearningPath API tested
