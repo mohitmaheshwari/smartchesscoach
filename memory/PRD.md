@@ -3,101 +3,81 @@
 ## Original Problem Statement
 Create a hyper-personalized, data-driven chess coaching application that functions as a human-like AI coach. The central goal is to move beyond generic analysis and provide Socratic-style, contextual feedback tailored to the user's playstyle.
 
-### Core Requirements
-- **AI Teaching Coach:** An AI that plays instructive moves and provides real-time, explanatory feedback
-- **Human-like Interaction:** Memory of past games, Socratic questioning, and real-time conversational guidance in simple Indian-English
-- **Active Teaching Framework:** Proactively suggest and guide learning during gameplay and in post-game analysis
-- **Deep Post-Game Analysis:** Analyze performance accurately, check for recurring habits using memory, and provide personalized feedback
+## What's Been Implemented
 
-## Backend Refactoring Progress
+### March 13, 2026 - Major Refactoring Session
 
-### Migrated to coach_play.py (✅ Complete)
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/coach/play/stats` | GET | Session statistics |
-| `/api/coach/play/active` | GET | Active sessions |
-| `/api/coach/play/history` | GET | Session history |
-| `/api/coach/play/identity` | GET | Player cognitive identity |
-| `/api/coach/play/cpr/history` | GET | CPR score history |
-| `/api/coach/play/behaviors/{session_id}` | GET | Session behavior events |
-| `/api/coach/play/feedback` | POST | Submit feedback on coach message |
-| `/api/coach/play/state/{session_id}` | GET | Session state |
-| `/api/coach/play/move-feedback/{session_id}` | GET | Last move coaching feedback |
-| `/api/coach/play/end` | POST | End session (resign/abort) |
-| `/api/coach/play/analysis` | POST | Post-game analysis |
+#### Backend Refactoring (Phase 2 Complete)
+**21 endpoints migrated from server.py to coach_play.py:**
+- `/api/coach/play/stats` - Session statistics
+- `/api/coach/play/active` - Active sessions
+- `/api/coach/play/history` - Session history
+- `/api/coach/play/identity` - Player cognitive identity
+- `/api/coach/play/cpr/history` - CPR score history
+- `/api/coach/play/behaviors/{id}` - Session behavior events
+- `/api/coach/play/feedback` - Submit feedback on coach message
+- `/api/coach/play/state/{id}` - Session state
+- `/api/coach/play/move-feedback/{id}` - Last move coaching feedback
+- `/api/coach/play/end` - End session (resign/abort)
+- `/api/coach/play/analysis` - Post-game analysis
+- `/api/coach/play/messages/{id}` - Poll coach messages
+- `/api/coach/play/reflect` - Socratic reflection
+- `/api/coach/play/chat` - Chat with coach
+- `/api/coach/play/evaluate` - Pre-move guardian
+- `/api/coach/play/move/confirm` - Confirm risky move
+- `/api/coach/play/teaching/start` - Start opening lesson
+- `/api/coach/play/teaching/move` - Teaching mode move
+- `/api/coach/play/teaching/exit` - Exit teaching mode
+- `/api/coach/play/teaching/skip` - Skip teaching offer
+- `/api/coach/play/opening-plan` - Opening guidance
 
-### Still in server.py (Remaining ~1500 lines)
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/coach/play/start` | POST | Start new session |
-| `/api/coach/play/move` | POST | Make a move |
-| `/api/coach/play/messages/{session_id}` | GET | Get coach messages |
-| `/api/coach/play/reflect` | POST | Reflect on game |
-| `/api/coach/play/chat` | POST | Chat with coach |
-| `/api/coach/play/evaluate` | POST | Evaluate position |
-| `/api/coach/play/move/confirm` | POST | Confirm move |
-| `/api/coach/play/endgame/start` | POST | Start endgame lesson |
-| `/api/coach/play/endgame/move` | POST | Endgame lesson move |
-| `/api/coach/play/opening-plan` | GET | Opening plan |
-| `/api/coach/play/teaching/start` | POST | Start teaching mode |
-| `/api/coach/play/teaching/move` | POST | Teaching mode move |
-| `/api/coach/play/teaching/exit` | POST | Exit teaching mode |
-| `/api/coach/play/teaching/skip` | POST | Skip teaching |
+**Remaining in server.py (~3 complex endpoints):**
+- `/api/coach/play/start` - Start new session (~150 lines)
+- `/api/coach/play/move` - Make a move (~250 lines + helper functions)
+- Endgame endpoints
 
-## Features Implemented
+#### Frontend Refactoring (Phase 1 Complete)
+**New components extracted from CoachPlay.jsx:**
+1. `useCoachSession.js` - Custom hook for session state management (~280 lines)
+2. `GuardianWarning.jsx` - Pre-move guardian intervention modal
+3. `CoachChat.jsx` - Chat interface with the coach
+4. `GameSetupPanel.jsx` - Pre-game color selection panel
 
-### March 13, 2026 - "95% Vision" + Backend Refactoring
+**Component exports updated in `/components/coach-play/index.js`**
 
-#### ✅ Break the Habit Challenge Mode
-- **HabitChallenge.jsx Component**: Interactive training from user's past mistakes
-- Backend `/api/coach/habit-challenge` and `/api/coach/habit-challenge/check` endpoints
-- Presents 5 positions from user's actual games with mistakes
-- Interactive chessboard with move validation
-- Score tracking with Indian-English feedback
-
-#### ✅ Memory Lane Feature
-- **MemoryLane.jsx Component**: Coach references specific past games
-- Backend `/api/coach/memory-lane` endpoint
-- Indian-English conversational messages
-
-#### ✅ LearningPath Integration
-- **LearningPath.jsx Component** in Dashboard
-- Personalized recommendations based on weaknesses
-
-#### ✅ Backend Refactoring Phase 1
-- Migrated 11 endpoints from server.py to coach_play.py
-- ~1000 lines of code modularized
-- All endpoints tested and working
-
-### Previous Sessions
-- Multi-Dimensional Player Understanding
-- Personalized Coaching Language
-- Opening Training Lab with 20+ openings
-- Comprehensive trap library (27 traps)
-- Socratic Mode UI in MoveFeedbackPanel
-- Visual Move Indicators (✓/✗) in practice mode
-- Interactive Trap Practice
+### Previous Session - "95% Vision" Features
+- **Break the Habit Challenge** - Practice positions from past mistakes
+- **Memory Lane** - Coach references specific past games
+- **LearningPath Integration** - Personalized recommendations
 
 ## Code Architecture
 ```
 /app
 ├── backend/
 │   ├── routes/
-│   │   ├── coach.py           # ~2500 lines - Coach routes
-│   │   ├── coach_play.py      # ~900 lines - Coach play routes (GROWING)
+│   │   ├── coach.py           # ~2500 lines - Coach routes (memory, learning path, habits)
+│   │   ├── coach_play.py      # ~1500 lines - 21 coach/play endpoints (REFACTORED)
 │   │   └── ...
-│   └── server.py              # ~10000 lines - Still has remaining coach/play routes
+│   └── server.py              # ~9000 lines - Still has /start and /move endpoints
 └── frontend/
     └── src/
+        ├── hooks/
+        │   └── useCoachSession.js    # NEW: Session state management
         ├── components/
+        │   ├── coach-play/
+        │   │   ├── EvalBar.jsx
+        │   │   ├── MoveFeedbackPanel.jsx
+        │   │   ├── GuardianWarning.jsx   # NEW
+        │   │   ├── CoachChat.jsx         # NEW
+        │   │   ├── GameSetupPanel.jsx    # NEW
+        │   │   └── index.js
         │   ├── LearningPath.jsx
         │   ├── MemoryLane.jsx
-        │   ├── HabitChallenge.jsx
-        │   └── ...
+        │   └── HabitChallenge.jsx
         └── pages/
             ├── Dashboard.jsx
-            ├── CoachPlay.jsx   # ~2000 lines - Needs refactoring
-            └── LabV2.jsx       # ~1000 lines - Needs refactoring
+            ├── CoachPlay.jsx      # ~2000 lines - Can use new components
+            └── LabV2.jsx          # ~1000 lines - Needs refactoring
 ```
 
 ## Prioritized Backlog
@@ -106,27 +86,38 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - [x] Break the Habit Challenge
 - [x] Memory Lane
 - [x] LearningPath Integration
-- [x] Backend refactoring Phase 1 (11 endpoints)
 
-### P1 - Backend Refactoring Phase 2 (IN PROGRESS)
-- [ ] Migrate remaining ~13 coach/play endpoints from server.py
-- [ ] Focus on: /start, /move, /messages - the core gameplay endpoints
+### ✅ P1 - Backend Refactoring (90% Complete)
+- [x] Migrated 21 endpoints to coach_play.py
+- [ ] Migrate /start and /move endpoints (complex, ~400 lines combined)
 
-### P2 - Frontend Refactoring
-- [ ] Break down `CoachPlay.jsx` (~2000 lines)
-- [ ] Break down `LabV2.jsx` (~1000 lines)
-- [ ] Extract custom hooks: useCoachSession, useChessboard
+### ✅ P2 - Frontend Refactoring (Phase 1 Complete)
+- [x] Created useCoachSession custom hook
+- [x] Extracted GuardianWarning component
+- [x] Extracted CoachChat component
+- [x] Extracted GameSetupPanel component
+- [ ] Integrate new components into CoachPlay.jsx
+- [ ] Break down LabV2.jsx (~1000 lines)
 
-### P3 - Deep Memory Integration
-- [ ] Reference past games during live coach play
-- [ ] Pattern recognition across multiple games
-
-## Test Credentials
-- Backend runs in `DEV_MODE` with default test user
-- No login required for testing
+### P3 - Future Features
+- [ ] Human Coach Training Dashboard
+- [ ] Spaced repetition for opening memorization
 
 ## Testing Status
-- All migrated endpoints tested and working
-- Break the Habit API tested
-- Memory Lane API tested
-- LearningPath API tested
+- All migrated backend endpoints tested and working
+- New frontend components created and linted
+- Integration pending with CoachPlay.jsx
+
+## Database Collections
+- coach_sessions: Game sessions with coach
+- coach_messages: Coach commentary during games
+- coach_feedback: User feedback on coach messages
+- coach_memory: User's habits and patterns
+- game_analyses: Analyzed games with move evaluations
+- player_identity: Cognitive identity profiles
+
+## 3rd Party Integrations
+- **Stockfish:** Engine analysis via python-chess
+- **OpenAI GPT-4o-mini:** Natural language explanations
+- **chess.js:** Frontend move validation
+- **chessground:** Frontend chessboard library

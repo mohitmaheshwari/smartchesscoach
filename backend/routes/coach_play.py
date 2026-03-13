@@ -902,3 +902,631 @@ async def get_postgame_analysis(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.get("/messages/{session_id}")
+async def get_coach_messages(
+    session_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Poll for new coach messages.
+    Frontend calls this periodically to get coach commentary.
+    
+    Returns unread messages and marks them as read.
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    # Get unread messages
+    cursor = db.coach_messages.find({
+        "session_id": session_id,
+        "read": False
+    }).sort("created_at", 1)
+    
+    messages = []
+    message_ids = []
+    
+    async for msg in cursor:
+        msg_data = {
+            "id": str(msg["_id"]),
+            "type": msg.get("type", "coach"),
+            "message": msg.get("message", ""),
+            "trigger": msg.get("trigger"),
+            "move": msg.get("move"),
+            "move_number": msg.get("move_number"),
+            "timestamp": msg.get("created_at").isoformat() if msg.get("created_at") else None
+        }
+        
+        # Include opening teaching offer fields
+        if msg.get("type") == "opening_teaching_offer":
+            msg_data["opening_name"] = msg.get("opening_name")
+            msg_data["opening_key"] = msg.get("opening_key")
+            msg_data["options"] = msg.get("options")
+            msg_data["trap_name"] = msg.get("trap_name")
+        
+        # Include endgame teaching offer fields
+        if msg.get("type") == "endgame_teaching_offer":
+            msg_data["endgame_type"] = msg.get("endgame_type")
+            msg_data["lesson_name"] = msg.get("lesson_name")
+            msg_data["key_concepts"] = msg.get("key_concepts")
+            msg_data["options"] = msg.get("options")
+        
+        messages.append(msg_data)
+        message_ids.append(msg["_id"])
+    
+    # Mark as read
+    if message_ids:
+        await db.coach_messages.update_many(
+            {"_id": {"$in": message_ids}},
+            {"$set": {"read": True}}
+        )
+    
+    return {
+        "success": True,
+        "messages": messages,
+        "count": len(messages)
+    }
+
+
+@router.post("/reflect")
+async def get_coach_reflection_feedback(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get Socratic coaching feedback after a move.
+    
+    User explains WHY they played a move, coach compares to reality.
+    
+    Body:
+    - session_id: Session ID
+    - move_index: Index of the move to reflect on
+    - user_reasoning: User's explanation for why they played the move
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    from coach_play.coach_commentary import get_coach_feedback
+    
+    session_id = request.get("session_id")
+    move_index = request.get("move_index")
+    user_reasoning = request.get("user_reasoning", "")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if move_index is None:
+        raise HTTPException(status_code=400, detail="move_index is required")
+    if not user_reasoning:
+        raise HTTPException(status_code=400, detail="user_reasoning is required")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    # Get the move from history
+    move_history = session_doc.get("move_history", [])
+    if move_index < 0 or move_index >= len(move_history):
+        raise HTTPException(status_code=400, detail="Invalid move_index")
+    
+    move_data = move_history[move_index]
+    
+    if move_data.get("by") != "player":
+        raise HTTPException(status_code=400, detail="Can only reflect on your own moves")
+    
+    fen_before = move_data.get("fen_before")
+    move_san = move_data.get("move")
+    fen_after = move_data.get("fen_after")
+    move_number = (move_index // 2) + 1
+    
+    try:
+        feedback = await get_coach_feedback(
+            fen_before=fen_before,
+            move_san=move_san,
+            fen_after=fen_after,
+            user_reasoning=user_reasoning,
+            user_color=session_doc.get("user_color", "white"),
+            move_number=move_number
+        )
+        
+        return {
+            "success": True,
+            "move": move_san,
+            "move_index": move_index,
+            **feedback
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting coach feedback: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/chat")
+async def coach_chat_message(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Send a message to the coach and get a PERSONALIZED response.
+    
+    Our coach knows your past games and mistakes.
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    from coach_play.coach_commentary import generate_response_to_user, CoachCommentary
+    from coach_play.personalized_coach import get_personalized_coaching
+    
+    session_id = request.get("session_id")
+    message = request.get("message", "").strip()
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not message:
+        raise HTTPException(status_code=400, detail="message is required")
+    
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    try:
+        current_fen = session_doc.get("current_fen")
+        move_history = session_doc.get("move_history", [])
+        user_color = session_doc.get("user_color", "white")
+        user_rating = session_doc.get("user_rating", 1200)
+        
+        user_moves = [m for m in move_history if m.get("by") == "player"]
+        last_user_move = user_moves[-1] if user_moves else None
+        last_move = last_user_move.get("move", "") if last_user_move else ""
+        
+        move_analysis = None
+        if last_user_move and last_user_move.get("fen_before"):
+            coach = CoachCommentary()
+            try:
+                analysis = await coach.analyze_move(
+                    last_user_move.get("fen_before"),
+                    last_user_move.get("move"),
+                    last_user_move.get("fen_after", current_fen)
+                )
+                move_analysis = {
+                    "cp_loss": int(analysis.eval_loss * 100),
+                    "best_move": analysis.best_move_san,
+                    "quality": analysis.quality.value
+                }
+            except Exception:
+                pass
+        
+        coach = CoachCommentary()
+        position = await coach.analyze_position(current_fen)
+        phase = position.phase
+        
+        personal_data = await get_personalized_coaching(
+            db=db,
+            user_id=user.user_id,
+            current_fen=current_fen,
+            last_move=last_move,
+            phase=phase,
+            user_color=user_color,
+            move_analysis=move_analysis
+        )
+        
+        result = await generate_response_to_user(
+            user_message=message,
+            current_fen=current_fen,
+            move_history=move_history,
+            user_color=user_color,
+            user_rating=user_rating,
+            personal_context=personal_data.get("personal_context"),
+            position_plan=personal_data.get("position_plan")
+        )
+        
+        return {
+            "success": True,
+            "response": result.get("response", ""),
+            "suggestion_arrow": result.get("suggestion_arrow"),
+            "move_quality": result.get("move_quality"),
+            "best_move": result.get("best_move"),
+            "missed_tactic": result.get("missed_tactic"),
+            "position_plan": personal_data.get("position_plan"),
+            "personal_insight": personal_data.get("personal_context", {}).get("similar_mistake"),
+            "pattern_match": personal_data.get("pattern_match")
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in coach chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/evaluate")
+async def evaluate_coach_play_move(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Evaluate a move BEFORE making it - Pre-Move Guardian.
+    
+    Stop bad moves before they happen.
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    import chess
+    from stockfish_service import StockfishEngine
+    
+    session_id = request.get("session_id")
+    move = request.get("move")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not move:
+        raise HTTPException(status_code=400, detail="move is required")
+    
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        session_doc = await db.play_sessions.find_one({"session_id": session_id})
+    
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    if session_doc.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Session not active")
+    
+    current_fen = session_doc.get("current_fen")
+    user_color = session_doc.get("user_color")
+    
+    eval_before = None
+    eval_after = None
+    
+    try:
+        engine = StockfishEngine()
+        engine.start()
+        
+        try:
+            board_before = chess.Board(current_fen)
+            eval_before_cp, _ = engine.evaluate_position(board_before, depth=12)
+            eval_before = eval_before_cp / 100.0
+            
+            chess_move = board_before.parse_san(move)
+            board_before.push(chess_move)
+            
+            eval_after_cp, _ = engine.evaluate_position(board_before, depth=12)
+            eval_after = eval_after_cp / 100.0
+            
+        finally:
+            engine.stop()
+            
+    except Exception as e:
+        logger.warning(f"Stockfish evaluation failed: {e}")
+    
+    from coach_play.pre_move_guardian import PreMoveGuardian
+    
+    guardian = PreMoveGuardian(session_doc.get("remaining_interventions", 3))
+    guardian_result = guardian.evaluate_move(
+        fen=current_fen,
+        move_san=move,
+        user_color=user_color,
+        stockfish_eval_before=eval_before,
+        stockfish_eval_after=eval_after
+    )
+    
+    result = guardian_result.to_dict()
+    result["remaining_interventions"] = session_doc.get("remaining_interventions", 3)
+    
+    details = result.get("details", {})
+    if details.get("good_trade"):
+        result["good_trade"] = True
+    elif details.get("stockfish_approved"):
+        result["stockfish_approved"] = True
+    
+    return result
+
+
+@router.post("/move/confirm")
+async def confirm_risky_move(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Confirm a risky move after user acknowledges the warning.
+    
+    Decrements intervention count for this session.
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    session_id = request.get("session_id")
+    move = request.get("move")
+    risk_level = request.get("risk_level", "medium")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not move:
+        raise HTTPException(status_code=400, detail="move is required")
+    
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    # Decrement intervention count
+    remaining = session_doc.get("remaining_interventions", 3)
+    if remaining > 0:
+        remaining -= 1
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"remaining_interventions": remaining}}
+        )
+    
+    # Log the override
+    guardian_overrides = session_doc.get("guardian_overrides", [])
+    guardian_overrides.append({
+        "move": move,
+        "risk_level": risk_level,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    
+    await db.coach_sessions.update_one(
+        {"session_id": session_id},
+        {"$set": {"guardian_overrides": guardian_overrides}}
+    )
+    
+    return {
+        "success": True,
+        "remaining_interventions": remaining,
+        "message": "Okay, I'll let you learn from this one!"
+    }
+
+
+
+
+# ========================================
+# OPENING TEACHING ENDPOINTS
+# ========================================
+
+@router.post("/teaching/start")
+async def start_opening_teaching(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Start an interactive opening lesson during the game.
+    
+    Called when user clicks a teaching option (e.g., "Learn the Fried Liver").
+    
+    Body:
+    - session_id: Current game session
+    - lesson_type: "learn_trap" | "learn_main_line"
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    from services.opening_teaching_integration import start_opening_lesson
+    
+    session_id = request.get("session_id")
+    lesson_type = request.get("lesson_type", "learn_trap")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    result = await start_opening_lesson(db, session_id, user.user_id, lesson_type)
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+
+@router.post("/teaching/move")
+async def process_teaching_move(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Process a move during opening teaching mode.
+    
+    Validates the move, provides feedback, and advances the lesson.
+    
+    Body:
+    - session_id: Current game session
+    - move: Move played by user (SAN notation)
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    from services.opening_teaching_integration import process_teaching_move as process_move
+    
+    session_id = request.get("session_id")
+    move = request.get("move")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    if not move:
+        raise HTTPException(status_code=400, detail="move is required")
+    
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    result = await process_move(db, session_id, move)
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+
+@router.post("/teaching/exit")
+async def exit_teaching_mode(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Exit teaching mode after lesson completion.
+    
+    Body:
+    - session_id: Current game session
+    - choice: "continue_game" | "new_game" | "try_another"
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    from services.opening_teaching_integration import exit_teaching_mode as exit_mode
+    
+    session_id = request.get("session_id")
+    choice = request.get("choice", "continue_game")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    result = await exit_mode(db, session_id, choice)
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+
+@router.post("/teaching/skip")
+async def skip_opening_offer(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Skip the opening teaching offer (user chose "Just play").
+    
+    Body:
+    - session_id: Current game session
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    session_id = request.get("session_id")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    await db.coach_sessions.update_one(
+        {"session_id": session_id},
+        {"$set": {"opening_offer_shown": True}}
+    )
+    
+    return {"success": True, "message": "Got it! Let's play on."}
+
+
+@router.get("/opening-plan")
+async def get_opening_plan(
+    session_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get opening guidance for the current position.
+    
+    Returns opening name, main ideas, and suggestions.
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    from services.opening_library_service import get_opening_for_position, get_opening_name
+    
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    current_fen = session_doc.get("current_fen")
+    
+    opening = get_opening_for_position(current_fen)
+    
+    lichess_name = ""
+    try:
+        lichess_name = await get_opening_name(current_fen)
+    except Exception:
+        pass
+    
+    if opening:
+        return {
+            "success": True,
+            "opening_name": opening.name,
+            "lichess_name": lichess_name,
+            "main_ideas": opening.main_ideas,
+            "key_squares": opening.key_squares,
+            "typical_mistakes": opening.typical_mistakes,
+            "simple_explanation": opening.simple_explanation,
+            "eco_codes": opening.eco_codes,
+        }
+    elif lichess_name:
+        return {
+            "success": True,
+            "opening_name": lichess_name,
+            "lichess_name": lichess_name,
+            "main_ideas": [
+                "Develop your knights and bishops",
+                "Control the center",
+                "Castle to protect your king"
+            ],
+            "key_squares": [],
+            "typical_mistakes": [],
+            "simple_explanation": f"This is the {lichess_name}. Focus on development and king safety.",
+            "eco_codes": [],
+        }
+    else:
+        return {
+            "success": True,
+            "opening_name": None,
+            "lichess_name": None,
+            "main_ideas": [
+                "Develop your pieces",
+                "Control the center",
+                "Keep your king safe"
+            ],
+            "key_squares": [],
+            "typical_mistakes": [],
+            "simple_explanation": "Focus on basic opening principles.",
+            "eco_codes": [],
+        }
