@@ -149,12 +149,18 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   useEffect(() => {
     if (groundRef.current) {
       chessRef.current.load(fen);
+      groundRef.current.set({ fen });
+    }
+  }, [fen]);
+  
+  // Update lastMove highlight separately (without resetting position)
+  useEffect(() => {
+    if (groundRef.current && lastMove) {
       groundRef.current.set({ 
-        fen,
-        lastMove: lastMove ? [lastMove.from, lastMove.to] : undefined
+        lastMove: [lastMove.from, lastMove.to]
       });
     }
-  }, [fen, lastMove]);
+  }, [lastMove]);
   
   // Set up board for user to make a move
   const setupUserMove = useCallback((currentFen) => {
@@ -231,8 +237,18 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
             message: data.message || "Congratulations! You've mastered this opening line!"
           });
         } else if (data.correct) {
-          // Correct move - show green checkmark
-          console.log("Setting move indicator for square:", dest);
+          // Correct move - update FEN to show user's move immediately
+          // Calculate the intermediate FEN (after user's move, before coach's move)
+          const tempChess = new Chess(fenRef.current);
+          const userMove = tempChess.move({ from: orig, to: dest, promotion: 'q' });
+          if (userMove) {
+            // Update to show user's move on the board (prevents flicker)
+            const userMoveFen = tempChess.fen();
+            setFen(userMoveFen);
+            fenRef.current = userMoveFen;
+          }
+          
+          // Show green checkmark
           setMoveIndicator({ type: "book", square: dest });
           setMoveNumber(data.move_number);
           setHintCount(0);
@@ -242,19 +258,21 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
             message: data.your_move_explanation || "Correct! That's the book move."
           });
           
-          // Show coach's response after a delay (keep indicator visible for 1.5s)
+          // Show coach's response after a delay
           if (data.coach_move) {
             setTimeout(() => {
               // Update FEN with coach's move included
               setFen(data.fen);
+              fenRef.current = data.fen;
               
               // Parse coach move to get squares for highlight
-              const tempChess = new Chess(fenRef.current);
-              tempChess.move({ from: orig, to: dest, promotion: 'q' });
-              const coachMoveResult = tempChess.move(data.coach_move);
+              const coachChess = new Chess(fenRef.current);
+              // FEN already includes both moves, so just find the last move squares
+              const moves = data.coach_move;
+              const coachResult = new Chess(tempChess.fen()).move(moves);
               
-              if (coachMoveResult) {
-                setLastMove({ from: coachMoveResult.from, to: coachMoveResult.to });
+              if (coachResult) {
+                setLastMove({ from: coachResult.from, to: coachResult.to });
               }
               
               setCoachMessage({
