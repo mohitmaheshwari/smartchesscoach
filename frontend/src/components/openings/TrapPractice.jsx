@@ -251,12 +251,22 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
           return;
         }
         
-        // User's turn
+        // User's turn - show hint about expected move
         setTimeout(() => {
-          setFeedback({
-            type: "info",
-            message: "Your turn! Make your move."
-          });
+          const nextUserMoveIndex = index + 1;
+          const nextMove = trapLine[nextUserMoveIndex];
+          if (nextMove) {
+            setFeedback({
+              type: "info",
+              message: "Your turn!",
+              submessage: `Hint: ${nextMove.explanation}`
+            });
+          } else {
+            setFeedback({
+              type: "info",
+              message: "Your turn! Make your move."
+            });
+          }
           setupUserMoveBoard();
         }, 1200);
       }
@@ -285,11 +295,20 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
           playOpponentMoveAt(0);
         }, 800);
       } else {
-        // User moves first
-        setFeedback({
-          type: "info",
-          message: "Your turn! Execute the trap."
-        });
+        // User moves first - show hint about expected move
+        const firstUserMove = trapLine[0];
+        if (firstUserMove) {
+          setFeedback({
+            type: "info",
+            message: "Your turn! Execute the trap.",
+            submessage: `Hint: ${firstUserMove.explanation}`
+          });
+        } else {
+          setFeedback({
+            type: "info",
+            message: "Your turn! Execute the trap."
+          });
+        }
         setupUserMoveBoard();
       }
       return;
@@ -462,6 +481,58 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
           )}
         </CardContent>
       </Card>
+      
+      {/* Trap Moves Guide - shows the sequence user needs to play */}
+      {phase === "trap" && (
+        <Card className="bg-muted/30">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground">Trap Sequence</span>
+              <Badge variant="outline" className="text-xs">
+                {userColor === "white" ? "You play White" : "You play Black"}
+              </Badge>
+            </div>
+            <div className="space-y-1 max-h-[180px] overflow-y-auto">
+              {trapLine.map((moveData, i) => {
+                const isUserMove = (i % 2 === 0) === (userColor === "white" ? 
+                  (setupMoves.length % 2 === 0) : (setupMoves.length % 2 === 1));
+                const isCompleted = i < currentMoveIndex;
+                const isCurrent = i === currentMoveIndex;
+                
+                return (
+                  <div 
+                    key={i}
+                    className={`flex items-center gap-2 p-1.5 rounded text-xs transition-all ${
+                      isCompleted 
+                        ? "bg-green-500/10 text-green-400" 
+                        : isCurrent 
+                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" 
+                        : "text-muted-foreground opacity-50"
+                    }`}
+                  >
+                    <span className="w-5 text-center flex-shrink-0">
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-3 h-3 inline" />
+                      ) : (
+                        <span className={`${isUserMove ? "font-bold" : ""}`}>{i + 1}</span>
+                      )}
+                    </span>
+                    <span className={`font-mono ${isUserMove ? "font-bold text-primary" : ""}`}>
+                      {moveData.move}
+                    </span>
+                    <span className={`text-xs truncate flex-1 ${isUserMove ? "" : "italic"}`}>
+                      {isUserMove ? "(You)" : "(Opp)"}
+                    </span>
+                    {isCurrent && isUserMove && (
+                      <span className="text-amber-400 text-xs">← Play this</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       {/* Controls */}
       <div className="flex gap-2">
