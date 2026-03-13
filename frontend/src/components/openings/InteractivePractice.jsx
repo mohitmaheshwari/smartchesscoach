@@ -7,7 +7,6 @@
  * Features visual move indicators like chess.com:
  * - Green checkmark for correct/book moves
  * - Red X for wrong moves
- * - Question mark for inaccuracies
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -19,14 +18,11 @@ import {
   RotateCcw,
   Lightbulb,
   CheckCircle2,
-  AlertTriangle,
   Trophy,
   MessageCircle,
   Loader2,
   X,
-  BookOpen,
-  XCircle,
-  HelpCircle
+  XCircle
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,8 +36,8 @@ import "chessground/assets/chessground.cburnett.css";
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
 // Move quality indicator component - shows on the board
-const MoveIndicator = ({ type, square, orientation }) => {
-  if (!type || !square) return null;
+const MoveIndicator = ({ type, square, orientation, boardSize }) => {
+  if (!type || !square || !boardSize) return null;
   
   // Calculate position based on square and board orientation
   const file = square.charCodeAt(0) - 97; // a=0, b=1, etc.
@@ -51,51 +47,12 @@ const MoveIndicator = ({ type, square, orientation }) => {
   const x = orientation === "white" ? file : 7 - file;
   const y = orientation === "white" ? 7 - rank : rank;
   
-  // Position as percentage (each square is 12.5%)
-  const left = `${x * 12.5 + 6.25}%`;
-  const top = `${y * 12.5 + 1}%`;
+  // Position in pixels
+  const squareSize = boardSize / 8;
+  const left = x * squareSize + squareSize / 2;
+  const top = y * squareSize + 4;
   
-  const indicatorConfig = {
-    book: {
-      icon: BookOpen,
-      color: "text-green-400",
-      bg: "bg-green-500/90",
-      label: "Book Move"
-    },
-    correct: {
-      icon: CheckCircle2,
-      color: "text-green-400",
-      bg: "bg-green-500/90",
-      label: "Correct!"
-    },
-    good: {
-      icon: CheckCircle2,
-      color: "text-green-400",
-      bg: "bg-green-500/90",
-      label: "Good"
-    },
-    inaccuracy: {
-      icon: HelpCircle,
-      color: "text-yellow-400",
-      bg: "bg-yellow-500/90",
-      label: "Inaccuracy"
-    },
-    mistake: {
-      icon: AlertTriangle,
-      color: "text-orange-400",
-      bg: "bg-orange-500/90",
-      label: "Mistake"
-    },
-    wrong: {
-      icon: XCircle,
-      color: "text-red-400",
-      bg: "bg-red-500/90",
-      label: "Wrong"
-    }
-  };
-  
-  const config = indicatorConfig[type] || indicatorConfig.wrong;
-  const Icon = config.icon;
+  const isCorrect = type === "book" || type === "correct" || type === "good";
   
   return (
     <motion.div
@@ -103,15 +60,19 @@ const MoveIndicator = ({ type, square, orientation }) => {
       animate={{ scale: 1, opacity: 1 }}
       exit={{ scale: 0, opacity: 0 }}
       transition={{ type: "spring", stiffness: 500, damping: 25 }}
-      className="absolute z-20 pointer-events-none"
+      className="absolute z-50 pointer-events-none"
       style={{ 
-        left, 
-        top,
+        left: `${left}px`, 
+        top: `${top}px`,
         transform: "translate(-50%, 0)"
       }}
     >
-      <div className={`${config.bg} rounded-full p-1 shadow-lg`}>
-        <Icon className={`w-5 h-5 text-white`} />
+      <div className={`rounded-full p-1.5 shadow-lg ${isCorrect ? 'bg-green-500' : 'bg-red-500'}`}>
+        {isCorrect ? (
+          <CheckCircle2 className="w-5 h-5 text-white" />
+        ) : (
+          <XCircle className="w-5 h-5 text-white" />
+        )}
       </div>
     </motion.div>
   );
@@ -119,13 +80,17 @@ const MoveIndicator = ({ type, square, orientation }) => {
 
 const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) => {
   const boardRef = useRef(null);
+  const boardContainerRef = useRef(null);
   const groundRef = useRef(null);
   const chessRef = useRef(new Chess());
+  
+  // Use refs for values needed in callbacks to avoid stale closures
+  const sessionIdRef = useRef(null);
+  const fenRef = useRef("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fen, setFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-  const [isUserTurn, setIsUserTurn] = useState(true);
   const [moveNumber, setMoveNumber] = useState(1);
   const [feedback, setFeedback] = useState(null);
   const [coachMessage, setCoachMessage] = useState(null);
@@ -133,9 +98,30 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   const [hintCount, setHintCount] = useState(0);
   const [hint, setHint] = useState(null);
   const [lastMove, setLastMove] = useState(null);
+  const [moveIndicator, setMoveIndicator] = useState(null);
+  const [boardSize, setBoardSize] = useState(400);
   
-  // Move indicator state - shows visual feedback on board
-  const [moveIndicator, setMoveIndicator] = useState(null); // { type: 'correct'|'wrong'|'book', square: 'e4' }
+  // Keep refs in sync with state
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+  
+  useEffect(() => {
+    fenRef.current = fen;
+  }, [fen]);
+  
+  // Measure board size
+  useEffect(() => {
+    if (boardContainerRef.current) {
+      const resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          setBoardSize(entry.contentRect.width);
+        }
+      });
+      resizeObserver.observe(boardContainerRef.current);
+      return () => resizeObserver.disconnect();
+    }
+  }, []);
   
   // Initialize board
   useEffect(() => {
@@ -170,63 +156,6 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
     }
   }, [fen, lastMove]);
   
-  // Start practice session
-  const startSession = useCallback(async () => {
-    setLoading(true);
-    setFeedback(null);
-    setCoachMessage(null);
-    setCompleted(false);
-    setHint(null);
-    setHintCount(0);
-    setMoveIndicator(null);
-    setLastMove(null);
-    
-    try {
-      const res = await fetch(`${API}/openings/${openingKey}/practice/start`, {
-        method: "POST",
-        credentials: "include"
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setSessionId(data.session_id);
-        setFen(data.fen);
-        setMoveNumber(data.move_number);
-        setIsUserTurn(data.is_user_turn);
-        
-        if (data.coach_move) {
-          setCoachMessage({
-            move: data.coach_move,
-            explanation: data.coach_explanation
-          });
-          
-          // Show the coach's move with a highlight
-          const chess = new Chess();
-          const move = chess.move(data.coach_move);
-          if (move) {
-            setLastMove({ from: move.from, to: move.to });
-          }
-        }
-        
-        if (data.hint) {
-          setHint(data.hint);
-        }
-        
-        // Set up board for user's move
-        if (data.is_user_turn) {
-          setupUserMove(data.fen);
-        }
-      } else {
-        toast.error("Failed to start practice session");
-      }
-    } catch (err) {
-      console.error("Error starting practice:", err);
-      toast.error("Failed to start practice session");
-    } finally {
-      setLoading(false);
-    }
-  }, [openingKey]);
-  
   // Set up board for user to make a move
   const setupUserMove = useCallback((currentFen) => {
     if (!groundRef.current) return;
@@ -252,14 +181,18 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
         dests
       },
       events: {
-        move: handleUserMove
+        move: (orig, dest) => handleUserMove(orig, dest)
       }
     });
   }, []);
   
-  // Handle user's move
-  const handleUserMove = useCallback(async (orig, dest) => {
-    if (!sessionId) return;
+  // Handle user's move - uses refs to avoid stale closures
+  const handleUserMove = async (orig, dest) => {
+    const currentSessionId = sessionIdRef.current;
+    if (!currentSessionId) {
+      console.error("No session ID available");
+      return;
+    }
     
     setFeedback(null);
     setHint(null);
@@ -276,7 +209,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          session_id: sessionId,
+          session_id: currentSessionId,
           move: moveUci
         })
       });
@@ -289,7 +222,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
           setCompleted(true);
           setFen(data.fen);
           setMoveIndicator({ type: "book", square: dest });
-          groundRef.current.set({
+          groundRef.current?.set({
             fen: data.fen,
             movable: { free: false, color: undefined }
           });
@@ -299,48 +232,61 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
           });
         } else if (data.correct) {
           // Correct move - show green checkmark
-          setFen(data.fen);
+          console.log("Setting move indicator for square:", dest);
+          setMoveIndicator({ type: "book", square: dest });
           setMoveNumber(data.move_number);
           setHintCount(0);
-          setMoveIndicator({ type: "book", square: dest });
-          
-          // Show coach's response
-          if (data.coach_move) {
-            // After showing user's correct move, show coach's response
-            setTimeout(() => {
-              setMoveIndicator(null);
-              setCoachMessage({
-                move: data.coach_move,
-                explanation: data.coach_explanation
-              });
-              
-              // Parse coach move to get destination square for highlight
-              const tempChess = new Chess(fen);
-              tempChess.move({ from: orig, to: dest, promotion: 'q' });
-              const coachMoveResult = tempChess.move(data.coach_move);
-              if (coachMoveResult) {
-                setLastMove({ from: coachMoveResult.from, to: coachMoveResult.to });
-              }
-            }, 800);
-          }
           
           setFeedback({
             type: "correct",
             message: data.your_move_explanation || "Correct! That's the book move."
           });
           
-          // Set up for next move after showing feedback
-          setTimeout(() => {
-            setupUserMove(data.fen);
-          }, 1500);
+          // Show coach's response after a delay (keep indicator visible for 1.5s)
+          if (data.coach_move) {
+            setTimeout(() => {
+              // Update FEN with coach's move included
+              setFen(data.fen);
+              
+              // Parse coach move to get squares for highlight
+              const tempChess = new Chess(fenRef.current);
+              tempChess.move({ from: orig, to: dest, promotion: 'q' });
+              const coachMoveResult = tempChess.move(data.coach_move);
+              
+              if (coachMoveResult) {
+                setLastMove({ from: coachMoveResult.from, to: coachMoveResult.to });
+              }
+              
+              setCoachMessage({
+                move: data.coach_move,
+                explanation: data.coach_explanation
+              });
+              
+              // Hide indicator after showing coach message
+              setTimeout(() => {
+                setMoveIndicator(null);
+              }, 500);
+              
+              // Set up for user's next move
+              setTimeout(() => {
+                setupUserMove(data.fen);
+              }, 800);
+            }, 1500);
+          } else {
+            // No coach move - just set up next move
+            setFen(data.fen);
+            setTimeout(() => {
+              setMoveIndicator(null);
+              setupUserMove(data.fen);
+            }, 1000);
+          }
         } else if (data.try_again) {
           // Incorrect move - show red X
           setMoveIndicator({ type: "wrong", square: dest });
           
           setFeedback({
             type: "incorrect",
-            message: data.feedback?.message || "Not quite. Try again!",
-            socratic: true
+            message: data.feedback?.message || "Not quite. Try again!"
           });
           
           // Reset board to original position after showing error
@@ -350,12 +296,76 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
             setupUserMove(data.fen);
           }, 1500);
         }
+      } else {
+        console.error("Move API returned error:", res.status);
+        toast.error("Failed to make move");
       }
     } catch (err) {
       console.error("Error making move:", err);
       toast.error("Failed to make move");
     }
-  }, [sessionId, setupUserMove, fen]);
+  };
+  
+  // Start practice session
+  const startSession = useCallback(async () => {
+    setLoading(true);
+    setFeedback(null);
+    setCoachMessage(null);
+    setCompleted(false);
+    setHint(null);
+    setHintCount(0);
+    setMoveIndicator(null);
+    setLastMove(null);
+    
+    try {
+      const res = await fetch(`${API}/openings/${openingKey}/practice/start`, {
+        method: "POST",
+        credentials: "include"
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        
+        // Set session ID first
+        setSessionId(data.session_id);
+        sessionIdRef.current = data.session_id;
+        
+        setFen(data.fen);
+        fenRef.current = data.fen;
+        setMoveNumber(data.move_number);
+        
+        if (data.coach_move) {
+          setCoachMessage({
+            move: data.coach_move,
+            explanation: data.coach_explanation
+          });
+          
+          // Show the coach's move with a highlight
+          const chess = new Chess();
+          const move = chess.move(data.coach_move);
+          if (move) {
+            setLastMove({ from: move.from, to: move.to });
+          }
+        }
+        
+        if (data.hint) {
+          setHint(data.hint);
+        }
+        
+        // Set up board for user's move after a brief delay
+        setTimeout(() => {
+          setupUserMove(data.fen);
+        }, 500);
+      } else {
+        toast.error("Failed to start practice session");
+      }
+    } catch (err) {
+      console.error("Error starting practice:", err);
+      toast.error("Failed to start practice session");
+    } finally {
+      setLoading(false);
+    }
+  }, [openingKey, setupUserMove]);
   
   // Get hint
   const getHint = useCallback(async () => {
@@ -386,7 +396,9 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
   // Reset session
   const resetSession = useCallback(() => {
     setSessionId(null);
+    sessionIdRef.current = null;
     setFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    fenRef.current = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     setMoveNumber(1);
     setFeedback(null);
     setCoachMessage(null);
@@ -403,7 +415,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
         lastMove: undefined
       });
     }
-  }, [sessionId]);
+  }, []);
   
   return (
     <div className="space-y-4">
@@ -428,10 +440,14 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
       {/* Board with Move Indicator Overlay */}
       <Card>
         <CardContent className="p-4">
-          <div className="relative" style={{ maxWidth: "400px", margin: "0 auto" }}>
+          <div 
+            ref={boardContainerRef}
+            className="relative" 
+            style={{ maxWidth: "400px", margin: "0 auto" }}
+          >
             <div 
               ref={boardRef} 
-              className="w-full aspect-square rounded-lg overflow-hidden"
+              className="w-full aspect-square rounded-lg"
               data-testid="practice-board"
             />
             
@@ -442,6 +458,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
                   type={moveIndicator.type}
                   square={moveIndicator.square}
                   orientation={userColor || "white"}
+                  boardSize={boardSize}
                 />
               )}
             </AnimatePresence>
@@ -488,26 +505,22 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
               >
                 <div className="flex items-start gap-2">
                   {feedback.type === "correct" && (
-                    <div className="flex items-center gap-1">
-                      <BookOpen className="w-5 h-5 text-green-400 flex-shrink-0" />
-                      <span className="text-xs text-green-400 font-medium">Book Move</span>
-                    </div>
+                    <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
                   )}
-                  {feedback.type === "success" && <Trophy className="w-5 h-5 text-primary flex-shrink-0" />}
+                  {feedback.type === "success" && (
+                    <Trophy className="w-5 h-5 text-primary flex-shrink-0" />
+                  )}
                   {feedback.type === "incorrect" && (
-                    <div className="flex items-center gap-1">
-                      <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                      <span className="text-xs text-red-400 font-medium">Wrong Move</span>
-                    </div>
+                    <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
                   )}
-                </div>
-                <div className="mt-2">
-                  <p className="text-sm">{feedback.message}</p>
-                  {feedback.socratic && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Think about it and try again!
+                  <div>
+                    <p className="text-sm font-medium">
+                      {feedback.type === "correct" && "✓ Book Move"}
+                      {feedback.type === "incorrect" && "✗ Wrong Move"}
+                      {feedback.type === "success" && "🎉 Complete!"}
                     </p>
-                  )}
+                    <p className="text-xs text-muted-foreground mt-1">{feedback.message}</p>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -539,6 +552,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
             onClick={startSession} 
             className="flex-1"
             disabled={loading}
+            data-testid="start-practice-btn"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -548,15 +562,13 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
             Start Practice
           </Button>
         ) : completed ? (
-          <>
-            <Button 
-              onClick={startSession} 
-              className="flex-1"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Practice Again
-            </Button>
-          </>
+          <Button 
+            onClick={startSession} 
+            className="flex-1"
+          >
+            <RotateCcw className="w-4 h-4 mr-2" />
+            Practice Again
+          </Button>
         ) : (
           <>
             <Button 
