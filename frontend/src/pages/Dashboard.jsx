@@ -48,6 +48,13 @@ import DailyMissionCard from "@/components/DailyMissionCard";
 import { CoachWeeklySignalCard, FocusLockCard } from "@/components/Home";
 import LearningPath from "@/components/LearningPath";
 import MemoryLane from "@/components/MemoryLane";
+import HabitChallenge from "@/components/HabitChallenge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Milestone celebration banner component
 const MilestoneBanner = ({ milestone, onDismiss }) => {
@@ -353,6 +360,7 @@ const Dashboard = ({ user }) => {
   // Reset game history state
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [showHabitChallenge, setShowHabitChallenge] = useState(false);
   
   // Handle reset game history
   const handleResetGameHistory = async () => {
@@ -789,6 +797,28 @@ const Dashboard = ({ user }) => {
               <MemoryLane />
             </AnimatedItem>
             
+            {/* Break the Habit Quick Action */}
+            <AnimatedItem>
+              <Card 
+                className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/30 hover:border-red-500/50 transition-all cursor-pointer"
+                onClick={() => setShowHabitChallenge(true)}
+                data-testid="habit-challenge-cta"
+              >
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-red-500/20">
+                      <Target className="w-5 h-5 text-red-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-sm">Break the Habit</h3>
+                      <p className="text-xs text-muted-foreground">Practice positions from your past mistakes</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            </AnimatedItem>
+            
             {/* Stats Row - Clickable */}
             <AnimatedItem>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1193,6 +1223,19 @@ const Dashboard = ({ user }) => {
         onClose={() => setModalOpen(false)}
         type={modalType}
       />
+      
+      {/* Habit Challenge Modal */}
+      <Dialog open={showHabitChallenge} onOpenChange={setShowHabitChallenge}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-red-400" />
+              Break the Habit Challenge
+            </DialogTitle>
+          </DialogHeader>
+          <HabitChallenge onClose={() => setShowHabitChallenge(false)} />
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

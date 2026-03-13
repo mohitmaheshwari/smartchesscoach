@@ -2525,3 +2525,213 @@ async def get_memory_lane(user: User = Depends(get_current_user)):
         "has_memories": len(memories) > 0,
         "coach_knows_you": len(recent_games) >= 3
     }
+
+
+
+@router.get("/habit-challenge")
+async def get_habit_challenge(user: User = Depends(get_current_user)):
+    """
+    Get "Breaking the Habit" challenge positions.
+    
+    Returns positions from user's past mistakes where they can practice
+    finding the correct move. This is the ultimate personalized training.
+    """
+    global db
+    import random
+    import chess
+    
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    user_id = user.user_id
+    first_name = user.name.split()[0] if user.name else "friend"
+    
+    # Get analyzed games with stockfish data
+    recent_games = await db.game_analyses.find(
+        {"user_id": user_id, "stockfish_analysis": {"$exists": True}}
+    ).sort("created_at", -1).limit(30).to_list(30)
+    
+    challenges = []
+    patterns_seen = set()
+    
+    for game in recent_games:
+        stockfish = game.get("stockfish_analysis", {})
+        move_evals = stockfish.get("move_evaluations", [])
+        user_color = game.get("user_color", "white")
+        
+        for eval_data in move_evals:
+            # Find blunders and mistakes
+            if eval_data.get("evaluation") not in ["blunder", "mistake"]:
+                continue
+            
+            fen_before = eval_data.get("fen_before")
+            best_move = eval_data.get("best_move")
+            played_move = eval_data.get("move")
+            cp_loss = eval_data.get("cp_loss", 0)
+            
+            if not fen_before or not best_move or cp_loss < 100:
+                continue
+            
+            # Validate the position and move
+            try:
+                board = chess.Board(fen_before)
+                # Verify best_move is legal
+                try:
+                    board.parse_san(best_move)
+                except:
+                    try:
+                        board.parse_uci(best_move)
+                    except:
+                        continue
+            except:
+                continue
+            
+            # Create a unique pattern key to avoid duplicates
+            pattern_key = f"{eval_data.get('evaluation')}_{played_move}"
+            if pattern_key in patterns_seen:
+                continue
+            patterns_seen.add(pattern_key)
+            
+            # Generate challenge message in Indian-English
+            challenge_messages = [
+                f"Dekho {first_name}, this is where you played {played_move}. Can you find the better move?",
+                f"Remember this position? You played {played_move} here. What should you have done?",
+                f"Arre {first_name}! This position cost you {cp_loss} centipawns. Find the right move!",
+                f"Let's fix this habit. You played {played_move} - what's stronger?",
+            ]
+            
+            challenges.append({
+                "challenge_id": f"habit_{game.get('game_id', 'unknown')}_{eval_data.get('move_number', 0)}",
+                "fen": fen_before,
+                "correct_move": best_move,
+                "your_move": played_move,
+                "cp_loss": cp_loss,
+                "mistake_type": eval_data.get("evaluation"),
+                "game_id": game.get("game_id"),
+                "move_number": eval_data.get("move_number"),
+                "user_color": user_color,
+                "message": random.choice(challenge_messages),
+                "hint": f"Think about what {played_move} allows your opponent to do...",
+            })
+            
+            # Limit to 5 challenges per request
+            if len(challenges) >= 5:
+                break
+        
+        if len(challenges) >= 5:
+            break
+    
+    # Shuffle to keep it fresh
+    random.shuffle(challenges)
+    
+    return {
+        "challenges": challenges[:5],
+        "has_challenges": len(challenges) > 0,
+        "total_mistakes_found": len(patterns_seen),
+        "coach_message": f"Chalo {first_name}, let's break some bad habits! I found {len(challenges)} positions from your games where you can practice."
+        if challenges else f"Great job {first_name}! Not many mistakes to practice. Keep playing and I'll find areas to improve."
+    }
+
+
+@router.post("/habit-challenge/check")
+async def check_habit_challenge(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Check if user's answer to a habit challenge is correct.
+    
+    Body:
+    - challenge_id: The challenge ID
+    - user_move: The move user played (SAN or UCI)
+    - fen: The position FEN
+    - correct_move: The correct move
+    """
+    global db
+    import chess
+    
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    challenge_id = request.get("challenge_id")
+    user_move = request.get("user_move", "")
+    fen = request.get("fen", "")
+    correct_move = request.get("correct_move", "")
+    
+    if not user_move or not fen or not correct_move:
+        raise HTTPException(status_code=400, detail="Missing required fields")
+    
+    first_name = user.name.split()[0] if user.name else "friend"
+    
+    try:
+        board = chess.Board(fen)
+        
+        # Parse user move (try SAN first, then UCI)
+        try:
+            user_chess_move = board.parse_san(user_move)
+            user_uci = user_chess_move.uci()
+        except:
+            try:
+                user_chess_move = board.parse_uci(user_move)
+                user_uci = user_move
+            except:
+                return {
+                    "correct": False,
+                    "message": f"Hmm, that move doesn't look valid. Try again, {first_name}!",
+                    "correct_move": correct_move
+                }
+        
+        # Parse correct move
+        try:
+            correct_chess_move = board.parse_san(correct_move)
+            correct_uci = correct_chess_move.uci()
+        except:
+            try:
+                correct_chess_move = board.parse_uci(correct_move)
+                correct_uci = correct_move
+            except:
+                return {
+                    "correct": False,
+                    "message": "Something went wrong. Let's try another position.",
+                    "correct_move": correct_move
+                }
+        
+        # Check if moves match
+        is_correct = user_uci == correct_uci
+        
+        if is_correct:
+            success_messages = [
+                f"Shabash {first_name}! That's exactly right! You're breaking the habit!",
+                f"Perfect! You found {correct_move}. Keep this up!",
+                f"Excellent {first_name}! This is how you improve - one position at a time.",
+                f"Bahut accha! {correct_move} is the move. You're learning!",
+            ]
+            import random
+            return {
+                "correct": True,
+                "message": random.choice(success_messages),
+                "correct_move": correct_move
+            }
+        else:
+            # Not correct - give encouragement
+            wrong_messages = [
+                f"Not quite, {first_name}. The best move was {correct_move}. Can you see why?",
+                f"Close! But {correct_move} was stronger. Think about what it threatens.",
+                f"Koi baat nahi! The answer was {correct_move}. Let's try the next one.",
+                f"Good try! {correct_move} was the key move here. Onwards!",
+            ]
+            import random
+            return {
+                "correct": False,
+                "message": random.choice(wrong_messages),
+                "correct_move": correct_move,
+                "your_move": user_move
+            }
+            
+    except Exception as e:
+        logger.error(f"Error checking habit challenge: {e}")
+        return {
+            "correct": False,
+            "message": "Something went wrong. Let's try another position.",
+            "correct_move": correct_move
+        }
