@@ -26,7 +26,6 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
 
 import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
@@ -42,55 +41,47 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
   const [fen, setFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   const [feedback, setFeedback] = useState(null);
   const [hintCount, setHintCount] = useState(0);
-  const [showHint, setShowHint] = useState(false);
   const [lastMove, setLastMove] = useState(null);
   
   const setupMoves = trap?.setup_moves || [];
   const trapLine = trap?.trap_line || [];
   
+  // Use refs to store current state for callbacks
+  const currentMoveIndexRef = useRef(currentMoveIndex);
+  currentMoveIndexRef.current = currentMoveIndex;
+  
   // Determine user's color - user plays the color that EXECUTES the trap (the winner)
   const getUserColor = () => {
-    // If trap explicitly defines who executes it, use that
     if (trap?.trap_color) {
       return trap.trap_color;
     }
     
-    // Calculate based on setup moves and trap line
-    // After N setup moves, it's white's turn if N is even, black's turn if N is odd
     const setupCount = setupMoves.length;
-    
-    // Check trap descriptions to determine who benefits
     const desc = (trap?.description || "").toLowerCase();
     const name = (trap?.name || "").toLowerCase();
     const successMsg = (trap?.success_message || "").toLowerCase();
     
-    // If description mentions "Black wins" or "for Black", user is Black
     if (desc.includes("black wins") || desc.includes("for black") || 
         successMsg.includes("for black") || desc.includes("black sacrifices")) {
       return "black";
     }
     
-    // If description mentions "White wins", user is White
     if (desc.includes("white wins") || successMsg.includes("for white")) {
       return "white";
     }
     
-    // For specific trap names that are Black traps
     if (name.includes("blackburne") || name.includes("traxler") || 
         name.includes("shilling") || name.includes("elephant") ||
         name.includes("siberian") || name.includes("stafford")) {
       return "black";
     }
     
-    // Default: check who makes the winning/final move
-    // The last move in trap_line should be the trap executor's move
     if (trapLine.length > 0) {
       const totalMoves = setupCount + trapLine.length;
-      const lastMoveIsWhite = totalMoves % 2 === 1; // odd total = white just moved
+      const lastMoveIsWhite = totalMoves % 2 === 1;
       return lastMoveIsWhite ? "white" : "black";
     }
     
-    // Fallback to white
     return "white";
   };
   
@@ -128,51 +119,8 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
     }
   }, [fen, lastMove]);
   
-  // Start the practice
-  const startPractice = useCallback(() => {
-    chessRef.current.reset();
-    setFen(chessRef.current.fen());
-    setPhase("setup");
-    setCurrentMoveIndex(0);
-    setFeedback(null);
-    setHintCount(0);
-    setShowHint(false);
-    
-    // Play setup moves with animation
-    playSetupMoves(0);
-  }, []);
-  
-  // Play setup moves one by one
-  const playSetupMoves = useCallback((index) => {
-    if (index >= setupMoves.length) {
-      // Setup complete, start trap phase
-      setPhase("trap");
-      setCurrentMoveIndex(0);
-      setupUserMove();
-      return;
-    }
-    
-    const move = setupMoves[index];
-    
-    setTimeout(() => {
-      try {
-        const result = chessRef.current.move(move);
-        if (result) {
-          setFen(chessRef.current.fen());
-          setLastMove({ from: result.from, to: result.to });
-          setCurrentMoveIndex(index + 1);
-          
-          // Continue to next move
-          playSetupMoves(index + 1);
-        }
-      } catch (e) {
-        console.error("Invalid setup move:", move, e);
-      }
-    }, 600);
-  }, [setupMoves]);
-  
-  // Set up the board for user to make a trap move
-  const setupUserMove = useCallback(() => {
+  // Set up the board for user to make a move
+  const setupUserMoveBoard = useCallback(() => {
     if (!groundRef.current) return;
     
     const chess = chessRef.current;
@@ -187,7 +135,6 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
     
     const turnColor = chess.turn() === 'w' ? 'white' : 'black';
     
-    // Only allow moves if it's user's turn
     if (turnColor === userColor) {
       groundRef.current.set({
         turnColor,
@@ -197,35 +144,33 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
           dests
         },
         events: {
-          move: handleUserMove
+          move: (orig, dest) => handleMove(orig, dest)
         }
       });
     }
-  }, [userColor]);
+  }, [userColor, trapLine, trap]);
   
   // Handle user's move
-  const handleUserMove = useCallback((orig, dest) => {
-    const moveUci = orig + dest;
-    const expectedMove = trapLine[currentMoveIndex];
+  const handleMove = useCallback((orig, dest) => {
+    const idx = currentMoveIndexRef.current;
+    const expectedMove = trapLine[idx];
     
     if (!expectedMove) {
       setPhase("complete");
       return;
     }
     
-    // Try to make the move
     try {
       const result = chessRef.current.move({ from: orig, to: dest, promotion: 'q' });
       
       if (!result) {
         setFeedback({ type: "error", message: "Invalid move" });
-        setupUserMove();
+        setupUserMoveBoard();
         return;
       }
       
-      // Check if this is the expected move
-      const expectedSan = expectedMove.move.replace("+", "").replace("#", "").replace("!", "").replace("?", "");
-      const playedSan = result.san.replace("+", "").replace("#", "").replace("!", "").replace("?", "");
+      const expectedSan = expectedMove.move.replace(/[+#!?]/g, "");
+      const playedSan = result.san.replace(/[+#!?]/g, "");
       
       if (playedSan.toLowerCase() === expectedSan.toLowerCase()) {
         // Correct move!
@@ -236,9 +181,9 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
           message: expectedMove.explanation 
         });
         setHintCount(0);
-        setShowHint(false);
         
-        const nextIndex = currentMoveIndex + 1;
+        const nextIndex = idx + 1;
+        setCurrentMoveIndex(nextIndex);
         
         // Check if trap is complete
         if (nextIndex >= trapLine.length) {
@@ -252,95 +197,166 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
           return;
         }
         
-        // Play opponent's response (next move in trap line)
+        // Play opponent's response
         setTimeout(() => {
-          playOpponentResponse(nextIndex);
+          playOpponentMoveAt(nextIndex);
         }, 1000);
         
       } else {
-        // Wrong move - undo and try again
+        // Wrong move
         chessRef.current.undo();
         setFeedback({
           type: "incorrect",
           message: "Not quite! Think about what the trap is trying to achieve."
         });
-        setupUserMove();
+        setupUserMoveBoard();
       }
     } catch (e) {
       console.error("Move error:", e);
       setFeedback({ type: "error", message: "Invalid move" });
-      setupUserMove();
+      setupUserMoveBoard();
     }
-  }, [currentMoveIndex, trapLine, trap]);
+  }, [trapLine, trap, setupUserMoveBoard]);
   
-  // Play opponent's response
-  const playOpponentResponse = useCallback((index) => {
+  // Play opponent's move at given index
+  const playOpponentMoveAt = useCallback((index) => {
     if (index >= trapLine.length) {
       setPhase("complete");
       return;
     }
     
-    const move = trapLine[index];
+    const moveData = trapLine[index];
     
     try {
-      const result = chessRef.current.move(move.move);
+      const result = chessRef.current.move(moveData.move);
       if (result) {
         setFen(chessRef.current.fen());
         setLastMove({ from: result.from, to: result.to });
         setCurrentMoveIndex(index + 1);
         
-        // Check if trap is complete
+        setFeedback({
+          type: "opponent",
+          message: `Opponent played ${moveData.move}`,
+          submessage: moveData.explanation
+        });
+        
         if (index + 1 >= trapLine.length) {
           setTimeout(() => {
             setPhase("complete");
             setFeedback({
               type: "success",
-              message: trap.success_message || "You executed the trap!"
+              message: trap.success_message || "Trap complete!"
             });
-          }, 500);
+          }, 1000);
           return;
         }
         
-        // Set up for user's next move
+        // User's turn
         setTimeout(() => {
-          setFeedback(null);
-          setupUserMove();
-        }, 800);
+          setFeedback({
+            type: "info",
+            message: "Your turn! Make your move."
+          });
+          setupUserMoveBoard();
+        }, 1200);
       }
     } catch (e) {
-      console.error("Opponent move error:", move.move, e);
+      console.error("Invalid opponent move:", moveData.move, e);
     }
-  }, [trapLine, trap, setupUserMove]);
+  }, [trapLine, trap, setupUserMoveBoard]);
+  
+  // Play setup moves one by one
+  const playSetupMovesFrom = useCallback((index) => {
+    if (index >= setupMoves.length) {
+      // Setup complete
+      setPhase("trap");
+      setCurrentMoveIndex(0);
+      
+      const chess = chessRef.current;
+      const turnColor = chess.turn() === 'w' ? 'white' : 'black';
+      
+      if (turnColor !== userColor && trapLine.length > 0) {
+        // Opponent moves first
+        setFeedback({
+          type: "info",
+          message: "Watch the opponent fall into the trap..."
+        });
+        setTimeout(() => {
+          playOpponentMoveAt(0);
+        }, 800);
+      } else {
+        // User moves first
+        setFeedback({
+          type: "info",
+          message: "Your turn! Execute the trap."
+        });
+        setupUserMoveBoard();
+      }
+      return;
+    }
+    
+    const move = setupMoves[index];
+    
+    setTimeout(() => {
+      try {
+        const result = chessRef.current.move(move);
+        if (result) {
+          setFen(chessRef.current.fen());
+          setLastMove({ from: result.from, to: result.to });
+          playSetupMovesFrom(index + 1);
+        }
+      } catch (e) {
+        console.error("Invalid setup move:", move, e);
+      }
+    }, 600);
+  }, [setupMoves, userColor, trapLine, playOpponentMoveAt, setupUserMoveBoard]);
+  
+  // Start the practice
+  const startPractice = useCallback(() => {
+    chessRef.current.reset();
+    setFen(chessRef.current.fen());
+    setPhase("setup");
+    setCurrentMoveIndex(0);
+    setFeedback(null);
+    setHintCount(0);
+    setLastMove(null);
+    
+    playSetupMovesFrom(0);
+  }, [playSetupMovesFrom]);
   
   // Get a hint
   const getHint = useCallback(() => {
     const currentMove = trapLine[currentMoveIndex];
     if (!currentMove) return;
     
-    setHintCount(prev => prev + 1);
-    
-    if (hintCount === 0) {
-      setShowHint(true);
-      setFeedback({
-        type: "hint",
-        message: currentMove.explanation
-      });
-    } else if (hintCount === 1) {
-      // More specific hint
-      const move = currentMove.move;
-      const piece = move[0].toUpperCase() === move[0] ? move[0] : "Pawn";
-      setFeedback({
-        type: "hint",
-        message: `Move your ${piece === 'N' ? 'Knight' : piece === 'B' ? 'Bishop' : piece === 'R' ? 'Rook' : piece === 'Q' ? 'Queen' : piece === 'K' ? 'King' : 'Pawn'}. ${currentMove.explanation}`
-      });
-    } else {
-      // Give the answer
-      setFeedback({
-        type: "hint",
-        message: `The correct move is ${currentMove.move}. ${currentMove.explanation}`
-      });
-    }
-  }, [currentMoveIndex, trapLine, hintCount]);
+    setHintCount(prev => {
+      const newCount = prev + 1;
+      
+      if (newCount === 1) {
+        setFeedback({
+          type: "hint",
+          message: currentMove.explanation
+        });
+      } else if (newCount === 2) {
+        const move = currentMove.move;
+        const piece = move[0].toUpperCase() === move[0] ? move[0] : "Pawn";
+        const pieceName = piece === 'N' ? 'Knight' : piece === 'B' ? 'Bishop' : 
+                         piece === 'R' ? 'Rook' : piece === 'Q' ? 'Queen' : 
+                         piece === 'K' ? 'King' : 'Pawn';
+        setFeedback({
+          type: "hint",
+          message: `Move your ${pieceName}. ${currentMove.explanation}`
+        });
+      } else {
+        setFeedback({
+          type: "hint",
+          message: `The correct move is ${currentMove.move}. ${currentMove.explanation}`
+        });
+      }
+      
+      return newCount;
+    });
+  }, [currentMoveIndex, trapLine]);
   
   // Reset
   const resetPractice = useCallback(() => {
@@ -350,7 +366,6 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
     setCurrentMoveIndex(0);
     setFeedback(null);
     setHintCount(0);
-    setShowHint(false);
     setLastMove(null);
     
     if (groundRef.current) {
@@ -401,6 +416,7 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
             ref={boardRef} 
             className="w-full aspect-square rounded-lg overflow-hidden"
             style={{ maxWidth: "400px", margin: "0 auto" }}
+            data-testid="trap-practice-board"
           />
           
           {/* Feedback */}
@@ -414,6 +430,8 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
                   feedback.type === "correct" ? "bg-green-500/10 border border-green-500/30" :
                   feedback.type === "success" ? "bg-purple-500/10 border border-purple-500/30" :
                   feedback.type === "hint" ? "bg-blue-500/10 border border-blue-500/30" :
+                  feedback.type === "info" ? "bg-blue-500/10 border border-blue-500/30" :
+                  feedback.type === "opponent" ? "bg-amber-500/10 border border-amber-500/30" :
                   feedback.type === "incorrect" ? "bg-amber-500/10 border border-amber-500/30" :
                   "bg-red-500/10 border border-red-500/30"
                 }`}
@@ -422,8 +440,15 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
                   {feedback.type === "correct" && <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />}
                   {feedback.type === "success" && <Trophy className="w-5 h-5 text-purple-400 flex-shrink-0" />}
                   {feedback.type === "hint" && <Lightbulb className="w-5 h-5 text-blue-400 flex-shrink-0" />}
+                  {feedback.type === "info" && <Lightbulb className="w-5 h-5 text-blue-400 flex-shrink-0" />}
+                  {feedback.type === "opponent" && <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />}
                   {feedback.type === "incorrect" && <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />}
-                  <p className="text-sm">{feedback.message}</p>
+                  <div>
+                    <p className="text-sm">{feedback.message}</p>
+                    {feedback.submessage && (
+                      <p className="text-xs text-muted-foreground mt-1">{feedback.submessage}</p>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -441,7 +466,7 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
       {/* Controls */}
       <div className="flex gap-2">
         {phase === "ready" && (
-          <Button onClick={startPractice} className="flex-1">
+          <Button onClick={startPractice} className="flex-1" data-testid="start-trap-practice">
             <Play className="w-4 h-4 mr-2" />
             Start Practice
           </Button>
@@ -456,11 +481,11 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
         
         {phase === "trap" && (
           <>
-            <Button variant="outline" onClick={getHint} className="flex-1">
+            <Button variant="outline" onClick={getHint} className="flex-1" data-testid="trap-hint-btn">
               <Lightbulb className="w-4 h-4 mr-2" />
               Hint {hintCount > 0 ? `(${hintCount})` : ""}
             </Button>
-            <Button variant="outline" onClick={resetPractice}>
+            <Button variant="outline" onClick={resetPractice} data-testid="trap-reset-btn">
               <RotateCcw className="w-4 h-4 mr-2" />
               Reset
             </Button>
