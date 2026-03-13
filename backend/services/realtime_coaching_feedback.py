@@ -56,6 +56,12 @@ class MoveFeedback:
     # Trap suggestion
     trap_suggestion: Optional[Dict] = None  # If a trap is available from this position
     
+    # NEW: Socratic mode - ask before telling
+    socratic_question: Optional[str] = None  # Question to ask user before revealing answer
+    expects_response: bool = False  # If true, wait for user response
+    pattern_reference: Optional[str] = None  # Reference to recurring pattern
+    memory_reference: Optional[str] = None  # Reference to past games/lessons
+    
     def to_dict(self) -> Dict:
         result = {
             "user_move": self.user_move,
@@ -70,7 +76,12 @@ class MoveFeedback:
             "threats_after_user_move": self.threats_after_user_move,
             "missed_opportunities": self.missed_opportunities,
             "relates_to_weakness": self.relates_to_weakness,
-            "encouragement": self.encouragement
+            "encouragement": self.encouragement,
+            # Socratic mode fields
+            "socratic_question": self.socratic_question,
+            "expects_response": self.expects_response,
+            "pattern_reference": self.pattern_reference,
+            "memory_reference": self.memory_reference
         }
         if self.trap_suggestion:
             result["trap_suggestion"] = self.trap_suggestion
@@ -190,76 +201,143 @@ def _generate_coaching_message(
     best_move: str,
     tactical_analysis: Dict,
     coach_move: str,
-    understanding_context: Optional[Dict] = None
-) -> str:
+    understanding_context: Optional[Dict] = None,
+    user_name: str = ""
+) -> Dict[str, Any]:
     """
-    Generate a human-like coaching message.
+    Generate a human-like coaching message in Indian-English style.
     This is the main conversational feedback.
+    
+    Returns dict with:
+    - coaching_message: Main message
+    - socratic_question: Question to ask (for mistakes/blunders)
+    - encouragement: Encouragement text
+    - pattern_reference: If relates to recurring pattern
     """
-    messages = []
+    import random
     
-    # Assess user's move
+    result = {
+        "coaching_message": "",
+        "socratic_question": None,
+        "encouragement": None,
+        "expects_response": False
+    }
+    
+    name = user_name or "friend"
+    
+    # ========== EXCELLENT MOVES ==========
     if quality == "excellent":
-        messages.append(f"Great move with {user_move}!")
-        return " ".join(messages)
+        excellent_phrases = [
+            f"Shabash {name}! {user_move} is exactly right! 👏",
+            f"Bahut accha! {user_move} - you're thinking like a strong player!",
+            f"Excellent {name}! {user_move} shows real understanding.",
+            f"Yes! That's the move! You saw it {name}!",
+            f"Beautiful! {user_move} is perfect here.",
+        ]
+        result["coaching_message"] = random.choice(excellent_phrases)
+        result["encouragement"] = random.choice([
+            "Keep this up!",
+            "You're playing well today.",
+            "This is good chess!",
+        ])
+        return result
     
+    # ========== GOOD MOVES ==========
     elif quality == "good":
-        messages.append(f"{user_move} is a reasonable choice.")
+        good_phrases = [
+            f"{user_move} is a solid choice {name}.",
+            f"Good thinking. {user_move} is reasonable here.",
+            f"Accha hai. {user_move} keeps things balanced.",
+            f"That works. {user_move} is sensible.",
+        ]
+        result["coaching_message"] = random.choice(good_phrases)
         if best_move != user_move:
-            messages.append(f"{best_move} was slightly more accurate.")
-        return " ".join(messages)
+            result["coaching_message"] += f" {best_move} was slightly more precise, but your move is fine."
+        return result
     
+    # ========== INACCURACIES ==========
     elif quality == "inaccuracy":
-        # Check if user_move is same as best_move (edge case)
-        if user_move == best_move:
-            messages.append(f"{user_move} was fine, but the position needed more precision.")
-        else:
-            messages.append(f"{user_move} is okay, but {best_move} was better here.")
+        inaccuracy_phrases = [
+            f"Hmm {name}, {user_move} is okay, but dekho - {best_move} was better here.",
+            f"{user_move} is playable, but see - {best_move} was more accurate.",
+            f"Not bad {name}, but {best_move} was the stronger choice.",
+        ]
+        result["coaching_message"] = random.choice(inaccuracy_phrases)
         
-        # Add specific reason if available
+        # Add specific reason
         if tactical_analysis.get("best_move_captures") and user_move != best_move:
-            messages.append(f"With {best_move} you could have won the {tactical_analysis['best_move_captures']}.")
+            result["coaching_message"] += f" With {best_move} you could have won the {tactical_analysis['best_move_captures']}."
         elif tactical_analysis.get("best_move_attacks") and user_move != best_move:
             attacks = tactical_analysis["best_move_attacks"][:2]
             if attacks:
-                messages.append(f"{best_move} {', '.join(attacks)}.")
+                result["coaching_message"] += f" {best_move} would {', '.join(attacks)}."
+        
+        return result
     
+    # ========== MISTAKES - SOCRATIC MODE ==========
     elif quality == "mistake":
-        messages.append(f"That {user_move} lets some advantage slip.")
+        # First, ask what they were thinking (Socratic)
+        socratic_questions = [
+            f"{name}, interesting choice with {user_move}. Tell me - what was your thinking?",
+            f"Hmm {user_move}. Walk me through it {name} - why this move?",
+            f"I see {user_move}. {name}, what were you hoping to achieve?",
+            f"Okay {name}. Before I say anything - what was the idea behind {user_move}?",
+        ]
+        result["socratic_question"] = random.choice(socratic_questions)
+        result["expects_response"] = True
+        
+        # The reveal message (shown after they respond or click 'show answer')
+        reveal_parts = [f"Dekho {name}, that {user_move} lets some advantage slip."]
         
         if tactical_analysis.get("threats_created"):
             threat = tactical_analysis["threats_created"][0]
-            messages.append(f"Now I can play {threat}.")
+            reveal_parts.append(f"Now I can play {threat}.")
         
         if user_move != best_move:
-            messages.append(f"{best_move} was the move to find.")
+            reveal_parts.append(f"The move to find was {best_move}.")
+        
+        result["coaching_message"] = " ".join(reveal_parts)
+        result["encouragement"] = random.choice([
+            "Koi baat nahi. Let's learn from this.",
+            "It's okay. This is how we improve na?",
+            "Don't worry. Even strong players miss things.",
+        ])
+        return result
     
+    # ========== BLUNDERS - SOCRATIC MODE ==========
     elif quality == "blunder":
-        messages.append(f"Oh, {user_move} is a tough one.")
+        # Strong Socratic questioning for blunders
+        socratic_questions = [
+            f"Arre {name}! {user_move}... tell me, what were you thinking? Walk me through it.",
+            f"{name}, hold on. That {user_move} - explain your reasoning.",
+            f"Wait wait {name}. {user_move}? What did you see here?",
+            f"Hmm {name}... {user_move} is concerning. What was the plan?",
+        ]
+        result["socratic_question"] = random.choice(socratic_questions)
+        result["expects_response"] = True
+        
+        # The reveal message
+        reveal_parts = [f"See {name}, that {user_move} was a serious mistake."]
         
         if tactical_analysis.get("best_move_captures"):
-            messages.append(f"You could have won material with {best_move} (takes the {tactical_analysis['best_move_captures']}).")
+            reveal_parts.append(f"You could have won material with {best_move} - takes the {tactical_analysis['best_move_captures']}!")
         elif tactical_analysis.get("threats_created"):
             threat = tactical_analysis["threats_created"][0]
-            messages.append(f"That allows {threat}.")
+            reveal_parts.append(f"That allows {threat}.")
         else:
-            messages.append(f"The position really needed {best_move}.")
+            reveal_parts.append(f"The position needed {best_move}.")
+        
+        result["coaching_message"] = " ".join(reveal_parts)
+        result["encouragement"] = random.choice([
+            "But it's okay {name}. Everyone blunders sometimes. Even Magnus!",
+            "Koi baat nahi. Let's understand why and move on.",
+            "This is tough, but we learn from these moments.",
+        ]).format(name=name)
+        return result
     
-    # Add note about coach's response
-    if coach_move:
-        if quality in ["mistake", "blunder"]:
-            messages.append(f"I'll play {coach_move} to take advantage.")
-        else:
-            messages.append(f"I respond with {coach_move}.")
-    
-    # Add personalization based on understanding
-    if understanding_context:
-        weakness = understanding_context.get("primary_weakness", "")
-        if weakness and weakness.lower() in ["tactical vision", "consistency"]:
-            if quality in ["mistake", "blunder"]:
-                messages.append("Take your time and check all captures.")
-    
-    return " ".join(messages)
+    # Fallback
+    result["coaching_message"] = f"I played {coach_move}."
+    return result
 
 
 async def generate_move_feedback(
@@ -350,15 +428,20 @@ async def generate_move_feedback(
     except Exception as e:
         logger.warning(f"Could not get understanding context: {e}")
     
-    # Generate main coaching message
-    coaching_message = _generate_coaching_message(
+    # Generate main coaching message (now returns dict with socratic fields)
+    coaching_result = _generate_coaching_message(
         user_move=user_move,
         quality=quality,
         best_move=best_move,
         tactical_analysis=tactical,
         coach_move=coach_move,
-        understanding_context=understanding_context
+        understanding_context=understanding_context,
+        user_name=""  # Will be populated from user profile in future
     )
+    
+    coaching_message = coaching_result.get("coaching_message", "")
+    socratic_question = coaching_result.get("socratic_question")
+    expects_response = coaching_result.get("expects_response", False)
     
     # Generate best move explanation
     best_move_explanation = ""
@@ -388,9 +471,9 @@ async def generate_move_feedback(
             elif "consistency" in weakness.lower() and quality in ["mistake", "blunder"]:
                 relates_to = "Stay focused - you know better than this!"
     
-    # Encouragement for good moves
-    encouragement = None
-    if quality in ["excellent", "good"]:
+    # Encouragement for good moves (may already be set by coaching result)
+    encouragement = coaching_result.get("encouragement")
+    if not encouragement and quality in ["excellent", "good"]:
         encouragement = "Keep it up!" if quality == "good" else "That's the move!"
     
     # Check if a trap is available from this position
@@ -429,7 +512,12 @@ async def generate_move_feedback(
         missed_opportunities=tactical.get("best_move_attacks", [])[:3],
         relates_to_weakness=relates_to,
         encouragement=encouragement,
-        trap_suggestion=trap_suggestion
+        trap_suggestion=trap_suggestion,
+        # Socratic mode fields
+        socratic_question=socratic_question,
+        expects_response=expects_response,
+        pattern_reference=None,  # Will be populated from memory service
+        memory_reference=None    # Will be populated from memory service
     )
 
 

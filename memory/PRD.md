@@ -14,40 +14,50 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 /app
 ├── backend/
 │   ├── services/
-│   │   ├── realtime_coaching_feedback.py  # Real-time move feedback generation
+│   │   ├── realtime_coaching_feedback.py  # Real-time move feedback with Socratic mode
+│   │   ├── human_coach_integration.py     # NEW: Unified human-like coaching (Indian-English)
 │   │   ├── coach_personality_service.py   # Defines player levels and coaching language
+│   │   ├── coach_memory.py                # Memory of past games and patterns
+│   │   ├── socratic_engine.py             # Socratic questioning system
 │   │   ├── player_understanding_service.py # Multi-dimensional chess understanding
 │   │   ├── chess_understanding.py         # Chess skills profiling
-│   │   └── opening_library_service.py     # Opening training lab service
+│   │   ├── opening_library_service.py     # Opening training lab service
+│   │   └── trap_library.py                # Chess trap definitions
 │   ├── routes/
 │   │   ├── auth.py
 │   │   ├── lab.py
-│   │   └── openings.py                    # Opening Training Lab routes (NEW)
-│   ├── coach_play/
-│   │   └── coach_commentary.py            # Coach commentary and analysis
+│   │   ├── coach_play.py                  # NEW: Coach play routes modularization
+│   │   └── openings.py                    # Opening Training Lab routes
 │   └── server.py
 └── frontend/
     └── src/
-        ├── hooks/
-        │   └── useSound.js                # Web Audio API hook
         ├── pages/
         │   ├── LabV2.jsx                  # Game review page
         │   ├── Dashboard.jsx              # User dashboard
         │   ├── CoachPlay.jsx              # Live coach play with feedback
         │   └── OpeningLesson.jsx          # Opening lessons with practice mode
         └── components/
-            ├── coach-play/                # Extracted CoachPlay components (NEW)
+            ├── coach-play/
             │   ├── EvalBar.jsx
-            │   └── MoveFeedbackPanel.jsx
-            ├── openings/                  # Opening Training components (NEW)
-            │   └── InteractivePractice.jsx
-            ├── lab/
-            │   ├── CriticalMoments.jsx
-            │   └── MissedTactics.jsx
-            └── PrescribedTraining.jsx
+            │   └── MoveFeedbackPanel.jsx  # UPDATED: Socratic mode UI
+            ├── openings/
+            │   ├── InteractivePractice.jsx # Visual move indicators
+            │   └── TrapPractice.jsx        # Interactive trap practice
+            └── lab/
+                ├── TrapAnalysis.jsx        # Trap detection in games
+                └── HabitsToImprove.jsx
 ```
 
 ## What's Been Implemented
+
+### December 2025 - Human-Like Coaching Upgrade (90% Vision)
+- **Socratic Mode Integration:**
+  - Backend: Added `socratic_question`, `expects_response`, `pattern_reference`, `memory_reference` fields
+  - Indian-English coaching messages: "Arre {name}!", "Dekho...", "Shabash!", "Koi baat nahi"
+  - Questions before answers: "Walk me through your thinking with {move}"
+  - Frontend: Updated `MoveFeedbackPanel.jsx` with Socratic UI (text input, show answer button)
+- **HumanCoachIntegration service:** Unified service combining memory, Socratic, conversational tone
+- **Pattern-Based Messages:** "This is the 3rd time this week with {pattern}"
 
 ### December 2025 - Visual Move Indicators + Interactive Trap Practice
 - **P0 Feature: Visual Move Indicators** (Chess.com style feedback)
