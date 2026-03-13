@@ -12119,6 +12119,7 @@ from routes import lab as lab_routes
 from routes import reflect as reflect_routes
 from routes import training as training_routes
 from routes import coach as coach_routes
+from routes import coach_play as coach_play_routes
 from routes import journey as journey_routes
 from routes import cognitive as cognitive_routes
 from routes import behavioral as behavioral_routes
@@ -12154,6 +12155,8 @@ missions_routes.set_mission_services(
 settings_routes.set_db(db)
 openings_routes.set_db(db)
 openings_routes.set_llm(call_llm)
+coach_play_routes.set_db(db)
+coach_play_routes.set_llm(call_llm)
 
 app.include_router(auth_routes.router, prefix="/api")
 app.include_router(feedback_routes.router, prefix="/api")
@@ -12169,6 +12172,7 @@ app.include_router(notifications_routes.router, prefix="/api")
 app.include_router(missions_routes.router, prefix="/api")
 app.include_router(settings_routes.router, prefix="/api")
 app.include_router(openings_routes.router, prefix="/api")
+app.include_router(coach_play_routes.router, prefix="/api")
 
 # Then include the legacy api_router
 app.include_router(api_router)

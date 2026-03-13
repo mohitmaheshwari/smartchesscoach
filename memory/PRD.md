@@ -49,7 +49,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## What's Been Implemented
 
-### December 2025 - Interactive Trap Practice Mode
+### December 2025 - Interactive Trap Practice Mode + Backend Refactoring
 - **P0 Feature: Interactive Trap Practice** - Users can now practice executing traps against the AI coach
   - Integrated `TrapPractice` component into `OpeningLesson.jsx`
   - 3-phase practice flow: Setup → Execute Trap → Victory!
@@ -58,9 +58,16 @@ Create a hyper-personalized, data-driven chess coaching application that functio
   - Hint system for stuck users
   - Trap list shows difficulty badges, result types, and move counts
   - Click any trap to start interactive practice
-- **Files Modified:**
+- **P1: Backend Refactoring - coach_play.py**
+  - Created new `routes/coach_play.py` file as foundation for coach/play route modularization
+  - Migrated helper functions: `is_common_opening_move`, `get_coach_move_explanation`, `get_teaching_explanation`, `classify_move`
+  - Added new `/api/coach/play/stats` endpoint for session statistics
+  - Registered router in server.py with proper db/llm dependency injection
+  - Documented remaining ~2500 lines to be migrated in future iterations
+- **Files Modified/Created:**
   - `frontend/src/pages/OpeningLesson.jsx` - Integrated TrapPractice component
-  - `frontend/src/components/openings/TrapPractice.jsx` - Already existed, now used properly
+  - `backend/routes/coach_play.py` - NEW: Initial coach play routes structure
+  - `backend/server.py` - Added coach_play_routes registration
 
 ### March 12, 2026 - Expanded Trap Library + Coach Integration
 - **Added 9 more openings** to database: French Defense, Slav Defense, Nimzo-Indian, Vienna Game, Queen's Indian, Grunfeld Defense, Benoni Defense (now 20 total)
@@ -177,10 +184,11 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 ### P1 - Completed
 - [x] Interactive Practice Mode in Opening Training Lab
 - [x] Backend Refactoring: Created routes/openings.py (partial modularization)
+- [x] Backend Refactoring: Created routes/coach_play.py - Initial structure with helper functions migrated
 - [x] Frontend Refactoring: Extracted EvalBar and MoveFeedbackPanel from CoachPlay.jsx
 
 ### P1 - Remaining
-- [ ] Continue Backend Refactoring: Extract coach/play routes from server.py (~2500 lines)
+- [ ] Continue Backend Refactoring: Migrate remaining routes from server.py to coach_play.py (~2500 lines remaining)
 
 ### P2 - Medium Priority
 - [ ] Continue refactoring `CoachPlay.jsx` - extract more hooks (useCoachSession, useChessboard)
@@ -200,5 +208,6 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 ## Known Technical Debt
 - `CoachPlay.jsx` still has ~2000 lines, needs more component extraction
 - `LabV2.jsx` remains a large component (~1000 lines)
-- `server.py` still has ~12,000 lines - coach/play routes (~2500 lines) should be extracted
+- `server.py` still has ~12,000 lines - coach/play routes (~2500 lines) need to be migrated to `routes/coach_play.py`
 - Backend routes could be further modularized (training, journey, etc.)
+- The `routes/coach_play.py` file has been created with helper functions and one new endpoint; remaining 25+ endpoints need to be migrated from server.py
