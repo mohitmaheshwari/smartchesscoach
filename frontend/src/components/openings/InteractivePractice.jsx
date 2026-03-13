@@ -281,7 +281,25 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
             }, 1000);
           }
         } else if (data.try_again) {
-          // Incorrect move - show red X
+          // Incorrect move - keep the move visible temporarily with X icon
+          // First, apply the move locally to show it on the board
+          const wrongFen = chessRef.current.fen();
+          const tempChess = new Chess(wrongFen);
+          
+          try {
+            // Make the move locally to show it
+            const wrongMove = tempChess.move({ from: orig, to: dest, promotion: 'q' });
+            if (wrongMove) {
+              // Update board to show the wrong move
+              setFen(tempChess.fen());
+              setLastMove({ from: orig, to: dest });
+            }
+          } catch (e) {
+            // Move might be illegal, just show indicator
+            setLastMove({ from: orig, to: dest });
+          }
+          
+          // Show red X on destination square
           setMoveIndicator({ type: "wrong", square: dest });
           
           setFeedback({
@@ -293,8 +311,9 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
           setTimeout(() => {
             setMoveIndicator(null);
             setLastMove(null);
+            setFen(data.fen);  // Reset to correct position
             setupUserMove(data.fen);
-          }, 1500);
+          }, 2000);  // Show wrong move for 2 seconds
         }
       } else {
         console.error("Move API returned error:", res.status);
