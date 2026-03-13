@@ -599,6 +599,18 @@ Be direct and specific to THIS position.
     # Analyze opening performance for this specific game
     opening_performance = analyze_opening_performance(move_evaluations, user_color)
     
+    # NEW: Analyze for trap patterns
+    trap_analysis = None
+    try:
+        from services.trap_library import analyze_game_for_traps
+        
+        # Get the moves from the game
+        game_moves = [m.get("move", "") for m in move_evaluations if m.get("move")]
+        if game_moves:
+            trap_analysis = analyze_game_for_traps(game_moves, user_color)
+    except Exception as e:
+        logger.error(f"Error analyzing traps: {e}")
+    
     return {
         "game_id": game_id,
         "user_color": user_color,
@@ -611,6 +623,7 @@ Be direct and specific to THIS position.
             "opponent_name": game.get("opponent_name") if game else None
         },
         "opening_performance": opening_performance,
+        "trap_analysis": trap_analysis,  # NEW: Trap detection results
         "critical_moments": critical_moments[:5],  # Top 5 moments
         "lesson": lesson,
         "total_mistakes": len(critical_moments),

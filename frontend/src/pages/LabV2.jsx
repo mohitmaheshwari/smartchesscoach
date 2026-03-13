@@ -51,6 +51,7 @@ import CriticalMoments from "@/components/lab/CriticalMoments";
 import StrategicThemes from "@/components/lab/StrategicThemes";
 import MissedTactics from "@/components/lab/MissedTactics";
 import HabitsToImprove from "@/components/lab/HabitsToImprove";
+import TrapAnalysis from "@/components/lab/TrapAnalysis";
 import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 
 // Feedback modal (reused from Lab.jsx)
@@ -1046,7 +1047,12 @@ const LabV2 = ({ user }) => {
                 </TabsContent>
                 
                 {/* Habits Tab */}
-                <TabsContent value="habits" className="p-4 m-0">
+                <TabsContent value="habits" className="p-4 m-0 space-y-4">
+                  {/* Trap Analysis - NEW */}
+                  {deepStrategy?.trap_analysis && (
+                    <TrapAnalysis trapAnalysis={deepStrategy.trap_analysis} />
+                  )}
+                  
                   <HabitsToImprove
                     patternContext={labData?.pattern_context}
                     focusModule={focusModule}

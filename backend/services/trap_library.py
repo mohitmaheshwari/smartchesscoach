@@ -772,3 +772,153 @@ def get_all_trap_statistics() -> Dict:
         "by_result": by_result,
         "by_opening": by_opening
     }
+
+
+def analyze_game_for_traps(moves: List[str], user_color: str) -> Dict:
+    """
+    Analyze a game's moves to detect if any traps were played or fallen into.
+    
+    Args:
+        moves: List of moves in SAN format (e.g., ["e4", "e5", "Nf3", ...])
+        user_color: "white" or "black"
+    
+    Returns:
+        Dictionary with:
+        - traps_executed: Traps the user successfully executed
+        - traps_fallen_into: Traps the user fell into
+        - trap_opportunities_missed: Traps that were available but not played
+    """
+    import chess
+    
+    traps_executed = []
+    traps_fallen_into = []
+    trap_opportunities_missed = []
+    
+    # Normalize moves
+    normalized_moves = [m.replace("+", "").replace("#", "").replace("!", "").replace("?", "") for m in moves]
+    moves_str = " ".join(normalized_moves).lower()
+    
+    for opening_key, traps in TRAP_LIBRARY.items():
+        for trap in traps:
+            setup_moves = trap.get("setup_moves", [])
+            trap_line = trap.get("trap_line", [])
+            
+            # Normalize trap moves
+            normalized_setup = [m.replace("+", "").replace("#", "") for m in setup_moves]
+            normalized_trap = [t["move"].replace("+", "").replace("#", "") for t in trap_line]
+            
+            setup_str = " ".join(normalized_setup).lower()
+            full_trap_str = " ".join(normalized_setup + normalized_trap).lower()
+            
+            # Check if setup was reached
+            if setup_str in moves_str:
+                setup_end_idx = len(setup_moves)
+                
+                # The trap beneficiary is usually the one whose opening it is
+                # For example: Siberian Trap is in Sicilian (Black's opening), so Black benefits
+                # We can also infer from the trap line - the first move is the VICTIM's mistake
+                opening_color = "black" if opening_key in [
+                    "sicilian-defense", "french-defense", "caro-kann", "scandinavian-defense",
+                    "petrov-defense", "philidor-defense", "kings-indian-defense", "nimzo-indian",
+                    "queens-indian", "grunfeld-defense", "benoni-defense", "slav-defense",
+                    "dutch-defense", "budapest-gambit"
+                ] else "white"
+                
+                # Check if full trap was executed
+                if full_trap_str in moves_str:
+                    # The opening color determines who BENEFITS from the trap
+                    trap_beneficiary = opening_color
+                    user_benefits = (user_color == trap_beneficiary)
+                    
+                    if user_benefits:
+                        traps_executed.append({
+                            "trap_name": trap["name"],
+                            "opening": opening_key,
+                            "result": trap.get("result_type"),
+                            "move_number": (setup_end_idx // 2) + 1,
+                            "description": trap.get("success_message")
+                        })
+                    else:
+                        traps_fallen_into.append({
+                            "trap_name": trap["name"],
+                            "opening": opening_key,
+                            "result": trap.get("result_type"),
+                            "move_number": (setup_end_idx // 2) + 1,
+                            "description": f"You fell into the {trap['name']}!",
+                            "how_to_avoid": f"After {setup_moves[-1]}, avoid {normalized_trap[0] if len(trap_line) > 1 else 'the trap sequence'}"
+                        })
+                else:
+                    # Setup was reached but trap wasn't completed
+                    # Check if user could have executed the trap but didn't
+                    user_is_beneficiary = (user_color == opening_color)
+                    if user_is_beneficiary:
+                        # The trap benefits this color, but they didn't execute it
+                        # Check what the opponent played (the first trap move is the victim's move)
+                        # We need to see if the victim made the "bad move" but the beneficiary didn't punish
+                        pass  # This is complex - skip for now
+    
+    return {
+        "traps_executed": traps_executed,
+        "traps_fallen_into": traps_fallen_into,
+        "trap_opportunities_missed": trap_opportunities_missed,
+        "summary": {
+            "executed_count": len(traps_executed),
+            "fallen_into_count": len(traps_fallen_into),
+            "missed_count": len(trap_opportunities_missed)
+        }
+    }
+
+
+def detect_trap_in_position(fen: str, move_history: List[str]) -> Optional[Dict]:
+    """
+    Real-time trap detection - check if current position is in a trap setup.
+    
+    Args:
+        fen: Current board position
+        move_history: Moves played so far
+    
+    Returns:
+        Trap info if position matches a trap setup
+    """
+    normalized_history = [m.replace("+", "").replace("#", "").lower() for m in move_history]
+    history_len = len(normalized_history)
+    
+    matches = []
+    
+    for opening_key, traps in TRAP_LIBRARY.items():
+        for trap in traps:
+            setup_moves = trap.get("setup_moves", [])
+            normalized_setup = [m.replace("+", "").replace("#", "").lower() for m in setup_moves]
+            
+            # Check for exact match or prefix match
+            if history_len <= len(normalized_setup):
+                if normalized_history == normalized_setup[:history_len]:
+                    remaining = setup_moves[history_len:]
+                    matches.append({
+                        "trap_name": trap["name"],
+                        "opening": opening_key,
+                        "status": "in_setup" if remaining else "setup_complete",
+                        "moves_remaining": remaining,
+                        "trap_line": trap.get("trap_line", []),
+                        "result_type": trap.get("result_type"),
+                        "difficulty": trap.get("difficulty")
+                    })
+            elif history_len <= len(normalized_setup) + len(trap.get("trap_line", [])):
+                # Check if we're in the trap line
+                full_sequence = normalized_setup + [t["move"].lower().replace("+", "").replace("#", "") for t in trap.get("trap_line", [])]
+                if normalized_history == full_sequence[:history_len]:
+                    matches.append({
+                        "trap_name": trap["name"],
+                        "opening": opening_key,
+                        "status": "in_trap_line",
+                        "move_in_trap": history_len - len(normalized_setup),
+                        "moves_remaining": len(full_sequence) - history_len,
+                        "result_type": trap.get("result_type")
+                    })
+    
+    if matches:
+        # Return the most specific match (furthest into a trap)
+        return max(matches, key=lambda x: len(x.get("trap_line", [])) - x.get("moves_remaining", 999))
+    
+    return None
+

@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   Trophy,
   Loader2,
-  ArrowRight,
   Brain,
   Sparkles,
   ExternalLink,
@@ -33,6 +32,7 @@ import "chessground/assets/chessground.brown.css";
 import "chessground/assets/chessground.cburnett.css";
 
 import InteractivePractice from "@/components/openings/InteractivePractice";
+import TrapPractice from "@/components/openings/TrapPractice";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -60,7 +60,7 @@ const OpeningLesson = () => {
   
   // Trap practice state
   const [selectedTrap, setSelectedTrap] = useState(null);
-  const [trapIndex, setTrapIndex] = useState(-1);
+  const [trapPracticeMode, setTrapPracticeMode] = useState(false);
   
   // Fetch lesson data
   useEffect(() => {
@@ -286,50 +286,25 @@ const OpeningLesson = () => {
     }
   };
   
-  // Trap practice
+  // Trap practice - use TrapPractice component
   const startTrapPractice = useCallback((trap) => {
     setSelectedTrap(trap);
-    setTrapIndex(-1);
+    setTrapPracticeMode(true);
     setActiveTab("traps");
-    
-    // Reset board and play setup moves
+  }, []);
+  
+  const closeTrapPractice = useCallback(() => {
+    setSelectedTrap(null);
+    setTrapPracticeMode(false);
+    // Reset board to opening start
     chessRef.current.reset();
-    
-    // Play setup moves
-    for (const move of trap.setup_moves) {
-      chessRef.current.move(move);
-    }
-    
     updateBoard(chessRef.current.fen());
-    
-    // Play first trap move automatically after a delay
-    setTimeout(() => {
-      if (trap.trap_line.length > 0) {
-        const firstMove = trap.trap_line[0];
-        const move = chessRef.current.move(firstMove.move);
-        if (move) {
-          updateBoard(chessRef.current.fen(), move.from + move.to);
-        }
-        setTrapIndex(0);
-      }
-    }, 500);
   }, [updateBoard]);
   
-  const playNextTrapMove = useCallback(() => {
-    if (!selectedTrap) return;
-    
-    const nextIndex = trapIndex + 1;
-    if (nextIndex < selectedTrap.trap_line.length) {
-      const moveData = selectedTrap.trap_line[nextIndex];
-      const move = chessRef.current.move(moveData.move);
-      if (move) {
-        updateBoard(chessRef.current.fen(), move.from + move.to);
-        setTrapIndex(nextIndex);
-      } else {
-        console.error("Invalid move in trap line:", moveData.move);
-      }
-    }
-  }, [selectedTrap, trapIndex, updateBoard]);
+  const onTrapComplete = useCallback(() => {
+    // Record completion
+    toast.success(`Mastered: ${selectedTrap?.name}!`);
+  }, [selectedTrap]);
   
   if (loading) {
     return (
@@ -607,109 +582,71 @@ const OpeningLesson = () => {
               <TabsContent value="traps" className="space-y-4">
                 {opening.traps?.length > 0 ? (
                   <>
-                    {/* Trap List */}
-                    {!selectedTrap && opening.traps.map((trap, i) => (
-                      <Card 
-                        key={i} 
-                        className="cursor-pointer hover:border-primary/50 transition-colors"
-                        onClick={() => startTrapPractice(trap)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 rounded-lg bg-amber-500/20">
-                              <Target className="w-4 h-4 text-amber-400" />
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-sm">{trap.name}</h3>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {trap.description}
-                              </p>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                    
-                    {/* Active Trap */}
-                    {selectedTrap && (
-                      <Card className="border-amber-500/30 bg-amber-500/5">
-                        <CardHeader className="pb-2">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm flex items-center gap-2">
-                              <Target className="w-4 h-4 text-amber-400" />
-                              {selectedTrap.name}
-                            </CardTitle>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => setSelectedTrap(null)}
-                            >
-                              Back to list
-                            </Button>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="p-4 pt-0">
-                          <p className="text-sm text-muted-foreground mb-4">
-                            {selectedTrap.description}
-                          </p>
-                          
-                          <div className="space-y-2">
-                            {selectedTrap.trap_line.map((moveData, i) => (
-                              <div 
-                                key={i}
-                                className={`p-2 rounded ${
-                                  trapIndex === i 
-                                    ? "bg-amber-500/20 border border-amber-500/30" 
-                                    : trapIndex > i 
-                                    ? "bg-muted/30" 
-                                    : "opacity-50"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono font-semibold text-sm">
-                                    {moveData.move}
-                                  </span>
-                                  {trapIndex >= i && (
-                                    <CheckCircle2 className="w-4 h-4 text-green-400" />
-                                  )}
+                    {/* Active Trap Practice Mode */}
+                    {selectedTrap && trapPracticeMode ? (
+                      <TrapPractice
+                        trap={selectedTrap}
+                        onClose={closeTrapPractice}
+                        onComplete={onTrapComplete}
+                      />
+                    ) : (
+                      /* Trap List */
+                      <>
+                        <div className="text-sm text-muted-foreground mb-2">
+                          Click a trap to practice executing it against the coach.
+                        </div>
+                        {opening.traps.map((trap, i) => (
+                          <Card 
+                            key={i} 
+                            className="cursor-pointer hover:border-amber-500/50 transition-colors"
+                            onClick={() => startTrapPractice(trap)}
+                            data-testid={`trap-card-${i}`}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-start gap-3">
+                                <div className="p-2 rounded-lg bg-amber-500/20">
+                                  <Target className="w-4 h-4 text-amber-400" />
                                 </div>
-                                {trapIndex >= i && (
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-semibold text-sm">{trap.name}</h3>
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`text-xs ${
+                                        trap.difficulty === "beginner" 
+                                          ? "border-green-500/30 text-green-400" 
+                                          : trap.difficulty === "advanced"
+                                          ? "border-red-500/30 text-red-400"
+                                          : "border-amber-500/30 text-amber-400"
+                                      }`}
+                                    >
+                                      {trap.difficulty}
+                                    </Badge>
+                                  </div>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    {moveData.explanation}
+                                    {trap.description}
                                   </p>
-                                )}
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {trap.result_type?.replace(/_/g, " ")}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      {trap.trap_line?.length || 0} moves
+                                    </span>
+                                  </div>
+                                </div>
+                                <Play className="w-4 h-4 text-amber-400" />
                               </div>
-                            ))}
-                          </div>
-                          
-                          {trapIndex < selectedTrap.trap_line.length - 1 && (
-                            <Button 
-                              className="w-full mt-4"
-                              onClick={playNextTrapMove}
-                            >
-                              Next Move
-                              <ArrowRight className="w-4 h-4 ml-2" />
-                            </Button>
-                          )}
-                          
-                          {trapIndex === selectedTrap.trap_line.length - 1 && (
-                            <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
-                              <div className="flex items-center gap-2">
-                                <Trophy className="w-5 h-5 text-green-400" />
-                                <p className="text-sm font-medium">
-                                  {selectedTrap.success_message}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </>
                     )}
                   </>
                 ) : (
                   <Card className="border-dashed">
                     <CardContent className="p-8 text-center">
+                      <Target className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                       <p className="text-muted-foreground">
                         No traps available for this opening yet.
                       </p>

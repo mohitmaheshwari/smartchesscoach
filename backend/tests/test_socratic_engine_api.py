@@ -10,7 +10,7 @@ Tests the hyper-personalized chess coaching Socratic Engine which:
 import pytest
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://opening-trainer-pro-1.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-trap-coach.preview.emergentagent.com')
 
 # Test data - Classic Scholar's Mate position
 SCHOLARS_MATE_FEN = "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"

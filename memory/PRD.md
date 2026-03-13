@@ -49,6 +49,19 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## What's Been Implemented
 
+### December 2025 - Interactive Trap Practice Mode
+- **P0 Feature: Interactive Trap Practice** - Users can now practice executing traps against the AI coach
+  - Integrated `TrapPractice` component into `OpeningLesson.jsx`
+  - 3-phase practice flow: Setup → Execute Trap → Victory!
+  - Coach automatically plays the victim's moves during trap execution
+  - Visual feedback with phase indicators and move explanations
+  - Hint system for stuck users
+  - Trap list shows difficulty badges, result types, and move counts
+  - Click any trap to start interactive practice
+- **Files Modified:**
+  - `frontend/src/pages/OpeningLesson.jsx` - Integrated TrapPractice component
+  - `frontend/src/components/openings/TrapPractice.jsx` - Already existed, now used properly
+
 ### March 12, 2026 - Expanded Trap Library + Coach Integration
 - **Added 9 more openings** to database: French Defense, Slav Defense, Nimzo-Indian, Vienna Game, Queen's Indian, Grunfeld Defense, Benoni Defense (now 20 total)
 - **Added 9 more traps** (now 27 total):
@@ -159,6 +172,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ### P0 - Completed
 - [x] Opening library matching bug fix (Giuoco Piano -> Italian Game)
+- [x] Interactive Trap Practice Mode - Users can now practice executing traps against the AI coach
 
 ### P1 - Completed
 - [x] Interactive Practice Mode in Opening Training Lab

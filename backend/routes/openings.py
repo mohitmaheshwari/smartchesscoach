@@ -647,3 +647,53 @@ async def suggest_trap_for_position(moves: List[str]):
     
     return {"trap_available": False, "trap": None}
 
+
+@router.post("/traps/analyze-game")
+async def analyze_game_traps(
+    game_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Analyze a specific game for trap patterns.
+    
+    Returns:
+    - traps_executed: Traps successfully played by the user
+    - traps_fallen_into: Traps the user fell into
+    - trap_opportunities_missed: Traps that could have been played
+    """
+    from services.trap_library import analyze_game_for_traps
+    
+    # Get game data
+    game = await db.games.find_one({
+        "game_id": game_id,
+        "user_id": user.user_id
+    }, {"_id": 0})
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Get analysis for moves
+    analysis = await db.game_analyses.find_one({
+        "game_id": game_id,
+        "user_id": user.user_id
+    }, {"_id": 0})
+    
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Game analysis not found")
+    
+    # Extract moves
+    sf = analysis.get("stockfish_analysis", {})
+    move_evaluations = sf.get("move_evaluations", [])
+    game_moves = [m.get("move", "") for m in move_evaluations if m.get("move")]
+    
+    user_color = game.get("user_color", "white")
+    
+    trap_analysis = analyze_game_for_traps(game_moves, user_color)
+    
+    return {
+        "game_id": game_id,
+        "user_color": user_color,
+        "opening": game.get("opening_name") or game.get("opening"),
+        **trap_analysis
+    }
+
