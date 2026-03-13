@@ -671,7 +671,7 @@ async def get_coach_play_state(
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    from coach_play import get_session_state
+    from coach_play.coach_game_session import get_session_state
     
     # Verify session belongs to user
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
@@ -743,7 +743,7 @@ async def end_coach_play_session(
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    from coach_play import end_coach_session
+    from coach_play.coach_game_session import end_coach_session
     
     session_id = request.get("session_id")
     reason = request.get("reason", "resigned")

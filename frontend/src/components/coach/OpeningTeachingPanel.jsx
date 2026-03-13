@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,8 @@ import {
   Sparkles,
   RotateCcw,
   Play,
-  Lightbulb
+  Lightbulb,
+  ExternalLink
 } from "lucide-react";
 
 /**
@@ -33,21 +35,47 @@ export const OpeningTeachingOffer = ({
   onSkip 
 }) => {
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   // Safety check - if offer is invalid, don't render
   if (!offer || !offer.opening_name) {
     return null;
   }
 
-  // Default options if not provided
-  const options = offer.options || [
-    { id: "learn_trap", label: "Learn a trap", description: "Interactive trap lesson" },
-    { id: "learn_main_line", label: "Learn the main line", description: "Step-by-step opening theory" },
-    { id: "just_play", label: "Just play", description: "Continue without lesson" }
-  ];
+  // Options for the user
+  const options = [
+    { 
+      id: "go_to_lesson", 
+      label: "Learn this opening", 
+      description: "Open the full opening lesson page",
+      icon: BookOpen,
+      primary: true
+    },
+    { 
+      id: "learn_trap", 
+      label: "Quick trap lesson", 
+      description: "Learn a trap in this opening (stay in game)",
+      icon: Target,
+      primary: false,
+      hidden: !offer.trap_name
+    },
+    { 
+      id: "just_play", 
+      label: "Just play", 
+      description: "Continue without lesson",
+      icon: Play,
+      primary: false
+    }
+  ].filter(opt => !opt.hidden);
 
   const handleOption = async (optionId) => {
     setLoading(true);
+    
+    if (optionId === "go_to_lesson" && offer.opening_key) {
+      // Navigate to the opening lesson page
+      navigate(`/openings/${offer.opening_key}`);
+      return;
+    }
     
     if (optionId === "just_play") {
       // Skip the offer
@@ -62,8 +90,8 @@ export const OpeningTeachingOffer = ({
       } catch (error) {
         console.error("Error skipping offer:", error);
       }
-    } else {
-      // Start a lesson
+    } else if (optionId === "learn_trap") {
+      // Start a quick trap lesson in-game
       try {
         const response = await fetch(`${API}/coach/play/teaching/start`, {
           method: "POST",
@@ -71,7 +99,7 @@ export const OpeningTeachingOffer = ({
           credentials: "include",
           body: JSON.stringify({ 
             session_id: sessionId,
-            lesson_type: optionId 
+            lesson_type: "learn_trap" 
           })
         });
         
@@ -88,7 +116,7 @@ export const OpeningTeachingOffer = ({
   };
 
   return (
-    <Card className="border-2 border-primary/50 bg-primary/5">
+    <Card className="border-2 border-primary/50 bg-primary/5 animate-in slide-in-from-top-2">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-primary" />
@@ -109,18 +137,22 @@ export const OpeningTeachingOffer = ({
           {options.map((option) => (
             <Button
               key={option.id}
-              variant={option.id === "learn_trap" ? "default" : "outline"}
+              variant={option.primary ? "default" : "outline"}
               className="w-full justify-start text-left h-auto py-3"
               onClick={() => handleOption(option.id)}
               disabled={loading}
               data-testid={`teaching-option-${option.id}`}
             >
-              <div className="flex flex-col items-start">
+              <option.icon className="w-4 h-4 mr-2 flex-shrink-0" />
+              <div className="flex flex-col items-start flex-1">
                 <span className="font-medium">{option.label}</span>
                 <span className="text-xs text-muted-foreground mt-0.5">
                   {option.description}
                 </span>
               </div>
+              {option.id === "go_to_lesson" && (
+                <ExternalLink className="w-4 h-4 ml-2 text-muted-foreground" />
+              )}
             </Button>
           ))}
         </div>
