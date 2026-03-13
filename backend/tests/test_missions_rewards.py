@@ -3,7 +3,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-trap-coach.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://socratic-chess.preview.emergentagent.com')
 
 
 @pytest.fixture

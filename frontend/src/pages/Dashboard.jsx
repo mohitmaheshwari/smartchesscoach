@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import DailyMissionCard from "@/components/DailyMissionCard";
 import { CoachWeeklySignalCard, FocusLockCard } from "@/components/Home";
+import LearningPath from "@/components/LearningPath";
 
 // Milestone celebration banner component
 const MilestoneBanner = ({ milestone, onDismiss }) => {
@@ -775,6 +776,11 @@ const Dashboard = ({ user }) => {
             {/* Daily Mission Card - Dopamine Engine Entry Point */}
             <AnimatedItem>
               <DailyMissionCard />
+            </AnimatedItem>
+            
+            {/* Learning Path - Personalized Coach Recommendations */}
+            <AnimatedItem>
+              <LearningPath />
             </AnimatedItem>
             
             {/* Stats Row - Clickable */}

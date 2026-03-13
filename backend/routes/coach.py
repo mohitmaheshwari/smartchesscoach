@@ -2212,3 +2212,159 @@ async def mark_opening_practiced(
         "traps_learned": progress.traps_learned,
         "message": f"Great practice! You've practiced {progress.opening_name} {progress.times_practiced} times."
     }
+
+
+
+# ==================== PERSONALIZED LEARNING PATH ====================
+
+@router.get("/learning-path")
+async def get_personalized_learning_path(user: User = Depends(get_current_user)):
+    """
+    Get a personalized learning path based on user's weaknesses, habits, and progress.
+    
+    This is the "smart coach" recommendation - what to work on today.
+    """
+    global db
+    
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    user_id = user.user_id
+    
+    # Get user's memory (habits, weaknesses, progress)
+    memory = await db.coach_memory.find_one({"user_id": user_id}, {"_id": 0})
+    
+    # Get recent games for pattern analysis
+    recent_games = await db.games.find(
+        {"user_id": user_id}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    # Get understanding profile
+    understanding = await db.chess_understanding.find_one(
+        {"user_id": user_id}, {"_id": 0}
+    )
+    
+    # Build learning path
+    recommendations = []
+    focus_areas = []
+    
+    # 1. Analyze weaknesses from memory
+    if memory and memory.get("weaknesses"):
+        for weakness in memory["weaknesses"][:3]:  # Top 3 weaknesses
+            if weakness.get("detection_count", 0) >= 2:
+                focus_areas.append({
+                    "area": weakness.get("name", "Unknown"),
+                    "priority": "high" if weakness.get("detection_count", 0) >= 5 else "medium",
+                    "count": weakness.get("detection_count", 0),
+                    "improving": weakness.get("improving", False)
+                })
+                
+                # Generate recommendation
+                recommendations.append({
+                    "type": "weakness",
+                    "title": f"Work on {weakness.get('name', 'this area')}",
+                    "description": f"You've struggled with this {weakness.get('detection_count', 0)} times recently. Let's fix it!",
+                    "action": "practice",
+                    "priority": 1 if weakness.get("detection_count", 0) >= 5 else 2
+                })
+    
+    # 2. Check for opening recommendations
+    if understanding and understanding.get("opening_knowledge"):
+        opening_data = understanding["opening_knowledge"]
+        if opening_data.get("weak_openings"):
+            for opening in opening_data["weak_openings"][:2]:
+                recommendations.append({
+                    "type": "opening",
+                    "title": f"Practice the {opening}",
+                    "description": "Your results in this opening need improvement. Visit the Opening Lab!",
+                    "action": "opening_lab",
+                    "priority": 2
+                })
+    
+    # 3. Analyze recent game patterns
+    if recent_games:
+        blunder_count = 0
+        missed_tactics = 0
+        
+        for game in recent_games:
+            analysis = game.get("analysis", {})
+            if analysis.get("blunders", 0) > 0:
+                blunder_count += analysis["blunders"]
+            if analysis.get("missed_tactics"):
+                missed_tactics += len(analysis["missed_tactics"])
+        
+        if blunder_count >= 5:
+            recommendations.append({
+                "type": "tactics",
+                "title": "Focus on calculation",
+                "description": f"You've had {blunder_count} blunders in recent games. Slow down and check all captures!",
+                "action": "play_with_coach",
+                "priority": 1
+            })
+        
+        if missed_tactics >= 3:
+            recommendations.append({
+                "type": "tactics",
+                "title": "Tactics training needed",
+                "description": f"You've missed {missed_tactics} tactical opportunities. Look for checks, captures, and attacks!",
+                "action": "tactics",
+                "priority": 2
+            })
+    
+    # 4. Add positive reinforcement if improving
+    improving_areas = []
+    if memory and memory.get("weaknesses"):
+        for weakness in memory["weaknesses"]:
+            if weakness.get("improving"):
+                improving_areas.append(weakness.get("name", "Unknown"))
+    
+    # 5. Generate today's focus
+    todays_focus = None
+    if recommendations:
+        # Sort by priority
+        recommendations.sort(key=lambda x: x.get("priority", 99))
+        top_rec = recommendations[0]
+        todays_focus = {
+            "title": top_rec["title"],
+            "description": top_rec["description"],
+            "type": top_rec["type"]
+        }
+    else:
+        todays_focus = {
+            "title": "Keep practicing!",
+            "description": "Play a game with the coach to identify areas to improve.",
+            "type": "general"
+        }
+    
+    return {
+        "todays_focus": todays_focus,
+        "focus_areas": focus_areas,
+        "recommendations": recommendations[:5],  # Top 5 recommendations
+        "improving_areas": improving_areas,
+        "message": _generate_coach_message(focus_areas, improving_areas)
+    }
+
+
+def _generate_coach_message(focus_areas, improving_areas):
+    """Generate a human-like coach message for the learning path."""
+    import random
+    
+    if improving_areas:
+        return random.choice([
+            f"Great progress on {improving_areas[0]}! Keep it up, you're getting better.",
+            f"I've noticed improvement in {improving_areas[0]}. Well done!",
+            f"You're working hard and it shows! {improving_areas[0]} is getting better."
+        ])
+    elif focus_areas:
+        top_focus = focus_areas[0]["area"]
+        return random.choice([
+            f"Dekho, let's focus on {top_focus} today. Small improvements add up!",
+            f"Today's goal: work on {top_focus}. You've got this!",
+            f"I noticed {top_focus} needs attention. Let's tackle it together!"
+        ])
+    else:
+        return random.choice([
+            "Looking good! Play a game with me to find what to work on.",
+            "Ready to improve? Let's play and I'll find your weak spots!",
+            "Come, let's play a game and see what we can improve."
+        ])

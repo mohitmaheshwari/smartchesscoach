@@ -10,6 +10,9 @@ The feedback includes:
 2. What the best move was and why
 3. Explanation of the coach's counter-move
 4. Personalized language based on player's understanding profile
+5. Socratic questioning for mistakes/blunders
+6. Pattern recognition from user's history
+7. Memory references to past games
 
 This is NOT a chatty analysis - it's a focused teaching moment
 like a human coach sitting across from you.
@@ -428,6 +431,38 @@ async def generate_move_feedback(
     except Exception as e:
         logger.warning(f"Could not get understanding context: {e}")
     
+    # Get pattern context from memory (for recurring mistakes)
+    pattern_reference = None
+    memory_reference = None
+    
+    if quality in ["mistake", "blunder"] and db:
+        try:
+            from services.coach_memory import get_realtime_pattern_context, record_in_game_mistake
+            
+            # Determine mistake type from tactical analysis
+            mistake_type = "tactical_miss"
+            if tactical.get("best_move_captures"):
+                mistake_type = "missed_tactic"
+            elif tactical.get("threats_created"):
+                mistake_type = "hanging_piece"
+            
+            # Get pattern context
+            pattern_ctx = await get_realtime_pattern_context(db, user_id, mistake_type)
+            
+            if pattern_ctx.get("is_recurring"):
+                pattern_reference = pattern_ctx.get("pattern_message")
+            
+            if pattern_ctx.get("memory_reference"):
+                memory_reference = pattern_ctx.get("memory_reference")
+            
+            # Record this mistake for future tracking
+            move_number = user_move_data.get("move_number", 0)
+            await record_in_game_mistake(
+                db, user_id, mistake_type, move_number, fen_before
+            )
+        except Exception as e:
+            logger.warning(f"Could not get pattern context: {e}")
+    
     # Generate main coaching message (now returns dict with socratic fields)
     coaching_result = _generate_coaching_message(
         user_move=user_move,
@@ -516,8 +551,8 @@ async def generate_move_feedback(
         # Socratic mode fields
         socratic_question=socratic_question,
         expects_response=expects_response,
-        pattern_reference=None,  # Will be populated from memory service
-        memory_reference=None    # Will be populated from memory service
+        pattern_reference=pattern_reference,
+        memory_reference=memory_reference
     )
 
 

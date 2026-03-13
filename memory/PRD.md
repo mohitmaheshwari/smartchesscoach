@@ -15,33 +15,35 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 ├── backend/
 │   ├── services/
 │   │   ├── realtime_coaching_feedback.py  # Real-time move feedback with Socratic mode
-│   │   ├── human_coach_integration.py     # NEW: Unified human-like coaching (Indian-English)
-│   │   ├── coach_personality_service.py   # Defines player levels and coaching language
+│   │   ├── human_coach_integration.py     # Unified human-like coaching (Indian-English)
+│   │   ├── coach_personality.py           # Defines player levels and coaching language
 │   │   ├── coach_memory.py                # Memory of past games and patterns
 │   │   ├── socratic_engine.py             # Socratic questioning system
 │   │   ├── player_understanding_service.py # Multi-dimensional chess understanding
 │   │   ├── chess_understanding.py         # Chess skills profiling
 │   │   ├── opening_library_service.py     # Opening training lab service
-│   │   └── trap_library.py                # Chess trap definitions
+│   │   └── trap_library.py                # Chess trap definitions (27+ traps)
 │   ├── routes/
 │   │   ├── auth.py
 │   │   ├── lab.py
-│   │   ├── coach_play.py                  # NEW: Coach play routes modularization
+│   │   ├── coach.py                       # Coach routes including learning-path
+│   │   ├── coach_play.py                  # Coach play routes modularization (IN PROGRESS)
 │   │   └── openings.py                    # Opening Training Lab routes
 │   └── server.py
 └── frontend/
     └── src/
         ├── pages/
         │   ├── LabV2.jsx                  # Game review page
-        │   ├── Dashboard.jsx              # User dashboard
+        │   ├── Dashboard.jsx              # User dashboard with LearningPath
         │   ├── CoachPlay.jsx              # Live coach play with feedback
         │   └── OpeningLesson.jsx          # Opening lessons with practice mode
         └── components/
+            ├── LearningPath.jsx           # Personalized learning recommendations
             ├── coach-play/
             │   ├── EvalBar.jsx
-            │   └── MoveFeedbackPanel.jsx  # UPDATED: Socratic mode UI
+            │   └── MoveFeedbackPanel.jsx  # Socratic mode UI with input
             ├── openings/
-            │   ├── InteractivePractice.jsx # Visual move indicators
+            │   ├── InteractivePractice.jsx # Visual move indicators (✓/✗)
             │   └── TrapPractice.jsx        # Interactive trap practice
             └── lab/
                 ├── TrapAnalysis.jsx        # Trap detection in games
@@ -50,142 +52,65 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## What's Been Implemented
 
-### December 2025 - Human-Like Coaching Upgrade (90% Vision)
-- **Socratic Mode Integration:**
-  - Backend: Added `socratic_question`, `expects_response`, `pattern_reference`, `memory_reference` fields
-  - Indian-English coaching messages: "Arre {name}!", "Dekho...", "Shabash!", "Koi baat nahi"
-  - Questions before answers: "Walk me through your thinking with {move}"
-  - Frontend: Updated `MoveFeedbackPanel.jsx` with Socratic UI (text input, show answer button)
-- **HumanCoachIntegration service:** Unified service combining memory, Socratic, conversational tone
-- **Pattern-Based Messages:** "This is the 3rd time this week with {pattern}"
+### December 2025 / March 2026 - "90% Vision" Human-Like Coaching
 
-### December 2025 - Visual Move Indicators + Interactive Trap Practice
-- **P0 Feature: Visual Move Indicators** (Chess.com style feedback)
-  - Added `MoveIndicator` component that displays icons on the board
-  - Green Book icon for correct/book moves
-  - Red X icon for wrong moves
-  - Icons appear animated on the destination square
-  - Text feedback shows "Book Move" or "Wrong Move" labels
-  - Last move highlighting on the board
-- **P0 Feature: Interactive Trap Practice** - Users can now practice executing traps against the AI coach
-  - Integrated `TrapPractice` component into `OpeningLesson.jsx`
-  - 3-phase practice flow: Setup → Execute Trap → Victory!
-  - Coach automatically plays the victim's moves during trap execution
-  - Visual feedback with phase indicators and move explanations
-  - Hint system for stuck users
-  - Trap list shows difficulty badges, result types, and move counts
-  - Click any trap to start interactive practice
-- **P1: Backend Refactoring - coach_play.py**
-  - Created new `routes/coach_play.py` file as foundation for coach/play route modularization
-  - Migrated helper functions: `is_common_opening_move`, `get_coach_move_explanation`, `get_teaching_explanation`, `classify_move`
-  - Added new `/api/coach/play/stats` endpoint for session statistics
-  - Registered router in server.py with proper db/llm dependency injection
-- **Files Modified/Created:**
-  - `frontend/src/components/openings/InteractivePractice.jsx` - Added MoveIndicator component
-  - `frontend/src/components/openings/TrapPractice.jsx` - Fixed trap color detection
-  - `frontend/src/pages/OpeningLesson.jsx` - Integrated TrapPractice component
-  - `backend/routes/coach_play.py` - NEW: Initial coach play routes structure
-  - `backend/services/trap_library.py` - Added trap_color field to traps
+#### ✅ COMPLETED:
+1. **LearningPath Component Integrated into Dashboard**
+   - Added `<LearningPath />` component to Dashboard.jsx
+   - Shows "Today's Focus" with personalized recommendations
+   - "Your Coach Says" section with Indian-English messages
+   - "You're Improving" section showing progress areas
+   - Backend endpoint `/api/coach/learning-path` working
 
-### March 12, 2026 - Expanded Trap Library + Coach Integration
-- **Added 9 more openings** to database: French Defense, Slav Defense, Nimzo-Indian, Vienna Game, Queen's Indian, Grunfeld Defense, Benoni Defense (now 20 total)
-- **Added 9 more traps** (now 27 total):
-  - French Defense: Winawer Poisoned Pawn, Milner-Barry Gambit
-  - Slav Defense: Main Line Trap
-  - Nimzo-Indian: Hubner Trap (wins queen!)
-  - Vienna Game: Frankenstein-Dracula
-  - Queen's Indian: Bishop Trap
-  - Grunfeld: Exchange Trap
-  - Benoni: Snake Trap
-- **New API endpoints:**
-  - `GET /api/traps/statistics` - Trap library stats
-  - `GET /api/traps/checkmates` - All checkmate traps
-  - `GET /api/traps/difficulty/{level}` - Filter by difficulty
-  - `POST /api/traps/suggest` - Get trap suggestion for position
-- **Coach Integration:** Trap suggestions now appear in move feedback when a trap is within reach
-- **Frontend:** "Browse All Opening Lessons" modal with trap counts
+2. **Socratic Mode UI in MoveFeedbackPanel**
+   - Input field for user responses to Socratic questions
+   - "Share my thinking" and "Show answer" buttons
+   - Pattern reference and memory reference display
+   - Indian-English coaching messages
 
-### March 12, 2026 - Comprehensive Trap Library Created
-- **Created `/backend/services/trap_library.py`** with 18 chess-accurate traps:
-  - Italian Game: 4 traps (Fried Liver, Legal's Mate, Blackburne Shilling, Scholar's Defense)
-  - Sicilian Defense: 2 traps (Siberian Trap, Magnus Smith Trap)
-  - Queen's Gambit: 2 traps (Elephant Trap, Lasker Trap)
-  - Ruy Lopez: 2 traps (Noah's Ark, Mortimer Trap)
-  - Petrov Defense: 1 trap (Stafford Gambit - checkmate!)
-  - Budapest Gambit: 1 trap (Kieninger Trap - smothered mate!)
-  - Dutch Defense: 1 trap (Dutch Defense Mate)
-  - Caro-Kann: 1 trap (Smothered Mate)
-  - Plus traps for King's Indian, Scandinavian, Philidor, London
-- **Added 6 new openings** to the database: Ruy Lopez, Philidor, Petrov, Budapest, Dutch, Opera Game
-- **All traps engine-verified** with chess.py for 100% accuracy
-- **Added metadata:** difficulty (beginner/intermediate/advanced), result_type (checkmate/wins_queen/wins_piece/wins_material)
+3. **Backend Services Fully Integrated:**
+   - `human_coach_integration.py` - Indian-English templates
+   - `realtime_coaching_feedback.py` - Socratic mode fields
+   - `socratic_engine.py` - Full Socratic dialogue system
+   - `coach_memory.py` - Deep memory integration
 
-### March 12, 2026 - Interactive Practice Mode & Refactoring
-- **P1 Feature: Interactive Practice Mode** in Opening Training Lab
-  - New backend endpoints: `/api/openings/{key}/practice/start`, `/api/openings/practice/move`, `/api/openings/practice/{id}/hint`
-  - Socratic feedback when user makes wrong moves
-  - Coach plays opponent's moves automatically
-  - Hint system with progressive detail (3 levels)
-  - Session tracking for practice progress
-- **P1 Backend Refactoring:**
-  - Created `routes/openings.py` - extracted all opening training endpoints from server.py
-  - Removed duplicate endpoints, server.py reduced by ~100 lines
-- **P2 Frontend Refactoring:**
-  - Extracted `EvalBar` component to `/components/coach-play/EvalBar.jsx`
-  - Extracted `MoveFeedbackPanel` to `/components/coach-play/MoveFeedbackPanel.jsx`
-  - Created `/components/openings/InteractivePractice.jsx` for practice mode
-  - CoachPlay.jsx reduced from 2252 to 2058 lines
+4. **Visual Move Indicators** (Chess.com style)
+   - Green checkmark for correct/book moves
+   - Red X for wrong moves
+   - Animated icons on destination squares
 
-### March 12, 2026 - Opening Library Matching Bug Fix
-- **P0 Fix:** Opening variations now correctly match to the library
-  - "Giuoco Piano Game" now maps to "Italian Game"
-  - "Sicilian Najdorf" maps to "Sicilian Defense"
-  - All Italian Game variations (Two Knights, Evans Gambit, etc.) map correctly
-- **New Backend Endpoint:** `GET /api/openings/match?opening_name=X&eco=Y`
-  - Intelligent matching using ECO codes and opening aliases
-  - Returns `library_key` and `library_name` if matched
-- **Frontend Update:** HabitsToImprove component now uses backend matching instead of naive substring comparison
-- **"Learn This Opening" button** now appears correctly for all opening variations
+5. **Interactive Trap Practice**
+   - 27+ chess-accurate traps
+   - Practice mode with coach playing victim moves
+   - Hint system showing full trap sequence
 
-### March 12, 2026 - Real-time Move Feedback
-- **MoveFeedbackPanel Component:** Comprehensive feedback display after each user move
-  - Shows move quality (excellent/good/inaccuracy/mistake/blunder) with emoji indicators
-  - Displays coaching message explaining the move
-  - Shows "Best was {move}" section when user's move wasn't optimal
-  - Displays coach's counter-move with explanation
-  - Includes personalized feedback based on player's weaknesses
-  - Dismiss button functionality
-- **Backend API:** `/api/coach/play/feedback/{session_id}` endpoint
-- **Testing:** 23 tests pass (13 backend + 10 frontend)
+6. **UI Flicker Fix**
+   - Separated FEN and lastMove updates into different useEffect hooks
+   - Wrong moves shown for 2 seconds before resetting
 
 ### Previous Sessions
-- **Multi-Dimensional Player Understanding:** Backend service that profiles chess understanding across dimensions (Tactical Vision, Positional Sense, Opening Knowledge, Consistency)
-- **Personalized Coaching Language:** Dynamic feedback adaptation based on player's specific weaknesses
-- **Animated Punishing Move:** In CriticalMoments training, opponent's counter-move animates on the board
-- **Audio Feedback:** Custom sound effects using Web Audio API
-- **"View" Button Fix:** Correct navigation and arrow display in Ideas tab
-- **"Next Moment" Button:** Advance to next puzzle after correct move
-- **"Reset Game History":** Backend endpoint and UI button for data reset
+- Multi-Dimensional Player Understanding
+- Personalized Coaching Language
+- Opening Training Lab with 20+ openings
+- Comprehensive trap library (27 traps)
 
 ## Key API Endpoints
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/api/coach/learning-path` | GET | Personalized learning recommendations |
 | `/api/coach/play/feedback/{session_id}` | GET | Real-time move feedback |
-| `/api/coach/play/start` | POST | Start new coach game |
-| `/api/coach/play/move/{session_id}` | POST | Make a move |
-| `/api/coach/play/state/{session_id}` | GET | Get session state |
-| `/api/lab/deep-strategy/{game_id}` | GET | Game review data |
-| `/api/auth/reset-user-data` | POST | Clear user game data |
-| `/api/openings/match` | GET | Match opening name to library |
+| `/api/coach/socratic/start` | POST | Start Socratic dialogue |
+| `/api/coach/socratic/respond` | POST | User responds to Socratic question |
+| `/api/coach/human-coach/welcome` | GET | Human-like greeting |
 | `/api/openings/{key}/practice/start` | POST | Start interactive practice |
 | `/api/openings/practice/move` | POST | Make practice move |
-| `/api/openings/practice/{id}/hint` | GET | Get practice hint |
 
 ## Database Schema
 - **player_profiles:** user_id, estimated_elo, top_weaknesses, strengths
 - **games:** Game PGNs and metadata
 - **games_analysis:** Detailed analysis for each game
 - **coach_sessions:** Coach play sessions and move history
+- **coach_memory:** Habits, weaknesses, improving areas
 
 ## 3rd Party Integrations
 - **Stockfish:** Engine analysis via python-chess
@@ -195,37 +120,38 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Prioritized Backlog
 
-### P0 - Completed
-- [x] Opening library matching bug fix (Giuoco Piano -> Italian Game)
-- [x] Interactive Trap Practice Mode - Users can now practice executing traps against the AI coach
+### ✅ P0 - Completed
+- [x] LearningPath component in Dashboard
+- [x] Socratic Mode UI in MoveFeedbackPanel
+- [x] Visual Move Indicators in practice mode
+- [x] Interactive Trap Practice
+- [x] UI Flicker fix for wrong moves
 
-### P1 - Completed
-- [x] Interactive Practice Mode in Opening Training Lab
-- [x] Backend Refactoring: Created routes/openings.py (partial modularization)
-- [x] Backend Refactoring: Created routes/coach_play.py - Initial structure with helper functions migrated
-- [x] Frontend Refactoring: Extracted EvalBar and MoveFeedbackPanel from CoachPlay.jsx
+### P1 - Backend Refactoring (IN PROGRESS)
+- [ ] Continue migrating routes from server.py to coach_play.py (~2500 lines remaining)
+- [ ] The migration pattern is established with `/api/coach/play/stats` endpoint
 
-### P1 - Remaining
-- [ ] Continue Backend Refactoring: Migrate remaining routes from server.py to coach_play.py (~2500 lines remaining)
-
-### P2 - Medium Priority
-- [ ] Continue refactoring `CoachPlay.jsx` - extract more hooks (useCoachSession, useChessboard)
+### P2 - Frontend Refactoring
+- [ ] Break down `CoachPlay.jsx` (~2000 lines) into smaller components
+- [ ] Extract custom hooks: useCoachSession, useChessboard
 - [ ] Break down `LabV2.jsx` into smaller components
-- [ ] Add more sophisticated tactical analysis to move feedback
-- [ ] Implement move animation when showing best move
 
-### P3 - Future
+### P3 - Future Features
 - [ ] Human Coach Training Dashboard for reviewing AI explanations
-- [ ] Advanced memory features for long-term player tracking
+- [ ] Spaced repetition for opening memorization
 - [ ] Multi-game pattern recognition in feedback
 
 ## Test Credentials
-- Backend runs in `DEV_MODE` with default test user `user_bdd07038f9c0`
+- Backend runs in `DEV_MODE` with default test user
 - No login required for testing
 
 ## Known Technical Debt
-- `CoachPlay.jsx` still has ~2000 lines, needs more component extraction
+- `server.py` still has ~9000+ lines - coach/play routes need migration
+- `CoachPlay.jsx` has ~2000 lines, needs component extraction
 - `LabV2.jsx` remains a large component (~1000 lines)
-- `server.py` still has ~12,000 lines - coach/play routes (~2500 lines) need to be migrated to `routes/coach_play.py`
-- Backend routes could be further modularized (training, journey, etc.)
-- The `routes/coach_play.py` file has been created with helper functions and one new endpoint; remaining 25+ endpoints need to be migrated from server.py
+
+## Testing Status
+- Backend Socratic endpoints tested and working
+- LearningPath API returns proper data
+- Frontend components rendering correctly
+- Practice mode visual indicators working

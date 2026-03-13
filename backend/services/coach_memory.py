@@ -515,3 +515,157 @@ async def get_personalized_greeting(db, user_id: str) -> str:
     }
     
     return greetings.get(context, greetings["normal"])
+
+
+async def get_realtime_pattern_context(
+    db, 
+    user_id: str, 
+    mistake_type: str,
+    position_type: str = ""
+) -> Dict[str, Any]:
+    """
+    Get pattern context for real-time coaching during a game.
+    
+    Returns info about:
+    - How often user makes this type of mistake
+    - Recent games where similar mistake happened
+    - Personalized advice based on history
+    """
+    memory = await get_or_create_memory(db, user_id)
+    
+    result = {
+        "is_recurring": False,
+        "occurrence_count": 0,
+        "last_occurrence": None,
+        "pattern_message": None,
+        "memory_reference": None,
+        "improvement_note": None
+    }
+    
+    # Map mistake types to habit IDs
+    mistake_to_habit = {
+        "hanging_piece": "one_move_blunder",
+        "missed_tactic": "one_move_blunder",
+        "tactical_miss": "one_move_blunder",
+        "early_queen": "early_queen",
+        "king_safety": "no_castling",
+        "pawn_weakness": "pawn_weaknesses",
+        "time_trouble": "time_trouble",
+        "overconfidence": "overconfidence"
+    }
+    
+    habit_id = mistake_to_habit.get(mistake_type)
+    
+    if habit_id:
+        # Check if this is a known weakness
+        for weakness in memory.weaknesses:
+            if weakness.habit_id == habit_id:
+                result["is_recurring"] = True
+                result["occurrence_count"] = weakness.detection_count
+                result["last_occurrence"] = weakness.last_detected
+                
+                # Generate pattern message
+                if weakness.detection_count >= 3:
+                    result["pattern_message"] = (
+                        f"This is the {weakness.detection_count}th time with {weakness.name}. "
+                        f"We need to work on this na?"
+                    )
+                elif weakness.detection_count == 2:
+                    result["pattern_message"] = (
+                        f"This {weakness.name} happened last game too. Let's fix it!"
+                    )
+                
+                # Check if improving
+                if weakness.improving:
+                    result["improvement_note"] = (
+                        f"But I've noticed you're getting better at {weakness.name}. Keep it up!"
+                    )
+                break
+    
+    # Get recent game reference if available
+    try:
+        if db:
+            # Find recent game with similar issue
+            recent_game = await db.games.find_one(
+                {
+                    "user_id": user_id,
+                    f"analysis.issues.{mistake_type}": {"$exists": True}
+                },
+                sort=[("created_at", -1)]
+            )
+            
+            if recent_game:
+                game_date = recent_game.get("created_at", "")
+                if game_date:
+                    # Format date nicely
+                    from datetime import datetime
+                    try:
+                        dt = datetime.fromisoformat(game_date.replace("Z", "+00:00"))
+                        days_ago = (datetime.now(timezone.utc) - dt).days
+                        if days_ago == 0:
+                            date_str = "earlier today"
+                        elif days_ago == 1:
+                            date_str = "yesterday"
+                        elif days_ago < 7:
+                            date_str = f"{days_ago} days ago"
+                        else:
+                            date_str = dt.strftime("%B %d")
+                        
+                        opponent = recent_game.get("opponent_name", "your opponent")
+                        result["memory_reference"] = (
+                            f"Remember your game against {opponent} {date_str}? "
+                            f"Similar thing happened there."
+                        )
+                    except:
+                        pass
+    except Exception as e:
+        logger.warning(f"Error getting game reference: {e}")
+    
+    return result
+
+
+async def record_in_game_mistake(
+    db,
+    user_id: str,
+    mistake_type: str,
+    move_number: int,
+    position_fen: str = ""
+):
+    """
+    Record a mistake that happened during a live game.
+    This helps build the user's pattern profile in real-time.
+    """
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        
+        await db.in_game_mistakes.insert_one({
+            "user_id": user_id,
+            "mistake_type": mistake_type,
+            "move_number": move_number,
+            "position_fen": position_fen,
+            "created_at": now
+        })
+        
+        # Update weakness count in memory
+        memory = await get_or_create_memory(db, user_id)
+        
+        # Map to habit
+        mistake_to_habit = {
+            "hanging_piece": "one_move_blunder",
+            "missed_tactic": "one_move_blunder",
+            "early_queen": "early_queen",
+            "king_safety": "no_castling"
+        }
+        
+        habit_id = mistake_to_habit.get(mistake_type)
+        if habit_id:
+            _update_weakness(memory, habit_id, now, violated=True)
+            
+            await db.coach_memory.update_one(
+                {"user_id": user_id},
+                {"$set": _memory_to_doc(memory)},
+                upsert=True
+            )
+    except Exception as e:
+        logger.warning(f"Error recording in-game mistake: {e}")
+

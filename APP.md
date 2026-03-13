@@ -452,7 +452,7 @@ EMERGENT_LLM_KEY=<key>
 
 ### Frontend `.env`
 ```bash
-REACT_APP_BACKEND_URL=https://chess-trap-coach.preview.emergentagent.com
+REACT_APP_BACKEND_URL=https://socratic-chess.preview.emergentagent.com
 ```
 
 ### Key Constants

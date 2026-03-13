@@ -11,7 +11,7 @@ export default defineConfig({
     ['json', { outputFile: '/root/.emergent/automation_output/20260313_100603/results.json' }],
   ],
   use: {
-    baseURL: 'https://chess-trap-coach.preview.emergentagent.com',
+    baseURL: 'https://socratic-chess.preview.emergentagent.com',
     screenshot: 'only-on-failure',
     trace: 'off',
     headless: true,
