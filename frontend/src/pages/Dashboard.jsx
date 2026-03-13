@@ -47,6 +47,7 @@ import {
 import DailyMissionCard from "@/components/DailyMissionCard";
 import { CoachWeeklySignalCard, FocusLockCard } from "@/components/Home";
 import LearningPath from "@/components/LearningPath";
+import MemoryLane from "@/components/MemoryLane";
 
 // Milestone celebration banner component
 const MilestoneBanner = ({ milestone, onDismiss }) => {
@@ -781,6 +782,11 @@ const Dashboard = ({ user }) => {
             {/* Learning Path - Personalized Coach Recommendations */}
             <AnimatedItem>
               <LearningPath />
+            </AnimatedItem>
+            
+            {/* Memory Lane - Coach remembers your past games */}
+            <AnimatedItem>
+              <MemoryLane />
             </AnimatedItem>
             
             {/* Stats Row - Clickable */}

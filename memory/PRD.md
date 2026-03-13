@@ -26,19 +26,20 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 │   ├── routes/
 │   │   ├── auth.py
 │   │   ├── lab.py
-│   │   ├── coach.py                       # Coach routes including learning-path
-│   │   ├── coach_play.py                  # Coach play routes modularization (IN PROGRESS)
+│   │   ├── coach.py                       # Coach routes including learning-path, memory-lane
+│   │   ├── coach_play.py                  # Coach play routes (IN PROGRESS - helper functions migrated)
 │   │   └── openings.py                    # Opening Training Lab routes
 │   └── server.py
 └── frontend/
     └── src/
         ├── pages/
         │   ├── LabV2.jsx                  # Game review page
-        │   ├── Dashboard.jsx              # User dashboard with LearningPath
+        │   ├── Dashboard.jsx              # User dashboard with LearningPath + MemoryLane
         │   ├── CoachPlay.jsx              # Live coach play with feedback
         │   └── OpeningLesson.jsx          # Opening lessons with practice mode
         └── components/
             ├── LearningPath.jsx           # Personalized learning recommendations
+            ├── MemoryLane.jsx             # Coach's memories of past games (NEW)
             ├── coach-play/
             │   ├── EvalBar.jsx
             │   └── MoveFeedbackPanel.jsx  # Socratic mode UI with input
@@ -52,51 +53,35 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## What's Been Implemented
 
-### December 2025 / March 2026 - "90% Vision" Human-Like Coaching
+### March 13, 2026 - Memory Lane Feature (NEW)
+- **MemoryLane Component**: Coach references specific past games making it feel human-like
+- **Backend `/api/coach/memory-lane` endpoint**: Returns memorable moments from games
+- **Features**:
+  - "Mohit, yesterday you played Ba4 and it was costly. Watch out for similar positions!"
+  - "Dekho Mohit, you've had this pattern multiple times. Today, let's break the habit!"
+  - Indian-English conversational style
+  - Links to specific games for review
+- **Integrated into Dashboard** after LearningPath component
 
-#### ✅ COMPLETED:
-1. **LearningPath Component Integrated into Dashboard**
-   - Added `<LearningPath />` component to Dashboard.jsx
-   - Shows "Today's Focus" with personalized recommendations
-   - "Your Coach Says" section with Indian-English messages
-   - "You're Improving" section showing progress areas
-   - Backend endpoint `/api/coach/learning-path` working
-
-2. **Socratic Mode UI in MoveFeedbackPanel**
-   - Input field for user responses to Socratic questions
-   - "Share my thinking" and "Show answer" buttons
-   - Pattern reference and memory reference display
-   - Indian-English coaching messages
-
-3. **Backend Services Fully Integrated:**
-   - `human_coach_integration.py` - Indian-English templates
-   - `realtime_coaching_feedback.py` - Socratic mode fields
-   - `socratic_engine.py` - Full Socratic dialogue system
-   - `coach_memory.py` - Deep memory integration
-
-4. **Visual Move Indicators** (Chess.com style)
-   - Green checkmark for correct/book moves
-   - Red X for wrong moves
-   - Animated icons on destination squares
-
-5. **Interactive Trap Practice**
-   - 27+ chess-accurate traps
-   - Practice mode with coach playing victim moves
-   - Hint system showing full trap sequence
-
-6. **UI Flicker Fix**
-   - Separated FEN and lastMove updates into different useEffect hooks
-   - Wrong moves shown for 2 seconds before resetting
+### March 13, 2026 - LearningPath Integration
+- **LearningPath Component** now visible in Dashboard
+- Shows "Today's Focus" with personalized recommendations
+- "Your Coach Says" section with Indian-English messages
+- "You're Improving" section showing progress areas
 
 ### Previous Sessions
 - Multi-Dimensional Player Understanding
 - Personalized Coaching Language
 - Opening Training Lab with 20+ openings
 - Comprehensive trap library (27 traps)
+- Socratic Mode UI in MoveFeedbackPanel
+- Visual Move Indicators (✓/✗) in practice mode
+- Interactive Trap Practice
 
 ## Key API Endpoints
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/api/coach/memory-lane` | GET | Coach's memories of past games (NEW) |
 | `/api/coach/learning-path` | GET | Personalized learning recommendations |
 | `/api/coach/play/feedback/{session_id}` | GET | Real-time move feedback |
 | `/api/coach/socratic/start` | POST | Start Socratic dialogue |
@@ -108,9 +93,9 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 ## Database Schema
 - **player_profiles:** user_id, estimated_elo, top_weaknesses, strengths
 - **games:** Game PGNs and metadata
-- **games_analysis:** Detailed analysis for each game
+- **games_analysis:** Detailed analysis for each game including blunders
 - **coach_sessions:** Coach play sessions and move history
-- **coach_memory:** Habits, weaknesses, improving areas
+- **coach_memory:** Habits, weaknesses, improving areas, recurring patterns
 
 ## 3rd Party Integrations
 - **Stockfish:** Engine analysis via python-chess
@@ -122,6 +107,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ### ✅ P0 - Completed
 - [x] LearningPath component in Dashboard
+- [x] Memory Lane feature - coach references past games
 - [x] Socratic Mode UI in MoveFeedbackPanel
 - [x] Visual Move Indicators in practice mode
 - [x] Interactive Trap Practice
@@ -129,7 +115,8 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ### P1 - Backend Refactoring (IN PROGRESS)
 - [ ] Continue migrating routes from server.py to coach_play.py (~2500 lines remaining)
-- [ ] The migration pattern is established with `/api/coach/play/stats` endpoint
+- [ ] Helper functions already migrated: is_common_opening_move, get_coach_move_explanation, etc.
+- [ ] Migration pattern established with `/api/coach/play/stats` endpoint
 
 ### P2 - Frontend Refactoring
 - [ ] Break down `CoachPlay.jsx` (~2000 lines) into smaller components
@@ -151,6 +138,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - `LabV2.jsx` remains a large component (~1000 lines)
 
 ## Testing Status
+- Memory Lane API tested and working
 - Backend Socratic endpoints tested and working
 - LearningPath API returns proper data
 - Frontend components rendering correctly

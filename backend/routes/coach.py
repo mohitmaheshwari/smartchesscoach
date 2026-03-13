@@ -2368,3 +2368,160 @@ def _generate_coach_message(focus_areas, improving_areas):
             "Ready to improve? Let's play and I'll find your weak spots!",
             "Come, let's play a game and see what we can improve."
         ])
+
+
+
+@router.get("/memory-lane")
+async def get_memory_lane(user: User = Depends(get_current_user)):
+    """
+    Get "Memory Lane" - specific game memories for the coach to reference.
+    
+    Returns memorable moments from past games that the coach can reference,
+    making it feel like a human coach who remembers your games.
+    """
+    global db
+    import random
+    from datetime import timedelta
+    
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    user_id = user.user_id
+    first_name = user.name.split()[0] if user.name else "friend"
+    
+    # Get recent analyzed games with mistakes
+    recent_games = await db.game_analyses.find(
+        {"user_id": user_id}
+    ).sort("created_at", -1).limit(20).to_list(20)
+    
+    memories = []
+    
+    # 1. Find games with memorable mistakes
+    for game in recent_games:
+        game_date = game.get("created_at") or game.get("analyzed_at")
+        if isinstance(game_date, str):
+            try:
+                from datetime import datetime
+                game_date = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                continue
+        
+        # Calculate how long ago
+        if game_date:
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            if game_date.tzinfo is None:
+                game_date = game_date.replace(tzinfo=timezone.utc)
+            days_ago = (now - game_date).days
+            
+            if days_ago == 0:
+                time_ref = "earlier today"
+            elif days_ago == 1:
+                time_ref = "yesterday"
+            elif days_ago < 7:
+                weekday = game_date.strftime("%A")
+                time_ref = f"last {weekday}"
+            elif days_ago < 14:
+                time_ref = "last week"
+            else:
+                time_ref = f"{days_ago} days ago"
+        else:
+            time_ref = "recently"
+        
+        # Get blunders and mistakes - blunders can be an int or a list
+        blunders = game.get("blunders", [])
+        if isinstance(blunders, int):
+            blunders = []  # Skip if it's just a count
+        stockfish = game.get("stockfish_analysis", {})
+        move_evals = stockfish.get("move_evaluations", [])
+        
+        # Find specific memorable mistakes from blunders list
+        for mistake in (blunders[:2] if isinstance(blunders, list) else []):
+            pattern = mistake.get("mistake_category", "")
+            move = mistake.get("move_played", "")
+            
+            if pattern and move:
+                # Generate Indian-English memory reference
+                memory_templates = [
+                    f"Arre {first_name}, remember {time_ref} when you played {move}? Same {pattern.replace('_', ' ')} pattern!",
+                    f"Dekho, {time_ref} you had this same issue with {pattern.replace('_', ' ')}. You played {move} then too.",
+                    f"I remember {time_ref} - you missed a similar tactic after {move}. Let's not repeat that!",
+                    f"{first_name}, we've seen this before! {time_ref}, same {pattern.replace('_', ' ')} happened.",
+                ]
+                
+                memories.append({
+                    "type": "mistake_pattern",
+                    "message": random.choice(memory_templates),
+                    "game_id": game.get("game_id"),
+                    "pattern": pattern,
+                    "time_ref": time_ref,
+                    "move": move
+                })
+        
+        # Fallback: get memorable mistakes from move evaluations if no blunders list
+        if not memories and move_evals:
+            for eval in move_evals[:5]:
+                if eval.get("evaluation") in ["blunder", "mistake"]:
+                    move = eval.get("move", "")
+                    cp_loss = eval.get("cp_loss", 0)
+                    if move and cp_loss >= 100:
+                        memory_templates = [
+                            f"Remember {time_ref}? That {move} move cost you {cp_loss} centipawns. Let's be more careful!",
+                            f"{first_name}, {time_ref} you played {move} and it was costly. Watch out for similar positions!",
+                            f"Dekho {first_name}, {time_ref} you had a tough moment with {move}. Let's learn from it.",
+                        ]
+                        memories.append({
+                            "type": "mistake_pattern",
+                            "message": random.choice(memory_templates),
+                            "game_id": game.get("game_id"),
+                            "pattern": eval.get("evaluation"),
+                            "time_ref": time_ref,
+                            "move": move
+                        })
+                        break  # Only add one per game
+    
+    # 2. Find improvement moments
+    if recent_games:
+        # Look for games with good accuracy
+        for game in recent_games[:5]:
+            stockfish = game.get("stockfish_analysis", {})
+            user_stats = stockfish.get("user_stats", {})
+            accuracy = user_stats.get("accuracy", 0)
+            
+            if accuracy >= 85:
+                game_date = game.get("created_at")
+                if isinstance(game_date, str):
+                    try:
+                        game_date = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
+                        days_ago = (datetime.now(timezone.utc) - game_date.replace(tzinfo=timezone.utc)).days
+                        if days_ago < 7:
+                            time_ref = "this week" if days_ago > 1 else "recently"
+                            memories.append({
+                                "type": "good_game",
+                                "message": f"Shabash {first_name}! Remember that {accuracy}% accuracy game {time_ref}? That's the level we're aiming for!",
+                                "game_id": game.get("game_id"),
+                                "accuracy": accuracy
+                            })
+                            break
+                    except (ValueError, AttributeError):
+                        pass
+    
+    # 3. Get recurring patterns from coach memory
+    coach_memory = await db.coach_memory.find_one({"user_id": user_id}, {"_id": 0})
+    if coach_memory:
+        recurring = coach_memory.get("recurring_patterns", [])
+        if recurring:
+            pattern = recurring[0] if isinstance(recurring[0], str) else recurring[0].get("name", "")
+            if pattern:
+                memories.append({
+                    "type": "recurring_pattern",
+                    "message": f"Dekho {first_name}, you've had this {pattern.replace('_', ' ')} pattern multiple times. Today, let's break the habit!",
+                    "pattern": pattern
+                })
+    
+    # Limit to 3 most relevant memories
+    return {
+        "memories": memories[:3],
+        "has_memories": len(memories) > 0,
+        "coach_knows_you": len(recent_games) >= 3
+    }
