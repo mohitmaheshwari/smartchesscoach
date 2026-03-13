@@ -49,7 +49,14 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## What's Been Implemented
 
-### December 2025 - Interactive Trap Practice Mode + Backend Refactoring
+### December 2025 - Visual Move Indicators + Interactive Trap Practice
+- **P0 Feature: Visual Move Indicators** (Chess.com style feedback)
+  - Added `MoveIndicator` component that displays icons on the board
+  - Green Book icon for correct/book moves
+  - Red X icon for wrong moves
+  - Icons appear animated on the destination square
+  - Text feedback shows "Book Move" or "Wrong Move" labels
+  - Last move highlighting on the board
 - **P0 Feature: Interactive Trap Practice** - Users can now practice executing traps against the AI coach
   - Integrated `TrapPractice` component into `OpeningLesson.jsx`
   - 3-phase practice flow: Setup → Execute Trap → Victory!
@@ -63,11 +70,12 @@ Create a hyper-personalized, data-driven chess coaching application that functio
   - Migrated helper functions: `is_common_opening_move`, `get_coach_move_explanation`, `get_teaching_explanation`, `classify_move`
   - Added new `/api/coach/play/stats` endpoint for session statistics
   - Registered router in server.py with proper db/llm dependency injection
-  - Documented remaining ~2500 lines to be migrated in future iterations
 - **Files Modified/Created:**
+  - `frontend/src/components/openings/InteractivePractice.jsx` - Added MoveIndicator component
+  - `frontend/src/components/openings/TrapPractice.jsx` - Fixed trap color detection
   - `frontend/src/pages/OpeningLesson.jsx` - Integrated TrapPractice component
   - `backend/routes/coach_play.py` - NEW: Initial coach play routes structure
-  - `backend/server.py` - Added coach_play_routes registration
+  - `backend/services/trap_library.py` - Added trap_color field to traps
 
 ### March 12, 2026 - Expanded Trap Library + Coach Integration
 - **Added 9 more openings** to database: French Defense, Slav Defense, Nimzo-Indian, Vienna Game, Queen's Indian, Grunfeld Defense, Benoni Defense (now 20 total)
