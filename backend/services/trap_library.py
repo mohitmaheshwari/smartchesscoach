@@ -78,6 +78,7 @@ TRAP_LIBRARY: Dict[str, List[Dict]] = {
         {
             "name": "Blackburne Shilling Gambit",
             "description": "A cunning trap where Black sacrifices a pawn to deliver checkmate!",
+            "trap_color": "black",
             "setup_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nd4"],
             "trap_line": [
                 {"move": "Nxe5", "explanation": "White grabs the pawn - a natural but losing move!"},
@@ -96,6 +97,7 @@ TRAP_LIBRARY: Dict[str, List[Dict]] = {
         {
             "name": "Scholar's Mate Defense Trap",
             "description": "Punish White's premature queen attack and win material!",
+            "trap_color": "black",
             "setup_moves": ["e4", "e5", "Bc4", "Nc6", "Qh5", "g6", "Qf3", "Nf6", "g4"],
             "trap_line": [
                 {"move": "Nd4", "explanation": "The knight jumps to a powerful outpost!"},
@@ -117,6 +119,7 @@ TRAP_LIBRARY: Dict[str, List[Dict]] = {
         {
             "name": "Siberian Trap",
             "description": "A deadly trap where Black wins White's queen with a series of checks!",
+            "trap_color": "black",
             "setup_moves": ["e4", "c5", "Nf3", "e6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "Bb4"],
             "trap_line": [
                 {"move": "e5", "explanation": "White attacks the knight - a common but losing move!"},
@@ -135,6 +138,7 @@ TRAP_LIBRARY: Dict[str, List[Dict]] = {
         {
             "name": "Magnus Smith Trap",
             "description": "A tactical shot that wins material in the Dragon variation.",
+            "trap_color": "white",
             "setup_moves": ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "Nc6", "Bc4", "g6"],
             "trap_line": [
                 {"move": "Nxc6", "explanation": "White exchanges knights."},
@@ -158,6 +162,7 @@ TRAP_LIBRARY: Dict[str, List[Dict]] = {
         {
             "name": "Elephant Trap",
             "description": "Black wins a piece with a beautiful intermezzo check!",
+            "trap_color": "black",
             "setup_moves": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Nbd7", "cxd5", "exd5", "Nxd5"],
             "trap_line": [
                 {"move": "Nxd5", "explanation": "Black recaptures the pawn."},

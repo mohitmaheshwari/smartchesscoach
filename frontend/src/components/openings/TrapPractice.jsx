@@ -48,13 +48,53 @@ const TrapPractice = ({ trap, onClose, onComplete }) => {
   const setupMoves = trap?.setup_moves || [];
   const trapLine = trap?.trap_line || [];
   
-  // Determine user's color based on trap (user is the one who benefits from the trap)
-  // For traps in black openings, user plays black; for white openings, user plays white
-  const isBlackOpening = ['sicilian-defense', 'french-defense', 'caro-kann', 'scandinavian-defense',
-    'petrov-defense', 'philidor-defense', 'kings-indian-defense', 'nimzo-indian',
-    'queens-indian', 'grunfeld-defense', 'benoni-defense', 'slav-defense',
-    'dutch-defense', 'budapest-gambit'].includes(trap?.opening_key);
-  const userColor = isBlackOpening ? "black" : "white";
+  // Determine user's color - user plays the color that EXECUTES the trap (the winner)
+  const getUserColor = () => {
+    // If trap explicitly defines who executes it, use that
+    if (trap?.trap_color) {
+      return trap.trap_color;
+    }
+    
+    // Calculate based on setup moves and trap line
+    // After N setup moves, it's white's turn if N is even, black's turn if N is odd
+    const setupCount = setupMoves.length;
+    
+    // Check trap descriptions to determine who benefits
+    const desc = (trap?.description || "").toLowerCase();
+    const name = (trap?.name || "").toLowerCase();
+    const successMsg = (trap?.success_message || "").toLowerCase();
+    
+    // If description mentions "Black wins" or "for Black", user is Black
+    if (desc.includes("black wins") || desc.includes("for black") || 
+        successMsg.includes("for black") || desc.includes("black sacrifices")) {
+      return "black";
+    }
+    
+    // If description mentions "White wins", user is White
+    if (desc.includes("white wins") || successMsg.includes("for white")) {
+      return "white";
+    }
+    
+    // For specific trap names that are Black traps
+    if (name.includes("blackburne") || name.includes("traxler") || 
+        name.includes("shilling") || name.includes("elephant") ||
+        name.includes("siberian") || name.includes("stafford")) {
+      return "black";
+    }
+    
+    // Default: check who makes the winning/final move
+    // The last move in trap_line should be the trap executor's move
+    if (trapLine.length > 0) {
+      const totalMoves = setupCount + trapLine.length;
+      const lastMoveIsWhite = totalMoves % 2 === 1; // odd total = white just moved
+      return lastMoveIsWhite ? "white" : "black";
+    }
+    
+    // Fallback to white
+    return "white";
+  };
+  
+  const userColor = getUserColor();
   
   // Initialize board
   useEffect(() => {
