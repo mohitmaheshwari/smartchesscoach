@@ -24,6 +24,15 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Shows count of additional active games if multiple exist
 - Dismissible with X button
 
+#### ✅ FIXED: Guardian "Play Anyway" Board Reset Bug
+**Problem:** When user played a risky move and clicked "Play anyway" after Guardian warning, the board would reset instead of executing the move.
+
+**Root Cause:** The `executeMove` function was calling `/move/confirm` endpoint which only logs the override - it doesn't actually execute the move.
+
+**Solution:** Modified `executeMove` to:
+1. First call `/move/confirm` to log the override and update remaining interventions
+2. Then call `/move` to actually execute the move on the board
+
 #### ✅ NEW: Inline Opening & Trap Lessons
 **Problem Solved:** Previously, clicking "Learn Opening" would redirect users away from their game, disrupting the flow.
 

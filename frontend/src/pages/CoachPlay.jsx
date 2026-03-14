@@ -675,18 +675,39 @@ const CoachPlay = ({ user }) => {
 
   // Execute the move (called after guardian check passes or user confirms)
   const executeMove = async (moveSan, timeSpent, isOverride = false, riskType = null) => {
-    const endpoint = isOverride ? `${API}/coach/play/move/confirm` : `${API}/coach/play/move`;
-    
     try {
-      const response = await fetch(endpoint, {
+      // If this is an override (user confirmed risky move), first log the confirmation
+      if (isOverride) {
+        const confirmResponse = await fetch(`${API}/coach/play/move/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            session_id: session.session_id,
+            move: moveSan,
+            risk_level: riskType
+          })
+        });
+        
+        if (confirmResponse.ok) {
+          const confirmData = await confirmResponse.json();
+          // Update remaining interventions
+          if (confirmData.remaining_interventions !== undefined) {
+            setRemainingInterventions(confirmData.remaining_interventions);
+          }
+        }
+        // Continue to execute the move even if confirm fails
+      }
+      
+      // Now execute the actual move via /move endpoint
+      const response = await fetch(`${API}/coach/play/move`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           session_id: session.session_id,
           move: moveSan,
-          time_spent: timeSpent,
-          ...(isOverride && { risk_acknowledged: riskType })
+          thinking_time_ms: Math.round(timeSpent * 1000)
         })
       });
 
