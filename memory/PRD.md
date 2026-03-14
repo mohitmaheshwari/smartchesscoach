@@ -5,6 +5,46 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## What's Been Implemented
 
+### March 14, 2026 - Clean UI Mode UX Overhaul (COMPLETE)
+
+#### ✅ P0 COMPLETE: "Play with Coach" UX Overhaul
+**Problem:** The Play with Coach UI was cluttered and confusing, violating the user's core vision of a calm, focused coaching experience. Multiple panels, nested cards, and a dashboard-like layout distracted from the "one insight at a time" principle.
+
+**Solution:** Complete UX redesign based on user's 37-point manifesto:
+
+1. **NEW: CoachInsightCard** - The CORE teaching element
+   - One move → one insight → one next action
+   - Shows reaction emoji + main insight + optional "why" + next idea
+   - Has expandable "More details" for deeper explanations
+   - "Why?" and "Show better move" contextual buttons
+
+2. **NEW: TrapAlert** - Separate floating notification
+   - Temporary, dismissible alerts for tactical dangers
+   - Auto-hides after 10 seconds
+   - "Show line" and "Got it" actions
+   - Does NOT compete with normal coach explanation
+
+3. **NEW: AskCoach** - Smart prompts + freeform input
+   - 4 contextual smart prompts: "Why was that better?", "What's my plan?", "Did I miss a tactic?", "What should I improve?"
+   - Collapsible text input for free-form questions
+   - Better than a blank chat box
+
+4. **NEW: MoveHistorySection** - Compact utility
+   - Collapsible at bottom with "Moves (N)" summary
+   - Click move to revisit position
+   - Does NOT compete with coach card
+
+5. **cleanUIMode State** - Feature flag for gradual transition
+   - Default: true (new clean UI)
+   - Legacy UI wrapped in {!cleanUIMode && } conditional blocks
+   - Easy to toggle back if issues found
+
+**Bug Fix:** LichessBoard.jsx FEN null check
+- Fixed "Cannot read properties of null (reading 'split')" error
+- Added safeguard for null FEN values
+
+**Testing:** 100% frontend tests passed (24/24), regression suite intact
+
 ### March 14, 2026 - Resume Game Fix & Inline Teaching System
 
 #### ✅ FIXED: P0 Bug - Resume Game with Coach's Turn
@@ -101,17 +141,21 @@ Create a hyper-personalized, data-driven chess coaching application that functio
     └── src/
         ├── components/
         │   ├── coach-play/
-        │   │   ├── InlineOpeningLesson.jsx  # NEW
-        │   │   ├── InlineTrapLesson.jsx     # NEW
+        │   │   ├── CoachInsightCard.jsx  # NEW - Clean UI core element
+        │   │   ├── TrapAlert.jsx         # NEW - Floating trap notifications
+        │   │   ├── AskCoach.jsx          # NEW - Smart prompts + chat input
+        │   │   ├── MoveHistoryCompact.jsx # NEW - Collapsible move list
+        │   │   ├── InlineOpeningLesson.jsx
+        │   │   ├── InlineTrapLesson.jsx
         │   │   ├── EvalBar.jsx
         │   │   ├── MoveFeedbackPanel.jsx
         │   │   ├── GuardianWarning.jsx
         │   │   ├── CoachChat.jsx
         │   │   ├── GameSetupPanel.jsx
-        │   │   └── index.js
+        │   │   └── index.js             # Exports all components
         │   └── ...
         └── pages/
-            ├── CoachPlay.jsx    # Updated with inline lessons
+            ├── CoachPlay.jsx    # Updated with cleanUIMode flag
             └── ...
 ```
 
@@ -145,15 +189,23 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - [x] Break the Habit Challenge
 - [x] Memory Lane
 - [x] Backend refactoring (21 endpoints)
+- [x] **Clean UI Mode UX Overhaul** (NEW - Mar 14, 2026)
+  - CoachInsightCard, TrapAlert, AskCoach, MoveHistorySection components
+  - Legacy UI hidden behind cleanUIMode flag
+  - LichessBoard FEN null fix
 
 ### P1 - Remaining (User Verification Pending)
-- [ ] Verify "Inline Mini-Lesson" panel UX for opening/trap teaching
+- [ ] Test Clean UI mode in actual gameplay with coach responses
+- [ ] Verify memory/personalization shows in new CoachInsightCard
 - [ ] Verify "UI Flicker" in practice mode is resolved
 - [ ] Test fresh game opening detection flow
 - [ ] Migrate remaining backend endpoints (/start, /move)
 
-### P2 - Frontend Polish
-- [ ] Integrate extracted components fully into CoachPlay.jsx (CoachChat, GameSetupPanel, GuardianWarning)
+### P2 - Frontend Polish & Future
+- [ ] Implement different UX modes for Beginner/Intermediate/Advanced
+- [ ] Build "Plan-first" coaching prompts
+- [ ] Enhanced "Ask Coach" with more smart contextual prompts
+- [ ] "Recurring Mistakes" loop and practice drills
 - [ ] Break down LabV2.jsx
 - [ ] Rich Post-Game Analysis page (last major feature for 95% vision)
 
