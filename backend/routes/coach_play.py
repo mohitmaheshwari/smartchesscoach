@@ -944,13 +944,14 @@ async def get_coach_messages(
             "trigger": msg.get("trigger"),
             "move": msg.get("move"),
             "move_number": msg.get("move_number"),
-            "timestamp": msg.get("created_at").isoformat() if msg.get("created_at") else None
+            "timestamp": msg.get("created_at").isoformat() if msg.get("created_at") else None,
+            # Always include opening info if present (for "Learn Opening" button)
+            "opening_key": msg.get("opening_key"),
+            "opening_name": msg.get("opening_name"),
         }
         
         # Include opening teaching offer fields
         if msg.get("type") == "opening_teaching_offer":
-            msg_data["opening_name"] = msg.get("opening_name")
-            msg_data["opening_key"] = msg.get("opening_key")
             msg_data["options"] = msg.get("options")
             msg_data["trap_name"] = msg.get("trap_name")
         

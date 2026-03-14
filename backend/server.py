@@ -9594,6 +9594,13 @@ async def _process_move_and_respond(
                                 trigger = "teaching"
                             
                             if msg_text:
+                                # Include opening info if detected
+                                opening_key = None
+                                opening_name = None
+                                if opening:
+                                    opening_key = opening.get("key")
+                                    opening_name = opening.get("name")
+                                
                                 await db.coach_messages.insert_one({
                                     "session_id": session_id,
                                     "type": "coach",
@@ -9607,6 +9614,8 @@ async def _process_move_and_respond(
                                     "teaching_goal": teaching_context.get("teaching_goal"),
                                     "concept": feedback.get("concept") if feedback else teaching_context.get("concept_taught"),
                                     "hints": feedback.get("hints", []) if feedback else [],
+                                    "opening_key": opening_key,  # For "Learn Opening" button
+                                    "opening_name": opening_name,  # For button label
                                 })
                         except Exception as e:
                             logger.warning(f"Opening teaching generation failed: {e}")

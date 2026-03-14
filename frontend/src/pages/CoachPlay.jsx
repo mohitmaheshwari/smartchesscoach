@@ -1816,6 +1816,20 @@ const CoachPlay = ({ user }) => {
                         </button>
                       </div>
                     )}
+                    
+                    {/* Learn Opening button - show when message mentions an opening */}
+                    {msg.type === "coach" && msg.opening_key && (
+                      <div className="mt-2">
+                        <button
+                          onClick={() => navigate(`/openings/${msg.opening_key}`)}
+                          className="text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
+                          data-testid={`learn-opening-btn-${i}`}
+                        >
+                          <BookOpen className="w-3 h-3" />
+                          Learn {msg.opening_name || "this opening"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
