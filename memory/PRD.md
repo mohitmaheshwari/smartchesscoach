@@ -17,6 +17,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
    - Shows reaction emoji + main insight + optional "why" + next idea
    - Has expandable "More details" for deeper explanations
    - "Why?" and "Show better move" contextual buttons
+   - **Supports coachingMode prop** for beginner/intermediate/advanced verbosity
 
 2. **NEW: TrapAlert** - Separate floating notification
    - Temporary, dismissible alerts for tactical dangers
@@ -26,6 +27,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 3. **NEW: AskCoach** - Smart prompts + freeform input
    - 4 contextual smart prompts: "Why was that better?", "What's my plan?", "Did I miss a tactic?", "What should I improve?"
+   - **NEW: Plan-first prompts** (optional mode): "I want to attack the king", "I want to develop my pieces", "I need to defend", "Should I trade pieces?"
    - Collapsible text input for free-form questions
    - Better than a blank chat box
 
@@ -39,11 +41,22 @@ Create a hyper-personalized, data-driven chess coaching application that functio
    - Legacy UI wrapped in {!cleanUIMode && } conditional blocks
    - Easy to toggle back if issues found
 
+6. **NEW: Coaching Style Selector** - Different UX modes
+   - 🌱 Beginner: "More explanations, hand-holding through each move"
+   - 🎯 Standard: "Balanced feedback, click for details" (default)
+   - 🚀 Minimal: "Just the essentials, no fluff"
+   - Affects CoachInsightCard verbosity
+
+**Bug Fix:** current_fen null issue
+- Fixed "illegal san in empty board" error when making moves
+- Added fallback to fen_history in `from_dict()` and `/move` endpoint
+- Fixed 4 corrupted sessions in database
+
 **Bug Fix:** LichessBoard.jsx FEN null check
 - Fixed "Cannot read properties of null (reading 'split')" error
 - Added safeguard for null FEN values
 
-**Testing:** 100% frontend tests passed (24/24), regression suite intact
+**Testing:** 93% frontend tests passed (24/26 - 2 intermittent timeouts), 100% backend (28/28), regression suite intact
 
 ### March 14, 2026 - Resume Game Fix & Inline Teaching System
 
@@ -195,15 +208,15 @@ Create a hyper-personalized, data-driven chess coaching application that functio
   - LichessBoard FEN null fix
 
 ### P1 - Remaining (User Verification Pending)
-- [ ] Test Clean UI mode in actual gameplay with coach responses
+- [x] Test Clean UI mode in actual gameplay with coach responses ✅ VERIFIED
 - [ ] Verify memory/personalization shows in new CoachInsightCard
 - [ ] Verify "UI Flicker" in practice mode is resolved
 - [ ] Test fresh game opening detection flow
 - [ ] Migrate remaining backend endpoints (/start, /move)
 
 ### P2 - Frontend Polish & Future
-- [ ] Implement different UX modes for Beginner/Intermediate/Advanced
-- [ ] Build "Plan-first" coaching prompts
+- [x] Implement different UX modes for Beginner/Intermediate/Advanced ✅ DONE
+- [x] Build "Plan-first" coaching prompts ✅ DONE (AskCoach planFirstMode)
 - [ ] Enhanced "Ask Coach" with more smart contextual prompts
 - [ ] "Recurring Mistakes" loop and practice drills
 - [ ] Break down LabV2.jsx
