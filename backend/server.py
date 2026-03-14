@@ -8978,8 +8978,15 @@ async def make_coach_play_move(
     if session_doc.get("user_id") != user.user_id:
         raise HTTPException(status_code=403, detail="Not your session")
     
-    # Store context
+    # Store context - ensure FEN is never null
     fen_before = session_doc.get("current_fen")
+    if not fen_before:
+        # Fall back to fen_history or default
+        fen_history = session_doc.get("fen_history", [])
+        if fen_history:
+            fen_before = fen_history[-1]
+        else:
+            fen_before = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     user_rating = session_doc.get("user_rating", 1200)
     user_color = session_doc.get("user_color", "white")
     

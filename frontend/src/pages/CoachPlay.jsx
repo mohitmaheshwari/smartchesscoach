@@ -90,6 +90,7 @@ const CoachPlay = ({ user }) => {
   // Game settings
   const [selectedColor, setSelectedColor] = useState("white");
   const [timeControl, setTimeControl] = useState("15+10");
+  const [coachingMode, setCoachingMode] = useState("intermediate"); // "beginner" | "intermediate" | "advanced"
   
   // Timer state
   const [moveStartTime, setMoveStartTime] = useState(null);
@@ -371,7 +372,9 @@ const CoachPlay = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         setSession(data.session);
-        setCurrentFen(data.current_fen);
+        // Always ensure we have a valid FEN - fall back to starting position
+        const validFen = data.current_fen || data.session?.current_fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        setCurrentFen(validFen);
         setBoardOrientation(data.session.user_color);
         setSelectedColor(data.session.user_color);
         setIsPlayerTurn(data.is_player_turn);
@@ -546,7 +549,9 @@ const CoachPlay = ({ user }) => {
 
       const data = await response.json();
       setSession(data.session);
-      setCurrentFen(data.current_fen);
+      // Ensure we have a valid FEN
+      const validFen = data.current_fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+      setCurrentFen(validFen);
       setBoardOrientation(selectedColor);
       setIsPlayerTurn(data.is_player_turn);
       setGameStarted(true);
@@ -839,8 +844,10 @@ const CoachPlay = ({ user }) => {
 
       const data = await response.json();
       
-      // Update board with user's move immediately
-      setCurrentFen(data.current_fen);
+      // Update board with user's move immediately - only if we have valid FEN
+      if (data.current_fen) {
+        setCurrentFen(data.current_fen);
+      }
       setIsPlayerTurn(false);
       
       // Check if game is over after user's move
@@ -905,9 +912,11 @@ const CoachPlay = ({ user }) => {
             // Remove thinking message from chat
             setChatMessages(prev => prev.filter(m => m.type !== "thinking"));
             
-            // Update board
+            // Update board - only if we have valid FEN
             setSession(data.session);
-            setCurrentFen(data.current_fen);
+            if (data.current_fen) {
+              setCurrentFen(data.current_fen);
+            }
             
             // Update evaluation
             if (data.evaluation) {
@@ -1096,7 +1105,7 @@ const CoachPlay = ({ user }) => {
       return await handleTeachingMove(sourceSquare, targetSquare);
     }
     
-    if (!session || !isPlayerTurn || gameOver) return false;
+    if (!session || !isPlayerTurn || gameOver || !currentFen) return false;
 
     // Try to make the move locally first
     const chess = new Chess(currentFen);
@@ -1470,6 +1479,44 @@ const CoachPlay = ({ user }) => {
                     </Button>
                   ))}
                 </div>
+              </div>
+
+              {/* Coaching Mode */}
+              <div>
+                <label className="text-sm font-medium mb-3 block">
+                  Coaching Style
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    variant={coachingMode === "beginner" ? "default" : "outline"}
+                    onClick={() => setCoachingMode("beginner")}
+                    size="sm"
+                    data-testid="mode-beginner"
+                  >
+                    🌱 Beginner
+                  </Button>
+                  <Button
+                    variant={coachingMode === "intermediate" ? "default" : "outline"}
+                    onClick={() => setCoachingMode("intermediate")}
+                    size="sm"
+                    data-testid="mode-intermediate"
+                  >
+                    🎯 Standard
+                  </Button>
+                  <Button
+                    variant={coachingMode === "advanced" ? "default" : "outline"}
+                    onClick={() => setCoachingMode("advanced")}
+                    size="sm"
+                    data-testid="mode-advanced"
+                  >
+                    🚀 Minimal
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {coachingMode === "beginner" && "More explanations, hand-holding through each move"}
+                  {coachingMode === "intermediate" && "Balanced feedback, click for details"}
+                  {coachingMode === "advanced" && "Just the essentials, no fluff"}
+                </p>
               </div>
 
               {/* NEW: Past Games Memory */}
@@ -1870,6 +1917,7 @@ const CoachPlay = ({ user }) => {
                 <CoachInsightCard
                   insight={currentInsight}
                   isLoading={isCoachThinking}
+                  coachingMode={coachingMode}
                   onAskWhy={() => {
                     // Send "Why?" to coach
                     sendChatMessage("Why was that better?");

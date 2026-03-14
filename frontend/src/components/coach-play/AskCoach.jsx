@@ -18,12 +18,21 @@ const SMART_PROMPTS = [
   { id: "improve", label: "What should I improve?", icon: Lightbulb },
 ];
 
+// Plan-first prompts - user states intention before moving
+const PLAN_PROMPTS = [
+  { id: "attack", label: "I want to attack the king", icon: Target },
+  { id: "develop", label: "I want to develop my pieces", icon: Lightbulb },
+  { id: "defend", label: "I need to defend", icon: Eye },
+  { id: "trade", label: "Should I trade pieces?", icon: HelpCircle },
+];
+
 const AskCoach = ({ 
   onSendMessage,
   disabled = false,
   placeholder = "Ask the coach anything...",
   showPrompts = true,
-  compactMode = false
+  compactMode = false,
+  planFirstMode = false  // New: Show plan-first prompts
 }) => {
   const [message, setMessage] = useState("");
   const [showInput, setShowInput] = useState(false);
@@ -73,8 +82,30 @@ const AskCoach = ({
   
   return (
     <div className="space-y-2">
+      {/* Plan-first prompts - state your intention before moving */}
+      {planFirstMode && showPrompts && !showInput && (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">What do you want to do?</p>
+          <div className="flex flex-wrap gap-1">
+            {PLAN_PROMPTS.map(prompt => (
+              <Button
+                key={prompt.id}
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => handlePromptClick(prompt)}
+                disabled={disabled}
+              >
+                <prompt.icon className="w-3 h-3 mr-1" />
+                {prompt.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+      
       {/* Smart prompts */}
-      {showPrompts && !showInput && (
+      {!planFirstMode && showPrompts && !showInput && (
         <div className="flex flex-wrap gap-1">
           {SMART_PROMPTS.map(prompt => (
             <Button

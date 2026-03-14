@@ -140,6 +140,15 @@ class CoachGameSession:
             data['ended_at'] = datetime.fromisoformat(data['ended_at']) if isinstance(data['ended_at'], str) else data['ended_at']
         # Remove MongoDB _id if present
         data.pop('_id', None)
+        
+        # Ensure current_fen is never None - use first FEN from history or default
+        if data.get('current_fen') is None:
+            fen_history = data.get('fen_history', [])
+            if fen_history:
+                data['current_fen'] = fen_history[-1]  # Use last known position
+            else:
+                data['current_fen'] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        
         return cls(**data)
 
 

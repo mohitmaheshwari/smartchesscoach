@@ -64,6 +64,29 @@ test.describe('Coach Play Setup Page', () => {
     await expect(page.getByTestId('start-game-btn')).toHaveText(/Start Game/);
   });
 
+  test('should display Coaching Style selector with 3 options', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    
+    await expect(page.getByTestId('coach-play-setup')).toBeVisible();
+    
+    // Check Coaching Style section
+    await expect(page.getByText('Coaching Style')).toBeVisible();
+    
+    // Check all 3 coaching mode buttons
+    await expect(page.getByTestId('mode-beginner')).toBeVisible();
+    await expect(page.getByTestId('mode-intermediate')).toBeVisible();
+    await expect(page.getByTestId('mode-advanced')).toBeVisible();
+    
+    // Verify button labels
+    await expect(page.getByTestId('mode-beginner')).toHaveText(/Beginner/);
+    await expect(page.getByTestId('mode-intermediate')).toHaveText(/Standard/);
+    await expect(page.getByTestId('mode-advanced')).toHaveText(/Minimal/);
+    
+    // Standard mode should be selected by default (has bg-primary class)
+    await expect(page.getByTestId('mode-intermediate')).toHaveClass(/bg-primary/);
+  });
+
   test('should allow color and time control selection', async ({ page }) => {
     await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await waitForToastsToDisappear(page);
@@ -82,6 +105,27 @@ test.describe('Coach Play Setup Page', () => {
     // All buttons should still be visible
     await expect(page.getByTestId('select-white')).toBeVisible();
     await expect(page.getByTestId('time-10-5')).toBeVisible();
+  });
+
+  test('should allow Coaching Style selection and show description', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    await expect(page.getByTestId('coach-play-setup')).toBeVisible();
+    
+    // Click Beginner mode
+    await page.getByTestId('mode-beginner').click({ force: true });
+    // Should show beginner description
+    await expect(page.getByText(/More explanations, hand-holding/i)).toBeVisible();
+    
+    // Click Standard mode
+    await page.getByTestId('mode-intermediate').click({ force: true });
+    // Should show standard description
+    await expect(page.getByText(/Balanced feedback, click for details/i)).toBeVisible();
+    
+    // Click Minimal mode
+    await page.getByTestId('mode-advanced').click({ force: true });
+    // Should show minimal description
+    await expect(page.getByText(/Just the essentials, no fluff/i)).toBeVisible();
   });
 });
 

@@ -78,6 +78,7 @@ const LichessBoard = forwardRef(({
 
   // Get turn color from FEN
   const getTurnColor = (fenStr) => {
+    if (!fenStr || typeof fenStr !== 'string') return "white";
     return fenStr.includes(" w ") ? "white" : "black";
   };
 
@@ -115,8 +116,9 @@ const LichessBoard = forwardRef(({
     }
     
     // Also add opposite color's moves by switching turn
-    const fen = chess.fen();
-    const parts = fen.split(' ');
+    const fenStr = chess.fen();
+    if (!fenStr) return dests;
+    const parts = fenStr.split(' ');
     parts[1] = parts[1] === 'w' ? 'b' : 'w'; // Switch turn
     try {
       const tempChess = new Chess(parts.join(' '));
@@ -149,6 +151,7 @@ const LichessBoard = forwardRef(({
     // If it's not the target color's turn, switch it temporarily
     if (currentTurn !== targetTurn) {
       const currentFen = chess.fen();
+      if (!currentFen) return dests;
       const parts = currentFen.split(' ');
       parts[1] = targetTurn;
       try {
@@ -243,13 +246,15 @@ const LichessBoard = forwardRef(({
                   // If move fails (wrong turn), try switching turn in plan mode
                   if (planMode) {
                     const currentFen = chess.fen();
-                    const parts = currentFen.split(' ');
-                    parts[1] = parts[1] === 'w' ? 'b' : 'w';
-                    try {
-                      chessRef.current = new Chess(parts.join(' '));
-                      move = chessRef.current.move({ from: orig, to: dest, promotion: "q" });
-                    } catch (e2) {
-                      console.warn("Could not make move in plan mode:", e2);
+                    if (currentFen) {
+                      const parts = currentFen.split(' ');
+                      parts[1] = parts[1] === 'w' ? 'b' : 'w';
+                      try {
+                        chessRef.current = new Chess(parts.join(' '));
+                        move = chessRef.current.move({ from: orig, to: dest, promotion: "q" });
+                      } catch (e2) {
+                        console.warn("Could not make move in plan mode:", e2);
+                      }
                     }
                   }
                 }

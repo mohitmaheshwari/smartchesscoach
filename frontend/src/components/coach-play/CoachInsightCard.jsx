@@ -45,9 +45,37 @@ const CoachInsightCard = ({
   isLoading = false,
   onAskWhy,
   onShowBetterMove,
-  showActions = true
+  showActions = true,
+  coachingMode = "intermediate"  // "beginner" | "intermediate" | "advanced"
 }) => {
   const [expanded, setExpanded] = useState(false);
+  
+  // Mode-specific configuration
+  const modeConfig = {
+    beginner: {
+      showReaction: true,
+      showWhy: true,
+      showNextIdea: true,
+      autoExpand: true,       // Beginners get more info by default
+      showEngineNotation: false
+    },
+    intermediate: {
+      showReaction: true,
+      showWhy: false,         // Click "Why?" to see
+      showNextIdea: true,
+      autoExpand: false,
+      showEngineNotation: false
+    },
+    advanced: {
+      showReaction: false,    // Advanced players just want the facts
+      showWhy: false,
+      showNextIdea: false,
+      autoExpand: false,
+      showEngineNotation: true  // Show engine evaluation
+    }
+  };
+  
+  const config = modeConfig[coachingMode] || modeConfig.intermediate;
   
   // Loading state - coach is analyzing
   if (isLoading) {
@@ -92,31 +120,42 @@ const CoachInsightCard = ({
     <div className="rounded-lg bg-card border border-border overflow-hidden">
       {/* Main insight area */}
       <div className="p-4 space-y-3">
-        {/* 1) Reaction line */}
-        <div className="flex items-center gap-2">
-          <span className="text-xl">{reaction.emoji}</span>
-          <span className="text-sm font-medium text-muted-foreground">{reaction.text}</span>
-        </div>
+        {/* 1) Reaction line - configurable per mode */}
+        {config.showReaction && (
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{reaction.emoji}</span>
+            <span className="text-sm font-medium text-muted-foreground">{reaction.text}</span>
+          </div>
+        )}
         
         {/* 2) Main insight - ONE sentence */}
         <p className="text-sm leading-relaxed">
           {insight.main_insight || insight.message}
         </p>
         
-        {/* 3) Why it matters - if available */}
-        {insight.why && (
+        {/* 3) Why it matters - if available and mode allows */}
+        {insight.why && (config.showWhy || config.autoExpand) && (
           <p className="text-xs text-muted-foreground">
             {insight.why}
           </p>
         )}
         
-        {/* 4) Next idea - the most important part */}
-        {insight.next_idea && (
+        {/* 4) Next idea - the most important part (configurable) */}
+        {insight.next_idea && config.showNextIdea && (
           <div className="pt-2 border-t border-border/50">
             <p className="text-sm">
               <span className="text-primary font-medium">Next idea:</span>{" "}
               {insight.next_idea}
             </p>
+          </div>
+        )}
+        
+        {/* Advanced mode: Engine notation */}
+        {config.showEngineNotation && insight.evaluation && (
+          <div className="pt-2 text-xs font-mono text-muted-foreground">
+            Eval: {typeof insight.evaluation === 'number' 
+              ? (insight.evaluation > 0 ? '+' : '') + insight.evaluation.toFixed(2)
+              : insight.evaluation}
           </div>
         )}
       </div>
