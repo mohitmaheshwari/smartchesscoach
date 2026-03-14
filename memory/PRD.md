@@ -5,7 +5,17 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## What's Been Implemented
 
-### March 14, 2026 - Inline Teaching System
+### March 14, 2026 - Resume Game Fix & Inline Teaching System
+
+#### ✅ FIXED: P0 Bug - Resume Game with Coach's Turn
+**Problem:** When resuming a game where it was the coach's turn, the board was unplayable.
+
+**Solution:** 
+1. New `/api/coach/play/trigger-coach-move` endpoint in `coach_play.py` (lines 1537-1677)
+2. Handles SAN to UCI move conversion (lines 1608-1622)
+3. Frontend triggers coach move automatically when resuming with coach's turn
+4. Added "Coach's turn" badge and "Thinking..." indicator in UI
+5. Testing: 100% backend (9/9), 100% frontend (7/7), regression 26/27
 
 #### ✅ NEW: Inline Opening & Trap Lessons
 **Problem Solved:** Previously, clicking "Learn Opening" would redirect users away from their game, disrupting the flow.
@@ -97,20 +107,23 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 ## Prioritized Backlog
 
 ### ✅ P0 - Complete
+- [x] Resume game when coach's turn (trigger-coach-move endpoint)
 - [x] Inline opening/trap teaching
 - [x] Non-disruptive teaching flow
 - [x] Break the Habit Challenge
 - [x] Memory Lane
 - [x] Backend refactoring (21 endpoints)
 
-### P1 - Remaining
+### P1 - Remaining (User Verification Pending)
+- [ ] Verify "Inline Mini-Lesson" panel UX for opening/trap teaching
+- [ ] Verify "UI Flicker" in practice mode is resolved
 - [ ] Test fresh game opening detection flow
 - [ ] Migrate remaining backend endpoints (/start, /move)
-- [ ] Clean up old sessions feature
 
 ### P2 - Frontend Polish
-- [ ] Integrate extracted components fully into CoachPlay.jsx
+- [ ] Integrate extracted components fully into CoachPlay.jsx (CoachChat, GameSetupPanel, GuardianWarning)
 - [ ] Break down LabV2.jsx
+- [ ] Rich Post-Game Analysis page (last major feature for 95% vision)
 
 ## Database Schema
 - coach_sessions: Game sessions with coach
@@ -123,3 +136,5 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Backend lint: ✅ Pass
 - UI rendering: ✅ Working
 - Inline components: ✅ Created
+- Resume game flow: ✅ Tested (9/9 backend, 7/7 frontend tests)
+- Test files created: `/app/backend/tests/test_trigger_coach_move.py`, `/app/tests/e2e/resume-game.spec.ts`
