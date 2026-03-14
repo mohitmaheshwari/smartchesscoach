@@ -52,11 +52,20 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Added fallback to fen_history in `from_dict()` and `/move` endpoint
 - Fixed 4 corrupted sessions in database
 
+**Bug Fix:** CoachInsightCard not showing feedback (CRITICAL)
+- Fixed field mapping from backend response:
+  - `coaching_message` → `main_insight` (was looking for `explanation`)
+  - `user_move_quality` → `quality`
+  - `best_move_explanation` → `why`
+  - `socratic_question` → `next_idea`
+- Added "Better was:" display when there's a better move
+- Added `encouragement` display
+
 **Bug Fix:** LichessBoard.jsx FEN null check
 - Fixed "Cannot read properties of null (reading 'split')" error
 - Added safeguard for null FEN values
 
-**Testing:** 93% frontend tests passed (24/26 - 2 intermittent timeouts), 100% backend (28/28), regression suite intact
+**Testing:** 93% frontend tests passed (27/30 - 3 intermittent infra timeouts), 100% backend (28/28), regression suite intact
 
 ### March 14, 2026 - Resume Game Fix & Inline Teaching System
 
