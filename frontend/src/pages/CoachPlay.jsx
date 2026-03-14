@@ -381,27 +381,28 @@ const CoachPlay = ({ user }) => {
         }
         
         // Restore teaching mode state if session is in teaching mode
+        // Don't auto-resume - show suggestion to continue instead
         if (data.session.teaching_mode && data.session.teaching_data) {
-          setIsInTeachingMode(true);
           const td = data.session.teaching_data;
-          setActiveLesson({
-            mode: data.session.teaching_mode,
-            lesson_name: td.trap_name || td.variation_name,
-            opening_name: data.session.teaching_opening,
-            total_moves: (td.trap_moves || td.main_line_moves || []).length,
-            teaching_fen: td.teaching_fen || data.current_fen
-          });
-          // Restore instruction
-          const currentIdx = td.current_move_index || 0;
-          const moves = td.trap_moves || td.main_line_moves || [];
-          if (currentIdx < moves.length) {
-            setLessonInstruction({
-              move: moves[currentIdx],
-              remaining: moves.length - currentIdx,
-              is_user_move: true, // Simplified - assumes user's turn
-              message: `Your turn - play ${moves[currentIdx]}`
+          const lessonName = td.trap_name || td.variation_name;
+          // Show as a suggestion, not active teaching
+          // User must click "Start" to continue the lesson
+          if (td.trap_name) {
+            setInlineTrap({
+              name: lessonName,
+              key: data.session.teaching_opening,
+              moves: td.trap_moves || [],
+              explanation: td.explanation
+            });
+          } else {
+            setInlineOpening({
+              name: lessonName,
+              key: data.session.teaching_opening,
+              main_idea: "Continue where you left off",
+              key_moves: td.main_line_moves || []
             });
           }
+          toast.info(`You were learning "${lessonName}" - click Start to continue`);
         }
         
         toast.success("Resumed your game!");
@@ -1871,9 +1872,24 @@ const CoachPlay = ({ user }) => {
                     size="sm"
                     variant="ghost"
                     className="h-7 w-7 p-0"
-                    onClick={() => {
+                    onClick={async () => {
+                      // Clear suggestion and exit any pending teaching mode
                       setInlineOpening(null);
                       setInlineTrap(null);
+                      // Also clear teaching mode from backend
+                      try {
+                        await fetch(`${API}/coach/play/teaching/exit`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          credentials: "include",
+                          body: JSON.stringify({
+                            session_id: session.session_id,
+                            choice: "continue_game"
+                          })
+                        });
+                      } catch (e) {
+                        // Ignore - just clearing local state is enough
+                      }
                     }}
                   >
                     <X className="w-4 h-4" />
