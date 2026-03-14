@@ -380,6 +380,30 @@ const CoachPlay = ({ user }) => {
           }, 500);
         }
         
+        // Restore teaching mode state if session is in teaching mode
+        if (data.session.teaching_mode && data.session.teaching_data) {
+          setIsInTeachingMode(true);
+          const td = data.session.teaching_data;
+          setActiveLesson({
+            mode: data.session.teaching_mode,
+            lesson_name: td.trap_name || td.variation_name,
+            opening_name: data.session.teaching_opening,
+            total_moves: (td.trap_moves || td.main_line_moves || []).length,
+            teaching_fen: td.teaching_fen || data.current_fen
+          });
+          // Restore instruction
+          const currentIdx = td.current_move_index || 0;
+          const moves = td.trap_moves || td.main_line_moves || [];
+          if (currentIdx < moves.length) {
+            setLessonInstruction({
+              move: moves[currentIdx],
+              remaining: moves.length - currentIdx,
+              is_user_move: true, // Simplified - assumes user's turn
+              message: `Your turn - play ${moves[currentIdx]}`
+            });
+          }
+        }
+        
         toast.success("Resumed your game!");
       }
     } catch (error) {
@@ -1480,7 +1504,7 @@ const CoachPlay = ({ user }) => {
               </div>
               
               {/* Chessboard - responsive square */}
-              <div className="flex-1 rounded-lg overflow-hidden aspect-square" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
+              <div className="flex-1 relative rounded-lg overflow-hidden aspect-square" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
                 <LichessBoard
                   ref={boardRef}
                   fen={currentFen}
@@ -1495,6 +1519,63 @@ const CoachPlay = ({ user }) => {
                   viewOnly={!isPlayerTurn || gameOver}
                   showDests={true}
                 />
+                
+                {/* Teaching Mode Overlay - Clean instruction on board */}
+                {isInTeachingMode && activeLesson && lessonInstruction && !lessonComplete && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-3 pt-8">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-amber-400 font-medium">
+                            Learning: {activeLesson.lesson_name}
+                          </span>
+                          <span className="text-xs text-white/50">
+                            {lessonInstruction.remaining} moves left
+                          </span>
+                        </div>
+                        <p className="text-sm text-white font-medium truncate">
+                          {lessonInstruction.is_user_move 
+                            ? `Your turn - play ${lessonInstruction.move}`
+                            : `Coach plays ${lessonInstruction.move}...`
+                          }
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-white/70 hover:text-white hover:bg-white/10 shrink-0"
+                        onClick={() => handleExitLesson("continue_game", {})}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Lesson Complete Overlay */}
+                {lessonComplete && (
+                  <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4">
+                    <div className="bg-card rounded-lg p-4 max-w-xs text-center space-y-3">
+                      <div className="text-2xl">🎉</div>
+                      <p className="font-medium">{lessonComplete.message}</p>
+                      <div className="flex gap-2 justify-center">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleExitLesson("continue_game", lessonComplete)}
+                        >
+                          Continue Game
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleExitLesson("new_game", lessonComplete)}
+                        >
+                          New Game
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1736,128 +1817,66 @@ const CoachPlay = ({ user }) => {
             </div>
           )}
           
-          {/* Inline Opening Lesson - Non-disruptive teaching */}
-          {session && inlineOpening && !isInTeachingMode && !gameOver && (
-            <div className="p-4 border-b border-border">
-              <InlineOpeningLesson
-                opening={inlineOpening}
-                onShowOnBoard={(moves, squares) => {
-                  // Highlight key squares on the board
-                  if (groundRef.current && squares?.length > 0) {
-                    groundRef.current.setAutoShapes(
-                      squares.map(sq => ({
-                        orig: sq,
-                        brush: 'green'
-                      }))
-                    );
-                    setTimeout(() => {
-                      groundRef.current?.setAutoShapes([]);
-                    }, 3000);
-                  }
-                  toast.info("Key squares highlighted on board");
-                }}
-                onSaveForLater={async (key) => {
-                  // Save to practice queue
-                  try {
-                    await fetch(`${API}/coach/practice-queue/add`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      credentials: "include",
-                      body: JSON.stringify({ opening_key: key })
-                    });
-                  } catch (e) {
-                    console.log("Practice queue save:", e);
-                  }
-                }}
-                onStartPractice={async (opening) => {
-                  // Start interactive opening teaching on the current board
-                  try {
-                    const response = await fetch(`${API}/coach/play/teaching/start`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      credentials: "include",
-                      body: JSON.stringify({
-                        session_id: session.session_id,
-                        lesson_type: "learn_main_line"
-                      })
-                    });
-                    
-                    if (response.ok) {
-                      const lessonData = await response.json();
-                      setInlineOpening(null); // Hide the inline panel
-                      handleStartLesson(lessonData);
-                    } else {
-                      toast.error("Couldn't start opening lesson");
+          {/* Compact Teaching Notification - Shows when coach suggests learning */}
+          {session && (inlineOpening || inlineTrap) && !isInTeachingMode && !gameOver && (
+            <div className="p-3 border-b border-amber-500/30 bg-amber-500/5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <BookOpen className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className="text-sm truncate">
+                    {inlineOpening 
+                      ? `Learn: ${inlineOpening.name}` 
+                      : `Trap: ${inlineTrap?.name}`
                     }
-                  } catch (error) {
-                    console.error("Error starting opening lesson:", error);
-                    toast.error("Error starting opening lesson");
-                  }
-                }}
-                onDismiss={() => setInlineOpening(null)}
-              />
-            </div>
-          )}
-          
-          {/* Inline Trap Lesson - Quick trap teaching */}
-          {session && inlineTrap && !isInTeachingMode && !gameOver && (
-            <div className="p-4 border-b border-border">
-              <InlineTrapLesson
-                trap={inlineTrap}
-                onShowTrapMoves={(moves) => {
-                  // Show arrows for trap sequence on the board
-                  if (groundRef.current && moves.length > 0) {
-                    // Show first few moves as arrows
-                    const arrows = [];
-                    const tempBoard = new Chess(currentFen);
-                    for (let i = 0; i < Math.min(moves.length, 4); i++) {
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-black"
+                    onClick={async () => {
+                      // Start interactive lesson directly
                       try {
-                        const move = tempBoard.move(moves[i]);
-                        if (move) {
-                          arrows.push({
-                            orig: move.from,
-                            dest: move.to,
-                            brush: i === moves.length - 1 ? 'red' : 'green'
-                          });
+                        const response = await fetch(`${API}/coach/play/teaching/start`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          credentials: "include",
+                          body: JSON.stringify({
+                            session_id: session.session_id,
+                            lesson_type: inlineTrap ? "learn_trap" : "learn_main_line"
+                          })
+                        });
+                        
+                        if (response.ok) {
+                          const lessonData = await response.json();
+                          setInlineOpening(null);
+                          setInlineTrap(null);
+                          handleStartLesson(lessonData);
+                        } else {
+                          toast.error("Couldn't start lesson");
                         }
-                      } catch (e) {
-                        break;
+                      } catch (error) {
+                        console.error("Error starting lesson:", error);
+                        toast.error("Error starting lesson");
                       }
-                    }
-                    if (arrows.length > 0) {
-                      groundRef.current.setAutoShapes(arrows);
-                      setTimeout(() => groundRef.current?.setAutoShapes([]), 5000);
-                    }
-                  }
-                  toast.info(`Trap moves: ${moves.slice(0, 6).join(" → ")}`);
-                }}
-                onTryTrap={async (trap) => {
-                  // Start interactive trap teaching on the current board
-                  try {
-                    const response = await fetch(`${API}/coach/play/teaching/start`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      credentials: "include",
-                      body: JSON.stringify({
-                        session_id: session.session_id,
-                        lesson_type: "learn_trap"
-                      })
-                    });
-                    
-                    if (response.ok) {
-                      const lessonData = await response.json();
-                      setInlineTrap(null); // Hide the inline panel
-                      handleStartLesson(lessonData);
-                    } else {
-                      toast.error("Couldn't start trap lesson");
-                    }
-                  } catch (error) {
-                    console.error("Error starting trap lesson:", error);
-                    toast.error("Error starting trap lesson");
-                  }
-                }}
-                onDismiss={() => setInlineTrap(null)}
-              />
+                    }}
+                    data-testid="start-lesson-btn"
+                  >
+                    Start
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0"
+                    onClick={() => {
+                      setInlineOpening(null);
+                      setInlineTrap(null);
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
           
@@ -1873,30 +1892,9 @@ const CoachPlay = ({ user }) => {
             </div>
           )}
           
-          {/* Active Lesson Panel - Shows during interactive teaching */}
-          {session && activeLesson && isInTeachingMode && !lessonComplete && (
-            <div className="p-4 border-b border-border">
-              <ActiveLessonPanel
-                lesson={activeLesson}
-                sessionId={session.session_id}
-                currentInstruction={lessonInstruction}
-                onMoveValidated={handleTeachingMoveValidated}
-                onLessonComplete={handleLessonComplete}
-                onExitLesson={(choice) => handleExitLesson(choice, {})}
-              />
-            </div>
-          )}
+          {/* Removed clunky Active Lesson Panel - now using board overlay */}
           
-          {/* Lesson Complete Panel - Shows after finishing a lesson */}
-          {session && lessonComplete && (
-            <div className="p-4 border-b border-border">
-              <LessonCompletePanel
-                completion={lessonComplete}
-                sessionId={session.session_id}
-                onChoice={handleExitLesson}
-              />
-            </div>
-          )}
+          {/* Removed clunky Lesson Complete Panel - now using board overlay */}
           
           {/* Emotional State Indicator - Shows coach awareness of player mood */}
           {session && !gameOver && blundersThisGame > 0 && (

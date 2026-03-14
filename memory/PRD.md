@@ -37,10 +37,17 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 **Problem:** When user clicked "Learn Opening" or "Try Trap", the app would redirect to the opening library page instead of teaching inline on the board.
 
 **Solution:**
-1. "Learn Opening" button in chat now shows `InlineOpeningLesson` panel instead of redirecting
-2. "Try it now" for traps now starts interactive trap practice on the current board via `/teaching/start` API
-3. Added "Practice on board" button to `InlineOpeningLesson` that starts interactive opening practice
-4. "Show moves" for traps now displays arrows on the board showing the trap sequence
+1. Removed clunky lesson panels that pushed chat down
+2. Added clean **board overlay** showing teaching instructions directly on the chessboard
+3. Teaching notification is now a **compact single-line bar** with "Start" and dismiss buttons
+4. Teaching mode state properly restored when resuming a session
+5. Progress shown on board: lesson name, moves remaining, next move instruction
+
+**UI Changes:**
+- Teaching instruction appears as gradient overlay at bottom of board
+- Lesson complete shows as centered modal overlay on board
+- No more clunky panels taking space in chat area
+- Much cleaner, enterprise-quality experience
 
 #### ✅ NEW: Inline Opening & Trap Lessons
 **Problem Solved:** Previously, clicking "Learn Opening" would redirect users away from their game, disrupting the flow.
