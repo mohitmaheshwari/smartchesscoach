@@ -17,7 +17,8 @@ import {
   Bookmark,
   ExternalLink,
   Sparkles,
-  X
+  X,
+  Play
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -27,7 +28,8 @@ const InlineOpeningLesson = ({
   opening,
   onShowOnBoard,
   onDismiss,
-  onSaveForLater
+  onSaveForLater,
+  onStartPractice
 }) => {
   const [expanded, setExpanded] = useState(true);
   const navigate = useNavigate();
@@ -54,6 +56,12 @@ const InlineOpeningLesson = ({
       await onSaveForLater(key);
     }
     toast.success("Added to your practice queue!");
+  };
+  
+  const handleStartPractice = () => {
+    if (onStartPractice) {
+      onStartPractice(opening);
+    }
   };
   
   const handleFullLesson = () => {
@@ -138,6 +146,18 @@ const InlineOpeningLesson = ({
                 
                 {/* Action buttons */}
                 <div className="flex gap-2 flex-wrap">
+                  {onStartPractice && (
+                    <Button 
+                      size="sm" 
+                      className="h-8 text-xs bg-primary hover:bg-primary/90"
+                      onClick={handleStartPractice}
+                      data-testid="practice-on-board-btn"
+                    >
+                      <Play className="w-3 h-3 mr-1" />
+                      Practice on board
+                    </Button>
+                  )}
+                  
                   <Button 
                     size="sm" 
                     variant="outline"

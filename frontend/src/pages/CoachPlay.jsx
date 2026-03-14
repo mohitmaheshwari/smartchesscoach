@@ -1769,6 +1769,31 @@ const CoachPlay = ({ user }) => {
                     console.log("Practice queue save:", e);
                   }
                 }}
+                onStartPractice={async (opening) => {
+                  // Start interactive opening teaching on the current board
+                  try {
+                    const response = await fetch(`${API}/coach/play/teaching/start`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify({
+                        session_id: session.session_id,
+                        lesson_type: "learn_main_line"
+                      })
+                    });
+                    
+                    if (response.ok) {
+                      const lessonData = await response.json();
+                      setInlineOpening(null); // Hide the inline panel
+                      handleStartLesson(lessonData);
+                    } else {
+                      toast.error("Couldn't start opening lesson");
+                    }
+                  } catch (error) {
+                    console.error("Error starting opening lesson:", error);
+                    toast.error("Error starting opening lesson");
+                  }
+                }}
                 onDismiss={() => setInlineOpening(null)}
               />
             </div>
@@ -1780,13 +1805,55 @@ const CoachPlay = ({ user }) => {
               <InlineTrapLesson
                 trap={inlineTrap}
                 onShowTrapMoves={(moves) => {
-                  // Show arrows for trap sequence
-                  toast.info(`Trap: ${moves.slice(0, 4).join(" → ")}`);
+                  // Show arrows for trap sequence on the board
+                  if (groundRef.current && moves.length > 0) {
+                    // Show first few moves as arrows
+                    const arrows = [];
+                    const tempBoard = new Chess(currentFen);
+                    for (let i = 0; i < Math.min(moves.length, 4); i++) {
+                      try {
+                        const move = tempBoard.move(moves[i]);
+                        if (move) {
+                          arrows.push({
+                            orig: move.from,
+                            dest: move.to,
+                            brush: i === moves.length - 1 ? 'red' : 'green'
+                          });
+                        }
+                      } catch (e) {
+                        break;
+                      }
+                    }
+                    if (arrows.length > 0) {
+                      groundRef.current.setAutoShapes(arrows);
+                      setTimeout(() => groundRef.current?.setAutoShapes([]), 5000);
+                    }
+                  }
+                  toast.info(`Trap moves: ${moves.slice(0, 6).join(" → ")}`);
                 }}
-                onTryTrap={(trap) => {
-                  // Navigate to trap practice
-                  if (trap.opening_key) {
-                    navigate(`/openings/${trap.opening_key}?tab=traps&trap=${trap.key}`);
+                onTryTrap={async (trap) => {
+                  // Start interactive trap teaching on the current board
+                  try {
+                    const response = await fetch(`${API}/coach/play/teaching/start`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify({
+                        session_id: session.session_id,
+                        lesson_type: "learn_trap"
+                      })
+                    });
+                    
+                    if (response.ok) {
+                      const lessonData = await response.json();
+                      setInlineTrap(null); // Hide the inline panel
+                      handleStartLesson(lessonData);
+                    } else {
+                      toast.error("Couldn't start trap lesson");
+                    }
+                  } catch (error) {
+                    console.error("Error starting trap lesson:", error);
+                    toast.error("Error starting trap lesson");
                   }
                 }}
                 onDismiss={() => setInlineTrap(null)}
@@ -2016,7 +2083,18 @@ const CoachPlay = ({ user }) => {
                     {msg.type === "coach" && msg.opening_key && (
                       <div className="mt-2">
                         <button
-                          onClick={() => navigate(`/openings/${msg.opening_key}`)}
+                          onClick={() => {
+                            // Show inline opening lesson instead of redirecting
+                            setInlineOpening({
+                              name: msg.opening_name || "Opening",
+                              key: msg.opening_key,
+                              main_idea: `Let's learn the ${msg.opening_name}!`,
+                              simple_explanation: msg.message,
+                              key_moves: [],
+                              key_squares: []
+                            });
+                            toast.success("Opening lesson ready - check above!");
+                          }}
                           className="text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
                           data-testid={`learn-opening-btn-${i}`}
                         >

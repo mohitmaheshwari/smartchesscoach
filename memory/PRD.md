@@ -33,6 +33,15 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 1. First call `/move/confirm` to log the override and update remaining interventions
 2. Then call `/move` to actually execute the move on the board
 
+#### ✅ FIXED: Opening/Trap Teaching Redirect Bug
+**Problem:** When user clicked "Learn Opening" or "Try Trap", the app would redirect to the opening library page instead of teaching inline on the board.
+
+**Solution:**
+1. "Learn Opening" button in chat now shows `InlineOpeningLesson` panel instead of redirecting
+2. "Try it now" for traps now starts interactive trap practice on the current board via `/teaching/start` API
+3. Added "Practice on board" button to `InlineOpeningLesson` that starts interactive opening practice
+4. "Show moves" for traps now displays arrows on the board showing the trap sequence
+
 #### ✅ NEW: Inline Opening & Trap Lessons
 **Problem Solved:** Previously, clicking "Learn Opening" would redirect users away from their game, disrupting the flow.
 
