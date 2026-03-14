@@ -103,6 +103,47 @@ const CoachInsightCard = ({
     );
   }
   
+  // Teaching mode - show lesson-focused UI
+  if (insight.teaching_mode) {
+    return (
+      <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 overflow-hidden">
+        <div className="p-4 space-y-3">
+          {/* Teaching header */}
+          <div className="flex items-center gap-2">
+            <span className="text-xl">📚</span>
+            <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+              {insight.lesson_name || "Learning"}
+              {insight.remaining_moves && (
+                <span className="text-muted-foreground ml-2">({insight.remaining_moves} left)</span>
+              )}
+            </span>
+          </div>
+          
+          {/* Main teaching message */}
+          <p className="text-sm leading-relaxed">
+            {insight.main_insight}
+          </p>
+          
+          {/* Why this matters */}
+          {insight.why && (
+            <p className="text-xs text-muted-foreground">
+              {insight.why}
+            </p>
+          )}
+          
+          {/* Next instruction */}
+          {insight.next_idea && (
+            <div className="pt-2 border-t border-amber-500/20">
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                → {insight.next_idea}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
   // Get reaction based on move quality
   const getReaction = () => {
     const quality = insight.quality?.toLowerCase() || "neutral";

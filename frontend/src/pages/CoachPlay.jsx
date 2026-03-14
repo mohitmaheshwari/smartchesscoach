@@ -1234,6 +1234,21 @@ const CoachPlay = ({ user }) => {
     }
     setLastMove(null);
     
+    // Update CoachInsightCard with teaching content
+    setCurrentInsight({
+      quality: "teaching",
+      main_insight: `Let's learn the ${lessonData.lesson_name}! ${lessonData.instruction?.message || "Follow along and play the moves."}`,
+      why: lessonData.opening_name ? `Part of the ${lessonData.opening_name}` : null,
+      next_idea: lessonData.instruction?.is_user_move 
+        ? `Your turn: play ${lessonData.instruction.move}`
+        : `Watch: I'll play ${lessonData.instruction?.move}`,
+      has_better_move: false,
+      can_explain: true,
+      teaching_mode: true,
+      lesson_name: lessonData.lesson_name,
+      remaining_moves: lessonData.instruction?.remaining
+    });
+    
     // Add lesson start message to chat
     setChatMessages(prev => [...prev, {
       type: "coach",
@@ -1269,6 +1284,20 @@ const CoachPlay = ({ user }) => {
     // Update instruction for next move
     if (result.next_instruction) {
       setLessonInstruction(result.next_instruction);
+      
+      // Update CoachInsightCard with teaching feedback
+      setCurrentInsight({
+        quality: result.correct ? "good" : "teaching",
+        main_insight: result.message || (result.correct ? "Good! Keep going." : "That's not quite right. Try again."),
+        why: result.explanation,
+        next_idea: result.next_instruction?.is_user_move 
+          ? `Your turn: play ${result.next_instruction.move}`
+          : `Watch: I'll play ${result.next_instruction?.move}`,
+        has_better_move: !result.correct,
+        can_explain: true,
+        teaching_mode: true,
+        remaining_moves: result.next_instruction?.remaining
+      });
     }
     
     // Update board position

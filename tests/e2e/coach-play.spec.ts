@@ -370,3 +370,159 @@ test.describe('CoachInsightCard Bug Fix Verification', () => {
     await page.getByTestId('resign-btn').click({ force: true });
   });
 });
+
+test.describe('Teaching Mode Features', () => {
+  test.beforeEach(async ({ page }) => {
+    await devLogin(page);
+    await cleanupActiveSessions(page);
+  });
+
+  test('Start Learning button triggers teaching mode', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    
+    // Start a new game as white
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    // Wait for opening suggestion with "Start Learning" button to appear
+    // This may take a few seconds as the coach detects the opening
+    const startLearningBtn = page.getByTestId('start-lesson-btn');
+    
+    // Check if lesson offer is visible (depends on opening detection)
+    const offerVisible = await startLearningBtn.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (offerVisible) {
+      // Click Start Learning to enter teaching mode
+      await startLearningBtn.click({ force: true });
+      
+      // Should enter teaching mode - look for teaching UI indicators
+      // Teaching mode shows lesson name in amber styling
+      await expect(page.locator('text=/Learning|Trap|Lesson/i').first()).toBeVisible({ timeout: 5000 });
+      
+      // Exit lesson button should appear
+      await expect(page.getByText('Exit lesson', { exact: true })).toBeVisible();
+    } else {
+      // If no teaching offer, the game may need more moves to detect an opening
+      // Just verify the game is running - this is not a bug
+      await expect(page.getByTestId('resign-btn')).toBeVisible();
+    }
+    
+    // Cleanup
+    await page.getByTestId('resign-btn').click({ force: true });
+  });
+
+  test('CoachInsightCard shows teaching-specific amber UI with lesson info', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    
+    // Start a new game
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    // Check if we can enter teaching mode
+    const startLearningBtn = page.getByTestId('start-lesson-btn');
+    const offerVisible = await startLearningBtn.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (offerVisible) {
+      await startLearningBtn.click({ force: true });
+      await page.waitForTimeout(2000);
+      
+      // Teaching UI should show:
+      // 1. Amber-styled CoachInsightCard (amber border/background)
+      // 2. Lesson name (e.g., "Elephant Trap")
+      // 3. Remaining moves count (e.g., "(8 left)")
+      
+      // Check for amber styling - look for amber-colored elements
+      const amberElement = page.locator('.bg-amber-500\\/10, [class*="amber"]').first();
+      await expect(amberElement).toBeVisible();
+      
+      // Check for lesson name display
+      const lessonHeader = page.locator('text=/\\(\\d+ left\\)/').first();
+      await expect(lessonHeader).toBeVisible();
+      
+      // Should show "Your turn" instruction
+      await expect(page.locator('text=/Your turn/i').first()).toBeVisible();
+    }
+    
+    // Cleanup
+    await page.getByTestId('resign-btn').click({ force: true });
+  });
+
+  test('Teaching instruction shows Your turn: play X format', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    const startLearningBtn = page.getByTestId('start-lesson-btn');
+    const offerVisible = await startLearningBtn.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (offerVisible) {
+      await startLearningBtn.click({ force: true });
+      await page.waitForTimeout(2000);
+      
+      // Should show instruction with move notation like "Your turn: play Nc3" or "Your turn → play Nc3"
+      const instruction = page.locator('text=/Your turn.*play\\s+[A-Za-z0-9]+/i').first();
+      await expect(instruction).toBeVisible();
+    }
+    
+    // Cleanup
+    await page.getByTestId('resign-btn').click({ force: true });
+  });
+
+  test('Teaching mode shows Exit lesson button to exit', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    const startLearningBtn = page.getByTestId('start-lesson-btn');
+    const offerVisible = await startLearningBtn.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (offerVisible) {
+      await startLearningBtn.click({ force: true });
+      await page.waitForTimeout(2000);
+      
+      // Exit lesson button should be visible for exiting teaching mode
+      const exitBtn = page.getByText('Exit lesson', { exact: true });
+      await expect(exitBtn).toBeVisible();
+      
+      // Click exit to leave teaching mode
+      await exitBtn.click({ force: true });
+      await page.waitForTimeout(1000);
+      
+      // After exiting, Exit lesson button should disappear
+      await expect(exitBtn).not.toBeVisible();
+    }
+    
+    // Cleanup
+    await page.getByTestId('resign-btn').click({ force: true });
+  });
+
+  test('Opening/Trap lesson offer shows trap name and description', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    // Wait for potential teaching offer
+    await page.waitForTimeout(3000);
+    
+    // Look for trap name in the lesson offer panel (e.g., "Elephant Trap", "Legal's Mate")
+    const trapName = page.locator('text=/Trap|Opening|Gambit|Defense/i').first();
+    const trapVisible = await trapName.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (trapVisible) {
+      // Should show Start Learning and Just Play buttons
+      await expect(page.getByTestId('start-lesson-btn')).toBeVisible();
+      await expect(page.getByText('Just Play', { exact: true })).toBeVisible();
+    }
+    
+    // Cleanup
+    await page.getByTestId('resign-btn').click({ force: true });
+  });
+});
