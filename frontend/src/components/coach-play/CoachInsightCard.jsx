@@ -150,6 +150,23 @@ const CoachInsightCard = ({
           </div>
         )}
         
+        {/* Best move suggestion - when there was a better option */}
+        {insight.has_better_move && insight.best_move && (
+          <div className="pt-2 border-t border-border/50">
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              <span className="font-medium">Better was:</span> {insight.best_move}
+              {insight.why && <span className="text-muted-foreground"> — {insight.why}</span>}
+            </p>
+          </div>
+        )}
+        
+        {/* Encouragement */}
+        {insight.encouragement && config.showReaction && (
+          <p className="text-xs text-muted-foreground mt-2">
+            {insight.encouragement}
+          </p>
+        )}
+        
         {/* Advanced mode: Engine notation */}
         {config.showEngineNotation && insight.evaluation && (
           <div className="pt-2 text-xs font-mono text-muted-foreground">

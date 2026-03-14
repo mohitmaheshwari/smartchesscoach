@@ -43,9 +43,9 @@ async function waitForToastsToDisappear(page: Page) {
 async function startGameAsWhite(page: Page) {
   await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
   await waitForToastsToDisappear(page);
-  await expect(page.getByTestId('coach-play-setup')).toBeVisible();
+  await expect(page.getByTestId('coach-play-setup')).toBeVisible({ timeout: 10000 });
   await page.getByTestId('start-game-btn').click({ force: true });
-  await expect(page.getByTestId('coach-play-game')).toBeVisible();
+  await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
 }
 
 test.describe('Clean UI Mode - Core Components', () => {

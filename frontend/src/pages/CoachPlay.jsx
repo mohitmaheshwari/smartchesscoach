@@ -275,10 +275,10 @@ const CoachPlay = ({ user }) => {
             const latestCoachMsg = regularMessages.filter(m => m.type === "coach").pop();
             if (latestCoachMsg) {
               setCurrentInsight({
-                quality: latestCoachMsg.trigger || "neutral",
+                quality: latestCoachMsg.trigger || latestCoachMsg.classification || "neutral",
                 main_insight: latestCoachMsg.message,
-                why: null,
-                next_idea: latestCoachMsg.question?.prompt,
+                why: latestCoachMsg.detailed_feedback || null,
+                next_idea: latestCoachMsg.question?.prompt || latestCoachMsg.socratic_question,
                 has_better_move: false,
                 can_explain: true,
                 deeper_explanation: null
@@ -648,13 +648,15 @@ const CoachPlay = ({ user }) => {
           
           // Transform feedback for clean UI mode
           setCurrentInsight({
-            quality: data.feedback.quality || "neutral",
-            main_insight: data.feedback.explanation || data.feedback.message || "Let's continue playing.",
-            why: data.feedback.detailed_feedback,
-            next_idea: data.feedback.suggestion,
-            has_better_move: data.feedback.best_move && data.feedback.best_move !== data.feedback.move,
+            quality: data.feedback.user_move_quality || data.feedback.quality || "neutral",
+            main_insight: data.feedback.coaching_message || data.feedback.explanation || data.feedback.message || "Let's continue playing.",
+            why: data.feedback.best_move_explanation || data.feedback.detailed_feedback,
+            next_idea: data.feedback.socratic_question || data.feedback.suggestion,
+            has_better_move: data.feedback.best_move && data.feedback.best_move !== data.feedback.user_move,
             can_explain: true,
-            deeper_explanation: data.feedback.pattern_explanation
+            deeper_explanation: data.feedback.pattern_reference || data.feedback.pattern_explanation,
+            encouragement: data.feedback.encouragement,
+            best_move: data.feedback.best_move
           });
         }
       }

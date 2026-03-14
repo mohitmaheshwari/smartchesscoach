@@ -292,3 +292,81 @@ test.describe('Coach Play Steps 3-5: CPR and Identity Display', () => {
     await page.getByTestId('resign-btn').click({ force: true });
   });
 });
+
+test.describe('CoachInsightCard Bug Fix Verification', () => {
+  test.beforeEach(async ({ page }) => {
+    await devLogin(page);
+    await cleanupActiveSessions(page);
+  });
+
+  test('should show CoachInsightCard welcome state before moves', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    
+    // Start a new game as white
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    // CoachInsightCard should show welcome state with proper message
+    await expect(page.getByText(/Make a move\. I'll share my thoughts\./i)).toBeVisible();
+    
+    // Cleanup
+    await page.getByTestId('resign-btn').click({ force: true });
+  });
+
+  test('should display all smart prompts in coach panel', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    
+    // Start a new game
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    // All 4 smart prompts should be visible
+    await expect(page.getByRole('button', { name: /Why was that better/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /What's my plan/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Did I miss a tactic/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /What should I improve/i })).toBeVisible();
+    
+    // Type a question button
+    await expect(page.getByRole('button', { name: /Type a question/i })).toBeVisible();
+    
+    // Cleanup
+    await page.getByTestId('resign-btn').click({ force: true });
+  });
+
+  test('Type a question button should expand to text area', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    
+    // Start a new game
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    // Click "Type a question..." button
+    await page.getByRole('button', { name: /Type a question/i }).click({ force: true });
+    
+    // Should show textarea/input
+    const textarea = page.getByPlaceholder(/Ask the coach anything/i);
+    await expect(textarea).toBeVisible();
+    
+    // Cleanup
+    await page.getByTestId('resign-btn').click({ force: true });
+  });
+
+  test('should show is_player_turn as true when playing as white', async ({ page }) => {
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await waitForToastsToDisappear(page);
+    
+    // Start a new game as white (default)
+    await page.getByTestId('select-white').click({ force: true });
+    await page.getByTestId('start-game-btn').click({ force: true });
+    await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
+    
+    // Should show "Your turn" indicator since white moves first
+    await expect(page.getByText('Your turn', { exact: true })).toBeVisible();
+    
+    // Cleanup
+    await page.getByTestId('resign-btn').click({ force: true });
+  });
+});
