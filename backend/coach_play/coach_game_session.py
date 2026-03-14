@@ -19,7 +19,10 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 import uuid
 import asyncio
+import logging
 from motor.motor_asyncio import AsyncIOMotorDatabase
+
+logger = logging.getLogger(__name__)
 
 STOCKFISH_PATH = "/usr/games/stockfish"
 
@@ -172,15 +175,16 @@ async def start_coach_session(
             base_time = float(parts[0]) * 60  # Convert minutes to seconds
             increment = float(parts[1])
     
-    # Get user's rating from player_profiles
+    # Get user's rating from their synced games (actual rating from Lichess/Chess.com)
     from .coach_opponent import rating_to_skill_level
-    user_rating = 1200  # Default
-    player_profile = await db.player_profiles.find_one({"user_id": user_id})
-    if player_profile:
-        # Use their highest rating from any platform
-        lichess_rating = player_profile.get("lichess_stats", {}).get("rating", 0)
-        chesscom_rating = player_profile.get("chesscom_stats", {}).get("rating", 0)
-        user_rating = max(lichess_rating, chesscom_rating, 1200)
+    from services.coach_memory import get_user_rating_from_games
+    
+    rating_data = await get_user_rating_from_games(db, user_id)
+    user_rating = rating_data.get('rating', 1200)
+    rating_source = rating_data.get('source', 'default')
+    
+    # Log for debugging
+    logger.info(f"User {user_id} rating: {user_rating} (source: {rating_source})")
     
     skill_level = rating_to_skill_level(user_rating)
     

@@ -170,3 +170,25 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Inline components: ✅ Created
 - Resume game flow: ✅ Tested (9/9 backend, 7/7 frontend tests)
 - Test files created: `/app/backend/tests/test_trigger_coach_move.py`, `/app/tests/e2e/resume-game.spec.ts`
+
+## March 14, 2026 - Rating & Post-Game Analysis Improvements
+
+### ✅ User Rating Now From Synced Games
+- Rating calculated from actual Chess.com/Lichess game history (not hardcoded 1200)
+- Uses average of last 10 games sorted by game date for stability
+- Tracks: current rating, highest, lowest, trend (improving/stable/declining)
+- bhutramohit current rating: ~1181 from Chess.com
+
+### ✅ Post-Game Analysis Backend Verified
+- Rich analysis with memory insights, habit tracking, CPR rating
+- Coach memory tracks 126 games with avg 92.7% accuracy
+- Known weaknesses: early_queen (4x), one_move_blunders (14x, improving)
+- Indian-English style in coach messages (Arre, yaar, na?, Shabash, etc.)
+
+### Coach Rating Algorithm
+```
+Performance Rating = Base + Adjustment + Win/Loss Bonus
+- error_rate = (blunders×3 + mistakes×2 + inaccuracies) / moves
+- adjustment = (0.1 - error_rate) × 1000 (capped -400 to +300)
+- Win: +50, Loss: -50
+```

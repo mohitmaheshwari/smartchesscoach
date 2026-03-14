@@ -669,3 +669,118 @@ async def record_in_game_mistake(
     except Exception as e:
         logger.warning(f"Error recording in-game mistake: {e}")
 
+
+
+
+async def get_user_rating_from_games(db, user_id: str) -> Dict:
+    """
+    Get user's actual rating from their synced games (Lichess/Chess.com).
+    
+    Returns:
+        Dict with:
+        - rating: int (average of recent games for stability)
+        - source: str (where rating came from)
+        - games_analyzed: int
+        - rating_trend: str (improving/stable/declining)
+    """
+    import re
+    
+    games_with_dates = []
+    sources = set()
+    
+    # Check games collection for PGN-embedded ratings
+    async for game in db.games.find(
+        {'user_id': user_id},
+        {'pgn': 1, 'user_color': 1, 'platform': 1}
+    ).limit(200):  # Get more games to find the most recent by game date
+        pgn = game.get('pgn', '')
+        user_color = game.get('user_color', '')
+        platform = game.get('platform', 'unknown')
+        
+        # Extract ratings and date from PGN headers
+        white_elo = re.search(r'\[WhiteElo "(\d+)"\]', pgn)
+        black_elo = re.search(r'\[BlackElo "(\d+)"\]', pgn)
+        utc_date = re.search(r'\[UTCDate "(\d{4}\.\d{2}\.\d{2})"\]', pgn)
+        utc_time = re.search(r'\[UTCTime "(\d{2}:\d{2}:\d{2})"\]', pgn)
+        
+        if white_elo and black_elo and utc_date:
+            if user_color == 'white':
+                rating = int(white_elo.group(1))
+            elif user_color == 'black':
+                rating = int(black_elo.group(1))
+            else:
+                continue
+            
+            # Create sortable datetime string
+            game_datetime = utc_date.group(1).replace('.', '-')
+            if utc_time:
+                game_datetime += ' ' + utc_time.group(1)
+            
+            games_with_dates.append({
+                'rating': rating,
+                'datetime': game_datetime,
+                'platform': platform
+            })
+            sources.add(platform)
+    
+    if not games_with_dates:
+        # Fallback: check player_profiles for linked accounts
+        profile = await db.player_profiles.find_one({'user_id': user_id})
+        if profile:
+            if profile.get('lichess_rating'):
+                return {
+                    'rating': profile['lichess_rating'],
+                    'source': 'lichess_profile',
+                    'games_analyzed': 0,
+                    'rating_trend': 'unknown'
+                }
+            if profile.get('chesscom_rating'):
+                return {
+                    'rating': profile['chesscom_rating'],
+                    'source': 'chesscom_profile',
+                    'games_analyzed': 0,
+                    'rating_trend': 'unknown'
+                }
+        
+        # No rating data found
+        return {
+            'rating': 1200,  # Default
+            'source': 'default',
+            'games_analyzed': 0,
+            'rating_trend': 'unknown'
+        }
+    
+    # Sort by actual game date (most recent first)
+    games_with_dates.sort(key=lambda x: x['datetime'], reverse=True)
+    
+    # Get ratings sorted by date
+    ratings = [g['rating'] for g in games_with_dates]
+    
+    # Use average of last 10 games for stable rating (not just most recent)
+    recent_ratings = ratings[:10]
+    current_rating = int(sum(recent_ratings) / len(recent_ratings))
+    
+    # Calculate trend from recent vs older games
+    if len(ratings) >= 20:
+        recent_avg = sum(ratings[:10]) / 10
+        older_avg = sum(ratings[10:20]) / 10
+        
+        if recent_avg > older_avg + 20:
+            trend = 'improving'
+        elif recent_avg < older_avg - 20:
+            trend = 'declining'
+        else:
+            trend = 'stable'
+    else:
+        trend = 'unknown'
+    
+    return {
+        'rating': current_rating,
+        'source': ', '.join(sources) if sources else 'synced_games',
+        'games_analyzed': len(ratings),
+        'rating_trend': trend,
+        'avg_rating': int(sum(ratings) / len(ratings)),
+        'highest_rating': max(ratings),
+        'lowest_rating': min(ratings),
+        'most_recent_rating': ratings[0] if ratings else current_rating
+    }
