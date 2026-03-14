@@ -9,3 +9,5 @@ export { default as MoveFeedbackPanel } from './MoveFeedbackPanel';
 export { default as GuardianWarning } from './GuardianWarning';
 export { default as CoachChat } from './CoachChat';
 export { default as GameSetupPanel } from './GameSetupPanel';
+export { default as InlineOpeningLesson } from './InlineOpeningLesson';
+export { default as InlineTrapLesson } from './InlineTrapLesson';

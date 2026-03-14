@@ -60,7 +60,12 @@ import {
   LessonCompletePanel 
 } from "@/components/coach/OpeningTeachingPanel";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
-import { EvalBar, MoveFeedbackPanel } from "@/components/coach-play";
+import { 
+  EvalBar, 
+  MoveFeedbackPanel,
+  InlineOpeningLesson,
+  InlineTrapLesson 
+} from "@/components/coach-play";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -131,6 +136,10 @@ const CoachPlay = ({ user }) => {
   // NEW: Live Opening Guidance (from session state)
   const [openingGuidance, setOpeningGuidance] = useState(null);
   
+  // NEW: Inline lessons (non-disruptive teaching)
+  const [inlineOpening, setInlineOpening] = useState(null);
+  const [inlineTrap, setInlineTrap] = useState(null);
+  
   // NEW: Real-time move feedback state
   const [moveFeedback, setMoveFeedback] = useState(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
@@ -178,6 +187,28 @@ const CoachPlay = ({ user }) => {
             const offer = teachingOffers[0];
             // Only set if we have valid data
             if (offer.opening_name) {
+              // Set inline opening lesson (new non-disruptive approach)
+              setInlineOpening({
+                name: offer.opening_name,
+                key: offer.opening_key,
+                main_idea: offer.message || `We're in the ${offer.opening_name}!`,
+                simple_explanation: offer.message,
+                key_moves: offer.main_moves || [],
+                key_squares: offer.key_squares || []
+              });
+              
+              // Set inline trap if available
+              if (offer.trap_name) {
+                setInlineTrap({
+                  name: offer.trap_name,
+                  opening_key: offer.opening_key,
+                  description: `A trap in the ${offer.opening_name}`,
+                  moves: offer.trap_moves || [],
+                  trigger_move: offer.trap_trigger
+                });
+              }
+              
+              // Also set legacy teaching offer as fallback
               setTeachingOffer({
                 opening_name: offer.opening_name,
                 opening_key: offer.opening_key,
@@ -1599,8 +1630,66 @@ const CoachPlay = ({ user }) => {
             </div>
           )}
           
-          {/* Opening Teaching Offer - Shows when opening is detected */}
-          {session && teachingOffer && !isInTeachingMode && !gameOver && (
+          {/* Inline Opening Lesson - Non-disruptive teaching */}
+          {session && inlineOpening && !isInTeachingMode && !gameOver && (
+            <div className="p-4 border-b border-border">
+              <InlineOpeningLesson
+                opening={inlineOpening}
+                onShowOnBoard={(moves, squares) => {
+                  // Highlight key squares on the board
+                  if (groundRef.current && squares?.length > 0) {
+                    groundRef.current.setAutoShapes(
+                      squares.map(sq => ({
+                        orig: sq,
+                        brush: 'green'
+                      }))
+                    );
+                    setTimeout(() => {
+                      groundRef.current?.setAutoShapes([]);
+                    }, 3000);
+                  }
+                  toast.info("Key squares highlighted on board");
+                }}
+                onSaveForLater={async (key) => {
+                  // Save to practice queue
+                  try {
+                    await fetch(`${API}/coach/practice-queue/add`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify({ opening_key: key })
+                    });
+                  } catch (e) {
+                    console.log("Practice queue save:", e);
+                  }
+                }}
+                onDismiss={() => setInlineOpening(null)}
+              />
+            </div>
+          )}
+          
+          {/* Inline Trap Lesson - Quick trap teaching */}
+          {session && inlineTrap && !isInTeachingMode && !gameOver && (
+            <div className="p-4 border-b border-border">
+              <InlineTrapLesson
+                trap={inlineTrap}
+                onShowTrapMoves={(moves) => {
+                  // Show arrows for trap sequence
+                  toast.info(`Trap: ${moves.slice(0, 4).join(" → ")}`);
+                }}
+                onTryTrap={(trap) => {
+                  // Navigate to trap practice
+                  if (trap.opening_key) {
+                    navigate(`/openings/${trap.opening_key}?tab=traps&trap=${trap.key}`);
+                  }
+                }}
+                onDismiss={() => setInlineTrap(null)}
+              />
+            </div>
+          )}
+          
+          {/* Opening Teaching Offer (Legacy - fallback) */}
+          {session && teachingOffer && !inlineOpening && !inlineTrap && !isInTeachingMode && !gameOver && (
             <div className="p-4 border-b border-border">
               <OpeningTeachingOffer
                 offer={teachingOffer}
