@@ -435,7 +435,7 @@ async def generate_move_feedback(
     pattern_reference = None
     memory_reference = None
     
-    if quality in ["mistake", "blunder"] and db:
+    if quality in ["mistake", "blunder"] and db is not None:
         try:
             from services.coach_memory import get_realtime_pattern_context, record_in_game_mistake
             

@@ -372,12 +372,67 @@ const CoachPlay = ({ user }) => {
         
         if (data.is_player_turn) {
           setMoveStartTime(Date.now());
+        } else if (!data.game_over) {
+          // It's coach's turn - trigger coach to make a move
+          // The coach might have been interrupted mid-move
+          setTimeout(() => {
+            triggerCoachMove(sessionId);
+          }, 500);
         }
         
         toast.success("Resumed your game!");
       }
     } catch (error) {
       console.error("Error resuming session:", error);
+    }
+  };
+  
+  // Trigger coach to make a move (used after resume when it's coach's turn)
+  const triggerCoachMove = async (sessionId) => {
+    setCoachThinking(true);
+    setThinkingMessage("Coach is thinking...");
+    
+    try {
+      const response = await fetch(`${API}/coach/play/trigger-coach-move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ session_id: sessionId })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          setCurrentFen(data.current_fen);
+          setIsPlayerTurn(data.is_player_turn);
+          
+          if (data.coach_move) {
+            toast.success(data.message || `Coach played ${data.coach_move}`);
+            // Update last move highlight
+            // The move format is UCI, parse it
+            if (data.coach_move.length >= 4) {
+              // For SAN moves, we need to get UCI from the API response
+              // For now, just refetch the state to get proper lastMove
+              setTimeout(() => {
+                fetchMoveFeedbackForSession(sessionId);
+              }, 500);
+            }
+          }
+          
+          setMoveStartTime(Date.now());
+        } else {
+          toast.info(data.message || "It's your turn!");
+        }
+      } else {
+        const err = await response.json();
+        toast.error(err.detail || "Couldn't get coach move");
+      }
+    } catch (error) {
+      console.error("Error triggering coach move:", error);
+      toast.error("Error getting coach move");
+    } finally {
+      setCoachThinking(false);
     }
   };
 
@@ -1432,6 +1487,17 @@ const CoachPlay = ({ user }) => {
                     Your turn
                   </Badge>
                 )}
+                {!isPlayerTurn && !gameOver && !coachThinking && (
+                  <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30 text-xs">
+                    Coach's turn
+                  </Badge>
+                )}
+                {coachThinking && (
+                  <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/30 text-xs animate-pulse">
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Thinking...
+                  </Badge>
+                )}
               </div>
               <Badge variant="outline" className="text-xs">
                 <Clock className="w-3 h-3 mr-1" />
@@ -1439,6 +1505,25 @@ const CoachPlay = ({ user }) => {
                 {String(Math.floor((session?.user_time_remaining || 900) % 60)).padStart(2, "0")}
               </Badge>
             </div>
+            
+            {/* Coach turn prompt - shows when game is stuck on coach's turn */}
+            {!isPlayerTurn && !gameOver && !coachThinking && session && (
+              <div className="mt-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
+                <p className="text-sm text-amber-500 mb-2">
+                  It's the coach's turn. The game may have been interrupted.
+                </p>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="border-amber-500/50 text-amber-500 hover:bg-amber-500/20"
+                  onClick={() => triggerCoachMove(session.session_id)}
+                  data-testid="let-coach-play-btn"
+                >
+                  <Play className="w-4 h-4 mr-1" />
+                  Let Coach Play
+                </Button>
+              </div>
+            )}
 
             {/* Controls */}
             <div className="flex items-center justify-center gap-2 mt-4">

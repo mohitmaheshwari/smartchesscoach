@@ -1531,3 +1531,146 @@ async def get_opening_plan(
             "simple_explanation": "Focus on basic opening principles.",
             "eco_codes": [],
         }
+
+
+
+@router.post("/trigger-coach-move")
+async def trigger_coach_move_endpoint(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Trigger the coach to make a move when it's their turn.
+    
+    Used when resuming a game that was interrupted during coach's turn.
+    
+    Body:
+    - session_id: Current game session
+    
+    Returns:
+    - success: bool
+    - coach_move: The move played by coach (if successful)
+    - current_fen: Updated position
+    - is_player_turn: Should now be True
+    """
+    global db
+    import chess
+    
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    session_id = request.get("session_id")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    # Get session
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    if session_doc.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Session not active")
+    
+    # Check if it's actually coach's turn
+    current_fen = session_doc.get("current_fen")
+    user_color = session_doc.get("user_color")
+    
+    try:
+        board = chess.Board(current_fen)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid board position")
+    
+    is_white_turn = board.turn == chess.WHITE
+    is_player_turn = (is_white_turn and user_color == "white") or (not is_white_turn and user_color == "black")
+    
+    if is_player_turn:
+        return {
+            "success": True,
+            "message": "It's already your turn!",
+            "current_fen": current_fen,
+            "is_player_turn": True
+        }
+    
+    # It's coach's turn - make a move
+    from coach_play.coach_opponent import CoachOpponent
+    
+    try:
+        user_rating = session_doc.get("user_rating", 1200)
+        coach = CoachOpponent(user_rating=user_rating)
+        
+        # Get coach's move using FEN - returns SAN notation
+        coach_move = await coach.get_move(current_fen)
+        
+        if not coach_move:
+            raise HTTPException(status_code=500, detail="Coach couldn't find a move")
+        
+        # Parse move - could be SAN or UCI
+        try:
+            # Try parsing as SAN first (most likely)
+            chess_move = board.parse_san(coach_move)
+            coach_move_san = coach_move
+            coach_move_uci = chess_move.uci()
+        except ValueError:
+            # Try parsing as UCI
+            try:
+                chess_move = board.parse_uci(coach_move)
+                coach_move_san = board.san(chess_move)
+                coach_move_uci = coach_move
+            except ValueError:
+                raise HTTPException(status_code=500, detail=f"Invalid move format: {coach_move}")
+        
+        # Make the move
+        board.push(chess_move)
+        new_fen = board.fen()
+        
+        # Update session
+        move_history = session_doc.get("move_history", [])
+        move_number = len(move_history) + 1
+        
+        move_history.append({
+            "move": coach_move_san,
+            "uci": coach_move_uci,
+            "by": "coach",
+            "move_number": move_number,
+            "fen_before": current_fen,
+            "fen_after": new_fen,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {
+                "$set": {
+                    "current_fen": new_fen,
+                    "move_history": move_history,
+                    "coach_move_pending": False,
+                    "last_coach_move": coach_move_san
+                }
+            }
+        )
+        
+        # Add a coach message
+        await db.coach_messages.insert_one({
+            "session_id": session_id,
+            "type": "coach",
+            "message": f"I played {coach_move_san}. Your turn!",
+            "trigger": "resume_coach_move",
+            "move": coach_move_san,
+            "move_number": move_number,
+            "created_at": datetime.now(timezone.utc),
+            "read": False
+        })
+        
+        return {
+            "success": True,
+            "coach_move": coach_move_san,
+            "current_fen": new_fen,
+            "is_player_turn": True,
+            "message": f"Coach played {coach_move_san}. Your turn!"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error triggering coach move: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
