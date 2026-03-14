@@ -17,6 +17,13 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 4. Added "Coach's turn" badge and "Thinking..." indicator in UI
 5. Testing: 100% backend (9/9), 100% frontend (7/7), regression 26/27
 
+#### ✅ NEW: "Continue Where You Left Off" Dashboard Card
+- New `ActiveGamesCard` component shows active coach games on dashboard
+- Displays game info: time ago, move count, user color, last move
+- Quick "Resume" button to jump back into the game
+- Shows count of additional active games if multiple exist
+- Dismissible with X button
+
 #### ✅ NEW: Inline Opening & Trap Lessons
 **Problem Solved:** Previously, clicking "Learn Opening" would redirect users away from their game, disrupting the flow.
 

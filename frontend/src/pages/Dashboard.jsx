@@ -49,6 +49,7 @@ import { CoachWeeklySignalCard, FocusLockCard } from "@/components/Home";
 import LearningPath from "@/components/LearningPath";
 import MemoryLane from "@/components/MemoryLane";
 import HabitChallenge from "@/components/HabitChallenge";
+import ActiveGamesCard from "@/components/ActiveGamesCard";
 import {
   Dialog,
   DialogContent,
@@ -785,6 +786,11 @@ const Dashboard = ({ user }) => {
             {/* Daily Mission Card - Dopamine Engine Entry Point */}
             <AnimatedItem>
               <DailyMissionCard />
+            </AnimatedItem>
+            
+            {/* Continue Where You Left Off - Active Games */}
+            <AnimatedItem>
+              <ActiveGamesCard />
             </AnimatedItem>
             
             {/* Learning Path - Personalized Coach Recommendations */}
