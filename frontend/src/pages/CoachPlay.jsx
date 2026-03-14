@@ -1520,39 +1520,7 @@ const CoachPlay = ({ user }) => {
                   showDests={true}
                 />
                 
-                {/* Teaching Mode Overlay - Clean instruction on board */}
-                {isInTeachingMode && activeLesson && lessonInstruction && !lessonComplete && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-3 pt-8">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs text-amber-400 font-medium">
-                            Learning: {activeLesson.lesson_name}
-                          </span>
-                          <span className="text-xs text-white/50">
-                            {lessonInstruction.remaining} moves left
-                          </span>
-                        </div>
-                        <p className="text-sm text-white font-medium truncate">
-                          {lessonInstruction.is_user_move 
-                            ? `Your turn - play ${lessonInstruction.move}`
-                            : `Coach plays ${lessonInstruction.move}...`
-                          }
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-white/70 hover:text-white hover:bg-white/10 shrink-0"
-                        onClick={() => handleExitLesson("continue_game", {})}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Lesson Complete Overlay */}
+                {/* Lesson Complete Overlay - only this stays on board */}
                 {lessonComplete && (
                   <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4">
                     <div className="bg-card rounded-lg p-4 max-w-xs text-center space-y-3">
@@ -1578,6 +1546,41 @@ const CoachPlay = ({ user }) => {
                 )}
               </div>
             </div>
+            
+            {/* Teaching Mode Instruction Bar - BELOW the board, not overlaying it */}
+            {isInTeachingMode && activeLesson && lessonInstruction && !lessonComplete && (
+              <div className="mt-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <BookOpen className="w-4 h-4 text-amber-500 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-amber-500">
+                          {activeLesson.lesson_name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          ({lessonInstruction.remaining} left)
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium">
+                        {lessonInstruction.is_user_move 
+                          ? `Your turn → play ${lessonInstruction.move}`
+                          : `Coach plays ${lessonInstruction.move}...`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="shrink-0"
+                    onClick={() => handleExitLesson("continue_game", {})}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Player info bar */}
             <div className="flex items-center justify-between mt-2 p-2 rounded-lg bg-muted/50 text-sm">
