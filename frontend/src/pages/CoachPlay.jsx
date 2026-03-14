@@ -64,7 +64,12 @@ import {
   EvalBar, 
   MoveFeedbackPanel,
   InlineOpeningLesson,
-  InlineTrapLesson 
+  InlineTrapLesson,
+  // NEW: Clean UX Components
+  CoachInsightCard,
+  TrapAlert,
+  AskCoach,
+  MoveHistorySection
 } from "@/components/coach-play";
 
 const CoachPlay = ({ user }) => {
@@ -143,6 +148,12 @@ const CoachPlay = ({ user }) => {
   // NEW: Real-time move feedback state
   const [moveFeedback, setMoveFeedback] = useState(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+  
+  // NEW: Clean UX State - One insight at a time
+  const [currentInsight, setCurrentInsight] = useState(null);
+  const [isCoachThinking, setIsCoachThinking] = useState(false);
+  const [activeTrapAlert, setActiveTrapAlert] = useState(null);
+  const [cleanUIMode, setCleanUIMode] = useState(true); // Enable new clean UI
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -258,6 +269,21 @@ const CoachPlay = ({ user }) => {
                 timestamp: Date.now()
               }))
             ]);
+            
+            // Update currentInsight for clean UI mode (latest message)
+            const latestCoachMsg = regularMessages.filter(m => m.type === "coach").pop();
+            if (latestCoachMsg) {
+              setCurrentInsight({
+                quality: latestCoachMsg.trigger || "neutral",
+                main_insight: latestCoachMsg.message,
+                why: null,
+                next_idea: latestCoachMsg.question?.prompt,
+                has_better_move: false,
+                can_explain: true,
+                deeper_explanation: null
+              });
+              setIsCoachThinking(false);
+            }
           }
         }
       }
@@ -565,6 +591,13 @@ const CoachPlay = ({ user }) => {
                 explanation: ot.suggested_trap.explanation || `A trap in the ${openingName || 'opening'}`,
                 moves: ot.suggested_trap.moves || []
               });
+              
+              // Also trigger trap alert for clean UI mode
+              setActiveTrapAlert({
+                name: ot.suggested_trap.name,
+                message: ot.suggested_trap.explanation || `Watch out for the ${ot.suggested_trap.name}!`,
+                moves: ot.suggested_trap.moves || []
+              });
             } else if (openingName) {
               // No trap, but we have an opening
               setInlineOpening({
@@ -597,6 +630,7 @@ const CoachPlay = ({ user }) => {
     if (!sessionId) return;
     
     setLoadingFeedback(true);
+    setIsCoachThinking(true); // Show thinking state in clean UI
     try {
       const response = await fetch(`${API}/coach/play/feedback/${sessionId}`, {
         credentials: "include"
@@ -606,12 +640,24 @@ const CoachPlay = ({ user }) => {
         const data = await response.json();
         if (data.feedback) {
           setMoveFeedback(data.feedback);
+          
+          // Transform feedback for clean UI mode
+          setCurrentInsight({
+            quality: data.feedback.quality || "neutral",
+            main_insight: data.feedback.explanation || data.feedback.message || "Let's continue playing.",
+            why: data.feedback.detailed_feedback,
+            next_idea: data.feedback.suggestion,
+            has_better_move: data.feedback.best_move && data.feedback.best_move !== data.feedback.move,
+            can_explain: true,
+            deeper_explanation: data.feedback.pattern_explanation
+          });
         }
       }
     } catch (error) {
       console.error("Error fetching move feedback:", error);
     } finally {
       setLoadingFeedback(false);
+      setIsCoachThinking(false);
     }
   };
 
@@ -1786,20 +1832,122 @@ const CoachPlay = ({ user }) => {
           </div>
         </div>
 
-        {/* Right: Coach Chat Panel */}
+        {/* Right: Coach Panel */}
         <div className="w-[380px] border-l border-border flex flex-col h-full" data-testid="coach-chat-panel">
-          {/* Header */}
-          <div className="p-4 border-b border-border">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <Brain className="w-5 h-5 text-primary" />
-              Coach Chat
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              Ask questions anytime. Coach speaks on teachable moments.
-            </p>
-          </div>
+          {/* Clean UI Mode - The new focused experience */}
+          {cleanUIMode && session && !gameOver ? (
+            <>
+              {/* Simple Header - Opening label only */}
+              <div className="p-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🎯</span>
+                    <span className="text-sm font-medium">Your Coach</span>
+                  </div>
+                  {openingGuidance?.opening_key && (
+                    <span className="text-xs text-muted-foreground">
+                      Opening: {openingGuidance.opening_key.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              {/* Main Content - Scrollable */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Trap Alert - Temporary, dismissible */}
+                {activeTrapAlert && (
+                  <TrapAlert
+                    trap={activeTrapAlert}
+                    onShowLine={(trap) => {
+                      toast.info(`Trap: ${trap.name}`);
+                      // TODO: Show trap line on board
+                    }}
+                    onDismiss={() => setActiveTrapAlert(null)}
+                  />
+                )}
+                
+                {/* Coach Insight Card - The PRIMARY element */}
+                <CoachInsightCard
+                  insight={currentInsight}
+                  isLoading={isCoachThinking}
+                  onAskWhy={() => {
+                    // Send "Why?" to coach
+                    sendChatMessage("Why was that better?");
+                  }}
+                  onShowBetterMove={() => {
+                    // Show better move
+                    sendChatMessage("Show me the better move");
+                  }}
+                />
+                
+                {/* Teaching Mode Instruction - if active */}
+                {isInTeachingMode && activeLesson && lessonInstruction && !lessonComplete && (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <div className="flex items-center gap-2 mb-1">
+                      <BookOpen className="w-4 h-4 text-amber-500" />
+                      <span className="text-sm font-medium text-amber-500">
+                        {activeLesson.lesson_name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        ({lessonInstruction.remaining} left)
+                      </span>
+                    </div>
+                    <p className="text-sm">
+                      {lessonInstruction.is_user_move 
+                        ? `Your turn → play ${lessonInstruction.move}`
+                        : `Coach plays ${lessonInstruction.move}...`
+                      }
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="mt-2 h-6 text-xs"
+                      onClick={() => handleExitLesson("continue_game", {})}
+                    >
+                      Exit lesson
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Ask Coach - Smart prompts + input */}
+                <div className="pt-2 border-t border-border/50">
+                  <AskCoach
+                    onSendMessage={(msg) => sendChatMessage(msg)}
+                    disabled={loadingFeedback}
+                    showPrompts={!isCoachThinking}
+                  />
+                </div>
+              </div>
+              
+              {/* Footer - Move History (collapsible) */}
+              <div className="p-4 border-t border-border">
+                <MoveHistorySection
+                  moves={session?.move_history?.map(m => m.move) || []}
+                  currentMoveIndex={(session?.move_history?.length || 0) - 1}
+                  onMoveClick={(index) => {
+                    // TODO: Navigate to position
+                    console.log("Navigate to move", index);
+                  }}
+                  defaultExpanded={false}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Legacy Header */}
+              <div className="p-4 border-b border-border">
+                <h2 className="text-lg font-bold flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-primary" />
+                  Coach Chat
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ask questions anytime. Coach speaks on teachable moments.
+                </p>
+              </div>
+            </>
+          )}
           
-          {/* Feedback Modal */}
+          {/* Feedback Modal - Keep this */}
           {feedbackMessage && (
             <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <Card className="w-full max-w-sm">
@@ -1911,27 +2059,32 @@ const CoachPlay = ({ user }) => {
             </div>
           )}
           
-          {/* Coach Memory Panel - Shows what the coach KNOWS about you (Deep Memory System) */}
-          {session && !gameOver && (
-            <div className="p-4 border-b border-border">
-              <DeepMemoryPanel compact={true} />
-            </div>
+          {/* Legacy panels - only show when NOT in clean UI mode */}
+          {!cleanUIMode && (
+            <>
+              {/* Coach Memory Panel - Shows what the coach KNOWS about you (Deep Memory System) */}
+              {session && !gameOver && (
+                <div className="p-4 border-b border-border">
+                  <DeepMemoryPanel compact={true} />
+                </div>
+              )}
+              
+              {/* Opening Guidance Panel - Shows during opening teaching (RIGHT SIDE - in chat area) */}
+              {session && !gameOver && openingGuidance?.teaching_active && openingGuidance.guidance && (
+                <div className="px-4 pb-4 border-b border-border">
+                  <OpeningGuidePanel
+                    openingGuidance={openingGuidance}
+                    activeLesson={activeLesson}
+                    sessionId={session?.session_id}
+                    onStartLesson={handleStartLesson}
+                    onSkipTrap={() => setOpeningGuidance(prev => ({ ...prev, suggested_trap: null }))}
+                  />
+                </div>
+              )}
+            </>
           )}
           
-          {/* Opening Guidance Panel - Shows during opening teaching (RIGHT SIDE - in chat area) */}
-          {session && !gameOver && openingGuidance?.teaching_active && openingGuidance.guidance && (
-            <div className="px-4 pb-4 border-b border-border">
-              <OpeningGuidePanel
-                openingGuidance={openingGuidance}
-                activeLesson={activeLesson}
-                sessionId={session?.session_id}
-                onStartLesson={handleStartLesson}
-                onSkipTrap={() => setOpeningGuidance(prev => ({ ...prev, suggested_trap: null }))}
-              />
-            </div>
-          )}
-          
-          {/* Post-Game Lesson - Shows when game is over */}
+          {/* Post-Game Lesson - Shows when game is over (both modes) */}
           {session && gameOver && (
             <div className="p-4 border-b border-border">
               <PostGameLesson
@@ -1944,35 +2097,34 @@ const CoachPlay = ({ user }) => {
             </div>
           )}
           
-          {/* Opening Teaching Offer (Legacy - fallback) */}
-          {session && teachingOffer && !inlineOpening && !inlineTrap && !isInTeachingMode && !gameOver && (
-            <div className="p-4 border-b border-border">
-              <OpeningTeachingOffer
-                offer={teachingOffer}
-                sessionId={session.session_id}
-                onStartLesson={handleStartLesson}
-                onSkip={handleSkipTeachingOffer}
-              />
-            </div>
-          )}
-          
-          {/* Removed clunky Active Lesson Panel - now using board overlay */}
-          
-          {/* Removed clunky Lesson Complete Panel - now using board overlay */}
-          
-          {/* Emotional State Indicator - Shows coach awareness of player mood */}
-          {session && !gameOver && blundersThisGame > 0 && (
-            <EmotionalStateIndicator
-              blundersThisGame={blundersThisGame}
-              recentResults={recentResults}
-              onTakeBreak={() => {
-                toast.info("Take a 5-minute break. The game will be here when you're back!");
-              }}
-            />
-          )}
-          
-          {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3" data-testid="chat-messages">
+          {/* Legacy panels - only show when NOT in clean UI mode */}
+          {!cleanUIMode && (
+            <>
+              {/* Opening Teaching Offer (Legacy - fallback) */}
+              {session && teachingOffer && !inlineOpening && !inlineTrap && !isInTeachingMode && !gameOver && (
+                <div className="p-4 border-b border-border">
+                  <OpeningTeachingOffer
+                    offer={teachingOffer}
+                    sessionId={session.session_id}
+                    onStartLesson={handleStartLesson}
+                    onSkip={handleSkipTeachingOffer}
+                  />
+                </div>
+              )}
+              
+              {/* Emotional State Indicator - Shows coach awareness of player mood */}
+              {session && !gameOver && blundersThisGame > 0 && (
+                <EmotionalStateIndicator
+                  blundersThisGame={blundersThisGame}
+                  recentResults={recentResults}
+                  onTakeBreak={() => {
+                    toast.info("Take a 5-minute break. The game will be here when you're back!");
+                  }}
+                />
+              )}
+              
+              {/* Chat Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3" data-testid="chat-messages">
             {/* Real-time Move Feedback Panel */}
             {moveFeedback && !gameOver && (
               <MoveFeedbackPanel 
@@ -2212,7 +2364,7 @@ const CoachPlay = ({ user }) => {
             </div>
           )}
           
-          {/* Chat Input */}
+          {/* Chat Input - Legacy mode only */}
           {!gameOver && (
             <div className="p-4 border-t border-border">
               <div className="flex gap-2">
@@ -2245,7 +2397,7 @@ const CoachPlay = ({ user }) => {
             </div>
           )}
           
-          {/* Move History (collapsed) */}
+          {/* Move History - Legacy */}
           <details className="border-t border-border">
             <summary className="p-3 text-sm cursor-pointer hover:bg-muted/50 flex items-center gap-2">
               <Swords className="w-4 h-4" />
@@ -2276,13 +2428,16 @@ const CoachPlay = ({ user }) => {
             </div>
           </details>
           
-          {/* Guardian Status */}
+          {/* Guardian Status - Legacy only */}
           <div className="p-3 border-t border-border text-xs">
             <ShieldAlert className="w-3 h-3 inline mr-1 text-primary" />
             <span className="text-muted-foreground">
               Guardian: {remainingInterventions} intervention{remainingInterventions !== 1 ? "s" : ""} remaining
             </span>
           </div>
+            </> 
+          )}
+          {/* End of Legacy UI block */}
         </div>
       </div>
 

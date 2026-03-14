@@ -15,7 +15,7 @@ import "chessground/assets/chessground.cburnett.css";
  * - Professional look and feel
  */
 const LichessBoard = forwardRef(({
-  fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+  fen: fenProp = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
   orientation = "white",
   onMove,
   interactive = true,
@@ -27,6 +27,9 @@ const LichessBoard = forwardRef(({
   planMode = false,  // Allow moving both colors (for analysis)
   movableColor = null, // Specific color that can move (overrides turn-based logic)
 }, ref) => {
+  // Ensure fen is never null/undefined
+  const fen = fenProp || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  
   const boardRef = useRef(null);
   const groundRef = useRef(null);
   const chessRef = useRef(new Chess(fen));

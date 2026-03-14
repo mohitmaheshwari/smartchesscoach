@@ -12,7 +12,7 @@ import pytest
 import uuid
 import time
 
-BASE_URL = "https://socratic-chess-1.preview.emergentagent.com"
+BASE_URL = "https://personalized-play-1.preview.emergentagent.com"
 
 
 class TestGuardianEvaluate:

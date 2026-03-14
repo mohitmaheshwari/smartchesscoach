@@ -6,7 +6,7 @@
  */
 import { test, expect, Page } from '@playwright/test';
 
-const BASE_URL = 'https://socratic-chess-1.preview.emergentagent.com';
+const BASE_URL = 'https://personalized-play-1.preview.emergentagent.com';
 
 async function devLogin(page: Page) {
   await page.goto('/api/auth/dev-login', { waitUntil: 'domcontentloaded' });
@@ -113,7 +113,7 @@ test.describe('Coach Play Game Flow', () => {
     await page.getByTestId('resign-btn').click({ force: true });
   });
 
-  test('should resign game and show summary with New Game button', async ({ page }) => {
+  test('should resign game and show Game Analysis with New Game button', async ({ page }) => {
     await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await waitForToastsToDisappear(page);
     
@@ -124,11 +124,11 @@ test.describe('Coach Play Game Flow', () => {
     // Click resign
     await page.getByTestId('resign-btn').click({ force: true });
     
-    // Should show loss message (UI changed from 'Defeat' to 'Loss')
-    await expect(page.getByText('Loss')).toBeVisible({ timeout: 5000 });
-    
-    // Should show new game button
+    // Should show new game button - the clearest indicator game ended
     await expect(page.getByTestId('new-game-btn')).toBeVisible();
+    
+    // Post-game UI shows Game Analysis (not "Loss" text directly)
+    await expect(page.getByText('Game Analysis')).toBeVisible();
   });
 
   test('should start new game after resignation', async ({ page }) => {
@@ -140,7 +140,8 @@ test.describe('Coach Play Game Flow', () => {
     await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
     
     await page.getByTestId('resign-btn').click({ force: true });
-    await expect(page.getByText('Loss')).toBeVisible({ timeout: 5000 });
+    // Wait for New Game button
+    await expect(page.getByTestId('new-game-btn')).toBeVisible();
     
     // Click new game
     await page.getByTestId('new-game-btn').click({ force: true });
@@ -170,10 +171,11 @@ test.describe('Coach Play Game Interface', () => {
     }
   });
 
-  test('should show Coach Chat and Move History panels', async ({ page }) => {
-    // UI has changed - now shows Coach Chat instead of Game Info
-    await expect(page.getByText('Coach Chat')).toBeVisible();
-    await expect(page.getByText('Move History')).toBeVisible();
+  test('should show Clean UI with coach panel and Move History', async ({ page }) => {
+    // Clean UI Mode now shows "Your Coach" header instead of "Coach Chat"
+    await expect(page.getByText('Your Coach')).toBeVisible();
+    // Move history is collapsible at bottom - shows as "Moves (X)"
+    await expect(page.getByText(/Moves \(\d+\)/)).toBeVisible();
   });
 
   test('should show Your turn indicator', async ({ page }) => {
@@ -204,14 +206,14 @@ test.describe('Coach Play Steps 3-5: CPR and Identity Display', () => {
     // Resign to end the game
     await page.getByTestId('resign-btn').click({ force: true });
     
-    // Wait for game to end - UI now shows 'Loss' instead of 'Defeat'
-    await expect(page.getByText('Loss')).toBeVisible({ timeout: 10000 });
+    // Wait for game to end - UI now shows Game Analysis
+    await expect(page.getByText('Game Analysis')).toBeVisible();
     
     // Should show new game button
     await expect(page.getByTestId('new-game-btn')).toBeVisible();
   });
 
-  test('should show move count in loss summary', async ({ page }) => {
+  test('should show performance analysis in post-game summary', async ({ page }) => {
     // Navigate and start game
     await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await waitForToastsToDisappear(page);
@@ -222,21 +224,25 @@ test.describe('Coach Play Steps 3-5: CPR and Identity Display', () => {
     await page.getByTestId('resign-btn').click({ force: true });
     
     // Wait for game to end
-    await expect(page.getByText('Loss')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Game Analysis')).toBeVisible();
     
-    // Should show move count in summary (e.g., "0 moves • 0m")
-    await expect(page.getByText(/\d+ moves • \d+m/)).toBeVisible();
+    // Post-game shows performance metrics like Accuracy
+    await expect(page.getByText(/Accuracy/i)).toBeVisible();
+    // And performance rating
+    await expect(page.getByText(/Performance Rating/i)).toBeVisible();
   });
 
-  test('should show guardian status with interventions remaining', async ({ page }) => {
+  test('should show clean UI elements during active game', async ({ page }) => {
     await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
     await waitForToastsToDisappear(page);
     await page.getByTestId('start-game-btn').click({ force: true });
     await expect(page.getByTestId('coach-play-game')).toBeVisible({ timeout: 15000 });
     
-    // Guardian status should be visible - shows "Guardian: X interventions remaining"
-    await expect(page.getByText(/Guardian:/)).toBeVisible();
-    await expect(page.getByText(/intervention/)).toBeVisible();
+    // Clean UI mode shows "Your Coach" instead of "Coach Chat"
+    await expect(page.getByText('Your Coach')).toBeVisible();
+    
+    // Smart prompts should be visible
+    await expect(page.getByRole('button', { name: /Why was that better/i })).toBeVisible();
     
     // Cleanup
     await page.getByTestId('resign-btn').click({ force: true });

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://socratic-chess-1.preview.emergentagent.com';
+const BASE_URL = 'https://personalized-play-1.preview.emergentagent.com';
 
 /**
  * Tests for:
