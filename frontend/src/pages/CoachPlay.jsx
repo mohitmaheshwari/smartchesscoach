@@ -404,6 +404,32 @@ const CoachPlay = ({ user }) => {
           }
           toast.info(`You were learning "${lessonName}" - click Start to continue`);
         }
+        // If not in teaching mode, check for opening suggestion
+        else if (data.opening_teaching && !data.game_over) {
+          const ot = data.opening_teaching;
+          const openingKey = ot.opening_key;
+          const openingName = ot.opening_name || (openingKey ? openingKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : null);
+          
+          // Set trap suggestion if available
+          if (ot.suggested_trap) {
+            setInlineTrap({
+              name: ot.suggested_trap.name,
+              opening_key: openingKey,
+              explanation: ot.suggested_trap.explanation || `A trap in the ${openingName || 'opening'}`,
+              moves: ot.suggested_trap.moves || []
+            });
+          } else if (openingName) {
+            setInlineOpening({
+              name: openingName,
+              key: openingKey,
+              main_idea: ot.why || ot.guidance?.message || `Learn the ${openingName}`,
+              key_moves: ot.first_moves || []
+            });
+          }
+          
+          // Also set opening guidance
+          setOpeningGuidance(ot);
+        }
         
         toast.success("Resumed your game!");
       }
@@ -525,6 +551,29 @@ const CoachPlay = ({ user }) => {
           const stateData = await stateResponse.json();
           if (stateData.opening_teaching) {
             setOpeningGuidance(stateData.opening_teaching);
+            
+            // Also set inline suggestion for the prominent card
+            const ot = stateData.opening_teaching;
+            const openingKey = ot.opening_key;
+            const openingName = ot.opening_name || (openingKey ? openingKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : null);
+            
+            // Set trap suggestion if available (prioritize trap over opening)
+            if (ot.suggested_trap) {
+              setInlineTrap({
+                name: ot.suggested_trap.name,
+                opening_key: openingKey,
+                explanation: ot.suggested_trap.explanation || `A trap in the ${openingName || 'opening'}`,
+                moves: ot.suggested_trap.moves || []
+              });
+            } else if (openingName) {
+              // No trap, but we have an opening
+              setInlineOpening({
+                name: openingName,
+                key: openingKey,
+                main_idea: ot.why || ot.teaching_message || ot.guidance?.message || `Learn the ${openingName}`,
+                key_moves: ot.first_moves || []
+              });
+            }
           }
         }
       } catch (stateError) {
@@ -1582,6 +1631,80 @@ const CoachPlay = ({ user }) => {
                 </div>
               </div>
             )}
+            
+            {/* Opening Suggestion Card - Prominent, below board */}
+            {session && (inlineOpening || inlineTrap) && !isInTeachingMode && !gameOver && (
+              <div className="mt-3 p-4 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500/20 shrink-0">
+                    <BookOpen className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-sm mb-1">
+                      {inlineOpening ? inlineOpening.name : inlineTrap?.name}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {inlineOpening?.main_idea || inlineTrap?.explanation || "Learn this opening while you play"}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="h-8 bg-amber-500 hover:bg-amber-600 text-black"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`${API}/coach/play/teaching/start`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              credentials: "include",
+                              body: JSON.stringify({
+                                session_id: session.session_id,
+                                lesson_type: inlineTrap ? "learn_trap" : "learn_main_line"
+                              })
+                            });
+                            if (response.ok) {
+                              const lessonData = await response.json();
+                              setInlineOpening(null);
+                              setInlineTrap(null);
+                              handleStartLesson(lessonData);
+                            } else {
+                              toast.error("Couldn't start lesson");
+                            }
+                          } catch (error) {
+                            console.error("Error starting lesson:", error);
+                            toast.error("Error starting lesson");
+                          }
+                        }}
+                        data-testid="start-lesson-btn"
+                      >
+                        Start Learning
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8"
+                        onClick={async () => {
+                          setInlineOpening(null);
+                          setInlineTrap(null);
+                          try {
+                            await fetch(`${API}/coach/play/teaching/exit`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              credentials: "include",
+                              body: JSON.stringify({
+                                session_id: session.session_id,
+                                choice: "continue_game"
+                              })
+                            });
+                          } catch (e) {}
+                        }}
+                      >
+                        Just Play
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Player info bar */}
             <div className="flex items-center justify-between mt-2 p-2 rounded-lg bg-muted/50 text-sm">
@@ -1818,84 +1941,6 @@ const CoachPlay = ({ user }) => {
                 moves={(session.move_history || []).map(m => m.move)}
                 onPlayAgain={newGame}
               />
-            </div>
-          )}
-          
-          {/* Compact Teaching Notification - Shows when coach suggests learning */}
-          {session && (inlineOpening || inlineTrap) && !isInTeachingMode && !gameOver && (
-            <div className="p-3 border-b border-amber-500/30 bg-amber-500/5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <BookOpen className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span className="text-sm truncate">
-                    {inlineOpening 
-                      ? `Learn: ${inlineOpening.name}` 
-                      : `Trap: ${inlineTrap?.name}`
-                    }
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-black"
-                    onClick={async () => {
-                      // Start interactive lesson directly
-                      try {
-                        const response = await fetch(`${API}/coach/play/teaching/start`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          credentials: "include",
-                          body: JSON.stringify({
-                            session_id: session.session_id,
-                            lesson_type: inlineTrap ? "learn_trap" : "learn_main_line"
-                          })
-                        });
-                        
-                        if (response.ok) {
-                          const lessonData = await response.json();
-                          setInlineOpening(null);
-                          setInlineTrap(null);
-                          handleStartLesson(lessonData);
-                        } else {
-                          toast.error("Couldn't start lesson");
-                        }
-                      } catch (error) {
-                        console.error("Error starting lesson:", error);
-                        toast.error("Error starting lesson");
-                      }
-                    }}
-                    data-testid="start-lesson-btn"
-                  >
-                    Start
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 p-0"
-                    onClick={async () => {
-                      // Clear suggestion and exit any pending teaching mode
-                      setInlineOpening(null);
-                      setInlineTrap(null);
-                      // Also clear teaching mode from backend
-                      try {
-                        await fetch(`${API}/coach/play/teaching/exit`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          credentials: "include",
-                          body: JSON.stringify({
-                            session_id: session.session_id,
-                            choice: "continue_game"
-                          })
-                        });
-                      } catch (e) {
-                        // Ignore - just clearing local state is enough
-                      }
-                    }}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
             </div>
           )}
           
