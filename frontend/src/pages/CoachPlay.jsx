@@ -629,6 +629,7 @@ const CoachPlay = ({ user }) => {
               }
             }
           }
+        }
       } catch (stateError) {
         console.error("Error fetching opening guidance:", stateError);
       }
