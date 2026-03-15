@@ -108,7 +108,7 @@ templates/
 - `POST /api/coach/play/start` - Start coaching session
 - `POST /api/coach/play/move` - Make a move (triggers Chess Brain analysis)
 - `GET /api/coach/play/feedback/{session_id}` - Get coaching feedback
-- Backend URL: `https://coach-engine-demo.preview.emergentagent.com`
+- Backend URL: `https://chess-habit-forge.preview.emergentagent.com`
 
 ---
 

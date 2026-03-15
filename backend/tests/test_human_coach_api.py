@@ -18,7 +18,7 @@ import os
 import uuid
 from typing import Dict, Any
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coach-engine-demo.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-habit-forge.preview.emergentagent.com')
 
 
 @pytest.fixture
