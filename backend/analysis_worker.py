@@ -375,14 +375,19 @@ def update_player_identity_sync(db, user_id: str, game_result: str, moves_analys
     """
     Synchronous version of PlayerIdentity update for the analysis worker.
     Updates the player identity document which powers the Deep Memory / Coach Memory tab.
+    
+    NOTE: Uses 'player_identities' collection (plural) to match PlayerIdentityService.COLLECTION
     """
     try:
         from services.player_identity import StyleType, BlunderType, GamePhase as IdentityGamePhase
         
         current_time = datetime.now(timezone.utc)
         
+        # Use player_identities (plural) - this is what PlayerIdentityService uses
+        COLLECTION = "player_identities"
+        
         # Get or create identity document
-        identity = db.player_identity.find_one({"user_id": user_id})
+        identity = db[COLLECTION].find_one({"user_id": user_id})
         
         if not identity:
             # Create new identity
@@ -414,7 +419,7 @@ def update_player_identity_sync(db, user_id: str, game_result: str, moves_analys
                 "created_at": current_time.isoformat(),
                 "updated_at": current_time.isoformat()
             }
-            db.player_identity.insert_one(identity)
+            db[COLLECTION].insert_one(identity)
         
         # Update basic stats
         games_analyzed = identity.get("games_analyzed", 0) + 1
@@ -483,7 +488,7 @@ def update_player_identity_sync(db, user_id: str, game_result: str, moves_analys
         style_confidence = min(0.9, games_analyzed / 50)
         
         # Update the document
-        db.player_identity.update_one(
+        db[COLLECTION].update_one(
             {"user_id": user_id},
             {"$set": {
                 "games_analyzed": games_analyzed,
