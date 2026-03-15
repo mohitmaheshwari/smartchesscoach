@@ -9,7 +9,7 @@
 
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'https://chess-habit-forge.preview.emergentagent.com';
+const BASE_URL = 'https://chessguru-coach.preview.emergentagent.com';
 
 // Helper to login via dev login API
 async function devLogin(page) {

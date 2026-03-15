@@ -402,6 +402,8 @@ async def process_teaching_move(
     """
     import chess
     
+    logger.info(f"[TeachingMove] Processing move: {user_move} for session {session_id}")
+    
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
     if not session_doc:
         return {"error": "Session not found"}
@@ -473,8 +475,10 @@ async def process_teaching_move(
     # Auto-play opponent moves
     if (is_white and not user_plays_white) or (not is_white and user_plays_white):
         # This is opponent's move - auto-play it
+        logger.info(f"[TeachingMove] Next move at index {new_index} is opponent's - auto-playing")
         return await _auto_play_teaching_move(db, session_id, teaching_data, mode, new_index)
     
+    logger.info(f"[TeachingMove] User's turn next at index {new_index}, returning instruction")
     return {
         "correct": True,
         "message": "Correct! Great job!",
@@ -487,6 +491,8 @@ async def process_teaching_move(
 async def _auto_play_teaching_move(db, session_id: str, teaching_data: Dict, mode: str, move_index: int) -> Dict:
     """Auto-play a teaching move (for opponent's moves in the lesson)."""
     import chess
+    
+    logger.info(f"[AutoPlay] Auto-playing move at index {move_index}")
     
     if mode == "trap":
         moves = teaching_data.get("trap_moves", [])
@@ -532,7 +538,10 @@ async def _auto_play_teaching_move(db, session_id: str, teaching_data: Dict, mod
     # Get next instruction for user
     next_instruction = _get_teaching_instruction(teaching_data, mode, new_index)
     
+    logger.info(f"[AutoPlay] Auto-played {move}, new FEN: {new_fen[:30]}..., next instruction: {next_instruction.get('message', '')[:50]}")
+    
     return {
+        "correct": True,  # Mark as correct so frontend processes it
         "auto_played": True,
         "move_played": move,
         "new_move_index": new_index,

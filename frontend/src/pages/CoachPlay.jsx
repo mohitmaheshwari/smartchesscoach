@@ -1685,12 +1685,14 @@ const CoachPlay = ({ user }) => {
                   orientation={boardOrientation}
                   lastMove={lastMove}
                   onMove={(moveData) => {
-                    if (isPlayerTurn && !gameOver && moveData) {
+                    // In teaching mode, always allow moves when lesson expects user input
+                    const canMoveInTeaching = isInTeachingMode && activeLesson && lessonInstruction?.is_user_move;
+                    if ((canMoveInTeaching || (isPlayerTurn && !gameOver)) && moveData) {
                       makeMove(moveData.from, moveData.to);
                     }
                   }}
-                  interactive={isPlayerTurn && !gameOver}
-                  viewOnly={!isPlayerTurn || gameOver}
+                  interactive={(isInTeachingMode && activeLesson && lessonInstruction?.is_user_move) || (isPlayerTurn && !gameOver)}
+                  viewOnly={!(isInTeachingMode && activeLesson && lessonInstruction?.is_user_move) && (!isPlayerTurn || gameOver)}
                   showDests={true}
                 />
                 

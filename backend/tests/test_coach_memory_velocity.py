@@ -14,7 +14,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-habit-forge.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chessguru-coach.preview.emergentagent.com')
 
 # Valid learner types
 VALID_LEARNER_TYPES = ["FAST_ADAPTER", "STEADY", "TRYING_BUT_STUCK", "NOT_APPLYING"]
