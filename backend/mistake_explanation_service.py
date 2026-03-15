@@ -768,9 +768,11 @@ Write the explanation now (no preamble, just the explanation):"""
     return prompt
 
 
-async def generate_mistake_explanation(move_data: Dict, llm_call_func) -> Dict:
+async def generate_mistake_explanation(move_data: Dict, llm_call_func=None, use_templates: bool = True) -> Dict:
     """
     Generate an educational explanation for a mistake.
+    
+    NEW: Can use deterministic templates instead of LLM.
     
     This is the main entry point for the service.
     
@@ -781,7 +783,9 @@ async def generate_mistake_explanation(move_data: Dict, llm_call_func) -> Dict:
             - best_move: The better move (SAN)
             - cp_loss: Centipawn loss
             - user_color: "white" or "black"
-        llm_call_func: Async function to call LLM (from llm_service)
+            - user_rating: User's rating (optional)
+        llm_call_func: Async function to call LLM (from llm_service) - optional if use_templates=True
+        use_templates: If True, use deterministic templates instead of LLM (default: True)
     
     Returns:
         Dict with:
@@ -789,6 +793,8 @@ async def generate_mistake_explanation(move_data: Dict, llm_call_func) -> Dict:
             - mistake_type: Category of mistake
             - thinking_habit: Suggestion for improvement
             - details: Tactical details if applicable
+            - template_id: ID for feedback tracking (if using templates)
+            - method: "template" or "llm"
     """
     # Step 1: Deterministic analysis
     analysis = analyze_mistake_position(
@@ -802,25 +808,63 @@ async def generate_mistake_explanation(move_data: Dict, llm_call_func) -> Dict:
     mistake_type = analysis.get("mistake_type", "inaccuracy")
     template = MISTAKE_TEMPLATES.get(mistake_type, MISTAKE_TEMPLATES["inaccuracy"])
     
-    # Step 2: Generate explanation with LLM
-    prompt = build_explanation_prompt(analysis, move_data)
-    
-    try:
-        explanation = await llm_call_func(
-            system_message="You are a friendly chess coach. Write short, educational explanations.",
-            user_message=prompt,
-            model="gpt-4o-mini"
-        )
-        explanation = explanation.strip()
+    # Step 2: Generate explanation
+    if use_templates:
+        # NEW: Use deterministic templates (NO LLM)
+        from services.explanation_templates import generate_explanation_deterministic
         
-        # LIGHTWEIGHT GUARDRAIL: Validate LLM output against position
-        explanation = validate_llm_explanation(
-            explanation, 
-            move_data.get("fen_before", ""),
-            move_data.get("move", ""),
-            move_data.get("best_move", ""),
-            template
-        )
+        try:
+            template_result = generate_explanation_deterministic(
+                mistake_type=mistake_type,
+                details=analysis.get("details", {}),
+                user_rating=move_data.get("user_rating", 1500),
+                phase=analysis.get("phase", "middlegame")
+            )
+            
+            explanation = template_result.get("explanation")
+            template_id = template_result.get("template_id")
+            method = "template"
+            
+            logger.info(f"Generated explanation using template: {template_id}")
+        except Exception as e:
+            logger.error(f"Template generation failed: {e}")
+            # Fallback to simple template
+            explanation = f"{template['pattern']} {template.get('thinking_habit', '')}"
+            template_id = "fallback"
+            method = "template_fallback"
+    
+    else:
+        # Use LLM (original behavior)
+        if not llm_call_func:
+            raise ValueError("llm_call_func required when use_templates=False")
+        
+        prompt = build_explanation_prompt(analysis, move_data)
+    
+        try:
+            explanation = await llm_call_func(
+                system_message="You are a friendly chess coach. Write short, educational explanations.",
+                user_message=prompt,
+                model="gpt-4o-mini"
+            )
+            explanation = explanation.strip()
+            
+            # LIGHTWEIGHT GUARDRAIL: Validate LLM output against position
+            explanation = validate_llm_explanation(
+                explanation, 
+                move_data.get("fen_before", ""),
+                move_data.get("move", ""),
+                move_data.get("best_move", ""),
+                template
+            )
+            template_id = None
+            method = "llm"
+        except Exception as e:
+            logger.error(f"LLM call failed: {e}")
+            # Fallback to template-based explanation
+            explanation = f"{template['pattern']} {template.get('thinking_habit', '')}"
+            template_id = "llm_fallback"
+            method = "llm_fallback"
+
     except Exception as e:
         logger.error(f"LLM call failed: {e}")
         # Fallback to template-based explanation
@@ -833,7 +877,9 @@ async def generate_mistake_explanation(move_data: Dict, llm_call_func) -> Dict:
         "thinking_habit": template.get("thinking_habit"),
         "severity": analysis.get("severity", "minor"),
         "phase": analysis.get("phase", "middlegame"),
-        "details": analysis.get("details", {})
+        "details": analysis.get("details", {}),
+        "template_id": template_id,  # NEW: For feedback tracking
+        "method": method  # NEW: Track generation method
     }
 
 
