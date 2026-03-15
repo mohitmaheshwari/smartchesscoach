@@ -13,6 +13,7 @@ Handles:
 
 from fastapi import APIRouter, HTTPException, Depends, Body
 from typing import Dict
+from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -97,6 +98,149 @@ async def submit_pattern_feedback(
     logger.info(f"Pattern feedback submitted: {result.get('feedback_id')} - {result.get('learning_status')}")
     
     return result
+
+
+@router.post("/quick-rating")
+async def submit_quick_rating(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Quick thumbs up/down rating for explanations.
+    
+    Lightweight feedback - just track if explanation was helpful.
+    Extends existing feedback system with simple rating.
+    
+    Body:
+    - template_id: ID of template that generated explanation (optional)
+    - generation_method: "template" | "llm" | "smart_pattern"
+    - is_helpful: true | false
+    - game_id: Game ID for context
+    - move_number: Move number
+    - explanation_text: The explanation shown (for reference)
+    
+    Returns:
+    - success: True if rating was recorded
+    """
+    global db
+    
+    try:
+        # Store quick rating
+        rating_doc = {
+            "user_id": user.user_id,
+            "template_id": request.get("template_id"),
+            "generation_method": request.get("generation_method", "unknown"),
+            "is_helpful": request.get("is_helpful"),
+            "game_id": request.get("game_id"),
+            "move_number": request.get("move_number"),
+            "explanation_text": request.get("explanation_text", ""),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "rating_type": "quick"
+        }
+        
+        await db.explanation_ratings.insert_one(rating_doc)
+        
+        # Update template stats if template_id provided
+        if request.get("template_id"):
+            await db.template_stats.update_one(
+                {"template_id": request["template_id"]},
+                {
+                    "$inc": {
+                        "total_ratings": 1,
+                        "helpful_count" if request.get("is_helpful") else "not_helpful_count": 1
+                    },
+                    "$set": {
+                        "last_rated": datetime.now(timezone.utc).isoformat()
+                    }
+                },
+                upsert=True
+            )
+        
+        logger.info(f"Quick rating submitted: template={request.get('template_id')}, helpful={request.get('is_helpful')}")
+        
+        return {
+            "success": True,
+            "message": "Thanks for your feedback!"
+        }
+    
+    except Exception as e:
+        logger.error(f"Error submitting quick rating: {e}")
+        raise HTTPException(status_code=500, detail="Failed to record rating")
+
+
+@router.get("/template-performance")
+async def get_template_performance(
+    min_ratings: int = 5,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get performance statistics for explanation templates.
+    
+    Shows which templates users find helpful.
+    Complements existing pattern learning stats.
+    
+    Args:
+        min_ratings: Minimum ratings before showing (default: 5)
+    
+    Returns:
+        Performance report with high/low performers
+    """
+    global db
+    
+    try:
+        # Get all template stats
+        stats_cursor = db.template_stats.find({
+            "total_ratings": {"$gte": min_ratings}
+        })
+        
+        stats = await stats_cursor.to_list(100)
+        
+        high_performers = []
+        low_performers = []
+        
+        for stat in stats:
+            template_id = stat.get("template_id")
+            total = stat.get("total_ratings", 0)
+            helpful = stat.get("helpful_count", 0)
+            not_helpful = stat.get("not_helpful_count", 0)
+            
+            if total == 0:
+                continue
+            
+            helpfulness_rate = helpful / total if total > 0 else 0
+            
+            template_info = {
+                "template_id": template_id,
+                "total_ratings": total,
+                "helpful_count": helpful,
+                "not_helpful_count": not_helpful,
+                "helpfulness_rate": round(helpfulness_rate, 3),
+                "last_rated": stat.get("last_rated")
+            }
+            
+            if helpfulness_rate >= 0.7:
+                high_performers.append(template_info)
+            elif helpfulness_rate < 0.4:
+                low_performers.append(template_info)
+        
+        # Sort by helpfulness rate
+        high_performers.sort(key=lambda x: x["helpfulness_rate"], reverse=True)
+        low_performers.sort(key=lambda x: x["helpfulness_rate"])
+        
+        return {
+            "high_performers": high_performers[:10],
+            "low_performers": low_performers[:10],
+            "total_templates_rated": len(stats),
+            "recommendation": (
+                f"Found {len(high_performers)} high-performing templates (>70% helpful) "
+                f"and {len(low_performers)} low-performing templates (<40% helpful)."
+            )
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting template performance: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get performance stats")
+
 
 
 @router.get("/my-feedback")
