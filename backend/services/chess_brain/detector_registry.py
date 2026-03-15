@@ -1652,4 +1652,12 @@ def get_detector_registry() -> DetectorRegistry:
     global _registry_instance
     if _registry_instance is None:
         _registry_instance = DetectorRegistry()
+        
+        # Register advanced detectors (strategic + endgame)
+        try:
+            from .advanced_detectors import register_advanced_detectors
+            register_advanced_detectors(_registry_instance)
+        except Exception as e:
+            logger.warning(f"Could not register advanced detectors: {e}")
+    
     return _registry_instance
