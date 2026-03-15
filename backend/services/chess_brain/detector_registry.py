@@ -880,7 +880,10 @@ def detect_skewer(
     best_move: str,
     context: Dict[str, Any]
 ) -> DetectorResult:
-    """Detect skewer patterns (like reverse pin)."""
+    """
+    Detect skewer patterns (reverse pin - valuable piece forced to move, exposing less valuable piece).
+    A skewer attacks a valuable piece, forcing it to move and exposing a piece behind it.
+    """
     result = DetectorResult(
         detector_id="skewer_detector",
         detected=False,
@@ -888,9 +891,107 @@ def detect_skewer(
         category=MistakeCategory.TACTICAL.value
     )
     
-    # Skewer detection similar to pin but more valuable piece in front
-    # Implementation follows similar logic to pin detector
-    # For V1, returning basic structure - can be enhanced
+    if not best_move or user_move == best_move:
+        return result
+    
+    try:
+        move = board.parse_san(best_move)
+        board_after = board.copy()
+        board_after.push(move)
+        
+        # Get the attacking piece
+        attacker = board_after.piece_at(move.to_square)
+        if not attacker:
+            return result
+        
+        # Only long-range pieces (bishop, rook, queen) can skewer
+        if attacker.piece_type not in [chess.BISHOP, chess.ROOK, chess.QUEEN]:
+            return result
+        
+        attacker_color = attacker.color
+        attacker_square = move.to_square
+        
+        # Get squares along the attack line from the attacker
+        attacked_squares = board_after.attacks(attacker_square)
+        
+        # Piece values for comparison
+        piece_values = {
+            chess.KING: 100,
+            chess.QUEEN: 9,
+            chess.ROOK: 5,
+            chess.BISHOP: 3,
+            chess.KNIGHT: 3,
+            chess.PAWN: 1
+        }
+        
+        # Look for skewer pattern: valuable piece in front, less valuable behind
+        for front_square in attacked_squares:
+            front_piece = board_after.piece_at(front_square)
+            if not front_piece or front_piece.color == attacker_color:
+                continue
+            
+            front_value = piece_values.get(front_piece.piece_type, 0)
+            if front_value < 3:  # Front piece must be at least a minor piece
+                continue
+            
+            # Get the direction from attacker to front piece
+            file_diff = chess.square_file(front_square) - chess.square_file(attacker_square)
+            rank_diff = chess.square_rank(front_square) - chess.square_rank(attacker_square)
+            
+            # Normalize to get direction
+            if file_diff != 0:
+                file_step = 1 if file_diff > 0 else -1
+            else:
+                file_step = 0
+            
+            if rank_diff != 0:
+                rank_step = 1 if rank_diff > 0 else -1
+            else:
+                rank_step = 0
+            
+            # Check squares behind the front piece in the same direction
+            current_file = chess.square_file(front_square) + file_step
+            current_rank = chess.square_rank(front_square) + rank_step
+            
+            while 0 <= current_file <= 7 and 0 <= current_rank <= 7:
+                behind_square = chess.square(current_file, current_rank)
+                behind_piece = board_after.piece_at(behind_square)
+                
+                if behind_piece:
+                    if behind_piece.color != attacker_color:
+                        # Found potential skewer target
+                        behind_value = piece_values.get(behind_piece.piece_type, 0)
+                        
+                        # Skewer: front piece is valuable and will move, exposing behind piece
+                        # Typically front value >= behind value (king/queen in front, rook/piece behind)
+                        if behind_value >= 1:  # Any piece worth taking
+                            result.detected = True
+                            result.confidence = min(1.0, (front_value + behind_value) / 15)
+                            result.details = {
+                                "attacker": chess.piece_name(attacker.piece_type),
+                                "attacker_square": chess.square_name(attacker_square),
+                                "front_piece": chess.piece_name(front_piece.piece_type),
+                                "front_square": chess.square_name(front_square),
+                                "behind_piece": chess.piece_name(behind_piece.piece_type),
+                                "behind_square": chess.square_name(behind_square),
+                                "front_value": front_value,
+                                "behind_value": behind_value
+                            }
+                            result.key_squares = [
+                                chess.square_name(attacker_square),
+                                chess.square_name(front_square),
+                                chess.square_name(behind_square)
+                            ]
+                            result.teaching_hook = f"Skewer: {chess.piece_name(attacker.piece_type)} attacks {chess.piece_name(front_piece.piece_type)}, winning {chess.piece_name(behind_piece.piece_type)}"
+                            return result
+                    break  # Hit a piece, stop checking this line
+                
+                # Move to next square in the direction
+                current_file += file_step
+                current_rank += rank_step
+    
+    except Exception as e:
+        logger.debug(f"Skewer detection error: {e}")
     
     return result
 
@@ -901,7 +1002,10 @@ def detect_overload(
     best_move: str,
     context: Dict[str, Any]
 ) -> DetectorResult:
-    """Detect overloaded piece patterns."""
+    """
+    Detect overloaded piece patterns.
+    An overloaded piece is defending multiple pieces/squares and can't fulfill all duties.
+    """
     result = DetectorResult(
         detector_id="overload_detector",
         detected=False,
@@ -909,8 +1013,93 @@ def detect_overload(
         category=MistakeCategory.TACTICAL.value
     )
     
-    # Overload = piece defending multiple things
-    # V1 basic implementation
+    if not best_move or user_move == best_move:
+        return result
+    
+    try:
+        move = board.parse_san(best_move)
+        board_after = board.copy()
+        board_after.push(move)
+        
+        # Get the attacking side
+        attacking_color = not board_after.turn
+        defending_color = board_after.turn
+        
+        # Find pieces that are being attacked in the position after best_move
+        attacked_piece_square = None
+        
+        # Check if best_move attacks a piece
+        if move.to_square:
+            # Check squares attacked by the moved piece
+            moved_piece_attacks = board_after.attacks(move.to_square)
+            
+            for sq in moved_piece_attacks:
+                piece_at_sq = board_after.piece_at(sq)
+                if piece_at_sq and piece_at_sq.color == defending_color:
+                    attacked_piece_square = sq
+                    break
+        
+        if not attacked_piece_square:
+            return result
+        
+        # Find what's defending the attacked piece
+        defenders = []
+        for defender_sq in chess.SQUARES:
+            defender = board_after.piece_at(defender_sq)
+            if not defender or defender.color != defending_color:
+                continue
+            
+            # Check if this piece defends the attacked piece
+            if board_after.is_attacked_by(defending_color, attacked_piece_square):
+                defender_attacks = board_after.attacks(defender_sq)
+                if attacked_piece_square in defender_attacks:
+                    defenders.append((defender_sq, defender))
+        
+        # Check if any defender is overloaded (defending multiple pieces)
+        for defender_sq, defender in defenders:
+            defended_pieces = []
+            defender_attacks = board_after.attacks(defender_sq)
+            
+            for sq in defender_attacks:
+                piece = board_after.piece_at(sq)
+                if piece and piece.color == defending_color and sq != defender_sq:
+                    # Check if this piece is under attack
+                    if board_after.is_attacked_by(attacking_color, sq):
+                        defended_pieces.append((sq, piece))
+            
+            # Overload detected if defender is protecting 2+ pieces that are under attack
+            if len(defended_pieces) >= 2:
+                piece_values = {
+                    chess.QUEEN: 9, chess.ROOK: 5,
+                    chess.BISHOP: 3, chess.KNIGHT: 3, chess.PAWN: 1
+                }
+                
+                total_value = sum(piece_values.get(p[1].piece_type, 0) for p in defended_pieces)
+                
+                result.detected = True
+                result.confidence = min(1.0, len(defended_pieces) / 3.0)
+                result.details = {
+                    "defender": chess.piece_name(defender.piece_type),
+                    "defender_square": chess.square_name(defender_sq),
+                    "defended_count": len(defended_pieces),
+                    "defended_pieces": [
+                        {
+                            "piece": chess.piece_name(p[1].piece_type),
+                            "square": chess.square_name(p[0])
+                        } for p in defended_pieces
+                    ],
+                    "total_value": total_value
+                }
+                result.key_squares = [chess.square_name(defender_sq)] + [
+                    chess.square_name(p[0]) for p in defended_pieces
+                ]
+                
+                defended_names = [chess.piece_name(p[1].piece_type) for p in defended_pieces[:2]]
+                result.teaching_hook = f"{chess.piece_name(defender.piece_type)} is overloaded defending {' and '.join(defended_names)}"
+                return result
+    
+    except Exception as e:
+        logger.debug(f"Overload detection error: {e}")
     
     return result
 
@@ -921,7 +1110,10 @@ def detect_removal(
     best_move: str,
     context: Dict[str, Any]
 ) -> DetectorResult:
-    """Detect removal of the guard patterns."""
+    """
+    Detect removal of the guard patterns.
+    This tactic involves capturing or deflecting the piece defending a valuable target.
+    """
     result = DetectorResult(
         detector_id="removal_detector",
         detected=False,
@@ -929,8 +1121,116 @@ def detect_removal(
         category=MistakeCategory.TACTICAL.value
     )
     
-    # Removal = capturing the defending piece
-    # V1 basic implementation
+    if not best_move or user_move == best_move:
+        return result
+    
+    try:
+        move = board.parse_san(best_move)
+        board_before = board.copy()
+        board_after = board.copy()
+        board_after.push(move)
+        
+        attacking_color = not board_after.turn
+        defending_color = board_after.turn
+        
+        # Piece values
+        piece_values = {
+            chess.QUEEN: 9, chess.ROOK: 5,
+            chess.BISHOP: 3, chess.KNIGHT: 3, chess.PAWN: 1
+        }
+        
+        # Check if best_move captures a piece (potential defender)
+        if not move.to_square:
+            return result
+        
+        # See what was on the target square before the move
+        captured_piece = board_before.piece_at(move.to_square)
+        
+        if not captured_piece or captured_piece.color != defending_color:
+            return result
+        
+        # Now check if removing this piece exposes other pieces
+        # Look for pieces that were defended by the captured piece
+        exposed_targets = []
+        
+        for sq in chess.SQUARES:
+            piece = board_after.piece_at(sq)
+            if not piece or piece.color != defending_color:
+                continue
+            
+            # Check if this piece is now under attack after the capture
+            is_attacked_after = board_after.is_attacked_by(attacking_color, sq)
+            is_defended_after = board_after.is_attacked_by(defending_color, sq)
+            
+            # Check if it was defended before by the captured piece
+            defender_attacks_before = board_before.attacks(move.to_square)
+            was_defended_by_captured = sq in defender_attacks_before
+            
+            # If piece was defended by captured piece and is now hanging or weak
+            if was_defended_by_captured and is_attacked_after:
+                # Check if it's now hanging (attacked but not defended)
+                if not is_defended_after or not board_after.is_defended(sq):
+                    value = piece_values.get(piece.piece_type, 0)
+                    if value >= 1:  # At least a pawn
+                        exposed_targets.append((sq, piece, value))
+        
+        # If removing the defender exposes valuable pieces
+        if exposed_targets:
+            # Sort by value
+            exposed_targets.sort(key=lambda x: x[2], reverse=True)
+            best_target = exposed_targets[0]
+            
+            total_value = sum(t[2] for t in exposed_targets)
+            
+            result.detected = True
+            result.confidence = min(1.0, total_value / 10.0)
+            result.details = {
+                "removed_defender": chess.piece_name(captured_piece.piece_type),
+                "removed_square": chess.square_name(move.to_square),
+                "exposed_piece": chess.piece_name(best_target[1].piece_type),
+                "exposed_square": chess.square_name(best_target[0]),
+                "exposed_value": best_target[2],
+                "total_exposed": len(exposed_targets)
+            }
+            result.key_squares = [
+                chess.square_name(move.to_square),
+                chess.square_name(best_target[0])
+            ]
+            result.teaching_hook = f"Remove the {chess.piece_name(captured_piece.piece_type)} to win the {chess.piece_name(best_target[1].piece_type)}"
+            return result
+        
+        # Alternative: Check for deflection (forcing the defender away)
+        # If best_move forces a piece to move, exposing something else
+        if board_after.is_check():
+            # King must move, might expose other pieces
+            king_sq = board_after.king(defending_color)
+            # Check what the king was defending
+            king_defends_before = board_before.attacks(king_sq)
+            
+            for sq in king_defends_before:
+                piece = board_after.piece_at(sq)
+                if piece and piece.color == defending_color:
+                    # Check if now under attack
+                    if board_after.is_attacked_by(attacking_color, sq):
+                        value = piece_values.get(piece.piece_type, 0)
+                        if value >= 3:  # Significant piece
+                            result.detected = True
+                            result.confidence = 0.8
+                            result.details = {
+                                "deflection_type": "check_deflection",
+                                "removed_defender": "king",
+                                "exposed_piece": chess.piece_name(piece.piece_type),
+                                "exposed_square": chess.square_name(sq)
+                            }
+                            result.key_squares = [
+                                chess.square_name(move.to_square),
+                                chess.square_name(sq)
+                            ]
+                            result.teaching_hook = f"Check deflects the king, winning the {chess.piece_name(piece.piece_type)}"
+                            return result
+    
+    except Exception as e:
+        logger.debug(f"Removal detection error: {e}")
     
     return result
 
