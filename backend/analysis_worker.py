@@ -371,6 +371,145 @@ def update_player_profile_sync(db, user_id: str, game_id: str, blunders: int, mi
         logger.error(f"Failed to update profile for {user_id}: {e}")
 
 
+def update_player_identity_sync(db, user_id: str, game_result: str, moves_analysis: list, rating_after: int = None):
+    """
+    Synchronous version of PlayerIdentity update for the analysis worker.
+    Updates the player identity document which powers the Deep Memory / Coach Memory tab.
+    """
+    try:
+        from services.player_identity import StyleType, BlunderType, GamePhase as IdentityGamePhase
+        
+        current_time = datetime.now(timezone.utc)
+        
+        # Get or create identity document
+        identity = db.player_identity.find_one({"user_id": user_id})
+        
+        if not identity:
+            # Create new identity
+            identity = {
+                "user_id": user_id,
+                "games_analyzed": 0,
+                "total_wins": 0,
+                "total_losses": 0,
+                "total_draws": 0,
+                "consecutive_wins": 0,
+                "consecutive_losses": 0,
+                "current_rating": rating_after or 1200,
+                "peak_rating": rating_after or 1200,
+                "style_profile": {
+                    "primary_style": "developing",
+                    "confidence": 0.0,
+                    "tactical_tendency": 0.5,
+                    "positional_tendency": 0.5,
+                    "aggressive_tendency": 0.5,
+                    "defensive_tendency": 0.5
+                },
+                "blunder_taxonomy": {
+                    "by_type": {},
+                    "by_phase": {},
+                    "most_common_type": None,
+                    "worst_phase": None,
+                    "trend": "unknown"
+                },
+                "created_at": current_time.isoformat(),
+                "updated_at": current_time.isoformat()
+            }
+            db.player_identity.insert_one(identity)
+        
+        # Update basic stats
+        games_analyzed = identity.get("games_analyzed", 0) + 1
+        
+        # Update win/loss/draw counts
+        total_wins = identity.get("total_wins", 0)
+        total_losses = identity.get("total_losses", 0)
+        total_draws = identity.get("total_draws", 0)
+        consecutive_wins = identity.get("consecutive_wins", 0)
+        consecutive_losses = identity.get("consecutive_losses", 0)
+        
+        if game_result == "win" or "1-0" in game_result:
+            total_wins += 1
+            consecutive_wins += 1
+            consecutive_losses = 0
+        elif game_result == "loss" or "0-1" in game_result:
+            total_losses += 1
+            consecutive_losses += 1
+            consecutive_wins = 0
+        else:
+            total_draws += 1
+            consecutive_wins = 0
+            consecutive_losses = 0
+        
+        # Analyze blunders
+        blunder_by_type = identity.get("blunder_taxonomy", {}).get("by_type", {})
+        blunder_by_phase = identity.get("blunder_taxonomy", {}).get("by_phase", {})
+        
+        for move in moves_analysis:
+            cp_loss = move.get("cp_loss", 0)
+            if cp_loss >= 100:  # Mistake or blunder
+                # Classify phase
+                move_num = move.get("move_number", 1)
+                if move_num <= 12:
+                    phase = "opening"
+                elif move_num <= 30:
+                    phase = "middlegame"
+                else:
+                    phase = "endgame"
+                
+                blunder_by_phase[phase] = blunder_by_phase.get(phase, 0) + 1
+                
+                # Classify type based on cp_loss
+                if cp_loss >= 300:
+                    blunder_type = "tactical_oversight"
+                elif cp_loss >= 200:
+                    blunder_type = "calculation_error"
+                else:
+                    blunder_type = "positional_error"
+                
+                blunder_by_type[blunder_type] = blunder_by_type.get(blunder_type, 0) + 1
+        
+        # Find most common blunder type and worst phase
+        most_common_type = max(blunder_by_type.keys(), key=lambda k: blunder_by_type[k]) if blunder_by_type else None
+        worst_phase = max(blunder_by_phase.keys(), key=lambda k: blunder_by_phase[k]) if blunder_by_phase else None
+        
+        # Update rating
+        current_rating = identity.get("current_rating", 1200)
+        peak_rating = identity.get("peak_rating", 1200)
+        if rating_after:
+            current_rating = rating_after
+            if rating_after > peak_rating:
+                peak_rating = rating_after
+        
+        # Calculate style confidence based on games analyzed
+        style_confidence = min(0.9, games_analyzed / 50)
+        
+        # Update the document
+        db.player_identity.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "games_analyzed": games_analyzed,
+                "total_wins": total_wins,
+                "total_losses": total_losses,
+                "total_draws": total_draws,
+                "consecutive_wins": consecutive_wins,
+                "consecutive_losses": consecutive_losses,
+                "current_rating": current_rating,
+                "peak_rating": peak_rating,
+                "style_profile.confidence": style_confidence,
+                "blunder_taxonomy.by_type": blunder_by_type,
+                "blunder_taxonomy.by_phase": blunder_by_phase,
+                "blunder_taxonomy.most_common_type": most_common_type,
+                "blunder_taxonomy.worst_phase": worst_phase,
+                "updated_at": current_time.isoformat()
+            }}
+        )
+        
+        logger.info(f"[IDENTITY] Updated player identity for {user_id}: {games_analyzed} games, {consecutive_losses} consecutive losses")
+        
+    except Exception as e:
+        logger.error(f"[IDENTITY] Failed to update identity for {user_id}: {e}")
+        traceback.print_exc()
+
+
 def process_job(db, job):
     """
     Process a single analysis job.
@@ -698,6 +837,22 @@ def process_job(db, job):
             best_moves,
             move_evaluations
         )
+        
+        # =========================================================================
+        # PHASE 3.5: UPDATE PLAYER IDENTITY (DeepMemory)
+        # This updates the PlayerIdentity document which powers the Memory tab
+        # =========================================================================
+        try:
+            update_player_identity_sync(
+                db,
+                user_id,
+                game_result=game.get("result", "unknown"),
+                moves_analysis=move_evaluations,
+                rating_after=user_rating
+            )
+        except Exception as identity_err:
+            # Non-fatal - log but don't fail the analysis
+            logger.warning(f"[IDENTITY] Failed to update player identity: {identity_err}")
         
         # =========================================================================
         # PHASE 4: FOCUS LOCK COMPLIANCE UPDATE (Step 9)
