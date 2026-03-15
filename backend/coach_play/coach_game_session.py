@@ -419,23 +419,28 @@ async def get_session_state(
             # Check if moves played match the trap line (only show trap if on correct line)
             trap_valid = False
             if suggested_trap and session.move_history:
+                # Only consider trap valid if user has played at least the first moves of the line
                 opening = OPENING_DATABASE.get(opening_key)
                 if opening:
-                    # Find the trap
-                    trap_moves = suggested_trap.get("moves", [])
-                    if trap_moves:
-                        trap_valid = True
-                        for i, trap_move in enumerate(trap_moves):
-                            if i < len(session.move_history):
-                                played = session.move_history[i].get("move", "")
-                                if played.replace("+", "").replace("#", "") != trap_move.replace("+", "").replace("#", ""):
-                                    trap_valid = False
+                    # Need at least 2 moves to suggest a trap (e.g., e4 e5)
+                    min_moves_for_trap = 2
+                    if len(session.move_history) >= min_moves_for_trap:
+                        # Find the trap
+                        trap_moves = suggested_trap.get("moves", [])
+                        if trap_moves:
+                            trap_valid = True
+                            for i, trap_move in enumerate(trap_moves):
+                                if i < len(session.move_history):
+                                    played = session.move_history[i].get("move", "")
+                                    if played.replace("+", "").replace("#", "") != trap_move.replace("+", "").replace("#", ""):
+                                        trap_valid = False
+                                        break
+                                else:
                                     break
-                            else:
-                                break
+            # Don't show trap at move 0 - user needs to play first
             elif suggested_trap and not session.move_history:
-                # No moves yet - trap is still valid
-                trap_valid = True
+                # No moves yet - don't show trap, let user start playing first
+                trap_valid = False
             
             if guidance:
                 opening_guidance = {

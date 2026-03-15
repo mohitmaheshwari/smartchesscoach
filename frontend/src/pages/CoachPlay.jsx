@@ -521,6 +521,16 @@ const CoachPlay = ({ user }) => {
     // Reset emotional state tracking for new game
     setBlundersThisGame(0);
     
+    // Clear any stale teaching state from previous games
+    setActiveLesson(null);
+    setLessonInstruction(null);
+    setIsInTeachingMode(false);
+    setTeachingOffer(null);
+    setInlineTrap(null);
+    setInlineOpening(null);
+    setOpeningGuidance(null);
+    setLessonComplete(false);
+    
     try {
       // Build request body
       const requestBody = {
@@ -584,36 +594,41 @@ const CoachPlay = ({ user }) => {
             setOpeningGuidance(stateData.opening_teaching);
             
             // Also set inline suggestion for the prominent card
-            const ot = stateData.opening_teaching;
-            const openingKey = ot.opening_key;
-            const openingName = ot.opening_name || (openingKey ? openingKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : null);
+            // BUT only if game has actually started with some moves
+            const moveCount = data.session?.move_history?.length || 0;
             
-            // Set trap suggestion if available (prioritize trap over opening)
-            if (ot.suggested_trap) {
-              setInlineTrap({
-                name: ot.suggested_trap.name,
-                opening_key: openingKey,
-                explanation: ot.suggested_trap.explanation || `A trap in the ${openingName || 'opening'}`,
-                moves: ot.suggested_trap.moves || []
-              });
+            // Only show opening guidance after a few moves (don't overwhelm at start)
+            if (moveCount >= 2 && stateData.opening_teaching) {
+              const ot = stateData.opening_teaching;
+              const openingKey = ot.opening_key;
+              const openingName = ot.opening_name || (openingKey ? openingKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : null);
               
-              // Also trigger trap alert for clean UI mode
-              setActiveTrapAlert({
-                name: ot.suggested_trap.name,
-                message: ot.suggested_trap.explanation || `Watch out for the ${ot.suggested_trap.name}!`,
-                moves: ot.suggested_trap.moves || []
-              });
-            } else if (openingName) {
-              // No trap, but we have an opening
-              setInlineOpening({
-                name: openingName,
-                key: openingKey,
-                main_idea: ot.why || ot.teaching_message || ot.guidance?.message || `Learn the ${openingName}`,
-                key_moves: ot.first_moves || []
-              });
+              // Set trap suggestion if available (prioritize trap over opening)
+              if (ot.suggested_trap) {
+                setInlineTrap({
+                  name: ot.suggested_trap.name,
+                  opening_key: openingKey,
+                  explanation: ot.suggested_trap.explanation || `A trap in the ${openingName || 'opening'}`,
+                  moves: ot.suggested_trap.moves || []
+                });
+                
+                // Also trigger trap alert for clean UI mode
+                setActiveTrapAlert({
+                  name: ot.suggested_trap.name,
+                  message: ot.suggested_trap.explanation || `Watch out for the ${ot.suggested_trap.name}!`,
+                  moves: ot.suggested_trap.moves || []
+                });
+              } else if (openingName) {
+                // No trap, but we have an opening
+                setInlineOpening({
+                  name: openingName,
+                  key: openingKey,
+                  main_idea: ot.why || ot.teaching_message || ot.guidance?.message || `Learn the ${openingName}`,
+                  key_moves: ot.first_moves || []
+                });
+              }
             }
           }
-        }
       } catch (stateError) {
         console.error("Error fetching opening guidance:", stateError);
       }
