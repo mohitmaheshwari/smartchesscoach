@@ -864,11 +864,6 @@ async def generate_mistake_explanation(move_data: Dict, llm_call_func=None, use_
             explanation = f"{template['pattern']} {template.get('thinking_habit', '')}"
             template_id = "llm_fallback"
             method = "llm_fallback"
-
-    except Exception as e:
-        logger.error(f"LLM call failed: {e}")
-        # Fallback to template-based explanation
-        explanation = f"{template['pattern']} {template.get('thinking_habit', '')}"
     
     return {
         "explanation": explanation,
