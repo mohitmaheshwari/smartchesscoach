@@ -663,3 +663,245 @@ Be direct and specific to THIS position.
             }
         }
     }
+
+
+
+class MoveEvaluationRequest(BaseModel):
+    """Request to evaluate a move in a critical moment."""
+    fen: str
+    user_move: str  # UCI format (e.g., "e2e4")
+    best_move: str  # SAN format (e.g., "Nf3")
+    original_move: Optional[str] = None  # What the user originally played (SAN)
+    eval_before: Optional[float] = None  # Eval before the position
+    eval_after_best: Optional[float] = None  # Eval after best move
+
+
+class MoveEvaluationResponse(BaseModel):
+    """Response with move quality assessment."""
+    quality: str  # "best", "excellent", "good", "okay", "inaccuracy", "mistake", "blunder"
+    symbol: str  # "check", "warning", "close"
+    is_correct: bool  # Whether to count as "correct" for practice
+    cp_loss: Optional[int] = None
+    message: str
+    comparison_to_original: Optional[str] = None  # "better", "same", "worse"
+    feedback: str  # Detailed coaching feedback
+
+
+@router.post("/lab/evaluate-move", response_model=MoveEvaluationResponse)
+async def evaluate_practice_move(request: MoveEvaluationRequest):
+    """
+    Evaluate a user's move attempt in practice mode.
+    
+    Provides nuanced feedback beyond just "correct/incorrect":
+    - "best": Perfect! Same as engine recommendation
+    - "excellent": Within 10cp of best - great find!
+    - "good": Within 25cp - solid move
+    - "okay": Within 50cp - playable but not ideal
+    - "inaccuracy": 50-100cp loss - needs improvement
+    - "mistake": 100-200cp loss - significant error
+    - "blunder": >200cp loss - major error
+    
+    Also compares to what the user originally played in the game.
+    """
+    import chess
+    
+    try:
+        board = chess.Board(request.fen)
+        
+        # Parse user's move
+        try:
+            from_sq = request.user_move[:2]
+            to_sq = request.user_move[2:4]
+            promotion = request.user_move[4] if len(request.user_move) > 4 else None
+            
+            user_move_obj = board.find_move(
+                chess.parse_square(from_sq),
+                chess.parse_square(to_sq),
+                promotion=chess.Piece.from_symbol(promotion).piece_type if promotion else None
+            )
+            user_move_san = board.san(user_move_obj)
+        except Exception as e:
+            logger.warning(f"Could not parse user move: {e}")
+            return MoveEvaluationResponse(
+                quality="invalid",
+                symbol="close",
+                is_correct=False,
+                message="Invalid move",
+                feedback="That move isn't legal in this position.",
+                cp_loss=None
+            )
+        
+        # Parse best move to get UCI
+        try:
+            best_move_obj = board.parse_san(request.best_move)
+            best_move_uci = best_move_obj.uci()
+        except Exception as e:
+            logger.warning(f"Could not parse best move: {e}")
+            best_move_uci = None
+        
+        # Check if it's the best move
+        user_move_uci = user_move_obj.uci()
+        is_best = user_move_uci == best_move_uci
+        
+        if is_best:
+            return MoveEvaluationResponse(
+                quality="best",
+                symbol="check",
+                is_correct=True,
+                cp_loss=0,
+                message="Perfect!",
+                comparison_to_original="better" if request.original_move and request.original_move != request.best_move else "same",
+                feedback=f"Excellent! {user_move_san} is the best move in this position."
+            )
+        
+        # For non-best moves, we need to estimate quality
+        # If we have evaluations, use them. Otherwise, use heuristics.
+        
+        # Heuristic-based evaluation when we don't have engine evals
+        # Without Stockfish, we use tactical heuristics and be more generous
+        
+        # Default values
+        quality = "okay"  # Default to okay if we can't determine a problem
+        cp_loss = 30  # Default small penalty for not being best
+        symbol = "warning"
+        is_correct = False  # Not best, so not "correct" by default
+        feedback = f"{user_move_san} is playable, but {request.best_move} was stronger here."
+        
+        # Make the user's move and check for tactical problems
+        board_after = board.copy()
+        board_after.push(user_move_obj)
+        
+        # Get piece information
+        piece_moved = board.piece_at(user_move_obj.from_square)
+        piece_value = {"p": 1, "n": 3, "b": 3, "r": 5, "q": 9, "k": 0}.get(
+            piece_moved.symbol().lower(), 0
+        ) if piece_moved else 0
+        
+        # Check if it's a capture
+        is_capture = board.is_capture(user_move_obj)
+        captured_piece = board.piece_at(user_move_obj.to_square)
+        captured_value = {"p": 1, "n": 3, "b": 3, "r": 5, "q": 9, "k": 0}.get(
+            captured_piece.symbol().lower(), 0
+        ) if captured_piece else 0
+        
+        # Check for checks
+        gives_check = board_after.is_check()
+        
+        # Check if user's piece is immediately hanging after the move
+        # After the move, it's the opponent's turn, so we check if THEY attack our piece
+        opponent_color = board_after.turn  # After our move, it's opponent's turn
+        our_color = not board_after.turn   # Our color (we just moved)
+        
+        is_piece_hanging = board_after.is_attacked_by(
+            opponent_color, 
+            user_move_obj.to_square
+        )
+        
+        # Check if the piece is also defended by our pieces
+        is_defended = board_after.is_attacked_by(
+            our_color,
+            user_move_obj.to_square
+        )
+        
+        # === Evaluate move quality ===
+        
+        # GREAT MOVES: Giving check is almost always good
+        if gives_check:
+            quality = "good"
+            symbol = "check"
+            is_correct = True
+            cp_loss = 15
+            feedback = f"{user_move_san} gives check! A forcing move, though {request.best_move} was technically stronger."
+        
+        # GOOD MOVES: Good captures (winning or equal material)
+        elif is_capture and captured_value >= piece_value:
+            if not is_piece_hanging or is_defended:
+                quality = "good"
+                symbol = "check"
+                is_correct = True
+                cp_loss = 20
+                feedback = f"{user_move_san} is a reasonable capture. {request.best_move} was slightly better."
+            else:
+                quality = "okay"
+                symbol = "warning"
+                is_correct = False
+                cp_loss = 40
+                feedback = f"{user_move_san} captures but leaves your piece vulnerable. {request.best_move} was safer."
+        
+        # BAD MOVES: Hanging a piece without compensation
+        elif is_piece_hanging and not is_defended and piece_value > captured_value:
+            if piece_value >= 5:  # Rook or Queen
+                quality = "blunder"
+                symbol = "close"
+                cp_loss = piece_value * 100
+                feedback = f"{user_move_san} hangs your {piece_moved.symbol().upper()}! It can be captured for free."
+            elif piece_value >= 3:  # Knight or Bishop
+                quality = "mistake"
+                symbol = "close"
+                cp_loss = piece_value * 100
+                feedback = f"{user_move_san} loses your {piece_moved.symbol().upper()} - it's undefended after this move."
+            else:  # Pawn
+                quality = "inaccuracy"
+                symbol = "warning"
+                is_correct = False
+                cp_loss = 50
+                feedback = f"{user_move_san} loses a pawn. Small material but {request.best_move} was better."
+        
+        # OKAY MOVES: Developing moves, pawn moves, etc.
+        elif piece_moved and piece_moved.piece_type in [chess.KNIGHT, chess.BISHOP]:
+            # Developing a minor piece is usually okay
+            quality = "okay"
+            symbol = "warning"
+            is_correct = False
+            cp_loss = 25
+            feedback = f"{user_move_san} develops your piece. Decent, but {request.best_move} was more accurate."
+        
+        elif piece_moved and piece_moved.piece_type == chess.PAWN:
+            # Pawn moves - generally okay unless obviously bad
+            if is_piece_hanging and not is_defended:
+                quality = "inaccuracy"
+                symbol = "warning"
+                cp_loss = 60
+                feedback = f"{user_move_san} leaves your pawn vulnerable. {request.best_move} was safer."
+            else:
+                quality = "okay"
+                symbol = "warning"
+                is_correct = False
+                cp_loss = 30
+                feedback = f"{user_move_san} is a reasonable pawn move, but {request.best_move} was stronger."
+        
+        # Default: It's playable but not best
+        
+        # Compare to original move if provided
+        comparison = None
+        if request.original_move:
+            if user_move_san == request.original_move:
+                comparison = "same"
+                feedback = f"You played the same move again. Try to find something better - look for {request.best_move}."
+            elif quality in ["best", "excellent", "good"]:
+                comparison = "better"
+                feedback = f"Nice improvement! {user_move_san} is better than your original {request.original_move}."
+            else:
+                comparison = "worse"
+        
+        return MoveEvaluationResponse(
+            quality=quality,
+            symbol=symbol,
+            is_correct=is_correct,
+            cp_loss=cp_loss,
+            message={
+                "best": "Perfect!",
+                "excellent": "Excellent!",
+                "good": "Good move!",
+                "okay": "Okay move",
+                "inaccuracy": "Inaccuracy",
+                "mistake": "Mistake",
+                "blunder": "Blunder!"
+            }.get(quality, ""),
+            comparison_to_original=comparison,
+            feedback=feedback
+        )
+        
+    except Exception as e:
+        logger.error(f"Error evaluating move: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

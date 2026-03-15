@@ -509,13 +509,14 @@ const LabV2 = ({ user }) => {
   };
   
   // Handle user's move attempt on a critical moment
-  const handleUserMoveAttempt = (from, to) => {
+  // Now with smarter evaluation - not just "correct/wrong" but nuanced feedback
+  const handleUserMoveAttempt = async (from, to) => {
     console.log("handleUserMoveAttempt called:", { from, to, interactiveMoment: !!interactiveMoment });
     if (!interactiveMoment) return false;
     
     const userMoveUci = from + to;
     
-    // Get the best move in UCI format
+    // Get the best move in UCI format for local comparison
     let bestMoveUci = null;
     try {
       const chess = new Chess(interactiveMoment.fen);
@@ -527,181 +528,218 @@ const LabV2 = ({ user }) => {
       console.log("Could not parse best move:", e);
     }
     
-    // Check if user found the best move
+    // Call backend for smart move evaluation
+    try {
+      const evalResponse = await fetch(`${API}/lab/evaluate-move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen: interactiveMoment.fen,
+          user_move: userMoveUci,
+          best_move: interactiveMoment.best_move,
+          original_move: interactiveMoment.your_move || null
+        })
+      });
+      
+      if (evalResponse.ok) {
+        const evalResult = await evalResponse.json();
+        
+        // Handle based on move quality
+        if (evalResult.is_correct) {
+          // Good enough move - play success
+          playSuccessSound();
+          
+          // Determine arrow color based on quality
+          const arrowColor = evalResult.quality === "best" ? "green" : 
+                            evalResult.quality === "excellent" ? "green" :
+                            evalResult.quality === "good" ? "rgb(34,197,94)" : "rgb(234,179,8)";
+          
+          setUserAttemptResult({
+            correct: true,
+            quality: evalResult.quality,
+            symbol: evalResult.symbol,
+            message: evalResult.message,
+            feedback: evalResult.feedback,
+            comparison: evalResult.comparison_to_original,
+            userMove: userMoveUci,
+            bestMove: bestMoveUci
+          });
+          
+          setBoardArrows([[from, to, arrowColor]]);
+          
+          // Store the moment before clearing interactive state
+          const momentToPlay = interactiveMoment;
+          setInteractiveMoment(null);
+          setInteractiveFen(null);
+          
+          // Play the line after a short delay
+          setTimeout(() => playBestLine(momentToPlay), 1500);
+          
+          // Show appropriate toast
+          if (evalResult.quality === "best") {
+            toast.success("Perfect! You found the best move!");
+          } else if (evalResult.comparison_to_original === "better") {
+            toast.success(evalResult.feedback);
+          } else {
+            toast.info(evalResult.feedback);
+          }
+        } else {
+          // Not good enough - show feedback with punishment
+          playErrorSound();
+          
+          // Determine feedback based on quality
+          const isOkay = evalResult.quality === "okay" || evalResult.quality === "inaccuracy";
+          
+          // Show user's move with appropriate color
+          const arrowColor = isOkay ? "rgb(234,179,8)" : "red"; // Yellow for okay, red for bad
+          setBoardArrows([[from, to, arrowColor]]);
+          
+          // Make the user's move on a temp board to show the position
+          try {
+            const tempChess = new Chess(interactiveMoment.fen);
+            const userMove = tempChess.move({ from, to, promotion: 'q' });
+            if (userMove) {
+              setInteractiveFen(tempChess.fen());
+              
+              // For bad moves, show punishment animation
+              if (!isOkay) {
+                setTimeout(() => {
+                  try {
+                    const punishChess = new Chess(tempChess.fen());
+                    const allMoves = punishChess.moves({ verbose: true });
+                    let punishMove = null;
+                    let punishMoveNotation = null;
+                    
+                    // Find a punishing move - priority: checkmates > checks > captures
+                    const checkmates = allMoves.filter(m => {
+                      const testChess = new Chess(punishChess.fen());
+                      testChess.move(m);
+                      return testChess.isCheckmate();
+                    });
+                    if (checkmates.length > 0) {
+                      punishMove = punishChess.move(checkmates[0]);
+                      punishMoveNotation = checkmates[0].san;
+                    }
+                    
+                    if (!punishMove) {
+                      const checks = allMoves.filter(m => {
+                        const testChess = new Chess(punishChess.fen());
+                        testChess.move(m);
+                        return testChess.inCheck();
+                      });
+                      if (checks.length > 0) {
+                        punishMove = punishChess.move(checks[0]);
+                        punishMoveNotation = checks[0].san;
+                      }
+                    }
+                    
+                    if (!punishMove) {
+                      const pieceValues = { q: 9, r: 5, b: 3, n: 3, p: 1 };
+                      const captures = allMoves.filter(m => m.captured);
+                      captures.sort((a, b) => (pieceValues[b.captured] || 0) - (pieceValues[a.captured] || 0));
+                      if (captures.length > 0) {
+                        punishMove = punishChess.move(captures[0]);
+                        punishMoveNotation = captures[0].san;
+                      }
+                    }
+                    
+                    if (punishMove) {
+                      playPunishSound();
+                      setInteractiveFen(punishChess.fen());
+                      setBoardArrows([
+                        [from, to, arrowColor],
+                        [punishMove.from, punishMove.to, "orange"]
+                      ]);
+                      
+                      setUserAttemptResult(prev => ({
+                        ...prev,
+                        punishingMove: punishMoveNotation,
+                        showPunishment: true
+                      }));
+                      
+                      toast.error(`Opponent plays ${punishMoveNotation}!`, { duration: 3000 });
+                    }
+                  } catch (e) {
+                    console.log("Could not calculate punishing move:", e);
+                  }
+                }, 1000);
+              }
+            }
+          } catch (e) {
+            console.log("Could not make user move:", e);
+          }
+          
+          setUserAttemptResult({
+            correct: false,
+            quality: evalResult.quality,
+            symbol: evalResult.symbol,
+            message: evalResult.message,
+            feedback: evalResult.feedback,
+            comparison: evalResult.comparison_to_original,
+            userMove: userMoveUci,
+            bestMove: bestMoveUci,
+            showTryAgain: isOkay, // Show try again immediately for okay moves
+            showPunishment: false,
+            punishingMove: null
+          });
+          
+          // For bad moves, show Try Again after punishment
+          if (!isOkay) {
+            setTimeout(() => {
+              setUserAttemptResult(prev => prev ? ({
+                ...prev,
+                showTryAgain: true
+              }) : null);
+            }, 2500);
+          }
+          
+          // Show appropriate toast
+          if (isOkay) {
+            toast.info(evalResult.feedback);
+          } else {
+            toast.error(evalResult.feedback);
+          }
+        }
+        
+        return evalResult.is_correct;
+      }
+    } catch (e) {
+      console.log("Could not evaluate move, falling back to local check:", e);
+    }
+    
+    // Fallback to simple local check if API fails
     const isCorrect = userMoveUci === bestMoveUci;
     
     if (isCorrect) {
-      // Play success sound
       playSuccessSound();
-      
       setUserAttemptResult({
         correct: true,
-        message: "Excellent! You found the best move!",
+        quality: "best",
+        symbol: "check",
+        message: "Perfect!",
         userMove: userMoveUci,
         bestMove: bestMoveUci
       });
-      // Show green arrow for correct move
       setBoardArrows([[from, to, "green"]]);
-      // Store the moment before clearing interactive state
       const momentToPlay = interactiveMoment;
-      // Clear interactive mode since user got it right
       setInteractiveMoment(null);
       setInteractiveFen(null);
-      // Play the line after a short delay
       setTimeout(() => playBestLine(momentToPlay), 1500);
-      // Show toast for positive reinforcement
       toast.success("Correct! Great find!");
     } else {
-      // Play error sound for wrong move
       playErrorSound();
-      
-      // User played wrong move - show punishing counter-move animation
-      
-      // Get the threat or best continuation to explain what was missed
-      const threat = interactiveMoment.threat;
-      const pvAfterBest = interactiveMoment.pv_after_best || [];
-      const nextBestMove = pvAfterBest[0]; // Opponent's response after best move
-      
-      // Build explanation of what was missed
-      let missedExplanation = "You missed the best move.";
-      if (threat) {
-        missedExplanation = `You missed defending against the threat.`;
-      } else if (nextBestMove) {
-        missedExplanation = `After the best move, you could play ${nextBestMove}.`;
-      }
-      
-      // Show user's wrong move in red
       setBoardArrows([[from, to, "red"]]);
-      
-      // Make the user's move on a temp board to show the position
-      try {
-        const tempChess = new Chess(interactiveMoment.fen);
-        const userMove = tempChess.move({ from, to, promotion: 'q' });
-        if (userMove) {
-          // Step 1: Show position after user's wrong move
-          setInteractiveFen(tempChess.fen());
-          
-          // Step 2: After a delay, find and play the opponent's best punishing response
-          setTimeout(() => {
-            try {
-              // The position is now after user's move, so it's opponent's turn
-              const punishChess = new Chess(tempChess.fen());
-              
-              // Find a punishing move - priority: checks > captures > attacks
-              const allMoves = punishChess.moves({ verbose: true });
-              let punishMove = null;
-              let punishMoveNotation = null;
-              
-              // First try the specific threat if it matches
-              if (threat) {
-                try {
-                  const threatMove = punishChess.move(threat, { sloppy: true });
-                  if (threatMove) {
-                    punishMove = threatMove;
-                    punishMoveNotation = threat;
-                  }
-                } catch (e) {
-                  // Threat doesn't apply to this position, find another move
-                }
-              }
-              
-              // If no specific threat, find the most punishing move
-              if (!punishMove) {
-                // Priority 1: Checkmates
-                const checkmates = allMoves.filter(m => {
-                  const testChess = new Chess(punishChess.fen());
-                  testChess.move(m);
-                  return testChess.isCheckmate();
-                });
-                if (checkmates.length > 0) {
-                  punishMove = punishChess.move(checkmates[0]);
-                  punishMoveNotation = checkmates[0].san;
-                }
-                
-                // Priority 2: Checks
-                if (!punishMove) {
-                  const checks = allMoves.filter(m => {
-                    const testChess = new Chess(punishChess.fen());
-                    testChess.move(m);
-                    return testChess.inCheck();
-                  });
-                  if (checks.length > 0) {
-                    punishMove = punishChess.move(checks[0]);
-                    punishMoveNotation = checks[0].san;
-                  }
-                }
-                
-                // Priority 3: Captures (sorted by value: Q > R > B/N > P)
-                if (!punishMove) {
-                  const pieceValues = { q: 9, r: 5, b: 3, n: 3, p: 1 };
-                  const captures = allMoves.filter(m => m.captured);
-                  captures.sort((a, b) => (pieceValues[b.captured] || 0) - (pieceValues[a.captured] || 0));
-                  if (captures.length > 0) {
-                    punishMove = punishChess.move(captures[0]);
-                    punishMoveNotation = captures[0].san;
-                  }
-                }
-                
-                // Priority 4: Any attacking move (just take the first one as fallback)
-                if (!punishMove && allMoves.length > 0) {
-                  punishMove = punishChess.move(allMoves[0]);
-                  punishMoveNotation = allMoves[0].san;
-                }
-              }
-              
-              if (punishMove) {
-                // Play the punishing "thud" sound
-                playPunishSound();
-                
-                // Animate the punishing move on the board
-                setInteractiveFen(punishChess.fen());
-                
-                // Show orange arrow for the punishing move
-                setBoardArrows([
-                  [from, to, "red"],
-                  [punishMove.from, punishMove.to, "orange"]
-                ]);
-                
-                // Update the result to show what happened
-                setUserAttemptResult(prev => ({
-                  ...prev,
-                  punishingMove: punishMoveNotation,
-                  punishingMoveFrom: punishMove.from,
-                  punishingMoveTo: punishMove.to,
-                  showPunishment: true
-                }));
-                
-                toast.error(`Opponent plays ${punishMoveNotation}!`, { duration: 3000 });
-              }
-            } catch (e) {
-              console.log("Could not calculate punishing move:", e);
-            }
-          }, 1000); // Wait 1 second before showing punishment
-        }
-      } catch (e) {
-        console.log("Could not make user move:", e);
-      }
-      
       setUserAttemptResult({
         correct: false,
-        message: missedExplanation,
+        quality: "unknown",
+        symbol: "close",
+        message: "Not the best move",
         userMove: userMoveUci,
         bestMove: bestMoveUci,
-        threat: threat,
-        showTryAgain: false, // Will show after punishment animation
-        showPunishment: false,
-        punishingMove: null
+        showTryAgain: true
       });
-      
-      // Show Try Again after the punishment is shown
-      setTimeout(() => {
-        setUserAttemptResult(prev => prev ? ({
-          ...prev,
-          showTryAgain: true
-        }) : null);
-      }, 2500); // Wait for punishment animation
-      
-      toast.error("Not quite right. Watch what happens...");
+      toast.error("Not quite right. Try again!");
     }
     
     return isCorrect;
@@ -871,14 +909,25 @@ const LabV2 = ({ user }) => {
                     Your turn - find the best move!
                   </div>
                 )}
-                {/* User attempt feedback */}
+                {/* User attempt feedback - with smart symbols */}
                 {userAttemptResult && interactiveMoment && (
-                  <div className={`absolute top-2 left-2 px-3 py-1 rounded text-sm font-medium ${
+                  <div className={`absolute top-2 left-2 px-3 py-1 rounded text-sm font-medium flex items-center gap-2 ${
                     userAttemptResult.correct 
-                      ? 'bg-emerald-600/90 text-white' 
-                      : 'bg-red-600/90 text-white'
+                      ? userAttemptResult.quality === 'best' || userAttemptResult.quality === 'excellent'
+                        ? 'bg-emerald-600/90 text-white' 
+                        : 'bg-yellow-500/90 text-white'
+                      : userAttemptResult.quality === 'okay' || userAttemptResult.quality === 'inaccuracy'
+                        ? 'bg-yellow-500/90 text-white'
+                        : 'bg-red-600/90 text-white'
                   }`}>
-                    {userAttemptResult.correct ? '✓ Correct!' : '✗ Try again'}
+                    {userAttemptResult.correct 
+                      ? userAttemptResult.quality === 'best' || userAttemptResult.quality === 'excellent'
+                        ? <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg> {userAttemptResult.message || 'Correct!'}</>
+                        : <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> {userAttemptResult.message || 'Good!'}</>
+                      : userAttemptResult.quality === 'okay' || userAttemptResult.quality === 'inaccuracy'
+                        ? <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> {userAttemptResult.message || 'Okay move'}</>
+                        : <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg> {userAttemptResult.message || 'Try again'}</>
+                    }
                   </div>
                 )}
               </div>

@@ -32,7 +32,8 @@ import {
   HelpCircle,
   ThumbsUp,
   ThumbsDown,
-  Zap
+  Zap,
+  AlertTriangle
 } from "lucide-react";
 
 // =============================================================================
@@ -497,31 +498,76 @@ const CriticalMoments = ({
                 </div>
               )}
               
-              {/* User attempt feedback - enhanced with punishing move animation */}
+              {/* User attempt feedback - enhanced with smart move quality */}
               {userAttemptResult && (
                 <div className={`mb-4 p-4 rounded-lg ${
                   userAttemptResult.correct 
-                    ? 'bg-emerald-500/10 border border-emerald-500/20' 
-                    : 'bg-red-500/10 border border-red-500/20'
+                    ? userAttemptResult.quality === 'best' || userAttemptResult.quality === 'excellent'
+                      ? 'bg-emerald-500/10 border border-emerald-500/20'
+                      : 'bg-yellow-500/10 border border-yellow-500/20'
+                    : userAttemptResult.quality === 'okay' || userAttemptResult.quality === 'inaccuracy'
+                      ? 'bg-yellow-500/10 border border-yellow-500/20'
+                      : 'bg-red-500/10 border border-red-500/20'
                 }`}>
                   <div className="flex items-start gap-3">
+                    {/* Smart symbol based on quality */}
                     {userAttemptResult.correct ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5" />
+                      userAttemptResult.quality === 'best' || userAttemptResult.quality === 'excellent' ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5" />
+                      ) : (
+                        <svg className="w-5 h-5 text-yellow-400 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      )
+                    ) : userAttemptResult.quality === 'okay' || userAttemptResult.quality === 'inaccuracy' ? (
+                      <svg className="w-5 h-5 text-yellow-400 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
                     ) : (
                       <XCircle className="w-5 h-5 text-red-400 mt-0.5" />
                     )}
                     <div className="flex-1">
                       <p className={`font-medium mb-1 ${
-                        userAttemptResult.correct ? 'text-emerald-400' : 'text-red-400'
+                        userAttemptResult.correct 
+                          ? userAttemptResult.quality === 'best' || userAttemptResult.quality === 'excellent'
+                            ? 'text-emerald-400'
+                            : 'text-yellow-400'
+                          : userAttemptResult.quality === 'okay' || userAttemptResult.quality === 'inaccuracy'
+                            ? 'text-yellow-400'
+                            : 'text-red-400'
                       }`}>
                         {userAttemptResult.correct 
-                          ? getCoachText("correctPraise", playerLevel)
-                          : getMistakeFeedback()
+                          ? userAttemptResult.message || getCoachText("correctPraise", playerLevel)
+                          : userAttemptResult.message || getMistakeFeedback()
                         }
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        {userAttemptResult.message}
-                      </p>
+                      
+                      {/* Show detailed feedback */}
+                      {userAttemptResult.feedback && (
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {userAttemptResult.feedback}
+                        </p>
+                      )}
+                      
+                      {/* Show comparison to original move */}
+                      {userAttemptResult.comparison === 'better' && (
+                        <div className="mt-2 p-2 bg-emerald-500/10 rounded border border-emerald-500/20">
+                          <p className="text-xs text-emerald-400">
+                            <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                            <span className="font-medium">Nice improvement!</span> Better than your original move.
+                          </p>
+                        </div>
+                      )}
+                      {userAttemptResult.comparison === 'same' && !userAttemptResult.correct && (
+                        <div className="mt-2 p-2 bg-yellow-500/10 rounded border border-yellow-500/20">
+                          <p className="text-xs text-yellow-400">
+                            <svg className="w-3 h-3 inline mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M12 9v2m0 4h.01" />
+                            </svg>
+                            <span className="font-medium">Same as before.</span> Try to find a better move!
+                          </p>
+                        </div>
+                      )}
                       
                       {/* Show punishing move animation feedback */}
                       {!userAttemptResult.correct && userAttemptResult.showPunishment && userAttemptResult.punishingMove && (
@@ -542,8 +588,9 @@ const CriticalMoments = ({
                         </motion.div>
                       )}
                       
-                      {/* Show threat info before punishment */}
-                      {!userAttemptResult.correct && !userAttemptResult.showPunishment && userAttemptResult.threat && (
+                      {/* Show threat info before punishment - only for bad moves */}
+                      {!userAttemptResult.correct && !userAttemptResult.showPunishment && userAttemptResult.threat && 
+                       userAttemptResult.quality !== 'okay' && userAttemptResult.quality !== 'inaccuracy' && (
                         <div className="mt-2 p-2 bg-orange-500/10 rounded border border-orange-500/20">
                           <p className="text-xs text-orange-400">
                             <span className="font-medium">Watch the board...</span> Opponent's response coming
@@ -551,11 +598,14 @@ const CriticalMoments = ({
                         </div>
                       )}
                       
-                      {/* Try Again button - appears after punishment animation */}
+                      {/* Try Again button - appears after feedback */}
                       {!userAttemptResult.correct && userAttemptResult.showTryAgain && (
                         <div className="mt-3 space-y-2">
                           <p className="text-xs text-muted-foreground">
-                            {getCoachText("tryAgainPrompt", playerLevel)}
+                            {userAttemptResult.quality === 'okay' || userAttemptResult.quality === 'inaccuracy'
+                              ? "Good try! Can you find the best move?"
+                              : getCoachText("tryAgainPrompt", playerLevel)
+                            }
                           </p>
                           <Button
                             variant="outline"
