@@ -347,7 +347,8 @@ async def generate_move_feedback(
     db,
     session_id: str,
     move_number: int,
-    user_id: str
+    user_id: str,
+    use_chess_brain: bool = True  # NEW: Enable Chess Brain by default
 ) -> Optional[MoveFeedback]:
     """
     Generate comprehensive feedback for a specific move in a session.
@@ -357,6 +358,7 @@ async def generate_move_feedback(
         session_id: Coach play session ID
         move_number: Which user move to analyze (1-indexed)
         user_id: User ID for personalization
+        use_chess_brain: If True, use the new deterministic Chess Brain engine
     
     Returns:
         MoveFeedback object with all analysis
@@ -400,6 +402,40 @@ async def generate_move_feedback(
     
     # Classify quality
     quality = _classify_move_quality(eval_before, eval_after, user_color)
+    
+    # ===== CHESS BRAIN INTEGRATION =====
+    # Try to get deterministic coaching from Chess Brain
+    chess_brain_feedback = None
+    if use_chess_brain and fen_before and user_move:
+        try:
+            from services.chess_brain.integration import get_chess_brain_feedback
+            
+            stockfish_analysis = {
+                "best_move": best_move,
+                "eval_before": eval_before,
+                "eval_after": eval_after,
+                "pv": user_move_data.get("pv_after_best", [])
+            }
+            
+            chess_brain_feedback = await get_chess_brain_feedback(
+                db=db,
+                fen_before=fen_before,
+                user_move=user_move,
+                user_id=user_id,
+                session_id=session_id,
+                stockfish_analysis=stockfish_analysis,
+                user_color=user_color,
+                move_number=move_number,
+                time_spent=user_move_data.get("time_spent"),
+            )
+            
+            # Use Chess Brain's quality assessment if available
+            if chess_brain_feedback.get("is_chess_brain"):
+                quality = chess_brain_feedback.get("user_move_quality", quality)
+                logger.info(f"Chess Brain analyzed move {user_move}: {quality}, mode={chess_brain_feedback.get('teaching_mode')}")
+        except Exception as e:
+            logger.warning(f"Chess Brain feedback failed, falling back: {e}")
+    # ===== END CHESS BRAIN INTEGRATION =====
     
     # Tactical analysis
     tactical = {}
@@ -463,32 +499,53 @@ async def generate_move_feedback(
         except Exception as e:
             logger.warning(f"Could not get pattern context: {e}")
     
-    # Generate main coaching message (now returns dict with socratic fields)
-    coaching_result = _generate_coaching_message(
-        user_move=user_move,
-        quality=quality,
-        best_move=best_move,
-        tactical_analysis=tactical,
-        coach_move=coach_move,
-        understanding_context=understanding_context,
-        user_name=""  # Will be populated from user profile in future
-    )
+    # Generate main coaching message
+    # Prefer Chess Brain output if available, otherwise fall back to rule-based generation
+    if chess_brain_feedback and chess_brain_feedback.get("is_chess_brain"):
+        # Use Chess Brain's deterministic coaching
+        coaching_message = chess_brain_feedback.get("coaching_message", "")
+        socratic_question = chess_brain_feedback.get("socratic_question")
+        expects_response = False  # Chess Brain doesn't use dialogue mode yet
+        
+        # Use Chess Brain's best move explanation if available
+        best_move_explanation = chess_brain_feedback.get("best_move_explanation", "")
+        
+        # Use Chess Brain's encouragement
+        encouragement = chess_brain_feedback.get("encouragement")
+        
+        logger.info(f"Using Chess Brain coaching: {chess_brain_feedback.get('teaching_mode')}")
+    else:
+        # Fall back to legacy coaching message generation
+        coaching_result = _generate_coaching_message(
+            user_move=user_move,
+            quality=quality,
+            best_move=best_move,
+            tactical_analysis=tactical,
+            coach_move=coach_move,
+            understanding_context=understanding_context,
+            user_name=""
+        )
+        
+        coaching_message = coaching_result.get("coaching_message", "")
+        socratic_question = coaching_result.get("socratic_question")
+        expects_response = coaching_result.get("expects_response", False)
+        
+        # Generate best move explanation
+        best_move_explanation = ""
+        if best_move and best_move != user_move:
+            if tactical.get("best_move_captures"):
+                best_move_explanation = f"Wins the {tactical['best_move_captures']}"
+            elif tactical.get("best_move_attacks"):
+                best_move_explanation = f"Creates pressure: {', '.join(tactical['best_move_attacks'][:2])}"
+            else:
+                best_move_explanation = "Maintains better position"
+        
+        # Encouragement for good moves
+        encouragement = coaching_result.get("encouragement")
+        if not encouragement and quality in ["excellent", "good"]:
+            encouragement = "Keep it up!" if quality == "good" else "That's the move!"
     
-    coaching_message = coaching_result.get("coaching_message", "")
-    socratic_question = coaching_result.get("socratic_question")
-    expects_response = coaching_result.get("expects_response", False)
-    
-    # Generate best move explanation
-    best_move_explanation = ""
-    if best_move and best_move != user_move:
-        if tactical.get("best_move_captures"):
-            best_move_explanation = f"Wins the {tactical['best_move_captures']}"
-        elif tactical.get("best_move_attacks"):
-            best_move_explanation = f"Creates pressure: {', '.join(tactical['best_move_attacks'][:2])}"
-        else:
-            best_move_explanation = "Maintains better position"
-    
-    # Generate coach move explanation
+    # Generate coach move explanation (used by both paths)
     coach_explanation = ""
     if coach_move:
         if quality in ["mistake", "blunder"] and tactical.get("threats_created"):
@@ -496,7 +553,7 @@ async def generate_move_feedback(
         else:
             coach_explanation = "Continues development"
     
-    # Check if relates to known weakness
+    # Check if relates to known weakness (used by both paths)
     relates_to = None
     if understanding_context:
         weakness = understanding_context.get("primary_weakness", "")
@@ -505,11 +562,6 @@ async def generate_move_feedback(
                 relates_to = f"This relates to your {weakness} - keep practicing!"
             elif "consistency" in weakness.lower() and quality in ["mistake", "blunder"]:
                 relates_to = "Stay focused - you know better than this!"
-    
-    # Encouragement for good moves (may already be set by coaching result)
-    encouragement = coaching_result.get("encouragement")
-    if not encouragement and quality in ["excellent", "good"]:
-        encouragement = "Keep it up!" if quality == "good" else "That's the move!"
     
     # Check if a trap is available from this position
     trap_suggestion = None
