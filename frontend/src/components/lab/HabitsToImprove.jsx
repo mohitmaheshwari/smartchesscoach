@@ -93,38 +93,50 @@ const HabitsToImprove = ({
     fetchProgress();
   }, [currentOpening, currentEco]);
 
-  // Extract pattern detected from this game
+  // Extract pattern detected from this game - STRICT RULE: Must have cross-game evidence
   const getPatternDetected = () => {
-    // From pattern context - check if summary is a string or object
-    if (patternContext?.summary) {
-      const summary = patternContext.summary;
-      // If it's an object with coach_summary, use that
-      if (typeof summary === 'object' && summary.coach_summary) {
-        return summary.coach_summary;
-      }
-      // If it's a string, use it directly
-      if (typeof summary === 'string') {
-        return summary;
-      }
-      // If it has dominant_pattern
-      if (typeof summary === 'object' && summary.dominant_pattern) {
-        return `Your main pattern this game: ${summary.dominant_label || summary.dominant_pattern.replace(/_/g, ' ')}`;
-      }
+    // Get cross-game occurrence data
+    const history = patternContext?.history || {};
+    const mostRecurring = history.most_recurring;
+    const occurrenceCount = history.count || patternContext?.occurrence_count || 0;
+    const gamesWithPattern = patternContext?.games_with_pattern || [];
+    
+    // STRICT RULE: Only show as "pattern" if we have cross-game evidence (2+ games)
+    if (mostRecurring && occurrenceCount >= 2) {
+      const patternLabel = mostRecurring.replace(/_/g, ' ');
+      return {
+        label: patternLabel,
+        message: `This pattern appeared in ${occurrenceCount} of your recent games.`,
+        hasEvidence: true,
+        severity: occurrenceCount >= 5 ? "high" : occurrenceCount >= 3 ? "medium" : "low",
+        gamesCount: occurrenceCount
+      };
     }
     
-    // From recurring patterns
-    const mostRecurring = patternContext?.history?.most_recurring;
-    if (mostRecurring) {
-      const count = patternContext?.history?.count || 3;
-      return `You've made ${mostRecurring.replace(/_/g, ' ')} mistakes in ${count} recent games.`;
+    // Check summary for cross-game info (if it's a string mentioning multiple games)
+    const summary = patternContext?.summary;
+    if (typeof summary === 'string' && summary.includes("games")) {
+      return {
+        label: null,
+        message: summary,
+        hasEvidence: true,
+        severity: "medium",
+        gamesCount: null
+      };
     }
     
-    // From this game's critical moments
+    // From this game's critical moments - BUT mark as "potential" since it's one game only
     const moments = deepStrategy?.critical_moments || [];
     if (moments.length > 0) {
       const firstInsight = moments[0]?.insight;
       if (firstInsight?.pattern_to_remember) {
-        return `This game revealed a pattern: ${firstInsight.pattern_to_remember}`;
+        return {
+          label: null,
+          message: firstInsight.pattern_to_remember,
+          hasEvidence: false, // Only this game, not cross-game
+          severity: "potential",
+          gamesCount: 1
+        };
       }
     }
     
@@ -244,23 +256,63 @@ const HabitsToImprove = ({
         <h3 className="font-semibold">Habits to Improve</h3>
       </div>
       
-      {/* Pattern Detected */}
+      {/* Pattern Detected - With cross-game evidence requirement */}
       {patternDetected && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card className="border-violet-500/30 bg-violet-500/5">
+          <Card className={`${
+            patternDetected.hasEvidence 
+              ? patternDetected.severity === "high"
+                ? "border-red-500/30 bg-red-500/5"
+                : "border-violet-500/30 bg-violet-500/5"
+              : "border-slate-500/30 bg-slate-500/5"
+          }`}>
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-violet-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h4 className="text-xs font-medium text-violet-400 uppercase tracking-wide mb-1">
-                    Pattern Detected
-                  </h4>
-                  <p className="text-sm text-violet-200">
-                    {patternDetected}
+                <AlertTriangle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                  patternDetected.hasEvidence 
+                    ? patternDetected.severity === "high" 
+                      ? "text-red-400" 
+                      : "text-violet-400"
+                    : "text-slate-400"
+                }`} />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className={`text-xs font-medium uppercase tracking-wide ${
+                      patternDetected.hasEvidence 
+                        ? patternDetected.severity === "high"
+                          ? "text-red-400"
+                          : "text-violet-400"
+                        : "text-slate-400"
+                    }`}>
+                      {patternDetected.hasEvidence ? "Pattern Detected" : "Potential Pattern"}
+                    </h4>
+                    {patternDetected.hasEvidence && patternDetected.gamesCount && (
+                      <Badge variant="outline" className={`text-xs ${
+                        patternDetected.severity === "high" 
+                          ? "border-red-500/50 text-red-300" 
+                          : "border-violet-500/50 text-violet-300"
+                      }`}>
+                        {patternDetected.severity === "high" ? "High" : patternDetected.severity === "medium" ? "Medium" : "Low"} priority
+                      </Badge>
+                    )}
+                  </div>
+                  <p className={`text-sm ${
+                    patternDetected.hasEvidence 
+                      ? patternDetected.severity === "high"
+                        ? "text-red-200"
+                        : "text-violet-200"
+                      : "text-slate-300"
+                  }`}>
+                    {patternDetected.message}
                   </p>
+                  {!patternDetected.hasEvidence && (
+                    <p className="text-xs text-slate-400 mt-2">
+                      We'll track this across future games to confirm.
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>

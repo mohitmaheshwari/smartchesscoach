@@ -1,14 +1,19 @@
 /**
- * StrategicThemes - Positional Understanding
+ * StrategicThemes (Ideas Tab) - Position-Linked Strategic Concepts
  * 
- * The coach zooms out and explains big-picture concepts.
- * Shows themes from this game in card format.
+ * STRICT RULE: Every idea must contain:
+ * - concept name
+ * - position (fen)
+ * - move number
+ * - short explanation
+ * - "View Position" button
  * 
- * NO engine evaluation. Just strategic concepts.
+ * NO textbook fluff. Everything tied to actual game positions.
  */
 
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Crown,
   Shield,
@@ -17,7 +22,9 @@ import {
   Zap,
   Clock,
   Grid3X3,
-  ArrowUpRight
+  ArrowUpRight,
+  Eye,
+  ChevronRight
 } from "lucide-react";
 
 // Map theme types to icons and colors
@@ -69,136 +76,133 @@ const THEME_CONFIG = {
     color: "text-slate-400",
     bgColor: "bg-slate-500/10",
     borderColor: "border-slate-500/30"
+  },
+  tactical: {
+    icon: Zap,
+    color: "text-yellow-400",
+    bgColor: "bg-yellow-500/10",
+    borderColor: "border-yellow-500/30"
   }
 };
 
 const StrategicThemes = ({ 
   deepStrategy,
   labData,
-  game
+  game,
+  onNavigateToMove
 }) => {
-  // Extract strategic themes from the analysis
-  const extractThemes = () => {
-    const themes = [];
-    
-    // From deep strategy lesson
-    const lesson = deepStrategy?.lesson;
-    if (lesson) {
-      if (lesson.main_strategic_theme) {
-        themes.push({
-          type: "central_control",
-          title: lesson.main_strategic_theme,
-          description: lesson.strategic_explanation || "A key theme in this game.",
-          source: "lesson"
-        });
-      }
-    }
-    
-    // From critical moments - extract unique strategic themes
+  // Extract position-linked strategic ideas from critical moments
+  const extractIdeas = () => {
+    const ideas = [];
     const criticalMoments = deepStrategy?.critical_moments || [];
-    const seenThemes = new Set();
+    const seenTypes = new Set();
     
     criticalMoments.forEach(moment => {
       const insight = moment.insight || {};
       const tags = moment.tags || {};
+      const moveNum = moment.move_number;
+      const fen = moment.fen;
+      const yourMove = moment.your_move;
+      const bestMove = moment.best_move;
       
-      // Check for piece activity issues
-      if (insight.what_you_missed?.toLowerCase().includes("inactive") ||
-          insight.what_you_missed?.toLowerCase().includes("rook") ||
-          tags.positional_concepts?.includes("piece_activity")) {
-        if (!seenThemes.has("piece_activity")) {
-          seenThemes.add("piece_activity");
-          themes.push({
-            type: "piece_activity",
-            title: "Piece Activity",
-            description: insight.what_you_missed || "Improving your least active piece can strengthen your position.",
-            source: "moment"
-          });
-        }
+      // Skip if no position data
+      if (!fen || !moveNum) return;
+      
+      // Determine strategic concept from this moment
+      let ideaType = null;
+      let ideaTitle = null;
+      let explanation = null;
+      
+      // Check what the moment reveals
+      const whatYouMissed = insight.what_you_missed || "";
+      const whatBestMoveAchieves = insight.what_best_move_achieves || "";
+      const threatLower = (moment.threat || "").toLowerCase();
+      
+      // Detect idea type from context
+      if (whatYouMissed.toLowerCase().includes("inactive") || 
+          whatYouMissed.toLowerCase().includes("passive") ||
+          whatBestMoveAchieves.toLowerCase().includes("active")) {
+        ideaType = "piece_activity";
+        ideaTitle = "Piece Activity";
+        explanation = whatYouMissed || `On move ${moveNum}, ${bestMove} would have activated your pieces more effectively.`;
+      } else if (whatYouMissed.toLowerCase().includes("pawn") ||
+                 whatYouMissed.toLowerCase().includes("weakness") ||
+                 tags.positional_concepts?.includes("pawn_structure")) {
+        ideaType = "pawn_structure";
+        ideaTitle = "Pawn Structure";
+        explanation = whatYouMissed || `The pawn move created weaknesses that could have been avoided.`;
+      } else if (threatLower.includes("king") || 
+                 whatYouMissed.toLowerCase().includes("king") ||
+                 threatLower.includes("mate") ||
+                 tags.tactical_theme === "king_attack") {
+        ideaType = "king_safety";
+        ideaTitle = "King Safety";
+        explanation = whatYouMissed || `Your king was exposed here. Safety should have been prioritized.`;
+      } else if (whatBestMoveAchieves.toLowerCase().includes("center") ||
+                 whatBestMoveAchieves.toLowerCase().includes("central") ||
+                 tags.positional_concepts?.includes("central_control")) {
+        ideaType = "central_control";
+        ideaTitle = "Central Control";
+        explanation = whatBestMoveAchieves || `Controlling the center would have given you more options.`;
+      } else if (threatLower.includes("fork") ||
+                 threatLower.includes("pin") ||
+                 threatLower.includes("skewer") ||
+                 threatLower.includes("loose") ||
+                 tags.tactical_theme) {
+        ideaType = "tactical";
+        ideaTitle = tags.tactical_theme?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || "Tactical Pattern";
+        explanation = moment.threat || whatYouMissed || `A tactical opportunity was missed here.`;
+      } else if (whatYouMissed.toLowerCase().includes("develop") ||
+                 moment.phase === "opening") {
+        ideaType = "development";
+        ideaTitle = "Development";
+        explanation = whatYouMissed || `Faster development would have improved your position.`;
+      } else if (whatYouMissed) {
+        // Generic idea with actual explanation
+        ideaType = "defense";
+        ideaTitle = "Defensive Awareness";
+        explanation = whatYouMissed;
       }
       
-      // Check for pawn structure issues
-      if (insight.what_you_missed?.toLowerCase().includes("pawn") ||
-          insight.what_you_missed?.toLowerCase().includes("weakness") ||
-          tags.positional_concepts?.includes("pawn_structure")) {
-        if (!seenThemes.has("pawn_structure")) {
-          seenThemes.add("pawn_structure");
-          themes.push({
-            type: "pawn_structure",
-            title: "Pawn Structure",
-            description: insight.what_you_missed || "Pawn moves create permanent weaknesses. Think twice before pushing.",
-            source: "moment"
-          });
-        }
-      }
-      
-      // Check for king safety issues
-      if (insight.what_you_missed?.toLowerCase().includes("king") ||
-          insight.pattern_to_remember?.toLowerCase().includes("king") ||
-          tags.tactical_theme === "king_attack") {
-        if (!seenThemes.has("king_safety")) {
-          seenThemes.add("king_safety");
-          themes.push({
-            type: "king_safety",
-            title: "King Safety",
-            description: insight.what_you_missed || "A safe king is a happy king. Don't neglect your monarch.",
-            source: "moment"
-          });
-        }
-      }
-      
-      // Check for central control
-      if (insight.what_best_move_achieves?.toLowerCase().includes("center") ||
-          insight.what_best_move_achieves?.toLowerCase().includes("central") ||
-          tags.positional_concepts?.includes("central_control")) {
-        if (!seenThemes.has("central_control")) {
-          seenThemes.add("central_control");
-          themes.push({
-            type: "central_control",
-            title: "Central Control",
-            description: insight.what_best_move_achieves || "Control the center to control the game.",
-            source: "moment"
-          });
-        }
+      // Only add if we have a valid idea and haven't seen this type
+      if (ideaType && !seenTypes.has(ideaType)) {
+        seenTypes.add(ideaType);
+        ideas.push({
+          type: ideaType,
+          title: ideaTitle,
+          explanation,
+          moveNum,
+          fen,
+          yourMove,
+          bestMove,
+          hasPosition: true
+        });
       }
     });
     
-    // If we found few themes, add generic strategic observation
-    if (themes.length < 2) {
-      const blunders = labData?.blunders || 0;
-      const mistakes = labData?.mistakes || 0;
-      
-      if (blunders + mistakes > 0) {
-        // Add a defensive theme
-        if (!seenThemes.has("defense")) {
-          themes.push({
-            type: "defense",
-            title: "Defensive Awareness",
-            description: "Before attacking, always check what your opponent is threatening.",
-            source: "general"
-          });
-        }
-      }
-    }
-    
-    return themes.slice(0, 4); // Max 4 themes
+    return ideas.slice(0, 4); // Max 4 ideas
   };
   
-  const themes = extractThemes();
+  const ideas = extractIdeas();
   
-  if (themes.length === 0) {
-    return null;
+  if (ideas.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <p className="text-sm">No strategic themes identified in this game.</p>
+        <p className="text-xs mt-1">Play more games for deeper analysis.</p>
+      </div>
+    );
   }
   
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="strategic-themes">
       <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Strategic Themes From This Game
+        Strategic Ideas From This Game
       </h3>
       
-      <div className="grid gap-3">
-        {themes.map((theme, idx) => {
-          const config = THEME_CONFIG[theme.type] || THEME_CONFIG.defense;
+      <div className="space-y-3">
+        {ideas.map((idea, idx) => {
+          const config = THEME_CONFIG[idea.type] || THEME_CONFIG.defense;
           const Icon = config.icon;
           
           return (
@@ -214,13 +218,47 @@ const StrategicThemes = ({
                     <div className={`w-10 h-10 rounded-lg ${config.bgColor} flex items-center justify-center flex-shrink-0`}>
                       <Icon className={`w-5 h-5 ${config.color}`} />
                     </div>
-                    <div>
-                      <h4 className={`font-medium ${config.color} mb-1`}>
-                        {theme.title}
-                      </h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {theme.description}
+                    <div className="flex-1 min-w-0">
+                      {/* Idea header with move number */}
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className={`font-medium ${config.color}`}>
+                          {idea.title}
+                        </h4>
+                        <span className="text-xs text-muted-foreground">
+                          Move {idea.moveNum}
+                        </span>
+                      </div>
+                      
+                      {/* Position-specific explanation */}
+                      <p className="text-sm text-muted-foreground leading-relaxed mb-2">
+                        {idea.explanation}
                       </p>
+                      
+                      {/* Show moves if available */}
+                      {idea.yourMove && idea.bestMove && (
+                        <div className="flex items-center gap-3 text-xs mb-2">
+                          <span className="text-red-300/70">
+                            Played: <span className="font-mono">{idea.yourMove}</span>
+                          </span>
+                          <span className="text-emerald-300/70">
+                            Better: <span className="font-mono">{idea.bestMove}</span>
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* View Position button - REQUIRED for every idea */}
+                      {onNavigateToMove && idea.hasPosition && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`text-xs ${config.color} hover:${config.color} p-0 h-auto`}
+                          onClick={() => onNavigateToMove(idea.moveNum, idea.yourMove, idea.bestMove)}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View position
+                          <ChevronRight className="w-3 h-3 ml-0.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>

@@ -282,6 +282,15 @@ Create a hyper-personalized, data-driven chess coaching application that functio
   - Contextual training tasks based on user's detected weakness pattern
   - 10 E2E tests passing
 
+- [x] **Game Analysis Lab 5-Tab Behavioral Refactor** (Mar 16, 2026)
+  - **Summary Tab**: 6-section coach narrative (Story, Accuracy, Biggest Moment, Key Lesson, Habit to Build, Pattern Notice)
+  - **Moments Tab**: Socratic flow verified (Position → Question → User tries → Reveal → Explanation)
+  - **Ideas Tab**: Position-linked strategic concepts with FEN, move number, "View Position" button
+  - **Habits Tab**: Strict cross-game evidence rule ("Seen in 4 of 10 games" or "Potential pattern - will track")
+  - **Memory Tab**: Games count, style classification, trends (already correct)
+  - Moved TrapAnalysis to Ideas tab under "Opening Opportunities"
+  - All lint checks passing
+
 ### P1 - Next Steps (Chess Brain V1.1)
 - [ ] Implement Explanation Template Library (structured templates per teaching mode)
 - [ ] Add more specific tactical detector implementations (skewer, overload, removal)

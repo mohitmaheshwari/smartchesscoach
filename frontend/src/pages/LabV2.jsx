@@ -1036,6 +1036,7 @@ const LabV2 = ({ user }) => {
                       accuracy={accuracy}
                       deepStrategy={deepStrategy}
                       patternContext={labData?.pattern_context}
+                      onNavigateToMove={navigateToMoveNumber}
                     />
                   )}
                 </TabsContent>
@@ -1067,7 +1068,7 @@ const LabV2 = ({ user }) => {
                   )}
                 </TabsContent>
                 
-                {/* Ideas Tab (Strategic Themes + Missed Tactics) */}
+                {/* Ideas Tab (Strategic Themes + Missed Tactics + Opening Opportunities) */}
                 <TabsContent value="ideas" className="p-4 m-0 space-y-6">
                   {loadingDeepStrategy ? (
                     <div className="flex items-center justify-center py-12">
@@ -1079,6 +1080,9 @@ const LabV2 = ({ user }) => {
                         deepStrategy={deepStrategy}
                         labData={labData}
                         game={game}
+                        onNavigateToMove={(moveNum, yourMove, bestMove) => {
+                          navigateToMoveNumber(moveNum, yourMove, bestMove);
+                        }}
                       />
                       
                       <MissedTactics
@@ -1091,17 +1095,22 @@ const LabV2 = ({ user }) => {
                           navigateToMoveNumber(moveNum, yourMove, bestMove);
                         }}
                       />
+                      
+                      {/* Opening Opportunities - TrapAnalysis moved here */}
+                      {deepStrategy?.trap_analysis && (
+                        <div className="pt-2">
+                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                            Opening Opportunities
+                          </h3>
+                          <TrapAnalysis trapAnalysis={deepStrategy.trap_analysis} />
+                        </div>
+                      )}
                     </>
                   )}
                 </TabsContent>
                 
                 {/* Habits Tab */}
                 <TabsContent value="habits" className="p-4 m-0 space-y-4">
-                  {/* Trap Analysis - NEW */}
-                  {deepStrategy?.trap_analysis && (
-                    <TrapAnalysis trapAnalysis={deepStrategy.trap_analysis} />
-                  )}
-                  
                   <HabitsToImprove
                     patternContext={labData?.pattern_context}
                     focusModule={focusModule}

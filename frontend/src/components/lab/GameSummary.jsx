@@ -1,21 +1,29 @@
 /**
  * GameSummary - The Coach Opens the Session
  * 
- * Tells the story of the game in plain language.
- * Shows key lesson, habit to build, and recurring pattern notice.
+ * Strict 6-section structure:
+ * 1. Game Story - narrative of what happened
+ * 2. Accuracy - one number, simple
+ * 3. Biggest Moment - ONE highlighted mistake (the learning anchor)
+ * 4. Key Lesson - ONE takeaway
+ * 5. Habit to Build - actionable steps
+ * 6. Pattern Notice - cross-game insight (only if data exists)
  * 
- * NO engine numbers. Just coach talk.
+ * Tone: Human coach speaking to student
+ * NO engine numbers. NO multiple lessons. Focus.
  */
 
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   BookOpen,
   Target,
   AlertTriangle,
   TrendingUp,
-  CheckCircle2
+  CheckCircle2,
+  Crosshair,
+  ChevronRight
 } from "lucide-react";
 
 const GameSummary = ({ 
@@ -25,185 +33,277 @@ const GameSummary = ({
   result,
   accuracy,
   deepStrategy,
-  patternContext
+  patternContext,
+  onNavigateToMove
 }) => {
   // Determine game outcome from user's perspective
   const isLoss = (result === "0-1" && userColor === "white") || (result === "1-0" && userColor === "black");
   const isWin = (result === "1-0" && userColor === "white") || (result === "0-1" && userColor === "black");
   const isDraw = result === "1/2-1/2";
   
-  // Get the turning point
+  // Get the turning point - THE biggest moment
   const biggestBlunder = labData?.biggest_blunder;
+  const criticalMoments = deepStrategy?.critical_moments || [];
+  const biggestMoment = criticalMoments[0] || biggestBlunder;
+  
   const blunderCount = labData?.blunders || 0;
   const mistakeCount = labData?.mistakes || 0;
   
-  // Build the game story
+  // ========== SECTION 1: Game Story ==========
   const getGameStory = () => {
-    if (!biggestBlunder) {
-      if (isWin) return "A solid game with no major mistakes. Well played!";
-      if (isDraw) return "A balanced game from start to finish.";
-      return "A tough game. Let's see what happened.";
+    const opponent = game?.opponent || game?.white_player || game?.black_player || "your opponent";
+    
+    if (!biggestMoment) {
+      if (isWin) return `A solid game against ${opponent}. No major mistakes — well played.`;
+      if (isDraw) return `A balanced game against ${opponent} from start to finish.`;
+      return `A tough game against ${opponent}. Let's see what happened.`;
     }
     
-    const moveNum = biggestBlunder.move_number;
-    const threat = biggestBlunder.threat;
-    const isCheckmate = biggestBlunder.is_checkmate_level;
+    const moveNum = biggestMoment.move_number;
+    const threat = biggestMoment.threat || biggestMoment.insight?.what_you_missed;
     
     if (isLoss) {
-      if (isCheckmate && threat) {
-        return `This game came down to one move. You missed ${threat} — and that was checkmate.`;
-      } else if (isCheckmate) {
-        return `This game came down to one critical moment. A missed threat on move ${moveNum} ended the game.`;
-      } else if (blunderCount === 1 && threat) {
-        return `Close game. One moment changed everything on move ${moveNum} — you missed ${threat}.`;
-      } else if (blunderCount === 1) {
-        return `You were competitive until move ${moveNum}. That's when the position slipped away.`;
-      } else {
-        return `A challenging game with ${blunderCount + mistakeCount} critical moments. Let's focus on the biggest one.`;
+      if (threat) {
+        return `This game against ${opponent} came down to move ${moveNum}. You missed something there — and the position slipped away.`;
       }
+      return `Against ${opponent}, the game changed on move ${moveNum}. That's where we need to focus.`;
     } else if (isWin) {
       if (blunderCount > 0) {
-        return `You won, but there were moments where the game could have gone differently. Let's make sure you're winning cleanly.`;
+        return `You won against ${opponent}, but move ${moveNum} could have changed everything. Let's make sure you're winning cleanly.`;
       }
-      return "A well-played game. Let's see if there were any missed opportunities.";
+      return `A well-played win against ${opponent}. Let's see if there were any missed opportunities.`;
     } else {
-      return `A balanced game. Move ${moveNum || 'the turning point'} was where the game could have changed.`;
+      return `A balanced game against ${opponent}. Move ${moveNum} was where things could have gone differently.`;
     }
   };
   
-  // Get key lesson
-  const getKeyLesson = () => {
-    if (!biggestBlunder) return null;
+  // ========== SECTION 3: Biggest Moment ==========
+  const getBiggestMomentData = () => {
+    if (!biggestMoment) return null;
     
-    const threat = biggestBlunder.threat;
-    const insight = deepStrategy?.critical_moments?.[0]?.insight;
+    const moveNum = biggestMoment.move_number;
+    const yourMove = biggestMoment.your_move || biggestMoment.move;
+    const bestMove = biggestMoment.best_move;
+    const threat = biggestMoment.threat;
+    const insight = biggestMoment.insight || {};
+    const fen = biggestMoment.fen;
     
-    if (insight?.pattern_to_remember) {
-      return insight.pattern_to_remember;
+    // Build the explanation
+    let explanation = "";
+    if (insight.what_you_missed) {
+      explanation = insight.what_you_missed;
+    } else if (threat) {
+      explanation = `You played ${yourMove}, but this ${threat.toLowerCase().includes("ignore") ? "ignored" : "allowed"} ${threat}.`;
+    } else if (yourMove && bestMove) {
+      explanation = `You played ${yourMove}. ${bestMove} would have been stronger.`;
     }
     
-    if (threat) {
-      if (threat.toLowerCase().includes("fork")) {
-        return "Watch for piece forks - especially knight forks.";
-      }
-      if (threat.toLowerCase().includes("pin")) {
-        return "Pinned pieces can't move freely. Always check for pins.";
-      }
-      if (threat.toLowerCase().includes("mate") || threat.toLowerCase().includes("checkmate")) {
-        return "King safety comes first. Always check for mating threats.";
-      }
-      if (threat.toLowerCase().includes("loose") || threat.toLowerCase().includes("hanging")) {
-        return "Loose pieces lose games. Scan for undefended pieces before each move.";
-      }
-    }
-    
-    // Generic but useful lessons
-    const cp_loss = Math.abs(biggestBlunder.cp_loss || 0);
-    if (cp_loss >= 300) {
-      return "Before every move, ask: What is my opponent threatening?";
-    }
-    return "Slow down at critical moments. Check, capture, threat - in that order.";
-  };
-  
-  // Get habit to build
-  const getHabitToBuild = () => {
-    const insight = deepStrategy?.critical_moments?.[0]?.insight;
-    
-    if (insight?.pattern_to_remember) {
-      // Extract habit from pattern
-      const pattern = insight.pattern_to_remember.toLowerCase();
-      if (pattern.includes("capture") || pattern.includes("loose")) {
-        return {
-          habit: "Before moving, check",
-          steps: ["Checks", "Captures", "Threats"]
-        };
-      }
-      if (pattern.includes("king") || pattern.includes("safety")) {
-        return {
-          habit: "Before attacking, verify",
-          steps: ["Is my king safe?", "Are my pieces defended?", "What can opponent do?"]
-        };
-      }
-    }
-    
-    // Default habit
     return {
-      habit: "Before every move, ask",
-      steps: ["What is threatened?", "Can I capture something?", "Is my move safe?"]
+      moveNum,
+      yourMove,
+      bestMove,
+      explanation,
+      fen
     };
   };
   
-  // Check for recurring pattern
-  const getRecurringPattern = () => {
-    if (!patternContext?.summary) return null;
+  // ========== SECTION 4: Key Lesson ==========
+  const getKeyLesson = () => {
+    if (!biggestMoment) return null;
     
+    const threat = biggestMoment.threat || "";
+    const insight = biggestMoment.insight || {};
+    
+    // Prioritize pattern_to_remember from insight
+    if (insight.pattern_to_remember) {
+      return insight.pattern_to_remember;
+    }
+    
+    // Derive lesson from threat type
+    const threatLower = threat.toLowerCase();
+    if (threatLower.includes("fork")) {
+      return "Watch for piece forks — especially knight forks after checks.";
+    }
+    if (threatLower.includes("pin")) {
+      return "Pinned pieces can't move freely. Always check for pins before moving.";
+    }
+    if (threatLower.includes("mate") || threatLower.includes("checkmate")) {
+      return "King safety comes first. Always scan for mating threats.";
+    }
+    if (threatLower.includes("loose") || threatLower.includes("hanging") || threatLower.includes("undefended")) {
+      return "Loose pieces lose games. Before each move, check: is everything protected?";
+    }
+    if (threatLower.includes("back rank")) {
+      return "Never forget the back rank. Create an escape square for your king.";
+    }
+    
+    // Generic but useful
+    return "Before every move, ask: What is my opponent threatening?";
+  };
+  
+  // ========== SECTION 5: Habit to Build ==========
+  const getHabitToBuild = () => {
+    const insight = biggestMoment?.insight || {};
+    const threat = biggestMoment?.threat || "";
+    
+    // Derive habit from the type of mistake
+    const threatLower = threat.toLowerCase();
+    
+    if (threatLower.includes("loose") || threatLower.includes("hanging") || threatLower.includes("capture")) {
+      return {
+        habit: "Before every move, run this check",
+        steps: ["Are any of my pieces undefended?", "Can my opponent capture something?", "Is my move safe?"]
+      };
+    }
+    
+    if (threatLower.includes("fork") || threatLower.includes("tactic")) {
+      return {
+        habit: "Before moving, scan for tactics",
+        steps: ["Checks — can I give check?", "Captures — can I take something?", "Threats — can I create a threat?"]
+      };
+    }
+    
+    if (threatLower.includes("king") || threatLower.includes("mate")) {
+      return {
+        habit: "Before attacking, verify safety",
+        steps: ["Is my king safe?", "Are my pieces defended?", "What can my opponent do to me?"]
+      };
+    }
+    
+    // Default thinking habit
+    return {
+      habit: "Before every move, ask yourself",
+      steps: ["What is my opponent threatening?", "What changed after their last move?", "Is my move safe?"]
+    };
+  };
+  
+  // ========== SECTION 6: Pattern Notice ==========
+  const getPatternNotice = () => {
+    if (!patternContext) return null;
+    
+    // Check for cross-game data
+    const history = patternContext.history || {};
+    const mostRecurring = history.most_recurring;
+    const occurrenceCount = history.count || patternContext.occurrence_count || 0;
+    
+    // STRICT RULE: Only show if we have cross-game evidence
+    if (mostRecurring && occurrenceCount >= 2) {
+      const patternLabel = mostRecurring.replace(/_/g, ' ');
+      return {
+        hasEvidence: true,
+        message: `This type of mistake (${patternLabel}) has appeared in ${occurrenceCount} of your recent games.`
+      };
+    }
+    
+    // Check summary for cross-game info
     const summary = patternContext.summary;
-    // Check if summary is a string before using includes
-    if (typeof summary === 'string') {
-      if (summary.includes("appeared") || summary.includes("recurring") || summary.includes("games")) {
-        return summary;
-      }
+    if (typeof summary === 'string' && (summary.includes("games") || summary.includes("appeared"))) {
+      return {
+        hasEvidence: true,
+        message: summary
+      };
     }
     
-    // Check pattern history
-    const mostRecurring = patternContext?.history?.most_recurring;
-    if (mostRecurring) {
-      return `This type of mistake (${mostRecurring.replace(/_/g, ' ')}) has appeared in your recent games.`;
-    }
-    
+    // No cross-game evidence - don't show false patterns
     return null;
   };
   
   const gameStory = getGameStory();
+  const biggestMomentData = getBiggestMomentData();
   const keyLesson = getKeyLesson();
   const habit = getHabitToBuild();
-  const recurringPattern = getRecurringPattern();
+  const patternNotice = getPatternNotice();
   
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
+      data-testid="game-summary"
     >
-      {/* Game Story */}
+      {/* SECTION 1: Game Story */}
       <Card className="border-0 bg-slate-800/30">
         <CardContent className="p-5">
-          <div className="flex items-start gap-3 mb-4">
-            <BookOpen className="w-5 h-5 text-primary mt-0.5" />
+          <div className="flex items-start gap-3">
+            <BookOpen className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="text-xs font-medium text-primary uppercase tracking-wide mb-1">
-                Game Summary
+              <h3 className="text-xs font-medium text-primary uppercase tracking-wide mb-2">
+                Game Story
               </h3>
               <p className="text-base leading-relaxed">
                 {gameStory}
               </p>
             </div>
           </div>
-          
-          {/* Quick Stats - Simple, no cp values */}
-          <div className="flex items-center gap-4 text-sm text-muted-foreground border-t border-border/30 pt-3 mt-3">
-            <span>Accuracy: {accuracy?.toFixed(0) || '--'}%</span>
-            {blunderCount > 0 && (
-              <span className="text-red-400">{blunderCount} blunder{blunderCount > 1 ? 's' : ''}</span>
-            )}
-            {mistakeCount > 0 && (
-              <span className="text-amber-400">{mistakeCount} mistake{mistakeCount > 1 ? 's' : ''}</span>
-            )}
-          </div>
         </CardContent>
       </Card>
       
-      {/* Key Lesson */}
+      {/* SECTION 2: Accuracy - Simple, one line */}
+      <div className="flex items-center justify-between px-2 py-1 text-sm">
+        <span className="text-muted-foreground">Your accuracy</span>
+        <span className="font-semibold text-lg">
+          {accuracy?.toFixed(0) || '--'}%
+        </span>
+      </div>
+      
+      {/* SECTION 3: Biggest Moment - ONE highlighted mistake */}
+      {biggestMomentData && (
+        <Card className="border-red-500/30 bg-red-500/5">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Crosshair className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-red-400 uppercase tracking-wide">
+                    Biggest Moment
+                  </h4>
+                  <span className="text-xs text-muted-foreground">
+                    Move {biggestMomentData.moveNum}
+                  </span>
+                </div>
+                
+                <p className="text-sm leading-relaxed mb-3">
+                  {biggestMomentData.explanation}
+                </p>
+                
+                {biggestMomentData.yourMove && biggestMomentData.bestMove && (
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-red-300">
+                      You played: <span className="font-mono font-medium">{biggestMomentData.yourMove}</span>
+                    </span>
+                    <span className="text-emerald-300">
+                      Better: <span className="font-mono font-medium">{biggestMomentData.bestMove}</span>
+                    </span>
+                  </div>
+                )}
+                
+                {onNavigateToMove && biggestMomentData.moveNum && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-3 text-xs text-red-300 hover:text-red-200 p-0 h-auto"
+                    onClick={() => onNavigateToMove(biggestMomentData.moveNum, biggestMomentData.yourMove, biggestMomentData.bestMove)}
+                  >
+                    View position <ChevronRight className="w-3 h-3 ml-1" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* SECTION 4: Key Lesson - ONE takeaway */}
       {keyLesson && (
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <Target className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
               <div>
-                <h4 className="text-xs font-medium text-amber-400 uppercase tracking-wide mb-1">
+                <h4 className="text-xs font-medium text-amber-400 uppercase tracking-wide mb-2">
                   Key Lesson
                 </h4>
-                <p className="text-sm font-medium text-amber-200">
+                <p className="text-sm font-medium text-amber-200 leading-relaxed">
                   {keyLesson}
                 </p>
               </div>
@@ -212,7 +312,7 @@ const GameSummary = ({
         </Card>
       )}
       
-      {/* Habit to Build */}
+      {/* SECTION 5: Habit to Build */}
       {habit && (
         <Card className="border-emerald-500/30 bg-emerald-500/5">
           <CardContent className="p-4">
@@ -222,14 +322,14 @@ const GameSummary = ({
                 <h4 className="text-xs font-medium text-emerald-400 uppercase tracking-wide mb-2">
                   Habit to Build
                 </h4>
-                <p className="text-sm font-medium mb-2">{habit.habit}:</p>
-                <ol className="text-sm text-muted-foreground space-y-1">
+                <p className="text-sm font-medium mb-3">{habit.habit}:</p>
+                <ol className="text-sm text-muted-foreground space-y-2">
                   {habit.steps.map((step, i) => (
-                    <li key={i} className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs flex items-center justify-center">
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
                         {i + 1}
                       </span>
-                      {step}
+                      <span>{step}</span>
                     </li>
                   ))}
                 </ol>
@@ -239,18 +339,18 @@ const GameSummary = ({
         </Card>
       )}
       
-      {/* Recurring Pattern Notice */}
-      {recurringPattern && (
+      {/* SECTION 6: Pattern Notice - ONLY if cross-game evidence exists */}
+      {patternNotice && patternNotice.hasEvidence && (
         <Card className="border-violet-500/30 bg-violet-500/5">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-violet-500 mt-0.5 flex-shrink-0" />
               <div>
-                <h4 className="text-xs font-medium text-violet-400 uppercase tracking-wide mb-1">
+                <h4 className="text-xs font-medium text-violet-400 uppercase tracking-wide mb-2">
                   Coach Notice
                 </h4>
-                <p className="text-sm text-violet-200">
-                  {recurringPattern}
+                <p className="text-sm text-violet-200 leading-relaxed">
+                  {patternNotice.message}
                 </p>
               </div>
             </div>
