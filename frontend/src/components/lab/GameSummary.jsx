@@ -51,7 +51,15 @@ const GameSummary = ({
   
   // ========== SECTION 1: Game Story ==========
   const getGameStory = () => {
-    const opponent = game?.opponent || game?.white_player || game?.black_player || "your opponent";
+    // Correctly determine opponent based on user's color
+    let opponent = game?.opponent;
+    if (!opponent) {
+      // User played as white → opponent is black_player, and vice versa
+      opponent = userColor === "white" 
+        ? (game?.black_player || game?.black_username)
+        : (game?.white_player || game?.white_username);
+    }
+    opponent = opponent || "your opponent";
     
     if (!biggestMoment) {
       if (isWin) return `A solid game against ${opponent}. No major mistakes — well played.`;
