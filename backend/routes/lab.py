@@ -65,18 +65,9 @@ def analyze_opening_performance(move_evaluations: List[Dict], user_color: str) -
     for m in move_evaluations:
         move_num = m.get("move_number", 0)
         
-        # Only analyze opening moves for the user's color
+        # Only analyze opening moves (first 15 user moves)
         if move_num > OPENING_MOVES:
             break
-        
-        # Check if this is user's move
-        is_user_move = (
-            (user_color == "white" and move_num % 2 == 1) or
-            (user_color == "black" and move_num % 2 == 0)
-        )
-        
-        if not is_user_move:
-            continue
         
         total_opening_moves += 1
         cp_loss = abs(m.get("cp_loss", 0))
@@ -284,6 +275,8 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                     "move_number": m.get("move_number"),
                     "move": m.get("move"),
                     "best_move": m.get("best_move"),
+                    "move_uci": m.get("move_uci", ""),
+                    "best_move_uci": m.get("best_move_uci", ""),
                     "cp_loss": m.get("cp_loss"),
                     "threat": m.get("threat"),  # THE SPECIFIC THREAT
                     "fen_before": m.get("fen_before"),
@@ -321,33 +314,22 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                 return 0
             return eval_val if color == "white" else -eval_val
         
-        def is_user_move(move_num, user_clr):
-            """Check if this move number belongs to user"""
-            if user_clr == "white":
-                return move_num % 2 == 1
-            return move_num % 2 == 0
-        
         # ============================================================
-        # TURNING POINT LOGIC v3
+        # TURNING POINT LOGIC v4
         # ============================================================
-        # True turning point = the mistake with LARGEST EVAL DROP where:
-        # 1. Opponent played accurately in the NEXT 5 moves (not all remaining)
-        # 2. User never recovered after
+        # IMPORTANT: move_evaluations only contains the USER's moves.
+        # Opponent's moves are NOT in this list.
         #
-        # Key insight from user:
-        # - Move 27 dropped ~2 pawns, but opponent made mistakes between 27-31
-        # - Move 31 dropped ~4 pawns, then opponent played Qf2, accurate to end
-        # - Move 31 is the TRUE turning point (largest drop + opponent accurate)
+        # True turning point = the earliest significant mistake where:
+        # 1. The user never recovered after (eval stayed bad)
+        # 2. The opponent didn't give back the advantage (no big eval
+        #    improvements in the next 5 user moves = opponent played well)
         # ============================================================
         
         turning_point_candidates = []
         
         for i, m in enumerate(move_evals):
             move_num = m.get("move_number", i + 1)
-            
-            # Only consider user's moves
-            if not is_user_move(move_num, user_color):
-                continue
             
             eval_before = user_eval(m.get("eval_before"), user_color)
             eval_after = user_eval(m.get("eval_after"), user_color)
@@ -358,42 +340,41 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
             if cp_loss < 150:
                 continue
             
-            # Check IMMEDIATE aftermath (next 5 opponent moves only)
-            # This prevents early small mistakes from qualifying just because
-            # opponent played well at the END of the game
+            # Check aftermath: next 5 USER moves
             remaining_moves = move_evals[i + 1:]
             if not remaining_moves:
                 continue
             
-            # Check opponent's play in next 5 moves (not entire game)
-            opponent_moves_checked = 0
-            opponent_mistakes_immediate = 0
+            # Track recovery and opponent accuracy
             max_user_recovery = eval_after
+            opponent_gave_back = 0  # Count times eval improved significantly
             
-            for future_m in remaining_moves:
-                future_move_num = future_m.get("move_number", 0)
-                future_cp_loss = abs(future_m.get("cp_loss", 0))
-                future_eval = user_eval(future_m.get("eval_after"), user_color)
+            for j, future_m in enumerate(remaining_moves[:5]):
+                future_eval_before = user_eval(future_m.get("eval_before"), user_color)
+                future_eval_after = user_eval(future_m.get("eval_after"), user_color)
                 
-                # Track user's max recovery
-                if future_eval > max_user_recovery:
-                    max_user_recovery = future_eval
+                # eval_before of a future user move = position AFTER opponent moved
+                # If eval_before is much better than the post-mistake eval,
+                # the opponent gave back advantage
+                if future_eval_before > max_user_recovery:
+                    max_user_recovery = future_eval_before
+                if future_eval_after > max_user_recovery:
+                    max_user_recovery = future_eval_after
                 
-                # Check opponent's immediate moves (next 5 only)
-                if not is_user_move(future_move_num, user_color):
-                    opponent_moves_checked += 1
-                    if future_cp_loss >= 100:  # Opponent mistake
-                        opponent_mistakes_immediate += 1
-                    
-                    # Only check next 5 opponent moves
-                    if opponent_moves_checked >= 5:
-                        break
+                # Opponent "gave back" if eval improved by 100+ cp between user moves
+                if j == 0:
+                    if future_eval_before - eval_after > 100:
+                        opponent_gave_back += 1
+                else:
+                    prev_eval_after = user_eval(remaining_moves[j-1].get("eval_after"), user_color)
+                    if future_eval_before - prev_eval_after > 100:
+                        opponent_gave_back += 1
             
             # User never recovered if they stayed below -150
             never_recovered = max_user_recovery < -150
             
-            # Opponent played accurately = at most 1 mistake in next 5 moves
-            opponent_played_well_after = opponent_mistakes_immediate <= 1
+            # Opponent played accurately = gave back advantage at most once
+            opponent_played_well_after = opponent_gave_back <= 1
             
             if never_recovered and opponent_played_well_after:
                 turning_point_candidates.append({
@@ -409,7 +390,7 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                     "fen_before": m.get("fen_before"),
                     "threat": m.get("threat"),
                     "index": i,
-                    "opponent_mistakes_immediate": opponent_mistakes_immediate,
+                    "opponent_gave_back": opponent_gave_back,
                     "max_recovery_attempt": max_user_recovery
                 })
         
@@ -431,18 +412,15 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
             # Use the adaptive explainer for rich, rating-aware explanation
             explainer = get_turning_point_explainer()
             try:
-                import asyncio
-                explanation = asyncio.get_event_loop().run_until_complete(
-                    explainer.explain(
-                        fen=turning_point_data.get("fen_before", ""),
-                        user_move=turning_point_data.get("move", ""),
-                        best_move=turning_point_data.get("best_move", ""),
-                        cp_loss=int(turning_point_data.get("eval_drop", 0)),
-                        user_rating=user_rating,
-                        threat=turning_point_data.get("threat"),
-                        eval_before=turning_point_data.get("eval_before"),
-                        eval_after=turning_point_data.get("eval_after")
-                    )
+                explanation = await explainer.explain(
+                    fen=turning_point_data.get("fen_before", ""),
+                    user_move=turning_point_data.get("move", ""),
+                    best_move=turning_point_data.get("best_move", ""),
+                    cp_loss=int(turning_point_data.get("eval_drop", 0)),
+                    user_rating=user_rating,
+                    threat=turning_point_data.get("threat"),
+                    eval_before=turning_point_data.get("eval_before"),
+                    eval_after=turning_point_data.get("eval_after")
                 )
                 
                 turning_point = {
@@ -508,11 +486,7 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
         for i, m in enumerate(move_evals):
             move_num = m.get("move_number", i + 1)
             
-            # Only consider user's moves
-            if not is_user_move(move_num, user_color):
-                continue
-            
-            # Skip if this IS the turning point
+            # Skip if this IS or is after the turning point
             if move_num >= turning_point_move:
                 continue
             

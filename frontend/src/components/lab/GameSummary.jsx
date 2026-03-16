@@ -17,6 +17,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { API } from "@/App";
 import {
   BookOpen,
   Target,
@@ -27,7 +28,9 @@ import {
   ChevronRight,
   Clock,
   ChevronDown,
-  Lightbulb
+  ChevronUp,
+  Lightbulb,
+  Loader2
 } from "lucide-react";
 
 const GameSummary = ({ 
@@ -43,6 +46,38 @@ const GameSummary = ({
   // State for expandable explanations
   const [showTurningPointExplain, setShowTurningPointExplain] = useState(false);
   const [showBlunderExplain, setShowBlunderExplain] = useState(false);
+  const [blunderExplanation, setBlunderExplanation] = useState(null);
+  const [loadingBlunderExplain, setLoadingBlunderExplain] = useState(false);
+
+  // Fetch on-demand explanation for biggest blunder
+  const fetchBlunderExplanation = async (blunderData) => {
+    if (blunderExplanation || loadingBlunderExplain) return;
+    setLoadingBlunderExplain(true);
+    try {
+      const res = await fetch(`${API}/explain-mistake`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen_before: blunderData.fen,
+          move: blunderData.yourMove,
+          best_move: blunderData.bestMove,
+          cp_loss: Math.abs(blunderData.cpLoss || 0),
+          user_color: userColor,
+          move_number: blunderData.moveNum
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBlunderExplanation(data);
+      }
+    } catch (e) {
+      console.log("Failed to fetch blunder explanation:", e);
+    } finally {
+      setLoadingBlunderExplain(false);
+      setShowBlunderExplain(true);
+    }
+  };
   
   // Determine game outcome from user's perspective
   const isLoss = (result === "0-1" && userColor === "white") || (result === "1-0" && userColor === "black");
@@ -175,6 +210,8 @@ const GameSummary = ({
     const moveNum = blunderMoment.move_number;
     const yourMove = blunderMoment.your_move || blunderMoment.move;
     const bestMove = blunderMoment.best_move;
+    const yourMoveUci = blunderMoment.move_uci || "";
+    const bestMoveUci = blunderMoment.best_move_uci || "";
     const threat = blunderMoment.threat;
     const insight = blunderMoment.insight || {};
     const fen = blunderMoment.fen || blunderMoment.fen_before;
@@ -193,8 +230,11 @@ const GameSummary = ({
       moveNum,
       yourMove,
       bestMove,
+      yourMoveUci,
+      bestMoveUci,
       explanation,
       fen,
+      cpLoss: blunderMoment.cp_loss || 0,
       type: "biggest_blunder"
     };
   };
@@ -394,20 +434,6 @@ const GameSummary = ({
                   {turningPointData.explanation}
                 </p>
                 
-                {/* What you missed */}
-                {turningPointData.missedIdea && (
-                  <p className="text-xs text-red-200/80 mb-2">
-                    <span className="font-medium">What you missed:</span> {turningPointData.missedIdea}
-                  </p>
-                )}
-                
-                {/* Opponent's idea */}
-                {turningPointData.opponentIdea && (
-                  <p className="text-xs text-muted-foreground mb-2">
-                    <span className="font-medium">Opponent's idea:</span> {turningPointData.opponentIdea}
-                  </p>
-                )}
-                
                 {/* Moves comparison */}
                 {turningPointData.yourMove && turningPointData.bestMove && (
                   <div className="flex items-center gap-4 text-xs mb-3">
@@ -420,36 +446,85 @@ const GameSummary = ({
                   </div>
                 )}
                 
-                {/* HOW TO SPOT THIS - NEW SECTION */}
-                {turningPointData.howToSpot && turningPointData.howToSpot.length > 0 && (
-                  <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                    <h5 className="text-xs font-medium text-amber-400 uppercase tracking-wide mb-2">
-                      How to spot this next time
-                    </h5>
-                    <ul className="space-y-1.5">
-                      {turningPointData.howToSpot.map((tip, i) => (
-                        <li key={i} className="text-xs text-amber-200/80 flex items-start gap-2">
-                          <span className="text-amber-400 mt-0.5">•</span>
-                          <span>{tip}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                {/* EXPLAIN THIS MOVE button */}
+                {(turningPointData.missedIdea || turningPointData.opponentIdea || turningPointData.thinkingError || (turningPointData.howToSpot && turningPointData.howToSpot.length > 0)) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 p-0 h-auto mb-2"
+                    onClick={() => setShowTurningPointExplain(!showTurningPointExplain)}
+                    data-testid="explain-turning-point-btn"
+                  >
+                    <Lightbulb className="w-3.5 h-3.5 mr-1.5" />
+                    {showTurningPointExplain ? "Hide explanation" : "Explain this move"}
+                    {showTurningPointExplain ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                  </Button>
                 )}
                 
-                {/* Thinking error + Training tip */}
-                {turningPointData.thinkingError && (
-                  <div className="mt-3 p-2 bg-red-500/10 rounded-md">
-                    <p className="text-xs text-red-200/90 mb-1">
-                      <span className="font-medium">Thinking habit:</span> {turningPointData.thinkingError}
-                    </p>
-                    {turningPointData.trainingTip && (
-                      <p className="text-xs text-emerald-300/80">
-                        <span className="font-medium">Tip:</span> {turningPointData.trainingTip}
-                      </p>
-                    )}
-                  </div>
-                )}
+                {/* Expandable Explanation Panel */}
+                <AnimatePresence>
+                  {showTurningPointExplain && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                      data-testid="turning-point-explanation-panel"
+                    >
+                      <div className="space-y-3 pt-2 border-t border-red-500/20">
+                        {/* What you missed */}
+                        {turningPointData.missedIdea && (
+                          <div className="p-2.5 bg-red-500/10 rounded-md">
+                            <p className="text-xs text-red-200/90">
+                              <span className="font-medium text-red-300">What you missed:</span> {turningPointData.missedIdea}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Opponent's idea */}
+                        {turningPointData.opponentIdea && (
+                          <div className="p-2.5 bg-slate-500/10 rounded-md">
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-medium text-slate-300">Opponent's idea:</span> {turningPointData.opponentIdea}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Thinking error + Training tip */}
+                        {turningPointData.thinkingError && (
+                          <div className="p-2.5 bg-red-500/10 rounded-md">
+                            <p className="text-xs text-red-200/90 mb-1">
+                              <span className="font-medium text-red-300">Thinking habit:</span> {turningPointData.thinkingError}
+                            </p>
+                            {turningPointData.trainingTip && (
+                              <p className="text-xs text-emerald-300/80">
+                                <span className="font-medium">Tip:</span> {turningPointData.trainingTip}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* HOW TO SPOT THIS */}
+                        {turningPointData.howToSpot && turningPointData.howToSpot.length > 0 && (
+                          <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                            <h5 className="text-xs font-medium text-amber-400 uppercase tracking-wide mb-2">
+                              How to spot this next time
+                            </h5>
+                            <ul className="space-y-1.5">
+                              {turningPointData.howToSpot.map((tip, i) => (
+                                <li key={i} className="text-xs text-amber-200/80 flex items-start gap-2">
+                                  <span className="text-amber-400 mt-0.5">{i + 1}.</span>
+                                  <span>{tip}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 
                 {onNavigateToMove && turningPointData.moveNum && (
                   <Button
@@ -461,6 +536,7 @@ const GameSummary = ({
                       turningPointData.yourMoveUci || turningPointData.yourMove, 
                       turningPointData.bestMoveUci || turningPointData.bestMove
                     )}
+                    data-testid="view-position-turning-point-btn"
                   >
                     View position <ChevronRight className="w-3 h-3 ml-1" />
                   </Button>
@@ -539,7 +615,7 @@ const GameSummary = ({
                 </p>
                 
                 {biggestBlunderData.yourMove && biggestBlunderData.bestMove && (
-                  <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-4 text-xs mb-3">
                     <span className="text-yellow-300">
                       You played: <span className="font-mono font-medium">{biggestBlunderData.yourMove}</span>
                     </span>
@@ -549,12 +625,90 @@ const GameSummary = ({
                   </div>
                 )}
                 
+                {/* EXPLAIN THIS MOVE button for blunder */}
+                {biggestBlunderData.fen && biggestBlunderData.yourMove && biggestBlunderData.bestMove && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 p-0 h-auto mb-2"
+                    onClick={() => {
+                      if (showBlunderExplain) {
+                        setShowBlunderExplain(false);
+                      } else {
+                        fetchBlunderExplanation(biggestBlunderData);
+                      }
+                    }}
+                    disabled={loadingBlunderExplain}
+                    data-testid="explain-blunder-btn"
+                  >
+                    {loadingBlunderExplain ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <Lightbulb className="w-3.5 h-3.5 mr-1.5" />
+                    )}
+                    {loadingBlunderExplain ? "Analyzing..." : showBlunderExplain ? "Hide explanation" : "Explain this move"}
+                    {!loadingBlunderExplain && (showBlunderExplain ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />)}
+                  </Button>
+                )}
+                
+                {/* Expandable Blunder Explanation Panel */}
+                <AnimatePresence>
+                  {showBlunderExplain && blunderExplanation && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                      data-testid="blunder-explanation-panel"
+                    >
+                      <div className="space-y-3 pt-2 border-t border-yellow-500/20">
+                        {/* Main explanation text */}
+                        {blunderExplanation.explanation && (
+                          <div className="p-2.5 bg-yellow-500/10 rounded-md">
+                            <p className="text-xs text-yellow-200/90">
+                              {blunderExplanation.explanation}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Mistake type and thinking habit */}
+                        {blunderExplanation.thinking_habit && (
+                          <div className="p-2.5 bg-red-500/10 rounded-md">
+                            <p className="text-xs text-red-200/90">
+                              <span className="font-medium text-red-300">Thinking habit:</span> {blunderExplanation.thinking_habit}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Details from analysis */}
+                        {blunderExplanation.details?.threat_description && (
+                          <div className="p-2.5 bg-slate-500/10 rounded-md">
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-medium text-slate-300">The threat:</span> {blunderExplanation.details.threat_description}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {blunderExplanation.details?.why_best_is_better && (
+                          <div className="p-2.5 bg-emerald-500/10 rounded-md">
+                            <p className="text-xs text-emerald-200/90">
+                              <span className="font-medium text-emerald-300">Why the better move works:</span> {blunderExplanation.details.why_best_is_better}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                
                 {onNavigateToMove && biggestBlunderData.moveNum && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="mt-3 text-xs text-yellow-300 hover:text-yellow-200 p-0 h-auto"
-                    onClick={() => onNavigateToMove(biggestBlunderData.moveNum, biggestBlunderData.yourMove, biggestBlunderData.bestMove)}
+                    onClick={() => onNavigateToMove(biggestBlunderData.moveNum, biggestBlunderData.yourMoveUci || biggestBlunderData.yourMove, biggestBlunderData.bestMoveUci || biggestBlunderData.bestMove)}
+                    data-testid="view-position-blunder-btn"
                   >
                     View position <ChevronRight className="w-3 h-3 ml-1" />
                   </Button>
