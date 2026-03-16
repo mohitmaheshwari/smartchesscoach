@@ -292,6 +292,90 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     lab_data["blunders"] = sf_analysis.get("blunders", 0)
     lab_data["mistakes"] = sf_analysis.get("mistakes", 0)
     
+    # ADD: Turning Point - where the game was actually decided
+    # Two types:
+    # 1. First move where user went from positive/equal → negative AND stayed negative
+    # 2. Last missed recovery - opponent gave a chance but user didn't take it
+    user_color = game.get("user_color", "white") if game else "white"
+    turning_point = None
+    missed_recovery = None
+    
+    if move_evals:
+        # Track eval from user's perspective (positive = good for user)
+        def user_eval(eval_val, color):
+            """Convert eval to user's perspective"""
+            if eval_val is None:
+                return 0
+            return eval_val if color == "white" else -eval_val
+        
+        # Find turning point: first time going from good/equal to bad and staying bad
+        was_positive = True
+        
+        for i, m in enumerate(move_evals):
+            eval_after = user_eval(m.get("eval_after"), user_color)
+            eval_before = user_eval(m.get("eval_before"), user_color)
+            
+            # Check if this is user's move
+            move_num = m.get("move_number", i+1)
+            is_user_move = (
+                (user_color == "white" and move_num % 2 == 1) or
+                (user_color == "black" and move_num % 2 == 0)
+            )
+            
+            if not is_user_move:
+                continue
+            
+            # Threshold: -100 centipawns = losing
+            LOSING_THRESHOLD = -100
+            
+            # Detect turning point: was okay, now losing
+            if was_positive and eval_after < LOSING_THRESHOLD:
+                # Check if it stays negative for rest of game
+                stays_negative = True
+                for future_m in move_evals[i+1:]:
+                    future_eval = user_eval(future_m.get("eval_after"), user_color)
+                    if future_eval > -50:  # Recovered
+                        stays_negative = False
+                        break
+                
+                if stays_negative and turning_point is None:
+                    turning_point = {
+                        "move_number": move_num,
+                        "move": m.get("move"),
+                        "best_move": m.get("best_move"),
+                        "eval_before": m.get("eval_before"),
+                        "eval_after": m.get("eval_after"),
+                        "fen_before": m.get("fen_before"),
+                        "type": "lost_advantage",
+                        "description": "You were fine until here. After this move, you never recovered."
+                    }
+            
+            # Track if we're in positive territory
+            if eval_before > 0:
+                was_positive = True
+            
+            # Detect missed recovery: was losing, opponent gave chance, user didn't take it
+            if eval_before < LOSING_THRESHOLD and eval_before > -500:  # Was losing but not hopeless
+                # Check if there was a much better move available
+                cp_loss = abs(m.get("cp_loss", 0))
+                if cp_loss >= 150:  # Significant miss
+                    # This could be a missed recovery if best_move would have equalized
+                    best_eval = eval_before + cp_loss  # Approximate eval after best move
+                    if best_eval > -50:  # Best move would have equalized or better
+                        missed_recovery = {
+                            "move_number": move_num,
+                            "move": m.get("move"),
+                            "best_move": m.get("best_move"),
+                            "eval_before": m.get("eval_before"),
+                            "eval_after": m.get("eval_after"),
+                            "fen_before": m.get("fen_before"),
+                            "type": "missed_recovery",
+                            "description": "You had a chance to get back in the game here, but missed it."
+                        }
+    
+    lab_data["turning_point"] = turning_point
+    lab_data["missed_recovery"] = missed_recovery
+    
     return lab_data
 
 

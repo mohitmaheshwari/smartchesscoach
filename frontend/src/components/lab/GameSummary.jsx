@@ -41,16 +41,23 @@ const GameSummary = ({
   const isWin = (result === "1-0" && userColor === "white") || (result === "0-1" && userColor === "black");
   const isDraw = result === "1/2-1/2";
   
-  // Get the turning point - THE biggest moment (highest cp_loss, not first by move number)
+  // Get turning point and missed recovery from backend
+  const turningPoint = labData?.turning_point;
+  const missedRecovery = labData?.missed_recovery;
+  
+  // Get the biggest blunder (highest cp_loss) for learning
   const biggestBlunder = labData?.biggest_blunder;
   const criticalMoments = deepStrategy?.critical_moments || [];
   
-  // Find the moment with highest cp_loss - that's the ACTUAL biggest mistake
-  const biggestMoment = criticalMoments.length > 0
+  // Find the moment with highest cp_loss from critical moments
+  const biggestFromMoments = criticalMoments.length > 0
     ? criticalMoments.reduce((biggest, current) => 
         (Math.abs(current.cp_loss || 0) > Math.abs(biggest.cp_loss || 0)) ? current : biggest
       )
-    : biggestBlunder;
+    : null;
+  
+  // Use turning point as primary "biggest moment" if it exists, otherwise highest cp_loss
+  const primaryMoment = turningPoint || biggestFromMoments || biggestBlunder;
   
   const blunderCount = labData?.blunders || 0;
   const mistakeCount = labData?.mistakes || 0;
@@ -67,20 +74,21 @@ const GameSummary = ({
     }
     opponent = opponent || "your opponent";
     
-    if (!biggestMoment) {
+    if (!primaryMoment && !turningPoint) {
       if (isWin) return `A solid game against ${opponent}. No major mistakes — well played.`;
       if (isDraw) return `A balanced game against ${opponent} from start to finish.`;
       return `A tough game against ${opponent}. Let's see what happened.`;
     }
     
-    const moveNum = biggestMoment.move_number;
-    const threat = biggestMoment.threat || biggestMoment.insight?.what_you_missed;
+    // Use turning point for story if available
+    const storyMoment = turningPoint || primaryMoment;
+    const moveNum = storyMoment?.move_number;
     
     if (isLoss) {
-      if (threat) {
-        return `This game against ${opponent} came down to move ${moveNum}. You missed something there — and the position slipped away.`;
+      if (turningPoint) {
+        return `Against ${opponent}, the game was decided on move ${moveNum}. After that move, you never recovered.`;
       }
-      return `Against ${opponent}, the game changed on move ${moveNum}. That's where we need to focus.`;
+      return `Against ${opponent}, move ${moveNum} was critical. That's where we need to focus.`;
     } else if (isWin) {
       if (blunderCount > 0) {
         return `You won against ${opponent}, but move ${moveNum} could have changed everything. Let's make sure you're winning cleanly.`;
@@ -91,16 +99,49 @@ const GameSummary = ({
     }
   };
   
-  // ========== SECTION 3: Biggest Moment ==========
-  const getBiggestMomentData = () => {
-    if (!biggestMoment) return null;
+  // ========== SECTION 3: Turning Point & Biggest Blunder ==========
+  const getTurningPointData = () => {
+    if (!turningPoint) return null;
     
-    const moveNum = biggestMoment.move_number;
-    const yourMove = biggestMoment.your_move || biggestMoment.move;
-    const bestMove = biggestMoment.best_move;
-    const threat = biggestMoment.threat;
-    const insight = biggestMoment.insight || {};
-    const fen = biggestMoment.fen;
+    return {
+      moveNum: turningPoint.move_number,
+      yourMove: turningPoint.move,
+      bestMove: turningPoint.best_move,
+      explanation: turningPoint.description || "After this move, you never recovered.",
+      fen: turningPoint.fen_before,
+      type: "turning_point"
+    };
+  };
+  
+  const getMissedRecoveryData = () => {
+    if (!missedRecovery) return null;
+    
+    return {
+      moveNum: missedRecovery.move_number,
+      yourMove: missedRecovery.move,
+      bestMove: missedRecovery.best_move,
+      explanation: missedRecovery.description || "You had a chance to get back in the game here.",
+      fen: missedRecovery.fen_before,
+      type: "missed_recovery"
+    };
+  };
+  
+  const getBiggestBlunderData = () => {
+    // Get highest cp_loss moment for learning (separate from turning point)
+    const blunderMoment = biggestFromMoments || biggestBlunder;
+    if (!blunderMoment) return null;
+    
+    // Skip if it's the same as turning point
+    if (turningPoint && blunderMoment.move_number === turningPoint.move_number) {
+      return null;
+    }
+    
+    const moveNum = blunderMoment.move_number;
+    const yourMove = blunderMoment.your_move || blunderMoment.move;
+    const bestMove = blunderMoment.best_move;
+    const threat = blunderMoment.threat;
+    const insight = blunderMoment.insight || {};
+    const fen = blunderMoment.fen || blunderMoment.fen_before;
     
     // Build the explanation
     let explanation = "";
@@ -117,16 +158,18 @@ const GameSummary = ({
       yourMove,
       bestMove,
       explanation,
-      fen
+      fen,
+      type: "biggest_blunder"
     };
   };
   
   // ========== SECTION 4: Key Lesson ==========
   const getKeyLesson = () => {
-    if (!biggestMoment) return null;
+    if (!primaryMoment && !turningPoint) return null;
     
-    const threat = biggestMoment.threat || "";
-    const insight = biggestMoment.insight || {};
+    const moment = turningPoint || primaryMoment;
+    const threat = moment?.threat || "";
+    const insight = moment?.insight || {};
     
     // Prioritize pattern_to_remember from insight
     if (insight.pattern_to_remember) {
@@ -157,8 +200,9 @@ const GameSummary = ({
   
   // ========== SECTION 5: Habit to Build ==========
   const getHabitToBuild = () => {
-    const insight = biggestMoment?.insight || {};
-    const threat = biggestMoment?.threat || "";
+    const moment = turningPoint || primaryMoment;
+    const insight = moment?.insight || {};
+    const threat = moment?.threat || "";
     
     // Derive habit from the type of mistake
     const threatLower = threat.toLowerCase();
@@ -223,7 +267,9 @@ const GameSummary = ({
   };
   
   const gameStory = getGameStory();
-  const biggestMomentData = getBiggestMomentData();
+  const turningPointData = getTurningPointData();
+  const missedRecoveryData = getMissedRecoveryData();
+  const biggestBlunderData = getBiggestBlunderData();
   const keyLesson = getKeyLesson();
   const habit = getHabitToBuild();
   const patternNotice = getPatternNotice();
@@ -260,8 +306,8 @@ const GameSummary = ({
         </span>
       </div>
       
-      {/* SECTION 3: Biggest Moment - ONE highlighted mistake */}
-      {biggestMomentData && (
+      {/* SECTION 3a: Turning Point - Where the game was decided */}
+      {turningPointData && (
         <Card className="border-red-500/30 bg-red-500/5">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
@@ -269,34 +315,128 @@ const GameSummary = ({
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-medium text-red-400 uppercase tracking-wide">
-                    Biggest Moment
+                    Turning Point
                   </h4>
                   <span className="text-xs text-muted-foreground">
-                    Move {biggestMomentData.moveNum}
+                    Move {turningPointData.moveNum}
                   </span>
                 </div>
                 
                 <p className="text-sm leading-relaxed mb-3">
-                  {biggestMomentData.explanation}
+                  {turningPointData.explanation}
                 </p>
                 
-                {biggestMomentData.yourMove && biggestMomentData.bestMove && (
+                {turningPointData.yourMove && turningPointData.bestMove && (
                   <div className="flex items-center gap-4 text-xs">
                     <span className="text-red-300">
-                      You played: <span className="font-mono font-medium">{biggestMomentData.yourMove}</span>
+                      You played: <span className="font-mono font-medium">{turningPointData.yourMove}</span>
                     </span>
                     <span className="text-emerald-300">
-                      Better: <span className="font-mono font-medium">{biggestMomentData.bestMove}</span>
+                      Better: <span className="font-mono font-medium">{turningPointData.bestMove}</span>
                     </span>
                   </div>
                 )}
                 
-                {onNavigateToMove && biggestMomentData.moveNum && (
+                {onNavigateToMove && turningPointData.moveNum && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="mt-3 text-xs text-red-300 hover:text-red-200 p-0 h-auto"
-                    onClick={() => onNavigateToMove(biggestMomentData.moveNum, biggestMomentData.yourMove, biggestMomentData.bestMove)}
+                    onClick={() => onNavigateToMove(turningPointData.moveNum, turningPointData.yourMove, turningPointData.bestMove)}
+                  >
+                    View position <ChevronRight className="w-3 h-3 ml-1" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* SECTION 3b: Missed Recovery - Chance to come back that was missed */}
+      {missedRecoveryData && (
+        <Card className="border-orange-500/30 bg-orange-500/5">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-orange-400 uppercase tracking-wide">
+                    Missed Recovery
+                  </h4>
+                  <span className="text-xs text-muted-foreground">
+                    Move {missedRecoveryData.moveNum}
+                  </span>
+                </div>
+                
+                <p className="text-sm leading-relaxed mb-3">
+                  {missedRecoveryData.explanation}
+                </p>
+                
+                {missedRecoveryData.yourMove && missedRecoveryData.bestMove && (
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-orange-300">
+                      You played: <span className="font-mono font-medium">{missedRecoveryData.yourMove}</span>
+                    </span>
+                    <span className="text-emerald-300">
+                      Would have saved: <span className="font-mono font-medium">{missedRecoveryData.bestMove}</span>
+                    </span>
+                  </div>
+                )}
+                
+                {onNavigateToMove && missedRecoveryData.moveNum && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-3 text-xs text-orange-300 hover:text-orange-200 p-0 h-auto"
+                    onClick={() => onNavigateToMove(missedRecoveryData.moveNum, missedRecoveryData.yourMove, missedRecoveryData.bestMove)}
+                  >
+                    View position <ChevronRight className="w-3 h-3 ml-1" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* SECTION 3c: Biggest Blunder - Largest single error (if different from turning point) */}
+      {biggestBlunderData && (
+        <Card className="border-yellow-500/30 bg-yellow-500/5">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Crosshair className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-yellow-400 uppercase tracking-wide">
+                    Biggest Blunder
+                  </h4>
+                  <span className="text-xs text-muted-foreground">
+                    Move {biggestBlunderData.moveNum}
+                  </span>
+                </div>
+                
+                <p className="text-sm leading-relaxed mb-3">
+                  {biggestBlunderData.explanation}
+                </p>
+                
+                {biggestBlunderData.yourMove && biggestBlunderData.bestMove && (
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-yellow-300">
+                      You played: <span className="font-mono font-medium">{biggestBlunderData.yourMove}</span>
+                    </span>
+                    <span className="text-emerald-300">
+                      Better: <span className="font-mono font-medium">{biggestBlunderData.bestMove}</span>
+                    </span>
+                  </div>
+                )}
+                
+                {onNavigateToMove && biggestBlunderData.moveNum && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-3 text-xs text-yellow-300 hover:text-yellow-200 p-0 h-auto"
+                    onClick={() => onNavigateToMove(biggestBlunderData.moveNum, biggestBlunderData.yourMove, biggestBlunderData.bestMove)}
                   >
                     View position <ChevronRight className="w-3 h-3 ml-1" />
                   </Button>
