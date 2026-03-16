@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts } from '../fixtures/helpers';
 
-const BASE_URL = 'https://chessguru-home.preview.emergentagent.com';
+const BASE_URL = 'https://coaching-moments.preview.emergentagent.com';
 
 test.describe('HomePage Bug Fixes Verification', () => {
   

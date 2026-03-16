@@ -13,7 +13,8 @@
  * NO engine numbers. NO multiple lessons. Focus.
  */
 
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +25,9 @@ import {
   CheckCircle2,
   Crosshair,
   ChevronRight,
-  Clock
+  Clock,
+  ChevronDown,
+  Lightbulb
 } from "lucide-react";
 
 const GameSummary = ({ 
@@ -37,6 +40,10 @@ const GameSummary = ({
   patternContext,
   onNavigateToMove
 }) => {
+  // State for expandable explanations
+  const [showTurningPointExplain, setShowTurningPointExplain] = useState(false);
+  const [showBlunderExplain, setShowBlunderExplain] = useState(false);
+  
   // Determine game outcome from user's perspective
   const isLoss = (result === "0-1" && userColor === "white") || (result === "1-0" && userColor === "black");
   const isWin = (result === "1-0" && userColor === "white") || (result === "0-1" && userColor === "black");
