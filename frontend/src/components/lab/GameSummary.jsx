@@ -41,10 +41,16 @@ const GameSummary = ({
   const isWin = (result === "1-0" && userColor === "white") || (result === "0-1" && userColor === "black");
   const isDraw = result === "1/2-1/2";
   
-  // Get the turning point - THE biggest moment
+  // Get the turning point - THE biggest moment (highest cp_loss, not first by move number)
   const biggestBlunder = labData?.biggest_blunder;
   const criticalMoments = deepStrategy?.critical_moments || [];
-  const biggestMoment = criticalMoments[0] || biggestBlunder;
+  
+  // Find the moment with highest cp_loss - that's the ACTUAL biggest mistake
+  const biggestMoment = criticalMoments.length > 0
+    ? criticalMoments.reduce((biggest, current) => 
+        (Math.abs(current.cp_loss || 0) > Math.abs(biggest.cp_loss || 0)) ? current : biggest
+      )
+    : biggestBlunder;
   
   const blunderCount = labData?.blunders || 0;
   const mistakeCount = labData?.mistakes || 0;
