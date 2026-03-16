@@ -83,6 +83,11 @@ const HomePage = ({ user }) => {
     
     // Map pattern types to friendly names and descriptions
     const weaknessInfo = {
+      'tactical_error': {
+        name: 'Tactical Errors',
+        description: 'You made calculation mistakes in tactical positions.',
+        impact: 'This is costing you games. Let\'s train your tactical vision.'
+      },
       'missed_threat': {
         name: 'Threat Awareness',
         description: 'You missed opponent threats in your recent games.',
@@ -117,13 +122,23 @@ const HomePage = ({ user }) => {
         name: 'Endgame Technique',
         description: 'Errors converting winning positions.',
         impact: 'Wins slipping to draws.'
+      },
+      'turning_point': {
+        name: 'Critical Moments',
+        description: 'You made errors at key turning points.',
+        impact: 'These moments decide games.'
+      },
+      'missed_mate': {
+        name: 'Checkmate Patterns',
+        description: 'You missed checkmate opportunities.',
+        impact: 'Learn to spot mates faster.'
       }
     };
     
-    const patternType = weakness.pattern_type || weakness.type || 'missed_threat';
+    const patternType = weakness.pattern_type || weakness.type || 'tactical_error';
     const info = weaknessInfo[patternType] || {
       name: patternType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      description: `This pattern appeared ${weakness.occurrences || weakness.count || 'multiple'} times.`,
+      description: `This pattern appeared ${weakness.occurrences || weakness.count || 'multiple'} times in your games.`,
       impact: 'Focus on this to improve.'
     };
     
@@ -136,40 +151,48 @@ const HomePage = ({ user }) => {
   
   // Get improvement data from last 3 games
   const getImprovementTracker = () => {
-    if (!dashboardData?.analyzed_games?.length) {
+    // Use analyzed_list from API (list of analyzed games with stats)
+    const analyzedGames = dashboardData?.analyzed_list || [];
+    
+    if (analyzedGames.length < 2) {
       return null;
     }
     
-    // Get last 3 analyzed games
-    const recentGames = dashboardData.analyzed_games.slice(0, 3);
-    
-    if (recentGames.length < 2) {
-      return null;
-    }
+    // Get last 3 analyzed games (already sorted by recency from API)
+    const recentGames = analyzedGames.slice(0, 3);
     
     // Track blunders/mistakes across games
-    const gameStats = recentGames.map((game, index) => ({
-      opponent: game.opponent || game.white_player || game.black_player || 'Opponent',
-      blunders: game.blunders || 0,
-      mistakes: game.mistakes || 0,
-      accuracy: game.accuracy || 0,
-      result: game.result,
-      index: index + 1
-    }));
+    const gameStats = recentGames.map((game, index) => {
+      // Determine opponent based on user_color
+      const userColor = game.user_color || 'white';
+      const opponent = userColor === 'white' 
+        ? (game.black_player || 'Opponent')
+        : (game.white_player || 'Opponent');
+      
+      return {
+        game_id: game.game_id,
+        opponent: opponent,
+        blunders: game.blunders || 0,
+        mistakes: game.mistakes || 0,
+        accuracy: game.accuracy || 0,
+        result: game.result,
+        index: index + 1
+      };
+    });
     
-    // Calculate trend
-    const firstGame = gameStats[gameStats.length - 1];
-    const lastGame = gameStats[0];
-    const errorFirst = (firstGame?.blunders || 0) + (firstGame?.mistakes || 0);
-    const errorLast = (lastGame?.blunders || 0) + (lastGame?.mistakes || 0);
+    // Calculate trend (compare first vs last)
+    const oldestGame = gameStats[gameStats.length - 1];
+    const newestGame = gameStats[0];
+    const errorOldest = (oldestGame?.blunders || 0) + (oldestGame?.mistakes || 0);
+    const errorNewest = (newestGame?.blunders || 0) + (newestGame?.mistakes || 0);
     
     let trend = 'neutral';
     let message = 'Keep focusing on clean play.';
     
-    if (errorLast < errorFirst) {
+    if (errorNewest < errorOldest) {
       trend = 'improving';
       message = 'Nice progress! Your recent games show fewer errors.';
-    } else if (errorLast > errorFirst) {
+    } else if (errorNewest > errorOldest) {
       trend = 'declining';
       message = 'Still working on consistency. One game at a time.';
     }
@@ -181,41 +204,60 @@ const HomePage = ({ user }) => {
     };
   };
   
-  // Get today's training task
+  // Get today's training task - links to training based on user's weakness
   const getTrainingTask = () => {
     const weakness = getBiggestWeakness();
     
     // Map weakness to training type
+    // These routes should link to training modes that use the user's own game mistakes
     const trainingMap = {
+      'tactical_error': {
+        title: 'Train Your Tactics',
+        description: 'Practice positions where you made tactical errors in your games.',
+        action: 'Start Training',
+        route: '/lab'  // Lab page shows critical moments from their games
+      },
       'missed_threat': {
         title: 'Threat Detection Practice',
-        description: 'Solve 5 positions where your opponent has hidden threats.',
+        description: 'Solve positions where you missed opponent threats.',
         action: 'Start Training',
-        route: '/training?focus=threats'
+        route: '/lab'
       },
       'hanging_piece': {
         title: 'Piece Safety Drill',
-        description: 'Practice positions where you must protect your pieces.',
+        description: 'Practice positions where you left pieces hanging.',
         action: 'Start Training',
-        route: '/training?focus=safety'
+        route: '/lab'
       },
       'missed_tactic': {
         title: 'Tactical Puzzles',
-        description: 'Find the winning moves in tactical positions.',
+        description: 'Find the winning moves you missed in your games.',
         action: 'Start Training',
-        route: '/training'
+        route: '/lab'
       },
       'time_trouble': {
-        title: 'Speed Decision Training',
-        description: 'Practice making quick, accurate decisions.',
-        action: 'Start Training',
-        route: '/training'
+        title: 'Quick Decision Training',
+        description: 'Practice making faster, accurate decisions.',
+        action: 'Play with Coach',
+        route: '/play-with-coach'
       },
       'endgame_technique': {
         title: 'Endgame Practice',
         description: 'Master the technique to convert your advantages.',
         action: 'Start Training',
-        route: '/training?focus=endgame'
+        route: '/lab'
+      },
+      'turning_point': {
+        title: 'Critical Moment Training',
+        description: 'Practice the key moments where games are decided.',
+        action: 'Start Training',
+        route: '/lab'
+      },
+      'missed_mate': {
+        title: 'Checkmate Pattern Training',
+        description: 'Learn to spot checkmates you missed in your games.',
+        action: 'Start Training',
+        route: '/lab'
       }
     };
     
@@ -223,12 +265,12 @@ const HomePage = ({ user }) => {
       return trainingMap[weakness.pattern_type];
     }
     
-    // Default training
+    // Default: go to Lab where they can practice from their own games
     return {
-      title: 'Daily Puzzle Practice',
-      description: 'Solve tactical puzzles to sharpen your vision.',
+      title: 'Practice Your Mistakes',
+      description: 'Review and practice the critical moments from your games.',
       action: 'Start Training',
-      route: '/training'
+      route: '/lab'
     };
   };
   

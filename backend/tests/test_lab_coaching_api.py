@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chessguru-coach.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chessguru-home.preview.emergentagent.com').rstrip('/')
 
 # Test game - a LOSS game (user played black, result is 1-0)
 LOSS_GAME_ID = '42932bfa-24e8-4aff-9068-0b476cb6f4fc'

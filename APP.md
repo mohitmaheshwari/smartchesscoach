@@ -452,7 +452,7 @@ EMERGENT_LLM_KEY=<key>
 
 ### Frontend `.env`
 ```bash
-REACT_APP_BACKEND_URL=https://chessguru-coach.preview.emergentagent.com
+REACT_APP_BACKEND_URL=https://chessguru-home.preview.emergentagent.com
 ```
 
 ### Key Constants
