@@ -321,37 +321,76 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                 return 0
             return eval_val if color == "white" else -eval_val
         
-        # Collect all significant mistakes by the user
-        significant_mistakes = []
+        def is_user_move(move_num, user_clr):
+            """Check if this move number belongs to user"""
+            if user_clr == "white":
+                return move_num % 2 == 1
+            return move_num % 2 == 0
+        
+        # IMPROVED TURNING POINT LOGIC
+        # True turning point = EARLIEST mistake after which:
+        # 1. Opponent played accurately (no significant mistakes)
+        # 2. User never recovered
+        #
+        # This captures: "The move that lost the game" not "the frustration blunder"
+        
+        turning_point_candidates = []
         
         for i, m in enumerate(move_evals):
-            eval_after = user_eval(m.get("eval_after"), user_color)
-            eval_before = user_eval(m.get("eval_before"), user_color)
-            cp_loss = abs(m.get("cp_loss", 0))
+            move_num = m.get("move_number", i + 1)
             
-            # Check if this is user's move
-            move_num = m.get("move_number", i+1)
-            is_user_move = (
-                (user_color == "white" and move_num % 2 == 1) or
-                (user_color == "black" and move_num % 2 == 0)
-            )
-            
-            if not is_user_move:
+            # Only consider user's moves
+            if not is_user_move(move_num, user_color):
                 continue
             
-            # Track significant mistakes (200+ cp loss OR drops into very negative)
-            if cp_loss >= 200 or (eval_before > -200 and eval_after < -300):
-                # Check if game ever recovered after this move
-                max_recovery = eval_after
-                for future_m in move_evals[i+1:]:
-                    future_eval = user_eval(future_m.get("eval_after"), user_color)
-                    if future_eval > max_recovery:
-                        max_recovery = future_eval
+            eval_before = user_eval(m.get("eval_before"), user_color)
+            eval_after = user_eval(m.get("eval_after"), user_color)
+            cp_loss = abs(m.get("cp_loss", 0))
+            
+            # Must be a significant mistake (150+ cp loss)
+            if cp_loss < 150:
+                continue
+            
+            # Check what happened AFTER this mistake
+            remaining_moves = move_evals[i + 1:]
+            if not remaining_moves:
+                continue
+            
+            # Count opponent's mistakes after this point
+            opponent_mistakes_after = 0
+            opponent_total_moves_after = 0
+            max_user_recovery = eval_after
+            
+            for future_m in remaining_moves:
+                future_move_num = future_m.get("move_number", 0)
+                future_cp_loss = abs(future_m.get("cp_loss", 0))
+                future_eval = user_eval(future_m.get("eval_after"), user_color)
                 
-                # Game considered "unrecoverable" if never got back above -150
-                never_recovered = max_recovery < -150
+                # Track user's max recovery
+                if future_eval > max_user_recovery:
+                    max_user_recovery = future_eval
                 
-                significant_mistakes.append({
+                # Check opponent's moves for mistakes
+                if not is_user_move(future_move_num, user_color):
+                    opponent_total_moves_after += 1
+                    if future_cp_loss >= 100:  # Opponent made a real mistake
+                        opponent_mistakes_after += 1
+            
+            # Calculate opponent accuracy after this mistake
+            opponent_accuracy = 1.0
+            if opponent_total_moves_after > 0:
+                opponent_accuracy = 1.0 - (opponent_mistakes_after / opponent_total_moves_after)
+            
+            # User never recovered if they never got back above -100
+            never_recovered = max_user_recovery < -100
+            
+            # TRUE turning point criteria:
+            # 1. User never recovered AND
+            # 2. Opponent played accurately (>= 80% good moves) OR made at most 1 mistake
+            opponent_played_well = opponent_accuracy >= 0.8 or opponent_mistakes_after <= 1
+            
+            if never_recovered and opponent_played_well:
+                turning_point_candidates.append({
                     "move_number": move_num,
                     "move": m.get("move"),
                     "best_move": m.get("best_move"),
@@ -361,17 +400,18 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                     "eval_drop": eval_before - eval_after,
                     "fen_before": m.get("fen_before"),
                     "threat": m.get("threat"),
-                    "never_recovered": never_recovered,
-                    "index": i
+                    "index": i,
+                    "opponent_accuracy_after": opponent_accuracy,
+                    "opponent_mistakes_after": opponent_mistakes_after,
+                    "max_recovery_attempt": max_user_recovery
                 })
         
-        # Find TRUE turning point: the mistake with largest drop that led to unrecoverable position
-        # Priority: largest eval_drop among moves that never recovered
-        unrecoverable_mistakes = [m for m in significant_mistakes if m["never_recovered"]]
-        
-        if unrecoverable_mistakes:
-            # Pick the one with largest eval drop - that's the TRUE turning point
-            turning_point_data = max(unrecoverable_mistakes, key=lambda x: x["eval_drop"])
+        # Pick the EARLIEST turning point (not largest drop)
+        # This is the move that ACTUALLY lost the game
+        if turning_point_candidates:
+            # Sort by move number (earliest first)
+            turning_point_candidates.sort(key=lambda x: x["move_number"])
+            turning_point_data = turning_point_candidates[0]
             
             # Use the adaptive explainer for rich, rating-aware explanation
             explainer = get_turning_point_explainer()
@@ -437,28 +477,34 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                 }
         
         # Find missed recovery opportunities
-        # Look for moments when user was losing but had a chance to fight back
-        for m in significant_mistakes:
-            if m["never_recovered"]:
-                continue  # Skip - this led to loss
+        # Look for moments when user was losing, opponent gave them a chance, but user missed it
+        for i, m in enumerate(move_evals):
+            move_num = m.get("move_number", i + 1)
             
-            # User was losing, made a big mistake, but game was still fightable
-            eval_before = user_eval(m["eval_before"], user_color)
+            # Only consider user's moves
+            if not is_user_move(move_num, user_color):
+                continue
+            
+            eval_before = user_eval(m.get("eval_before"), user_color)
+            eval_after = user_eval(m.get("eval_after"), user_color)
+            cp_loss = abs(m.get("cp_loss", 0))
+            
+            # User was losing but not hopeless (-100 to -400)
             if eval_before < -100 and eval_before > -400:
-                cp_loss = m["cp_loss"]
+                # Made a significant mistake
                 if cp_loss >= 150:
-                    # Check if best move would have equalized
+                    # Check if best move would have equalized/improved
                     potential_eval = eval_before + cp_loss
-                    if potential_eval > -50:
+                    if potential_eval > -50:  # Best move would have helped significantly
                         missed_recovery = {
-                            "move_number": m["move_number"],
-                            "move": m["move"],
-                            "best_move": m["best_move"],
-                            "eval_before": m["eval_before"],
-                            "eval_after": m["eval_after"],
-                            "fen_before": m["fen_before"],
+                            "move_number": move_num,
+                            "move": m.get("move"),
+                            "best_move": m.get("best_move"),
+                            "eval_before": m.get("eval_before"),
+                            "eval_after": m.get("eval_after"),
+                            "fen_before": m.get("fen_before"),
                             "type": "missed_recovery",
-                            "description": f"You were behind but had a chance to fight back with {m['best_move']}."
+                            "description": f"You were behind but had a chance to fight back with {m.get('best_move')}."
                         }
                         break  # Take the first missed recovery
     
