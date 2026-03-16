@@ -464,7 +464,7 @@ const HomePage = ({ user }) => {
                     >
                       <div>
                         <p className="text-sm font-medium">
-                          vs {game.opponent || game.white_player || game.black_player || 'Opponent'}
+                          vs {game.opponent_name || game.opponent || game.white_player || game.black_player || 'Opponent'}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {game.blunders_count || game.blunders || 0} blunders to understand
@@ -474,9 +474,9 @@ const HomePage = ({ user }) => {
                     </button>
                   ))}
                 </div>
-              ) : dashboardData?.analyzed_games?.length > 0 ? (
+              ) : dashboardData?.analyzed_list?.length > 0 ? (
                 <div className="space-y-2">
-                  {dashboardData.analyzed_games.slice(0, 3).map((game, i) => (
+                  {dashboardData.analyzed_list.slice(0, 3).map((game, i) => (
                     <button
                       key={game.game_id || i}
                       onClick={() => navigate(`/game/${game.game_id}`)}
