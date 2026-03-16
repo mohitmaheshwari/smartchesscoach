@@ -5,89 +5,100 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## What's Been Implemented
 
-### March 16, 2026 - "Explain Move" Feature + Turning Point Fix + Blind Spots Migration
+### March 16, 2026 (Session 2) - Moments Tab Interactive Training Loop
+
+#### P0 COMPLETE: Moments Tab Redesign as Interactive Training Loop
+- **Backend**: Created `coaching_moment_enricher.py` service that transforms raw moments into structured coaching objects
+  - Thinking Lens: maps 15+ backend tags to guided attention lenses (Opening Decision, Tactical Opportunity, Hanging Piece, etc.)
+  - Coach Prompts: contextual introductions based on position characteristics
+  - Thinking Questions: 2-3 guiding questions per moment
+  - Lesson Takeaway: short learning summary
+  - Reflection: prompt + 4 selectable options aligned with thinking patterns
+- **Backend**: Integrated enricher into `/api/lab/{gameId}/deep-strategy` endpoint
+- **Frontend**: Complete rewrite of `CriticalMoments.jsx` with mandatory guided flow:
+  1. INTRO: Coach prompt + Thinking Lens + "Start Thinking" button
+  2. THINKING: Lens reminder + 3 questions + "Try move on board" + "Reveal"
+  3. REVEAL: Best move + why it works + your move + consequence + board arrows
+  4. REFLECTION: What did you overlook? + 4 options
+  5. LESSON: Takeaway + "Next Moment"
+- Best move is NEVER visible before user interaction
+- Progress dots for navigation between moments
+
+### March 16, 2026 (Session 1) - Explain Move + Turning Point Fix + Blind Spots
 
 #### P0 COMPLETE: "Explain Move" Button
-- Added expandable "Explain this move" button to Turning Point and Biggest Blunder cards in GameSummary.jsx
-- Turning Point: reveals missed idea, opponent's idea, thinking error, how to spot checklist
-- Biggest Blunder: on-demand API call to `/api/explain-mistake` for rich explanation
-- Smooth AnimatePresence animations for expand/collapse
+- Expandable "Explain this move" button on Turning Point and Biggest Blunder cards
+- Turning Point: reveals missed idea, opponent's idea, thinking error, how to spot
+- Biggest Blunder: on-demand API call to `/api/explain-mistake`
 
-#### P1 COMPLETE: Fixed "View Position" Arrows
-- Added `move_uci` and `best_move_uci` to backend `biggest_blunder` response
-- Arrows now correctly show red (user's move) and green (better move) on the chessboard
+#### P1 COMPLETE: "View Position" Arrows Fix
+- Added `move_uci` and `best_move_uci` to backend responses
+- Red arrow (user's move) + green arrow (better move) on chessboard
 
 #### CRITICAL BUG FIX: Turning Point Detection (v4)
-- **Root cause**: `move_evaluations` only contains the USER's moves, but `is_user_move()` was filtering out half of them using odd/even logic meant for both sides
-- **Fix**: Removed the incorrect `is_user_move` filter. All evaluations ARE user moves.
-- **Fix**: Changed opponent accuracy check to detect when eval improved significantly between user moves (indicating opponent gave back advantage)
-- **Fix**: Fixed `asyncio.get_event_loop().run_until_complete()` -> `await` for the async explainer
-- Now correctly finds turning points for all games with significant mistakes
+- Root cause: `move_evaluations` only contains USER's moves, but `is_user_move()` filtered half out
+- Fixed opponent accuracy check to use eval improvement between user moves
+- Fixed async explainer call
 
 #### P1 COMPLETE: Blind Spots Migration
-- Created `/app/backend/scripts/migrate_turning_points.py` to backfill turning point data
-- Successfully computed and stored turning points for 7 of 14 existing games
-- `/api/blind-spots` now returns rich data: Tactical Blindness (3 games), Positional Mistake (2), etc.
+- Created migration script, backfilled 7/14 games
+- Homepage Blind Spots widget shows real data
 
-### Previous Sessions (Summary)
-- **Mar 16**: Homepage redesign (4-section layout), Game Analysis Lab 5-tab refactor
-- **Mar 15**: Chess Brain Deterministic Coaching Engine (18 detectors, 7 teaching modes)
-- **Mar 14**: Clean UI Mode UX Overhaul, Resume Game Fix, Inline Teaching System
-- Earlier: Backend refactoring, Break the Habit, Memory Lane, Opening Training Lab
+### Previous Sessions
+- Homepage redesign, Game Analysis Lab 5-tab refactor
+- Chess Brain Deterministic Coaching Engine
+- Clean UI Mode UX Overhaul, Resume Game Fix, Inline Teaching System
 
 ## Code Architecture
 ```
 /app
 ├── backend/
-│   ├── routes/
-│   │   ├── lab.py             # Turning point v4, explain-mistake, deep-strategy
-│   │   ├── coach.py           # Coach routes
-│   │   └── coach_play.py      # Play with coach (21 endpoints)
+│   ├── routes/lab.py              # Turning point v4, deep-strategy with coaching enrichment
 │   ├── services/
-│   │   ├── chess_brain/        # Deterministic coaching engine
-│   │   └── turning_point_explainer.py  # Rich behavioral explanations
-│   ├── scripts/
-│   │   └── migrate_turning_points.py   # Backfill turning points
-│   └── server.py              # Main server (~12K lines)
+│   │   ├── coaching_moment_enricher.py  # NEW: Thinking lens, prompts, questions, lessons
+│   │   ├── chess_brain/                 # Deterministic coaching engine
+│   │   └── turning_point_explainer.py   # Rich behavioral explanations
+│   ├── scripts/migrate_turning_points.py
+│   └── server.py
 └── frontend/
     └── src/
-        ├── components/
-        │   ├── lab/
-        │   │   └── GameSummary.jsx    # Explain Move + View Position
-        │   └── coach-play/            # Clean UI components
+        ├── components/lab/
+        │   ├── CriticalMoments.jsx      # REWRITTEN: Interactive training loop
+        │   └── GameSummary.jsx          # Explain Move + View Position
         └── pages/
-            ├── HomePage.jsx           # Blind Spots widget
-            └── LabV2.jsx              # 5-tab game review
+            ├── HomePage.jsx             # Blind Spots widget
+            └── LabV2.jsx                # 5-tab game review
 ```
 
 ## Prioritized Backlog
 
 ### P0 - Complete
 - [x] "Explain Move" button (Turning Point + Biggest Blunder)
-- [x] "View Position" arrows fix (UCI moves)
+- [x] "View Position" arrows fix
 - [x] Turning Point detection fix (v4)
-- [x] Blind Spots migration + homepage widget
+- [x] Blind Spots migration
+- [x] Moments tab interactive training loop
 
 ### P1 - Next
 - [ ] Fix Onboarding/Navigation flow (unreliable Demo Mode)
+- [ ] Add "What You Did Well" section to Summary (celebrate good moves)
 - [ ] Consolidate explanation templates with feedback_collector.py
-- [ ] Integrate MistakeFingerprint + ReinforcementEngine into analysis pipeline
 
 ### P2 - Backlog
 - [ ] Lesson flow bug verification (Fried Liver Attack)
+- [ ] Integrate MistakeFingerprint + ReinforcementEngine
 - [ ] Shareable "Chess DNA" report (viral growth)
 - [ ] Internal coaching debug dashboard
 - [ ] Enhanced "Ask Coach" prompts
-- [ ] Break down LabV2.jsx into smaller components
-- [ ] Migrate remaining backend endpoints (/start, /move)
+- [ ] Positive pattern tracking on homepage (strengths alongside blind spots)
 
 ## Testing Status
-- Backend: 18/18 tests passed (iteration_120)
+- Backend: 31/31 tests passed (iteration_120 + iteration_121)
 - Frontend: All UI tests passed
-- Test files: `/app/backend/tests/test_lab_and_blindspots.py`
+- Test files: `/app/backend/tests/test_lab_and_blindspots.py`, `/app/backend/tests/test_moments_coaching.py`
 
 ## Key Technical Notes
 - `move_evaluations` only contains USER's moves (not both sides)
-- Turning point explainer is async - must be `await`ed, not `run_until_complete`
-- User data is in `test_database`, DEV_USER_ID=user_4dad2b14e380
-- Real user email: bhutramohit@gmail.com
+- Turning point explainer is async - must be `await`ed
+- User data in `test_database`, DEV_USER_ID=user_4dad2b14e380
+- All coaching logic lives in backend services, frontend only renders
