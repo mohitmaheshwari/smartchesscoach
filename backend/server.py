@@ -4994,12 +4994,23 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         elif game.get("is_analyzed"):
             analysis = await db.game_analyses.find_one(
                 {"game_id": game_id, "user_id": user.user_id},
-                {"_id": 0, "stockfish_analysis.accuracy": 1, "stockfish_analysis.move_evaluations": 1}
+                {"_id": 0, "stockfish_analysis.accuracy": 1, "stockfish_analysis.move_evaluations": 1,
+                 "stockfish_analysis.blunders": 1, "stockfish_analysis.mistakes": 1}
             )
             if analysis:
-                accuracy = analysis.get("stockfish_analysis", {}).get("accuracy", 0)
-                move_evals = analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+                sf = analysis.get("stockfish_analysis", {})
+                accuracy = sf.get("accuracy", 0)
+                move_evals = sf.get("move_evaluations", [])
                 game["accuracy"] = accuracy
+                game["blunders"] = sf.get("blunders", 0)
+                game["mistakes"] = sf.get("mistakes", 0)
+                
+                # Set opponent name for display
+                user_color = game.get("user_color", "white")
+                if user_color == "white":
+                    game["opponent"] = game.get("black_player", "Opponent")
+                else:
+                    game["opponent"] = game.get("white_player", "Opponent")
                 
                 # If accuracy is 0 and no move evaluations, treat as NOT analyzed (incomplete analysis)
                 if accuracy == 0 and len(move_evals) == 0:

@@ -7,6 +7,7 @@ import Landing from "@/pages/Landing";
 import ChessJourney from "@/pages/ChessJourney";
 import Dashboard from "@/pages/Dashboard";
 import CoachHome from "@/pages/CoachHome";
+import HomePage from "@/pages/HomePage";  // NEW focused homepage
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import LabV2 from "@/pages/LabV2";
@@ -171,12 +172,17 @@ function AppRouter() {
       } />
       <Route path="/dashboard" element={
         <ProtectedRoute>
+          {({ user }) => <HomePage user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/dashboard-full" element={
+        <ProtectedRoute>
           {({ user }) => <Dashboard user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/home" element={
         <ProtectedRoute>
-          {({ user }) => <CoachHome user={user} />}
+          {({ user }) => <HomePage user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/lab" element={
