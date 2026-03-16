@@ -275,6 +275,12 @@ Create a hyper-personalized, data-driven chess coaching application that functio
   - 7 Teaching Modes
   - Full integration with realtime_coaching_feedback
   - 31 tests passing
+- [x] **New Focused HomePage** (Mar 16, 2026)
+  - 4-section layout: Biggest Weakness, Progress Check, Today's Training, Games to Reflect
+  - Fixed opponent name display in Games to Reflect (uses opponent_name from API)
+  - Fixed fallback display to use analyzed_list instead of analyzed_games
+  - Contextual training tasks based on user's detected weakness pattern
+  - 10 E2E tests passing
 
 ### P1 - Next Steps (Chess Brain V1.1)
 - [ ] Implement Explanation Template Library (structured templates per teaching mode)
