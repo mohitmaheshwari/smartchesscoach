@@ -23,7 +23,8 @@ import {
   TrendingUp,
   CheckCircle2,
   Crosshair,
-  ChevronRight
+  ChevronRight,
+  Clock
 } from "lucide-react";
 
 const GameSummary = ({ 
@@ -40,6 +41,11 @@ const GameSummary = ({
   const isLoss = (result === "0-1" && userColor === "white") || (result === "1-0" && userColor === "black");
   const isWin = (result === "1-0" && userColor === "white") || (result === "0-1" && userColor === "black");
   const isDraw = result === "1/2-1/2";
+  
+  // Termination info
+  const termination = labData?.termination || {};
+  const isTimeoutWin = termination.is_timeout_win;
+  const isTimeoutLoss = termination.is_timeout_loss;
   
   // Get turning point and missed recovery from backend
   const turningPoint = labData?.turning_point;
@@ -73,6 +79,15 @@ const GameSummary = ({
         : (game?.white_player || game?.white_username);
     }
     opponent = opponent || "your opponent";
+    
+    // Handle timeout wins/losses first - most important acknowledgment
+    if (isTimeoutWin) {
+      return `You won on time against ${opponent}, but you were in a losing position. Let's see where things went wrong so you can win cleanly next time.`;
+    }
+    
+    if (isTimeoutLoss) {
+      return `You lost on time against ${opponent}. Time management is part of the game — let's see if there were positions where you spent too long.`;
+    }
     
     if (!primaryMoment && !turningPoint) {
       if (isWin) return `A solid game against ${opponent}. No major mistakes — well played.`;
@@ -293,6 +308,23 @@ const GameSummary = ({
       className="space-y-4"
       data-testid="game-summary"
     >
+      {/* TIMEOUT BANNER - Show when game ended on time */}
+      {(isTimeoutWin || isTimeoutLoss) && (
+        <Card className={`${isTimeoutWin ? 'border-amber-500/30 bg-amber-500/10' : 'border-slate-500/30 bg-slate-500/10'}`}>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <Clock className={`w-4 h-4 ${isTimeoutWin ? 'text-amber-400' : 'text-slate-400'}`} />
+              <span className={`text-sm font-medium ${isTimeoutWin ? 'text-amber-200' : 'text-slate-300'}`}>
+                {isTimeoutWin 
+                  ? "Won on Time — You were losing when opponent's clock ran out"
+                  : "Lost on Time — You ran out of clock time"
+                }
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       {/* SECTION 1: Game Story */}
       <Card className="border-0 bg-slate-800/30">
         <CardContent className="p-5">

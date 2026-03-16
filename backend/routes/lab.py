@@ -526,6 +526,60 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     lab_data["turning_point"] = turning_point
     lab_data["missed_recovery"] = missed_recovery
     
+    # =========================================================================
+    # ADD TERMINATION INFO - For timeout/resignation acknowledgment
+    # =========================================================================
+    termination_raw = ""
+    termination_text = ""
+    is_timeout_win = False
+    is_timeout_loss = False
+    
+    if game:
+        # Try to get termination from game data first
+        termination_raw = game.get("termination", "")
+        
+        # If not stored, parse from PGN
+        if not termination_raw:
+            pgn = game.get("pgn", "")
+            import re
+            term_match = re.search(r'\[Termination "([^"]+)"\]', pgn)
+            if term_match:
+                termination_raw = term_match.group(1).lower()
+        
+        # Determine user's result
+        user_color = game.get("user_color", "white")
+        result = game.get("result", "")
+        user_won = (user_color == "white" and result == "1-0") or (user_color == "black" and result == "0-1")
+        
+        # Generate human-readable text and flags
+        term_lower = termination_raw.lower()
+        if "time" in term_lower:
+            if user_won:
+                termination_text = "Your opponent lost on time"
+                is_timeout_win = True
+            else:
+                termination_text = "You lost on time"
+                is_timeout_loss = True
+        elif "resign" in term_lower:
+            termination_text = "Opponent resigned" if user_won else "You resigned"
+        elif "checkmate" in term_lower:
+            termination_text = "Checkmate" if user_won else "You got checkmated"
+        elif "abandon" in term_lower:
+            termination_text = "Opponent abandoned" if user_won else "You abandoned"
+        elif "stalemate" in term_lower:
+            termination_text = "Stalemate"
+        elif "repetition" in term_lower:
+            termination_text = "Draw by repetition"
+        elif "insufficient" in term_lower:
+            termination_text = "Draw - insufficient material"
+    
+    lab_data["termination"] = {
+        "raw": termination_raw,
+        "text": termination_text,
+        "is_timeout_win": is_timeout_win,
+        "is_timeout_loss": is_timeout_loss
+    }
+    
     return lab_data
 
 
