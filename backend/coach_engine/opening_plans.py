@@ -112,22 +112,31 @@ QUEENS_GAMBIT = OpeningPlan(
     eco_codes=["D06", "D07", "D08", "D09", "D10", "D11", "D12", "D13", "D14", "D15", "D16", "D17", "D18", "D19", "D20", "D21", "D22", "D23", "D24", "D25", "D26", "D27", "D28", "D29", "D30", "D31", "D32", "D33", "D34", "D35", "D36", "D37", "D38", "D39", "D40", "D41", "D42", "D43", "D44", "D45", "D46", "D47", "D48", "D49"],
     identifying_moves=["d4", "d5", "c4"],
     main_ideas=[
-        "Offer the c4 pawn to open the center",
-        "If they take, you get a strong center with e4",
-        "Control the center, then attack"
+        "Offer the c4 pawn to open the center — this is a gambit, not a sacrifice",
+        "If they take on c4, you reclaim the center with e4. Two central pawns = domination",
+        "Develop knights to c3 and f3, bishop to g5 or f4, then castle and attack"
     ],
     key_squares=["c4", "d4", "d5", "e4"],
     typical_mistakes=[
-        "Trying to hold the gambit pawn (wastes time)",
-        "Forgetting to develop pieces while fighting for center",
-        "Moving the queen out too early"
+        "Trying to hold the gambit pawn with b5 (wastes time and weakens king)",
+        "Forgetting to develop pieces while fighting for the center",
+        "Moving the queen out too early — let the minor pieces do the work first"
     ],
     simple_explanation="Offer a pawn to control the center. If they take, you play e4 and dominate.",
     teaching_moments={
-        "c4": "This is the Queen's Gambit. You're offering a pawn to fight for the center.",
-        "e4": "Now you have two pawns in the center. Very strong!",
-        "Nc3": "Developing and supporting your center. Good move.",
-        "Nf3": "Knights before bishops. Classic development.",
+        "d4": "Great start! d4 fights for the center. Now we'll build the Queen's Gambit.",
+        "c4": "This is the Queen's Gambit! You're offering a pawn to open the center. If Black takes, you'll play e4 and get two pawns in the middle.",
+        "e4": "Two pawns in the center — this is the ideal setup! You're controlling key squares and opening lines for your pieces.",
+        "Nc3": "Developing the knight AND supporting d5 and e4. This piece does double duty.",
+        "Nf3": "Knights before bishops — classic development. The knight also defends d4 and eyes e5.",
+        "Bg5": "Pinning the knight to the queen! This is a key idea in the Queen's Gambit. It puts real pressure on Black's defense of d5.",
+        "Bf4": "The bishop is active outside the pawn chain. Good development — don't lock it behind your own pawns!",
+        "e3": "Solid — supporting d4 and opening the diagonal for your bishop. Sometimes safe moves are the strongest.",
+        "Bd3": "The bishop develops to a great diagonal. It can support a future e4 push or eye the kingside.",
+        "O-O": "Castle! King safety first, attack second. This is how strong players approach the opening.",
+        "dxc4": "They took the gambit pawn! Don't panic. Play e3 or e4 and the pawn falls. You'll get a beautiful center.",
+        "e6": "The Queen's Gambit Declined. Black says 'No thanks' and keeps the center solid. Respect — this is a tough defense to crack.",
+        "c6": "This is the Slav Defense — very solid. Black defends d5 with a pawn instead of blocking the light-squared bishop.",
     }
 )
 

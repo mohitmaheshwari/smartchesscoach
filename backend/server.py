@@ -9311,8 +9311,75 @@ async def _process_move_and_respond(
                                 {"$set": {"opening_teaching_index": new_index}}
                             )
         
-        # Step 3: Generate and store message if triggered
-        if trigger.should_speak:
+        # Step 3: MOVE-BY-MOVE COACHING for opening phase
+        # During opening, ALWAYS generate a commentary message (not trigger-dependent)
+        opening_commentary_sent = False
+        if move_number <= 15:
+            try:
+                from services.move_by_move_coach import generate_move_commentary
+                from coach_engine.opening_plans import get_opening_by_moves
+                
+                session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+                move_history = session_doc.get("move_history", []) if session_doc else []
+                all_moves_san = [m.get("move", "") for m in move_history if m.get("move")]
+                
+                # Detect opening
+                opening = get_opening_by_moves(all_moves_san)
+                opening_plan = None
+                if opening:
+                    opening_plan = {
+                        "name": getattr(opening, 'name', ''),
+                        "key": getattr(opening, 'name', '').lower().replace(' ', '_').replace("'", ''),
+                        "identifying_moves": getattr(opening, 'identifying_moves', []),
+                        "teaching_moments": getattr(opening, 'teaching_moments', {}),
+                        "main_ideas": getattr(opening, 'main_ideas', []),
+                        "typical_mistakes": getattr(opening, 'typical_mistakes', []),
+                    }
+                
+                commentary = generate_move_commentary(
+                    fen_before=fen_before,
+                    fen_after=fen_after_user,
+                    move_san=user_move,
+                    move_by="user",
+                    all_moves=all_moves_san,
+                    user_color=user_color,
+                    user_rating=user_rating,
+                    opening_plan=opening_plan,
+                    eval_before=analysis.get("eval_before", 0),
+                    eval_after=analysis.get("eval_after", 0),
+                    is_best_move=analysis.get("is_best_move", True),
+                    best_move_san=analysis.get("best_move", ""),
+                )
+                
+                if commentary.message:
+                    msg_doc = {
+                        "session_id": session_id,
+                        "type": "coach",
+                        "message": commentary.message,
+                        "trigger": "opening_teaching",
+                        "move": user_move,
+                        "move_number": move_number,
+                        "created_at": datetime.now(timezone.utc),
+                        "read": False,
+                        "move_quality": commentary.move_quality,
+                        "teaching_type": commentary.teaching_type,
+                    }
+                    if commentary.question:
+                        msg_doc["question"] = {"prompt": commentary.question}
+                    if commentary.trap_warning:
+                        msg_doc["trap_warning"] = commentary.trap_warning
+                    if commentary.next_hint:
+                        msg_doc["next_hint"] = commentary.next_hint
+                    if commentary.pattern_note:
+                        msg_doc["pattern_note"] = commentary.pattern_note
+                    
+                    await db.coach_messages.insert_one(msg_doc)
+                    opening_commentary_sent = True
+            except Exception as e:
+                logger.warning(f"Move-by-move coaching failed: {e}")
+        
+        # Step 4: Generate and store message if triggered (skip if opening commentary already sent)
+        if trigger.should_speak and not opening_commentary_sent:
             # First, try to get wisdom-based explanation
             from coach_play.teaching_integration import enhance_coaching_message
             
@@ -9651,83 +9718,102 @@ async def _process_move_and_respond(
                     # Get new evaluation
                     eval_score, mate_in = await opponent.get_evaluation(fen_after_coach)
                     
-                    # === TEACHING: Generate coach's teaching message using Active Teaching Engine ===
+                    # === TEACHING: Generate coach's teaching message ===
                     coach_move_number = len(move_history) // 2
                     if not coach_game_over:
                         try:
-                            from services.active_teaching_engine import generate_teaching_feedback
+                            from services.move_by_move_coach import generate_move_commentary
+                            from coach_engine.opening_plans import get_opening_by_moves
                             
-                            # Use the new Active Teaching Engine for post-move coaching
-                            feedback = generate_teaching_feedback(
-                                fen=fen_after_coach,
-                                last_move_uci=chess_move.uci(),
-                                student_rating=user_rating,
-                                phase="after_coach_move",
-                                student_color=user_color,
-                                move_context={
-                                    "teaching_goal": teaching_context.get("teaching_goal", "natural_play"),
-                                    "why_instructive": teaching_context.get("why_instructive", ""),
-                                    "concept_taught": teaching_context.get("concept_taught", ""),
-                                    "student_challenge": teaching_context.get("student_challenge", ""),
-                                    "move_san": coach_move,
-                                    "game_phase": teaching_context.get("teaching_content", {}).get("game_phase", "middlegame")
+                            all_moves = [m.get("move", "") for m in move_history]
+                            opening = get_opening_by_moves(all_moves)
+                            opening_plan = None
+                            if opening:
+                                opening_plan = {
+                                    "name": getattr(opening, 'name', ''),
+                                    "key": getattr(opening, 'name', '').lower().replace(' ', '_').replace("'", ''),
+                                    "identifying_moves": getattr(opening, 'identifying_moves', []),
+                                    "teaching_moments": getattr(opening, 'teaching_moments', {}),
+                                    "main_ideas": getattr(opening, 'main_ideas', []),
+                                    "typical_mistakes": getattr(opening, 'typical_mistakes', []),
                                 }
-                            )
                             
-                            # Also try opening-specific teaching for early moves
-                            opening_msg = None
-                            if coach_move_number <= 12:
-                                from coach_engine.opening_plans import get_opening_by_moves, get_teaching_for_move
-                                from coach_engine.opening_teaching_db import get_curated_teaching
+                            # Use move-by-move coach for opening moves
+                            if coach_move_number <= 15:
+                                commentary = generate_move_commentary(
+                                    fen_before=fen_after_user,
+                                    fen_after=fen_after_coach,
+                                    move_san=coach_move,
+                                    move_by="coach",
+                                    all_moves=all_moves,
+                                    user_color=user_color,
+                                    user_rating=user_rating,
+                                    opening_plan=opening_plan,
+                                )
                                 
-                                all_moves = [m.get("move", "") for m in move_history]
-                                opening = get_opening_by_moves(all_moves)
+                                msg_text = commentary.message
+                                trigger_type = "opening_teaching"
                                 
-                                curated = await get_curated_teaching(fen_after_user, coach_move)
-                                if curated.get("found") and curated.get("move_teaching"):
-                                    opening_msg = curated["move_teaching"]
-                                elif opening:
-                                    opening_msg = get_teaching_for_move(opening, coach_move)
-                            
-                            # Prefer opening-specific teaching if available, else use Active Teaching Engine
-                            if opening_msg:
-                                msg_text = opening_msg
-                                trigger = "opening_teaching"
-                            elif not feedback.get("error"):
-                                msg_text = feedback.get("message", "")
-                                trigger = "teaching"
+                                if msg_text:
+                                    msg_doc = {
+                                        "session_id": session_id,
+                                        "type": "coach",
+                                        "message": msg_text,
+                                        "trigger": trigger_type,
+                                        "move": coach_move,
+                                        "move_number": coach_move_number,
+                                        "is_coach_move": True,
+                                        "created_at": datetime.now(timezone.utc),
+                                        "read": False,
+                                        "teaching_type": commentary.teaching_type,
+                                    }
+                                    if commentary.question:
+                                        msg_doc["question"] = {"prompt": commentary.question}
+                                    if commentary.trap_warning:
+                                        msg_doc["trap_warning"] = commentary.trap_warning
+                                    if commentary.next_hint:
+                                        msg_doc["next_hint"] = commentary.next_hint
+                                    
+                                    # Include opening info
+                                    if opening:
+                                        msg_doc["opening_key"] = getattr(opening, 'name', '').lower().replace(' ', '_').replace("'", '')
+                                        msg_doc["opening_name"] = getattr(opening, 'name', '')
+                                    
+                                    await db.coach_messages.insert_one(msg_doc)
                             else:
-                                # Fallback to teaching context from Move Selector
-                                why = teaching_context.get("why_instructive", "")
-                                concept = teaching_context.get("concept_taught", "")
-                                challenge = teaching_context.get("student_challenge", "What will you play now?")
-                                msg_text = f"I played {coach_move}. {why} {challenge}"
-                                trigger = "teaching"
-                            
-                            if msg_text:
-                                # Include opening info if detected
-                                opening_key = None
-                                opening_name = None
-                                if opening:
-                                    opening_key = opening.get("key")
-                                    opening_name = opening.get("name")
+                                # Fall back to Active Teaching Engine for middlegame+
+                                from services.active_teaching_engine import generate_teaching_feedback
                                 
-                                await db.coach_messages.insert_one({
-                                    "session_id": session_id,
-                                    "type": "coach",
-                                    "message": msg_text,
-                                    "trigger": trigger,
-                                    "move": coach_move,
-                                    "move_number": coach_move_number,
-                                    "is_coach_move": True,  # Flag to distinguish coach's move explanations
-                                    "created_at": datetime.now(timezone.utc),
-                                    "read": False,
-                                    "teaching_goal": teaching_context.get("teaching_goal"),
-                                    "concept": feedback.get("concept") if feedback else teaching_context.get("concept_taught"),
-                                    "hints": feedback.get("hints", []) if feedback else [],
-                                    "opening_key": opening_key,  # For "Learn Opening" button
-                                    "opening_name": opening_name,  # For button label
-                                })
+                                feedback = generate_teaching_feedback(
+                                    fen=fen_after_coach,
+                                    last_move_uci=chess_move.uci(),
+                                    student_rating=user_rating,
+                                    phase="after_coach_move",
+                                    student_color=user_color,
+                                    move_context={
+                                        "teaching_goal": teaching_context.get("teaching_goal", "natural_play"),
+                                        "why_instructive": teaching_context.get("why_instructive", ""),
+                                        "concept_taught": teaching_context.get("concept_taught", ""),
+                                        "student_challenge": teaching_context.get("student_challenge", ""),
+                                        "move_san": coach_move,
+                                        "game_phase": teaching_context.get("teaching_content", {}).get("game_phase", "middlegame")
+                                    }
+                                )
+                                
+                                if not feedback.get("error") and feedback.get("message"):
+                                    await db.coach_messages.insert_one({
+                                        "session_id": session_id,
+                                        "type": "coach",
+                                        "message": feedback["message"],
+                                        "trigger": "teaching",
+                                        "move": coach_move,
+                                        "move_number": coach_move_number,
+                                        "is_coach_move": True,
+                                        "created_at": datetime.now(timezone.utc),
+                                        "read": False,
+                                        "concept": feedback.get("concept"),
+                                        "hints": feedback.get("hints", []),
+                                    })
                         except Exception as e:
                             logger.warning(f"Opening teaching generation failed: {e}")
                     

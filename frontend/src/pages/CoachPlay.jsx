@@ -178,8 +178,8 @@ const CoachPlay = ({ user }) => {
   const pollCoachMessages = async () => {
     if (!session?.session_id) return;
     
-    // Don't poll during teaching mode - handled separately
-    if (isInTeachingMode) return;
+    // Don't poll during active interactive teaching lessons (not regular game teaching)
+    if (isInTeachingMode && lessonInstruction) return;
     
     try {
       const response = await fetch(`${API}/coach/play/messages/${session.session_id}`, {
