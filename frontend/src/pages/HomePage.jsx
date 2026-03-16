@@ -208,32 +208,31 @@ const HomePage = ({ user }) => {
   const getTrainingTask = () => {
     const weakness = getBiggestWeakness();
     
-    // Map weakness to training type
-    // These routes should link to training modes that use the user's own game mistakes
+    // Map weakness to specific training focus
     const trainingMap = {
       'tactical_error': {
         title: 'Train Your Tactics',
         description: 'Practice positions where you made tactical errors in your games.',
         action: 'Start Training',
-        route: '/lab'  // Lab page shows critical moments from their games
+        route: '/training?focus=tactical_error'
       },
       'missed_threat': {
         title: 'Threat Detection Practice',
         description: 'Solve positions where you missed opponent threats.',
         action: 'Start Training',
-        route: '/lab'
+        route: '/training?focus=missed_threat'
       },
       'hanging_piece': {
         title: 'Piece Safety Drill',
         description: 'Practice positions where you left pieces hanging.',
         action: 'Start Training',
-        route: '/lab'
+        route: '/training?focus=hanging_piece'
       },
       'missed_tactic': {
         title: 'Tactical Puzzles',
         description: 'Find the winning moves you missed in your games.',
         action: 'Start Training',
-        route: '/lab'
+        route: '/training?focus=missed_tactic'
       },
       'time_trouble': {
         title: 'Quick Decision Training',
@@ -245,19 +244,19 @@ const HomePage = ({ user }) => {
         title: 'Endgame Practice',
         description: 'Master the technique to convert your advantages.',
         action: 'Start Training',
-        route: '/lab'
+        route: '/training?focus=endgame_technique'
       },
       'turning_point': {
         title: 'Critical Moment Training',
         description: 'Practice the key moments where games are decided.',
         action: 'Start Training',
-        route: '/lab'
+        route: '/training?focus=turning_point'
       },
       'missed_mate': {
         title: 'Checkmate Pattern Training',
         description: 'Learn to spot checkmates you missed in your games.',
         action: 'Start Training',
-        route: '/lab'
+        route: '/training?focus=missed_mate'
       }
     };
     
@@ -265,12 +264,12 @@ const HomePage = ({ user }) => {
       return trainingMap[weakness.pattern_type];
     }
     
-    // Default: go to Lab where they can practice from their own games
+    // Default: go to training page
     return {
       title: 'Practice Your Mistakes',
       description: 'Review and practice the critical moments from your games.',
       action: 'Start Training',
-      route: '/lab'
+      route: '/training'
     };
   };
   
@@ -362,9 +361,11 @@ const HomePage = ({ user }) => {
                   
                   <div className="space-y-2">
                     {improvement.games.map((game, i) => (
-                      <div 
+                      <button 
                         key={i}
-                        className="flex items-center justify-between p-2 bg-muted/30 rounded-lg"
+                        onClick={() => navigate(`/lab/game/${game.game_id}`)}
+                        className="w-full flex items-center justify-between p-2 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                        data-testid={`progress-game-${i}`}
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground w-16">
@@ -388,8 +389,9 @@ const HomePage = ({ user }) => {
                               {game.accuracy.toFixed(0)}%
                             </span>
                           )}
+                          <ChevronRight className="w-3 h-3 text-muted-foreground" />
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
