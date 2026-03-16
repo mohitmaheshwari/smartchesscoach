@@ -84,6 +84,125 @@ shutdown_requested = False
 last_heartbeat = time.time()
 
 
+def calculate_turning_point_sync(move_evals, user_color, user_rating):
+    """
+    Calculate the true turning point of the game.
+    
+    Logic: Find the move with LARGEST EVAL DROP where opponent played accurately after.
+    This identifies "the move that lost the game" rather than frustration blunders.
+    """
+    if not move_evals:
+        return None
+    
+    def user_eval(eval_val, color):
+        """Convert eval to user's perspective"""
+        if eval_val is None:
+            return 0
+        return eval_val if color == "white" else -eval_val
+    
+    def is_user_move(move_num, user_clr):
+        """Check if this move number belongs to user"""
+        if user_clr == "white":
+            return move_num % 2 == 1
+        return move_num % 2 == 0
+    
+    turning_point_candidates = []
+    
+    for i, m in enumerate(move_evals):
+        move_num = m.get("move_number", i + 1)
+        
+        if not is_user_move(move_num, user_color):
+            continue
+        
+        eval_before = user_eval(m.get("eval_before"), user_color)
+        eval_after = user_eval(m.get("eval_after"), user_color)
+        cp_loss = abs(m.get("cp_loss", 0))
+        eval_drop = eval_before - eval_after
+        
+        if cp_loss < 150:
+            continue
+        
+        remaining_moves = move_evals[i + 1:]
+        if not remaining_moves:
+            continue
+        
+        # Check opponent's play in next 5 moves
+        opponent_moves_checked = 0
+        opponent_mistakes_immediate = 0
+        max_user_recovery = eval_after
+        
+        for future_m in remaining_moves:
+            future_move_num = future_m.get("move_number", 0)
+            future_cp_loss = abs(future_m.get("cp_loss", 0))
+            future_eval = user_eval(future_m.get("eval_after"), user_color)
+            
+            if future_eval > max_user_recovery:
+                max_user_recovery = future_eval
+            
+            if not is_user_move(future_move_num, user_color):
+                opponent_moves_checked += 1
+                if future_cp_loss >= 100:
+                    opponent_mistakes_immediate += 1
+                if opponent_moves_checked >= 5:
+                    break
+        
+        never_recovered = max_user_recovery < -150
+        opponent_played_well_after = opponent_mistakes_immediate <= 1
+        
+        if never_recovered and opponent_played_well_after:
+            # Categorize the turning point
+            threat = m.get("threat", "")
+            threat_lower = threat.lower() if threat else ""
+            
+            # Determine category
+            category = "positional_mistake"
+            category_label = "Positional Mistake"
+            pattern_name = "Strategic Error"
+            
+            if "fork" in threat_lower:
+                category, category_label, pattern_name = "tactical_blindness", "Tactical Blindness", "Fork"
+            elif "pin" in threat_lower:
+                category, category_label, pattern_name = "tactical_blindness", "Tactical Blindness", "Pin"
+            elif "battery" in threat_lower or ("queen" in threat_lower and "bishop" in threat_lower):
+                category, category_label, pattern_name = "piece_coordination", "Piece Coordination", "Queen + Bishop Battery"
+            elif "mate" in threat_lower or "checkmate" in threat_lower:
+                category, category_label, pattern_name = "king_safety", "King Safety Neglect", "Mate Threat"
+            elif "hanging" in threat_lower or "undefended" in threat_lower:
+                category, category_label, pattern_name = "one_move_blunder", "One-Move Blunder", "Hanging Piece"
+            elif "back rank" in threat_lower:
+                category, category_label, pattern_name = "king_safety", "King Safety Neglect", "Back Rank Weakness"
+            elif cp_loss >= 400:
+                category, category_label, pattern_name = "one_move_blunder", "One-Move Blunder", "Major Oversight"
+            
+            turning_point_candidates.append({
+                "move_number": move_num,
+                "move": m.get("move"),
+                "best_move": m.get("best_move"),
+                "eval_before": m.get("eval_before"),
+                "eval_after": m.get("eval_after"),
+                "cp_loss": cp_loss,
+                "eval_drop": eval_drop,
+                "fen_before": m.get("fen_before"),
+                "threat": threat,
+                "category": category,
+                "category_label": category_label,
+                "pattern_name": pattern_name,
+                "training_focus": {
+                    "tactical_blindness": "tactics",
+                    "threat_ignorance": "threat_awareness",
+                    "piece_coordination": "piece_coordination",
+                    "king_safety": "king_safety",
+                    "one_move_blunder": "blunder_check",
+                    "positional_mistake": "positional"
+                }.get(category, "general")
+            })
+    
+    if turning_point_candidates:
+        return max(turning_point_candidates, key=lambda x: x["eval_drop"])
+    
+    return None
+
+
 def signal_handler(signum, frame):
     """Handle shutdown signals gracefully"""
     global shutdown_requested
@@ -842,6 +961,25 @@ def process_job(db, job):
             best_moves,
             move_evaluations
         )
+        
+        # =========================================================================
+        # PHASE 3.4: CALCULATE AND STORE TURNING POINT
+        # For blind spots tracking on home page
+        # =========================================================================
+        try:
+            turning_point = calculate_turning_point_sync(
+                move_evaluations,
+                user_color,
+                game.get("white_rating") or game.get("black_rating") or 1200
+            )
+            if turning_point:
+                db.game_analyses.update_one(
+                    {"game_id": game_id, "user_id": user_id},
+                    {"$set": {"turning_point": turning_point}}
+                )
+                logger.info(f"[TURNING_POINT] Stored turning point at move {turning_point.get('move_number')}")
+        except Exception as tp_err:
+            logger.warning(f"[TURNING_POINT] Failed to calculate: {tp_err}")
         
         # =========================================================================
         # PHASE 3.5: UPDATE PLAYER IDENTITY (DeepMemory)

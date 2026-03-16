@@ -50,6 +50,112 @@ class TurningPointExplanation:
     
     # Severity assessment
     severity: str  # "game-losing", "critical", "significant"
+    
+    # NEW: Categorization for pattern tracking
+    category: str  # "tactical_blindness", "threat_ignorance", "positional_mistake", etc.
+    category_label: str  # Human-readable: "Tactical Blindness"
+    
+    # NEW: How to spot this in future
+    how_to_spot: List[str]  # Checklist of things to look for
+    pattern_name: str  # e.g., "Queen + Bishop Battery"
+    training_focus: str  # e.g., "piece_coordination"
+
+
+# Turning point categories with training mappings
+TURNING_POINT_CATEGORIES = {
+    "tactical_blindness": {
+        "label": "Tactical Blindness",
+        "description": "Missed a tactical pattern (fork, pin, skewer, etc.)",
+        "training_focus": "tactics",
+        "patterns": ["fork", "pin", "skewer", "discovery", "back_rank", "battery"]
+    },
+    "threat_ignorance": {
+        "label": "Threat Ignorance",
+        "description": "Didn't check what opponent was threatening",
+        "training_focus": "threat_awareness",
+        "patterns": ["ignored_threat", "missed_attack", "hanging"]
+    },
+    "positional_mistake": {
+        "label": "Positional Mistake",
+        "description": "Created weaknesses or missed positional ideas",
+        "training_focus": "positional",
+        "patterns": ["weak_square", "pawn_structure", "piece_activity"]
+    },
+    "calculation_error": {
+        "label": "Calculation Error",
+        "description": "Saw the idea but miscounted or missed a defense",
+        "training_focus": "calculation",
+        "patterns": ["miscalculation", "missed_defense"]
+    },
+    "piece_coordination": {
+        "label": "Piece Coordination",
+        "description": "Opponent's pieces worked together dangerously",
+        "training_focus": "piece_coordination",
+        "patterns": ["battery", "connected_pieces", "double_attack"]
+    },
+    "king_safety": {
+        "label": "King Safety Neglect",
+        "description": "King was exposed or attacked",
+        "training_focus": "king_safety",
+        "patterns": ["king_attack", "mate_threat", "back_rank", "exposed_king"]
+    },
+    "one_move_blunder": {
+        "label": "One-Move Blunder",
+        "description": "Simple oversight that lost material or the game",
+        "training_focus": "blunder_check",
+        "patterns": ["simple_blunder", "hanging_piece", "oversight"]
+    }
+}
+
+
+# How to spot patterns - teaching checklists
+HOW_TO_SPOT_PATTERNS = {
+    "fork": [
+        "Before moving, check: Can a knight reach a square attacking two pieces?",
+        "Look for undefended pieces on the same knight-hop distance",
+        "Especially dangerous: King + Queen or King + Rook forkable"
+    ],
+    "pin": [
+        "Check if any of your pieces are on the same line as your King/Queen",
+        "Bishops and Rooks create pins along lines - scan the diagonals and files",
+        "A pinned piece can't move safely - don't rely on it for defense"
+    ],
+    "battery": [
+        "Watch for Queen + Bishop on the same diagonal aimed at your King",
+        "Queen + Rook on the same file is equally dangerous",
+        "If opponent's heavy pieces align, expect an attack"
+    ],
+    "back_rank": [
+        "Always ask: Does my King have an escape square?",
+        "If your King is on the back rank with no luft (h3/h6), create one",
+        "Heavy pieces (Queen/Rook) on open files threaten back rank mates"
+    ],
+    "hanging": [
+        "After EVERY move, scan: Are all my pieces defended?",
+        "Count attackers vs defenders on each piece",
+        "Undefended pieces are targets - either defend or move them"
+    ],
+    "threat_ignorance": [
+        "Before YOUR move, ask: What is opponent threatening?",
+        "Look at opponent's last move - what did it attack or prepare?",
+        "Check ALL opponent pieces, not just the one that moved"
+    ],
+    "piece_coordination": [
+        "Watch for opponent's pieces pointing at the same square",
+        "Two pieces attacking one target often wins material",
+        "Queen + minor piece combos are especially dangerous"
+    ],
+    "king_attack": [
+        "If opponent has more pieces near your King, be defensive",
+        "Don't start attacks while your King is exposed",
+        "Castle early or keep the center closed if King is in the middle"
+    ],
+    "weak_square": [
+        "Pawns can't go backward - advancing them creates permanent holes",
+        "Knights love outposts on weak squares",
+        "Think twice before pushing pawns in front of your King"
+    ]
+}
 
 
 # Rating brackets for language adaptation
@@ -230,14 +336,126 @@ class TurningPointExplainer:
         thinking_error = behavior["description"]
         training_tip = behavior["tip"]
         
+        # NEW: Categorize the turning point for pattern tracking
+        category, category_label, pattern_name = self._categorize_turning_point(
+            tactical_type, behavioral_type, threat, cp_loss
+        )
+        
+        # NEW: Generate "How to spot this" checklist
+        how_to_spot = self._generate_how_to_spot(tactical_type, behavioral_type, pattern_name)
+        
+        # NEW: Determine training focus
+        training_focus = self._get_training_focus(category, tactical_type)
+        
         return TurningPointExplanation(
             main_text=main_text,
             missed_idea=missed_idea,
             opponent_idea=opponent_idea,
             thinking_error=thinking_error,
             training_tip=training_tip,
-            severity=severity
+            severity=severity,
+            category=category,
+            category_label=category_label,
+            how_to_spot=how_to_spot,
+            pattern_name=pattern_name,
+            training_focus=training_focus
         )
+    
+    def _categorize_turning_point(
+        self,
+        tactical_type: Optional[str],
+        behavioral_type: str,
+        threat: Optional[str],
+        cp_loss: int
+    ) -> tuple:
+        """Categorize the turning point for pattern tracking."""
+        
+        threat_lower = (threat or "").lower()
+        
+        # Check for tactical patterns first
+        if tactical_type:
+            if tactical_type in ["fork", "pin", "skewer", "discovery"]:
+                return "tactical_blindness", "Tactical Blindness", tactical_type.replace("_", " ").title()
+            elif tactical_type == "back_rank":
+                return "king_safety", "King Safety Neglect", "Back Rank Weakness"
+            elif tactical_type in ["battery", "overload"]:
+                return "piece_coordination", "Piece Coordination", tactical_type.replace("_", " ").title()
+            elif tactical_type == "hanging":
+                return "one_move_blunder", "One-Move Blunder", "Hanging Piece"
+        
+        # Check threat description
+        if "battery" in threat_lower or "queen" in threat_lower and "bishop" in threat_lower:
+            return "piece_coordination", "Piece Coordination", "Queen + Bishop Battery"
+        if "mate" in threat_lower or "checkmate" in threat_lower:
+            return "king_safety", "King Safety Neglect", "Mate Threat"
+        if "fork" in threat_lower:
+            return "tactical_blindness", "Tactical Blindness", "Fork"
+        if "pin" in threat_lower:
+            return "tactical_blindness", "Tactical Blindness", "Pin"
+        if "hanging" in threat_lower or "undefended" in threat_lower:
+            return "one_move_blunder", "One-Move Blunder", "Hanging Piece"
+        
+        # Based on behavioral type
+        if behavioral_type == "ignored_threat":
+            return "threat_ignorance", "Threat Ignorance", "Missed Opponent Threat"
+        if behavioral_type == "piece_safety":
+            return "one_move_blunder", "One-Move Blunder", "Piece Left Undefended"
+        if behavioral_type == "king_neglect":
+            return "king_safety", "King Safety Neglect", "King Exposed"
+        if behavioral_type == "greedy_capture":
+            return "tactical_blindness", "Tactical Blindness", "Greedy Capture Punished"
+        if behavioral_type == "calculation_error":
+            return "calculation_error", "Calculation Error", "Miscalculation"
+        
+        # Default based on cp_loss
+        if cp_loss >= 500:
+            return "one_move_blunder", "One-Move Blunder", "Major Oversight"
+        
+        return "positional_mistake", "Positional Mistake", "Strategic Error"
+    
+    def _generate_how_to_spot(
+        self,
+        tactical_type: Optional[str],
+        behavioral_type: str,
+        pattern_name: str
+    ) -> List[str]:
+        """Generate 'How to spot this' checklist for future games."""
+        
+        # Check for specific tactical patterns first
+        if tactical_type and tactical_type in HOW_TO_SPOT_PATTERNS:
+            return HOW_TO_SPOT_PATTERNS[tactical_type]
+        
+        # Check pattern name keywords
+        pattern_lower = pattern_name.lower()
+        for key, tips in HOW_TO_SPOT_PATTERNS.items():
+            if key in pattern_lower:
+                return tips
+        
+        # Check behavioral type
+        if behavioral_type == "ignored_threat":
+            return HOW_TO_SPOT_PATTERNS.get("threat_ignorance", [])
+        if behavioral_type == "piece_safety":
+            return HOW_TO_SPOT_PATTERNS.get("hanging", [])
+        if behavioral_type == "king_neglect":
+            return HOW_TO_SPOT_PATTERNS.get("king_attack", [])
+        
+        # Default checklist
+        return [
+            "Before each move, ask: What is my opponent threatening?",
+            "Check if any of your pieces are undefended",
+            "Look at the whole board, not just your own plans"
+        ]
+    
+    def _get_training_focus(self, category: str, tactical_type: Optional[str]) -> str:
+        """Get the training focus area for this type of mistake."""
+        
+        if category in TURNING_POINT_CATEGORIES:
+            return TURNING_POINT_CATEGORIES[category]["training_focus"]
+        
+        if tactical_type:
+            return "tactics"
+        
+        return "general"
     
     def _identify_tactical_type(
         self, 

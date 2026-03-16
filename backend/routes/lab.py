@@ -448,7 +448,13 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                     "opponent_idea": explanation.opponent_idea,
                     "thinking_error": explanation.thinking_error,
                     "training_tip": explanation.training_tip,
-                    "severity": explanation.severity
+                    "severity": explanation.severity,
+                    # NEW: Pattern categorization for tracking
+                    "category": explanation.category,
+                    "category_label": explanation.category_label,
+                    "pattern_name": explanation.pattern_name,
+                    "how_to_spot": explanation.how_to_spot,
+                    "training_focus": explanation.training_focus
                 }
             except Exception as e:
                 logger.warning(f"Explainer failed, using basic explanation: {e}")

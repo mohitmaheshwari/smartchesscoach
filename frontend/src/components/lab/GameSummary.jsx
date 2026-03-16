@@ -115,7 +115,13 @@ const GameSummary = ({
       opponentIdea: turningPoint.opponent_idea,
       thinkingError: turningPoint.thinking_error,
       trainingTip: turningPoint.training_tip,
-      severity: turningPoint.severity
+      severity: turningPoint.severity,
+      // NEW: Pattern categorization
+      category: turningPoint.category,
+      categoryLabel: turningPoint.category_label,
+      patternName: turningPoint.pattern_name,
+      howToSpot: turningPoint.how_to_spot || [],
+      trainingFocus: turningPoint.training_focus
     };
   };
   
@@ -320,16 +326,30 @@ const GameSummary = ({
               <Crosshair className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-medium text-red-400 uppercase tracking-wide">
-                    Turning Point
-                  </h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-medium text-red-400 uppercase tracking-wide">
+                      Turning Point
+                    </h4>
+                    {turningPointData.categoryLabel && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-red-500/20 rounded text-red-300">
+                        {turningPointData.categoryLabel}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-muted-foreground">
                     Move {turningPointData.moveNum}
                   </span>
                 </div>
                 
+                {/* Pattern name */}
+                {turningPointData.patternName && (
+                  <p className="text-sm font-medium text-red-200 mb-2">
+                    {turningPointData.patternName}
+                  </p>
+                )}
+                
                 {/* Main explanation */}
-                <p className="text-sm leading-relaxed mb-3">
+                <p className="text-sm leading-relaxed mb-3 text-muted-foreground">
                   {turningPointData.explanation}
                 </p>
                 
@@ -356,6 +376,23 @@ const GameSummary = ({
                     <span className="text-emerald-300">
                       Better: <span className="font-mono font-medium">{turningPointData.bestMove}</span>
                     </span>
+                  </div>
+                )}
+                
+                {/* HOW TO SPOT THIS - NEW SECTION */}
+                {turningPointData.howToSpot && turningPointData.howToSpot.length > 0 && (
+                  <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                    <h5 className="text-xs font-medium text-amber-400 uppercase tracking-wide mb-2">
+                      How to spot this next time
+                    </h5>
+                    <ul className="space-y-1.5">
+                      {turningPointData.howToSpot.map((tip, i) => (
+                        <li key={i} className="text-xs text-amber-200/80 flex items-start gap-2">
+                          <span className="text-amber-400 mt-0.5">•</span>
+                          <span>{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
                 

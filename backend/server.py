@@ -5089,6 +5089,99 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     
     return response
 
+
+@api_router.get("/blind-spots")
+async def get_blind_spots(user: User = Depends(get_current_user)):
+    """
+    Get user's blind spots - recurring turning point patterns across games.
+    
+    Returns categorized patterns that cost the user games, for home page display.
+    """
+    
+    # Get recent game analyses with turning points
+    analyses = await db.game_analyses.find(
+        {"user_id": user.user_id},
+        {"_id": 0, "game_id": 1, "turning_point": 1, "stockfish_analysis": 1}
+    ).sort("analyzed_at", -1).to_list(20)
+    
+    if not analyses:
+        return {
+            "blind_spots": [],
+            "total_games_analyzed": 0,
+            "games_with_turning_points": 0
+        }
+    
+    # Count turning point categories
+    category_counts = {}
+    pattern_examples = {}
+    games_with_tp = 0
+    
+    for analysis in analyses:
+        tp = analysis.get("turning_point")
+        if not tp:
+            continue
+            
+        games_with_tp += 1
+        category = tp.get("category", "unknown")
+        category_label = tp.get("category_label", category.replace("_", " ").title())
+        pattern_name = tp.get("pattern_name", "")
+        
+        if category not in category_counts:
+            category_counts[category] = {
+                "count": 0,
+                "label": category_label,
+                "patterns": [],
+                "game_ids": []
+            }
+        
+        category_counts[category]["count"] += 1
+        category_counts[category]["game_ids"].append(analysis.get("game_id"))
+        
+        if pattern_name and pattern_name not in category_counts[category]["patterns"]:
+            category_counts[category]["patterns"].append(pattern_name)
+    
+    # Sort by count and build response
+    sorted_categories = sorted(
+        category_counts.items(),
+        key=lambda x: x[1]["count"],
+        reverse=True
+    )
+    
+    # Training focus mapping
+    training_focus_map = {
+        "tactical_blindness": "tactics",
+        "threat_ignorance": "threat_awareness",
+        "positional_mistake": "positional",
+        "calculation_error": "calculation",
+        "piece_coordination": "piece_coordination",
+        "king_safety": "king_safety",
+        "one_move_blunder": "blunder_check"
+    }
+    
+    blind_spots = []
+    for category, data in sorted_categories[:5]:  # Top 5 blind spots
+        # Generate description based on patterns
+        patterns_str = ", ".join(data["patterns"][:3]) if data["patterns"] else "various patterns"
+        
+        blind_spots.append({
+            "category": category,
+            "label": data["label"],
+            "count": data["count"],
+            "total_games": len(analyses),
+            "percentage": round(data["count"] / len(analyses) * 100),
+            "patterns": data["patterns"][:3],
+            "description": f"Lost {data['count']} games to {patterns_str.lower()}",
+            "training_focus": training_focus_map.get(category, "general"),
+            "severity": "high" if data["count"] >= 3 else "medium" if data["count"] >= 2 else "low"
+        })
+    
+    return {
+        "blind_spots": blind_spots,
+        "total_games_analyzed": len(analyses),
+        "games_with_turning_points": games_with_tp
+    }
+
+
 @api_router.get("/training-recommendations")
 async def get_training_recommendations(user: User = Depends(get_current_user)):
     """Get AI-generated training recommendations based on weaknesses"""

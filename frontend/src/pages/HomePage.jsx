@@ -27,7 +27,9 @@ import {
   Loader2,
   Zap,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Eye,
+  Shield
 } from "lucide-react";
 
 const HomePage = ({ user }) => {
@@ -36,16 +38,18 @@ const HomePage = ({ user }) => {
   const [dashboardData, setDashboardData] = useState(null);
   const [reflectionGames, setReflectionGames] = useState([]);
   const [weeklyProgress, setWeeklyProgress] = useState(null);
+  const [blindSpots, setBlindSpots] = useState([]);
   
   // Fetch all required data
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [statsRes, reflectRes, progressRes] = await Promise.all([
+        const [statsRes, reflectRes, progressRes, blindSpotsRes] = await Promise.all([
           fetch(`${API}/dashboard-stats`, { credentials: 'include' }),
           fetch(`${API}/reflect/pending`, { credentials: 'include' }),
-          fetch(`${API}/coach/analytics/summary`, { credentials: 'include' }).catch(() => null)
+          fetch(`${API}/coach/analytics/summary`, { credentials: 'include' }).catch(() => null),
+          fetch(`${API}/blind-spots`, { credentials: 'include' }).catch(() => null)
         ]);
         
         if (statsRes.ok) {
@@ -56,6 +60,11 @@ const HomePage = ({ user }) => {
         if (reflectRes.ok) {
           const reflect = await reflectRes.json();
           setReflectionGames(reflect.games || []);
+        }
+        
+        if (blindSpotsRes?.ok) {
+          const spots = await blindSpotsRes.json();
+          setBlindSpots(spots.blind_spots || []);
         }
         
         // Try to get weekly progress data
@@ -315,6 +324,63 @@ const HomePage = ({ user }) => {
                     </p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+        
+        {/* Section 2.5: Blind Spots - Turning Point Patterns */}
+        {blindSpots.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+          >
+            <Card className="bg-card/50 border-amber-500/20" data-testid="blind-spots-card">
+              <CardContent className="pt-5 pb-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Eye className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Your Blind Spots
+                  </span>
+                </div>
+                
+                <div className="space-y-3">
+                  {blindSpots.slice(0, 3).map((spot, i) => (
+                    <div 
+                      key={spot.category}
+                      className="flex items-center justify-between p-2 bg-muted/30 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${
+                          spot.severity === 'high' ? 'bg-red-400' : 
+                          spot.severity === 'medium' ? 'bg-amber-400' : 'bg-slate-400'
+                        }`} />
+                        <div>
+                          <p className="text-sm font-medium">{spot.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {spot.count} of {spot.total_games} games ({spot.percentage}%)
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-amber-400 hover:text-amber-300 p-0 h-auto"
+                        onClick={() => navigate(`/training?focus=${spot.training_focus}`)}
+                      >
+                        Train
+                        <ChevronRight className="w-3 h-3 ml-0.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                
+                {blindSpots.length > 0 && blindSpots[0].patterns?.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Common patterns: {blindSpots[0].patterns.slice(0, 2).join(", ")}
+                  </p>
+                )}
               </CardContent>
             </Card>
           </motion.div>
