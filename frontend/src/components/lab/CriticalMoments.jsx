@@ -1,16 +1,16 @@
 /**
- * CriticalMoments - Interactive Learning Section
+ * CriticalMoments - Interactive Training Loop
  * 
- * The heart of the coaching session.
- * Uses Socratic approach: "What would you play?" before revealing.
+ * Each moment follows this guided sequence:
+ * 1. Coach Prompt → introduces the situation
+ * 2. Thinking Lens → what type of idea to look for
+ * 3. Thinking Questions → guide the player's thought process
+ * 4. User attempts a move on the board
+ * 5. Reveal best move + explanation
+ * 6. Reflection prompt
+ * 7. Lesson takeaway
  * 
- * Flow:
- * 1. Show position
- * 2. Ask "What would you play?"
- * 3. Let user think/guess
- * 4. Reveal best move with explanation
- * 5. Show why their move failed
- * 6. Pattern to remember
+ * The best move is NEVER shown before the user interacts.
  */
 
 import { useState, useEffect } from "react";
@@ -19,10 +19,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Chess } from "chess.js";
-import { toast } from "sonner";
 import {
   Eye,
-  EyeOff,
   Play,
   ChevronRight,
   ChevronLeft,
@@ -31,101 +29,46 @@ import {
   CheckCircle2,
   HelpCircle,
   ThumbsUp,
-  ThumbsDown,
   Zap,
-  AlertTriangle
+  AlertTriangle,
+  BookOpen,
+  Brain,
+  Shield,
+  Crown,
+  Flag,
+  Clock,
+  Lock,
+  Layers,
+  TrendingUp,
+  Target,
+  MessageCircle
 } from "lucide-react";
 
-// =============================================================================
-// PERSONALIZED COACHING LANGUAGE
-// =============================================================================
-
-// Language templates adapted to player level
-const COACHING_LANGUAGE = {
-  // Socratic prompts (before user tries)
-  socraticPrompt: {
-    rookie: "Look at the board carefully. What piece can help you here?",
-    beginner: "Take your time. What would you play?",
-    casual: "Pause here. Look at the board. What would you play?",
-    amateur: "Critical position. Find the best continuation.",
-    intermediate: "Key moment. Calculate carefully.",
-    advanced: "Precise calculation needed here.",
-    expert: "Find the optimal move.",
-    master: "Your move."
-  },
-  
-  // Correct move praise
-  correctPraise: {
-    rookie: "Yes! Perfect! You found it! Great job!",
-    beginner: "Great find! That's exactly right!",
-    casual: "Nice! You got it!",
-    amateur: "Excellent! Precisely right.",
-    intermediate: "Correct. Clean calculation.",
-    advanced: "Accurate.",
-    expert: "Precise.",
-    master: "Indeed."
-  },
-  
-  // Wrong move feedback
-  wrongFeedback: {
-    rookie: "Hmm, not that one. Let me show you a better move.",
-    beginner: "Close! But there's a better option here.",
-    casual: "Not quite. See what you missed.",
-    amateur: "Missed it. There was a stronger continuation.",
-    intermediate: "Not the best. More precision needed.",
-    advanced: "Inaccurate. There's a more forcing line.",
-    expert: "Second-best.",
-    master: "Suboptimal."
-  },
-  
-  // Try again encouragement
-  tryAgainPrompt: {
-    rookie: "It's okay! Want to try again? No rush.",
-    beginner: "Good thinking, but let's try again.",
-    casual: "Give it another shot.",
-    amateur: "Retry - check all captures and checks first.",
-    intermediate: "Again - calculate the forcing sequence.",
-    advanced: "Recalculate.",
-    expert: "Find the engine move.",
-    master: "What does the position demand?"
-  },
-  
-  // Position hint prefix
-  hintPrefix: {
-    rookie: "Hint: ",
-    beginner: "Look: ",
-    casual: "",
-    amateur: "",
-    intermediate: "",
-    advanced: "",
-    expert: "",
-    master: ""
-  },
-  
-  // Explanation prefix
-  explanationPrefix: {
-    rookie: "See, when you moved there, ",
-    beginner: "That move has a problem - ",
-    casual: "The issue is ",
-    amateur: "The tactical flaw: ",
-    intermediate: "Critical issue: ",
-    advanced: "Evaluation error: ",
-    expert: "The improvement: ",
-    master: "Analysis: "
-  }
+// Map icon names from backend to Lucide components
+const ICON_MAP = {
+  "zap": Zap,
+  "alert-triangle": AlertTriangle,
+  "brain": Brain,
+  "book-open": BookOpen,
+  "shield": Shield,
+  "crown": Crown,
+  "flag": Flag,
+  "clock": Clock,
+  "lock": Lock,
+  "layers": Layers,
+  "trending-up": TrendingUp,
+  "move": Target,
+  "eye": Eye,
 };
 
-// Helper to get personalized text
-const getCoachText = (textType, playerLevel) => {
-  const texts = COACHING_LANGUAGE[textType] || {};
-  return texts[playerLevel] || texts.casual || "";
-};
-
-// Helper to format hint based on player level
-const formatHint = (hint, playerLevel) => {
-  if (!hint) return null;
-  const prefix = getCoachText("hintPrefix", playerLevel);
-  return `${prefix}${hint}`;
+// Moment stages for the guided flow
+const STAGES = {
+  INTRO: "intro",           // Coach prompt + thinking lens
+  THINKING: "thinking",     // Questions + try move  
+  ATTEMPT_RESULT: "result", // After user attempts a move
+  REVEAL: "reveal",         // Best move + explanation
+  REFLECTION: "reflection", // What did you overlook?
+  LESSON: "lesson",         // Takeaway
 };
 
 const CriticalMoments = ({ 
@@ -134,741 +77,468 @@ const CriticalMoments = ({
   onNavigateToMove,
   onFeedback,
   onPlayBestLine,
-  onStartInteractive, // Start interactive mode so user can try the move
-  onClearInteractive, // Clear interactive mode
-  onTryAgain, // Reset to try again after wrong move
-  userAttemptResult, // Result of user's move attempt
+  onStartInteractive,
+  onClearInteractive,
+  onTryAgain,
+  userAttemptResult,
   gameId,
-  // Player level props for personalized coaching
   playerLevel = "casual",
   playerLevelDisplay = "Player",
-  playerLevelEmoji = "♟️",
+  playerLevelEmoji,
   coachingVoice = {},
-  // NEW: Multi-dimensional chess understanding
   chessUnderstanding = null
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [revealed, setRevealed] = useState({});
-  const [userGuess, setUserGuess] = useState({});
-  
-  // Derive coaching language from understanding if available
-  const getPersonalizedPrompt = () => {
-    if (!chessUnderstanding) {
-      return getCoachText("socraticPrompt", playerLevel);
-    }
-    
-    const weakness = chessUnderstanding.primary_weakness;
-    const tacticalScore = chessUnderstanding.dimensions?.tactical_vision?.score || 50;
-    const consistencyScore = chessUnderstanding.dimensions?.consistency?.score || 50;
-    
-    // If low consistency (focus issues), remind them to slow down
-    if (consistencyScore < 45) {
-      return "Take your time. Focus on this one position.";
-    }
-    
-    // If low tactical vision, guide more explicitly
-    if (tacticalScore < 40) {
-      return "Look carefully. Check all captures and checks.";
-    }
-    
-    // Default to level-based
-    return getCoachText("socraticPrompt", playerLevel);
-  };
-  
-  // Get mistake feedback based on understanding
-  const getMistakeFeedback = () => {
-    if (!chessUnderstanding) {
-      return getCoachText("wrongFeedback", playerLevel);
-    }
-    
-    const tacticalScore = chessUnderstanding.dimensions?.tactical_vision?.score || 50;
-    const consistencyScore = chessUnderstanding.dimensions?.consistency?.score || 50;
-    
-    // If they're strong tactically but inconsistent, it's a focus issue
-    if (tacticalScore > 60 && consistencyScore < 50) {
-      return "Focus slip. You know better than this.";
-    }
-    
-    // If weak tactically, be more teaching-oriented
-    if (tacticalScore < 40) {
-      return "Let me show you the pattern here.";
-    }
-    
-    return getCoachText("wrongFeedback", playerLevel);
-  };
-  
-  // Navigate to the current moment's position when the component mounts or moment changes
+  const [stage, setStage] = useState(STAGES.INTRO);
+  const [reflectionAnswer, setReflectionAnswer] = useState(null);
+  const [completedMoments, setCompletedMoments] = useState(new Set());
+
+  // Navigate to position when moment changes
   useEffect(() => {
     if (moments.length > 0 && onNavigateToMove) {
-      const currentMoment = moments[currentIndex];
-      if (currentMoment) {
-        onNavigateToMove(currentMoment.move_number, null, null);
-      }
+      const m = moments[currentIndex];
+      if (m) onNavigateToMove(m.move_number, null, null);
     }
-  }, [moments.length]); // Only run when moments are loaded, not on every index change
-  
+    setStage(STAGES.INTRO);
+    setReflectionAnswer(null);
+  }, [currentIndex, moments.length]);
+
+  // When user makes an attempt, transition to result stage
+  useEffect(() => {
+    if (userAttemptResult) {
+      setStage(STAGES.ATTEMPT_RESULT);
+    }
+  }, [userAttemptResult]);
+
   if (!moments || moments.length === 0) {
     return (
       <Card className="border-0 bg-slate-800/30">
-        <CardContent className="p-6 text-center">
+        <CardContent className="p-6 text-center" data-testid="no-moments">
           <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-          <h3 className="font-semibold mb-2">No Critical Moments</h3>
+          <h3 className="font-semibold mb-2">Clean Game</h3>
           <p className="text-sm text-muted-foreground">
-            Great game! No major mistakes to review.
+            No critical moments to review. Well played!
           </p>
         </CardContent>
       </Card>
     );
   }
-  
+
   const moment = moments[currentIndex];
-  const isRevealed = revealed[currentIndex];
+  const coaching = moment.coaching || {};
+  const thinkingLens = coaching.thinking_lens || {};
   const insight = moment.insight || {};
-  
-  // Convert cp_loss to plain language
-  const getMistakeSeverity = (cpLoss) => {
-    const loss = Math.abs(cpLoss || 0);
-    if (loss >= 300) return { label: "Serious mistake", color: "bg-red-500" };
-    if (loss >= 200) return { label: "Mistake", color: "bg-amber-500" };
-    if (loss >= 100) return { label: "Inaccuracy", color: "bg-yellow-500" };
-    return { label: "Minor slip", color: "bg-slate-500" };
+  const LensIcon = ICON_MAP[thinkingLens.icon] || HelpCircle;
+
+  const goToMoment = (idx) => {
+    setCurrentIndex(idx);
+    if (onClearInteractive) onClearInteractive();
   };
-  
-  const severity = getMistakeSeverity(moment.cp_loss);
-  
+
   const handleReveal = () => {
-    setRevealed(prev => ({ ...prev, [currentIndex]: true }));
-    // Navigate to the position on the board with arrows
+    setStage(STAGES.REVEAL);
     if (onNavigateToMove) {
-      // Convert SAN to UCI for arrows using the FEN position
+      // Show arrows on the board
       let yourMoveUci = null;
       let bestMoveUci = null;
-      
       try {
         const chess = new Chess(moment.fen);
-        
-        // Convert best move to UCI
         if (moment.best_move) {
-          const bestMove = chess.move(moment.best_move, { sloppy: true });
-          if (bestMove) {
-            bestMoveUci = bestMove.from + bestMove.to;
-            chess.undo(); // Undo the move
-          }
+          const bm = chess.move(moment.best_move, { sloppy: true });
+          if (bm) { bestMoveUci = bm.from + bm.to; chess.undo(); }
         }
-        
-        // Convert your move to UCI
         if (moment.your_move) {
-          const yourMove = chess.move(moment.your_move, { sloppy: true });
-          if (yourMove) {
-            yourMoveUci = yourMove.from + yourMove.to;
-          }
+          const ym = chess.move(moment.your_move, { sloppy: true });
+          if (ym) { yourMoveUci = ym.from + ym.to; }
         }
-      } catch (e) {
-        console.log("Could not convert moves to UCI:", e);
-      }
-      
-      // Pass move number, your move (red arrow), and best move (green arrow)
-      onNavigateToMove(
-        moment.move_number,
-        yourMoveUci,  // UCI for red arrow
-        bestMoveUci   // UCI for green arrow
-      );
+      } catch (e) { /* ignore */ }
+      onNavigateToMove(moment.move_number, yourMoveUci, bestMoveUci);
     }
   };
-  
+
   const handleNext = () => {
+    setCompletedMoments(prev => new Set([...prev, currentIndex]));
     if (currentIndex < moments.length - 1) {
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
-      // Navigate to the new moment's position
-      const nextMoment = moments[nextIndex];
-      if (onNavigateToMove && nextMoment) {
-        onNavigateToMove(nextMoment.move_number, null, null);
-      }
-      // Clear any interactive mode
-      if (onClearInteractive) {
-        onClearInteractive();
-      }
+      goToMoment(currentIndex + 1);
     }
   };
-  
+
   const handlePrev = () => {
-    if (currentIndex > 0) {
-      const prevIndex = currentIndex - 1;
-      setCurrentIndex(prevIndex);
-      // Navigate to the new moment's position
-      const prevMoment = moments[prevIndex];
-      if (onNavigateToMove && prevMoment) {
-        onNavigateToMove(prevMoment.move_number, null, null);
-      }
-      // Clear any interactive mode
-      if (onClearInteractive) {
-        onClearInteractive();
-      }
-    }
+    if (currentIndex > 0) goToMoment(currentIndex - 1);
   };
-  
-  const handleFeedbackClick = (section, content) => {
-    if (onFeedback) {
-      onFeedback({
-        explanation: content,
-        positionFen: moment.fen || "",
-        movePlayed: moment.your_move,
-        bestMove: moment.best_move,
-        classification: section,
-        gameId: gameId,
-        moveNumber: moment.move_number,
-        userColor: userColor,
-        sectionType: section
-      });
-    }
-  };
-  
-  // Generate a brief position hint (under 20 words) to help player understand the position
-  const getPositionHint = () => {
-    const analysis = moment.position_analysis;
-    if (!analysis) return null;
-    
-    const hints = [];
-    
-    // Check for threats against user
-    const threats = analysis.threats || [];
-    const userThreats = threats.filter(t => !t.is_defended);
-    if (userThreats.length > 0) {
-      const threat = userThreats[0];
-      hints.push(`Threat: ${threat.attacker} targets your ${threat.target.split(' ')[0]}`);
-    }
-    
-    // Check for undefended pieces
-    const undefended = analysis.piece_activity?.undefended || [];
-    const attackedUndefended = undefended.filter(p => p.is_attacked);
-    if (attackedUndefended.length > 0 && hints.length === 0) {
-      const piece = attackedUndefended[0];
-      hints.push(`Your ${piece.piece} on ${piece.square} is under attack and undefended!`);
-    }
-    
-    // Check for opponent's undefended pieces (opportunity)
-    const oppPieces = analysis.pieces?.opponent || [];
-    const oppUndefended = oppPieces.filter(p => !p.is_defended && p.piece !== 'K');
-    if (oppUndefended.length > 0 && hints.length === 0) {
-      const piece = oppUndefended[0];
-      hints.push(`Opponent's ${piece.piece} on ${piece.square} is undefended. Can you attack it?`);
-    }
-    
-    // Check for passive pieces (need development)
-    const passive = analysis.piece_activity?.passive || [];
-    if (passive.length > 0 && hints.length === 0) {
-      const piece = passive[0];
-      hints.push(`Your ${piece.piece} on ${piece.square} is passive. Activate it!`);
-    }
-    
-    // Fallback based on tags
-    if (hints.length === 0 && moment.tags) {
-      if (moment.tags.primary_tag === 'hung_piece') {
-        hints.push("A piece is hanging! Check for captures.");
-      } else if (moment.tags.primary_tag === 'missed_tactic') {
-        hints.push("There's a tactic in this position. Look carefully.");
-      } else if (moment.tags.phase === 'endgame') {
-        hints.push("Endgame technique required. King activity matters.");
-      }
-    }
-    
-    return hints.length > 0 ? hints[0] : null;
-  };
-  
-  const positionHint = getPositionHint();
-  
+
+  const severity = (() => {
+    const loss = Math.abs(moment.cp_loss || 0);
+    if (loss >= 300) return { label: "Serious mistake", color: "bg-red-500/80", text: "text-red-400" };
+    if (loss >= 200) return { label: "Mistake", color: "bg-amber-500/80", text: "text-amber-400" };
+    if (loss >= 100) return { label: "Inaccuracy", color: "bg-yellow-500/80", text: "text-yellow-400" };
+    return { label: "Minor slip", color: "bg-slate-500/80", text: "text-slate-400" };
+  })();
+
   return (
-    <div className="space-y-4">
-      {/* Header with navigation and understanding summary */}
+    <div className="space-y-4" data-testid="moments-training">
+      {/* Progress bar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="font-semibold">Critical Moments</h3>
-          <Badge variant="outline">{moments.length} to review</Badge>
-          {/* Show understanding-based info if available */}
-          {chessUnderstanding ? (
-            <div className="flex items-center gap-1">
-              <Badge 
-                variant="secondary" 
-                className="bg-amber-500/10 text-amber-400 border-amber-500/20"
-                data-testid="focus-badge"
-              >
-                Focus: {chessUnderstanding.primary_weakness}
-              </Badge>
-              {chessUnderstanding.dimensions?.tactical_vision?.score < 50 && (
-                <Badge 
-                  variant="outline" 
-                  className="text-orange-400 border-orange-500/30 text-xs"
-                >
-                  Check tactics
-                </Badge>
-              )}
-            </div>
-          ) : (
-            /* Fallback to simple level badge */
-            playerLevel && (
-              <Badge 
-                variant="secondary" 
-                className="bg-primary/10 text-primary border-primary/20"
-                data-testid="player-level-badge"
-              >
-                {playerLevelEmoji} {playerLevelDisplay}
-              </Badge>
-            )
-          )}
+        <div className="flex items-center gap-3">
+          <h3 className="font-semibold text-sm">Training Session</h3>
+          <div className="flex gap-1">
+            {moments.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goToMoment(i)}
+                className={`w-2.5 h-2.5 rounded-full transition-all ${
+                  i === currentIndex 
+                    ? "bg-primary scale-125" 
+                    : completedMoments.has(i) 
+                      ? "bg-emerald-500/60" 
+                      : "bg-slate-600"
+                }`}
+                data-testid={`moment-dot-${i}`}
+              />
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {currentIndex + 1} of {moments.length}
+          </span>
         </div>
-        
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handlePrev}
-            disabled={currentIndex === 0}
-            className="h-8 w-8 p-0"
-            data-testid="moment-prev-btn"
-          >
+        <div className="flex gap-1">
+          <Button variant="ghost" size="sm" onClick={handlePrev} disabled={currentIndex === 0} className="h-7 w-7 p-0" data-testid="moment-prev-btn">
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
-            {currentIndex + 1} / {moments.length}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleNext}
-            disabled={currentIndex === moments.length - 1}
-            className="h-8 w-8 p-0"
-            data-testid="moment-next-btn"
-          >
+          <Button variant="ghost" size="sm" onClick={handleNext} disabled={currentIndex === moments.length - 1} className="h-7 w-7 p-0" data-testid="moment-next-btn">
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
-      
+
       {/* Main moment card */}
       <Card className="border-0 bg-slate-800/50 overflow-hidden">
         <CardContent className="p-0">
-          {/* Moment header */}
-          <div className="flex items-center justify-between p-4 border-b border-border/30">
-            <div className="flex items-center gap-3">
-              <Badge className={severity.color}>
+          {/* Moment header with severity + move number */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/20 bg-slate-800/80">
+            <div className="flex items-center gap-2">
+              <Badge className={`${severity.color} text-[10px] px-2 py-0.5`}>
                 Move {moment.move_number}
               </Badge>
-              <span className="text-sm text-muted-foreground">
-                {severity.label}
-              </span>
+              <span className={`text-xs ${severity.text}`}>{severity.label}</span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onNavigateToMove?.(moment.move_number)}
-              className="text-primary"
-            >
-              <Play className="w-3 h-3 mr-1" />
-              See on board
-            </Button>
+            {stage !== STAGES.INTRO && stage !== STAGES.THINKING && (
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                {stage === STAGES.REVEAL ? "Review" : stage === STAGES.REFLECTION ? "Reflect" : stage === STAGES.LESSON ? "Lesson" : "Result"}
+              </Badge>
+            )}
           </div>
-          
-          {/* Pre-reveal state: Socratic prompt */}
-          {!isRevealed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="p-6 text-center"
-            >
-              <div className="mb-6">
-                <HelpCircle className="w-12 h-12 text-primary mx-auto mb-3 opacity-50" />
-                <h4 className="text-lg font-medium mb-2">
-                  {getPersonalizedPrompt().split(".")[0]}.
-                </h4>
-                <p className="text-muted-foreground">
-                  {getPersonalizedPrompt().split(".").slice(1).join(".").trim() || "What would you play?"}
+
+          {/* ============ STAGE: INTRO ============ */}
+          {stage === STAGES.INTRO && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-5">
+              {/* Coach prompt */}
+              <div className="flex items-start gap-3 mb-5">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <MessageCircle className="w-4 h-4 text-primary" />
+                </div>
+                <p className="text-sm leading-relaxed text-foreground" data-testid="coach-prompt">
+                  {coaching.coach_prompt || "Look at this position carefully."}
                 </p>
               </div>
-              
-              {/* Position Hint - Brief explanation to help understand the position */}
-              {positionHint && (
-                <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                  <div className="flex items-center gap-2 justify-center">
-                    <Lightbulb className="w-4 h-4 text-amber-400" />
-                    <p className="text-sm text-amber-300 font-medium">
-                      {formatHint(positionHint, playerLevel)}
-                    </p>
-                  </div>
+
+              {/* Thinking Lens */}
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-5" data-testid="thinking-lens">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <LensIcon className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                    {thinkingLens.label || "Key Moment"}
+                  </span>
                 </div>
-              )}
-              
-              {/* User attempt feedback - enhanced with smart move quality */}
-              {userAttemptResult && (
-                <div className={`mb-4 p-4 rounded-lg ${
-                  userAttemptResult.correct 
-                    ? userAttemptResult.quality === 'best' || userAttemptResult.quality === 'excellent'
-                      ? 'bg-emerald-500/10 border border-emerald-500/20'
-                      : 'bg-yellow-500/10 border border-yellow-500/20'
-                    : userAttemptResult.quality === 'okay' || userAttemptResult.quality === 'inaccuracy'
-                      ? 'bg-yellow-500/10 border border-yellow-500/20'
-                      : 'bg-red-500/10 border border-red-500/20'
-                }`}>
-                  <div className="flex items-start gap-3">
-                    {/* Smart symbol based on quality */}
-                    {userAttemptResult.correct ? (
-                      userAttemptResult.quality === 'best' || userAttemptResult.quality === 'excellent' ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5" />
-                      ) : (
-                        <svg className="w-5 h-5 text-yellow-400 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                      )
-                    ) : userAttemptResult.quality === 'okay' || userAttemptResult.quality === 'inaccuracy' ? (
-                      <svg className="w-5 h-5 text-yellow-400 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                    ) : (
-                      <XCircle className="w-5 h-5 text-red-400 mt-0.5" />
-                    )}
-                    <div className="flex-1">
-                      <p className={`font-medium mb-1 ${
-                        userAttemptResult.correct 
-                          ? userAttemptResult.quality === 'best' || userAttemptResult.quality === 'excellent'
-                            ? 'text-emerald-400'
-                            : 'text-yellow-400'
-                          : userAttemptResult.quality === 'okay' || userAttemptResult.quality === 'inaccuracy'
-                            ? 'text-yellow-400'
-                            : 'text-red-400'
-                      }`}>
-                        {userAttemptResult.correct 
-                          ? userAttemptResult.message || getCoachText("correctPraise", playerLevel)
-                          : userAttemptResult.message || getMistakeFeedback()
-                        }
-                      </p>
-                      
-                      {/* Show detailed feedback */}
-                      {userAttemptResult.feedback && (
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {userAttemptResult.feedback}
-                        </p>
-                      )}
-                      
-                      {/* Show comparison to original move */}
-                      {userAttemptResult.comparison === 'better' && (
-                        <div className="mt-2 p-2 bg-emerald-500/10 rounded border border-emerald-500/20">
-                          <p className="text-xs text-emerald-400">
-                            <CheckCircle2 className="w-3 h-3 inline mr-1" />
-                            <span className="font-medium">Nice improvement!</span> Better than your original move.
-                          </p>
-                        </div>
-                      )}
-                      {userAttemptResult.comparison === 'same' && !userAttemptResult.correct && (
-                        <div className="mt-2 p-2 bg-yellow-500/10 rounded border border-yellow-500/20">
-                          <p className="text-xs text-yellow-400">
-                            <svg className="w-3 h-3 inline mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M12 9v2m0 4h.01" />
-                            </svg>
-                            <span className="font-medium">Same as before.</span> Try to find a better move!
-                          </p>
-                        </div>
-                      )}
-                      
-                      {/* Show punishing move animation feedback */}
-                      {!userAttemptResult.correct && userAttemptResult.showPunishment && userAttemptResult.punishingMove && (
-                        <motion.div 
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="mt-3 p-3 bg-orange-500/20 rounded-lg border border-orange-500/30"
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <Zap className="w-4 h-4 text-orange-400" />
-                            <p className="text-sm font-medium text-orange-300">
-                              Opponent punishes with {userAttemptResult.punishingMove}!
-                            </p>
-                          </div>
-                          <p className="text-xs text-orange-200/80">
-                            Watch the board - this is what happens after your move.
-                          </p>
-                        </motion.div>
-                      )}
-                      
-                      {/* Show threat info before punishment - only for bad moves */}
-                      {!userAttemptResult.correct && !userAttemptResult.showPunishment && userAttemptResult.threat && 
-                       userAttemptResult.quality !== 'okay' && userAttemptResult.quality !== 'inaccuracy' && (
-                        <div className="mt-2 p-2 bg-orange-500/10 rounded border border-orange-500/20">
-                          <p className="text-xs text-orange-400">
-                            <span className="font-medium">Watch the board...</span> Opponent's response coming
-                          </p>
-                        </div>
-                      )}
-                      
-                      {/* Try Again button - appears after feedback */}
-                      {!userAttemptResult.correct && userAttemptResult.showTryAgain && (
-                        <div className="mt-3 space-y-2">
-                          <p className="text-xs text-muted-foreground">
-                            {userAttemptResult.quality === 'okay' || userAttemptResult.quality === 'inaccuracy'
-                              ? "Good try! Can you find the best move?"
-                              : getCoachText("tryAgainPrompt", playerLevel)
-                            }
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onTryAgain?.()}
-                            className="gap-2"
-                            data-testid="try-again-btn"
-                          >
-                            <Play className="w-3 h-3" />
-                            Try Again
-                          </Button>
-                        </div>
-                      )}
-                      
-                      {/* Next Moment button - appears after CORRECT move */}
-                      {userAttemptResult.correct && (
-                        <div className="mt-3">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => {
-                              // Clear the result and move to next moment
-                              if (currentIndex < moments.length - 1) {
-                                handleNext();
-                              }
-                            }}
-                            disabled={currentIndex >= moments.length - 1}
-                            className="gap-2"
-                            data-testid="next-moment-btn"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                            {currentIndex >= moments.length - 1 ? "All Done!" : "Next Moment"}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                <p className="text-sm text-amber-200/90">
+                  {thinkingLens.text || "Study this position carefully."}
+                </p>
+              </div>
+
+              <Button
+                onClick={() => setStage(STAGES.THINKING)}
+                className="w-full gap-2"
+                data-testid="continue-to-thinking-btn"
+              >
+                <Brain className="w-4 h-4" />
+                Start Thinking
+              </Button>
+            </motion.div>
+          )}
+
+          {/* ============ STAGE: THINKING ============ */}
+          {stage === STAGES.THINKING && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-5">
+              {/* Thinking Lens reminder (compact) */}
+              <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-amber-500/10 rounded-md" data-testid="thinking-lens-compact">
+                <LensIcon className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-xs text-amber-300 font-medium">{thinkingLens.label}</span>
+              </div>
+
+              {/* Thinking Questions */}
+              <div className="space-y-2.5 mb-6" data-testid="thinking-questions">
+                {(coaching.thinking_questions || []).map((q, i) => (
+                  <div key={i} className="flex items-start gap-2.5 text-sm">
+                    <span className="w-5 h-5 rounded-full bg-slate-700 text-slate-300 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                      {i + 1}
+                    </span>
+                    <p className="text-muted-foreground leading-relaxed">{q}</p>
                   </div>
-                </div>
-              )}
-              
-              <div className="flex gap-3 justify-center">
+                ))}
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    onStartInteractive?.(moment);
-                  }}
-                  className="gap-2"
+                  onClick={() => onStartInteractive?.(moment)}
+                  className="flex-1 gap-2"
+                  data-testid="try-move-btn"
                 >
                   <Play className="w-4 h-4" />
-                  Try Move on Board
+                  Try move on board
                 </Button>
                 <Button
+                  variant="ghost"
                   onClick={handleReveal}
-                  className="gap-2"
+                  className="text-muted-foreground gap-2"
+                  data-testid="reveal-btn"
                 >
                   <Eye className="w-4 h-4" />
-                  Reveal Best Move
+                  Reveal
+                </Button>
+              </div>
+
+              {/* User attempt feedback */}
+              <AnimatePresence>
+                {userAttemptResult && stage === STAGES.THINKING && (
+                  <MoveAttemptFeedback
+                    result={userAttemptResult}
+                    onReveal={handleReveal}
+                    onTryAgain={onTryAgain}
+                  />
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+
+          {/* ============ STAGE: ATTEMPT RESULT ============ */}
+          {stage === STAGES.ATTEMPT_RESULT && userAttemptResult && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-5">
+              <MoveAttemptFeedback
+                result={userAttemptResult}
+                onReveal={handleReveal}
+                onTryAgain={onTryAgain}
+                standalone
+              />
+            </motion.div>
+          )}
+
+          {/* ============ STAGE: REVEAL ============ */}
+          {stage === STAGES.REVEAL && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="divide-y divide-border/20">
+              {/* Best Move */}
+              <div className="p-4 bg-emerald-500/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Best Move</span>
+                </div>
+                <p className="text-xl font-bold text-emerald-400 mb-1" data-testid="best-move-text">
+                  {moment.best_move}
+                </p>
+                {insight.what_best_move_achieves && (
+                  <p className="text-sm text-emerald-200/80 leading-relaxed" data-testid="best-move-why">
+                    {insight.what_best_move_achieves}
+                  </p>
+                )}
+                {onPlayBestLine && (
+                  <Button variant="ghost" size="sm" onClick={() => onPlayBestLine(moment)} className="mt-2 text-xs text-emerald-400 hover:text-emerald-300 p-0 h-auto gap-1">
+                    <Play className="w-3 h-3" /> Play this line
+                  </Button>
+                )}
+              </div>
+
+              {/* Your Move */}
+              <div className="p-4 bg-red-500/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <XCircle className="w-4 h-4 text-red-400" />
+                  <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">You played</span>
+                </div>
+                <p className="text-xl font-bold text-red-400 mb-1" data-testid="your-move-text">
+                  {moment.your_move}
+                </p>
+                {insight.why_your_move_failed && (
+                  <p className="text-sm text-red-200/80 leading-relaxed">
+                    {insight.why_your_move_failed}
+                  </p>
+                )}
+              </div>
+
+              {/* What you missed */}
+              {insight.what_you_missed && (
+                <div className="p-4 bg-amber-500/5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Eye className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">What You Missed</span>
+                  </div>
+                  <p className="text-sm text-amber-200/90 leading-relaxed">
+                    {insight.what_you_missed}
+                  </p>
+                </div>
+              )}
+
+              <div className="p-3 flex justify-end">
+                <Button size="sm" onClick={() => setStage(STAGES.REFLECTION)} className="gap-2" data-testid="continue-to-reflection-btn">
+                  Continue
+                  <ChevronRight className="w-3 h-3" />
                 </Button>
               </div>
             </motion.div>
           )}
-          
-          {/* Post-reveal state: Full explanation */}
-          <AnimatePresence>
-            {isRevealed && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="divide-y divide-border/30"
+
+          {/* ============ STAGE: REFLECTION ============ */}
+          {stage === STAGES.REFLECTION && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <HelpCircle className="w-4 h-4 text-violet-400" />
+                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Reflection</span>
+              </div>
+              <p className="text-sm font-medium mb-4" data-testid="reflection-prompt">
+                {coaching.reflection?.prompt || "What did you overlook?"}
+              </p>
+              <div className="grid grid-cols-2 gap-2 mb-4" data-testid="reflection-options">
+                {(coaching.reflection?.options || []).map((opt) => (
+                  <Button
+                    key={opt.id}
+                    variant={reflectionAnswer === opt.id ? "default" : "outline"}
+                    size="sm"
+                    className={`text-xs justify-start h-auto py-2 px-3 whitespace-normal text-left ${
+                      reflectionAnswer === opt.id ? "ring-2 ring-violet-500/50" : ""
+                    }`}
+                    onClick={() => {
+                      setReflectionAnswer(opt.id);
+                      // Reflections are stored silently — no modal needed
+                    }}
+                    data-testid={`reflection-option-${opt.id}`}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setStage(STAGES.LESSON)}
+                disabled={!reflectionAnswer}
+                className="w-full gap-2"
+                data-testid="continue-to-lesson-btn"
               >
-                {/* Best Move Reveal */}
-                <div className="p-4 bg-emerald-500/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      <span className="text-xs font-medium text-emerald-400 uppercase tracking-wide">
-                        Best Move
-                      </span>
-                    </div>
-                    {/* Play Best Line Button */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onPlayBestLine?.(moment)}
-                      className="text-emerald-400 hover:text-emerald-300 gap-1"
-                    >
-                      <Play className="w-3 h-3" />
-                      Play Line
-                    </Button>
-                  </div>
-                  <p className="text-xl font-bold text-emerald-400 mb-2">
-                    {moment.best_move}
-                  </p>
-                  
-                  {/* Show best line if available */}
-                  {(moment.pv_after_best || moment.best_line) && (
-                    <p className="text-xs text-emerald-300/70 mb-2 font-mono">
-                      {moment.best_move} {Array.isArray(moment.pv_after_best) 
-                        ? moment.pv_after_best.slice(0, 5).join(' ')
-                        : moment.best_line?.split(' ').slice(0, 5).join(' ')}
-                    </p>
-                  )}
-                  
-                  {/* Why it works */}
-                  {insight.what_best_move_achieves && (
-                    <div className="mt-3 p-3 rounded-lg bg-emerald-500/10">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-medium text-emerald-400">
-                          Why it works
-                        </p>
-                        <button
-                          onClick={() => handleFeedbackClick("what_best_achieves", insight.what_best_move_achieves)}
-                          className="text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          Not helpful?
-                        </button>
-                      </div>
-                      <p className="text-sm text-emerald-200">
-                        {insight.what_best_move_achieves}
-                      </p>
-                    </div>
-                  )}
+                See Lesson
+                <ChevronRight className="w-3 h-3" />
+              </Button>
+            </motion.div>
+          )}
+
+          {/* ============ STAGE: LESSON ============ */}
+          {stage === STAGES.LESSON && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-5">
+              <div className="p-4 bg-violet-500/10 border border-violet-500/20 rounded-lg mb-5" data-testid="lesson-takeaway">
+                <div className="flex items-center gap-2 mb-2">
+                  <Lightbulb className="w-4 h-4 text-violet-400" />
+                  <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Lesson</span>
                 </div>
-                
-                {/* Your Move */}
-                <div className="p-4 bg-red-500/5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <XCircle className="w-4 h-4 text-red-400" />
-                    <span className="text-xs font-medium text-red-400 uppercase tracking-wide">
-                      Your Move
-                    </span>
-                  </div>
-                  <p className="text-xl font-bold text-red-400 mb-2">
-                    {moment.your_move}
+                <p className="text-sm font-medium text-violet-200 leading-relaxed">
+                  {coaching.lesson_takeaway || insight.pattern_to_remember || "Learn from this position."}
+                </p>
+                {insight.ask_yourself && (
+                  <p className="text-xs text-muted-foreground mt-2 italic">
+                    Ask yourself: "{insight.ask_yourself}"
                   </p>
-                  
-                  {/* Why it failed */}
-                  {insight.why_your_move_failed && (
-                    <div className="mt-3 p-3 rounded-lg bg-red-500/10">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-medium text-red-400">
-                          Why it didn't work
-                        </p>
-                        <button
-                          onClick={() => handleFeedbackClick("why_move_failed", insight.why_your_move_failed)}
-                          className="text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          Not helpful?
-                        </button>
-                      </div>
-                      <p className="text-sm text-red-200">
-                        {insight.why_your_move_failed}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                {/* What you missed */}
-                {insight.what_you_missed && (
-                  <div className="p-4 bg-amber-500/5">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Eye className="w-4 h-4 text-amber-400" />
-                        <span className="text-xs font-medium text-amber-400 uppercase tracking-wide">
-                          What You Didn't See
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleFeedbackClick("what_you_missed", insight.what_you_missed)}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Not helpful?
-                      </button>
-                    </div>
-                    <p className="text-sm text-amber-200">
-                      {insight.what_you_missed}
-                    </p>
+                )}
+              </div>
+
+              {/* Navigation */}
+              <div className="flex items-center justify-between">
+                <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={handleNext}>
+                  <ThumbsUp className="w-3 h-3" /> Got it
+                </Button>
+                {currentIndex < moments.length - 1 ? (
+                  <Button size="sm" onClick={handleNext} className="gap-2" data-testid="next-moment-btn">
+                    Next Moment
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-emerald-400">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span className="font-medium">Session Complete</span>
                   </div>
                 )}
-                
-                {/* Pattern to Remember - The takeaway */}
-                {insight.pattern_to_remember && (
-                  <div className="p-4 bg-violet-500/5">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Lightbulb className="w-4 h-4 text-violet-400" />
-                        <span className="text-xs font-medium text-violet-400 uppercase tracking-wide">
-                          Pattern to Remember
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm font-medium text-violet-200">
-                      {insight.pattern_to_remember}
-                    </p>
-                    
-                    {/* Optional: Ask yourself prompt */}
-                    {insight.ask_yourself && (
-                      <p className="text-sm text-muted-foreground mt-2 italic">
-                        Ask yourself: "{insight.ask_yourself}"
-                      </p>
-                    )}
-                  </div>
-                )}
-                
-                {/* Feedback prompt */}
-                <div className="p-3 bg-slate-900/50 flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    Did this explanation help?
-                  </p>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-7 text-xs gap-1"
-                      onClick={() => {
-                        // Just move to next moment - no modal needed for positive feedback
-                        if (currentIndex < moments.length - 1) {
-                          handleNext();
-                        } else {
-                          // Last moment - could show a completion message
-                          toast.success("Great job reviewing all moments!");
-                        }
-                      }}
-                    >
-                      <ThumbsUp className="w-3 h-3" />
-                      Yes, I get it
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-7 text-xs gap-1"
-                      onClick={() => handleFeedbackClick("confused", "Still confused about this position")}
-                    >
-                      <ThumbsDown className="w-3 h-3" />
-                      Still confused
-                    </Button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
         </CardContent>
       </Card>
-      
-      {/* Navigation hint */}
-      {currentIndex < moments.length - 1 && isRevealed && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center"
-        >
-          <Button
-            variant="outline"
-            onClick={handleNext}
-            className="gap-2"
-          >
-            Next Moment
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </motion.div>
-      )}
     </div>
+  );
+};
+
+/**
+ * Sub-component: Feedback after user tries a move
+ */
+const MoveAttemptFeedback = ({ result, onReveal, onTryAgain, standalone = false }) => {
+  if (!result) return null;
+
+  const isCorrect = result.correct;
+  const quality = result.quality;
+  const isGood = isCorrect || quality === "excellent" || quality === "best";
+  const isOkay = quality === "okay" || quality === "inaccuracy";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`${standalone ? "" : "mt-4"} p-4 rounded-lg ${
+        isGood ? "bg-emerald-500/10 border border-emerald-500/20"
+        : isOkay ? "bg-yellow-500/10 border border-yellow-500/20"
+        : "bg-red-500/10 border border-red-500/20"
+      }`}
+      data-testid="attempt-feedback"
+    >
+      <div className="flex items-start gap-3">
+        {isGood ? (
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 flex-shrink-0" />
+        ) : isOkay ? (
+          <AlertTriangle className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+        ) : (
+          <XCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+        )}
+        <div className="flex-1 space-y-2">
+          <p className={`font-medium text-sm ${
+            isGood ? "text-emerald-400" : isOkay ? "text-yellow-400" : "text-red-400"
+          }`}>
+            {result.message || (isGood ? "Well done!" : isOkay ? "Close, but there's better." : "Not quite.")}
+          </p>
+          {result.feedback && (
+            <p className="text-xs text-muted-foreground">{result.feedback}</p>
+          )}
+          {!isCorrect && result.punishingMove && result.showPunishment && (
+            <p className="text-xs text-orange-400">
+              <Zap className="w-3 h-3 inline mr-1" />
+              Opponent punishes with {result.punishingMove}
+            </p>
+          )}
+          <div className="flex gap-2 pt-1">
+            {!isCorrect && result.showTryAgain && onTryAgain && (
+              <Button variant="outline" size="sm" onClick={onTryAgain} className="text-xs gap-1" data-testid="try-again-btn">
+                <Play className="w-3 h-3" /> Try Again
+              </Button>
+            )}
+            <Button size="sm" onClick={onReveal} className="text-xs gap-1" data-testid="reveal-after-attempt-btn">
+              <Eye className="w-3 h-3" /> {isCorrect ? "See Full Analysis" : "Reveal Coach Explanation"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 

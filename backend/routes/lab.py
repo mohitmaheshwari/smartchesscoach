@@ -705,6 +705,7 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
         generate_move_specific_insight,
         generate_strategic_lesson
     )
+    from services.coaching_moment_enricher import enrich_moment_for_coaching
     
     # Get game and analysis
     analysis = await db.game_analyses.find_one({
@@ -786,6 +787,9 @@ async def get_deep_strategy_analysis(game_id: str, user: User = Depends(get_curr
                 
                 # Enrich with theory recommendations
                 moment_data = enrich_moment_with_theories(moment_data)
+                
+                # Enrich with coaching data (thinking lens, questions, lessons)
+                moment_data = enrich_moment_for_coaching(moment_data)
                 
                 critical_moments.append(moment_data)
     
