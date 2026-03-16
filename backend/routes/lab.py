@@ -400,6 +400,8 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                     "move_number": move_num,
                     "move": m.get("move"),
                     "best_move": m.get("best_move"),
+                    "move_uci": m.get("move_uci"),  # For arrow display
+                    "best_move_uci": m.get("best_move_uci"),  # For arrow display
                     "eval_before": m.get("eval_before"),
                     "eval_after": m.get("eval_after"),
                     "cp_loss": cp_loss,
@@ -411,10 +413,20 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                     "max_recovery_attempt": max_user_recovery
                 })
         
-        # Pick the turning point with LARGEST EVAL DROP (not earliest!)
-        # This is the move that ACTUALLY decided the game
+        # Pick the TRUE turning point
+        # Priority: EARLIEST significant drop (not largest!)
+        # Rationale: Later blunders are often consequences of earlier mistakes
+        # A player who's losing badly may make a frustration blunder (Move 35)
+        # But the game was actually lost earlier (Move 31)
         if turning_point_candidates:
-            turning_point_data = max(turning_point_candidates, key=lambda x: x["eval_drop"])
+            # Filter to significant drops only (>200 eval drop)
+            significant = [c for c in turning_point_candidates if c["eval_drop"] >= 200]
+            if significant:
+                # Pick EARLIEST among significant drops
+                turning_point_data = min(significant, key=lambda x: x["move_number"])
+            else:
+                # Fallback to earliest candidate
+                turning_point_data = min(turning_point_candidates, key=lambda x: x["move_number"])
             
             # Use the adaptive explainer for rich, rating-aware explanation
             explainer = get_turning_point_explainer()
@@ -437,6 +449,8 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                     "move_number": turning_point_data["move_number"],
                     "move": turning_point_data.get("move", ""),
                     "best_move": turning_point_data.get("best_move", ""),
+                    "move_uci": turning_point_data.get("move_uci", ""),
+                    "best_move_uci": turning_point_data.get("best_move_uci", ""),
                     "eval_before": turning_point_data["eval_before"],
                     "eval_after": turning_point_data["eval_after"],
                     "eval_drop": turning_point_data["eval_drop"],
@@ -477,6 +491,8 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
                     "move_number": turning_point_data["move_number"],
                     "move": turning_point_data.get("move", ""),
                     "best_move": turning_point_data.get("best_move", ""),
+                    "move_uci": turning_point_data.get("move_uci", ""),
+                    "best_move_uci": turning_point_data.get("best_move_uci", ""),
                     "eval_before": turning_point_data["eval_before"],
                     "eval_after": turning_point_data["eval_after"],
                     "eval_drop": eval_drop,

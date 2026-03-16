@@ -122,6 +122,8 @@ const GameSummary = ({
       moveNum: turningPoint.move_number,
       yourMove: turningPoint.move,
       bestMove: turningPoint.best_move,
+      yourMoveUci: turningPoint.move_uci,  // For arrow display
+      bestMoveUci: turningPoint.best_move_uci,  // For arrow display
       explanation: turningPoint.description || "After this move, you never recovered.",
       fen: turningPoint.fen_before,
       type: "turning_point",
@@ -447,7 +449,11 @@ const GameSummary = ({
                     variant="ghost"
                     size="sm"
                     className="mt-3 text-xs text-red-300 hover:text-red-200 p-0 h-auto"
-                    onClick={() => onNavigateToMove(turningPointData.moveNum, turningPointData.yourMove, turningPointData.bestMove)}
+                    onClick={() => onNavigateToMove(
+                      turningPointData.moveNum, 
+                      turningPointData.yourMoveUci || turningPointData.yourMove, 
+                      turningPointData.bestMoveUci || turningPointData.bestMove
+                    )}
                   >
                     View position <ChevronRight className="w-3 h-3 ml-1" />
                   </Button>
