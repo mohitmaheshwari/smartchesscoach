@@ -109,7 +109,13 @@ const GameSummary = ({
       bestMove: turningPoint.best_move,
       explanation: turningPoint.description || "After this move, you never recovered.",
       fen: turningPoint.fen_before,
-      type: "turning_point"
+      type: "turning_point",
+      // Rich explanation fields (from adaptive explainer)
+      missedIdea: turningPoint.missed_idea,
+      opponentIdea: turningPoint.opponent_idea,
+      thinkingError: turningPoint.thinking_error,
+      trainingTip: turningPoint.training_tip,
+      severity: turningPoint.severity
     };
   };
   
@@ -322,18 +328,48 @@ const GameSummary = ({
                   </span>
                 </div>
                 
+                {/* Main explanation */}
                 <p className="text-sm leading-relaxed mb-3">
                   {turningPointData.explanation}
                 </p>
                 
+                {/* What you missed */}
+                {turningPointData.missedIdea && (
+                  <p className="text-xs text-red-200/80 mb-2">
+                    <span className="font-medium">What you missed:</span> {turningPointData.missedIdea}
+                  </p>
+                )}
+                
+                {/* Opponent's idea */}
+                {turningPointData.opponentIdea && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    <span className="font-medium">Opponent's idea:</span> {turningPointData.opponentIdea}
+                  </p>
+                )}
+                
+                {/* Moves comparison */}
                 {turningPointData.yourMove && turningPointData.bestMove && (
-                  <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-4 text-xs mb-3">
                     <span className="text-red-300">
                       You played: <span className="font-mono font-medium">{turningPointData.yourMove}</span>
                     </span>
                     <span className="text-emerald-300">
                       Better: <span className="font-mono font-medium">{turningPointData.bestMove}</span>
                     </span>
+                  </div>
+                )}
+                
+                {/* Thinking error + Training tip */}
+                {turningPointData.thinkingError && (
+                  <div className="mt-3 p-2 bg-red-500/10 rounded-md">
+                    <p className="text-xs text-red-200/90 mb-1">
+                      <span className="font-medium">Thinking habit:</span> {turningPointData.thinkingError}
+                    </p>
+                    {turningPointData.trainingTip && (
+                      <p className="text-xs text-emerald-300/80">
+                        <span className="font-medium">Tip:</span> {turningPointData.trainingTip}
+                      </p>
+                    )}
                   </div>
                 )}
                 

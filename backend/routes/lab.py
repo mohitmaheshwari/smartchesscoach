@@ -150,6 +150,11 @@ from mistake_explanation_service import (
     get_quick_explanation
 )
 
+from services.turning_point_explainer import (
+    get_turning_point_explainer,
+    TurningPointExplanation
+)
+
 # Import Coach Personality Service for personalized language
 from services.coach_personality import (
     get_player_level,
@@ -296,6 +301,15 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
     # Logic: Find the move with largest eval drop that made recovery impossible
     # Not just "first time going negative" but "the move that lost the game"
     user_color = game.get("user_color", "white") if game else "white"
+    
+    # Get user's rating from game for adaptive explanation
+    user_rating = 1200  # Default
+    if game:
+        if user_color == "white":
+            user_rating = game.get("white_rating") or 1200
+        else:
+            user_rating = game.get("black_rating") or 1200
+    
     turning_point = None
     missed_recovery = None
     
@@ -359,48 +373,68 @@ async def get_lab_page_data(game_id: str, user: User = Depends(get_current_user)
             # Pick the one with largest eval drop - that's the TRUE turning point
             turning_point_data = max(unrecoverable_mistakes, key=lambda x: x["eval_drop"])
             
-            # Generate behavioral explanation
-            threat = turning_point_data.get("threat", "")
-            move = turning_point_data.get("move", "")
-            best = turning_point_data.get("best_move", "")
-            eval_drop = turning_point_data.get("eval_drop", 0)
-            
-            # Build explanation based on what happened
-            if eval_drop >= 400:
-                severity = "This move gave away the game."
-            elif eval_drop >= 200:
-                severity = "This mistake was too big to recover from."
-            else:
-                severity = "After this, the position became very difficult."
-            
-            # Add behavioral insight based on threat
-            behavioral_insight = ""
-            if threat:
-                threat_lower = threat.lower()
-                if "fork" in threat_lower:
-                    behavioral_insight = " You didn't see the fork coming."
-                elif "pin" in threat_lower:
-                    behavioral_insight = " The pin was hard to spot, but it decided the game."
-                elif "mate" in threat_lower or "checkmate" in threat_lower:
-                    behavioral_insight = " There was a mating threat you missed."
-                elif "hanging" in threat_lower or "loose" in threat_lower:
-                    behavioral_insight = " A piece was left undefended."
-                elif "back rank" in threat_lower:
-                    behavioral_insight = " The back rank weakness was exploited."
+            # Use the adaptive explainer for rich, rating-aware explanation
+            explainer = get_turning_point_explainer()
+            try:
+                import asyncio
+                explanation = asyncio.get_event_loop().run_until_complete(
+                    explainer.explain(
+                        fen=turning_point_data.get("fen_before", ""),
+                        user_move=turning_point_data.get("move", ""),
+                        best_move=turning_point_data.get("best_move", ""),
+                        cp_loss=int(turning_point_data.get("eval_drop", 0)),
+                        user_rating=user_rating,
+                        threat=turning_point_data.get("threat"),
+                        eval_before=turning_point_data.get("eval_before"),
+                        eval_after=turning_point_data.get("eval_after")
+                    )
+                )
+                
+                turning_point = {
+                    "move_number": turning_point_data["move_number"],
+                    "move": turning_point_data.get("move", ""),
+                    "best_move": turning_point_data.get("best_move", ""),
+                    "eval_before": turning_point_data["eval_before"],
+                    "eval_after": turning_point_data["eval_after"],
+                    "eval_drop": turning_point_data["eval_drop"],
+                    "fen_before": turning_point_data["fen_before"],
+                    "type": "true_turning_point",
+                    # Rich, adaptive explanation
+                    "description": explanation.main_text,
+                    "missed_idea": explanation.missed_idea,
+                    "opponent_idea": explanation.opponent_idea,
+                    "thinking_error": explanation.thinking_error,
+                    "training_tip": explanation.training_tip,
+                    "severity": explanation.severity
+                }
+            except Exception as e:
+                logger.warning(f"Explainer failed, using basic explanation: {e}")
+                # Fallback to basic explanation
+                eval_drop = turning_point_data.get("eval_drop", 0)
+                threat = turning_point_data.get("threat", "")
+                
+                if eval_drop >= 400:
+                    severity = "This move gave away the game."
+                elif eval_drop >= 200:
+                    severity = "This mistake was too big to recover from."
                 else:
+                    severity = "After this, the position became very difficult."
+                
+                behavioral_insight = ""
+                if threat:
                     behavioral_insight = f" {threat}"
-            
-            turning_point = {
-                "move_number": turning_point_data["move_number"],
-                "move": move,
-                "best_move": best,
-                "eval_before": turning_point_data["eval_before"],
-                "eval_after": turning_point_data["eval_after"],
-                "eval_drop": eval_drop,
-                "fen_before": turning_point_data["fen_before"],
-                "type": "true_turning_point",
-                "description": f"{severity}{behavioral_insight}"
-            }
+                
+                turning_point = {
+                    "move_number": turning_point_data["move_number"],
+                    "move": turning_point_data.get("move", ""),
+                    "best_move": turning_point_data.get("best_move", ""),
+                    "eval_before": turning_point_data["eval_before"],
+                    "eval_after": turning_point_data["eval_after"],
+                    "eval_drop": eval_drop,
+                    "fen_before": turning_point_data["fen_before"],
+                    "type": "true_turning_point",
+                    "description": f"{severity}{behavioral_insight}"
+                }
         
         # Find missed recovery opportunities
         # Look for moments when user was losing but had a chance to fight back
