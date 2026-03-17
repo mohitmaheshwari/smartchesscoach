@@ -61,7 +61,8 @@ import {
   ThumbsDown,
   X,
   History,
-  Compass
+  Compass,
+  Clock
 } from "lucide-react";
 import { formatEvalWithContext, formatCpLoss } from "@/utils/evalFormatter";
 import FeedbackModal from "@/components/FeedbackModal";
@@ -139,6 +140,7 @@ const Lab = ({ user }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [coachCommentary, setCoachCommentary] = useState(null);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const [analysisQueueStatus, setAnalysisQueueStatus] = useState(null);
   
   // Board states
   const [moves, setMoves] = useState([]);
@@ -232,6 +234,7 @@ const Lab = ({ user }) => {
           const statusRes = await fetch(`${API}/games/${gameId}/analysis-status`, { credentials: "include" });
           if (statusRes.ok) {
             const status = await statusRes.json();
+            setAnalysisQueueStatus(status);
             if (status.status === "analyzed") {
               clearInterval(pollInterval);
               // Refetch analysis
@@ -249,7 +252,7 @@ const Lab = ({ user }) => {
               setReanalyzing(false);
             } else if (status.status === "failed") {
               clearInterval(pollInterval);
-              toast.error("Analysis failed. Please try again.");
+              toast.error(status.last_error || "Analysis failed. Please try again.");
               setReanalyzing(false);
             }
           }
@@ -302,6 +305,15 @@ const Lab = ({ user }) => {
             }
           }
         }
+
+        try {
+          const statusResponse = await fetch(`${API}/games/${gameId}/analysis-status`, { credentials: "include" });
+          if (statusResponse.ok) {
+            setAnalysisQueueStatus(await statusResponse.json());
+          }
+        } catch (e) {
+          console.log("Analysis queue status not available");
+        }
         
         // Fetch lab-specific data
         const labResponse = await fetch(`${API}/lab/${gameId}`, { credentials: "include" });
@@ -331,6 +343,78 @@ const Lab = ({ user }) => {
     };
     fetchData();
   }, [gameId, navigate]);
+
+  useEffect(() => {
+    if (!analysisQueueStatus || !["pending", "processing", "failed"].includes(analysisQueueStatus.status)) {
+      return undefined;
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API}/games/${gameId}/analysis-status`, { credentials: "include" });
+        if (!response.ok) return;
+
+        const status = await response.json();
+        setAnalysisQueueStatus(status);
+
+        if (status.status === "analyzed") {
+          const [analysisResponse, labResponse] = await Promise.all([
+            fetch(`${API}/analysis/${gameId}`, { credentials: "include" }),
+            fetch(`${API}/lab/${gameId}`, { credentials: "include" })
+          ]);
+
+          if (analysisResponse.ok) {
+            setAnalysis(await analysisResponse.json());
+          }
+          if (labResponse.ok) {
+            setLabData(await labResponse.json());
+          }
+
+          toast.success("Analysis complete!");
+          setReanalyzing(false);
+        } else if (status.status === "failed") {
+          setReanalyzing(false);
+        }
+      } catch (error) {
+        console.error("Analysis queue poll error:", error);
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [analysisQueueStatus?.status, gameId]);
+
+  const analysisStatusCard = (() => {
+    if (!analysisQueueStatus || !["pending", "processing", "failed"].includes(analysisQueueStatus.status)) {
+      return null;
+    }
+
+    const isProcessing = analysisQueueStatus.status === "processing";
+    const isFailed = analysisQueueStatus.status === "failed";
+    const isRetrying = analysisQueueStatus.retrying === true;
+
+    return {
+      title: isFailed
+        ? "Analysis failed"
+        : isProcessing
+        ? "Analysis is running now"
+        : isRetrying
+        ? "Retrying analysis"
+        : "Waiting in analysis queue",
+      body: isFailed
+        ? (analysisQueueStatus.last_error || "This game could not be analyzed after retries.")
+        : isRetrying
+        ? `Retry ${Math.min(analysisQueueStatus.retry_count || 0, 3)} of 3 after a stuck analysis job.`
+        : isProcessing
+        ? "Your game is actively being analyzed. It should appear in progress once the worker finishes."
+        : "Your game is queued and will be picked up when earlier analysis jobs finish.",
+      detail: !isFailed && analysisQueueStatus.last_error
+        ? `Last issue: ${analysisQueueStatus.last_error}`
+        : null,
+      toneClass: isFailed
+        ? "border-red-500/30 bg-red-500/5 text-red-400"
+        : "border-amber-500/30 bg-amber-500/5 text-amber-400"
+    };
+  })();
 
   // Fetch deep strategy analysis when Strategy tab is selected
   useEffect(() => {
@@ -1270,6 +1354,25 @@ const Lab = ({ user }) => {
                 <span>Focus Lock</span>
               </div>
             )}
+
+            {analysisStatusCard && (
+              <div
+                className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border max-w-md ${analysisStatusCard.toneClass}`}
+                data-testid="lab-analysis-queue-status-inline"
+              >
+                {analysisQueueStatus?.status === "processing" ? (
+                  <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+                ) : analysisQueueStatus?.status === "failed" ? (
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                ) : (
+                  <Clock className="w-4 h-4 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{analysisStatusCard.title}</p>
+                  <p className="text-xs opacity-80 truncate">{analysisStatusCard.body}</p>
+                </div>
+              </div>
+            )}
             
             {/* Core Lesson - One sentence */}
             {coreLesson && coreLesson.pattern === "needs_detailed_analysis" ? (
@@ -1385,9 +1488,9 @@ const Lab = ({ user }) => {
               {/* Board */}
               <div className="relative w-full max-w-[500px] aspect-square">
                 <LichessBoard
-                  fen={typeof positionObject === 'string' ? positionObject : game.fen()}
+                  fen={allFens[currentMoveIndex + 1] || START_FEN}
                   orientation={boardOrientation}
-                  lastMove={lastMove ? [lastMove.slice(0, 2), lastMove.slice(2, 4)] : null}
+                  lastMove={currentMoveIndex >= 0 && moves[currentMoveIndex] ? [moves[currentMoveIndex].from, moves[currentMoveIndex].to] : null}
                   arrows={customArrows?.map(arr => [arr[0], arr[1], arr[2]?.replace?.('#', '') || 'green']) || []}
                   viewOnly={true}
                   interactive={false}
@@ -2538,7 +2641,19 @@ const Lab = ({ user }) => {
                         <div className="text-center py-8">
                           <Sparkles className="w-12 h-12 mx-auto mb-4 text-amber-500/50" />
                           <p className="font-medium text-muted-foreground">No key moments identified</p>
-                          <p className="text-sm text-muted-foreground">Analysis may still be processing</p>
+                          <p className="text-sm text-muted-foreground">
+                            {analysisStatusCard?.title || "Analysis may still be processing"}
+                          </p>
+                          {analysisStatusCard?.body && (
+                            <p className="text-xs text-muted-foreground mt-2" data-testid="lab-analysis-queue-status-detail">
+                              {analysisStatusCard.body}
+                            </p>
+                          )}
+                          {analysisStatusCard?.detail && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {analysisStatusCard.detail}
+                            </p>
+                          )}
                         </div>
                       )}
                     </TabsContent>

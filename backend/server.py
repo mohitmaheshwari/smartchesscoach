@@ -326,6 +326,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 # Global variable to track the background task
 _background_sync_task = None
 _quick_sync_task = None
+_analysis_queue_fallback_task = None
 
 # Sync status tracking with thread-safe lock
 _sync_lock = asyncio.Lock()
@@ -426,6 +427,47 @@ async def quick_sync_loop():
         # Wait 5 minutes before next check
         await asyncio.sleep(QUICK_SYNC_INTERVAL_SECONDS)
 
+
+def _run_analysis_queue_fallback_cycle():
+    """Fallback queue processor.
+
+    If the dedicated analysis worker is not running, this keeps queued games
+    moving by claiming at most one job and processing it in a background thread.
+    It also reuses the worker's stuck-job cleanup rules.
+    """
+    from analysis_worker import claim_next_job, cleanup_stuck_jobs, ensure_stockfish_installed, get_database, process_job
+
+    if not ensure_stockfish_installed():
+        logger.error("Analysis queue fallback processor cannot run because Stockfish is unavailable")
+        return
+
+    sync_db = get_database()
+    cleanup_stuck_jobs(sync_db)
+
+    processing_count = sync_db.analysis_queue.count_documents({"status": "processing"})
+    if processing_count > 0:
+        return
+
+    job = claim_next_job(sync_db)
+    if not job:
+        return
+
+    logger.info(f"Fallback queue processor claimed game {job.get('game_id')}")
+    process_job(sync_db, job)
+
+
+async def analysis_queue_fallback_loop():
+    """Keep the analysis queue moving even when no separate worker process is running."""
+    await asyncio.sleep(15)
+
+    while True:
+        try:
+            await asyncio.to_thread(_run_analysis_queue_fallback_cycle)
+        except Exception as e:
+            logger.error(f"Analysis queue fallback loop error: {e}")
+
+        await asyncio.sleep(15)
+
 # Lifespan context manager (replaces deprecated on_event)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -433,7 +475,7 @@ async def lifespan(app: FastAPI):
     Lifespan context manager for FastAPI.
     Handles startup and shutdown events.
     """
-    global _background_sync_task, _quick_sync_task
+    global _background_sync_task, _quick_sync_task, _analysis_queue_fallback_task
     
     # === STARTUP ===
     # Start the background sync loop (every 6 hours)
@@ -443,6 +485,10 @@ async def lifespan(app: FastAPI):
     # Start quick sync loop (every 5 minutes for real-time game monitoring)
     _quick_sync_task = asyncio.create_task(quick_sync_loop())
     logger.info("Quick sync started (5 minute interval for real-time monitoring)")
+
+    # Start fallback analysis queue processor
+    _analysis_queue_fallback_task = asyncio.create_task(analysis_queue_fallback_loop())
+    logger.info("Analysis queue fallback processor started")
     
     yield  # App runs here
     
@@ -459,6 +505,13 @@ async def lifespan(app: FastAPI):
         _quick_sync_task.cancel()
         try:
             await _quick_sync_task
+        except asyncio.CancelledError:
+            pass
+
+    if _analysis_queue_fallback_task:
+        _analysis_queue_fallback_task.cancel()
+        try:
+            await _analysis_queue_fallback_task
         except asyncio.CancelledError:
             pass
     
@@ -4874,10 +4927,14 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     # (more accurate than games.is_analyzed which can get out of sync)
     analyzed_games = await db.game_analyses.count_documents({"user_id": user.user_id})
     
-    # Count games in queue
-    queued_games = await db.analysis_queue.count_documents({
+    # Count games in queue / retry / failed states
+    active_queued_games = await db.analysis_queue.count_documents({
         "user_id": user.user_id,
         "status": {"$in": ["pending", "processing"]}
+    })
+    queued_games = await db.analysis_queue.count_documents({
+        "user_id": user.user_id,
+        "status": {"$in": ["pending", "processing", "failed"]}
     })
     
     # Get player profile for coaching context
@@ -4900,8 +4957,19 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
     
     # Get queued game IDs FIRST (so we can include them in the query)
     queue_items = await db.analysis_queue.find(
-        {"user_id": user.user_id, "status": {"$in": ["pending", "processing"]}},
-        {"_id": 0, "game_id": 1, "status": 1, "queued_at": 1}
+        {"user_id": user.user_id, "status": {"$in": ["pending", "processing", "failed"]}},
+        {
+            "_id": 0,
+            "game_id": 1,
+            "status": 1,
+            "queued_at": 1,
+            "started_at": 1,
+            "retry_count": 1,
+            "last_error": 1,
+            "last_error_at": 1,
+            "retrying": 1,
+            "failed_at": 1,
+        }
     ).to_list(100)
     queued_game_map = {q["game_id"]: q for q in queue_items}
     queued_game_ids = set(queued_game_map.keys())
@@ -4990,6 +5058,12 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
             queue_info = queued_game_map.get(game_id, {})
             game["analysis_status"] = queue_info.get("status", "pending")
             game["queued_at"] = queue_info.get("queued_at")
+            game["started_at"] = queue_info.get("started_at")
+            game["retry_count"] = queue_info.get("retry_count", 0)
+            game["last_error"] = queue_info.get("last_error")
+            game["last_error_at"] = queue_info.get("last_error_at")
+            game["retrying"] = queue_info.get("retrying", False)
+            game["failed_at"] = queue_info.get("failed_at")
             in_queue_list.append(game)
         elif game.get("is_analyzed"):
             analysis = await db.game_analyses.find_one(
@@ -5056,6 +5130,7 @@ async def get_dashboard_stats(user: User = Depends(get_current_user)):
         "total_games": total_games,
         "analyzed_games": analyzed_games,
         "queued_games": len(in_queue_list),
+        "active_queue_games": active_queued_games,
         "not_analyzed_games": len(not_analyzed_list),  # NEW: count of unanalyzed games
         "top_weaknesses": top_weaknesses,
         "recent_games": recent_games,  # Backward compatibility
@@ -8492,7 +8567,7 @@ async def trigger_auto_coach_analysis(
 async def get_analysis_queue_status(user: User = Depends(get_current_user)):
     """Get all games in the analysis queue for the current user"""
     queue_items = await db.analysis_queue.find(
-        {"user_id": user.user_id, "status": {"$in": ["pending", "processing"]}},
+        {"user_id": user.user_id, "status": {"$in": ["pending", "processing", "failed"]}},
         {"_id": 0}
     ).sort("created_at", 1).to_list(50)
     

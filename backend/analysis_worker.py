@@ -76,12 +76,21 @@ logger = logging.getLogger('analysis_worker')
 POLL_INTERVAL = 2  # Seconds between queue checks
 MAX_RETRIES = 3    # Max retries for failed analysis
 WORKER_ID = f"worker-{os.getpid()}"
-JOB_TIMEOUT_MINUTES = 5  # Reduced timeout for stuck jobs (was 10)
+JOB_TIMEOUT_MINUTES = 10
 HEARTBEAT_INTERVAL = 30  # Seconds between heartbeat updates
 
 # Graceful shutdown flag
 shutdown_requested = False
 last_heartbeat = time.time()
+
+
+def _queue_error_payload(message: str) -> dict:
+    now = datetime.now(timezone.utc)
+    return {
+        "last_error": message[:500],
+        "last_error_at": now,
+        "updated_at": now,
+    }
 
 
 def calculate_turning_point_sync(move_evals, user_color, user_rating):
@@ -284,7 +293,13 @@ def cleanup_stuck_jobs(db):
     # Find stuck jobs
     stuck_jobs = db.analysis_queue.find({
         "status": "processing",
-        "started_at": {"$lt": timeout_threshold}
+        "$or": [
+            {"last_heartbeat": {"$lt": timeout_threshold}},
+            {
+                "last_heartbeat": {"$exists": False},
+                "started_at": {"$lt": timeout_threshold}
+            }
+        ]
     })
     
     stuck_count = 0
@@ -303,14 +318,21 @@ def cleanup_stuck_jobs(db):
                 {
                     "$set": {
                         "status": "failed",
-                        "error": f"Timed out after {JOB_TIMEOUT_MINUTES} minutes (max retries exceeded)",
-                        "failed_at": datetime.now(timezone.utc)
+                        "failed_at": datetime.now(timezone.utc),
+                        "failure_reason": "retry_exhausted_timeout",
+                        "retrying": False,
+                        **_queue_error_payload(
+                            f"Timed out after {JOB_TIMEOUT_MINUTES} minutes while processing (max retries exceeded)"
+                        )
                     }
                 }
             )
             db.games.update_one(
                 {"game_id": game_id},
-                {"$set": {"analysis_status": "failed"}}
+                {"$set": {
+                    "analysis_status": "failed",
+                    "analysis_error": f"Timed out after {JOB_TIMEOUT_MINUTES} minutes while processing"
+                }}
             )
             logger.error(f"Job {game_id} permanently failed after {MAX_RETRIES} retries")
         else:
@@ -321,16 +343,22 @@ def cleanup_stuck_jobs(db):
                     "$set": {
                         "status": "pending",
                         "started_at": None,
+                        "last_heartbeat": None,
                         "worker_id": None,
                         "last_reset_at": datetime.now(timezone.utc),
-                        "reset_reason": f"Timeout after {JOB_TIMEOUT_MINUTES} min (attempt {retry_count + 1})"
+                        "reset_reason": f"Timeout after {JOB_TIMEOUT_MINUTES} min (attempt {retry_count + 1})",
+                        "retrying": True,
+                        "last_retry_at": datetime.now(timezone.utc),
+                        **_queue_error_payload(
+                            f"Analysis worker timed out after {JOB_TIMEOUT_MINUTES} minutes. Retrying attempt {retry_count + 1} of {MAX_RETRIES}."
+                        )
                     },
                     "$inc": {"retry_count": 1}
                 }
             )
             db.games.update_one(
                 {"game_id": game_id},
-                {"$set": {"analysis_status": "queued"}}
+                {"$set": {"analysis_status": "retrying", "analysis_error": None}}
             )
             logger.info(f"Reset stuck job {game_id} for retry (attempt {retry_count + 1}/{MAX_RETRIES})")
         
@@ -360,7 +388,10 @@ def update_job_heartbeat(db, game_id):
     if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
         db.analysis_queue.update_one(
             {"game_id": game_id, "status": "processing"},
-            {"$set": {"last_heartbeat": datetime.now(timezone.utc)}}
+            {"$set": {
+                "last_heartbeat": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc)
+            }}
         )
         last_heartbeat = current_time
         logger.debug(f"Updated heartbeat for {game_id}")
@@ -387,7 +418,10 @@ def claim_next_job(db):
             "$set": {
                 "status": "processing",
                 "worker_id": WORKER_ID,
-                "started_at": datetime.now(timezone.utc)
+                "started_at": datetime.now(timezone.utc),
+                "last_heartbeat": datetime.now(timezone.utc),
+                "retrying": False,
+                "updated_at": datetime.now(timezone.utc)
             }
         },
         sort=[("queued_at", 1)],  # FIFO - oldest first
@@ -678,7 +712,7 @@ def process_job(db, job):
         # Update game status to show it's being processed
         db.games.update_one(
             {"game_id": game_id},
-            {"$set": {"analysis_status": "processing"}}
+            {"$set": {"analysis_status": "processing", "analysis_error": None}}
         )
         
         # Run Stockfish analysis (this is the slow part!)
@@ -947,7 +981,11 @@ def process_job(db, job):
             {"$set": {
                 "status": "completed",
                 "completed_at": datetime.now(timezone.utc),
-                "duration_seconds": elapsed
+                "duration_seconds": elapsed,
+                "updated_at": datetime.now(timezone.utc),
+                "retrying": False,
+                "last_error": None,
+                "last_error_at": None
             }}
         )
         
@@ -1037,8 +1075,10 @@ def mark_job_failed(db, game_id, error_message):
         {
             "$set": {
                 "status": "failed",
-                "error": error_message[:500],  # Limit error message length
-                "failed_at": datetime.now(timezone.utc)
+                "failed_at": datetime.now(timezone.utc),
+                "failure_reason": "analysis_error",
+                "retrying": False,
+                **_queue_error_payload(error_message)
             },
             "$inc": {"retry_count": 1}
         }
@@ -1047,7 +1087,7 @@ def mark_job_failed(db, game_id, error_message):
     # IMPORTANT: Update game status so frontend doesn't show "processing" forever
     db.games.update_one(
         {"game_id": game_id},
-        {"$set": {"analysis_status": "failed"}}
+        {"$set": {"analysis_status": "failed", "analysis_error": error_message[:500]}}
     )
 
 

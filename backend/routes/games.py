@@ -314,7 +314,7 @@ async def get_game_analysis_status(game_id: str, user: User = Depends(get_curren
     # Check queue for progress info
     queue_item = await db.analysis_queue.find_one(
         {"game_id": game_id},
-        {"_id": 0, "status": 1, "created_at": 1}
+        {"_id": 0, "status": 1, "created_at": 1, "queued_at": 1, "started_at": 1, "failed_at": 1, "retry_count": 1, "last_error": 1, "last_error_at": 1, "retrying": 1}
     )
     
     if game.get("is_analyzed"):
@@ -323,7 +323,13 @@ async def get_game_analysis_status(game_id: str, user: User = Depends(get_curren
     if queue_item:
         return {
             "status": queue_item.get("status", "unknown"),
-            "queued_at": queue_item.get("created_at")
+            "queued_at": queue_item.get("queued_at") or queue_item.get("created_at"),
+            "started_at": queue_item.get("started_at"),
+            "failed_at": queue_item.get("failed_at"),
+            "retry_count": queue_item.get("retry_count", 0),
+            "last_error": queue_item.get("last_error"),
+            "last_error_at": queue_item.get("last_error_at"),
+            "retrying": queue_item.get("retrying", False),
         }
     
     return {"status": "not_analyzed"}
@@ -368,7 +374,13 @@ async def reanalyze_game(
         "user_id": user.user_id,
         "status": "pending",
         "queued_at": datetime.now(timezone.utc),
-        "priority": 1  # User-requested re-analysis gets priority
+        "priority": 1,  # User-requested re-analysis gets priority
+        "retry_count": 0,
+        "last_error": None,
+        "last_error_at": None,
+        "retrying": False,
+        "started_at": None,
+        "last_heartbeat": None,
     }
     
     # Use upsert to avoid duplicate entries - update existing or create new
@@ -381,7 +393,7 @@ async def reanalyze_game(
     # Update game status - set is_analyzed to False so it shows in queue
     await db.games.update_one(
         {"game_id": game_id},
-        {"$set": {"analysis_status": "queued", "is_analyzed": False}}
+        {"$set": {"analysis_status": "queued", "is_analyzed": False, "analysis_error": None}}
     )
     
     # NOTE: Analysis is now handled by the separate analysis_worker.py process
