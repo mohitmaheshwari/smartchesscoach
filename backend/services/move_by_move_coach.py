@@ -17,7 +17,7 @@ The coach:
 
 import chess
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -135,7 +135,6 @@ def detect_patterns(board: chess.Board, user_color: str) -> List[Dict]:
             # Check if this piece is pinning something
             if board.is_pinned(not piece.color, square):
                 sq_name = chess.square_name(square)
-                pinned_name = chess.piece_name(piece.piece_type)
                 patterns.append({
                     "type": "pin",
                     "message": f"There's a pin on {sq_name}!",
@@ -244,7 +243,7 @@ def generate_move_commentary(
     patterns = detect_patterns(board_after, user_color)
     
     # Check for known traps (both static and variation-based)
-    trap_warning = check_for_traps(all_moves, opening_plan)
+    trap_warning = check_for_traps(all_moves, opening_plan, board_after)
     
     # Check if we're in a deep variation
     variation_teaching = get_variation_teaching(all_moves, opening_plan)
@@ -362,7 +361,7 @@ def _generate_coach_move_commentary(
             if tone["level"] == "beginner":
                 next_hint = f"The next idea in {opening_name} is {next_expected}."
             else:
-                next_hint = f"Think about what the main line suggests here."
+                next_hint = "Think about what the main line suggests here."
     
     message = " ".join(parts)
     
@@ -386,7 +385,6 @@ def _generate_user_move_commentary(
 ) -> MoveCommentary:
     """Generate commentary after the user makes a move."""
     
-    opening_name = opening_plan.get("name", "this opening") if opening_plan else "the opening"
     teaching_moments = opening_plan.get("teaching_moments", {}) if opening_plan else {}
     identifying_moves = opening_plan.get("identifying_moves", []) if opening_plan else []
     main_ideas = opening_plan.get("main_ideas", []) if opening_plan else []
@@ -560,50 +558,50 @@ def _generate_user_move_commentary(
 # HELPER FUNCTIONS
 # ============================================================
 
-def check_for_traps(all_moves: List[str], opening_plan: Optional[Dict]) -> Optional[Dict]:
+def check_for_traps(
+    all_moves: List[str],
+    opening_plan: Optional[Dict],
+    board_after: Optional[chess.Board] = None,
+) -> Optional[Dict]:
     """Check if the current move sequence enters a known trap."""
     if not opening_plan:
         return None
-    
-    opening_key = opening_plan.get("key", "")
-    traps = OPENING_TRAPS.get(opening_key, [])
-    
-    # Normalize moves for comparison
-    clean_moves = [m.replace("+", "").replace("#", "").strip() for m in all_moves]
-    
-    for trap in traps:
-        trap_moves = trap["after_moves"]
-        if len(clean_moves) == len(trap_moves):
-            match = True
-            for played, expected in zip(clean_moves, trap_moves):
-                if played.lower() != expected.lower():
-                    match = False
-                    break
-            if match:
+
+    clean_moves = [_normalize_move_san(move) for move in all_moves if move]
+    trap_lookup_keys = []
+    for key in (opening_plan.get("key"), opening_plan.get("family_key")):
+        if key and key not in trap_lookup_keys:
+            trap_lookup_keys.append(key)
+
+    for opening_key in trap_lookup_keys:
+        traps = OPENING_TRAPS.get(opening_key, [])
+        for trap in traps:
+            trap_moves = [_normalize_move_san(move) for move in trap.get("after_moves", [])]
+            if trap_moves and clean_moves == trap_moves:
                 return trap
-    
-    # Also check variation-level traps
-    variations = opening_plan.get("variations", {})
-    for var_key, var_data in variations.items():
-        var_traps = var_data.get("traps", [])
-        trigger = var_data.get("trigger_moves", [])
-        # Check if we're in this variation
-        if len(clean_moves) >= len(trigger):
-            in_var = all(
-                clean_moves[i].lower() == trigger[i].lower()
-                for i in range(len(trigger))
-                if i < len(clean_moves)
-            )
-            if in_var:
-                move_idx = len(clean_moves) - len(trigger)
-                for trap in var_traps:
-                    if trap.get("after_move") == move_idx:
-                        return {
-                            "warning": trap["warning"],
-                            "name": trap.get("name", ""),
-                            "question": None,
-                        }
-    
+
+    best_match, trigger_len = _find_best_variation_match(clean_moves, opening_plan.get("variations", {}))
+    if best_match:
+        move_idx = len(clean_moves) - trigger_len
+        for trap in best_match.get("traps", []):
+            if trap.get("after_move") is not None and move_idx >= trap.get("after_move"):
+                return {
+                    "warning": trap["warning"],
+                    "name": trap.get("name", best_match.get("name", "")),
+                    "question": trap.get("question"),
+                }
+            trap_move = trap.get("move")
+            if trap_move and board_after is not None:
+                try:
+                    board_after.parse_san(trap_move)
+                except ValueError:
+                    continue
+                return {
+                    "warning": trap["warning"],
+                    "name": trap.get("name", best_match.get("name", "")),
+                    "question": trap.get("question"),
+                }
+
     return None
 
 
@@ -621,67 +619,51 @@ def get_variation_teaching(all_moves: List[str], opening_plan: Optional[Dict]) -
     if not variations:
         return None
     
-    clean_moves = [m.replace("+", "").replace("#", "").strip() for m in all_moves]
+    clean_moves = [_normalize_move_san(move) for move in all_moves if move]
     if not clean_moves:
         return None
-    
-    current_move = clean_moves[-1]  # The last move played
-    
-    best_match = None
-    best_match_depth = 0
-    
-    for var_key, var_data in variations.items():
-        trigger = var_data.get("trigger_moves", [])
-        if len(clean_moves) < len(trigger):
-            continue
-        
-        # Check if all trigger moves match
-        match = True
-        for i in range(len(trigger)):
-            if i >= len(clean_moves):
-                match = False
-                break
-            if clean_moves[i].lower() != trigger[i].lower():
-                match = False
-                break
-        
-        if match and len(trigger) > best_match_depth:
-            best_match = var_data
-            best_match_depth = len(trigger)
-    
+
+    current_move = clean_moves[-1]
+    best_match, trigger_len = _find_best_variation_match(clean_moves, variations)
     if not best_match:
         return None
-    
-    # We're in a variation! Look up teaching by move name
+
     move_teaching = best_match.get("move_teaching", {})
-    clean_current = current_move.replace("+", "").replace("#", "")
-    
-    # Try exact match first
-    teaching = move_teaching.get(clean_current)
-    
-    # Try without check/mate symbols
-    if not teaching:
-        for key, val in move_teaching.items():
-            if key.replace("+", "").replace("#", "").lower() == clean_current.lower():
-                teaching = val
-                break
-    
-    trigger_len = len(best_match.get("trigger_moves", []))
+    full_line_raw = best_match.get("full_line", [])
+    full_line = [_normalize_move_san(move) for move in full_line_raw]
     moves_into_variation = len(clean_moves) - trigger_len
-    
+    current_ply_index = len(clean_moves) - 1
+
+    expected_move = None
+    expected_move_normalized = None
+    if current_ply_index < len(full_line):
+        expected_move = full_line_raw[current_ply_index]
+        expected_move_normalized = full_line[current_ply_index]
+
+    teaching = _get_teaching_for_move(move_teaching, current_move)
+    if not teaching and expected_move:
+        teaching = _get_teaching_for_move(move_teaching, expected_move)
+
+    next_expected_move = None
+    if len(clean_moves) < len(full_line_raw):
+        next_expected_move = full_line_raw[len(clean_moves)]
+
     if teaching:
         return {
             "variation_name": best_match.get("name", ""),
             "teaching": teaching.get("teach", ""),
-            "expected_move": clean_current,
+            "expected_move": expected_move or current_move,
+            "played_move": all_moves[-1],
+            "matched_expected": current_move == (expected_move_normalized or current_move),
             "idea": teaching.get("idea", ""),
             "trap": teaching.get("trap"),
             "key_plans": best_match.get("key_plans", []),
             "full_line": best_match.get("full_line", []),
             "move_index": moves_into_variation,
             "total_moves": len(best_match.get("full_line", [])),
+            "next_expected_move": next_expected_move,
         }
-    
+
     # Even if no specific teaching for this move, return variation context
     # so the coach knows we're in a variation and can teach contextually
     return {
@@ -691,7 +673,50 @@ def get_variation_teaching(all_moves: List[str], opening_plan: Optional[Dict]) -
         "full_line": best_match.get("full_line", []),
         "move_index": moves_into_variation,
         "total_moves": len(best_match.get("full_line", [])),
+        "expected_move": expected_move,
+        "played_move": all_moves[-1],
+        "matched_expected": current_move == expected_move_normalized if expected_move_normalized else True,
+        "next_expected_move": next_expected_move,
     }
+
+
+def _normalize_move_san(move: str) -> str:
+    return (
+        (move or "")
+        .replace("+", "")
+        .replace("#", "")
+        .replace("!", "")
+        .replace("?", "")
+        .strip()
+        .lower()
+    )
+
+
+def _get_teaching_for_move(move_teaching: Dict[str, Dict], move: Optional[str]) -> Optional[Dict]:
+    if not move:
+        return None
+
+    normalized_move = _normalize_move_san(move)
+    for key, value in move_teaching.items():
+        if _normalize_move_san(key) == normalized_move:
+            return value
+    return None
+
+
+def _find_best_variation_match(clean_moves: List[str], variations: Dict[str, Dict]) -> Tuple[Optional[Dict], int]:
+    best_match = None
+    best_depth = 0
+
+    for var_data in variations.values():
+        trigger = [_normalize_move_san(move) for move in var_data.get("trigger_moves", [])]
+        if len(clean_moves) < len(trigger):
+            continue
+
+        if clean_moves[: len(trigger)] == trigger and len(trigger) > best_depth:
+            best_match = var_data
+            best_depth = len(trigger)
+
+    return best_match, best_depth
 
 
 def _is_on_main_line(move_san: str, all_moves: List[str], identifying_moves: List[str], user_color: str) -> bool:

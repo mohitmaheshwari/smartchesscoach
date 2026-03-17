@@ -9332,25 +9332,13 @@ async def _process_move_and_respond(
         if move_number <= 15:
             try:
                 from services.move_by_move_coach import generate_move_commentary
-                from coach_engine.opening_plans import get_opening_by_moves
+                from coach_engine.opening_plans import build_opening_coaching_context
                 
                 session_doc = await db.coach_sessions.find_one({"session_id": session_id})
                 move_history = session_doc.get("move_history", []) if session_doc else []
                 all_moves_san = [m.get("move", "") for m in move_history if m.get("move")]
                 
-                # Detect opening
-                opening = get_opening_by_moves(all_moves_san)
-                opening_plan = None
-                if opening:
-                    opening_plan = {
-                        "name": getattr(opening, 'name', ''),
-                        "key": getattr(opening, 'name', '').lower().replace(' ', '_').replace("'", ''),
-                        "identifying_moves": getattr(opening, 'identifying_moves', []),
-                        "teaching_moments": getattr(opening, 'teaching_moments', {}),
-                        "main_ideas": getattr(opening, 'main_ideas', []),
-                        "typical_mistakes": getattr(opening, 'typical_mistakes', []),
-                        "variations": getattr(opening, 'variations', {}),
-                    }
+                opening_plan = build_opening_coaching_context(all_moves_san)
                 
                 commentary = generate_move_commentary(
                     fen_before=fen_before,
@@ -9739,21 +9727,10 @@ async def _process_move_and_respond(
                     if not coach_game_over:
                         try:
                             from services.move_by_move_coach import generate_move_commentary
-                            from coach_engine.opening_plans import get_opening_by_moves
+                            from coach_engine.opening_plans import build_opening_coaching_context
                             
                             all_moves = [m.get("move", "") for m in move_history]
-                            opening = get_opening_by_moves(all_moves)
-                            opening_plan = None
-                            if opening:
-                                opening_plan = {
-                                    "name": getattr(opening, 'name', ''),
-                                    "key": getattr(opening, 'name', '').lower().replace(' ', '_').replace("'", ''),
-                                    "identifying_moves": getattr(opening, 'identifying_moves', []),
-                                    "teaching_moments": getattr(opening, 'teaching_moments', {}),
-                                    "main_ideas": getattr(opening, 'main_ideas', []),
-                                    "typical_mistakes": getattr(opening, 'typical_mistakes', []),
-                                    "variations": getattr(opening, 'variations', {}),
-                                }
+                            opening_plan = build_opening_coaching_context(all_moves)
                             
                             # Use move-by-move coach for opening moves
                             if coach_move_number <= 15:
@@ -9792,9 +9769,9 @@ async def _process_move_and_respond(
                                         msg_doc["next_hint"] = commentary.next_hint
                                     
                                     # Include opening info
-                                    if opening:
-                                        msg_doc["opening_key"] = getattr(opening, 'name', '').lower().replace(' ', '_').replace("'", '')
-                                        msg_doc["opening_name"] = getattr(opening, 'name', '')
+                                    if opening_plan:
+                                        msg_doc["opening_key"] = opening_plan.get("key")
+                                        msg_doc["opening_name"] = opening_plan.get("name")
                                     
                                     await db.coach_messages.insert_one(msg_doc)
                             else:

@@ -538,6 +538,115 @@ OPENING_PLANS: Dict[str, OpeningPlan] = {
 }
 
 
+def _normalize_san(move: str) -> str:
+    """Normalize SAN for lightweight matching."""
+    return (
+        (move or "")
+        .replace("+", "")
+        .replace("#", "")
+        .replace("!", "")
+        .replace("?", "")
+        .strip()
+        .lower()
+    )
+
+
+def _opening_key(name: str) -> str:
+    return (name or "").lower().replace(" ", "_").replace("'", "")
+
+
+def _iter_unique_opening_plans() -> List[OpeningPlan]:
+    unique_plans: List[OpeningPlan] = []
+    seen_names = set()
+    for plan in OPENING_PLANS.values():
+        if plan.name in seen_names:
+            continue
+        seen_names.add(plan.name)
+        unique_plans.append(plan)
+    return unique_plans
+
+
+def get_opening_family_by_moves(moves: List[str]) -> Optional[OpeningPlan]:
+    """
+    Find the deepest opening family that carries variation trees.
+
+    This lets child openings like QGD/Slav inherit the richer family
+    teaching data from the broader Queen's Gambit tree.
+    """
+    clean_moves = [_normalize_san(move) for move in moves if move]
+    if not clean_moves:
+        return None
+
+    best_match = None
+    best_depth = 0
+
+    for plan in _iter_unique_opening_plans():
+        if not plan.variations:
+            continue
+
+        identifying = [_normalize_san(move) for move in plan.identifying_moves]
+        if len(clean_moves) < len(identifying):
+            continue
+
+        if clean_moves[: len(identifying)] == identifying and len(identifying) > best_depth:
+            best_match = plan
+            best_depth = len(identifying)
+
+    return best_match
+
+
+def build_opening_coaching_context(moves: List[str]) -> Optional[Dict]:
+    """
+    Build the opening payload used by the live coach.
+
+    The direct opening keeps the visible name/ideas, while a broader family
+    opening can contribute deeper variation trees, trap libraries, and
+    extra teaching moments.
+    """
+    direct_opening = get_opening_by_moves(moves)
+    family_opening = get_opening_family_by_moves(moves)
+
+    if not direct_opening and not family_opening:
+        return None
+
+    primary_opening = direct_opening or family_opening
+
+    teaching_moments: Dict[str, str] = {}
+    main_ideas: List[str] = []
+    typical_mistakes: List[str] = []
+    variations: Dict[str, Dict] = {}
+
+    if family_opening:
+        teaching_moments.update(getattr(family_opening, "teaching_moments", {}) or {})
+        main_ideas.extend(getattr(family_opening, "main_ideas", []) or [])
+        typical_mistakes.extend(getattr(family_opening, "typical_mistakes", []) or [])
+        variations.update(getattr(family_opening, "variations", {}) or {})
+
+    if primary_opening:
+        teaching_moments.update(getattr(primary_opening, "teaching_moments", {}) or {})
+        main_ideas = (getattr(primary_opening, "main_ideas", []) or []) + main_ideas
+        typical_mistakes = (getattr(primary_opening, "typical_mistakes", []) or []) + typical_mistakes
+        variations.update(getattr(primary_opening, "variations", {}) or {})
+
+    deduped_main_ideas = list(dict.fromkeys(main_ideas))
+    deduped_mistakes = list(dict.fromkeys(typical_mistakes))
+
+    family_key = _opening_key(getattr(family_opening, "name", "")) if family_opening else None
+    primary_key = _opening_key(getattr(primary_opening, "name", "")) if primary_opening else None
+
+    return {
+        "name": getattr(primary_opening, "name", ""),
+        "family_name": getattr(family_opening, "name", None) if family_opening else None,
+        "key": primary_key,
+        "family_key": family_key if family_key != primary_key else None,
+        "identifying_moves": getattr(primary_opening, "identifying_moves", []),
+        "teaching_moments": teaching_moments,
+        "main_ideas": deduped_main_ideas,
+        "typical_mistakes": deduped_mistakes,
+        "variations": variations,
+    }
+
+
 def get_opening_by_moves(moves: List[str]) -> Optional[OpeningPlan]:
     """
     Try to identify opening from move list.
