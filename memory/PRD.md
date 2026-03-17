@@ -22,6 +22,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - **Frontend Runtime Stability**: Disabled cross-origin iframe recording in analytics to prevent the `PerformanceServerTiming` `DataCloneError` on page load
 - **Typed Opening Schema Foundation**: Added a structured opening catalog layer for families, variations, rating-aware teaching nodes, traps, deviation rules, and coverage metadata
 - **Duplicate SAN Support**: Opening teaching now supports move-index-aware teaching nodes so repeated SAN moves in the same line can still teach correctly
+- **Undo Move in Play with Coach**: Added an `Undo Move` control near the board that rewinds the user's last move in normal play and rewinds the student's last move in lesson mode
 
 ## Code Architecture
 ```
@@ -36,7 +37,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 │   │   ├── opening_plans.py             # Opening theory + coaching context builder + expanded variation trees
 │   │   ├── opening_schema.py            # NEW: Typed family/variation/node/trap schema + validation
 │   │   └── opening_teaching_db.py       # Curated teaching content
-│   └── server.py                        # Main server
+│   └── server.py                        # Main server + live move undo endpoint
 └── frontend/
     └── src/
         ├── App.js                       # Protected route + stored redirect handling
@@ -61,6 +62,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - [ ] Add richer trap setup / trap-avoidance coaching for the newly covered openings in `move_by_move_coach.py`
 - [ ] Add multi-plan candidate suggestions directly in live coach messages
 - [ ] Start consuming the typed opening schema more directly at runtime instead of only exporting it through catalog helpers
+- [ ] Add move-preview + undo/redo design polish for coaching mode
 
 ### P2 - Backlog
 - [ ] Lesson flow bug verification (Fried Liver Attack)
@@ -76,6 +78,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Frontend routing/demo-mode smoke tested and checked with frontend testing agent (critical flows working; fresh-user onboarding still needs one final verification)
 - PostHog `PerformanceServerTiming` DataCloneError fix verified by frontend testing agent (console clean after page load and interaction)
 - Typed opening schema/catalog phase verified in iteration 124 (48/48 backend tests passed)
+- Undo Move feature verified with live API checks and frontend testing agent after service restart
 - Test files: `/app/backend/tests/test_*.py`
 
 ## Key Technical Notes
@@ -90,3 +93,4 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Frontend analytics config now keeps `recordCrossOriginIframes: false` to avoid non-cloneable `PerformanceServerTiming` objects during `postMessage`
 - `get_opening_family_catalog()` and `get_opening_catalog_validation_report()` now provide typed family-level coverage data for the opening library
 - Ruy Lopez now includes structured Steinitz Exchange Queenless and Berlin variations, and repeated SAN teaching is handled through `teaching_nodes` with `move_index`
+- `/api/coach/play/undo` now rewinds the latest user move in normal play and the latest student move in teaching mode, with stale lesson-state fallback and action-revision protection against late async coach writes
