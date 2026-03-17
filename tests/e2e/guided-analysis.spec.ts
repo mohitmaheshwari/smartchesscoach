@@ -13,7 +13,7 @@
 
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'https://coaching-moments.preview.emergentagent.com';
+const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'https://coach-variations.preview.emergentagent.com';
 // Use a game with known critical moments
 const TEST_GAME_ID = 'a8fb2fa0-42da-4e40-9308-c9f364b5f6b3';
 

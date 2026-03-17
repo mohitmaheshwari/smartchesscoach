@@ -243,8 +243,11 @@ def generate_move_commentary(
     # Detect patterns in the position after the move
     patterns = detect_patterns(board_after, user_color)
     
-    # Check for known traps
+    # Check for known traps (both static and variation-based)
     trap_warning = check_for_traps(all_moves, opening_plan)
+    
+    # Check if we're in a deep variation
+    variation_teaching = get_variation_teaching(all_moves, opening_plan)
     
     # Get pattern note if any
     pattern_note = None
@@ -257,29 +260,58 @@ def generate_move_commentary(
         return _generate_coach_move_commentary(
             move_san, all_moves, opening_plan, tone, 
             board_after, user_color, move_number, 
-            trap_warning, pattern_note, patterns
+            trap_warning, pattern_note, patterns, variation_teaching
         )
     else:
         return _generate_user_move_commentary(
             move_san, all_moves, opening_plan, tone,
             board_after, user_color, move_number,
             trap_warning, pattern_note, patterns,
-            eval_before, eval_after, is_best_move, best_move_san
+            eval_before, eval_after, is_best_move, best_move_san,
+            variation_teaching
         )
 
 
 def _generate_coach_move_commentary(
     move_san, all_moves, opening_plan, tone,
     board, user_color, move_number,
-    trap_warning, pattern_note, patterns
+    trap_warning, pattern_note, patterns, variation_teaching=None
 ) -> MoveCommentary:
     """Generate commentary after the coach (opponent) makes a move."""
     
     opening_name = opening_plan.get("name", "this opening") if opening_plan else "the opening"
     teaching_moments = opening_plan.get("teaching_moments", {}) if opening_plan else {}
     
-    # Check if there's a specific teaching moment for this move
+    # Check if there's variation-specific teaching for this move
     specific_teaching = teaching_moments.get(move_san)
+    
+    # PRIORITY: Use variation teaching if available (deep line)
+    if variation_teaching and variation_teaching.get("teaching"):
+        vt = variation_teaching
+        var_name = vt.get("variation_name", "")
+        parts = [vt["teaching"]]
+        question = None
+        
+        if vt.get("trap"):
+            parts.append(f"Watch out: {vt['trap']}")
+        
+        if vt.get("idea"):
+            question = f"Can you see the idea? Think about: {vt['idea']}"
+        
+        # Show progress in the variation
+        mi = vt.get("move_index", 0)
+        total = vt.get("total_moves", 0)
+        if total > 0 and mi < total:
+            progress = f"({var_name} — move {mi + len(variation_teaching.get('full_line', [])[:4])} of the main line)"
+            parts.append(progress)
+        
+        return MoveCommentary(
+            message=" ".join(parts),
+            question=question,
+            trap_warning=vt.get("trap"),
+            move_quality="neutral",
+            teaching_type="opening_variation"
+        )
     
     # Build the message
     parts = []
@@ -349,7 +381,8 @@ def _generate_user_move_commentary(
     move_san, all_moves, opening_plan, tone,
     board, user_color, move_number,
     trap_warning, pattern_note, patterns,
-    eval_before, eval_after, is_best_move, best_move_san
+    eval_before, eval_after, is_best_move, best_move_san,
+    variation_teaching=None
 ) -> MoveCommentary:
     """Generate commentary after the user makes a move."""
     
@@ -361,6 +394,49 @@ def _generate_user_move_commentary(
     
     # Check if this is the expected opening move
     is_main_line = _is_on_main_line(move_san, all_moves, identifying_moves, user_color)
+    
+    # PRIORITY: Use variation teaching if available (deep line)
+    if variation_teaching and variation_teaching.get("teaching"):
+        vt = variation_teaching
+        expected = vt.get("expected_move", "")
+        played_expected = move_san.replace("+", "").replace("#", "").lower() == expected.replace("+", "").replace("#", "").lower() if expected else False
+        
+        parts = []
+        question = None
+        quality = "great" if played_expected else "good"
+        
+        if played_expected:
+            parts.append(f"Excellent! {move_san}!")
+            parts.append(vt["teaching"])
+        else:
+            # They played something else — still teach the expected move
+            parts.append(f"You played {move_san}.")
+            if expected:
+                parts.append(f"The main line here is {expected}.")
+            parts.append(vt["teaching"])
+            quality = "inaccuracy"
+        
+        if vt.get("idea"):
+            if played_expected:
+                parts.append(f"Key concept: {vt['idea']}")
+            else:
+                question = f"The key idea here is: {vt['idea']}. Can you see why?"
+        
+        if vt.get("trap"):
+            parts.append(f"Trap alert: {vt['trap']}")
+        
+        # Share variation plans at key moments
+        plans = vt.get("key_plans", [])
+        if plans and vt.get("move_index", 0) in (4, 8, 12):
+            parts.append(f"Your plan from here: {plans[0]}")
+        
+        return MoveCommentary(
+            message=" ".join(parts),
+            question=question,
+            trap_warning=vt.get("trap"),
+            move_quality=quality,
+            teaching_type="opening_variation"
+        )
     
     # Evaluate move quality
     cp_loss = 0
@@ -498,16 +574,124 @@ def check_for_traps(all_moves: List[str], opening_plan: Optional[Dict]) -> Optio
     for trap in traps:
         trap_moves = trap["after_moves"]
         if len(clean_moves) == len(trap_moves):
-            # Check if we match the trap sequence
             match = True
-            for i, (played, expected) in enumerate(zip(clean_moves, trap_moves)):
+            for played, expected in zip(clean_moves, trap_moves):
                 if played.lower() != expected.lower():
                     match = False
                     break
             if match:
                 return trap
     
+    # Also check variation-level traps
+    variations = opening_plan.get("variations", {})
+    for var_key, var_data in variations.items():
+        var_traps = var_data.get("traps", [])
+        trigger = var_data.get("trigger_moves", [])
+        # Check if we're in this variation
+        if len(clean_moves) >= len(trigger):
+            in_var = all(
+                clean_moves[i].lower() == trigger[i].lower()
+                for i in range(len(trigger))
+                if i < len(clean_moves)
+            )
+            if in_var:
+                move_idx = len(clean_moves) - len(trigger)
+                for trap in var_traps:
+                    if trap.get("after_move") == move_idx:
+                        return {
+                            "warning": trap["warning"],
+                            "name": trap.get("name", ""),
+                            "question": None,
+                        }
+    
     return None
+
+
+def get_variation_teaching(all_moves: List[str], opening_plan: Optional[Dict]) -> Optional[Dict]:
+    """
+    Find the active variation and return teaching for the current move.
+    
+    Looks up teaching by MOVE NAME (not position index) so it works
+    even when the opponent deviates from the main line.
+    """
+    if not opening_plan:
+        return None
+    
+    variations = opening_plan.get("variations", {})
+    if not variations:
+        return None
+    
+    clean_moves = [m.replace("+", "").replace("#", "").strip() for m in all_moves]
+    if not clean_moves:
+        return None
+    
+    current_move = clean_moves[-1]  # The last move played
+    
+    best_match = None
+    best_match_depth = 0
+    
+    for var_key, var_data in variations.items():
+        trigger = var_data.get("trigger_moves", [])
+        if len(clean_moves) < len(trigger):
+            continue
+        
+        # Check if all trigger moves match
+        match = True
+        for i in range(len(trigger)):
+            if i >= len(clean_moves):
+                match = False
+                break
+            if clean_moves[i].lower() != trigger[i].lower():
+                match = False
+                break
+        
+        if match and len(trigger) > best_match_depth:
+            best_match = var_data
+            best_match_depth = len(trigger)
+    
+    if not best_match:
+        return None
+    
+    # We're in a variation! Look up teaching by move name
+    move_teaching = best_match.get("move_teaching", {})
+    clean_current = current_move.replace("+", "").replace("#", "")
+    
+    # Try exact match first
+    teaching = move_teaching.get(clean_current)
+    
+    # Try without check/mate symbols
+    if not teaching:
+        for key, val in move_teaching.items():
+            if key.replace("+", "").replace("#", "").lower() == clean_current.lower():
+                teaching = val
+                break
+    
+    trigger_len = len(best_match.get("trigger_moves", []))
+    moves_into_variation = len(clean_moves) - trigger_len
+    
+    if teaching:
+        return {
+            "variation_name": best_match.get("name", ""),
+            "teaching": teaching.get("teach", ""),
+            "expected_move": clean_current,
+            "idea": teaching.get("idea", ""),
+            "trap": teaching.get("trap"),
+            "key_plans": best_match.get("key_plans", []),
+            "full_line": best_match.get("full_line", []),
+            "move_index": moves_into_variation,
+            "total_moves": len(best_match.get("full_line", [])),
+        }
+    
+    # Even if no specific teaching for this move, return variation context
+    # so the coach knows we're in a variation and can teach contextually
+    return {
+        "variation_name": best_match.get("name", ""),
+        "teaching": None,
+        "key_plans": best_match.get("key_plans", []),
+        "full_line": best_match.get("full_line", []),
+        "move_index": moves_into_variation,
+        "total_moves": len(best_match.get("full_line", [])),
+    }
 
 
 def _is_on_main_line(move_san: str, all_moves: List[str], identifying_moves: List[str], user_color: str) -> bool:

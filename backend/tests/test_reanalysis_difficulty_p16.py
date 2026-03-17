@@ -16,7 +16,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coaching-moments.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coach-variations.preview.emergentagent.com')
 
 # Valid difficulty levels
 VALID_DIFFICULTIES = ["EASY", "STANDARD", "HARD"]

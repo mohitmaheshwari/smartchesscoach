@@ -10,7 +10,7 @@ Each opening has:
 """
 
 from typing import Dict, List, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -24,6 +24,7 @@ class OpeningPlan:
     typical_mistakes: List[str]  # Common errors at club level
     simple_explanation: str  # One-liner for beginners
     teaching_moments: Dict[str, str]  # move -> what to teach
+    variations: Dict[str, Dict] = field(default_factory=dict)  # Deep variation trees
 
 
 # ==================== WHITE OPENINGS ====================
@@ -137,6 +138,81 @@ QUEENS_GAMBIT = OpeningPlan(
         "dxc4": "They took the gambit pawn! Don't panic. Play e3 or e4 and the pawn falls. You'll get a beautiful center.",
         "e6": "The Queen's Gambit Declined. Black says 'No thanks' and keeps the center solid. Respect — this is a tough defense to crack.",
         "c6": "This is the Slav Defense — very solid. Black defends d5 with a pawn instead of blocking the light-squared bishop.",
+    },
+    variations={
+        # ======= QUEEN'S GAMBIT DECLINED (1.d4 d5 2.c4 e6) =======
+        "qgd_main": {
+            "name": "Queen's Gambit Declined — Classical",
+            "trigger_moves": ["d4", "d5", "c4", "e6"],
+            "full_line": ["d4", "d5", "c4", "e6", "Nc3", "Nf6", "Bg5", "Be7", "e3", "O-O", "Nf3", "Nbd7", "Bd3", "c6"],
+            "move_teaching": {
+                "Nc3": {"teach": "Develop the knight to c3 — it supports e4 and puts pressure on d5. This is the most natural and strongest move in the QGD.", "idea": "Control the center and pressure d5"},
+                "Nf6": {"teach": "Black develops the knight and defends d5. Now you need to increase the pressure. How? By pinning this defender!", "idea": "Target the d5 defender"},
+                "Bg5": {"teach": "Pin the knight! This is the CLASSICAL approach. The knight on f6 defends d5 — by pinning it to the queen, you threaten to win the d5 pawn. This is one of the most important ideas in the QGD.", "idea": "Pressure d5 through the pin"},
+                "Be7": {"teach": "Black breaks the pin. Solid defense — the bishop covers e7 and prepares castling. Your plan now: complete development with e3 and Nf3.", "idea": "King safety first"},
+                "e3": {"teach": "Support d4 and unlock the light-squared bishop. The bishop will go to d3 — a powerful post aiming at Black's kingside. This quiet move is actually very strong.", "idea": "Prepare Bd3 and kingside pressure"},
+                "O-O": {"teach": "Black castles. Good defensive technique. Now the real battle begins. Your plan: Bd3, Nf3, then push for e4 or play a queenside minority attack.", "idea": "Middlegame planning begins"},
+                "Nf3": {"teach": "Complete development — knights before the queen. Your army is nearly ready. After Bd3, you'll have a powerful setup.", "idea": "Finish development"},
+                "Nbd7": {"teach": "Black reroutes the knight, possibly to f8-g6 for kingside defense. Deep positional maneuvering.", "idea": "Piece improvement"},
+                "Bd3": {"teach": "The bishop lands on the PERFECT diagonal! It eyes h7 and supports an eventual e4 push. This is the dream setup in the Queen's Gambit Declined.", "idea": "Attacking setup complete"},
+                "c6": {"teach": "Black reinforces d5 with a pawn chain. Your two big plans from here: 1) Central break with e4 to blast open the position, or 2) Minority attack with a4-b5 to create weak pawns on Black's queenside.", "idea": "Choose your plan: e4 or minority attack"},
+            },
+            "key_plans": [
+                "Minority attack: push a4-b5 to create weak pawns on Black's queenside",
+                "Central break: push e4 when the time is right to open lines for your pieces",
+                "Kingside attack: Bd3 + potential Bxh7 sacrifice if Black is careless"
+            ],
+            "traps": [
+                {"move": "Nxd5", "warning": "Elephant Trap alert! After cxd5 Nxd5 Bxe7?? Bb4! — the pin wins White's knight. Always check for ...Bb4!"},
+            ]
+        },
+        # ======= QUEEN'S GAMBIT ACCEPTED (1.d4 d5 2.c4 dxc4) =======
+        "qga_main": {
+            "name": "Queen's Gambit Accepted",
+            "trigger_moves": ["d4", "d5", "c4", "dxc4"],
+            "full_line": ["d4", "d5", "c4", "dxc4", "e4", "e5", "Nf3", "exd4", "Bxc4", "Nc6", "O-O", "Nf6"],
+            "move_teaching": {
+                "e4": {"teach": "Don't chase the c4 pawn! Instead, play e4 and grab TWO central pawns. This is why the gambit works — you sacrifice a wing pawn for massive center control.", "idea": "Two pawns in the center beats one on the side"},
+                "e3": {"teach": "This also works to recover the pawn, but e4 is much more ambitious. You're playing for a big center!", "idea": "Recover the gambit pawn"},
+                "Nf3": {"teach": "Develop and attack! The knight pressures e5 and d4. You're building up fast while Black is still figuring out what to do with that extra pawn.", "idea": "Develop with initiative"},
+                "Bxc4": {"teach": "Recover your pawn! The bishop lands on a beautiful diagonal targeting f7 — the weakest point in Black's position. This is a dream development.", "idea": "Bishop targets f7"},
+                "O-O": {"teach": "Castle immediately! You have a massive development lead — pieces are out, king is safe, rooks are connected. Black is still behind.", "idea": "Press the development advantage"},
+                "Nc3": {"teach": "Another piece in the game! You're way ahead in development. The plan: open the center and punish Black for grabbing that pawn.", "idea": "Development advantage"},
+                "Re1": {"teach": "Rook to the open file! This puts direct pressure on e5 or the e-file. Very natural and strong.", "idea": "Activate the rook"},
+            },
+            "key_plans": [
+                "Rapid development: get all your pieces out before Black can catch up",
+                "Control the center with d4+e4 — the whole point of the gambit",
+                "Target f7 with the bishop on c4 — it's Black's weakest square"
+            ],
+            "traps": [
+                {"move": "b5", "warning": "If Black plays ...b5 trying to hold the pawn, play a4! This undermines the defense and opens devastating lines."},
+            ]
+        },
+        # ======= SLAV DEFENSE (1.d4 d5 2.c4 c6) =======
+        "slav_main": {
+            "name": "Slav Defense",
+            "trigger_moves": ["d4", "d5", "c4", "c6"],
+            "full_line": ["d4", "d5", "c4", "c6", "Nf3", "Nf6", "Nc3", "dxc4", "a4", "Bf5", "e3", "e6", "Bxc4", "Bb4"],
+            "move_teaching": {
+                "Nf3": {"teach": "Develop naturally. The Slav is one of the most solid defenses in chess — don't rush. Build up piece by piece. Knights before bishops!", "idea": "Patient, solid development"},
+                "Nc3": {"teach": "Add more pressure to d5 and prepare e4. You're slowly building a strong center. This is how grandmasters play the Slav.", "idea": "Increase central pressure"},
+                "a4": {"teach": "Critical move! Stop Black from playing ...b5 to hold the extra pawn. Without a4, Black keeps the c4 pawn forever. This is a MUST-KNOW idea in the Slav.", "idea": "Prevent ...b5 — essential"},
+                "e3": {"teach": "Support d4 and prepare to recapture on c4 with the bishop. Solid and logical.", "idea": "Prepare Bxc4"},
+                "Bxc4": {"teach": "Recover your pawn with a well-placed bishop. You have good development and central presence. The position is roughly equal but rich with ideas.", "idea": "Balanced position with chances"},
+                "dxc4": {"teach": "They took! This is the main line Slav. Black's plan: develop the light-squared bishop to f5 BEFORE playing ...e6. In the QGD, this bishop gets trapped — the Slav avoids that problem.", "idea": "The Slav's secret: free the light bishop"},
+                "Bf5": {"teach": "There it is! The bishop escapes to f5 BEFORE ...e6 blocks it in. This is THE reason players choose the Slav over the QGD. Respect this idea.", "idea": "The Slav's signature move"},
+                "e6": {"teach": "NOW Black plays e6 — the bishop is already free! Compare this to the QGD where the bishop is permanently stuck behind the pawns.", "idea": "Compare to QGD: bishop is free here"},
+            },
+            "key_plans": [
+                "Play a4 early to prevent ...b5 — this is essential",
+                "Recapture on c4 with the bishop for active development",
+                "Push e4 when ready to open the center and create chances"
+            ],
+            "traps": [
+                {"move": "b5", "warning": "If you forget a4 and Black plays ...b5, they keep the extra pawn for free. Always play a4 in the Slav!"},
+            ]
+        },
     }
 )
 

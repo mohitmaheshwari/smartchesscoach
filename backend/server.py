@@ -9287,7 +9287,20 @@ async def _process_move_and_respond(
                         new_index = teaching_index + 2
                         
                         if new_index >= len(teaching_moves):
-                            # Opening teaching complete!
+                            # Opening identifying sequence complete
+                            # But DON'T say "completed" if we have deep variations to teach
+                            opening_obj = None
+                            try:
+                                from coach_engine.opening_plans import get_opening_by_moves
+                                session_d = await db.coach_sessions.find_one({"session_id": session_id})
+                                mh = session_d.get("move_history", []) if session_d else []
+                                all_m = [m.get("move", "") for m in mh if m.get("move")]
+                                opening_obj = get_opening_by_moves(all_m)
+                            except Exception:
+                                pass
+                            
+                            has_deep_variations = opening_obj and getattr(opening_obj, 'variations', None)
+                            
                             await db.coach_sessions.update_one(
                                 {"session_id": session_id},
                                 {"$set": {
@@ -9296,15 +9309,17 @@ async def _process_move_and_respond(
                                     "opening_teaching_index": new_index
                                 }}
                             )
-                            # Add completion message
-                            await db.coach_messages.insert_one({
-                                "session_id": session_id,
-                                "type": "coach",
-                                "message": f"Excellent! You've completed the opening! Now let's play freely. Remember the key ideas we learned!",
-                                "trigger": "opening_complete",
-                                "created_at": datetime.now(timezone.utc),
-                                "read": False
-                            })
+                            
+                            # Only show completion if no deep variations exist
+                            if not has_deep_variations:
+                                await db.coach_messages.insert_one({
+                                    "session_id": session_id,
+                                    "type": "coach",
+                                    "message": f"Excellent! You've completed the opening! Now let's play freely. Remember the key ideas we learned!",
+                                    "trigger": "opening_complete",
+                                    "created_at": datetime.now(timezone.utc),
+                                    "read": False
+                                })
                         else:
                             await db.coach_sessions.update_one(
                                 {"session_id": session_id},
@@ -9334,6 +9349,7 @@ async def _process_move_and_respond(
                         "teaching_moments": getattr(opening, 'teaching_moments', {}),
                         "main_ideas": getattr(opening, 'main_ideas', []),
                         "typical_mistakes": getattr(opening, 'typical_mistakes', []),
+                        "variations": getattr(opening, 'variations', {}),
                     }
                 
                 commentary = generate_move_commentary(
@@ -9736,6 +9752,7 @@ async def _process_move_and_respond(
                                     "teaching_moments": getattr(opening, 'teaching_moments', {}),
                                     "main_ideas": getattr(opening, 'main_ideas', []),
                                     "typical_mistakes": getattr(opening, 'typical_mistakes', []),
+                                    "variations": getattr(opening, 'variations', {}),
                                 }
                             
                             # Use move-by-move coach for opening moves
