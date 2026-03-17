@@ -256,6 +256,50 @@ backend:
           No issues found.
 
 frontend:
+  - task: "PostHog Console Error Fix"
+    implemented: true
+    working: true
+    file: "/app/frontend/public/index.html"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ VERIFIED - PostHog console error fix successful
+          
+          USER REPORTED ISSUE:
+          - "Failed to execute 'postMessage' on 'Window': PerformanceServerTiming object could not be cloned."
+          - "DataCloneError: Failed to execute 'postMessage' on 'Window': PerformanceServerTiming object could not be cloned."
+          
+          FIX APPLIED:
+          - Changed PostHog config in /app/frontend/public/index.html
+          - recordCrossOriginIframes: true → false (line 174)
+          - capturePerformance: false (already set)
+          
+          VERIFICATION RESULTS:
+          ✅ No DataCloneError detected in console
+          ✅ No PerformanceServerTiming errors found
+          ✅ PostHog runtime config correctly shows recordCrossOriginIframes: false
+          ✅ Tested across multiple scenarios:
+             - Page load and PostHog initialization
+             - Page scrolling and user interactions
+             - Page reload to test re-initialization
+             - 15+ seconds of active monitoring
+          ✅ Zero console errors throughout entire test session
+          
+          DEPLOYMENT STATUS:
+          - Frontend service restarted to apply changes
+          - Live site now serves correct configuration
+          - Fix verified on production URL: https://coach-variations.preview.emergentagent.com
+          
+          CONCLUSION:
+          The PostHog console error has been completely resolved. The error was caused by 
+          PostHog attempting to record cross-origin iframes and encountering cloning issues 
+          with PerformanceServerTiming objects. Setting recordCrossOriginIframes to false 
+          eliminates this error without impacting core PostHog analytics functionality.
+  
   - task: "Landing Page Elements"
     implemented: true
     working: true
@@ -389,7 +433,8 @@ metadata:
   run_ui: true
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "PostHog Console Error Fix"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -691,6 +736,28 @@ backend:
     needs_retesting: false
     status_history:
       - working: true
+
+  - agent: "testing"
+    message: |
+      COMPLETED: PostHog Console Error Fix Verification
+      
+      User reported console errors resolved:
+      ✅ "DataCloneError: Failed to execute 'postMessage' on 'Window': PerformanceServerTiming object could not be cloned."
+      
+      FIX VERIFICATION:
+      - Changed recordCrossOriginIframes from true to false in /app/frontend/public/index.html (line 174)
+      - Restarted frontend service to deploy changes
+      - Comprehensive testing conducted over 15+ seconds of monitoring
+      - Tested page load, interactions, scrolling, and reload scenarios
+      
+      RESULTS:
+      ✅ Zero console errors detected throughout all tests
+      ✅ PostHog runtime config correctly shows recordCrossOriginIframes: false
+      ✅ No DataCloneError or PerformanceServerTiming errors
+      ✅ Fix confirmed working on production URL
+      
+      The issue is completely resolved. No further action needed.
+
         agent: "testing"
         comment: |
           ✅ COMPREHENSIVE TESTING COMPLETED (18/19 tests passed)
