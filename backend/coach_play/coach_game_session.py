@@ -87,6 +87,7 @@ class CoachGameSession:
     coach_move_pending: bool = False  # Whether coach is still thinking
     last_coach_move: Optional[Dict] = None  # Last move made by coach
     evaluation: Optional[Dict] = None  # Current position evaluation
+    action_revision: int = 0  # Incremented whenever board state advances or rewinds
     
     # Opening Teaching State (Interactive Learning)
     teaching_mode: Optional[str] = None  # "main_line", "trap", or None

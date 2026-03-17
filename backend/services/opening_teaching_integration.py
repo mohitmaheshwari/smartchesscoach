@@ -269,6 +269,7 @@ async def start_opening_lesson(
             "victim_color": trap.victim_color,
             "user_plays_white": user_plays_white,
             "teaching_fen": current_fen,  # Keep current position!
+            "lesson_start_fen": current_fen,
             "original_fen": current_fen,
             "original_move_history": move_history
         }
@@ -290,6 +291,7 @@ async def start_opening_lesson(
             "plans_black": var.plans_for_black,
             "user_plays_white": user_plays_white,  # Critical: know which moves are user's
             "teaching_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "lesson_start_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             "original_fen": session_doc.get("current_fen"),
             "original_move_history": session_doc.get("move_history", [])
         }
@@ -704,3 +706,72 @@ async def exit_teaching_mode(db, session_id: str, choice: str) -> Dict:
             "action": "try_another",
             "message": "Ready for another lesson! Make some moves to enter an opening."
         }
+
+
+async def undo_teaching_move(db, session_id: str) -> Dict:
+    """Undo the student's last move inside an active lesson.
+
+    If the lesson auto-played the coach/opponent reply after the student's move,
+    both plies are rewound so the same prompt can be attempted again.
+    """
+    import chess
+
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        return {"error": "Session not found"}
+
+    if not session_doc.get("teaching_mode"):
+        return {"error": "Not in teaching mode"}
+
+    teaching_data = session_doc.get("teaching_data", {})
+    current_index = teaching_data.get("current_move_index", 0)
+    user_plays_white = teaching_data.get("user_plays_white", True)
+    mode = session_doc.get("teaching_mode")
+
+    moves = teaching_data.get("trap_moves", []) if mode == "trap" else teaching_data.get("main_line_moves", [])
+    if current_index <= 0 or not moves:
+        return {"error": "No lesson move available to undo"}
+
+    def is_user_index(index: int) -> bool:
+        is_white = index % 2 == 0
+        return (is_white and user_plays_white) or (not is_white and not user_plays_white)
+
+    played_user_indices = [index for index in range(current_index) if is_user_index(index)]
+    if not played_user_indices:
+        return {"error": "No lesson move available to undo"}
+
+    rewind_index = played_user_indices[-1]
+    base_fen = teaching_data.get("lesson_start_fen") or teaching_data.get("teaching_fen")
+
+    try:
+        board = chess.Board(base_fen)
+        for move in moves[:rewind_index]:
+            board.push_san(move)
+    except Exception as exc:
+        logger.error(f"Error rebuilding lesson board for undo: {exc}")
+        return {"error": f"Could not undo the lesson move: {exc}"}
+
+    teaching_data["current_move_index"] = rewind_index
+    teaching_data["teaching_fen"] = board.fen()
+
+    await db.coach_sessions.update_one(
+        {"session_id": session_id},
+        {
+            "$set": {
+                "teaching_data": teaching_data,
+                "current_fen": board.fen(),
+                "action_revision": session_doc.get("action_revision", 0) + 1,
+            }
+        },
+    )
+
+    instruction = _get_teaching_instruction(teaching_data, mode, rewind_index)
+    return {
+        "success": True,
+        "mode": "teaching",
+        "undone_move": moves[rewind_index],
+        "current_move_index": rewind_index,
+        "teaching_fen": board.fen(),
+        "instruction": instruction,
+        "message": f"Undid your last lesson move: {moves[rewind_index]}"
+    }

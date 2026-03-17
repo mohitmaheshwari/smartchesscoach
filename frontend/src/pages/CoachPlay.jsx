@@ -815,6 +815,7 @@ const CoachPlay = ({ user }) => {
   
   const [coachThinking, setCoachThinking] = useState(false);
   const [thinkingMessage, setThinkingMessage] = useState("");
+  const [undoLoading, setUndoLoading] = useState(false);
 
   // Execute the move (called after guardian check passes or user confirms)
   const executeMove = async (moveSan, timeSpent, isOverride = false, riskType = null) => {
@@ -1232,6 +1233,101 @@ const CoachPlay = ({ user }) => {
     // Reset move feedback
     setMoveFeedback(null);
     setChatMessages([]);
+  };
+
+  const canUndoLastMove = () => {
+    if (!session || gameOver || undoLoading) return false;
+
+    if (isInTeachingMode) {
+      return Boolean(activeLesson && lessonInstruction);
+    }
+
+    return (session.move_history || []).some((move) => move.by === "player");
+  };
+
+  const handleUndoMove = async () => {
+    if (!session?.session_id || undoLoading || gameOver) return;
+
+    setUndoLoading(true);
+    try {
+      const response = await fetch(`${API}/coach/play/undo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ session_id: session.session_id })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Could not undo the move");
+      }
+
+      const data = await response.json();
+      setCoachThinking(false);
+      setLoadingFeedback(false);
+      setMoveFeedback(null);
+      setActiveTrapAlert(null);
+
+      if (data.mode === "teaching") {
+        if (data.teaching_fen) {
+          setCurrentFen(data.teaching_fen);
+        }
+        if (data.instruction) {
+          setLessonInstruction(data.instruction);
+          setCurrentInsight({
+            quality: "teaching",
+            main_insight: data.message || `Undid ${data.undone_move}`,
+            why: activeLesson?.opening_name ? `Back in ${activeLesson.opening_name}` : null,
+            next_idea: data.instruction.is_user_move
+              ? `Your turn: play ${data.instruction.move}`
+              : `Watch: I'll play ${data.instruction.move}`,
+            has_better_move: false,
+            can_explain: true,
+            teaching_mode: true,
+            lesson_name: activeLesson?.lesson_name,
+            remaining_moves: data.instruction.remaining
+          });
+        }
+
+        setChatMessages((prev) => [
+          ...prev.filter((msg) => msg.type !== "thinking"),
+          {
+            type: "coach",
+            trigger: "teaching",
+            message: data.message || `Undid ${data.undone_move}`,
+            timestamp: Date.now()
+          }
+        ]);
+      } else {
+        setSession(data.session);
+        setCurrentFen(data.current_fen);
+        setIsPlayerTurn(data.is_player_turn);
+        setGameOver(data.game_over);
+        setOpeningGuidance(data.opening_teaching || null);
+        setEvaluation(data.evaluation || { score: 0, mate_in: null });
+
+        const latestMove = data.session?.move_history?.[data.session.move_history.length - 1];
+        if (latestMove?.uci) {
+          setLastMove([latestMove.uci.slice(0, 2), latestMove.uci.slice(2, 4)]);
+        } else {
+          setLastMove(null);
+        }
+
+        setCurrentInsight(null);
+        setChatMessages((prev) => prev.filter((msg) => {
+          if (msg.type === "thinking") return false;
+          const moveNumber = msg.context?.move_number;
+          return !moveNumber || moveNumber < data.undone_move_number;
+        }));
+      }
+
+      toast.success(data.message || "Undid your last move");
+    } catch (error) {
+      console.error("Undo move error:", error);
+      toast.error(error.message || "Failed to undo move");
+    } finally {
+      setUndoLoading(false);
+    }
   };
 
   // ========================================
@@ -1902,6 +1998,22 @@ const CoachPlay = ({ user }) => {
                 <RotateCcw className="w-4 h-4 mr-1" />
                 Flip
               </Button>
+              {!gameOver && canUndoLastMove() && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUndoMove}
+                  disabled={undoLoading}
+                  data-testid="undo-move-btn"
+                >
+                  {undoLoading ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-4 h-4 mr-1" />
+                  )}
+                  Undo Move
+                </Button>
+              )}
               {!gameOver && (
                 <Button 
                   variant="destructive" 

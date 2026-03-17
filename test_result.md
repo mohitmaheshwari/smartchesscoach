@@ -426,15 +426,103 @@ frontend:
           
           All routes render appropriate content without issues.
 
+  - task: "Undo Move Feature in Play with Coach"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/pages/CoachPlay.jsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          Implemented undo feature for Play with Coach mode:
+          - Added canUndoLastMove() to check if undo is available
+          - Added handleUndoMove() to call /api/coach/play/undo endpoint
+          - Small "Undo Move" button appears near board controls (data-testid="undo-move-btn")
+          - Works in both normal play and opening teaching mode
+          - Backend endpoint /api/coach/play/undo handles both game modes
+          - Teaching mode has dedicated undo_teaching_move() handler
+          
+          Scope:
+          - Undo user's last move (unlimited use)
+          - Should not be blocked unless game is over
+          - If coach already replied, undo rewinds that turn back to before user's move
+          - In opening teaching mode, rewinds student's last lesson move and any auto-played lesson reply
+      - working: false
+        agent: "testing"
+        comment: |
+          ❌ CRITICAL BUG FOUND - Undo Feature Partially Working
+          
+          TESTING COMPLETED (5/6 flows tested):
+          ✅ Flow 1: Dev Login works and Play with Coach loads
+          ✅ Flow 2: Undo Move button appears near board controls (data-testid="undo-move-btn")
+          ⚠️ Flow 3: Undo button visible and clickable BUT returns 400 errors
+          ⚠️ Flow 4: Unable to fully test undo after coach reply due to API errors
+          ⚠️ Flow 5: Unable to test opening teaching mode undo
+          ✅ Flow 6: No redirect loops or blank UI state
+          
+          CRITICAL ISSUES FOUND:
+          1. **API returns 400 Bad Request** when clicking Undo Move
+             - Console error: "Failed to load resource: the server responded with a status of 400"
+             - Console error: "TypeError: Failed to execute 'json' on 'Response': body stream already read"
+             - Location: handleUndoMove() in CoachPlay.jsx line 44736
+          
+          2. **Teaching mode undo has illegal move bug**
+             - Backend log: "Error rebuilding lesson board for undo: illegal san: 'd4' in [FEN]"
+             - Location: opening_teaching_integration.py:751
+             - Root cause: Move sequence incompatible with lesson_start_fen when rebuilding board
+             - This happens in undo_teaching_move() when reconstructing position
+          
+          3. **Frontend error handling issue**
+             - Response body stream being read twice
+             - Likely in handleUndoMove() error handling logic
+          
+          WHAT WORKS:
+          - UI button correctly appears/disappears based on game state
+          - canUndoLastMove() logic working correctly
+          - No UI crashes or blank states
+          - Board rendering remains stable
+          
+          WHAT DOESN'T WORK:
+          - Actual undo execution fails with 400 error
+          - Teaching mode undo has move reconstruction bug
+          - Frontend response handling has double-read issue
+          
+          ROOT CAUSE ANALYSIS:
+          The session might be in an inconsistent state (teaching_mode flag set, but teaching_data incomplete or corrupted). When undo is called:
+          1. Backend detects teaching_mode is active
+          2. Calls undo_teaching_move()
+          3. Tries to rebuild board from lesson_start_fen + trap_moves/main_line_moves
+          4. Move sequence doesn't match the FEN (illegal san 'd4')
+          5. Returns error response
+          6. Frontend tries to parse error twice, causing body stream error
+          
+          RECOMMENDATION FOR MAIN AGENT:
+          1. Fix opening_teaching_integration.py undo_teaching_move():
+             - Validate teaching_data before attempting rebuild
+             - Add fallback to normal game undo if teaching data is invalid
+             - Better error handling for illegal move sequences
+          
+          2. Fix CoachPlay.jsx handleUndoMove():
+             - Fix double response.json() call in error handling
+             - Add proper error toast for 400 responses
+          
+          3. Add session consistency check:
+             - If teaching_mode is true, ensure teaching_data is complete and valid
+             - Consider adding /api/coach/play/state validation endpoint
+
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: true
 
 test_plan:
   current_focus:
-    - "PostHog Console Error Fix"
+    - "Undo Move Feature in Play with Coach"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -704,6 +792,89 @@ agent_communication:
       ✅ Enhanced Detectors (11/11 tests passed):
          - All 3 new detectors (skewer, overload, removal) exist and functional
          - Proper DetectorResult objects returned with confidence scores 0.0-1.0
+
+  - agent: "testing"
+    message: |
+      ❌ CRITICAL: Undo Feature Has Breaking Bugs - Immediate Fix Required
+      
+      ISSUE SUMMARY:
+      The Undo Move button is visible but clicking it returns 400 errors. Testing revealed 3 critical bugs.
+      
+      BUG #1: Teaching Mode Undo - Illegal Move Error (HIGHEST PRIORITY)
+      Location: /app/backend/services/opening_teaching_integration.py:748-751
+      Error: "illegal san: 'd4' in rnbqkb1r/ppp1nppp/4p3/3P4/3P4/8/PP2PPPP/RNBQKBNR w KQkq - 1 4"
+      
+      Root Cause:
+      - undo_teaching_move() tries to rebuild board from lesson_start_fen
+      - Iterates through moves[:rewind_index] using board.push_san()
+      - Move sequence doesn't match the FEN, causing illegal san error
+      - Likely because lesson_start_fen doesn't match the actual game position when lesson started
+      
+      Fix Required:
+      ```python
+      # In undo_teaching_move(), add validation:
+      base_fen = teaching_data.get("original_fen") or teaching_data.get("lesson_start_fen")
+      if not base_fen or not moves:
+          # Fallback to normal game undo
+          return await undo_normal_game_move(db, session_id)
+      
+      # Add try-catch and fallback:
+      try:
+          board = chess.Board(base_fen)
+          for i, move in enumerate(moves[:rewind_index]):
+              board.push_san(move)
+      except Exception as exc:
+          logger.error(f"Teaching undo failed, falling back to normal undo: {exc}")
+          # Clear teaching mode and do normal undo
+          await db.coach_sessions.update_one(
+              {"session_id": session_id},
+              {"$set": {"teaching_mode": None, "teaching_data": {}}}
+          )
+          return {"error": "Teaching mode was corrupted, cleared. Please try undo again."}
+      ```
+      
+      BUG #2: Frontend Double Response Read
+      Location: /app/frontend/src/pages/CoachPlay.jsx handleUndoMove() around line 1248-1331
+      Error: "TypeError: Failed to execute 'json' on 'Response': body stream already read"
+      
+      Root Cause:
+      - handleUndoMove() calls response.json() somewhere
+      - Error handling path calls response.json() again
+      - Response body can only be read once
+      
+      Fix Required:
+      ```javascript
+      // In handleUndoMove(), ensure single json() call:
+      const data = await response.json();  // Read once
+      if (!response.ok) {
+          // Use already-parsed data, don't call response.json() again
+          const errorMsg = data.detail || data.message || "Failed to undo move";
+          throw new Error(errorMsg);
+      }
+      ```
+      
+      BUG #3: Session State Inconsistency
+      The session has teaching_mode=true but teaching_data is invalid/incomplete.
+      This causes the backend to route to undo_teaching_move() when it should use normal undo.
+      
+      Fix Required:
+      - Add validation at start of /api/coach/play/undo endpoint
+      - If teaching_mode is true but teaching_data is missing required fields, clear teaching_mode
+      
+      TESTING RESULTS:
+      ✅ Button visibility/state logic working
+      ✅ UI remains stable (no crashes)
+      ❌ API returns 400 on undo click
+      ❌ Teaching mode undo has move reconstruction bug
+      ⚠️ Cannot test normal game undo until bugs fixed
+      ⚠️ Cannot test opening lesson undo until bugs fixed
+      
+      IMMEDIATE ACTION REQUIRED:
+      1. Fix teaching mode undo illegal move bug (CRITICAL)
+      2. Fix frontend double response read (HIGH)
+      3. Add session validation/cleanup (MEDIUM)
+      4. Re-test after fixes
+
          - Teaching hook fields exist in schema (ready for future enhancements)
          - Detectors handle various positions without crashes
          - Confidence scores within valid range
@@ -738,6 +909,32 @@ backend:
       - working: true
 
   - agent: "testing"
+
+  - agent: "main"
+    message: |
+      NEW FEATURE IMPLEMENTATION: Undo Move in Play with Coach
+      
+      Implemented undo functionality for Play with Coach mode (Scope: unlimited undo).
+      
+      FRONTEND:
+      - canUndoLastMove() checks if undo is available
+      - handleUndoMove() calls POST /api/coach/play/undo
+      - Undo button with data-testid="undo-move-btn" appears near board controls
+      - Button visible when: !gameOver && canUndoLastMove()
+      
+      BACKEND:
+      - POST /api/coach/play/undo endpoint (server.py:9998-10116)
+      - Normal play: rewinds user move + coach reply
+      - Teaching mode: rewinds student lesson move + auto-played reply
+      - Clears messages/feedback created after undone move
+      
+      TEACHING MODE:
+      - undo_teaching_move() in opening_teaching_integration.py
+      - Rewinds to previous lesson prompt
+      - Rebuilds board state from lesson moves
+      
+      Ready for comprehensive testing.
+
     message: |
       COMPLETED: PostHog Console Error Fix Verification
       

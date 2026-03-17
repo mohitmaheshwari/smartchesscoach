@@ -9117,13 +9117,16 @@ async def make_coach_play_move(
             "timestamp": datetime.now(timezone.utc).isoformat()
         })
         
+        action_revision = session_doc.get("action_revision", 0) + 1
+
         # Update session with user's move (coach move pending)
         await db.coach_sessions.update_one(
             {"session_id": session_id},
             {"$set": {
                 "current_fen": fen_after_user,
                 "move_history": move_history,
-                "coach_move_pending": True
+                "coach_move_pending": True,
+                "action_revision": action_revision
             }}
         )
         
@@ -9146,7 +9149,8 @@ async def make_coach_play_move(
                 user_rating=user_rating,
                 user_color=user_color,
                 move_number=move_number,
-                game_over=game_over
+                game_over=game_over,
+                expected_action_revision=action_revision
             )
         )
         
@@ -9195,7 +9199,8 @@ async def _process_move_and_respond(
     user_rating: int,
     user_color: str,
     move_number: int,
-    game_over: bool
+    game_over: bool,
+    expected_action_revision: int,
 ):
     """
     Background task: Analyze user's move, generate message, then make coach's move.
@@ -9211,6 +9216,13 @@ async def _process_move_and_respond(
     from coach_play.coach_opponent import CoachOpponent
     from datetime import datetime, timezone
     import chess
+
+    async def _is_current_revision() -> bool:
+        current_doc = await db.coach_sessions.find_one(
+            {"session_id": session_id},
+            {"_id": 0, "action_revision": 1},
+        )
+        return bool(current_doc) and current_doc.get("action_revision", 0) == expected_action_revision
     
     try:
         # Step 1: Quick analysis of user's move
@@ -9237,6 +9249,10 @@ async def _process_move_and_respond(
         )
         
         # === CRITICAL: Store evaluations in move_history for post-game analysis ===
+        if not await _is_current_revision():
+            logger.info(f"Skipping stale coach task for session {session_id}")
+            return
+
         session_doc = await db.coach_sessions.find_one({"session_id": session_id})
         if session_doc:
             move_history = session_doc.get("move_history", [])
@@ -9331,6 +9347,9 @@ async def _process_move_and_respond(
         opening_commentary_sent = False
         if move_number <= 15:
             try:
+                if not await _is_current_revision():
+                    logger.info(f"Skipping stale opening commentary for session {session_id}")
+                    return
                 from services.move_by_move_coach import generate_move_commentary
                 from coach_engine.opening_plans import build_opening_coaching_context
                 
@@ -9384,6 +9403,9 @@ async def _process_move_and_respond(
         
         # Step 4: Generate and store message if triggered (skip if opening commentary already sent)
         if trigger.should_speak and not opening_commentary_sent:
+            if not await _is_current_revision():
+                logger.info(f"Skipping stale triggered coaching for session {session_id}")
+                return
             # First, try to get wisdom-based explanation
             from coach_play.teaching_integration import enhance_coaching_message
             
@@ -9543,6 +9565,9 @@ async def _process_move_and_respond(
         # Even if trigger didn't fire, we can praise good moves or warn about consequences
         if not trigger.should_speak:
             try:
+                if not await _is_current_revision():
+                    logger.info(f"Skipping stale proactive teaching for session {session_id}")
+                    return
                 from coach_engine.question_system import (
                     generate_move_praise_question,
                     detect_long_term_consequences
@@ -9595,6 +9620,9 @@ async def _process_move_and_respond(
         
         # Step 4: Make coach's responding move (if game not over)
         if not game_over:
+            if not await _is_current_revision():
+                logger.info(f"Skipping stale coach reply for session {session_id}")
+                return
             session_doc = await db.coach_sessions.find_one({"session_id": session_id})
             if session_doc:
                 board = chess.Board(fen_after_user)
@@ -9695,6 +9723,9 @@ async def _process_move_and_respond(
                     fen_after_coach = board.fen()
                     
                     # CRITICAL: Fetch FRESH move_history that includes evaluations we just stored
+                    if not await _is_current_revision():
+                        logger.info(f"Skipping stale coach move application for session {session_id}")
+                        return
                     fresh_session = await db.coach_sessions.find_one({"session_id": session_id})
                     move_history = fresh_session.get("move_history", []) if fresh_session else []
                     move_history.append({
@@ -9962,6 +9993,127 @@ async def get_coach_messages(
         "messages": messages,
         "count": len(messages)
     }
+
+
+@api_router.post("/coach/play/undo")
+async def undo_coach_play_move(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """Undo the user's last move in Play with Coach.
+
+    Normal play: rewinds the user's move and any derived coach reply.
+    Teaching mode: rewinds the user's last lesson move and any auto-played reply.
+    """
+    from datetime import datetime
+    import chess
+    from coach_play.coach_game_session import get_session_state
+
+    session_id = request.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    if session_doc.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Undo is only available while the game is active")
+
+    if session_doc.get("teaching_mode"):
+        from services.opening_teaching_integration import undo_teaching_move
+
+        result = await undo_teaching_move(db, session_id)
+        if result.get("error"):
+            raise HTTPException(status_code=400, detail=result["error"])
+        return result
+
+    move_history = session_doc.get("move_history", [])
+    last_player_index = next(
+        (index for index in range(len(move_history) - 1, -1, -1) if move_history[index].get("by") == "player"),
+        None,
+    )
+    if last_player_index is None:
+        raise HTTPException(status_code=400, detail="No player move available to undo")
+
+    last_player_move = move_history[last_player_index]
+    restored_fen = last_player_move.get("fen_before") or "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    truncated_history = move_history[:last_player_index]
+    previous_coach_move = next(
+        (move for move in reversed(truncated_history) if move.get("by") == "coach"),
+        None,
+    )
+    previous_player_count = sum(1 for move in truncated_history if move.get("by") == "player")
+
+    updated_session_fields = {
+        "current_fen": restored_fen,
+        "move_history": truncated_history,
+        "evaluations": [
+            evaluation
+            for evaluation in session_doc.get("evaluations", [])
+            if evaluation.get("move_number", 0) <= previous_player_count
+        ],
+        "coach_move_pending": False,
+        "last_coach_move": previous_coach_move,
+        "status": "active",
+        "result": None,
+        "action_revision": session_doc.get("action_revision", 0) + 1,
+        "opening_offer_shown": False,
+        "detected_opening": None,
+    }
+
+    teaching_moves = session_doc.get("opening_teaching_moves", [])
+    if teaching_moves:
+        rewound_teaching_index = min(session_doc.get("opening_teaching_index", 0), len(truncated_history))
+        updated_session_fields.update({
+            "opening_teaching_index": rewound_teaching_index,
+            "opening_teaching_active": rewound_teaching_index < len(teaching_moves),
+            "opening_teaching_complete": rewound_teaching_index >= len(teaching_moves),
+        })
+
+    await db.coach_sessions.update_one(
+        {"session_id": session_id},
+        {"$set": updated_session_fields},
+    )
+
+    move_timestamp = last_player_move.get("timestamp")
+    cutoff_time = None
+    if move_timestamp:
+        try:
+            cutoff_time = datetime.fromisoformat(move_timestamp)
+        except ValueError:
+            cutoff_time = None
+
+    if cutoff_time is not None:
+        await db.coach_messages.delete_many({
+            "session_id": session_id,
+            "created_at": {"$gte": cutoff_time},
+        })
+        await db.coach_feedback.delete_many({
+            "session_id": session_id,
+            "created_at": {"$gte": cutoff_time},
+        })
+
+    state = await get_session_state(db, session_id)
+    if not state:
+        raise HTTPException(status_code=500, detail="Failed to rebuild state after undo")
+
+    board = chess.Board(restored_fen)
+    is_white_turn = board.turn == chess.WHITE
+    is_player_turn = (is_white_turn and session_doc.get("user_color") == "white") or (
+        (not is_white_turn) and session_doc.get("user_color") == "black"
+    )
+
+    state.update({
+        "success": True,
+        "mode": "game",
+        "message": f"Undid your last move: {last_player_move.get('move')}",
+        "undone_move": last_player_move.get("move"),
+        "undone_move_number": last_player_move.get("move_number", previous_player_count + 1),
+        "is_player_turn": is_player_turn,
+    })
+    return state
 
 
 @api_router.post("/coach/play/reflect")
