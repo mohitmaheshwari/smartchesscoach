@@ -651,6 +651,7 @@ def get_variation_teaching(
         return None
 
     move_teaching = best_match.get("move_teaching", {})
+    teaching_nodes = best_match.get("teaching_nodes", []) or []
     full_line_raw = best_match.get("full_line", [])
     full_line = [_normalize_move_san(move) for move in full_line_raw]
     moves_into_variation = len(clean_moves) - trigger_len
@@ -662,7 +663,11 @@ def get_variation_teaching(
         expected_move = full_line_raw[current_ply_index]
         expected_move_normalized = full_line[current_ply_index]
 
-    teaching = _get_teaching_for_move(move_teaching, current_move)
+    teaching = _get_teaching_from_nodes(teaching_nodes, current_ply_index, current_move)
+    if not teaching:
+        teaching = _get_teaching_for_move(move_teaching, current_move)
+    if not teaching and expected_move:
+        teaching = _get_teaching_from_nodes(teaching_nodes, current_ply_index, expected_move)
     if not teaching and expected_move:
         teaching = _get_teaching_for_move(move_teaching, expected_move)
 
@@ -729,6 +734,23 @@ def _get_teaching_for_move(move_teaching: Dict[str, Dict], move: Optional[str]) 
     for key, value in move_teaching.items():
         if _normalize_move_san(key) == normalized_move:
             return value
+    return None
+
+
+def _get_teaching_from_nodes(
+    teaching_nodes: List[Dict],
+    current_ply_index: int,
+    move: Optional[str],
+) -> Optional[Dict]:
+    if not move:
+        return None
+
+    normalized_move = _normalize_move_san(move)
+    for node in teaching_nodes:
+        node_move = node.get("move_san") or ""
+        node_index = node.get("move_index")
+        if node_index == current_ply_index and _normalize_move_san(node_move) == normalized_move:
+            return node
     return None
 
 

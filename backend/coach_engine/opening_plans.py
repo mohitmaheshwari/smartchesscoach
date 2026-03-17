@@ -9,8 +9,11 @@ Each opening has:
 - Simple explanations without jargon
 """
 
-from typing import Dict, List, Optional
+from functools import lru_cache
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
+
+from coach_engine.opening_schema import build_family_schema, validate_family_schema
 
 
 @dataclass
@@ -146,6 +149,75 @@ RUY_LOPEZ = OpeningPlan(
         "O-O": "Castle first, attack later. The Ruy Lopez is a patient opening.",
         "Re1": "Your rook now supports the e4 pawn. Solid.",
         "c3": "Preparing d4. This is the main plan in the Ruy Lopez.",
+    },
+    variations={
+        "steinitz_exchange_queenless": {
+            "name": "Ruy Lopez — Steinitz Exchange Queenless Line",
+            "trigger_moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "d6"],
+            "full_line": ["e4", "e5", "Nf3", "Nc6", "Bb5", "d6", "d4", "a6", "Bxc6+", "bxc6", "dxe5", "dxe5", "Qxd8+", "Kxd8", "Nxe5"],
+            "position_tags": ["queen_trade", "damaged_pawn_structure", "endgame_transition", "exchange_line"],
+            "teaching_nodes": [
+                {"move_index": 6, "move_san": "d4", "teach": "Strike in the center before Black settles. In the Steinitz, White often uses d4 to challenge Black's cramped setup immediately.", "idea": "Open the center before Black completes development"},
+                {"move_index": 7, "move_san": "a6", "teach": "Black asks the bishop a direct question. This is where White decides whether structural damage is worth giving up the bishop pair.", "idea": "Force White to choose between retreat and exchange"},
+                {"move_index": 8, "move_san": "Bxc6+", "teach": "White damages Black's queenside structure on purpose. This is no random exchange — the doubled c-pawns become long-term endgame targets.", "idea": "Trade bishop pair tension for structural weaknesses"},
+                {"move_index": 9, "move_san": "bxc6", "teach": "Black accepts the structural damage but opens the b-file and keeps the bishop pair. Now compensation is about activity, not beauty.", "idea": "Use bishop pair and active files as compensation"},
+                {"move_index": 10, "move_san": "dxe5", "teach": "White opens the center while Black's king is still in the middle. Timing matters more than material counting here.", "idea": "Exploit the central tension before Black stabilizes"},
+                {"move_index": 11, "move_san": "dxe5", "teach": "Black recaptures and keeps the center from collapsing. The price is a queen trade line where structure matters a lot.", "idea": "Hold the center and accept the queenless battle"},
+                {"move_index": 12, "move_san": "Qxd8+", "teach": "This queen trade is very thematic. White heads for a queenless middlegame where Black's pawn structure is easier to pressure.", "idea": "Simplify into a structure-based advantage"},
+                {"move_index": 13, "move_san": "Kxd8", "teach": "Black's king becomes active early, which partly compensates for the bad pawn structure. Queenless positions reward king activity.", "idea": "Use king activity as practical compensation"},
+                {"move_index": 14, "move_san": "Nxe5", "teach": "White centralizes the knight and grabs a pawn only because the tactics and queen trade make it feasible. This is the reward for accurate simplification.", "idea": "Convert structural pressure into active piece play"}
+            ],
+            "key_plans": [
+                "White: target the doubled c-pawns and keep pieces active in the queenless middlegame",
+                "Black: use the bishop pair, open files, and active king to offset structural damage",
+                "Both sides: queen trades do not mean the opening is over — they change what matters"
+            ],
+            "plans_for_white": [
+                "Trade into the queenless middlegame only when the pawn structure is a real target",
+                "Put a knight on e5 or c4 and keep pressure on c6 and e5",
+                "Prefer simple positions where Black's doubled pawns stay weak"
+            ],
+            "plans_for_black": [
+                "Activate the king and bishop pair quickly after the queen trade",
+                "Use open files and piece activity to make the pawn structure less relevant",
+                "Avoid passively babysitting weak pawns if active counterplay is available"
+            ],
+            "traps": [
+                {"move": "Nxe5", "warning": "Only grab on e5 once the queen trade and central tactics really justify it — otherwise White can overestimate the structural edge."}
+            ]
+        },
+        "berlin_main": {
+            "name": "Ruy Lopez — Berlin Defense",
+            "trigger_moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6"],
+            "full_line": ["e4", "e5", "Nf3", "Nc6", "Bb5", "Nf6", "O-O", "Nxe4", "d4", "Nd6", "Bxc6", "dxc6"],
+            "position_tags": ["berlin", "central_tension", "endgame_transition"],
+            "teaching_nodes": [
+                {"move_index": 6, "move_san": "O-O", "teach": "White castles before arguing about the center. In the Berlin, king safety comes first because the e4 pawn can wait one move.", "idea": "Castle before resolving central tension"},
+                {"move_index": 7, "move_san": "Nxe4", "teach": "Black grabs the e4 pawn in true Berlin style. The point is that Black trusts the concrete tactics and is ready to return the pawn if needed.", "idea": "Challenge White with precise central tactics"},
+                {"move_index": 8, "move_san": "d4", "teach": "White immediately fights back in the center instead of merely recovering the pawn. That is the heart of anti-Berlin play.", "idea": "Hit back in the center with tempo"},
+                {"move_index": 9, "move_san": "Nd6", "teach": "Black reroutes the knight and keeps the center under observation. The Berlin is sturdy because Black wastes very little time.", "idea": "Stay solid while untangling"},
+                {"move_index": 10, "move_san": "Bxc6", "teach": "White exchanges to damage Black's structure and reduce Black's central defenders. The Berlin often comes down to structure versus activity.", "idea": "Damage structure to reduce Black's coordination"},
+                {"move_index": 11, "move_san": "dxc6", "teach": "Black accepts doubled pawns but gains the bishop pair and a clear central presence. Compensation is concrete here, not abstract.", "idea": "Use central control and bishops as compensation"}
+            ],
+            "key_plans": [
+                "White: challenge Black's central setup before the Berlin wall fully hardens",
+                "Black: trade tactical precision for a durable structure and active pieces",
+                "Both sides: the Berlin rewards patience and accurate endgame judgment"
+            ],
+            "plans_for_white": [
+                "Use d4 and piece pressure before Black fully equalizes",
+                "If queens come off, keep the better structure meaningful with active king and minor pieces",
+                "Don't drift — Berlin positions punish aimless maneuvering"
+            ],
+            "plans_for_black": [
+                "Accept small structural defects if activity and central control compensate",
+                "Untangle the knights and bring the king toward the center in queenless lines",
+                "Make White prove the bishop pair or structural edge matters"
+            ],
+            "traps": [
+                {"move": "Nxe4", "warning": "Berlin reminder: ...Nxe4 is only sound because the follow-up is concrete. If Black copies the move in the wrong position, tactics can collapse instantly."}
+            ]
+        }
     }
 )
 
@@ -834,6 +906,68 @@ def _iter_unique_opening_plans() -> List[OpeningPlan]:
     return unique_plans
 
 
+def _iter_unique_opening_entries() -> List[Tuple[str, OpeningPlan]]:
+    unique_entries: List[Tuple[str, OpeningPlan]] = []
+    seen_names = set()
+    for key, plan in OPENING_PLANS.items():
+        if plan.name in seen_names:
+            continue
+        seen_names.add(plan.name)
+        unique_entries.append((key, plan))
+    return unique_entries
+
+
+@lru_cache(maxsize=1)
+def get_opening_family_catalog() -> Dict[str, Dict]:
+    catalog: Dict[str, Dict] = {}
+    for family_id, plan in _iter_unique_opening_entries():
+        family_schema = build_family_schema(
+            family_id=family_id,
+            family_name=plan.name,
+            eco_codes=plan.eco_codes,
+            starting_moves=plan.identifying_moves,
+            family_concepts={
+                "white": plan.main_ideas,
+                "black": plan.main_ideas,
+            },
+            variations=plan.variations,
+        )
+        catalog[family_id] = family_schema.to_dict()
+    return catalog
+
+
+def get_opening_catalog_validation_report() -> Dict[str, List[str]]:
+    report: Dict[str, List[str]] = {}
+    for family_id, plan in _iter_unique_opening_entries():
+        family_schema = build_family_schema(
+            family_id=family_id,
+            family_name=plan.name,
+            eco_codes=plan.eco_codes,
+            starting_moves=plan.identifying_moves,
+            family_concepts={
+                "white": plan.main_ideas,
+                "black": plan.main_ideas,
+            },
+            variations=plan.variations,
+        )
+        issues = validate_family_schema(family_schema)
+        if issues:
+            report[family_id] = issues
+    return report
+
+
+def get_opening_family_schema_by_moves(moves: List[str]) -> Optional[Dict]:
+    opening = get_opening_family_by_moves(moves) or get_opening_by_moves(moves)
+    if not opening:
+        return None
+
+    target_name = opening.name
+    for family_id, plan in _iter_unique_opening_entries():
+        if plan.name == target_name:
+            return get_opening_family_catalog().get(family_id)
+    return None
+
+
 def get_opening_family_by_moves(moves: List[str]) -> Optional[OpeningPlan]:
     """
     Find the deepest opening family that carries variation trees.
@@ -912,6 +1046,7 @@ def build_opening_coaching_context(moves: List[str]) -> Optional[Dict]:
         "main_ideas": deduped_main_ideas,
         "typical_mistakes": deduped_mistakes,
         "variations": variations,
+        "family_schema": get_opening_family_schema_by_moves(moves),
     }
 
 
