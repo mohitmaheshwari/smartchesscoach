@@ -616,7 +616,7 @@ CARO_KANN = OpeningPlan(
         "classical_caro_kann": {
             "name": "Caro-Kann Defense — Classical Development",
             "trigger_moves": ["e4", "c6", "d4", "d5", "Nc3"],
-            "full_line": ["e4", "c6", "d4", "d5", "Nc3", "dxe4", "Nxe4", "Bf5", "Nf3", "e6", "Bd3", "Bxd3"],
+            "full_line": ["e4", "c6", "d4", "d5", "Nc3", "dxe4", "Nxe4", "Bf5", "Nf3", "e6", "Bd3", "Bxe4"],
             "move_teaching": {
                 "Nc3": {"teach": "White supports e4 and keeps central control. Now Black has to decide whether to keep tension or simplify with purpose.", "idea": "Reinforce the center before Black frees up"},
                 "dxe4": {"teach": "Black clarifies the center and aims for clean development. The Caro-Kann often trades central tension for reliable structure.", "idea": "Simplify the center, keep the structure healthy"},
@@ -625,7 +625,7 @@ CARO_KANN = OpeningPlan(
                 "Nf3": {"teach": "White keeps improving pieces and pressures e5 and d4 squares. No rush — just healthy development.", "idea": "Finish development before choosing a plan"},
                 "e6": {"teach": "Now Black closes the chain safely because the bishop is already outside. This is the French structure without the bad bishop problem.", "idea": "Lock in the structure after freeing the bishop"},
                 "Bd3": {"teach": "White immediately questions the active bishop. In Caro-Kann structures, that bishop is one of Black's proudest pieces.", "idea": "Challenge Black's best minor piece"},
-                "Bxd3": {"teach": "Black usually gives up the bishop rather than retreat into passivity. The Caro-Kann is solid, but it still needs active decisions.", "idea": "Trade activity for a stable structure"}
+                "Bxe4": {"teach": "Black trades off the active knight to reduce White's central grip. This is a very practical Caro-Kann decision: give back bishop activity to simplify cleanly.", "idea": "Trade activity for a stable structure"}
             },
             "key_plans": [
                 "White: complete development and use the space edge without overpushing",
