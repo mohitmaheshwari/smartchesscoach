@@ -19,6 +19,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - **Trap Awareness**: QGD family trap warnings (including Elephant Trap context) now surface from the live coaching engine
 - **Color-Aware Plans**: Variation teaching now returns side-aware plan suggestions for both White and Black openings
 - **Safer Redirect Flow**: Protected route auth/onboarding flow now preserves intended destination and supports demo-mode bypass from onboarding without redirect loops
+- **Frontend Runtime Stability**: Disabled cross-origin iframe recording in analytics to prevent the `PerformanceServerTiming` `DataCloneError` on page load
 
 ## Code Architecture
 ```
@@ -69,6 +70,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Deep opening teaching fix tested: iteration 123 (30/30 backend tests passed)
 - Expanded opening coverage self-tested + unit-tested (`test_play_with_coach_opening_context.py`, `test_expanded_opening_variations.py` → 10/10 passed)
 - Frontend routing/demo-mode smoke tested and checked with frontend testing agent (critical flows working; fresh-user onboarding still needs one final verification)
+- PostHog `PerformanceServerTiming` DataCloneError fix verified by frontend testing agent (console clean after page load and interaction)
 - Test files: `/app/backend/tests/test_*.py`
 
 ## Key Technical Notes
@@ -80,3 +82,4 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - `get_variation_teaching(...)` now supports main-line guidance even when the player deviates from the expected move
 - `get_variation_teaching(...)` now also returns `plans_for_user` so Black and White get side-aware plan suggestions from the same opening tree
 - Frontend protected routes now store `post_auth_redirect` in session storage and allow `demo=true` onboarding bypass for demo exploration
+- Frontend analytics config now keeps `recordCrossOriginIframes: false` to avoid non-cloneable `PerformanceServerTiming` objects during `postMessage`
