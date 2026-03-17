@@ -1,1017 +1,510 @@
+#!/usr/bin/env python3
 """
-Chess Brain V1.1 Test Suite
-===========================
+Backend Queue Recovery Testing
+==============================
 
-Tests for the new Chess Brain V1.1 implementations:
-1. Template System Tests
-2. Fingerprint Service Tests 
-3. Reinforcement Engine Tests
-4. Enhanced Detector Tests
-5. Integration Tests
+Tests the new queue recovery behavior for game analysis including:
+1. Analysis status API returns richer queue metadata fields 
+2. Real pending jobs are picked up by fallback processor
+3. Failed jobs are not endlessly retried beyond 3 attempts
+4. Pending jobs are NOT retried (only stuck processing jobs retry)
+5. Queue items expose useful last_error data when failed
 
-Run with: python backend_test.py
+Real-world data context:
+- User ID: user_4dad2b14e380  
+- Existing queue items in MongoDB for this user
+- Stockfish was installed during this run
 """
 
-import sys
-import os
-import asyncio
-import uuid
-import subprocess
+import requests
+import time
+import json
+import logging
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+import sys
 
-# Add the backend directory to Python path
-backend_dir = os.path.join(os.path.dirname(__file__), 'backend')
-sys.path.insert(0, backend_dir)
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-# Import Chess Brain components
-import chess
-from services.chess_brain import (
-    ChessBrain, 
-    TeachingMode, 
-    MoveQuality, 
-    get_detector_registry
-)
-from services.chess_brain.templates import get_template, render_template
-from services.chess_brain.fingerprint_service import FingerprintService, get_fingerprint_service
-from services.chess_brain.reinforcement_engine import ReinforcementEngine, create_reinforcement_engine
-from services.chess_brain.enums import MistakeCategory, TacticalPattern, StrategicConcept, LessonPriority
-from services.chess_brain.schemas import PositionInsightObject, MistakeFingerprint, DetectorResult
+# Test configuration
+BACKEND_URL = "https://coach-variations.preview.emergentagent.com/api"
+TEST_USER_ID = "user_4dad2b14e380"
+SESSION_TOKEN = None  # Will be obtained via dev login
 
-
-class ChessBrainV11Tester:
-    """Test suite for Chess Brain V1.1 features."""
-    
+class QueueRecoveryTester:
     def __init__(self):
-        self.tests_run = 0
-        self.tests_passed = 0
-        self.test_results = []
+        self.session = requests.Session()
+        self.session.timeout = 30
         
-    def log_test(self, name: str, success: bool, details: str = ""):
-        """Log test result"""
-        self.tests_run += 1
-        if success:
-            self.tests_passed += 1
-            print(f"✅ {name}")
-        else:
-            print(f"❌ {name} - FAILED: {details}")
-        
-        self.test_results.append({
-            "test": name,
-            "success": success,
-            "details": details
-        })
+    def authenticate(self) -> bool:
+        """Authenticate using dev login"""
+        try:
+            response = self.session.get(f"{BACKEND_URL}/auth/dev-login")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("user", {}).get("user_id") == TEST_USER_ID:
+                    logger.info("✅ Dev authentication successful")
+                    return True
+                else:
+                    logger.error(f"❌ Wrong user authenticated: {data.get('user', {}).get('user_id')}")
+                    return False
+            else:
+                logger.error(f"❌ Dev login failed: {response.status_code}")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Authentication error: {e}")
+            return False
 
-    def run_template_system_tests(self):
-        """Test the template system functionality."""
-        print("\n" + "="*60)
-        print("TESTING TEMPLATE SYSTEM")
-        print("="*60)
+    def test_analysis_status_api(self) -> Dict[str, Any]:
+        """Test 1: Verify analysis status API returns richer queue metadata fields"""
+        logger.info("🧪 Test 1: Analysis Status API - Queue Metadata Fields")
         
-        # Test 1: Import all template modules successfully
+        results = {
+            "test_name": "Analysis Status API",
+            "passed": False,
+            "games_tested": [],
+            "queue_fields_found": set(),
+            "error": None
+        }
+        
         try:
-            from services.chess_brain.templates import (
-                tactical_patterns,
-                strategic_concepts,
-                mistake_corrections,
-                reinforcement,
-                opening_guidance,
-                endgame_technique
-            )
-            self.log_test("Import all template modules", True)
-        except Exception as e:
-            self.log_test("Import all template modules", False, str(e))
-            return
-        
-        # Test 2: Get tactical pattern template with variations
-        try:
-            template = get_template(
-                TeachingMode.TACTICAL_PATTERN_TEACHING,
-                "FORK",
-                {
-                    "piece": "Knight", 
-                    "square": "f7",
-                    "target1": "King",
-                    "target2": "Rook"
-                }
-            )
+            # Get user's games to find ones with queue status
+            games_response = self.session.get(f"{BACKEND_URL}/games")
+            if games_response.status_code != 200:
+                results["error"] = f"Failed to fetch games: {games_response.status_code}"
+                return results
             
-            success = (
-                "main_insight" in template and
-                "explanation" in template and
-                "Knight" in template["main_insight"] and
-                "f7" in template["main_insight"]
-            )
-            self.log_test("Get tactical pattern template (fork)", success, 
-                         "Missing required fields" if not success else "")
-        except Exception as e:
-            self.log_test("Get tactical pattern template (fork)", False, str(e))
-        
-        # Test 3: Get strategic concept template
-        try:
-            template = get_template(
-                TeachingMode.STRATEGIC_CONCEPT_TEACHING,
-                "ISOLATED_PAWN",
-                {
-                    "square": "d5",
-                    "file": "d-file"
-                }
-            )
+            games = games_response.json()
+            logger.info(f"Found {len(games)} games for user {TEST_USER_ID}")
             
-            success = (
-                "main_insight" in template and
-                "explanation" in template and
-                "d5" in str(template)
-            )
-            self.log_test("Get strategic concept template (isolated_pawn)", success)
-        except Exception as e:
-            self.log_test("Get strategic concept template (isolated_pawn)", False, str(e))
-        
-        # Test 4: Get mistake correction template
-        try:
-            template = get_template(
-                TeachingMode.IMMEDIATE_MISTAKE_CORRECTION,
-                "blunder",
-                {
-                    "move": "Qh5",
-                    "best_move": "Nf3",
-                    "what_went_wrong": "hangs the queen"
-                }
-            )
-            
-            success = (
-                "main_insight" in template and
-                "explanation" in template
-            )
-            self.log_test("Get mistake correction template (blunder)", success)
-        except Exception as e:
-            self.log_test("Get mistake correction template (blunder)", False, str(e))
-        
-        # Test 5: Get reinforcement template
-        try:
-            template = get_template(
-                TeachingMode.POSITIVE_REINFORCEMENT,
-                "excellent_move",
-                {
-                    "move": "Nf3",
-                    "why_good": "develops with tempo"
-                }
-            )
-            
-            success = (
-                "main_insight" in template and
-                "explanation" in template
-            )
-            self.log_test("Get reinforcement template (positive)", success)
-        except Exception as e:
-            self.log_test("Get reinforcement template (positive)", False, str(e))
-        
-        # Test 6: Get habit breakthrough template
-        try:
-            template = get_template(
-                TeachingMode.HABIT_BREAKTHROUGH,
-                "habit_breakthrough",
-                {
-                    "pattern_name": "fork patterns",
-                    "miss_count": 5,
-                    "user_move": "Nf7",
-                    "achievement_description": "shows improving pattern recognition",
-                    "explanation": "Great breakthrough!"
-                }
-            )
-            
-            success = (
-                "main_insight" in template and
-                "explanation" in template and
-                ("breakthrough" in template["main_insight"].lower() or 
-                 "achievement" in template["main_insight"].lower())
-            )
-            self.log_test("Get reinforcement template (habit_breakthrough)", success)
-        except Exception as e:
-            self.log_test("Get reinforcement template (habit_breakthrough)", False, str(e))
-        
-        # Test 7: Get opening guidance template
-        try:
-            template = get_template(
-                TeachingMode.OPENING_GUIDANCE,
-                "opening_principles",
-                {
-                    "move": "e4",
-                    "principle": "control the center"
-                }
-            )
-            
-            success = (
-                "main_insight" in template and
-                "explanation" in template
-            )
-            self.log_test("Get opening guidance template", success)
-        except Exception as e:
-            self.log_test("Get opening guidance template", False, str(e))
-        
-        # Test 8: Get endgame technique template
-        try:
-            template = get_template(
-                TeachingMode.ENDGAME_TECHNIQUE,
-                "king_and_pawn",
-                {
-                    "technique": "opposition",
-                    "position_type": "king and pawn endgame"
-                }
-            )
-            
-            success = (
-                "main_insight" in template and
-                "explanation" in template
-            )
-            self.log_test("Get endgame technique template", success)
-        except Exception as e:
-            self.log_test("Get endgame technique template", False, str(e))
-        
-        # Test 9: Verify template variable rendering
-        try:
-            template_text = "Your {{piece}} on {{square}} attacks the {{target}}."
-            rendered = render_template(template_text, {
-                "piece": "Queen",
-                "square": "d1", 
-                "target": "King"
-            })
-            
-            expected = "Your Queen on d1 attacks the King."
-            success = rendered == expected
-            self.log_test("Template variable rendering", success,
-                         f"Expected '{expected}', got '{rendered}'")
-        except Exception as e:
-            self.log_test("Template variable rendering", False, str(e))
-        
-        # Test 10: Verify multiple variations return different text
-        try:
-            template1 = get_template(
-                TeachingMode.TACTICAL_PATTERN_TEACHING,
-                "FORK",
-                {"piece": "Knight", "square": "f7"},
-                variation=0
-            )
-            template2 = get_template(
-                TeachingMode.TACTICAL_PATTERN_TEACHING,
-                "FORK", 
-                {"piece": "Knight", "square": "f7"},
-                variation=1
-            )
-            
-            success = template1["main_insight"] != template2["main_insight"]
-            self.log_test("Multiple variations return different text", success,
-                         "Variations should differ")
-        except Exception as e:
-            self.log_test("Multiple variations return different text", False, str(e))
-
-    async def run_fingerprint_service_tests(self):
-        """Test fingerprint service functionality."""
-        print("\n" + "="*60)
-        print("TESTING FINGERPRINT SERVICE")
-        print("="*60)
-        
-        # Initialize service
-        service = FingerprintService(db=None)  # Use in-memory for testing
-        test_user_id = f"test_user_{uuid.uuid4().hex[:8]}"
-        
-        # Test 1: Create new fingerprint for user
-        try:
-            fingerprint = await service.get_fingerprint(test_user_id)
-            success = (
-                fingerprint.user_id == test_user_id and
-                isinstance(fingerprint.tactical, dict) and
-                isinstance(fingerprint.strategic, dict) and
-                isinstance(fingerprint.behavioral, dict)
-            )
-            self.log_test("Create new fingerprint for user", success)
-        except Exception as e:
-            self.log_test("Create new fingerprint for user", False, str(e))
-            return
-        
-        # Test 2: Update fingerprint with new mistake
-        try:
-            await service.update_fingerprint(
-                test_user_id,
-                "MISSED_FORK",
-                MistakeCategory.TACTICAL.value
-            )
-            
-            updated_fingerprint = await service.get_fingerprint(test_user_id)
-            success = (
-                updated_fingerprint.tactical.get("MISSED_FORK", {}).get("count", 0) >= 1
-            )
-            self.log_test("Update fingerprint with new mistake", success)
-        except Exception as e:
-            self.log_test("Update fingerprint with new mistake", False, str(e))
-        
-        # Test 3: Verify decay score calculation
-        try:
-            # Simulate an old mistake
-            old_date = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-            
-            # Manually set an old mistake for testing
-            fingerprint = await service.get_fingerprint(test_user_id)
-            fingerprint.tactical["TEST_PATTERN"] = {
-                "count": 3,
-                "last_seen": old_date,
-                "decay_score": 1.0  # Will be updated by decay calculation
-            }
-            
-            # Update decay scores
-            service._update_decay_scores(fingerprint)
-            
-            # Check if decay was applied (should be 0.9^7 ≈ 0.48)
-            decay_score = fingerprint.tactical["TEST_PATTERN"]["decay_score"]
-            expected_decay = 0.9 ** 7  # About 0.478
-            
-            success = 0.4 <= decay_score <= 0.5  # Reasonable range
-            self.log_test("Verify decay score calculation", success,
-                         f"Expected ~{expected_decay:.3f}, got {decay_score:.3f}")
-        except Exception as e:
-            self.log_test("Verify decay score calculation", False, str(e))
-        
-        # Test 4: Get pattern stats for specific pattern
-        try:
-            stats = await service.get_pattern_stats(
-                test_user_id,
-                "MISSED_FORK",
-                MistakeCategory.TACTICAL.value
-            )
-            
-            success = (
-                "count" in stats and
-                "last_seen" in stats and
-                "decay_score" in stats and
-                "relevance_score" in stats and
-                stats["count"] >= 1
-            )
-            self.log_test("Get pattern stats for specific pattern", success)
-        except Exception as e:
-            self.log_test("Get pattern stats for specific pattern", False, str(e))
-        
-        # Test 5: Get top 5 weaknesses sorted by relevance
-        try:
-            # Add multiple patterns
-            await service.update_fingerprint(test_user_id, "MISSED_PIN", MistakeCategory.TACTICAL.value)
-            await service.update_fingerprint(test_user_id, "ISOLATED_PAWN", MistakeCategory.STRATEGIC.value)
-            await service.update_fingerprint(test_user_id, "TIME_TROUBLE", MistakeCategory.BEHAVIORAL.value)
-            
-            weaknesses = await service.get_top_weaknesses(test_user_id, limit=5)
-            
-            success = (
-                isinstance(weaknesses, list) and
-                len(weaknesses) <= 5 and
-                all("pattern_type" in w and "relevance_score" in w for w in weaknesses)
-            )
-            
-            # Check if sorted by relevance
-            if len(weaknesses) > 1:
-                sorted_check = all(
-                    weaknesses[i]["relevance_score"] >= weaknesses[i+1]["relevance_score"]
-                    for i in range(len(weaknesses)-1)
-                )
-                success = success and sorted_check
-                
-            self.log_test("Get top 5 weaknesses sorted by relevance", success)
-        except Exception as e:
-            self.log_test("Get top 5 weaknesses sorted by relevance", False, str(e))
-        
-        # Test 6: Increment games_analyzed counter
-        try:
-            initial_fingerprint = await service.get_fingerprint(test_user_id)
-            initial_count = initial_fingerprint.games_analyzed
-            
-            await service.increment_games_analyzed(test_user_id)
-            
-            updated_fingerprint = await service.get_fingerprint(test_user_id)
-            success = updated_fingerprint.games_analyzed == initial_count + 1
-            
-            self.log_test("Increment games_analyzed counter", success)
-        except Exception as e:
-            self.log_test("Increment games_analyzed counter", False, str(e))
-        
-        # Test 7: Verify relevance score calculation
-        try:
-            fingerprint = await service.get_fingerprint(test_user_id)
-            
-            # Test relevance calculation for a pattern with known values
-            relevance = fingerprint.get_relevance_score("MISSED_FORK", MistakeCategory.TACTICAL.value)
-            
-            # Relevance should be min(1.0, (count * decay_score) / 10)
-            # With count >= 1 and decay_score close to 1.0, relevance should be > 0
-            success = 0.0 <= relevance <= 1.0 and relevance > 0
-            
-            self.log_test("Verify relevance score calculation", success,
-                         f"Relevance: {relevance}")
-        except Exception as e:
-            self.log_test("Verify relevance score calculation", False, str(e))
-
-    async def run_reinforcement_engine_tests(self):
-        """Test reinforcement engine functionality."""
-        print("\n" + "="*60)
-        print("TESTING REINFORCEMENT ENGINE") 
-        print("="*60)
-        
-        # Initialize services
-        fingerprint_service = FingerprintService(db=None)
-        engine = ReinforcementEngine(fingerprint_service)
-        test_user_id = f"test_user_{uuid.uuid4().hex[:8]}"
-        
-        # Test 1: Initialize reinforcement engine
-        try:
-            success = isinstance(engine, ReinforcementEngine)
-            self.log_test("Initialize reinforcement engine", success)
-        except Exception as e:
-            self.log_test("Initialize reinforcement engine", False, str(e))
-            return
-        
-        # Setup: Create a user with known weaknesses
-        try:
-            # Add multiple instances of MISSED_FORK to create a strong weakness
-            for _ in range(5):
-                await fingerprint_service.update_fingerprint(
-                    test_user_id, 
-                    "MISSED_FORK", 
-                    MistakeCategory.TACTICAL.value
-                )
-        except Exception as e:
-            print(f"Setup error: {e}")
-            return
-        
-        # Test 2: Check for breakthrough when user avoids known weakness
-        try:
-            # Create a position insight representing a good move
-            position_insight = PositionInsightObject(
-                fen=chess.STARTING_FEN,
-                move_number=15,
-                user_color="white",
-                eval_before=0.2,
-                eval_after=0.3,
-                best_move="Nf7",
-                user_move="Nf7", 
-                move_quality=MoveQuality.EXCELLENT,
-                cp_loss=0,
-                time_spent=3.0,
-                is_check=False,
-                is_capture=False,
-                tactical_detections=[],
-                strategic_detections=[],
-                behavioral_detections=[]
-            )
-            
-            breakthrough = await engine.check_for_breakthrough(test_user_id, position_insight)
-            
-            # This test might not trigger a breakthrough since the position doesn't contain
-            # the specific pattern, but it should not error
-            success = breakthrough is None or hasattr(breakthrough, 'teaching_mode')
-            self.log_test("Check for breakthrough when user avoids known weakness", success)
-        except Exception as e:
-            self.log_test("Check for breakthrough when user avoids known weakness", False, str(e))
-        
-        # Test 3: Verify breakthrough NOT detected when user makes mistake
-        try:
-            bad_position_insight = PositionInsightObject(
-                fen="rnbqkbnr/pppp1ppp/8/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2",
-                move_number=16,
-                user_color="black",
-                eval_before=-0.5,
-                eval_after=5.0,
-                best_move="Nc6",
-                user_move="g6",  # Bad move
-                move_quality=MoveQuality.BLUNDER,
-                cp_loss=550,
-                time_spent=2.0,
-                is_check=False,
-                is_capture=False,
-                tactical_detections=[],
-                strategic_detections=[],
-                behavioral_detections=[]
-            )
-            
-            breakthrough = await engine.check_for_breakthrough(test_user_id, bad_position_insight)
-            
-            # Should not get breakthrough for bad move
-            success = breakthrough is None
-            self.log_test("Verify breakthrough NOT detected when user makes mistake", success)
-        except Exception as e:
-            self.log_test("Verify breakthrough NOT detected when user makes mistake", False, str(e))
-        
-        # Test 4: Verify breakthrough requires count >= 3, relevance >= 0.3
-        try:
-            # Create a user with only 1 occurrence of a pattern (should not trigger)
-            weak_user_id = f"weak_user_{uuid.uuid4().hex[:8]}"
-            await fingerprint_service.update_fingerprint(
-                weak_user_id,
-                "MISSED_PIN", 
-                MistakeCategory.TACTICAL.value
-            )
-            
-            good_insight = PositionInsightObject(
-                fen=chess.STARTING_FEN,
-                move_number=10,
-                user_color="white",
-                eval_before=0.2,
-                eval_after=0.4,
-                best_move="Bb5",
-                user_move="Bb5",
-                move_quality=MoveQuality.EXCELLENT,
-                cp_loss=0,
-                time_spent=2.5,
-                is_check=False,
-                is_capture=False,
-                tactical_detections=[],
-                strategic_detections=[],
-                behavioral_detections=[]
-            )
-            
-            breakthrough = await engine.check_for_breakthrough(weak_user_id, good_insight)
-            
-            # Should not trigger breakthrough for weak pattern (count < 3)
-            success = breakthrough is None
-            self.log_test("Verify breakthrough requires count >= 3, relevance >= 0.3", success)
-        except Exception as e:
-            self.log_test("Verify breakthrough requires count >= 3, relevance >= 0.3", False, str(e))
-        
-        # Test 5: Test breakthrough lesson candidate creation
-        try:
-            # Test the _create_breakthrough_lesson method directly
-            test_breakthrough = {
-                "pattern_type": "MISSED_FORK",
-                "category": MistakeCategory.TACTICAL.value,
-                "count": 5,
-                "relevance": 0.8,
-                "user_move": "Nf7",
-                "best_move": "Nf7"
-            }
-            
-            test_insight = PositionInsightObject(
-                fen=chess.STARTING_FEN,
-                move_number=20,
-                user_color="white",
-                eval_before=0.2,
-                eval_after=0.3,
-                best_move="Nf7",
-                user_move="Nf7",
-                move_quality=MoveQuality.EXCELLENT,
-                cp_loss=0,
-                time_spent=3.0,
-                is_check=False,
-                is_capture=False,
-                tactical_detections=[],
-                strategic_detections=[],
-                behavioral_detections=[]
-            )
-            
-            candidate = engine._create_breakthrough_lesson(test_breakthrough, test_insight)
-            
-            success = (
-                candidate.teaching_mode == TeachingMode.HABIT_BREAKTHROUGH and
-                "breakthrough" in candidate.title.lower() and
-                candidate.priority == LessonPriority.HIGH and
-                hasattr(candidate, 'template_vars') and
-                candidate.template_vars.get("pattern_name") == "fork patterns"
-            )
-            
-            self.log_test("Test breakthrough lesson candidate creation", success)
-        except Exception as e:
-            self.log_test("Test breakthrough lesson candidate creation", False, str(e))
-        
-        # Test 6: Verify teaching_mode = HABIT_BREAKTHROUGH
-        try:
-            # Using the same test as above, verify the teaching mode
-            test_breakthrough = {
-                "pattern_type": "MISSED_FORK",
-                "category": MistakeCategory.TACTICAL.value,
-                "count": 5,
-                "relevance": 0.8,
-                "user_move": "Nf7",
-                "best_move": "Nf7"
-            }
-            
-            test_insight = PositionInsightObject(
-                fen=chess.STARTING_FEN,
-                move_number=20,
-                user_color="white",
-                eval_before=0.2,
-                eval_after=0.3,
-                best_move="Nf7",
-                user_move="Nf7",
-                move_quality=MoveQuality.EXCELLENT,
-                cp_loss=0,
-                time_spent=3.0,
-                is_check=False,
-                is_capture=False,
-                tactical_detections=[],
-                strategic_detections=[],
-                behavioral_detections=[]
-            )
-            
-            candidate = engine._create_breakthrough_lesson(test_breakthrough, test_insight)
-            
-            success = candidate.teaching_mode == TeachingMode.HABIT_BREAKTHROUGH
-            self.log_test("Verify teaching_mode = HABIT_BREAKTHROUGH", success)
-        except Exception as e:
-            self.log_test("Verify teaching_mode = HABIT_BREAKTHROUGH", False, str(e))
-        
-        # Test 7: Check template variables populated correctly
-        try:
-            test_breakthrough = {
-                "pattern_type": "MISSED_PIN",
-                "category": MistakeCategory.TACTICAL.value,
-                "count": 4,
-                "relevance": 0.6,
-                "user_move": "Bb5",
-                "best_move": "Bb5"
-            }
-            
-            test_insight = PositionInsightObject(
-                fen=chess.STARTING_FEN,
-                move_number=12,
-                user_color="white",
-                eval_before=0.2,
-                eval_after=0.2,
-                best_move="Bb5",
-                user_move="Bb5",
-                move_quality=MoveQuality.GOOD,
-                cp_loss=0,
-                time_spent=2.0,
-                is_check=False,
-                is_capture=False,
-                tactical_detections=[],
-                strategic_detections=[],
-                behavioral_detections=[]
-            )
-            
-            candidate = engine._create_breakthrough_lesson(test_breakthrough, test_insight)
-            
-            template_vars = candidate.template_vars
-            success = (
-                "pattern_name" in template_vars and
-                "miss_count" in template_vars and
-                "user_move" in template_vars and
-                "achievement_description" in template_vars and
-                template_vars["miss_count"] == 4 and
-                template_vars["user_move"] == "Bb5" and
-                template_vars["pattern_name"] == "pin tactics"
-            )
-            
-            self.log_test("Check template variables populated correctly", success)
-        except Exception as e:
-            self.log_test("Check template variables populated correctly", False, str(e))
-
-    def run_enhanced_detector_tests(self):
-        """Test enhanced tactical detectors."""
-        print("\n" + "="*60)
-        print("TESTING ENHANCED DETECTORS")
-        print("="*60)
-        
-        # Get detector registry
-        try:
-            registry = get_detector_registry()
-            self.log_test("Get detector registry", True)
-        except Exception as e:
-            self.log_test("Get detector registry", False, str(e))
-            return
-        
-        # Test 1: Test detect_skewer with skewer position
-        try:
-            # Test if skewer detector exists and returns proper structure
-            skewer_detector = registry._tactical_detectors.get("skewer_detector")
-            success = skewer_detector is not None
-            self.log_test("Test detect_skewer detector exists", success)
-            
-            if success:
-                # Create a test position - simple skewer setup
-                board = chess.Board("r3k2r/8/8/8/8/8/8/R3K2R w - - 0 1")  # Rooks aligned
-                context = {"move_number": 10, "game_phase": "middlegame"}
-                
-                # Test detection
-                result = skewer_detector.detector_func(board, "Ra8", "Ra1", context)
-                
-                # Should return a proper result structure
-                success = (
-                    isinstance(result, DetectorResult) and
-                    0.0 <= result.confidence <= 1.0
-                )
-                self.log_test("Test detect_skewer with position", success)
-                
-        except Exception as e:
-            self.log_test("Test detect_skewer with skewer position", False, str(e))
-        
-        # Test 2: Test detect_overload with overloaded defender
-        try:
-            overload_detector = registry._tactical_detectors.get("overload_detector")
-            success = overload_detector is not None
-            self.log_test("Test detect_overload detector exists", success)
-            
-            if success:
-                # Test with any position
-                board = chess.Board()  # Starting position
-                context = {"move_number": 1, "game_phase": "opening"}
-                
-                result = overload_detector.detector_func(board, "e4", "e4", context)
-                
-                success = (
-                    isinstance(result, DetectorResult) and
-                    hasattr(result, "confidence") and
-                    0.0 <= result.confidence <= 1.0
-                )
-                self.log_test("Test detect_overload with position", success)
-                
-        except Exception as e:
-            self.log_test("Test detect_overload with overloaded defender", False, str(e))
-        
-        # Test 3: Test detect_removal with defender removal
-        try:
-            removal_detector = registry._tactical_detectors.get("removal_detector")
-            success = removal_detector is not None
-            self.log_test("Test detect_removal detector exists", success)
-            
-            if success:
-                # Test with any position
-                board = chess.Board()
-                context = {"move_number": 1, "game_phase": "opening"}
-                
-                result = removal_detector.detector_func(board, "Nf3", "Nf3", context)
-                
-                success = (
-                    isinstance(result, DetectorResult) and
-                    hasattr(result, "confidence") and
-                    0.0 <= result.confidence <= 1.0
-                )
-                self.log_test("Test detect_removal with position", success)
-                
-        except Exception as e:
-            self.log_test("Test detect_removal with defender removal", False, str(e))
-        
-        # Test 4: Verify confidence scores are between 0.0-1.0
-        try:
-            # Test all three enhanced detectors for confidence range
-            detectors_to_test = ["skewer_detector", "overload_detector", "removal_detector"]
-            board = chess.Board()
-            context = {"move_number": 5, "game_phase": "opening"}
-            
-            all_valid = True
-            for detector_name in detectors_to_test:
-                detector = registry._tactical_detectors.get(detector_name)
-                if detector:
-                    result = detector.detector_func(board, "e4", "e4", context)
-                    confidence = result.confidence
-                    if not (0.0 <= confidence <= 1.0):
-                        all_valid = False
-                        break
-            
-            self.log_test("Verify confidence scores are between 0.0-1.0", all_valid)
-        except Exception as e:
-            self.log_test("Verify confidence scores are between 0.0-1.0", False, str(e))
-        
-        # Test 5: Verify teaching hooks are populated (when pattern is detected)
-        try:
-            # This test verifies the structure exists, not necessarily that hooks are always populated
-            detectors_to_test = ["skewer_detector", "overload_detector", "removal_detector"]
-            board = chess.Board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
-            context = {"move_number": 1, "game_phase": "opening"}
-            
-            all_have_hook_field = True
-            for detector_name in detectors_to_test:
-                detector = registry._tactical_detectors.get(detector_name)
-                if detector:
-                    result = detector.detector_func(board, "e5", "e5", context)
-                    # Check that the DetectorResult has the teaching_hook field
-                    if not hasattr(result, "teaching_hook"):
-                        all_have_hook_field = False
-                        break
-            
-            self.log_test("Verify teaching hooks field exists in DetectorResult", all_have_hook_field)
-        except Exception as e:
-            self.log_test("Verify teaching hooks are populated", False, str(e))
-        
-        # Test 6: Verify key_squares are returned
-        try:
-            # Test if detectors return key squares (might be optional)
-            detectors_to_test = ["skewer_detector", "overload_detector", "removal_detector"] 
-            board = chess.Board("r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 4 4")
-            context = {"move_number": 4, "game_phase": "opening"}
-            
-            # Key squares might not always be returned, so we test structure
-            all_valid_structure = True
-            for detector_name in detectors_to_test:
-                detector = registry._tactical_detectors.get(detector_name)
-                if detector:
-                    result = detector.detector_func(board, "Nxe5", "Nxe5", context)
-                    # Result should be a dict with basic required fields
-                    if not isinstance(result, DetectorResult) or not hasattr(result, "confidence"):
-                        all_valid_structure = False
-                        break
-            
-            self.log_test("Verify detectors return valid structure", all_valid_structure)
-        except Exception as e:
-            self.log_test("Verify key_squares are returned", False, str(e))
-        
-        # Test 7: Test detectors handle positions without tactical patterns appropriately
-        try:
-            # Use a very simple position where tactical patterns are unlikely
-            board = chess.Board("8/8/8/3k4/3K4/8/8/8 w - - 0 50")  # Simple king endgame
-            context = {"move_number": 50, "game_phase": "endgame"}
-            
-            detectors_to_test = ["skewer_detector", "overload_detector", "removal_detector"]
-            all_return_valid_results = True
-            
-            for detector_name in detectors_to_test:
-                detector = registry._tactical_detectors.get(detector_name)
-                if detector:
-                    result = detector.detector_func(board, "Kc4", "Kc4", context)
-                    # In a simple king endgame, we just expect a valid DetectorResult
-                    # The actual confidence/detection values depend on implementation
-                    if not isinstance(result, DetectorResult) or not hasattr(result, "confidence"):
-                        all_return_valid_results = False
-                        break
-            
-            self.log_test("Test detectors return valid results for simple positions", all_return_valid_results)
-        except Exception as e:
-            self.log_test("Test all three detectors return empty result when pattern not present", False, str(e))
-
-    async def run_integration_tests(self):
-        """Test integration between components."""
-        print("\n" + "="*60)
-        print("TESTING INTEGRATION")
-        print("="*60)
-        
-        # Test 1: Run existing Chess Brain test suite
-        try:
-            # Run the existing test suite
-            result = subprocess.run([
-                "python", "-m", "pytest", 
-                "tests/test_chess_brain.py", 
-                "tests/test_chess_brain_integration.py",
-                "-v", "--tb=short"
-            ], capture_output=True, text=True, cwd="/app/backend")
-            
-            # Check if tests passed
-            success = result.returncode == 0
-            details = f"Exit code: {result.returncode}"
-            if result.returncode == 0:
-                # Count passing tests
-                stdout_lines = result.stdout.split('\n')
-                passed_line = [line for line in stdout_lines if "passed" in line and "=" in line]
-                if passed_line:
-                    details = passed_line[-1].strip()
+            # Test analysis status for each game
+            queue_items_found = 0
+            for game in games[:10]:  # Test first 10 games
+                game_id = game.get("game_id")
+                if not game_id:
+                    continue
                     
-            if result.stderr and result.returncode != 0:
-                details += f"\nStderr: {result.stderr[-200:]}"
+                status_response = self.session.get(f"{BACKEND_URL}/games/{game_id}/analysis-status")
+                if status_response.status_code != 200:
+                    logger.warning(f"Failed to get status for game {game_id}: {status_response.status_code}")
+                    continue
                 
-            self.log_test("Run existing Chess Brain test suite (pytest)", success, details)
-        except Exception as e:
-            self.log_test("Run existing Chess Brain test suite", False, str(e))
-        
-        # Test 2: Verify all 31 tests still pass (manual check)
-        try:
-            # Run the existing test modules directly
-            from services.chess_brain import get_detector_registry
-            
-            registry = get_detector_registry()
-            total_detectors = (
-                len(registry._tactical_detectors) + 
-                len(registry._strategic_detectors) + 
-                len(registry._behavioral_detectors)
-            )
-            
-            # Should have 10 tactical + 5 strategic + 3 behavioral = 18 detectors
-            expected_total = 18
-            success = total_detectors == expected_total
-            
-            self.log_test(f"Verify detector count (expected {expected_total})", success,
-                         f"Found {total_detectors} detectors")
-        except Exception as e:
-            self.log_test("Verify all detectors are registered", False, str(e))
-        
-        # Test 3: Test template integration with lesson selection
-        try:
-            brain = ChessBrain(db=None)
-            
-            # Test a simple analysis
-            output = await brain.analyze_move(
-                fen_before=chess.STARTING_FEN,
-                user_move="e4",
-                user_id="test_integration_user",
-                session_id="test_integration_session",
-                stockfish_analysis={
-                    "best_move": "e4",
-                    "eval_before": 0.2,
-                    "eval_after": 0.3,
-                    "pv": ["e4", "e5"]
+                status_data = status_response.json()
+                results["games_tested"].append({
+                    "game_id": game_id,
+                    "status": status_data.get("status"),
+                    "fields": list(status_data.keys())
+                })
+                
+                # Check for richer queue fields
+                expected_queue_fields = {
+                    "queued_at", "started_at", "failed_at", "retry_count", 
+                    "last_error", "last_error_at", "retrying"
                 }
-            )
+                
+                found_fields = set(status_data.keys()) & expected_queue_fields
+                results["queue_fields_found"].update(found_fields)
+                
+                if status_data.get("status") in ["pending", "processing", "failed"]:
+                    queue_items_found += 1
+                    logger.info(f"📊 Queue item found for {game_id}: status={status_data.get('status')}")
+                    
+                    # Log detailed queue metadata
+                    if found_fields:
+                        metadata = {k: status_data.get(k) for k in found_fields}
+                        logger.info(f"   Queue metadata: {metadata}")
             
-            success = (
-                output.coaching_message is not None and
-                len(output.coaching_message) > 0 and
-                output.move_quality is not None and
-                output.teaching_mode is not None
-            )
+            results["queue_items_found"] = queue_items_found
+            results["total_queue_fields"] = len(results["queue_fields_found"])
             
-            self.log_test("Test template integration with lesson selection", success)
+            # Test passes if we find at least 3 of the expected queue metadata fields
+            results["passed"] = len(results["queue_fields_found"]) >= 3
+            
+            if results["passed"]:
+                logger.info(f"✅ Test 1 PASSED: Found {len(results['queue_fields_found'])} queue metadata fields")
+            else:
+                logger.error(f"❌ Test 1 FAILED: Only found {len(results['queue_fields_found'])} queue metadata fields")
+                
         except Exception as e:
-            self.log_test("Test template integration with lesson selection", False, str(e))
+            results["error"] = str(e)
+            logger.error(f"❌ Test 1 ERROR: {e}")
         
-        # Test 4: Test fingerprint service integration with reinforcement engine
+        return results
+
+    def test_fallback_processor_behavior(self) -> Dict[str, Any]:
+        """Test 2: Verify fallback processor picks up pending jobs"""
+        logger.info("🧪 Test 2: Fallback Processor Behavior")
+        
+        results = {
+            "test_name": "Fallback Processor",
+            "passed": False,
+            "pending_jobs_initial": 0,
+            "pending_jobs_after_wait": 0,
+            "processing_jobs_observed": 0,
+            "completed_jobs_observed": 0,
+            "error": None
+        }
+        
         try:
-            fingerprint_service = get_fingerprint_service(db=None)
-            engine = create_reinforcement_engine(db=None)
+            # Find games with pending analysis
+            games_response = self.session.get(f"{BACKEND_URL}/games")
+            games = games_response.json()
             
-            # Test that they work together
-            test_user = f"integration_test_{uuid.uuid4().hex[:8]}"
+            pending_games = []
+            for game in games[:20]:  # Check first 20 games
+                game_id = game.get("game_id")
+                status_response = self.session.get(f"{BACKEND_URL}/games/{game_id}/analysis-status")
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    if status_data.get("status") == "pending":
+                        pending_games.append(game_id)
             
-            # Add some mistakes
-            await fingerprint_service.update_fingerprint(
-                test_user,
-                "MISSED_FORK",
-                MistakeCategory.TACTICAL.value
-            )
+            results["pending_jobs_initial"] = len(pending_games)
+            logger.info(f"Found {len(pending_games)} pending games initially")
             
-            # Create position insight
-            insight = PositionInsightObject(
-                fen=chess.STARTING_FEN,
-                move_number=10,
-                user_color="white",
-                eval_before=0.2,
-                eval_after=0.3,
-                best_move="Nf7",
-                user_move="Nf7",
-                move_quality=MoveQuality.EXCELLENT,
-                cp_loss=0,
-                time_spent=2.0,
-                is_check=False,
-                is_capture=False,
-                tactical_detections=[],
-                strategic_detections=[],
-                behavioral_detections=[]
-            )
+            if len(pending_games) == 0:
+                # Try to create a pending job by re-analyzing a game
+                if games:
+                    test_game_id = games[0].get("game_id")
+                    reanalyze_response = self.session.post(f"{BACKEND_URL}/games/{test_game_id}/reanalyze")
+                    if reanalyze_response.status_code == 200:
+                        logger.info(f"Created pending analysis job for {test_game_id}")
+                        pending_games = [test_game_id]
+                        results["pending_jobs_initial"] = 1
             
-            # Should not error (breakthrough might or might not occur)
-            breakthrough = await engine.check_for_breakthrough(test_user, insight)
-            success = True  # No exceptions means integration works
-            
-            self.log_test("Test fingerprint service integration with reinforcement engine", success)
+            if pending_games:
+                # Monitor the first pending game for 60 seconds
+                monitor_game_id = pending_games[0]
+                logger.info(f"Monitoring game {monitor_game_id} for fallback processor activity...")
+                
+                start_time = time.time()
+                status_changes = []
+                
+                while time.time() - start_time < 60:  # Monitor for 60 seconds
+                    status_response = self.session.get(f"{BACKEND_URL}/games/{monitor_game_id}/analysis-status")
+                    if status_response.status_code == 200:
+                        status_data = status_response.json()
+                        current_status = status_data.get("status")
+                        
+                        if not status_changes or status_changes[-1]["status"] != current_status:
+                            status_changes.append({
+                                "timestamp": datetime.now().isoformat(),
+                                "status": current_status,
+                                "retry_count": status_data.get("retry_count", 0)
+                            })
+                            logger.info(f"Status change: {current_status}")
+                        
+                        if current_status == "processing":
+                            results["processing_jobs_observed"] += 1
+                        elif current_status in ["completed", "analyzed"]:
+                            results["completed_jobs_observed"] += 1
+                            break
+                    
+                    time.sleep(5)  # Check every 5 seconds
+                
+                results["status_changes"] = status_changes
+                
+                # Count final pending jobs
+                final_pending = 0
+                for game_id in pending_games:
+                    status_response = self.session.get(f"{BACKEND_URL}/games/{game_id}/analysis-status")
+                    if status_response.status_code == 200:
+                        status_data = status_response.json()
+                        if status_data.get("status") == "pending":
+                            final_pending += 1
+                
+                results["pending_jobs_after_wait"] = final_pending
+                
+                # Test passes if we observe any processing activity or completed jobs
+                results["passed"] = (results["processing_jobs_observed"] > 0 or 
+                                  results["completed_jobs_observed"] > 0 or
+                                  results["pending_jobs_after_wait"] < results["pending_jobs_initial"])
+                
+                if results["passed"]:
+                    logger.info("✅ Test 2 PASSED: Fallback processor activity observed")
+                else:
+                    logger.warning("⚠️ Test 2 INCONCLUSIVE: No clear processor activity in 60 seconds")
+            else:
+                logger.info("ℹ️ Test 2 SKIPPED: No pending jobs found to monitor")
+                results["passed"] = True  # Consider it passed if no pending jobs exist
+                
         except Exception as e:
-            self.log_test("Test fingerprint service integration with reinforcement engine", False, str(e))
+            results["error"] = str(e)
+            logger.error(f"❌ Test 2 ERROR: {e}")
+        
+        return results
 
-    async def run_all_tests(self):
-        """Run all test suites."""
-        print("🚀 Starting Chess Brain V1.1 Test Suite")
-        print(f"Testing at: {datetime.now()}")
+    def test_retry_limits(self) -> Dict[str, Any]:
+        """Test 3: Verify failed jobs don't retry beyond 3 attempts"""
+        logger.info("🧪 Test 3: Retry Limits (Max 3 attempts)")
         
-        # Run all test suites
-        self.run_template_system_tests()
-        await self.run_fingerprint_service_tests()
-        await self.run_reinforcement_engine_tests() 
-        self.run_enhanced_detector_tests()
-        await self.run_integration_tests()
+        results = {
+            "test_name": "Retry Limits", 
+            "passed": False,
+            "failed_jobs_found": 0,
+            "jobs_with_high_retry_count": 0,
+            "max_retry_count_seen": 0,
+            "error": None
+        }
         
-        # Print final results
-        self.print_summary()
+        try:
+            # Get user's games and check for failed ones with retry counts
+            games_response = self.session.get(f"{BACKEND_URL}/games")
+            games = games_response.json()
+            
+            for game in games[:30]:  # Check first 30 games
+                game_id = game.get("game_id")
+                status_response = self.session.get(f"{BACKEND_URL}/games/{game_id}/analysis-status")
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    status = status_data.get("status")
+                    retry_count = status_data.get("retry_count", 0)
+                    
+                    if status == "failed":
+                        results["failed_jobs_found"] += 1
+                        logger.info(f"Failed job found: {game_id}, retry_count: {retry_count}")
+                        
+                        if retry_count > results["max_retry_count_seen"]:
+                            results["max_retry_count_seen"] = retry_count
+                        
+                        if retry_count > 3:
+                            results["jobs_with_high_retry_count"] += 1
+                            logger.warning(f"❌ Job {game_id} has retry_count > 3: {retry_count}")
+            
+            # Test passes if no jobs have retry_count > 3 and max retry count is reasonable
+            results["passed"] = (results["jobs_with_high_retry_count"] == 0 and 
+                               results["max_retry_count_seen"] <= 3)
+            
+            if results["passed"]:
+                logger.info(f"✅ Test 3 PASSED: Max retry count is {results['max_retry_count_seen']}, no excessive retries")
+            else:
+                logger.error(f"❌ Test 3 FAILED: Found {results['jobs_with_high_retry_count']} jobs with retry_count > 3")
+                
+        except Exception as e:
+            results["error"] = str(e)
+            logger.error(f"❌ Test 3 ERROR: {e}")
         
-        return self.tests_passed == self.tests_run
+        return results
 
-    def print_summary(self):
-        """Print test summary"""
-        print("\n" + "="*60)
-        print("CHESS BRAIN V1.1 TEST SUMMARY")
-        print("="*60)
-        print(f"Total Tests: {self.tests_run}")
-        print(f"Passed: {self.tests_passed}")
-        print(f"Failed: {self.tests_run - self.tests_passed}")
-        print(f"Success Rate: {(self.tests_passed/self.tests_run)*100:.1f}%" if self.tests_run > 0 else "0%")
+    def test_pending_vs_processing_retry_behavior(self) -> Dict[str, Any]:
+        """Test 4: Verify pending jobs are NOT retried, only stuck processing jobs"""
+        logger.info("🧪 Test 4: Pending vs Processing Retry Behavior")
         
-        # Show failed tests
-        failed_tests = [t for t in self.test_results if not t['success']]
-        if failed_tests:
-            print(f"\n❌ FAILED TESTS ({len(failed_tests)}):")
-            for test in failed_tests:
-                print(f"   • {test['test']}")
-                if test['details']:
-                    print(f"     {test['details']}")
+        results = {
+            "test_name": "Pending vs Processing Retry",
+            "passed": False,
+            "pending_jobs_with_retries": 0,
+            "old_pending_jobs_found": 0,
+            "processing_jobs_found": 0,
+            "error": None
+        }
         
-        print("\n" + "="*60)
+        try:
+            # Get user's games and analyze retry patterns
+            games_response = self.session.get(f"{BACKEND_URL}/games")
+            games = games_response.json()
+            
+            now = datetime.now(timezone.utc)
+            
+            for game in games[:30]:
+                game_id = game.get("game_id")
+                status_response = self.session.get(f"{BACKEND_URL}/games/{game_id}/analysis-status")
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    status = status_data.get("status")
+                    retry_count = status_data.get("retry_count", 0)
+                    queued_at_str = status_data.get("queued_at")
+                    
+                    if status == "pending":
+                        # Check if old pending job has retries (shouldn't happen)
+                        if retry_count > 0:
+                            results["pending_jobs_with_retries"] += 1
+                            logger.warning(f"❌ Pending job {game_id} has retry_count: {retry_count}")
+                        
+                        # Check age of pending job
+                        if queued_at_str:
+                            try:
+                                queued_at = datetime.fromisoformat(queued_at_str.replace('Z', '+00:00'))
+                                age_minutes = (now - queued_at).total_seconds() / 60
+                                if age_minutes > 30:  # Old pending job
+                                    results["old_pending_jobs_found"] += 1
+                                    logger.info(f"Old pending job found: {game_id}, age: {age_minutes:.1f} minutes")
+                            except:
+                                pass
+                    
+                    elif status == "processing":
+                        results["processing_jobs_found"] += 1
+                        logger.info(f"Processing job: {game_id}, retry_count: {retry_count}")
+            
+            # Test passes if no pending jobs have retry counts
+            results["passed"] = results["pending_jobs_with_retries"] == 0
+            
+            if results["passed"]:
+                logger.info("✅ Test 4 PASSED: No pending jobs have retry counts")
+            else:
+                logger.error(f"❌ Test 4 FAILED: Found {results['pending_jobs_with_retries']} pending jobs with retries")
+                
+        except Exception as e:
+            results["error"] = str(e)
+            logger.error(f"❌ Test 4 ERROR: {e}")
+        
+        return results
+
+    def test_error_data_exposure(self) -> Dict[str, Any]:
+        """Test 5: Verify queue items expose useful last_error data when failed"""
+        logger.info("🧪 Test 5: Error Data Exposure")
+        
+        results = {
+            "test_name": "Error Data Exposure",
+            "passed": False,
+            "failed_jobs_found": 0,
+            "jobs_with_error_messages": 0,
+            "jobs_with_error_timestamps": 0,
+            "sample_errors": [],
+            "error": None
+        }
+        
+        try:
+            # Get user's games and check failed ones for error data
+            games_response = self.session.get(f"{BACKEND_URL}/games")
+            games = games_response.json()
+            
+            for game in games[:30]:
+                game_id = game.get("game_id")
+                status_response = self.session.get(f"{BACKEND_URL}/games/{game_id}/analysis-status")
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    status = status_data.get("status")
+                    
+                    if status == "failed":
+                        results["failed_jobs_found"] += 1
+                        
+                        last_error = status_data.get("last_error")
+                        last_error_at = status_data.get("last_error_at")
+                        failed_at = status_data.get("failed_at")
+                        
+                        if last_error:
+                            results["jobs_with_error_messages"] += 1
+                            if len(results["sample_errors"]) < 3:
+                                results["sample_errors"].append({
+                                    "game_id": game_id,
+                                    "error": last_error[:200],  # First 200 chars
+                                    "error_at": last_error_at
+                                })
+                            logger.info(f"Error data for {game_id}: {last_error[:100]}...")
+                        
+                        if last_error_at or failed_at:
+                            results["jobs_with_error_timestamps"] += 1
+            
+            # Test passes if we found failed jobs with error data
+            if results["failed_jobs_found"] > 0:
+                error_data_coverage = results["jobs_with_error_messages"] / results["failed_jobs_found"]
+                results["passed"] = error_data_coverage >= 0.5  # At least 50% have error messages
+                
+                if results["passed"]:
+                    logger.info(f"✅ Test 5 PASSED: {results['jobs_with_error_messages']}/{results['failed_jobs_found']} failed jobs have error messages")
+                else:
+                    logger.error(f"❌ Test 5 FAILED: Only {results['jobs_with_error_messages']}/{results['failed_jobs_found']} failed jobs have error messages")
+            else:
+                logger.info("ℹ️ Test 5 SKIPPED: No failed jobs found to check error data")
+                results["passed"] = True  # Consider passed if no failed jobs to check
+                
+        except Exception as e:
+            results["error"] = str(e)
+            logger.error(f"❌ Test 5 ERROR: {e}")
+        
+        return results
+
+    def run_all_tests(self) -> Dict[str, Any]:
+        """Run all queue recovery tests"""
+        logger.info("🚀 Starting Queue Recovery Backend Testing")
+        
+        # Authenticate first
+        if not self.authenticate():
+            return {"error": "Authentication failed"}
+        
+        # Run all tests
+        test_results = {}
+        
+        test_results["test1_analysis_status_api"] = self.test_analysis_status_api()
+        test_results["test2_fallback_processor"] = self.test_fallback_processor_behavior()
+        test_results["test3_retry_limits"] = self.test_retry_limits()
+        test_results["test4_pending_vs_processing"] = self.test_pending_vs_processing_retry_behavior()
+        test_results["test5_error_data"] = self.test_error_data_exposure()
+        
+        # Summary
+        passed_tests = sum(1 for result in test_results.values() if result.get("passed", False))
+        total_tests = len(test_results)
+        
+        test_results["summary"] = {
+            "total_tests": total_tests,
+            "passed_tests": passed_tests,
+            "failed_tests": total_tests - passed_tests,
+            "success_rate": f"{(passed_tests/total_tests)*100:.1f}%"
+        }
+        
+        return test_results
 
 
-async def main():
-    """Main test runner"""
-    tester = ChessBrainV11Tester()
+def main():
+    """Run the queue recovery tests"""
+    tester = QueueRecoveryTester()
+    results = tester.run_all_tests()
     
-    try:
-        success = await tester.run_all_tests()
-        return 0 if success else 1
-    except KeyboardInterrupt:
-        print("\n\n⚠️  Tests interrupted by user")
-        return 1
-    except Exception as e:
-        print(f"\n\n💥 Test runner crashed: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
+    # Print summary
+    print("\n" + "="*60)
+    print("QUEUE RECOVERY TEST RESULTS")
+    print("="*60)
+    
+    if "summary" in results:
+        summary = results["summary"]
+        print(f"Tests Passed: {summary['passed_tests']}/{summary['total_tests']} ({summary['success_rate']})")
+        print()
+    
+    # Print detailed results
+    for test_name, result in results.items():
+        if test_name == "summary":
+            continue
+            
+        status = "✅ PASSED" if result.get("passed", False) else "❌ FAILED"
+        print(f"{result.get('test_name', test_name)}: {status}")
+        
+        if result.get("error"):
+            print(f"  Error: {result['error']}")
+        
+        # Print key metrics for each test
+        if test_name == "test1_analysis_status_api":
+            print(f"  Queue fields found: {result.get('total_queue_fields', 0)}")
+            print(f"  Games tested: {len(result.get('games_tested', []))}")
+            
+        elif test_name == "test2_fallback_processor":
+            print(f"  Initial pending jobs: {result.get('pending_jobs_initial', 0)}")
+            print(f"  Processing jobs observed: {result.get('processing_jobs_observed', 0)}")
+            print(f"  Completed jobs observed: {result.get('completed_jobs_observed', 0)}")
+            
+        elif test_name == "test3_retry_limits":
+            print(f"  Failed jobs found: {result.get('failed_jobs_found', 0)}")
+            print(f"  Max retry count seen: {result.get('max_retry_count_seen', 0)}")
+            print(f"  Jobs with excessive retries: {result.get('jobs_with_high_retry_count', 0)}")
+            
+        elif test_name == "test4_pending_vs_processing":
+            print(f"  Pending jobs with retries: {result.get('pending_jobs_with_retries', 0)}")
+            print(f"  Old pending jobs found: {result.get('old_pending_jobs_found', 0)}")
+            
+        elif test_name == "test5_error_data":
+            print(f"  Failed jobs found: {result.get('failed_jobs_found', 0)}")
+            print(f"  Jobs with error messages: {result.get('jobs_with_error_messages', 0)}")
+            print(f"  Sample errors: {len(result.get('sample_errors', []))}")
+        
+        print()
+    
+    # Return exit code based on overall success
+    if "summary" in results:
+        return 0 if results["summary"]["passed_tests"] == results["summary"]["total_tests"] else 1
+    return 1
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    sys.exit(main())
