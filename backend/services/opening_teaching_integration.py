@@ -742,10 +742,11 @@ async def undo_teaching_move(db, session_id: str) -> Dict:
 
     rewind_index = played_user_indices[-1]
 
+    preferred_main_line_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" if mode == "main_line" else None
     candidate_base_fens = []
     for fen in [
+        preferred_main_line_fen,
         teaching_data.get("lesson_start_fen"),
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" if mode == "main_line" else None,
         teaching_data.get("original_fen"),
         session_doc.get("current_fen"),
     ]:

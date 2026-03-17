@@ -10034,9 +10034,18 @@ async def undo_coach_play_move(
         from services.opening_teaching_integration import undo_teaching_move
 
         result = await undo_teaching_move(db, session_id)
-        if result.get("error"):
-            raise HTTPException(status_code=400, detail=result["error"])
-        return result
+        if not result.get("error"):
+            return result
+
+        logger.warning(
+            f"Teaching undo failed for session {session_id}; falling back to normal undo: {result.get('error')}"
+        )
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"teaching_mode": None, "teaching_data": {}, "teaching_opening": None}},
+        )
+        session_doc["teaching_mode"] = None
+        session_doc["teaching_data"] = {}
 
     if session_doc.get("teaching_mode") and not teaching_is_active:
         await db.coach_sessions.update_one(
