@@ -10021,13 +10021,30 @@ async def undo_coach_play_move(
     if session_doc.get("status") != "active":
         raise HTTPException(status_code=400, detail="Undo is only available while the game is active")
 
-    if session_doc.get("teaching_mode"):
+    teaching_data = session_doc.get("teaching_data") or {}
+    teaching_moves = teaching_data.get("trap_moves") or teaching_data.get("main_line_moves") or []
+    teaching_is_active = bool(
+        session_doc.get("teaching_mode")
+        and teaching_moves
+        and teaching_data.get("teaching_fen")
+        and session_doc.get("current_fen") == teaching_data.get("teaching_fen")
+    )
+
+    if session_doc.get("teaching_mode") and teaching_is_active:
         from services.opening_teaching_integration import undo_teaching_move
 
         result = await undo_teaching_move(db, session_id)
         if result.get("error"):
             raise HTTPException(status_code=400, detail=result["error"])
         return result
+
+    if session_doc.get("teaching_mode") and not teaching_is_active:
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"teaching_mode": None, "teaching_data": {}, "teaching_opening": None}},
+        )
+        session_doc["teaching_mode"] = None
+        session_doc["teaching_data"] = {}
 
     move_history = session_doc.get("move_history", [])
     last_player_index = next(

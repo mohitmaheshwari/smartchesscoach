@@ -1257,12 +1257,11 @@ const CoachPlay = ({ user }) => {
         body: JSON.stringify({ session_id: session.session_id })
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Could not undo the move");
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || data.message || "Could not undo the move");
+      }
       setCoachThinking(false);
       setLoadingFeedback(false);
       setMoveFeedback(null);

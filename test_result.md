@@ -430,7 +430,7 @@ frontend:
     implemented: true
     working: false
     file: "/app/frontend/src/pages/CoachPlay.jsx"
-    stuck_count: 1
+    stuck_count: 2
     priority: "high"
     needs_retesting: true
     status_history:
@@ -453,7 +453,54 @@ frontend:
       - working: false
         agent: "testing"
         comment: |
-          ❌ CRITICAL BUG FOUND - Undo Feature Partially Working
+          ❌ RE-TEST AFTER FIXES - BUGS STILL PRESENT
+          
+          User requested re-test after claiming fixes were made. Testing confirmed:
+          
+          ❌ FRONTEND BUG - Body Stream Error (STILL EXISTS):
+          - Error: "Failed to execute 'json' on 'Response': body stream already read"
+          - Location: handleUndoMove() in bundle.js line 44735
+          - Source code has fix (line 1260 reads response.json() once)
+          - BUT deployed bundle STILL has double-read issue
+          - Issue: Code changes exist but bundle wasn't properly rebuilt/cached
+          
+          ❌ BACKEND BUG - Teaching Mode Undo (STILL EXISTS):
+          - API returns 400: "Could not undo the lesson move: illegal san: 'd4' in rnbqkb1r/ppp1nppp/4p3/3P4/3P4/8/PP2PPPP/RNBQKBNR w KQkq - 1 4"
+          - Location: undo_teaching_move() in opening_teaching_integration.py line 768
+          - Root cause: Trying to replay move 'd4' on FEN that already has d4 played
+          - The session has corrupt/stale teaching_data with wrong base FEN
+          
+          ❌ BACKEND VALIDATION BUG:
+          - Backend validation (server.py lines 10024-10031) should clear stale teaching state
+          - Condition checks if current_fen == teaching_fen
+          - BUT in this corrupt session, they DO match (both are the wrong FEN)
+          - So validation doesn't catch the corrupt state
+          
+          ROOT CAUSE ANALYSIS:
+          The session has teaching_mode=true with teaching_data containing:
+          - lesson_start_fen: Points to a mid-game position (already has moves played)
+          - trap_moves: ['d4', 'd5', 'c4', ...] (moves to replay)
+          - Undo tries: Board(corrupt_fen).push_san('d4') → FAILS because d4 already played
+          
+          The "multiple base FEN candidates" fix (lines 746-768) tries alternatives but:
+          - All candidate FENs in this session are corrupt (point to same wrong position)
+          - None are valid starting positions for the trap sequence
+          
+          WHAT WORKS:
+          ✅ Undo button appears correctly
+          ✅ Undo button clickable
+          ✅ Board stays rendered (doesn't crash)
+          ✅ Backend validation logic exists (just not catching this case)
+          
+          WHAT DOESN'T WORK:
+          ❌ Frontend: Response body read twice (needs bundle rebuild)
+          ❌ Backend: Teaching mode undo fails with illegal move
+          ❌ Backend: Validation doesn't detect corrupt teaching state when FENs match
+          
+          REQUIRED FIXES:
+          1. Frontend bundle needs proper rebuild/cache clear (current build still has old code)
+          2. Backend teaching validation needs additional check: verify base FEN is actually a valid starting position
+          3. Add fallback: if undo_teaching_move fails with illegal move, clear teaching state and retry as normal game undo
           
           TESTING COMPLETED (5/6 flows tested):
           ✅ Flow 1: Dev Login works and Play with Coach loads
@@ -896,6 +943,39 @@ agent_communication:
       - Existing functionality preserved (31/31 legacy tests pass)
       
       All core functionality working correctly. Ready for production use.
+
+  - agent: "testing"
+    message: |
+      ❌ CRITICAL: Undo Feature Re-Test FAILED - Fixes Not Working
+      
+      User requested re-test after claiming fixes were implemented. Comprehensive testing reveals:
+      
+      FRONTEND ISSUE (UNFIXED):
+      ❌ Body stream error STILL PRESENT: "Failed to execute 'json' on 'Response': body stream already read"
+      - Source code (CoachPlay.jsx line 1260) HAS the fix
+      - BUT deployed bundle (main.7e039c91.js line 44735) STILL has old buggy code
+      - Issue: Frontend was rebuilt but bundle is not being served correctly
+      
+      BACKEND ISSUE (UNFIXED):
+      ❌ API returns 400: "Could not undo the lesson move: illegal san: 'd4' in rnbqkb1r/ppp1nppp/4p3/3P4/3P4/8/PP2PPPP/RNBQKBNR w KQkq - 1 4"
+      - Root cause: Session has corrupt teaching_data
+      - lesson_start_fen points to position where d4 is ALREADY played
+      - Backend tries to replay trap_moves starting with 'd4' → illegal move
+      - Multiple FEN candidate logic doesn't help because ALL candidates are corrupt in this session
+      
+      VALIDATION GAP:
+      Backend validation (server.py:10024-10031) checks if current_fen == teaching_fen.
+      In this corrupt session, they DO match (both wrong), so validation passes incorrectly.
+      
+      EVIDENCE FROM API RESPONSE:
+      {"detail":"Could not undo the lesson move: illegal san: 'd4' in rnbqkb1r/ppp1nppp/4p3/3P4/3P4/8/PP2PPPP/RNBQKBNR w KQkq - 1 4"}
+      The FEN shows d4 pawn already on board (3P4/3P4), so playing 'd4' again is illegal.
+      
+      REQUIRED ACTIONS:
+      1. Fix frontend bundle deployment - code is correct but not being served
+      2. Add backend validation: Verify base FEN is actually valid for the move sequence
+      3. Add ultimate fallback: If teaching undo fails, clear teaching state and do normal undo
+
 
 backend:
   - task: "Play with Coach Opening Engine Verification"

@@ -741,15 +741,32 @@ async def undo_teaching_move(db, session_id: str) -> Dict:
         return {"error": "No lesson move available to undo"}
 
     rewind_index = played_user_indices[-1]
-    base_fen = teaching_data.get("lesson_start_fen") or teaching_data.get("teaching_fen")
 
-    try:
-        board = chess.Board(base_fen)
-        for move in moves[:rewind_index]:
-            board.push_san(move)
-    except Exception as exc:
-        logger.error(f"Error rebuilding lesson board for undo: {exc}")
-        return {"error": f"Could not undo the lesson move: {exc}"}
+    candidate_base_fens = []
+    for fen in [
+        teaching_data.get("lesson_start_fen"),
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" if mode == "main_line" else None,
+        teaching_data.get("original_fen"),
+        session_doc.get("current_fen"),
+    ]:
+        if fen and fen not in candidate_base_fens:
+            candidate_base_fens.append(fen)
+
+    board = None
+    last_error = None
+    for base_fen in candidate_base_fens:
+        try:
+            candidate_board = chess.Board(base_fen)
+            for move in moves[:rewind_index]:
+                candidate_board.push_san(move)
+            board = candidate_board
+            break
+        except Exception as exc:
+            last_error = exc
+
+    if board is None:
+        logger.error(f"Error rebuilding lesson board for undo: {last_error}")
+        return {"error": f"Could not undo the lesson move: {last_error}"}
 
     teaching_data["current_move_index"] = rewind_index
     teaching_data["teaching_fen"] = board.fen()
