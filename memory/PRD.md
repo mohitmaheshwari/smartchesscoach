@@ -23,6 +23,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - **Typed Opening Schema Foundation**: Added a structured opening catalog layer for families, variations, rating-aware teaching nodes, traps, deviation rules, and coverage metadata
 - **Duplicate SAN Support**: Opening teaching now supports move-index-aware teaching nodes so repeated SAN moves in the same line can still teach correctly
 - **Undo Move in Play with Coach**: Added an `Undo Move` control near the board that rewinds the user's last move in normal play and rewinds the student's last move in lesson mode
+- **Self-Healing Analysis Queue**: Added stuck-job retry metadata, fallback queue processing, and Lab-page queue/failure status messaging so analysis jobs do not silently sit forever
 
 ## Code Architecture
 ```
@@ -37,7 +38,8 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 │   │   ├── opening_plans.py             # Opening theory + coaching context builder + expanded variation trees
 │   │   ├── opening_schema.py            # NEW: Typed family/variation/node/trap schema + validation
 │   │   └── opening_teaching_db.py       # Curated teaching content
-│   └── server.py                        # Main server + live move undo endpoint
+│   ├── analysis_worker.py               # Queue processing + stuck-job retry logic
+│   └── server.py                        # Main server + live move undo endpoint + fallback queue processor
 └── frontend/
     └── src/
         ├── App.js                       # Protected route + stored redirect handling
@@ -48,6 +50,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
             ├── AuthCallback.jsx         # Post-auth redirect restoration
             ├── CoachPlay.jsx            # Play with Coach (fixed polling)
             ├── HomePage.jsx             # Blind Spots widget
+            ├── Lab.jsx                  # Queue status UX for analysis-in-progress / failed games
             ├── Landing.jsx              # Dev login / auth redirect entry
             ├── Onboarding.jsx           # Demo mode bypass
             └── LabV2.jsx                # 5-tab game review
@@ -63,6 +66,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - [ ] Add multi-plan candidate suggestions directly in live coach messages
 - [ ] Start consuming the typed opening schema more directly at runtime instead of only exporting it through catalog helpers
 - [ ] Add move-preview + undo/redo design polish for coaching mode
+- [ ] Surface queue status consistently across the newer LabV2 flow too, not just the legacy Lab page
 
 ### P2 - Backlog
 - [ ] Lesson flow bug verification (Fried Liver Attack)
@@ -79,6 +83,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - PostHog `PerformanceServerTiming` DataCloneError fix verified by frontend testing agent (console clean after page load and interaction)
 - Typed opening schema/catalog phase verified in iteration 124 (48/48 backend tests passed)
 - Undo Move feature verified with live API checks and frontend testing agent after service restart
+- Analysis queue recovery verified by backend and frontend testing agents, including Lab-page failed/processing status messaging
 - Test files: `/app/backend/tests/test_*.py`
 
 ## Key Technical Notes
@@ -94,3 +99,5 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - `get_opening_family_catalog()` and `get_opening_catalog_validation_report()` now provide typed family-level coverage data for the opening library
 - Ruy Lopez now includes structured Steinitz Exchange Queenless and Berlin variations, and repeated SAN teaching is handled through `teaching_nodes` with `move_index`
 - `/api/coach/play/undo` now rewinds the latest user move in normal play and the latest student move in teaching mode, with stale lesson-state fallback and action-revision protection against late async coach writes
+- Analysis queue now tracks `retry_count`, `retrying`, `last_error`, `last_error_at`, `started_at`, and `failed_at`; only stale `processing` jobs older than 10 minutes are retried, up to 3 times
+- `server.py` now runs a fallback queue processor loop so pending jobs can still be analyzed even when a separate analysis worker process is absent
