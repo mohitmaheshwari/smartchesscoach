@@ -246,7 +246,7 @@ def generate_move_commentary(
     trap_warning = check_for_traps(all_moves, opening_plan, board_after)
     
     # Check if we're in a deep variation
-    variation_teaching = get_variation_teaching(all_moves, opening_plan)
+    variation_teaching = get_variation_teaching(all_moves, opening_plan, user_color)
     
     # Get pattern note if any
     pattern_note = None
@@ -290,12 +290,22 @@ def _generate_coach_move_commentary(
         var_name = vt.get("variation_name", "")
         parts = [vt["teaching"]]
         question = None
+        next_hint = None
+        plans_for_user = vt.get("plans_for_user", [])
         
         if vt.get("trap"):
             parts.append(f"Watch out: {vt['trap']}")
         
         if vt.get("idea"):
             question = f"Can you see the idea? Think about: {vt['idea']}"
+
+        if plans_for_user and vt.get("move_index", 0) in (1, 3, 5, 7, 9):
+            parts.append(f"Plan to keep in mind: {plans_for_user[0]}")
+
+        if vt.get("next_expected_move"):
+            next_hint = f"Candidate move to consider: {vt['next_expected_move']}."
+            if not question:
+                question = f"What move would you consider here — perhaps {vt['next_expected_move']}?"
         
         # Show progress in the variation
         mi = vt.get("move_index", 0)
@@ -309,6 +319,7 @@ def _generate_coach_move_commentary(
             question=question,
             trap_warning=vt.get("trap"),
             move_quality="neutral",
+            next_hint=next_hint,
             teaching_type="opening_variation"
         )
     
@@ -397,11 +408,12 @@ def _generate_user_move_commentary(
     if variation_teaching and variation_teaching.get("teaching"):
         vt = variation_teaching
         expected = vt.get("expected_move", "")
-        played_expected = move_san.replace("+", "").replace("#", "").lower() == expected.replace("+", "").replace("#", "").lower() if expected else False
+        played_expected = vt.get("matched_expected", False)
         
         parts = []
         question = None
         quality = "great" if played_expected else "good"
+        next_hint = None
         
         if played_expected:
             parts.append(f"Excellent! {move_san}!")
@@ -424,15 +436,21 @@ def _generate_user_move_commentary(
             parts.append(f"Trap alert: {vt['trap']}")
         
         # Share variation plans at key moments
-        plans = vt.get("key_plans", [])
+        plans = vt.get("plans_for_user") or vt.get("key_plans", [])
         if plans and vt.get("move_index", 0) in (4, 8, 12):
             parts.append(f"Your plan from here: {plans[0]}")
+
+        if not played_expected and expected:
+            next_hint = f"Compare this position with the main-line move {expected}."
+        elif plans and vt.get("move_index", 0) in (2, 6, 10):
+            next_hint = f"Plan to remember: {plans[0]}"
         
         return MoveCommentary(
             message=" ".join(parts),
             question=question,
             trap_warning=vt.get("trap"),
             move_quality=quality,
+            next_hint=next_hint,
             teaching_type="opening_variation"
         )
     
@@ -605,7 +623,11 @@ def check_for_traps(
     return None
 
 
-def get_variation_teaching(all_moves: List[str], opening_plan: Optional[Dict]) -> Optional[Dict]:
+def get_variation_teaching(
+    all_moves: List[str],
+    opening_plan: Optional[Dict],
+    user_color: Optional[str] = None,
+) -> Optional[Dict]:
     """
     Find the active variation and return teaching for the current move.
     
@@ -648,6 +670,11 @@ def get_variation_teaching(all_moves: List[str], opening_plan: Optional[Dict]) -
     if len(clean_moves) < len(full_line_raw):
         next_expected_move = full_line_raw[len(clean_moves)]
 
+    plans_for_user = best_match.get(
+        "plans_for_white" if user_color == "white" else "plans_for_black",
+        best_match.get("key_plans", []),
+    )
+
     if teaching:
         return {
             "variation_name": best_match.get("name", ""),
@@ -658,6 +685,7 @@ def get_variation_teaching(all_moves: List[str], opening_plan: Optional[Dict]) -
             "idea": teaching.get("idea", ""),
             "trap": teaching.get("trap"),
             "key_plans": best_match.get("key_plans", []),
+            "plans_for_user": plans_for_user,
             "full_line": best_match.get("full_line", []),
             "move_index": moves_into_variation,
             "total_moves": len(best_match.get("full_line", [])),
@@ -670,6 +698,7 @@ def get_variation_teaching(all_moves: List[str], opening_plan: Optional[Dict]) -
         "variation_name": best_match.get("name", ""),
         "teaching": None,
         "key_plans": best_match.get("key_plans", []),
+        "plans_for_user": plans_for_user,
         "full_line": best_match.get("full_line", []),
         "move_index": moves_into_variation,
         "total_moves": len(best_match.get("full_line", [])),

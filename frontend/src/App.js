@@ -37,79 +37,100 @@ import { ThemeProvider } from "@/context/ThemeContext";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 export const API = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
 
+const getStoredRedirectPath = () => {
+  const savedPath = window.sessionStorage.getItem('post_auth_redirect');
+  return savedPath || '/dashboard';
+};
+
+const consumeStoredRedirectPath = () => {
+  const savedPath = getStoredRedirectPath();
+  window.sessionStorage.removeItem('post_auth_redirect');
+  return savedPath;
+};
+
 // Protected Route wrapper with onboarding check
 const ProtectedRoute = ({ children, skipOnboardingCheck = false }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const [isResolved, setIsResolved] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
-  const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const navigate = useNavigate();
+  const [redirectTarget, setRedirectTarget] = useState(null);
   const location = useLocation();
+  const demoBypass = location.search.includes('demo=true') || window.sessionStorage.getItem('demo_mode_bypass') === 'true';
 
   useEffect(() => {
-    const checkOnboarding = async () => {
-      try {
-        const response = await fetch(`${API}/onboarding/status`, {
-          credentials: 'include'
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.needs_onboarding) {
-            setNeedsOnboarding(true);
-            navigate('/onboarding');
-          }
-        }
-      } catch (e) {
-        console.log("Onboarding check failed:", e);
-      }
-    };
+    let cancelled = false;
 
-    const checkAuth = async () => {
+    const resolveRouteAccess = async () => {
       try {
+        setIsResolved(false);
+        setRedirectTarget(null);
+
+        let userData = location.state?.user || null;
+
         // If user data passed from AuthCallback, use it directly
-        if (location.state?.user) {
-          setUser(location.state.user);
-          setIsAuthenticated(true);
-          if (!skipOnboardingCheck) {
-            checkOnboarding();
-          }
-          return;
+        if (!userData) {
+          const response = await fetch(`${API}/auth/me`, {
+            credentials: 'include'
+          });
+          if (!response.ok) throw new Error('Not authenticated');
+          userData = await response.json();
         }
 
-        const response = await fetch(`${API}/auth/me`, {
-          credentials: 'include'
-        });
-        if (!response.ok) throw new Error('Not authenticated');
-        const userData = await response.json();
+        if (cancelled) return;
+
         setUser(userData);
         setIsAuthenticated(true);
-        
-        // Check if user needs onboarding (unless skipping)
-        if (!skipOnboardingCheck) {
-          checkOnboarding();
+
+        if (!skipOnboardingCheck && !demoBypass) {
+          const onboardingResponse = await fetch(`${API}/onboarding/status`, {
+            credentials: 'include'
+          });
+
+          if (!cancelled && onboardingResponse.ok) {
+            const onboardingData = await onboardingResponse.json();
+            if (onboardingData.needs_onboarding) {
+              setRedirectTarget('/onboarding');
+            }
+          }
+        } else if (demoBypass) {
+          window.sessionStorage.setItem('demo_mode_bypass', 'true');
         }
       } catch (error) {
+        if (cancelled) return;
+        const intendedPath = `${location.pathname}${location.search}`;
+        if (intendedPath && intendedPath !== '/') {
+          window.sessionStorage.setItem('post_auth_redirect', intendedPath);
+        }
         setIsAuthenticated(false);
-        navigate('/');
+        setRedirectTarget('/');
+      } finally {
+        if (!cancelled) {
+          setIsResolved(true);
+        }
       }
     };
     
-    checkAuth();
-  }, [navigate, location.state, skipOnboardingCheck]);
+    resolveRouteAccess();
 
-  if (isAuthenticated === null) {
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, location.search, location.state, skipOnboardingCheck, demoBypass]);
+
+  if (!isResolved) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center" data-testid="protected-route-loading-state">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
+  if (!isAuthenticated || redirectTarget === '/') {
+    return <Navigate to="/" replace />;
   }
   
-  if (needsOnboarding && !skipOnboardingCheck) {
-    return null; // Will redirect to onboarding
+  if (redirectTarget === '/onboarding' && !skipOnboardingCheck && !demoBypass) {
+    return <Navigate to="/onboarding" replace state={{ from: `${location.pathname}${location.search}` }} />;
   }
 
   return children({ user });
@@ -124,8 +145,7 @@ function AppRouter() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('auth') === 'success') {
-      // Remove the query param and stay on dashboard
-      navigate('/dashboard', { replace: true });
+      navigate(consumeStoredRedirectPath(), { replace: true });
     }
   }, [location.search, navigate]);
 

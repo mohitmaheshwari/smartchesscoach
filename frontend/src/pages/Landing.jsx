@@ -9,6 +9,8 @@ const Landing = () => {
   const [devLoading, setDevLoading] = useState(false);
   const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
+  const getPostAuthRedirect = () => window.sessionStorage.getItem('post_auth_redirect') || '/dashboard';
+
   // Check if dev mode is enabled
   useEffect(() => {
     const checkDevMode = async () => {
@@ -32,7 +34,7 @@ const Landing = () => {
     
     if (isEmergentEnv) {
       // Use Emergent auth for testing
-      const redirectUrl = window.location.origin + '/dashboard';
+      const redirectUrl = window.location.origin + getPostAuthRedirect();
       window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
     } else {
       // Use your own Google OAuth for production
@@ -63,7 +65,7 @@ const Landing = () => {
       const data = await response.json();
       
       if (data.status === 'ok') {
-        window.location.href = '/dashboard';
+        window.location.href = getPostAuthRedirect();
       } else {
         alert('Dev login failed');
       }

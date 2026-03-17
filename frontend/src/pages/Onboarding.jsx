@@ -298,10 +298,12 @@ const Onboarding = () => {
   };
 
   const handleStartTraining = () => {
+    window.sessionStorage.removeItem('demo_mode_bypass');
     navigate("/training");
   };
 
   const handleDemoMode = () => {
+    window.sessionStorage.setItem('demo_mode_bypass', 'true');
     navigate("/training?demo=true");
   };
 
