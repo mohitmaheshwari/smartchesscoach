@@ -436,13 +436,13 @@ TRAPS_DATABASE: Dict[str, Dict] = {
     },
     
     "siberian_trap": {
-        "name": "Siberian Trap",
+        "name": "Na5 Queen Infiltration Trap",
         "eco": "C55",
         "opening": "Italian Game",
         "difficulty": "intermediate",
         "frequency": "common",
         "rating_range": "1000-1600",
-        "description": "Black's queen infiltrates via a5-b6-b2, winning material.",
+        "description": "An Italian queenside tactic where Black's queen infiltrates via a5-b6-b3 after White loosens the queenside.",
         "trap_for": "black",
         "victim_color": "white",
         "setup_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6", "d3", "Be7", "O-O", "O-O", "Bg5", "d6", "h3", "Na5"],

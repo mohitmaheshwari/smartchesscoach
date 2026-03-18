@@ -17,6 +17,13 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone
 import logging
 
+from services.verified_opening_traps import (
+    get_applicable_traps_for_moves,
+    get_verified_trap_by_name,
+    get_verified_traps_for_opening,
+    select_preferred_trap,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,13 +103,11 @@ async def check_opening_and_offer_teaching(
     # Build interactive options
     options = []
     
-    # Get trap names if available
-    all_traps = []
-    for var in opening.variations:
-        all_traps.extend(var.traps)
+    # Get only VERIFIED traps that match the current exact line prefix
+    suggested_trap = select_preferred_trap(opening_key, moves)
     
-    if all_traps:
-        trap_name = all_traps[0].name
+    if suggested_trap:
+        trap_name = suggested_trap.name
         options.append({
             "id": "learn_trap",
             "label": f"🎯 Learn the {trap_name}",
@@ -139,8 +144,8 @@ async def check_opening_and_offer_teaching(
         "character": opening.character,
         "options": options,
         "has_learned_before": intro.get("has_learned_before", False),
-        "trap_available": len(all_traps) > 0,
-        "trap_name": all_traps[0].name if all_traps else None
+        "trap_available": suggested_trap is not None,
+        "trap_name": suggested_trap.name if suggested_trap else None
     }
 
 
@@ -196,65 +201,53 @@ async def start_opening_lesson(
         result = teacher.start_trap_teaching()
         mode = "trap"
         
-        # For trap teaching, use suggested_trap if available, else pick first trap
+        # For trap teaching, use ONLY verified traps for the current line.
         suggested_trap = session_doc.get("suggested_trap")
         trap = None
+        move_history = session_doc.get("move_history", [])
+        moves_played_san = [m.get("move", "") for m in move_history if m.get("move")]
         
         if suggested_trap and suggested_trap.get("name"):
-            # Find the trap by name from the opening
-            trap_name = suggested_trap.get("name")
-            for var in opening.variations:
-                for t in var.traps:
-                    if t.name == trap_name:
-                        trap = t
-                        break
-                if trap:
-                    break
+            trap = get_verified_trap_by_name(opening_key, suggested_trap.get("name"))
         
-        # Fallback to first trap if suggested not found
+        # Fallback to the best verified trap matching the current line
         if not trap:
-            all_traps = []
-            for var in opening.variations:
-                all_traps.extend(var.traps)
-            
-            if not all_traps:
-                return {"error": "No traps available"}
-            
-            trap = all_traps[0]
-        
+            trap = select_preferred_trap(opening_key, moves_played_san)
+
+        # Final fallback: if the game has no current moves yet, use first verified trap for that opening
+        if not trap and not moves_played_san:
+            opening_traps = get_verified_traps_for_opening(opening_key)
+            trap = opening_traps[0] if opening_traps else None
+
+        if not trap:
+            return {"error": "No verified trap available for this exact opening line yet"}
+
         # Get current position and move history
         current_fen = session_doc.get("current_fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-        move_history = session_doc.get("move_history", [])
         moves_played = len(move_history)
-        
+
         # Figure out where we are in the trap sequence
-        # Compare moves played to trap moves to find current index
-        trap_moves = trap.moves
+        trap_moves = trap.full_line
         current_move_index = 0
         on_trap_line = True
-        
-        # Match moves played to trap moves
+
         for i, trap_move in enumerate(trap_moves):
             if i < moves_played:
-                # Move history uses 'move' key, not 'san'
                 played_move = move_history[i].get("move", "") or move_history[i].get("san", "")
-                # Normalize moves for comparison (remove check/mate symbols)
                 played_normalized = played_move.replace("+", "").replace("#", "").strip()
                 trap_normalized = trap_move.replace("+", "").replace("#", "").strip()
                 if played_normalized == trap_normalized:
                     current_move_index = i + 1
                 else:
-                    # Moves diverged from trap line
                     on_trap_line = False
                     logger.info(f"Moves diverged at index {i}: played={played_normalized}, expected={trap_normalized}")
                     break
             else:
                 break
-        
-        # If moves don't match trap line at all (even first move), this trap doesn't apply
-        if not on_trap_line and current_move_index == 0:
+
+        if not on_trap_line and moves_played > 0:
             return {
-                "error": f"This trap requires starting with {trap_moves[0]}, but you played {move_history[0].get('move', '?')}. Start a new game to learn this trap, or continue playing!"
+                "error": f"The current game has already deviated from the verified {trap.name} line. Start a new game to learn this trap exactly, or continue playing normally."
             }
         
         logger.info(f"Starting trap lesson at move index {current_move_index} (moves played: {moves_played}, on_trap_line: {on_trap_line})")
@@ -262,7 +255,7 @@ async def start_opening_lesson(
         # Build teaching state - continue from current position, not reset
         teaching_data = {
             "trap_name": trap.name,
-            "trap_moves": trap.moves,
+            "trap_moves": trap.full_line,
             "current_move_index": current_move_index,
             "explanation": trap.explanation,
             "refutation": trap.refutation,

@@ -27,7 +27,21 @@ from datetime import datetime, timezone
 import chess
 import logging
 
+from services.verified_opening_traps import get_verified_traps_for_opening
+
 logger = logging.getLogger(__name__)
+
+
+def _trap_moves(trap) -> List[str]:
+    return getattr(trap, "moves", None) or getattr(trap, "full_line", []) or []
+
+
+def _trap_fen_before(trap) -> Optional[str]:
+    return getattr(trap, "fen_before_trap", None)
+
+
+def _trap_fen_after(trap) -> Optional[str]:
+    return getattr(trap, "fen_after_trap", None)
 
 
 class MasteryLevel(str, Enum):
@@ -257,12 +271,12 @@ def _build_opening_database():
     sicilian_traps = [
         OpeningTrap(
             name="Siberian Trap",
-            moves=["e4", "c5", "Nf3", "e6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "Bb4", "e5", "Ne4"],
-            trap_move="Qa5+",
-            explanation="After Qg4, Black plays Qa5+! attacking the knight and threatening Qxg4. White loses material.",
-            refutation="White should play Bd3 instead of e5, or be careful with Qg4.",
-            fen_before_trap="r1bqk2r/pp1p1ppp/2n1pn2/4P3/1b1N4/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 7",
-            fen_after_trap="r1bqk2r/pp1p1ppp/2n1p3/4P3/1b1Nn3/2N5/PPP2PPP/R1BQKB1R w KQkq - 1 8",
+            moves=["e4", "c5", "Nf3", "e6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "Bb4", "e5", "Qa5", "exf6", "Bxc3+", "Bd2", "Bxd2+", "Qxd2", "Qxd2+"],
+            trap_move="Qa5",
+            explanation="After White overextends with e5 and then grabs on f6, Black's queen and bishop combine to win the queen by force. This is a queen win, not a casual queen trade.",
+            refutation="White should avoid the loose move order with e5 and exf6; develop more carefully instead of drifting into the tactical sequence.",
+            fen_before_trap="r1bqk2r/pp1p1ppp/4pn2/4P3/1b1N4/2N5/PPP2PPP/R1BQKB1R b KQkq - 0 6",
+            fen_after_trap="rnb1k2r/pp1p1ppp/4pP2/8/3N4/8/PPPq1PPP/R3KB1R w KQkq - 0 10",
             victim_color="white",
             difficulty="intermediate"
         ),
@@ -1075,10 +1089,10 @@ class OpeningTeacher:
         
         # Build teaching options
         options = ["Learn the main line"]
-        
-        if self.opening.variations and self.opening.variations[0].traps:
-            trap_names = [t.name for t in self.opening.variations[0].traps]
-            options.append(f"See a trap ({trap_names[0]})")
+
+        verified_traps = get_verified_traps_for_opening(self._opening_key()) if self.opening else []
+        if verified_traps:
+            options.append(f"See a trap ({verified_traps[0].name})")
         
         options.append("Just play - I'll figure it out")
         
@@ -1090,6 +1104,12 @@ class OpeningTeacher:
             "suitable_for": self.opening.suitable_for,
             "has_learned_before": self.user_progress is not None and self.user_progress.mastery_level != MasteryLevel.UNKNOWN
         }
+
+    def _opening_key(self) -> str:
+        for key, opening in OPENING_DATABASE.items():
+            if opening == self.opening:
+                return key
+        return ""
     
     def start_main_line_teaching(self, variation_index: int = 0) -> Dict:
         """Start teaching the main line."""
@@ -1635,13 +1655,18 @@ async def suggest_opening_for_session(db, user_id: str, user_color: str, user_ra
     suggestion_reason = selected.get("suggestion_reason", "")
     real_win_rate = selected.get("real_win_rate", 0)
     real_games = selected.get("real_games", 0)
+
+    verified_traps = get_verified_traps_for_opening(selected["key"])
     
     # ============================================
     # STEP 6: Select trap to suggest
     # ============================================
     
     suggested_trap = None
-    if unlearned_traps:
+    if verified_traps:
+        difficulty_order = {"beginner": 0, "intermediate": 1, "advanced": 2}
+        suggested_trap = sorted(verified_traps, key=lambda t: difficulty_order.get(t.difficulty, 1))[0]
+    elif unlearned_traps:
         # Sort by difficulty: beginner < intermediate < advanced
         difficulty_order = {"beginner": 0, "intermediate": 1, "advanced": 2}
         sorted_traps = sorted(unlearned_traps, key=lambda t: difficulty_order.get(t.difficulty, 1))
@@ -1710,18 +1735,19 @@ async def suggest_opening_for_session(db, user_id: str, user_color: str, user_ra
     
     # Build trap info for response
     trap_list = []
-    for trap in all_traps:
+    source_traps = verified_traps or all_traps
+    for trap in source_traps:
         trap_list.append({
             "name": trap.name,
             "difficulty": trap.difficulty,
-            "moves": trap.moves,
+            "moves": _trap_moves(trap),
             "trap_move": trap.trap_move,
             "explanation": trap.explanation,
             "refutation": trap.refutation,
             "victim_color": trap.victim_color,
             "learned": trap.name in learned_traps,
-            "fen_before": trap.fen_before_trap,
-            "fen_after": trap.fen_after_trap
+            "fen_before": _trap_fen_before(trap),
+            "fen_after": _trap_fen_after(trap)
         })
     
     logger.info(f"Selected opening '{opening.name}' for {user_color} (priority: {selected['priority_score']}, reason: {why})")
@@ -1739,7 +1765,7 @@ async def suggest_opening_for_session(db, user_id: str, user_color: str, user_ra
         "suggested_trap": {
             "name": suggested_trap.name,
             "difficulty": suggested_trap.difficulty,
-            "moves": suggested_trap.moves,
+            "moves": _trap_moves(suggested_trap),
             "trap_move": suggested_trap.trap_move,
             "explanation": suggested_trap.explanation,
             "refutation": suggested_trap.refutation,

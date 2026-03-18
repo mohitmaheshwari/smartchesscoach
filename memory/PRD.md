@@ -24,6 +24,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - **Duplicate SAN Support**: Opening teaching now supports move-index-aware teaching nodes so repeated SAN moves in the same line can still teach correctly
 - **Undo Move in Play with Coach**: Added an `Undo Move` control near the board that rewinds the user's last move in normal play and rewinds the student's last move in lesson mode
 - **Self-Healing Analysis Queue**: Added stuck-job retry metadata, fallback queue processing, and Lab-page queue/failure status messaging so analysis jobs do not silently sit forever
+- **Verified Trap Source-of-Truth**: Added a canonical trap registry for live coaching so traps are only offered and taught when the exact opening line matches a verified legal sequence
 
 ## Code Architecture
 ```
@@ -39,6 +40,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 │   │   ├── opening_schema.py            # NEW: Typed family/variation/node/trap schema + validation
 │   │   └── opening_teaching_db.py       # Curated teaching content
 │   ├── analysis_worker.py               # Queue processing + stuck-job retry logic
+│   ├── services/verified_opening_traps.py # Canonical verified trap registry + validators
 │   └── server.py                        # Main server + live move undo endpoint + fallback queue processor
 └── frontend/
     └── src/
@@ -67,6 +69,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - [ ] Start consuming the typed opening schema more directly at runtime instead of only exporting it through catalog helpers
 - [ ] Add move-preview + undo/redo design polish for coaching mode
 - [ ] Surface queue status consistently across the newer LabV2 flow too, not just the legacy Lab page
+- [ ] Audit the remaining trap libraries and migrate them fully onto the verified trap registry
 
 ### P2 - Backlog
 - [ ] Lesson flow bug verification (Fried Liver Attack)
@@ -84,6 +87,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Typed opening schema/catalog phase verified in iteration 124 (48/48 backend tests passed)
 - Undo Move feature verified with live API checks and frontend testing agent after service restart
 - Analysis queue recovery verified by backend and frontend testing agents, including Lab-page failed/processing status messaging
+- Verified trap registry and exact-line trap selection tested (registry legality + Siberian/QGD selection integration)
 - Test files: `/app/backend/tests/test_*.py`
 
 ## Key Technical Notes
@@ -101,3 +105,4 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - `/api/coach/play/undo` now rewinds the latest user move in normal play and the latest student move in teaching mode, with stale lesson-state fallback and action-revision protection against late async coach writes
 - Analysis queue now tracks `retry_count`, `retrying`, `last_error`, `last_error_at`, `started_at`, and `failed_at`; only stale `processing` jobs older than 10 minutes are retried, up to 3 times
 - `server.py` now runs a fallback queue processor loop so pending jobs can still be analyzed even when a separate analysis worker process is absent
+- Live opening coaching now prefers the verified trap registry over loose per-opening trap lists, which prevents trap-name hallucinations like mismatched Siberian lines
