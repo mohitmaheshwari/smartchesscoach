@@ -7,6 +7,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ### Core Features
 - **Play with Coach**: Move-by-move coaching during opening phase (every move gets commentary)
+- **Intelligent Position Coaching**: NEW - Position-based coaching for middlegame and endgame phases using pawn structure classification, strategic plan database, and tactical detectors
 - **Deep Opening Context Engine**: Live coach now merges direct opening plans with family-level variation trees so sub-lines like QGD / Slav can inherit richer teaching
 - **Expanded Deep Opening Coverage**: Added deeper variation trees for Italian, London, Sicilian, French, Caro-Kann, and King's Indian coaching
 - **Game Analysis Lab**: 5-tab structure (Summary, Moments, Ideas, Habits, Memory)
@@ -66,6 +67,12 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Prioritized Backlog
 
+### P0 - Critical Issues
+- [ ] Fix Issue 1: Unify opening detection to use admin data source (currently only 9 hardcoded vs 23 in admin)
+- [ ] Fix Issue 2: Opening detection runs after user's move only - need to also run after coach's move
+- [ ] Fix Issue 3: Opening Practice mode needs dynamic coaching integration
+- [ ] Fix Issue 4: Confusing rating text on onboarding page
+
 ### P1 - Next
 - [ ] Fully verify onboarding/navigation reliability with a fresh un-onboarded test user
 - [ ] Add "What You Did Well" section to Summary (celebrate good moves)
@@ -98,7 +105,8 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Verified trap registry and exact-line trap selection tested (registry legality + Siberian/QGD selection integration)
 - Opening/trap correction loop verified by frontend testing agent, including immediate lesson overwrite from submitted SAN/PGN
 - Admin Opening Feedback Manager MVP verified by frontend testing agent (fetch, validate, save, preview, reload persistence all working)
-- Test files: `/app/backend/tests/test_*.py`
+- **Intelligent Position Coaching**: iteration 125-126 (19/19 backend tests passed, 7/7 frontend tests passed)
+- Test files: `/app/backend/tests/test_*.py`, `/app/tests/e2e/*.spec.ts`
 
 ## Key Technical Notes
 - `move_evaluations` only contains USER's moves (not both sides)
@@ -118,3 +126,4 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Live opening coaching now prefers the verified trap registry over loose per-opening trap lists, which prevents trap-name hallucinations like mismatched Siberian lines
 - `/api/openings/corrections` now accepts corrected PGN or SAN plus current moves/FEN and stores DB-backed live overrides that the /openings lesson flow and coach trap flow can consume immediately
 - `/api/admin/openings` now supports list/fetch, `/validate` performs schema validation, and `/save` stores MongoDB-backed opening feedback with version history in `opening_feedback_versions`
+- **Intelligent Position Coaching**: `/app/backend/services/intelligent_position_coach.py` orchestrates `PawnStructureClassifier`, `StructurePlanDatabase`, `DetectorRegistry`, and `position_strategy_analyzer` to provide contextual coaching for any position. Triggers after 12+ moves when no opening teaching is active. Frontend component: `PositionCoachingPanel.jsx`
