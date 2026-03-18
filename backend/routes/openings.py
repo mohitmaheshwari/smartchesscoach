@@ -162,7 +162,7 @@ async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_
         raise HTTPException(status_code=404, detail="Opening not found in library")
     
     # Convert to lesson shape expected by frontend
-    lesson = feedback_to_opening_lesson_shape(feedback)
+    lesson_data = feedback_to_opening_lesson_shape(feedback)
     
     # Add user-specific progress data
     progress_doc = await db.user_opening_progress.find_one({
@@ -170,8 +170,9 @@ async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_
         "opening_key": opening_key
     })
     
+    user_progress = {}
     if progress_doc:
-        lesson["user_progress"] = {
+        user_progress = {
             "main_line_progress": progress_doc.get("main_line_progress", 0),
             "traps_learned": progress_doc.get("traps_learned", []),
             "times_practiced": progress_doc.get("times_practiced", 0),
@@ -184,10 +185,17 @@ async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_
         "opening_key": opening_key
     }).to_list(50)
     
+    user_mistakes = []
     if mistakes:
-        lesson["your_mistakes"] = mistakes
+        user_mistakes = mistakes
     
-    return lesson
+    # Return in format expected by frontend (opening nested under 'opening' key)
+    return {
+        "opening": lesson_data,  # Frontend expects: lesson.opening.name
+        "user_progress": user_progress,
+        "user_mistakes": user_mistakes,
+        "learning_progress": user_progress  # Alias for compatibility
+    }
 
 
 @router.post("/openings/corrections")
