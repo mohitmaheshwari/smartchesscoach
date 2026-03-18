@@ -631,6 +631,67 @@ async def get_identity_insight(user: User = Depends(get_current_user)):
     }
 
 
+@router.get("/behavioral-profile")
+async def get_behavioral_profile(user: User = Depends(get_current_user)):
+    """
+    Get player's behavioral coaching profile.
+    
+    Returns:
+        - Primary issue (impatient, hope_chess, lazy_checking, etc.)
+        - All behavioral insights with coaching messages
+        - Personalized process checklists
+        - Coaching approach (gentle, direct, encouraging)
+        - Progress narrative if available
+    """
+    global db
+    from services.behavioral_coaching_layer import diagnose_player_behavior
+    from services.player_identity import PlayerIdentityService
+    
+    # Get player identity
+    identity_service = PlayerIdentityService(db)
+    player_identity = await identity_service.get_player_identity(user.user_id)
+    
+    if not player_identity or player_identity.get("games_analyzed", 0) < 5:
+        return {
+            "has_profile": False,
+            "message": "Play at least 5 games to get your behavioral profile",
+            "games_analyzed": player_identity.get("games_analyzed", 0) if player_identity else 0
+        }
+    
+    # Diagnose behavior
+    profile = diagnose_player_behavior(player_identity)
+    
+    if not profile.primary_issue:
+        return {
+            "has_profile": True,
+            "primary_issue": None,
+            "message": "Great! No major behavioral patterns detected. Keep playing consistently.",
+            "games_analyzed": player_identity.get("games_analyzed", 0)
+        }
+    
+    # Convert to serializable format
+    insights_data = []
+    for insight in profile.all_insights:
+        insights_data.append({
+            "problem_type": insight.problem_type.value,
+            "severity": insight.severity,
+            "evidence": insight.evidence,
+            "coaching_message": insight.coaching_message,
+            "process_checklist": insight.process_checklist,
+            "when_to_coach": insight.when_to_coach,
+            "priority": insight.priority
+        })
+    
+    return {
+        "has_profile": True,
+        "primary_issue": profile.primary_issue.value,
+        "coaching_approach": profile.coaching_approach,
+        "all_insights": insights_data,
+        "custom_checklist": profile.custom_checklist,
+        "games_analyzed": player_identity.get("games_analyzed", 0)
+    }
+
+
 
 @router.get("/identity/summary")
 async def get_identity_summary(user: User = Depends(get_current_user)):
@@ -856,6 +917,7 @@ async def get_teaching_feedback(
     
     Uses Socratic questioning to guide student thinking.
     Adapts tone and complexity to student level.
+    NOW INCLUDES: Behavioral coaching based on player's diagnosis!
     
     Request body:
         {
@@ -867,6 +929,7 @@ async def get_teaching_feedback(
             "move_context": {                 # Optional context from move selector
                 "teaching_goal": "tactics",
                 "was_blunder": false,
+                "last_move_time_ms": 1500,    # How long they thought
                 ...
             }
         }
@@ -880,13 +943,16 @@ async def get_teaching_feedback(
         - game_end: Game is over
     
     Returns:
-        - Teaching message
+        - Teaching message (possibly enhanced with behavioral coaching)
         - Feedback type (question, explanation, encouragement, etc.)
         - Related concept
         - Follow-up question
         - Hints
+        - behavioral_coaching (if applicable)
     """
     from services.active_teaching_engine import generate_teaching_feedback
+    from services.behavioral_coaching_layer import should_show_behavioral_coaching
+    from services.player_identity import PlayerIdentityService
     import chess
     
     fen = request.get("fen", chess.STARTING_FEN)
@@ -896,6 +962,7 @@ async def get_teaching_feedback(
     student_color = request.get("student_color", "white")
     move_context = request.get("move_context", {})
     
+    # Generate standard teaching feedback
     result = generate_teaching_feedback(
         fen=fen,
         last_move_uci=last_move,
@@ -904,6 +971,56 @@ async def get_teaching_feedback(
         student_color=student_color,
         move_context=move_context
     )
+    
+    # === NEW: ADD BEHAVIORAL COACHING ===
+    # Check if we should inject behavioral coaching based on player's profile
+    try:
+        # Get player identity
+        identity_service = PlayerIdentityService(db)
+        player_identity = await identity_service.get_player_identity(user.user_id)
+        
+        if player_identity and player_identity.get("games_analyzed", 0) >= 5:
+            # Build game state for context
+            game_state = {
+                "eval_score": move_context.get("eval_score", 0),
+                "last_move_time_ms": move_context.get("last_move_time_ms", 5000),
+                "was_blunder": move_context.get("was_blunder", False),
+                "position_type": move_context.get("position_type", "middlegame")
+            }
+            
+            # Map teaching phase to behavioral context
+            context_map = {
+                "game_start": "at_game_start",
+                "before_student_move": "before_move",
+                "after_student_move": "after_move",
+                "after_coach_move": "after_opponent_move"
+            }
+            behavioral_context = context_map.get(phase, "during_game")
+            
+            # Check if behavioral coaching should be shown
+            should_show, coaching_message = should_show_behavioral_coaching(
+                player_identity,
+                behavioral_context,
+                game_state
+            )
+            
+            if should_show and coaching_message:
+                # Inject behavioral coaching into the message
+                # Prepend it so coach addresses behavioral issue first
+                result["message"] = f"{coaching_message}\n\n{result['message']}"
+                result["behavioral_coaching"] = True
+                result["coaching_type"] = "behavioral"
+                
+                logger.info(f"Injected behavioral coaching for user {user.user_id} in phase {phase}")
+            else:
+                result["behavioral_coaching"] = False
+        else:
+            result["behavioral_coaching"] = False
+            
+    except Exception as e:
+        # Don't let behavioral coaching errors break the main feedback
+        logger.error(f"Error adding behavioral coaching: {e}")
+        result["behavioral_coaching"] = False
     
     return result
 
