@@ -102,14 +102,32 @@ async def check_opening_and_offer_teaching(
             return None
         opening_name = opening.name
     else:
-        opening_name = effective_feedback.get("opening_name", opening_info['opening_name'])
+        opening_name = effective_feedback.get("name", opening_info['opening_name'])
     
-    # Check user's progress with this opening
+    # Check user's progress with this opening (needed for intro message)
     progress = await get_user_opening_progress(db, user_id, opening_name)
     
-    # Build teaching offer
-    teacher = OpeningTeacher(opening_key, progress)
-    intro = teacher.get_introduction()
+    if not effective_feedback:
+        # Use old teacher for fallback
+        teacher = OpeningTeacher(opening_key, progress)
+        intro = teacher.get_introduction()
+        opening_description = opening.description
+        opening_character = opening.character
+    else:
+        opening_description = effective_feedback.get("description", "")
+        opening_character = effective_feedback.get("character", "strategic")
+        
+        # Generate introduction message from effective feedback
+        has_learned_before = progress and progress.get("mastery_level") != "introduced"
+        if has_learned_before:
+            intro_message = f"Welcome back! Ready to continue learning the {opening_name}?"
+        else:
+            intro_message = f"Let's learn the {opening_name}! {opening_description}"
+        
+        intro = {
+            "message": intro_message,
+            "has_learned_before": has_learned_before
+        }
     
     # Build interactive options
     options = []
@@ -159,10 +177,10 @@ async def check_opening_and_offer_teaching(
     return {
         "type": "opening_teaching_offer",
         "opening_key": opening_key,
-        "opening_name": opening.name,
+        "opening_name": opening_name,
         "message": intro["message"],
-        "description": opening.description,
-        "character": opening.character,
+        "description": opening_description,
+        "character": opening_character,
         "options": options,
         "has_learned_before": intro.get("has_learned_before", False),
         "trap_available": suggested_trap is not None,
@@ -180,6 +198,7 @@ async def start_opening_lesson(
     Start an interactive opening lesson.
     
     This pauses the normal game and enters teaching mode.
+    Uses effective feedback (admin data + static fallback).
     
     Args:
         db: Database
@@ -191,10 +210,10 @@ async def start_opening_lesson(
         Dict with first teaching instruction
     """
     from services.opening_mastery import (
-        OpeningTeacher,
         get_user_opening_progress,
         OPENING_DATABASE
     )
+    from services.opening_feedback_admin_service import get_effective_opening_feedback
     import chess
     
     session_doc = await db.coach_sessions.find_one({"session_id": session_id})
@@ -206,21 +225,41 @@ async def start_opening_lesson(
     if not opening_key:
         return {"error": "No opening detected"}
     
-    opening = OPENING_DATABASE.get(opening_key)
-    if not opening:
-        return {"error": "Opening not found"}
+    # Get effective feedback (admin + static)
+    effective_feedback = await get_effective_opening_feedback(db, opening_key)
+    
+    if not effective_feedback:
+        # Fallback to old OPENING_DATABASE
+        opening = OPENING_DATABASE.get(opening_key)
+        if not opening:
+            return {"error": "Opening not found"}
+        opening_name = opening.name
+        use_legacy = True
+    else:
+        opening_name = effective_feedback.get("name")
+        use_legacy = False
     
     # Get user's color - critical for knowing which moves are user's vs coach's
     user_color = session_doc.get("user_color", "white")
     user_plays_white = user_color == "white"
     
     # Get user's progress
-    progress = await get_user_opening_progress(db, user_id, opening.name)
-    teacher = OpeningTeacher(opening_key, progress)
+    progress = await get_user_opening_progress(db, user_id, opening_name)
     
     if lesson_type == "learn_trap":
-        result = teacher.start_trap_teaching()
         mode = "trap"
+        
+        # Generate introduction message
+        if use_legacy:
+            from services.opening_mastery import OpeningTeacher
+            teacher = OpeningTeacher(opening_key, progress)
+            result = teacher.start_trap_teaching()
+        else:
+            # Use effective feedback for introduction
+            result = {
+                "message": f"Let's learn a trap in the {opening_name}!",
+                "type": "trap_intro"
+            }
         
         # For trap teaching, use ONLY verified traps for the current line.
         suggested_trap = session_doc.get("suggested_trap")
@@ -307,25 +346,45 @@ async def start_opening_lesson(
         }
         
     else:  # learn_main_line
-        teacher.start_main_line_teaching()  # Initialize teacher state
         mode = "main_line"
         
-        var = opening.variations[0] if opening.variations else None
-        if not var:
-            return {"error": "No variations available"}
-        
-        main_line_override = await get_main_line_override(db, opening_key, var.name)
-        main_line_moves = main_line_override.get("corrected_moves") if main_line_override and main_line_override.get("corrected_moves") else var.moves
-        variation_name = main_line_override.get("corrected_name") if main_line_override and main_line_override.get("corrected_name") else var.name
-        explanation_override = main_line_override.get("corrected_explanation") if main_line_override else None
+        if use_legacy:
+            from services.opening_mastery import OpeningTeacher, OPENING_DATABASE
+            opening = OPENING_DATABASE.get(opening_key)
+            teacher = OpeningTeacher(opening_key, progress)
+            teacher.start_main_line_teaching()  # Initialize teacher state
+            
+            var = opening.variations[0] if opening.variations else None
+            if not var:
+                return {"error": "No variations available"}
+            
+            main_line_override = await get_main_line_override(db, opening_key, var.name)
+            main_line_moves = main_line_override.get("corrected_moves") if main_line_override and main_line_override.get("corrected_moves") else var.moves
+            variation_name = main_line_override.get("corrected_name") if main_line_override and main_line_override.get("corrected_name") else var.name
+            explanation_override = main_line_override.get("corrected_explanation") if main_line_override else None
+            key_ideas = [explanation_override] if explanation_override else var.key_ideas
+            plans_white = var.plans_for_white
+            plans_black = var.plans_for_black
+        else:
+            # Use effective feedback (admin data)
+            main_line_data = effective_feedback.get("main_line", [])
+            if not main_line_data:
+                return {"error": "No main line available"}
+            
+            # Extract moves from main_line structure
+            main_line_moves = [move_obj.get("move") for move_obj in main_line_data if move_obj.get("move")]
+            variation_name = "Main Line"
+            key_ideas = effective_feedback.get("key_ideas", [])
+            plans_white = []  # Can be added to admin schema later
+            plans_black = []
 
         teaching_data = {
             "variation_name": variation_name,
             "main_line_moves": main_line_moves,
             "current_move_index": 0,
-            "key_ideas": [explanation_override] if explanation_override else var.key_ideas,
-            "plans_white": var.plans_for_white,
-            "plans_black": var.plans_for_black,
+            "key_ideas": key_ideas,
+            "plans_white": plans_white,
+            "plans_black": plans_black,
             "user_plays_white": user_plays_white,  # Critical: know which moves are user's
             "teaching_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             "lesson_start_fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
