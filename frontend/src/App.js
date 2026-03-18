@@ -29,6 +29,7 @@ import Onboarding from "@/pages/Onboarding";
 import MissionRunner from "@/pages/MissionRunner";
 import PostLossRecovery from "@/pages/PostLossRecovery";
 import CoachPlay from "@/pages/CoachPlay";
+import AdminOpenings from "@/pages/AdminOpenings";
 
 // Components
 import { Toaster } from "@/components/ui/sonner";
@@ -258,6 +259,11 @@ function AppRouter() {
       <Route path="/openings/:openingKey" element={
         <ProtectedRoute>
           {({ user }) => <OpeningLesson user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/openings" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminOpenings user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/challenge" element={

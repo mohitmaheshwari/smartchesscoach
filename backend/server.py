@@ -12580,6 +12580,7 @@ from routes import notifications as notifications_routes
 from routes import missions as missions_routes
 from routes import settings as settings_routes
 from routes import openings as openings_routes
+from routes import admin_openings as admin_openings_routes
 
 # Set database references for modular routers
 games_routes.set_db(db)
@@ -12608,6 +12609,7 @@ missions_routes.set_mission_services(
 settings_routes.set_db(db)
 openings_routes.set_db(db)
 openings_routes.set_llm(call_llm)
+admin_openings_routes.set_db(db)
 coach_play_routes.set_db(db)
 coach_play_routes.set_llm(call_llm)
 
@@ -12625,6 +12627,7 @@ app.include_router(notifications_routes.router, prefix="/api")
 app.include_router(missions_routes.router, prefix="/api")
 app.include_router(settings_routes.router, prefix="/api")
 app.include_router(openings_routes.router, prefix="/api")
+app.include_router(admin_openings_routes.router, prefix="/api")
 app.include_router(coach_play_routes.router, prefix="/api")
 
 # Then include the legacy api_router
