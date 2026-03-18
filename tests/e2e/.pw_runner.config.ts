@@ -11,7 +11,7 @@ export default defineConfig({
     ['json', { outputFile: '/root/.emergent/automation_output/20260316_034020/results.json' }],
   ],
   use: {
-    baseURL: 'https://coach-variations.preview.emergentagent.com',
+    baseURL: 'https://chess-lab-sync.preview.emergentagent.com',
     screenshot: 'only-on-failure',
     trace: 'off',
     headless: true,

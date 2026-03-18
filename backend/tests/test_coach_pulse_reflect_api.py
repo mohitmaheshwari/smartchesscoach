@@ -6,7 +6,7 @@ import requests
 import os
 import json
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coach-variations.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-lab-sync.preview.emergentagent.com').rstrip('/')
 
 
 class TestCoachPulseAPI:
