@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Test configuration
-BACKEND_URL = "https://chess-lab-sync.preview.emergentagent.com/api"
+BACKEND_URL = "https://position-mastery.preview.emergentagent.com/api"
 TEST_USER_ID = "user_4dad2b14e380"
 SESSION_TOKEN = None  # Will be obtained via dev login
 

@@ -1,0 +1,120 @@
+{
+  "summary": "Intelligent Position Coach feature testing complete. Backend service (intelligent_position_coach.py) works correctly - all integration tests pass. Frontend PositionCoachingPanel component renders correctly. CRITICAL BUG FOUND: GET /api/coach/play/messages endpoint does NOT return position_coaching fields (structure_name, game_phase, strategic_plans, etc.) - only basic message fields. Frontend expects these fields but receives null/undefined.",
+  "mode": "generate",
+  "baseline_commit": "35e2b4462599f3fd8a685e6f202b78e8940ced4e",
+  "head_commit": "92d3fdbfd7285ca4cde247ef9430713055f63409",
+  "specs_created": [
+    "/app/tests/e2e/position-coaching.spec.ts",
+    "/app/backend/tests/test_intelligent_position_coach.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_intelligent_position_coach.py",
+    "/app/test_reports/pytest/test_intelligent_position_coach.xml",
+    "/app/tests/e2e/position-coaching.spec.ts"
+  ],
+  "regression_results": {
+    "total_specs": 27,
+    "passed": 26,
+    "failed": 0,
+    "skipped": 1
+  },
+  "issues": [
+    {
+      "id": "BUG-001",
+      "issue_type": "bug",
+      "severity": "CRITICAL",
+      "description": "GET /api/coach/play/messages/{session_id} endpoint does not include position_coaching fields in response. The backend STORES all fields correctly when creating the message (lines 9946-9960 in server.py), but the GET endpoint (lines 10086-10125) only returns basic fields (id, type, message, trigger, move, move_number, timestamp). Missing fields: structure_name, structure_type, game_phase, key_characteristics, strategic_plans, tactical_features, tactical_insights, teaching_points, critical_squares, options. The frontend expects these fields to render PositionCoachingPanel.",
+      "endpoint_or_component": "GET /api/coach/play/messages/{session_id}",
+      "surfaces": ["backend"],
+      "reproduction": "1. Start a coach game\n2. Make 12+ moves to trigger position coaching\n3. Poll messages endpoint\n4. Observe position_coaching messages missing fields",
+      "affected_test": "TestPositionCoachingMessageStorage::test_position_coaching_message_structure (currently passes because position coaching rarely triggers, but will fail when it does)"
+    },
+    {
+      "id": "IMP-001",
+      "issue_type": "improvement",
+      "severity": "MEDIUM",
+      "description": "Add handling for position_coaching type messages in get_coach_messages endpoint to include all fields like opening_teaching_offer and endgame_teaching_offer types",
+      "endpoint_or_component": "GET /api/coach/play/messages/{session_id}"
+    }
+  ],
+  "action_items": [
+    "FIX: Add position_coaching field handling in GET /api/coach/play/messages endpoint (server.py around line 10110). Add: if msg.get('type') == 'position_coaching': msg_data['structure_name'] = msg.get('structure_name'); msg_data['structure_type'] = msg.get('structure_type'); msg_data['game_phase'] = msg.get('game_phase'); msg_data['key_characteristics'] = msg.get('key_characteristics'); msg_data['strategic_plans'] = msg.get('strategic_plans'); msg_data['tactical_features'] = msg.get('tactical_features'); msg_data['tactical_insights'] = msg.get('tactical_insights'); msg_data['teaching_points'] = msg.get('teaching_points'); msg_data['critical_squares'] = msg.get('critical_squares'); msg_data['options'] = msg.get('options')"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_intelligent_position_coach.py",
+    "/app/tests/e2e/position-coaching.spec.ts"
+  ],
+  "test_results": {
+    "backend": "95% (19/20 tests passed, 1 skipped)",
+    "frontend": "100% (7/7 tests passed)"
+  },
+  "seed_data_creation": "None - used dev-login authentication",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Position coaching feature is implemented but has a critical bug in the messages endpoint. The intelligent_position_coach.py service works correctly. PawnStructureClassifier, StructurePlanDatabase, DetectorRegistry, and position_strategy_analyzer all work. The frontend PositionCoachingPanel component is correctly implemented with data-testid attributes. Test files created: /app/backend/tests/test_intelligent_position_coach.py (20 tests) and /app/tests/e2e/position-coaching.spec.ts (7 tests). The bug prevents position coaching data from reaching the frontend even when triggered.",
+  "rca_of_issue": "Root Cause: In server.py get_coach_messages endpoint, there's handling for 'opening_teaching_offer' and 'endgame_teaching_offer' message types to include their specific fields, but NO handling for 'position_coaching' type. The code pattern is established (lines 10097-10109) but position_coaching was not added. Fix: Add similar if-block for position_coaching type after line 10109.",
+  "features_verified": {
+    "intelligent_position_coach_service": {
+      "status": "WORKING",
+      "tests": [
+        "test_service_module_exists",
+        "test_detect_game_phase_opening",
+        "test_detect_game_phase_middlegame",
+        "test_detect_game_phase_endgame",
+        "test_format_position_coaching_message"
+      ]
+    },
+    "pawn_structure_classifier": {
+      "status": "WORKING",
+      "tests": [
+        "test_pawn_structure_classifier_exists",
+        "test_classifier_on_isolated_qp"
+      ]
+    },
+    "structure_plan_database": {
+      "status": "WORKING",
+      "tests": [
+        "test_structure_plan_database_exists",
+        "test_get_structure_returns_plans"
+      ]
+    },
+    "detector_registry": {
+      "status": "WORKING",
+      "tests": [
+        "test_detector_registry_exists",
+        "test_detector_registry_runs"
+      ]
+    },
+    "position_strategy_analyzer": {
+      "status": "WORKING",
+      "tests": [
+        "test_analyze_position_deeply_exists",
+        "test_analyze_position_returns_threats"
+      ]
+    },
+    "coach_play_api_endpoints": {
+      "status": "WORKING",
+      "tests": [
+        "test_start_coach_game_and_make_moves",
+        "test_messages_endpoint_returns_position_coaching_fields",
+        "test_coach_play_active_endpoint",
+        "test_coach_play_history_endpoint",
+        "test_coach_play_identity_endpoint"
+      ]
+    },
+    "position_coaching_panel_ui": {
+      "status": "WORKING",
+      "tests": [
+        "coach play page loads and displays setup",
+        "can start a coach play game",
+        "position coaching panel has correct data-testids"
+      ]
+    },
+    "messages_endpoint_position_coaching_fields": {
+      "status": "BUG - NOT RETURNING FIELDS",
+      "notes": "Endpoint returns position_coaching messages but without the required fields"
+    }
+  }
+}

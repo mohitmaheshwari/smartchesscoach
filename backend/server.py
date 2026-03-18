@@ -9917,6 +9917,61 @@ async def _process_move_and_respond(
                         except Exception as e:
                             logger.warning(f"Opening teaching generation failed: {e}")
                     
+                    # === NEW: INTELLIGENT POSITION COACHING ===
+                    # Offer position-based coaching when not in opening/endgame teaching
+                    # This connects all our analysis systems to provide contextual suggestions
+                    if not coach_game_over:
+                        try:
+                            # Only offer if no opening/endgame teaching was triggered this session
+                            should_offer_position_coaching = (
+                                not session_doc.get("opening_teaching_active") and
+                                not session_doc.get("position_coaching_offered") and
+                                len(move_history) >= 12  # After ~6 moves per side
+                            )
+                            
+                            if should_offer_position_coaching:
+                                from services.intelligent_position_coach import analyze_position_and_suggest
+                                
+                                # Analyze the current position
+                                position_coaching = await analyze_position_and_suggest(
+                                    board=board,  # Board after coach's move
+                                    move_history=move_history_san + [coach_move],
+                                    user_color=user_color,
+                                    user_id=session_doc.get("user_id", "unknown"),
+                                    db=db
+                                )
+                                
+                                if position_coaching:
+                                    # Store the position coaching offer as a message
+                                    await db.coach_messages.insert_one({
+                                        "session_id": session_id,
+                                        "type": "position_coaching",
+                                        "message": position_coaching.get("main_idea", ""),
+                                        "trigger": "position_analysis",
+                                        "structure_name": position_coaching.get("structure_name"),
+                                        "structure_type": position_coaching.get("structure_type"),
+                                        "game_phase": position_coaching.get("game_phase"),
+                                        "key_characteristics": position_coaching.get("key_characteristics", []),
+                                        "strategic_plans": position_coaching.get("strategic_plans", []),
+                                        "tactical_features": position_coaching.get("tactical_features", {}),
+                                        "tactical_insights": position_coaching.get("tactical_insights", []),
+                                        "teaching_points": position_coaching.get("teaching_points", []),
+                                        "critical_squares": position_coaching.get("critical_squares", []),
+                                        "options": position_coaching.get("options", []),
+                                        "created_at": datetime.now(timezone.utc),
+                                        "read": False,
+                                    })
+                                    
+                                    # Mark that we've offered position coaching
+                                    await db.coach_sessions.update_one(
+                                        {"session_id": session_id},
+                                        {"$set": {"position_coaching_offered": True}}
+                                    )
+                                    
+                                    logger.info(f"Position coaching offered: {position_coaching.get('structure_name')} ({position_coaching.get('game_phase')})")
+                        except Exception as e:
+                            logger.warning(f"Intelligent position coaching failed: {e}")
+                    
                     # Update session
                     await db.coach_sessions.update_one(
                         {"session_id": session_id},

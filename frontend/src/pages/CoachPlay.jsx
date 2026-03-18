@@ -66,6 +66,7 @@ import {
   MoveFeedbackPanel,
   InlineOpeningLesson,
   InlineTrapLesson,
+  PositionCoachingPanel,
   // NEW: Clean UX Components
   CoachInsightCard,
   TrapAlert,
@@ -146,6 +147,9 @@ const CoachPlay = ({ user }) => {
   // NEW: Inline lessons (non-disruptive teaching)
   const [inlineOpening, setInlineOpening] = useState(null);
   const [inlineTrap, setInlineTrap] = useState(null);
+  
+  // NEW: Position-based coaching (intelligent position analysis)
+  const [positionCoaching, setPositionCoaching] = useState(null);
   
   // NEW: Real-time move feedback state
   const [moveFeedback, setMoveFeedback] = useState(null);
@@ -237,9 +241,31 @@ const CoachPlay = ({ user }) => {
             }
           }
           
+          // Check for position coaching offers
+          const positionCoachingOffers = data.messages.filter(msg => 
+            msg.type === "position_coaching"
+          );
+          
+          if (positionCoachingOffers.length > 0 && !positionCoaching) {
+            const coaching = positionCoachingOffers[0];
+            setPositionCoaching({
+              structure_name: coaching.structure_name,
+              structure_type: coaching.structure_type,
+              game_phase: coaching.game_phase,
+              main_idea: coaching.message,
+              key_characteristics: coaching.key_characteristics || [],
+              strategic_plans: coaching.strategic_plans || [],
+              tactical_features: coaching.tactical_features || {},
+              tactical_insights: coaching.tactical_insights || [],
+              teaching_points: coaching.teaching_points || [],
+              critical_squares: coaching.critical_squares || [],
+              options: coaching.options || []
+            });
+          }
+          
           // Filter out teaching offers from regular messages
           const regularMessages = data.messages.filter(msg => 
-            msg.type !== "opening_teaching_offer"
+            msg.type !== "opening_teaching_offer" && msg.type !== "position_coaching"
           );
           
           // Track blunders for emotional state
@@ -537,6 +563,7 @@ const CoachPlay = ({ user }) => {
     setInlineOpening(null);
     setOpeningGuidance(null);
     setLessonComplete(false);
+    setPositionCoaching(null);
     
     try {
       // Build request body
@@ -1975,6 +2002,49 @@ const CoachPlay = ({ user }) => {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Position Coaching Panel - Shows strategic/tactical suggestions */}
+            {session && positionCoaching && !isInTeachingMode && !gameOver && !inlineOpening && !inlineTrap && (
+              <div className="mt-3">
+                <PositionCoachingPanel
+                  coaching={positionCoaching}
+                  onDismiss={() => setPositionCoaching(null)}
+                  onLearnPlan={(plan) => {
+                    // Show detailed plan in chat
+                    setChatMessages(prev => [...prev, {
+                      id: `plan-${Date.now()}`,
+                      type: "coach",
+                      message: `${plan.name}: ${plan.teaching_explanation}`,
+                      trigger: "strategic_plan",
+                      timestamp: Date.now()
+                    }]);
+                    setPositionCoaching(null);
+                  }}
+                  onShowTactics={(insights) => {
+                    // Show tactical insights in chat
+                    const tacticsMsg = insights.map(i => i.message).join("\n\n");
+                    setChatMessages(prev => [...prev, {
+                      id: `tactics-${Date.now()}`,
+                      type: "coach",
+                      message: `Tactical Themes:\n${tacticsMsg || "No specific tactical patterns detected right now."}`,
+                      trigger: "tactical_themes",
+                      timestamp: Date.now()
+                    }]);
+                    setPositionCoaching(null);
+                  }}
+                  onCheckSafety={(features) => {
+                    setChatMessages(prev => [...prev, {
+                      id: `safety-${Date.now()}`,
+                      type: "coach",
+                      message: `Piece Safety Check: You have ${features.undefended_pieces || 0} undefended pieces. Make sure all your pieces are protected before continuing!`,
+                      trigger: "piece_safety",
+                      timestamp: Date.now()
+                    }]);
+                    setPositionCoaching(null);
+                  }}
+                />
               </div>
             )}
 

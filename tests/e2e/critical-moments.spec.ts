@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
  */
 
 const GAME_ID = 'ae58fb15-ca1d-43e7-a46f-12dce04959bb';
-const BASE_URL = 'https://chess-lab-sync.preview.emergentagent.com';
+const BASE_URL = 'https://position-mastery.preview.emergentagent.com';
 
 test.describe('Critical Moments Feature', () => {
   
