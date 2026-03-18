@@ -25,6 +25,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - **Undo Move in Play with Coach**: Added an `Undo Move` control near the board that rewinds the user's last move in normal play and rewinds the student's last move in lesson mode
 - **Self-Healing Analysis Queue**: Added stuck-job retry metadata, fallback queue processing, and Lab-page queue/failure status messaging so analysis jobs do not silently sit forever
 - **Verified Trap Source-of-Truth**: Added a canonical trap registry for live coaching so traps are only offered and taught when the exact opening line matches a verified legal sequence
+- **Opening/Trap Correction Loop**: Users can now submit corrected PGN or SAN directly from Play with Coach and /openings, with current moves auto-filled and live overwrite behavior via DB-backed corrections
 
 ## Code Architecture
 ```
@@ -40,6 +41,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 │   │   ├── opening_schema.py            # NEW: Typed family/variation/node/trap schema + validation
 │   │   └── opening_teaching_db.py       # Curated teaching content
 │   ├── analysis_worker.py               # Queue processing + stuck-job retry logic
+│   ├── services/opening_correction_service.py # NEW: PGN/SAN correction intake + live override helpers
 │   ├── services/verified_opening_traps.py # Canonical verified trap registry + validators
 │   └── server.py                        # Main server + live move undo endpoint + fallback queue processor
 └── frontend/
@@ -48,6 +50,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
         ├── components/lab/
         │   ├── CriticalMoments.jsx      # Interactive training loop
         │   └── GameSummary.jsx          # Explain Move + View Position
+        ├── components/openings/OpeningCorrectionDialog.jsx # NEW: correction submission modal
         └── pages/
             ├── AuthCallback.jsx         # Post-auth redirect restoration
             ├── CoachPlay.jsx            # Play with Coach (fixed polling)
@@ -70,6 +73,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - [ ] Add move-preview + undo/redo design polish for coaching mode
 - [ ] Surface queue status consistently across the newer LabV2 flow too, not just the legacy Lab page
 - [ ] Audit the remaining trap libraries and migrate them fully onto the verified trap registry
+- [ ] Apply correction overrides more broadly across all legacy opening/trap training endpoints, not just the lesson and coach-trap flows
 
 ### P2 - Backlog
 - [ ] Lesson flow bug verification (Fried Liver Attack)
@@ -88,6 +92,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Undo Move feature verified with live API checks and frontend testing agent after service restart
 - Analysis queue recovery verified by backend and frontend testing agents, including Lab-page failed/processing status messaging
 - Verified trap registry and exact-line trap selection tested (registry legality + Siberian/QGD selection integration)
+- Opening/trap correction loop verified by frontend testing agent, including immediate lesson overwrite from submitted SAN/PGN
 - Test files: `/app/backend/tests/test_*.py`
 
 ## Key Technical Notes
@@ -106,3 +111,4 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Analysis queue now tracks `retry_count`, `retrying`, `last_error`, `last_error_at`, `started_at`, and `failed_at`; only stale `processing` jobs older than 10 minutes are retried, up to 3 times
 - `server.py` now runs a fallback queue processor loop so pending jobs can still be analyzed even when a separate analysis worker process is absent
 - Live opening coaching now prefers the verified trap registry over loose per-opening trap lists, which prevents trap-name hallucinations like mismatched Siberian lines
+- `/api/openings/corrections` now accepts corrected PGN or SAN plus current moves/FEN and stores DB-backed live overrides that the /openings lesson flow and coach trap flow can consume immediately
