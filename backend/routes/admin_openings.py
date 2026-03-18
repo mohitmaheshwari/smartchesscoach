@@ -50,18 +50,40 @@ def _ensure_authenticated_admin(user: User) -> None:
 async def list_opening_feedback(user: User = Depends(get_current_user)):
     _ensure_authenticated_admin(user)
 
-    docs = await db.opening_feedback.find({}, {"_id": 0, "opening_key": 1, "opening_name": 1, "updated_at": 1}).sort("opening_key", 1).to_list(500)
-    return {"openings": docs, "count": len(docs)}
+    # Import the service that shows ALL openings (code + admin overrides)
+    from services.opening_feedback_admin_service import list_effective_openings
+    
+    openings = await list_effective_openings(db)
+    return {"openings": openings, "count": len(openings)}
 
 
 @router.get("/{opening_key}")
 async def get_opening_feedback(opening_key: str, user: User = Depends(get_current_user)):
     _ensure_authenticated_admin(user)
 
-    doc = await db.opening_feedback.find_one({"opening_key": opening_key}, {"_id": 0})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Opening feedback not found")
-    return doc
+    from services.opening_feedback_admin_service import (
+        get_opening_feedback_override,
+        build_static_opening_feedback
+    )
+
+    # First check if there's an admin override in MongoDB
+    doc = await get_opening_feedback_override(db, opening_key)
+    if doc:
+        return doc
+    
+    # If no override, return the static data from Python code
+    static_feedback = build_static_opening_feedback(opening_key)
+    if not static_feedback:
+        raise HTTPException(status_code=404, detail="Opening not found in code or database")
+    
+    # Return in same format as MongoDB doc (with feedback wrapper)
+    return {
+        "opening_key": opening_key,
+        "opening_name": static_feedback.get("opening_name"),
+        "feedback": static_feedback,
+        "source": "static_code",
+        "updated_at": None
+    }
 
 
 @router.post("/validate")

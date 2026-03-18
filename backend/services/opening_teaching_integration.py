@@ -89,13 +89,23 @@ async def check_opening_and_offer_teaching(
     logger.info(f"Opening detected: {opening_info['opening_name']}")
     
     opening_key = opening_info["opening_key"]
-    opening = OPENING_DATABASE.get(opening_key)
-    if not opening:
-        logger.info(f"Opening {opening_key} not in database")
-        return None
+    
+    # Use effective feedback (static code + admin override)
+    from services.opening_feedback_admin_service import get_effective_opening_feedback
+    effective_feedback = await get_effective_opening_feedback(db, opening_key)
+    
+    if not effective_feedback:
+        # Fallback to old OPENING_DATABASE
+        opening = OPENING_DATABASE.get(opening_key)
+        if not opening:
+            logger.info(f"Opening {opening_key} not in database")
+            return None
+        opening_name = opening.name
+    else:
+        opening_name = effective_feedback.get("opening_name", opening_info['opening_name'])
     
     # Check user's progress with this opening
-    progress = await get_user_opening_progress(db, user_id, opening.name)
+    progress = await get_user_opening_progress(db, user_id, opening_name)
     
     # Build teaching offer
     teacher = OpeningTeacher(opening_key, progress)

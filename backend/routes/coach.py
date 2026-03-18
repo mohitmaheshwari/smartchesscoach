@@ -1956,14 +1956,24 @@ async def start_opening_teaching(
     progress = await get_user_opening_progress(db, user.user_id, opening_key)
     if not progress:
         # First time learning this opening
-        from services.opening_mastery import OPENING_DATABASE
-        opening_data = OPENING_DATABASE.get(opening_key)
-        if not opening_data:
-            raise HTTPException(status_code=404, detail="Opening not found")
+        from services.opening_feedback_admin_service import get_effective_opening_feedback
+        
+        # Try to get effective feedback first (static + admin override)
+        effective_feedback = await get_effective_opening_feedback(db, opening_key)
+        
+        if effective_feedback:
+            opening_name = effective_feedback.get("opening_name", opening_key)
+        else:
+            # Fallback to old OPENING_DATABASE
+            from services.opening_mastery import OPENING_DATABASE
+            opening_data = OPENING_DATABASE.get(opening_key)
+            if not opening_data:
+                raise HTTPException(status_code=404, detail="Opening not found")
+            opening_name = opening_data.name
         
         progress = UserOpeningProgress(
             user_id=user.user_id,
-            opening_name=opening_data.name,
+            opening_name=opening_name,
             mastery_level=MasteryLevel.INTRODUCED,
             introduced_at=datetime.now(timezone.utc),
             last_practiced_at=datetime.now(timezone.utc),

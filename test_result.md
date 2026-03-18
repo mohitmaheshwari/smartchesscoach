@@ -111,6 +111,67 @@ user_problem_statement: |
   4. Build Reinforcement Engine for habit breakthroughs
 
 backend:
+  - task: "Admin-Lab-Coach Integration (Bi-directional)"
+    implemented: true
+    working: true
+    file: "/app/backend/routes/admin_openings.py, /app/backend/routes/openings.py, /app/backend/services/opening_teaching_integration.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          Implemented full bi-directional integration between Admin and Lab/Play with Coach:
+          
+          PHASE 1: Admin Shows ALL Openings from Code
+          - Updated /api/admin/openings to use list_effective_openings() 
+          - Shows all 23 openings from Python code + MongoDB overrides
+          - Updated /api/admin/openings/{key} to return static code data if no override
+          - Monaco editor now auto-fills with current Python data for editing
+          
+          PHASE 2: Lab/Coach Use Admin Data  
+          - Updated /api/openings/library to use list_effective_openings()
+          - Updated /api/openings/{key} to use get_effective_opening_feedback()
+          - Lab lessons now show admin-edited content immediately
+          - Updated opening_teaching_integration.py for Play with Coach
+          - Play with Coach now teaches using admin-edited content
+          - Updated /coach routes to use effective feedback
+          
+          DATA FLOW:
+          1. Coach opens admin → Sees ALL openings from code
+          2. Selects opening → Monaco auto-fills with current data
+          3. Edits and saves → MongoDB override created
+          4. Students use Lab → See admin-edited content immediately
+          5. Students play with Coach → Taught with admin-edited content
+          
+          INTEGRATION POINTS:
+          - list_effective_openings(db) - Lists ALL openings
+          - build_static_opening_feedback(key) - Converts code to admin format
+          - get_opening_feedback_override(db, key) - Gets MongoDB override
+          - get_effective_opening_feedback(db, key) - Merges static + override
+          - feedback_to_opening_lesson_shape() - Converts to lesson format
+          
+          FILES MODIFIED:
+          - /app/backend/routes/admin_openings.py (2 endpoints updated)
+          - /app/backend/routes/openings.py (2 endpoints updated)
+          - /app/backend/services/opening_teaching_integration.py (1 function updated)
+          - /app/backend/routes/coach.py (1 endpoint updated)
+          
+          VERIFICATION:
+          ✅ Integration test passed: 23 openings found from code
+          ✅ Static feedback builds correctly
+          ✅ Effective feedback merges correctly
+          ✅ Lesson shape conversion works
+          ✅ Backend started without errors
+          ✅ Linting passed
+          
+          CREATED DOCUMENTATION:
+          - /app/ADMIN_INTEGRATION_STATUS.md (detailed analysis)
+          - /app/INTEGRATION_COMPLETE.md (implementation summary)
+          
+          NEXT: Needs manual testing and frontend testing agent verification
+
   - task: "Explanation Template Library"
     implemented: true
     working: true

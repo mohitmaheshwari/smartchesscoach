@@ -95,11 +95,21 @@ async def get_opening_repertoire(user: User = Depends(get_current_user)):
 @router.get("/openings/library")
 async def get_opening_library():
     """
-    Get all openings in the teaching library.
+    Get all openings in the teaching library (includes code + admin overrides).
     """
-    from services.opening_library_service import get_all_openings
+    from services.opening_feedback_admin_service import list_effective_openings
     
-    return {"openings": get_all_openings()}
+    openings = await list_effective_openings(db)
+    # Convert to simpler format for library listing
+    library_list = [
+        {
+            "key": opening["opening_key"],
+            "name": opening["opening_name"],
+            "has_admin_override": opening.get("updated_at") is not None
+        }
+        for opening in openings
+    ]
+    return {"openings": library_list}
 
 
 @router.get("/openings/match")
@@ -139,12 +149,43 @@ async def match_opening_to_library_endpoint(opening_name: str, eco: str = None):
 async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_user)):
     """
     Get full opening lesson with main line, traps, and user's mistakes.
+    Uses effective feedback (static code + admin overrides).
     """
-    from services.opening_library_service import get_opening_lesson as get_lesson
+    from services.opening_feedback_admin_service import (
+        get_effective_opening_feedback,
+        feedback_to_opening_lesson_shape
+    )
     
-    lesson = await get_lesson(db, user.user_id, opening_key)
-    if not lesson:
+    # Get effective feedback (merges static code + admin override)
+    feedback = await get_effective_opening_feedback(db, opening_key)
+    if not feedback:
         raise HTTPException(status_code=404, detail="Opening not found in library")
+    
+    # Convert to lesson shape expected by frontend
+    lesson = feedback_to_opening_lesson_shape(feedback)
+    
+    # Add user-specific progress data
+    progress_doc = await db.user_opening_progress.find_one({
+        "user_id": user.user_id,
+        "opening_key": opening_key
+    })
+    
+    if progress_doc:
+        lesson["user_progress"] = {
+            "main_line_progress": progress_doc.get("main_line_progress", 0),
+            "traps_learned": progress_doc.get("traps_learned", []),
+            "times_practiced": progress_doc.get("times_practiced", 0),
+            "last_practiced": progress_doc.get("last_practiced")
+        }
+    
+    # Add user's mistakes from past games in this opening
+    mistakes = await db.opening_mistakes.find({
+        "user_id": user.user_id,
+        "opening_key": opening_key
+    }).to_list(50)
+    
+    if mistakes:
+        lesson["your_mistakes"] = mistakes
     
     return lesson
 
