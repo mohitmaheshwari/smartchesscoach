@@ -10108,6 +10108,19 @@ async def get_coach_messages(
             msg_data["key_concepts"] = msg.get("key_concepts")
             msg_data["options"] = msg.get("options")
         
+        # Include position coaching fields
+        if msg.get("type") == "position_coaching":
+            msg_data["structure_name"] = msg.get("structure_name")
+            msg_data["structure_type"] = msg.get("structure_type")
+            msg_data["game_phase"] = msg.get("game_phase")
+            msg_data["key_characteristics"] = msg.get("key_characteristics")
+            msg_data["strategic_plans"] = msg.get("strategic_plans")
+            msg_data["tactical_features"] = msg.get("tactical_features")
+            msg_data["tactical_insights"] = msg.get("tactical_insights")
+            msg_data["teaching_points"] = msg.get("teaching_points")
+            msg_data["critical_squares"] = msg.get("critical_squares")
+            msg_data["options"] = msg.get("options")
+        
         messages.append(msg_data)
         message_ids.append(msg["_id"])
     
