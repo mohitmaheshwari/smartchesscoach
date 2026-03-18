@@ -33,6 +33,7 @@ import "chessground/assets/chessground.cburnett.css";
 
 import InteractivePractice from "@/components/openings/InteractivePractice";
 import TrapPractice from "@/components/openings/TrapPractice";
+import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -343,9 +344,22 @@ const OpeningLesson = () => {
                 {opening.eco} • {opening.color === "white" ? "White Opening" : "Black Defense"}
               </p>
             </div>
+            <div className="ml-auto">
+              <OpeningCorrectionDialog
+                sourceContext="openings_page"
+                openingKey={openingKey}
+                openingName={opening.name}
+                variationName={opening.variation || null}
+                trapName={selectedTrap?.name || null}
+                currentMoves={(opening.main_line || []).map((moveData) => moveData.move)}
+                currentFen={chessRef.current?.fen?.() || ""}
+                triggerLabel="Correct opening data"
+                compact={true}
+              />
+            </div>
             
             {user_stats && (
-              <div className="ml-auto flex items-center gap-4">
+              <div className="flex items-center gap-4">
                 <Badge variant={user_stats.win_rate >= 50 ? "default" : "destructive"}>
                   {user_stats.win_rate?.toFixed(0)}% win rate
                 </Badge>

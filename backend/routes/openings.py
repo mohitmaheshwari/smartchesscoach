@@ -63,6 +63,22 @@ class ProgressUpdateRequest(BaseModel):
     practiced: Optional[bool] = False
 
 
+class OpeningCorrectionRequest(BaseModel):
+    source_context: str
+    opening_key: str
+    opening_name: Optional[str] = None
+    variation_name: Optional[str] = None
+    trap_name: Optional[str] = None
+    correction_type: str
+    current_moves: List[str] = []
+    current_fen: Optional[str] = None
+    corrected_pgn: Optional[str] = None
+    corrected_san_text: Optional[str] = None
+    corrected_name: Optional[str] = None
+    corrected_explanation: Optional[str] = None
+    notes: Optional[str] = None
+
+
 # ==================== ENDPOINTS ====================
 
 @router.get("/openings/repertoire")
@@ -131,6 +147,40 @@ async def get_opening_lesson(opening_key: str, user: User = Depends(get_current_
         raise HTTPException(status_code=404, detail="Opening not found in library")
     
     return lesson
+
+
+@router.post("/openings/corrections")
+async def submit_opening_correction(
+    correction: OpeningCorrectionRequest,
+    user: User = Depends(get_current_user)
+):
+    """Save an opening/trap correction and apply it immediately as a live override."""
+    from services.opening_correction_service import save_opening_correction
+
+    if not correction.corrected_pgn and not correction.corrected_san_text and not correction.corrected_name and not correction.corrected_explanation:
+        raise HTTPException(status_code=400, detail="Please provide corrected PGN, SAN moves, name, or explanation")
+
+    saved = await save_opening_correction(db, user.user_id, correction.model_dump())
+    return {
+        "success": True,
+        "correction": saved,
+        "message": "Opening correction saved and applied immediately."
+    }
+
+
+@router.get("/openings/{opening_key}/corrections")
+async def get_opening_corrections_endpoint(
+    opening_key: str,
+    user: User = Depends(get_current_user)
+):
+    from services.opening_correction_service import get_opening_corrections
+
+    corrections = await get_opening_corrections(db, opening_key)
+    return {
+        "opening_key": opening_key,
+        "corrections": corrections,
+        "count": len(corrections)
+    }
 
 
 @router.post("/openings/{opening_key}/progress")

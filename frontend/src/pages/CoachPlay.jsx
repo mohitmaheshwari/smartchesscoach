@@ -60,6 +60,7 @@ import {
   LessonCompletePanel 
 } from "@/components/coach/OpeningTeachingPanel";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
+import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
 import { 
   EvalBar, 
   MoveFeedbackPanel,
@@ -155,6 +156,7 @@ const CoachPlay = ({ user }) => {
   const [isCoachThinking, setIsCoachThinking] = useState(false);
   const [activeTrapAlert, setActiveTrapAlert] = useState(null);
   const [cleanUIMode, setCleanUIMode] = useState(true); // Enable new clean UI
+  const [openingCorrectionCount, setOpeningCorrectionCount] = useState(0);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -466,6 +468,11 @@ const CoachPlay = ({ user }) => {
       console.error("Error resuming session:", error);
     }
   };
+
+  useEffect(() => {
+    if (!session?.session_id || openingCorrectionCount === 0) return;
+    resumeSession(session.session_id);
+  }, [openingCorrectionCount, session?.session_id]);
   
   // Trigger coach to make a move (used after resume when it's coach's turn)
   const triggerCoachMove = async (sessionId) => {
@@ -1857,14 +1864,28 @@ const CoachPlay = ({ user }) => {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="shrink-0"
-                    onClick={() => handleExitLesson("continue_game", {})}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <OpeningCorrectionDialog
+                      sourceContext="play_with_coach"
+                      openingKey={session?.teaching_opening || openingGuidance?.opening_key || inlineOpening?.key}
+                      openingName={activeLesson?.opening_name || openingGuidance?.opening_name || inlineOpening?.name}
+                      variationName={activeLesson?.mode === "main_line" ? activeLesson?.lesson_name : null}
+                      trapName={activeLesson?.mode === "trap" ? activeLesson?.lesson_name : null}
+                      currentMoves={(session?.move_history || []).map((move) => move.move)}
+                      currentFen={currentFen}
+                      triggerLabel="Fix line"
+                      compact={true}
+                      onSubmitted={() => setOpeningCorrectionCount((count) => count + 1)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0"
+                      onClick={() => handleExitLesson("continue_game", {})}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1883,6 +1904,20 @@ const CoachPlay = ({ user }) => {
                     <p className="text-xs text-muted-foreground mb-3">
                       {inlineOpening?.main_idea || inlineTrap?.explanation || "Learn this opening while you play"}
                     </p>
+                    <div className="mb-3">
+                      <OpeningCorrectionDialog
+                        sourceContext="play_with_coach"
+                        openingKey={inlineOpening?.key || inlineTrap?.opening_key || openingGuidance?.opening_key || session?.opening_to_teach}
+                        openingName={inlineOpening?.name || openingGuidance?.opening_name || openingGuidance?.opening_key?.replace(/_/g, ' ')}
+                        variationName={activeLesson?.lesson_name || null}
+                        trapName={inlineTrap?.name || lessonInstruction?.trap_name || null}
+                        currentMoves={(session?.move_history || []).map((move) => move.move)}
+                        currentFen={currentFen}
+                        triggerLabel="Correct this opening / trap"
+                        compact={true}
+                        onSubmitted={() => setOpeningCorrectionCount((count) => count + 1)}
+                      />
+                    </div>
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"

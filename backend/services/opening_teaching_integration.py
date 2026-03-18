@@ -23,6 +23,7 @@ from services.verified_opening_traps import (
     get_verified_traps_for_opening,
     select_preferred_trap,
 )
+from services.opening_correction_service import get_main_line_override, get_trap_override, select_corrected_trap_for_current_line
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +106,19 @@ async def check_opening_and_offer_teaching(
     
     # Get only VERIFIED traps that match the current exact line prefix
     suggested_trap = select_preferred_trap(opening_key, moves)
+    corrected_trap = await select_corrected_trap_for_current_line(db, opening_key, moves)
     
-    if suggested_trap:
-        trap_name = suggested_trap.name
+    trap_name = None
+    if corrected_trap:
+        trap_name = corrected_trap.get("corrected_name") or corrected_trap.get("trap_name") or "Corrected trap"
+        options.append({
+            "id": "learn_trap",
+            "label": f"🎯 Learn the {trap_name}",
+            "description": "Interactive trap lesson - I'll show you the corrected moves"
+        })
+    elif suggested_trap:
+        trap_override = await get_trap_override(db, opening_key, suggested_trap.name)
+        trap_name = trap_override.get("corrected_name") if trap_override and trap_override.get("corrected_name") else suggested_trap.name
         options.append({
             "id": "learn_trap",
             "label": f"🎯 Learn the {trap_name}",
@@ -145,7 +156,7 @@ async def check_opening_and_offer_teaching(
         "options": options,
         "has_learned_before": intro.get("has_learned_before", False),
         "trap_available": suggested_trap is not None,
-        "trap_name": suggested_trap.name if suggested_trap else None
+        "trap_name": trap_name if suggested_trap else None
     }
 
 
@@ -206,8 +217,12 @@ async def start_opening_lesson(
         trap = None
         move_history = session_doc.get("move_history", [])
         moves_played_san = [m.get("move", "") for m in move_history if m.get("move")]
+        corrected_trap = await select_corrected_trap_for_current_line(db, opening_key, moves_played_san)
+        corrected_trap_name = corrected_trap.get("corrected_name") or corrected_trap.get("trap_name") if corrected_trap else None
         
-        if suggested_trap and suggested_trap.get("name"):
+        if corrected_trap:
+            trap = corrected_trap
+        elif suggested_trap and suggested_trap.get("name"):
             trap = get_verified_trap_by_name(opening_key, suggested_trap.get("name"))
         
         # Fallback to the best verified trap matching the current line
@@ -222,12 +237,26 @@ async def start_opening_lesson(
         if not trap:
             return {"error": "No verified trap available for this exact opening line yet"}
 
+        if isinstance(trap, dict):
+            trap_name = corrected_trap_name or trap.get("trap_name") or trap.get("corrected_name") or "Corrected trap"
+            trap_explanation = trap.get("corrected_explanation") or trap.get("notes") or "Corrected trap line"
+            trap_moves_source = trap.get("corrected_moves") or trap.get("current_moves") or []
+            trap_refutation = trap.get("notes") or "Follow the corrected line."
+            trap_victim_color = trap.get("victim_color") or "unknown"
+        else:
+            trap_override = await get_trap_override(db, opening_key, trap.name)
+            trap_name = trap_override.get("corrected_name") if trap_override and trap_override.get("corrected_name") else trap.name
+            trap_explanation = trap_override.get("corrected_explanation") if trap_override and trap_override.get("corrected_explanation") else trap.explanation
+            trap_moves_source = trap_override.get("corrected_moves") if trap_override and trap_override.get("corrected_moves") else trap.full_line
+            trap_refutation = trap.refutation
+            trap_victim_color = trap.victim_color
+
         # Get current position and move history
         current_fen = session_doc.get("current_fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
         moves_played = len(move_history)
 
         # Figure out where we are in the trap sequence
-        trap_moves = trap.full_line
+        trap_moves = trap_moves_source
         current_move_index = 0
         on_trap_line = True
 
@@ -254,12 +283,12 @@ async def start_opening_lesson(
         
         # Build teaching state - continue from current position, not reset
         teaching_data = {
-            "trap_name": trap.name,
-            "trap_moves": trap.full_line,
+            "trap_name": trap_name,
+            "trap_moves": trap_moves,
             "current_move_index": current_move_index,
-            "explanation": trap.explanation,
-            "refutation": trap.refutation,
-            "victim_color": trap.victim_color,
+            "explanation": trap_explanation,
+            "refutation": trap_refutation,
+            "victim_color": trap_victim_color,
             "user_plays_white": user_plays_white,
             "teaching_fen": current_fen,  # Keep current position!
             "lesson_start_fen": current_fen,
@@ -275,11 +304,16 @@ async def start_opening_lesson(
         if not var:
             return {"error": "No variations available"}
         
+        main_line_override = await get_main_line_override(db, opening_key, var.name)
+        main_line_moves = main_line_override.get("corrected_moves") if main_line_override and main_line_override.get("corrected_moves") else var.moves
+        variation_name = main_line_override.get("corrected_name") if main_line_override and main_line_override.get("corrected_name") else var.name
+        explanation_override = main_line_override.get("corrected_explanation") if main_line_override else None
+
         teaching_data = {
-            "variation_name": var.name,
-            "main_line_moves": var.moves,
+            "variation_name": variation_name,
+            "main_line_moves": main_line_moves,
             "current_move_index": 0,
-            "key_ideas": var.key_ideas,
+            "key_ideas": [explanation_override] if explanation_override else var.key_ideas,
             "plans_white": var.plans_for_white,
             "plans_black": var.plans_for_black,
             "user_plays_white": user_plays_white,  # Critical: know which moves are user's

@@ -1162,7 +1162,7 @@ async def get_opening_lesson(db, user_id: str, opening_key: str) -> Optional[Dic
         {"user_id": user_id, "opening_key": opening_key}
     )
     
-    return {
+    lesson = {
         "opening": opening,
         "user_stats": user_opening_stats,
         "user_mistakes": user_mistakes[:5],
@@ -1173,6 +1173,10 @@ async def get_opening_lesson(db, user_id: str, opening_key: str) -> Optional[Dic
             "mastery_level": progress.get("mastery_level", "unknown") if progress else "unknown"
         }
     }
+
+    from services.opening_correction_service import apply_opening_lesson_corrections
+
+    return await apply_opening_lesson_corrections(db, opening_key, lesson)
 
 
 async def update_learning_progress(
