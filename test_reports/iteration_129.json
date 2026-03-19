@@ -1,0 +1,67 @@
+{
+  "summary": "Tested Human Coach Layer features: behavioral insights (WHY THIS HAPPENED), coach voice summaries, cross-game pattern detection, and enriched Memory tab. All 3 new endpoints work correctly. Frontend shows behavioral tags and reflection questions.",
+  "mode": "generate",
+  "baseline_commit": "ae9b2847ee66c03ae366f4c1223496b0ed97402d",
+  "head_commit": "47295cb12915425709991f037eb34c771f5575cb",
+  "specs_created": [
+    "/app/tests/e2e/lab-human-coach-layer.spec.ts",
+    "/app/backend/tests/test_human_coach_layer_api.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_human_coach_layer_api.py",
+    "/app/test_reports/pytest/test_human_coach_layer.xml",
+    "/app/tests/e2e/lab-human-coach-layer.spec.ts"
+  ],
+  "regression_results": {
+    "total_specs": 28,
+    "passed": 28,
+    "failed": 0,
+    "skipped": 3
+  },
+  "issues": [
+    {
+      "id": "IMP-001",
+      "issue_type": "improvement",
+      "severity": "MEDIUM",
+      "description": "Sub-endpoints /api/coach/deep-memory/blunder-profile, /style, /behavioral return 500 errors due to PlayerIdentityService enum validation issues when converting data from MongoDB. The main /api/coach/deep-memory endpoint works correctly by returning raw data.",
+      "endpoint_or_component": "/api/coach/deep-memory/* sub-endpoints"
+    }
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/lab-human-coach-layer.spec.ts",
+    "/app/backend/tests/test_human_coach_layer_api.py"
+  ],
+  "test_results": {
+    "backend": "100% (13/13 passed, 3 skipped)",
+    "frontend": "100% (15/15 passed)"
+  },
+  "seed_data_creation": "None - used existing analyzed games from dev user",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Human Coach Layer features fully tested. The 3 new endpoints work correctly: GET /api/analysis/{game_id}/enriched returns behavioral tags (positional_neglect, impatience, etc.), coach_summary, and cross_game_context. GET /api/coach/deep-memory returns has_data=true with blunder_taxonomy for users with analyzed games. GET /api/memory/patterns returns aggregated weakness patterns. Frontend GameSummary.jsx correctly displays WHY THIS HAPPENED section with behavioral insights. The sub-endpoints under /api/coach/deep-memory/* have enum validation issues but are not blocking.",
+  "features_verified": {
+    "enriched_analysis_endpoint": {
+      "status": "WORKING",
+      "details": "Returns behavioral tags, coach_summary (opening_line, key_observation, behavioral_insight, actionable_takeaway, encouragement), and cross_game_context (total_games_analyzed, similar_mistakes)"
+    },
+    "deep_memory_endpoint": {
+      "status": "WORKING",
+      "details": "Returns has_data=true, games_analyzed, identity (with blunder_taxonomy), and summary fields"
+    },
+    "memory_patterns_endpoint": {
+      "status": "WORKING",
+      "details": "Returns total_games, category_breakdown, top_weaknesses with examples, accuracy_trend, has_enough_data flag"
+    },
+    "frontend_behavioral_insights": {
+      "status": "WORKING",
+      "details": "WHY THIS HAPPENED section displays behavioral tag, short/long explanation, and reflection question"
+    },
+    "frontend_memory_tab": {
+      "status": "WORKING",
+      "details": "Shows Coach Memory with games count, playing style, and Blunder Profile (worst phase, most common)"
+    }
+  }
+}

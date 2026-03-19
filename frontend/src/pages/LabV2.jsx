@@ -249,10 +249,16 @@ const LabV2 = ({ user }) => {
         setGame(gameData);
         setBoardOrientation(gameData.user_color === "black" ? "black" : "white");
         
-        // Fetch analysis
-        const analysisRes = await fetch(`${API}/analysis/${gameId}`, { credentials: "include" });
+        // Fetch analysis (use enriched endpoint for coach layer)
+        const analysisRes = await fetch(`${API}/analysis/${gameId}/enriched`, { credentials: "include" });
         if (analysisRes.ok) {
           setAnalysis(await analysisRes.json());
+        } else {
+          // Fallback to basic analysis
+          const basicRes = await fetch(`${API}/analysis/${gameId}`, { credentials: "include" });
+          if (basicRes.ok) {
+            setAnalysis(await basicRes.json());
+          }
         }
         
         // Fetch lab data
@@ -1031,6 +1037,7 @@ const LabV2 = ({ user }) => {
                     <GameSummary
                       game={game}
                       labData={labData}
+                      analysis={analysis}
                       userColor={userColor}
                       result={result}
                       accuracy={accuracy}

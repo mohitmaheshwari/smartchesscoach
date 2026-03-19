@@ -2239,6 +2239,65 @@ async def get_analysis(game_id: str, user: User = Depends(get_current_user)):
     
     return analysis
 
+
+@api_router.get("/analysis/{game_id}/enriched")
+async def get_enriched_analysis(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Get analysis enriched with human coach layer.
+    
+    Returns the standard analysis PLUS:
+    - Behavioral tags (WHY the mistake happened)
+    - Cross-game pattern connections
+    - Coach voice summary
+    - Specific moment insights
+    """
+    from services.human_coach_layer import enrich_game_analysis
+    
+    # Get base analysis
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "_cqs_internal": 0}
+    )
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    # Enrich with human coach layer
+    try:
+        enriched = await enrich_game_analysis(db, game_id, user.user_id, analysis)
+        return enriched
+    except Exception as e:
+        logger.warning(f"Failed to enrich analysis: {e}")
+        # Return base analysis if enrichment fails
+        return analysis
+
+
+@api_router.get("/memory/patterns")
+async def get_memory_patterns(user: User = Depends(get_current_user)):
+    """
+    Get aggregated patterns across all games for the Memory tab.
+    
+    Returns:
+    - Category breakdown (what types of mistakes)
+    - Top weaknesses with examples (clickable links to games)
+    - Accuracy trend over recent games
+    """
+    from services.human_coach_layer import get_aggregated_patterns
+    
+    try:
+        patterns = await get_aggregated_patterns(db, user.user_id)
+        return patterns
+    except Exception as e:
+        logger.error(f"Failed to get memory patterns: {e}")
+        return {
+            "total_games": 0,
+            "category_breakdown": {},
+            "top_weaknesses": [],
+            "accuracy_trend": [],
+            "has_enough_data": False,
+            "error": str(e)
+        }
+
+
 # ==================== VOICE COACHING (TTS) ROUTES ====================
 
 class TTSRequest(BaseModel):
@@ -11576,23 +11635,46 @@ async def get_deep_memory(user: User = Depends(get_current_user)):
     
     Returns the complete PlayerIdentity document.
     """
-    from services.player_identity import PlayerIdentityService
+    # Get raw identity document to avoid enum validation issues
+    identity_doc = await db.player_identities.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    )
     
-    service = PlayerIdentityService(db)
-    identity = await service.get_or_create(user.user_id)
+    if not identity_doc:
+        # Return empty state
+        return {
+            "has_data": False,
+            "games_analyzed": 0,
+            "identity": {"user_id": user.user_id},
+            "summary": {
+                "primary_style": "developing",
+                "most_common_blunder": None,
+                "blunder_trend": "stable",
+                "worst_phase": None,
+                "is_tilted": False,
+                "priority_focus": None,
+                "coach_notes": []
+            }
+        }
+    
+    games_analyzed = identity_doc.get("games_analyzed", 0)
+    blunder_tax = identity_doc.get("blunder_taxonomy", {})
+    style_prof = identity_doc.get("style_profile", {})
+    behavioral = identity_doc.get("behavioral_profile", {})
     
     return {
-        "has_data": identity.games_analyzed > 0,
-        "games_analyzed": identity.games_analyzed,
-        "identity": identity.to_dict(),
+        "has_data": games_analyzed > 0,
+        "games_analyzed": games_analyzed,
+        "identity": identity_doc,
         "summary": {
-            "primary_style": identity.style_profile.primary_style.value,
-            "most_common_blunder": identity.blunder_taxonomy.most_common_type.value if identity.blunder_taxonomy.most_common_type else None,
-            "blunder_trend": identity.blunder_taxonomy.trend,
-            "worst_phase": identity.blunder_taxonomy.worst_phase.value if identity.blunder_taxonomy.worst_phase else None,
-            "is_tilted": identity.consecutive_losses >= 2,
-            "priority_focus": identity.priority_focus,
-            "coach_notes": identity.coach_notes
+            "primary_style": style_prof.get("primary_style", "developing"),
+            "most_common_blunder": blunder_tax.get("most_common_type"),
+            "blunder_trend": blunder_tax.get("trend", "stable"),
+            "worst_phase": blunder_tax.get("worst_phase"),
+            "is_tilted": identity_doc.get("consecutive_losses", 0) >= 2,
+            "priority_focus": identity_doc.get("priority_focus"),
+            "coach_notes": identity_doc.get("coach_notes", [])
         }
     }
 

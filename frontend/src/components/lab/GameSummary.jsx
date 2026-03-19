@@ -30,12 +30,14 @@ import {
   ChevronDown,
   ChevronUp,
   Lightbulb,
-  Loader2
+  Loader2,
+  Brain
 } from "lucide-react";
 
 const GameSummary = ({ 
   game,
   labData,
+  analysis,  // NEW: enriched analysis with coach layer
   userColor,
   result,
   accuracy,
@@ -48,6 +50,12 @@ const GameSummary = ({
   const [showBlunderExplain, setShowBlunderExplain] = useState(false);
   const [blunderExplanation, setBlunderExplanation] = useState(null);
   const [loadingBlunderExplain, setLoadingBlunderExplain] = useState(false);
+  const [showBehavioralInsight, setShowBehavioralInsight] = useState(false);
+
+  // Extract coach layer data from enriched analysis
+  const coachSummary = analysis?.coach_summary || {};
+  const crossGameContext = analysis?.cross_game_context || {};
+  const behavioralData = analysis?.turning_point?.behavioral || {};
 
   // Fetch on-demand explanation for biggest blunder
   const fetchBlunderExplanation = async (blunderData) => {
@@ -112,6 +120,11 @@ const GameSummary = ({
   
   // ========== SECTION 1: Game Story ==========
   const getGameStory = () => {
+    // If we have enriched coach summary, use it
+    if (coachSummary.opening_line) {
+      return coachSummary.opening_line;
+    }
+    
     // Correctly determine opponent based on user's color
     let opponent = game?.opponent;
     if (!opponent) {
@@ -540,6 +553,55 @@ const GameSummary = ({
                   >
                     View position <ChevronRight className="w-3 h-3 ml-1" />
                   </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* NEW: BEHAVIORAL INSIGHT - Why did you make this mistake? */}
+      {behavioralData && behavioralData.tag && (
+        <Card className="border-purple-500/30 bg-purple-500/5">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Brain className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-medium text-purple-400 uppercase tracking-wide">
+                    Why This Happened
+                  </h4>
+                  <span className="text-xs text-muted-foreground px-2 py-0.5 bg-purple-500/20 rounded">
+                    {behavioralData.tag.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                
+                <p className="text-sm font-medium text-purple-200 mb-2">
+                  {behavioralData.short_explanation}
+                </p>
+                
+                {behavioralData.long_explanation && (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {behavioralData.long_explanation}
+                  </p>
+                )}
+                
+                {/* Reflection question - like a real coach would ask */}
+                {behavioralData.reflection_question && (
+                  <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                    <p className="text-xs text-purple-300 italic">
+                      "{behavioralData.reflection_question}"
+                    </p>
+                  </div>
+                )}
+                
+                {/* Cross-game pattern */}
+                {behavioralData.recurring_pattern && (
+                  <div className="mt-3 p-2.5 bg-red-500/10 border border-red-500/20 rounded">
+                    <p className="text-xs text-red-300">
+                      <span className="font-medium">Pattern Alert:</span> {behavioralData.recurring_pattern.message}
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
