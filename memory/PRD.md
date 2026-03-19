@@ -76,6 +76,7 @@ All P0 issues resolved in this session.
 
 ### P1 - Next
 - [ ] Fully verify onboarding/navigation reliability with a fresh un-onboarded test user
+- [ ] Add automatic profile creation during game sync if it doesn't exist (currently relies on analysis worker)
 - [ ] Add "What You Did Well" section to Summary (celebrate good moves)
 - [ ] Expand deep variation trees to the remaining repertoire gaps (Ruy Lopez, Scotch, Vienna, Nimzo, Scandinavian, Philidor, Petrov)
 - [ ] Add richer trap setup / trap-avoidance coaching for the newly covered openings in `move_by_move_coach.py`

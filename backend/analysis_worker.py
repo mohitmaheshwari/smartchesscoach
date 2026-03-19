@@ -532,7 +532,7 @@ def update_player_identity_sync(db, user_id: str, game_result: str, moves_analys
     NOTE: Uses 'player_identities' collection (plural) to match PlayerIdentityService.COLLECTION
     """
     try:
-        from services.player_identity import StyleType, BlunderType, GamePhase as IdentityGamePhase
+        from services.player_identity import BlunderType, GamePhase as IdentityGamePhase
         
         current_time = datetime.now(timezone.utc)
         
