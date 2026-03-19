@@ -191,7 +191,7 @@ def build_static_opening_feedback(opening_key: str) -> Optional[Dict[str, Any]]:
             },
         },
         "coach_voice_lines": [introduction],
-        "main_line": [{"move": move, "explanation": ""} for move in (library.get("main_line", []) if library else [])] if library else [{"move": move, "explanation": ""} for move in main_line],
+        "main_line": library.get("main_line", []) if library else [{"move": move, "explanation": ""} for move in main_line],
         "what_if": what_if,
         "color": color,
         "source_metadata": {
