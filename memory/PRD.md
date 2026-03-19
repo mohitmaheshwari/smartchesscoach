@@ -7,7 +7,11 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ### Core Features
 - **Play with Coach**: Move-by-move coaching during opening phase (every move gets commentary)
-- **Intelligent Position Coaching**: NEW - Position-based coaching for middlegame and endgame phases using pawn structure classification, strategic plan database, and tactical detectors
+- **Intelligent Position Coaching**: Position-based coaching for middlegame and endgame phases using pawn structure classification, strategic plan database, and tactical detectors
+- **Unified Opening Detection**: Now detects 22+ openings (up from 9) including Vienna, Scotch, Petrov, King's Indian, Slav, Dutch, Nimzo-Indian, Benoni, Budapest, etc.
+- **Opening Detection After Coach's Move**: Opening teaching now triggers immediately after the coach plays the defining move (e.g., French Defense detected after 1.e4 e6, not delayed)
+- **"Explain My Position" Feature**: On-demand position analysis via POST /api/coach/play/explain-position - users can ask the coach to explain their current position at any time
+- **Dynamic Coaching in Practice Mode**: Opening Practice mode now uses the Behavioral Coaching Layer and Intelligent Position Coach for personalized feedback
 - **Deep Opening Context Engine**: Live coach now merges direct opening plans with family-level variation trees so sub-lines like QGD / Slav can inherit richer teaching
 - **Expanded Deep Opening Coverage**: Added deeper variation trees for Italian, London, Sicilian, French, Caro-Kann, and King's Indian coaching
 - **Game Analysis Lab**: 5-tab structure (Summary, Moments, Ideas, Habits, Memory)
@@ -68,10 +72,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 ## Prioritized Backlog
 
 ### P0 - Critical Issues
-- [ ] Fix Issue 1: Unify opening detection to use admin data source (currently only 9 hardcoded vs 23 in admin)
-- [ ] Fix Issue 2: Opening detection runs after user's move only - need to also run after coach's move
-- [ ] Fix Issue 3: Opening Practice mode needs dynamic coaching integration
-- [ ] Fix Issue 4: Confusing rating text on onboarding page
+All P0 issues resolved in this session.
 
 ### P1 - Next
 - [ ] Fully verify onboarding/navigation reliability with a fresh un-onboarded test user
@@ -106,6 +107,7 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Opening/trap correction loop verified by frontend testing agent, including immediate lesson overwrite from submitted SAN/PGN
 - Admin Opening Feedback Manager MVP verified by frontend testing agent (fetch, validate, save, preview, reload persistence all working)
 - **Intelligent Position Coaching**: iteration 125-126 (19/19 backend tests passed, 7/7 frontend tests passed)
+- **Unified Opening Detection & Features**: iteration 127-128 (30/30 backend tests passed) - verifies 22+ openings, explain-position endpoint, dynamic coaching
 - Test files: `/app/backend/tests/test_*.py`, `/app/tests/e2e/*.spec.ts`
 
 ## Key Technical Notes
