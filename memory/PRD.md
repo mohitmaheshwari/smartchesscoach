@@ -85,6 +85,15 @@ All P0 issues resolved in this session.
 - [x] **Opening Fundamentals API**: `GET /api/analysis/{game_id}/opening-fundamentals` returns score (0-100), violations list, adherences list, and summary
 - [x] **Opening Fundamentals UI**: `OpeningFundamentals.jsx` component renders in Lab page Habits tab - shows score, principles followed, principles violated (with expandable thinking prompts), and coach advice
 
+### Improvement Engine - Phase 2 (Completed March 19, 2026)
+- [x] **Pre-Move Checklist UI**: `PreMoveChecklist.jsx` component in Play with Coach page - shows contextual prompts based on move number, castling status, and player weaknesses. Items are checkable, expandable/collapsible, dismissible.
+- [x] **Thinking Coach Service**: Backend service (`thinking_coach.py`) that teaches players HOW to think:
+  - `POST /api/thinking-coach/walkthrough` - Step-by-step thought process for any position
+  - `POST /api/thinking-coach/principle-feedback` - Connects mistakes to fundamental principles
+  - `POST /api/thinking-coach/behavioral-intervention` - Specific interventions for patterns like hope_chess, tunnel_vision
+  - `POST /api/thinking-coach/mindset-prompt` - Position-specific questions based on characteristics
+  - `GET /api/thinking-coach/pre-move-checklist` - Contextual checklist items for game state
+
 ### P1 - Next
 - [ ] Fully verify onboarding/navigation reliability with a fresh un-onboarded test user
 - [ ] Add automatic profile creation during game sync if it doesn't exist (currently relies on analysis worker)
@@ -122,6 +131,12 @@ All P0 issues resolved in this session.
 - **Unified Opening Detection & Features**: iteration 127-128 (30/30 backend tests passed) - verifies 22+ openings, explain-position endpoint, dynamic coaching
 - **Human Coach Layer**: iteration 129 (28/28 tests passed, 13/13 backend, 15/15 frontend) - verifies behavioral insights, coach voice summaries, enriched memory tab
 - **Opening Fundamentals Bug Fix**: iteration 130 (19/19 tests passed, 13/13 backend, 6/6 frontend) - verifies OpeningFundamentals component renders correctly in Habits tab
+- **Thinking Coach/Improvement Engine Phase 2**: iteration 131 (32/32 tests passed, 15/15 backend, 17/17 frontend) - verifies Pre-Move Checklist, all Thinking Coach APIs, regression tests
+- Test files: `/app/backend/tests/test_*.py`, `/app/tests/e2e/*.spec.ts`
+- **Intelligent Position Coaching**: iteration 125-126 (19/19 backend tests passed, 7/7 frontend tests passed)
+- **Unified Opening Detection & Features**: iteration 127-128 (30/30 backend tests passed) - verifies 22+ openings, explain-position endpoint, dynamic coaching
+- **Human Coach Layer**: iteration 129 (28/28 tests passed, 13/13 backend, 15/15 frontend) - verifies behavioral insights, coach voice summaries, enriched memory tab
+- **Opening Fundamentals Bug Fix**: iteration 130 (19/19 tests passed, 13/13 backend, 6/6 frontend) - verifies OpeningFundamentals component renders correctly in Habits tab
 - Test files: `/app/backend/tests/test_*.py`, `/app/tests/e2e/*.spec.ts`
 
 ## New Files Created
@@ -132,6 +147,10 @@ All P0 issues resolved in this session.
 - `/app/frontend/src/components/lab/OpeningFundamentals.jsx`: UI component showing opening principles score, violations, adherences, and coach advice
 - `/app/tests/e2e/opening-fundamentals.spec.ts`: Frontend tests for OpeningFundamentals component
 - `/app/backend/tests/test_opening_fundamentals_api.py`: API tests for opening fundamentals endpoint
+- `/app/backend/services/thinking_coach.py`: Teaches players HOW to think - thought process walkthroughs, principle-based feedback, behavioral interventions, mindset prompts
+- `/app/frontend/src/components/coach/PreMoveChecklist.jsx`: UI component showing contextual pre-move prompts in Play with Coach
+- `/app/tests/e2e/pre-move-checklist.spec.ts`: Frontend tests for PreMoveChecklist component
+- `/app/backend/tests/test_thinking_coach_api.py`: API tests for all Thinking Coach endpoints
 
 ## Key Technical Notes
 - `move_evaluations` only contains USER's moves (not both sides)
