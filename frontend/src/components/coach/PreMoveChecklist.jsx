@@ -75,18 +75,91 @@ const OPENING_PRINCIPLES = {
   }
 };
 
+// Map behavioral patterns to relevant checks
+const WEAKNESS_TO_CHECK = {
+  hope_chess: {
+    id: "response_check",
+    question: "What will my opponent do after this move?",
+    explanation: "You tend to play moves without considering opponent responses",
+    icon: "🔮",
+    priority: "high",
+    personal: true
+  },
+  impulsive_play: {
+    id: "verify_check",
+    question: "STOP - Have I double-checked this move?",
+    explanation: "You sometimes move too quickly. Take a moment to verify.",
+    icon: "⏸️",
+    priority: "high",
+    personal: true
+  },
+  tunnel_vision: {
+    id: "whole_board_check",
+    question: "Have I scanned the WHOLE board?",
+    explanation: "You sometimes miss threats on the other side of the board",
+    icon: "👁️",
+    priority: "high",
+    personal: true
+  },
+  hanging_pieces: {
+    id: "blunder_check",
+    question: "Does this leave anything undefended?",
+    explanation: "Always verify no pieces become hanging after your move",
+    icon: "🎯",
+    priority: "high",
+    personal: true
+  },
+  missed_tactics: {
+    id: "tactics_check",
+    question: "Are there any checks, captures, or threats?",
+    explanation: "Look for forcing moves before playing quiet moves",
+    icon: "⚡",
+    priority: "high",
+    personal: true
+  },
+  passive_play: {
+    id: "activity_check",
+    question: "Can I improve a piece or create a threat?",
+    explanation: "Look for active moves, not just defensive ones",
+    icon: "🚀",
+    priority: "medium",
+    personal: true
+  },
+  defensive_lapse: {
+    id: "safety_check",
+    question: "Is my position safe after this move?",
+    explanation: "Check that your position remains solid after moving",
+    icon: "🛡️",
+    priority: "high",
+    personal: true
+  }
+};
+
 // Get relevant checks based on move number and game phase
 const getRelevantChecks = (moveNumber, hasCastled, developedPieces, playerWeaknesses = []) => {
   const checks = [];
   
-  // Priority 1: Player's known weaknesses
+  // Priority 0: Player's specific behavioral weaknesses
+  for (const weakness of playerWeaknesses) {
+    const personalCheck = WEAKNESS_TO_CHECK[weakness];
+    if (personalCheck && !checks.find(c => c.id === personalCheck.id)) {
+      checks.push({
+        ...personalCheck,
+        reason: personalCheck.explanation
+      });
+    }
+  }
+  
+  // Priority 1: Opening-specific weaknesses from player history
   if (playerWeaknesses.includes("castle_early") && !hasCastled && moveNumber >= 4 && moveNumber <= 12) {
-    checks.push({
-      id: "castle_check",
-      ...OPENING_PRINCIPLES.castle_check,
-      priority: "high",
-      reason: "You often delay castling - this is a good habit to build!"
-    });
+    if (!checks.find(c => c.id === "castle_check")) {
+      checks.push({
+        id: "castle_check",
+        ...OPENING_PRINCIPLES.castle_check,
+        priority: "high",
+        reason: "You often delay castling - this is a good habit to build!"
+      });
+    }
   }
   
   if (playerWeaknesses.includes("queen_out_early") && moveNumber <= 6) {

@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Chess } from "chess.js";
+import ThoughtProcessWalkthrough from "./ThoughtProcessWalkthrough";
 import {
   Eye,
   Play,
@@ -92,6 +93,7 @@ const CriticalMoments = ({
   const [stage, setStage] = useState(STAGES.INTRO);
   const [reflectionAnswer, setReflectionAnswer] = useState(null);
   const [completedMoments, setCompletedMoments] = useState(new Set());
+  const [showThoughtProcess, setShowThoughtProcess] = useState(false);
 
   // Navigate to position when moment changes
   useEffect(() => {
@@ -132,6 +134,7 @@ const CriticalMoments = ({
 
   const goToMoment = (idx) => {
     setCurrentIndex(idx);
+    setShowThoughtProcess(false);
     if (onClearInteractive) onClearInteractive();
   };
 
@@ -387,7 +390,34 @@ const CriticalMoments = ({
                 </div>
               )}
 
-              <div className="p-3 flex justify-end">
+              {/* How to Think (Thought Process Walkthrough) */}
+              <div className="p-4">
+                {!showThoughtProcess ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowThoughtProcess(true)}
+                    className="w-full justify-between bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20 text-blue-300"
+                    data-testid="show-thought-process-btn"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4" />
+                      <span className="text-xs">How Should I Have Thought Here?</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <ThoughtProcessWalkthrough
+                    fen={moment.fen}
+                    bestMove={moment.best_move}
+                    playedMove={moment.your_move}
+                    compact={false}
+                    autoFetch={true}
+                  />
+                )}
+              </div>
+
+              <div className="p-3 flex justify-end border-t border-border/20">
                 <Button size="sm" onClick={() => setStage(STAGES.REFLECTION)} className="gap-2" data-testid="continue-to-reflection-btn">
                   Continue
                   <ChevronRight className="w-3 h-3" />

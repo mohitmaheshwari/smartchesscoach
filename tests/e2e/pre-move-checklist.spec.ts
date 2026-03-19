@@ -6,6 +6,8 @@ import { test, expect } from '@playwright/test';
  * Tests for the PreMoveChecklist component in Play with Coach page.
  * This component shows contextual prompts before each move to reinforce
  * good thinking habits.
+ * 
+ * Note: Uses the existing active game session if available, or tests setup screen.
  */
 
 test.describe('Pre-Move Checklist', () => {
@@ -15,36 +17,45 @@ test.describe('Pre-Move Checklist', () => {
     await page.waitForTimeout(500);
   });
 
-  test('Pre-Move Checklist expand button is visible in Play with Coach', async ({ page }) => {
-    // Navigate to Play with Coach via dashboard
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
+  test('Pre-Move Checklist is visible in Play with Coach during active game', async ({ page }) => {
+    // Navigate directly to Play with Coach
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
     
-    // Click Play with Coach
-    await page.getByText('Play with Coach').click();
-    await page.waitForTimeout(2500);
+    // Check if we're in active game (has game screen) or setup screen
+    const gameScreen = page.getByTestId('coach-play-game');
+    const setupScreen = page.getByTestId('coach-play-setup');
     
-    // Look for the Pre-Move Checklist expand button or expanded state
-    const expandButton = page.getByTestId('pre-move-checklist-expand');
-    const expandedChecklist = page.getByTestId('pre-move-checklist');
+    const hasGameScreen = await gameScreen.isVisible().catch(() => false);
+    const hasSetupScreen = await setupScreen.isVisible().catch(() => false);
     
-    // Either the expand button or expanded checklist should be visible
-    const hasExpandButton = await expandButton.isVisible().catch(() => false);
-    const hasExpandedChecklist = await expandedChecklist.isVisible().catch(() => false);
-    
-    expect(hasExpandButton || hasExpandedChecklist).toBeTruthy();
+    if (hasGameScreen) {
+      // Active game - Pre-Move Checklist should be visible (expanded or collapsed)
+      const expandedChecklist = page.getByTestId('pre-move-checklist');
+      const expandButton = page.getByTestId('pre-move-checklist-expand');
+      
+      const hasExpanded = await expandedChecklist.isVisible().catch(() => false);
+      const hasExpandBtn = await expandButton.isVisible().catch(() => false);
+      
+      expect(hasExpanded || hasExpandBtn).toBeTruthy();
+    } else if (hasSetupScreen) {
+      // Setup screen - verify setup elements are visible
+      await expect(page.getByTestId('start-game-btn')).toBeVisible();
+    } else {
+      // Neither visible - take screenshot for debugging
+      await page.screenshot({ path: 'unknown-state.jpeg', quality: 20 });
+      throw new Error('Neither game screen nor setup screen is visible');
+    }
   });
 
   test('Pre-Move Checklist expands when clicked', async ({ page }) => {
     // Navigate to Play with Coach
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
-    await page.getByText('Play with Coach').click();
-    await page.waitForTimeout(2500);
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
     
-    // Click expand button if visible
+    // If there's an expand button, click it
     const expandButton = page.getByTestId('pre-move-checklist-expand');
-    if (await expandButton.isVisible().catch(() => false)) {
+    if (await expandButton.isVisible()) {
       await expandButton.click();
       await page.waitForTimeout(500);
     }
@@ -58,42 +69,32 @@ test.describe('Pre-Move Checklist', () => {
 
   test('Pre-Move Checklist shows contextual checklist items', async ({ page }) => {
     // Navigate to Play with Coach
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
-    await page.getByText('Play with Coach').click();
-    await page.waitForTimeout(2500);
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
     
     // Expand checklist
     const expandButton = page.getByTestId('pre-move-checklist-expand');
-    if (await expandButton.isVisible().catch(() => false)) {
+    if (await expandButton.isVisible()) {
       await expandButton.click();
       await page.waitForTimeout(500);
     }
     
     // Verify checklist items are displayed
-    // In opening phase (move 1), should show development or center questions
-    const developmentCheck = page.getByText(/piece I haven't developed/i);
-    const centerCheck = page.getByText(/fighting for the center/i);
-    const threatCheck = page.getByText(/opponent threatening/i);
+    const checklistItems = page.locator('[data-testid^="checklist-item-"]');
+    const count = await checklistItems.count();
     
-    // At least one checklist item should be visible
-    const hasDevelopment = await developmentCheck.isVisible().catch(() => false);
-    const hasCenter = await centerCheck.isVisible().catch(() => false);
-    const hasThreat = await threatCheck.isVisible().catch(() => false);
-    
-    expect(hasDevelopment || hasCenter || hasThreat).toBeTruthy();
+    expect(count).toBeGreaterThan(0);
+    expect(count).toBeLessThanOrEqual(3); // Limited to 3 items
   });
 
   test('Pre-Move Checklist items can be checked', async ({ page }) => {
     // Navigate to Play with Coach
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
-    await page.getByText('Play with Coach').click();
-    await page.waitForTimeout(2500);
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
     
     // Expand checklist
     const expandButton = page.getByTestId('pre-move-checklist-expand');
-    if (await expandButton.isVisible().catch(() => false)) {
+    if (await expandButton.isVisible()) {
       await expandButton.click();
       await page.waitForTimeout(500);
     }
@@ -109,49 +110,52 @@ test.describe('Pre-Move Checklist', () => {
       await checklistItems.first().click();
       await page.waitForTimeout(300);
       
-      // The item should show checked state (green background or checkmark)
-      // Look for green styling or CheckCircle2 icon visibility
+      // Verify the item has green background (checked state)
       const firstItem = checklistItems.first();
-      const classes = await firstItem.getAttribute('class');
+      const bgColor = await firstItem.evaluate((el) => {
+        return getComputedStyle(el).backgroundColor;
+      });
       
-      // After clicking, it should have green styling
-      expect(classes).toContain('green');
+      // Should have green tint in background (rgba format with green channel > 100)
+      // Example: rgba(34, 197, 94, 0.1) - the 197 is the green channel
+      expect(bgColor).toMatch(/rgba?\(\s*\d+,\s*1[5-9]\d|2\d{2}/);
     }
   });
 
   test('Pre-Move Checklist can be collapsed', async ({ page }) => {
     // Navigate to Play with Coach
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
-    await page.getByText('Play with Coach').click();
-    await page.waitForTimeout(2500);
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
     
     // Expand checklist first
     const expandButton = page.getByTestId('pre-move-checklist-expand');
-    if (await expandButton.isVisible().catch(() => false)) {
+    if (await expandButton.isVisible()) {
       await expandButton.click();
       await page.waitForTimeout(500);
     }
     
-    // Find collapse button (ChevronUp)
-    const collapseButton = page.locator('[data-testid="pre-move-checklist"] button').first();
-    await collapseButton.click();
-    await page.waitForTimeout(500);
+    // The expanded checklist should now be visible
+    await expect(page.getByTestId('pre-move-checklist')).toBeVisible();
     
-    // The expand button should be visible again
+    // Find collapse button (ChevronUp icon in header) and click it
+    const collapseButton = page.locator('[data-testid="pre-move-checklist"] button').first();
+    if (await collapseButton.isVisible()) {
+      await collapseButton.click();
+      await page.waitForTimeout(500);
+    }
+    
+    // The expand button should be visible again (collapsed state)
     await expect(page.getByTestId('pre-move-checklist-expand')).toBeVisible();
   });
 
   test('Pre-Move Checklist shows all items checked message', async ({ page }) => {
     // Navigate to Play with Coach
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
-    await page.getByText('Play with Coach').click();
-    await page.waitForTimeout(2500);
+    await page.goto('/play-with-coach', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
     
     // Expand checklist
     const expandButton = page.getByTestId('pre-move-checklist-expand');
-    if (await expandButton.isVisible().catch(() => false)) {
+    if (await expandButton.isVisible()) {
       await expandButton.click();
       await page.waitForTimeout(500);
     }

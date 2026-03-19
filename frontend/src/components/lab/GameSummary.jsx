@@ -18,6 +18,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { API } from "@/App";
+import PrincipleFeedback from "./PrincipleFeedback";
+import BehavioralIntervention from "./BehavioralIntervention";
 import {
   BookOpen,
   Target,
@@ -798,6 +800,28 @@ const GameSummary = ({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* NEW: Principle-Based Feedback for biggest blunder */}
+      {primaryMoment && (primaryMoment.fen_before || primaryMoment.fen) && (primaryMoment.move || primaryMoment.your_move) && primaryMoment.best_move && (
+        <PrincipleFeedback
+          mistakeType={primaryMoment.category || "positional_error"}
+          fen={primaryMoment.fen_before || primaryMoment.fen}
+          movePlayed={primaryMoment.move || primaryMoment.your_move}
+          bestMove={primaryMoment.best_move}
+          autoFetch={true}
+          compact={true}
+        />
+      )}
+
+      {/* NEW: Behavioral Intervention if cross-game patterns exist */}
+      {crossGameContext?.dominant_pattern && (
+        <BehavioralIntervention
+          pattern={crossGameContext.dominant_pattern}
+          examples={crossGameContext.examples || []}
+          autoFetch={true}
+          compact={true}
+        />
       )}
       
       {/* SECTION 5: Habit to Build */}
