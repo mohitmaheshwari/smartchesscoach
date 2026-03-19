@@ -100,6 +100,16 @@ All P0 issues resolved in this session.
 - [x] **BehavioralIntervention UI**: `BehavioralIntervention.jsx` component in Lab page Summary tab - appears when cross-game patterns detected. Shows diagnosed pattern, intervention habit, and practice rule with commitment button.
 - [x] **Enhanced PreMoveChecklist**: Added player-specific weakness mapping (hope_chess -> response_check, impulsive_play -> verify_check, tunnel_vision -> whole_board_check, etc.) for personalized prompts.
 
+### Thinking Score System (Completed March 19, 2026)
+- [x] **Thinking Score Service**: Backend service (`thinking_score.py`) calculates scores from REAL game data - not random numbers. Tracks 5 habits: threat_awareness, tactical_vision, move_verification, king_safety, patience.
+- [x] **Thinking Score APIs**: 
+  - `GET /api/thinking-score` - Returns overall score + progress trends
+  - `POST /api/thinking-score/calculate/{game_id}` - Calculate score for one game
+  - `GET /api/thinking-score/history` - Score history across games
+  - `GET /api/thinking-score/recommendations` - Personalized advice based on weakest habits
+- [x] **ThinkingScoreCard UI**: `ThinkingScoreCard.jsx` component added to both HomePage and Dashboard. Shows circular progress ring, habit breakdown with scores, trend indicators, and personalized recommendations.
+- [x] **Automatic Score Calculation**: Integrated into analysis_worker.py - thinking scores calculated automatically when games are analyzed.
+
 ### P1 - Next
 - [ ] Fully verify onboarding/navigation reliability with a fresh un-onboarded test user
 - [ ] Add automatic profile creation during game sync if it doesn't exist (currently relies on analysis worker)
@@ -139,6 +149,7 @@ All P0 issues resolved in this session.
 - **Opening Fundamentals Bug Fix**: iteration 130 (19/19 tests passed, 13/13 backend, 6/6 frontend) - verifies OpeningFundamentals component renders correctly in Habits tab
 - **Thinking Coach/Improvement Engine Phase 2**: iteration 131 (32/32 tests passed, 15/15 backend, 17/17 frontend) - verifies Pre-Move Checklist, all Thinking Coach APIs, regression tests
 - **Improvement Engine Phase 3**: iteration 132 (42/42 tests passed, 15/15 backend, 27/27 frontend) - verifies ThoughtProcessWalkthrough in Moments tab, PrincipleFeedback/BehavioralIntervention in Summary tab, enhanced PreMoveChecklist with weakness mapping
+- **Thinking Score System**: iteration 133 (33/33 tests passed, 16/16 backend, 17/17 frontend) - verifies all thinking score APIs, calculation from real game data, ThinkingScoreCard component
 - Test files: `/app/backend/tests/test_*.py`, `/app/tests/e2e/*.spec.ts`
 
 ## New Files Created
@@ -157,6 +168,10 @@ All P0 issues resolved in this session.
 - `/app/frontend/src/components/lab/PrincipleFeedback.jsx`: UI component connecting mistakes to fundamental principles
 - `/app/frontend/src/components/lab/BehavioralIntervention.jsx`: UI component for behavioral pattern interventions
 - `/app/tests/e2e/improvement-engine.spec.ts`: Frontend tests for ThoughtProcessWalkthrough, PrincipleFeedback, BehavioralIntervention
+- `/app/backend/services/thinking_score.py`: Calculates thinking scores from real game data - 5 habits tracked
+- `/app/frontend/src/components/coach/ThinkingScoreCard.jsx`: Dashboard component showing overall score, habit breakdown, trends, recommendations
+- `/app/backend/tests/test_thinking_score_api.py`: API tests for thinking score endpoints
+- `/app/tests/e2e/thinking-score.spec.ts`: Frontend tests for ThinkingScoreCard component
 
 ## Key Technical Notes
 - `move_evaluations` only contains USER's moves (not both sides)

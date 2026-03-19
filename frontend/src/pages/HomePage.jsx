@@ -17,6 +17,7 @@ import { API } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Layout from "@/components/Layout";
+import ThinkingScoreCard from "@/components/coach/ThinkingScoreCard";
 import { 
   AlertTriangle, 
   TrendingUp, 
@@ -493,6 +494,15 @@ const HomePage = ({ user }) => {
               )}
             </CardContent>
           </Card>
+        </motion.div>
+        
+        {/* Section 5: Thinking Score */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <ThinkingScoreCard compact={true} />
         </motion.div>
         
         {/* Quick Links */}
