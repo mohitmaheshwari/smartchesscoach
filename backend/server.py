@@ -10940,6 +10940,8 @@ async def explain_current_position(
         raise HTTPException(status_code=403, detail="Not your session")
     
     try:
+        import chess
+        
         # Set up the board
         board = chess.Board(session_doc.get("current_fen", chess.STARTING_FEN))
         move_history = session_doc.get("move_history", [])
