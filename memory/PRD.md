@@ -80,6 +80,11 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 ### P0 - Critical Issues
 All P0 issues resolved in this session.
 
+### Improvement Engine - Phase 1 (Completed March 19, 2026)
+- [x] **Opening Fundamentals Checker**: Backend service (`opening_fundamentals_checker.py`) that analyzes player adherence to basic opening principles (castling early, center control, piece development, etc.)
+- [x] **Opening Fundamentals API**: `GET /api/analysis/{game_id}/opening-fundamentals` returns score (0-100), violations list, adherences list, and summary
+- [x] **Opening Fundamentals UI**: `OpeningFundamentals.jsx` component renders in Lab page Habits tab - shows score, principles followed, principles violated (with expandable thinking prompts), and coach advice
+
 ### P1 - Next
 - [ ] Fully verify onboarding/navigation reliability with a fresh un-onboarded test user
 - [ ] Add automatic profile creation during game sync if it doesn't exist (currently relies on analysis worker)
@@ -116,12 +121,17 @@ All P0 issues resolved in this session.
 - **Intelligent Position Coaching**: iteration 125-126 (19/19 backend tests passed, 7/7 frontend tests passed)
 - **Unified Opening Detection & Features**: iteration 127-128 (30/30 backend tests passed) - verifies 22+ openings, explain-position endpoint, dynamic coaching
 - **Human Coach Layer**: iteration 129 (28/28 tests passed, 13/13 backend, 15/15 frontend) - verifies behavioral insights, coach voice summaries, enriched memory tab
+- **Opening Fundamentals Bug Fix**: iteration 130 (19/19 tests passed, 13/13 backend, 6/6 frontend) - verifies OpeningFundamentals component renders correctly in Habits tab
 - Test files: `/app/backend/tests/test_*.py`, `/app/tests/e2e/*.spec.ts`
 
 ## New Files Created
 - `/app/backend/services/human_coach_layer.py`: Behavioral tagging system with 11 psychological tags, cross-game pattern detection, coach voice generation
 - `/app/backend/tests/test_human_coach_layer_api.py`: API tests for enriched analysis
 - `/app/tests/e2e/lab-human-coach-layer.spec.ts`: Frontend tests for behavioral insights UI
+- `/app/backend/services/opening_fundamentals_checker.py`: Checks player adherence to basic opening principles (castle early, center control, piece development, etc.)
+- `/app/frontend/src/components/lab/OpeningFundamentals.jsx`: UI component showing opening principles score, violations, adherences, and coach advice
+- `/app/tests/e2e/opening-fundamentals.spec.ts`: Frontend tests for OpeningFundamentals component
+- `/app/backend/tests/test_opening_fundamentals_api.py`: API tests for opening fundamentals endpoint
 
 ## Key Technical Notes
 - `move_evaluations` only contains USER's moves (not both sides)
