@@ -8,6 +8,12 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 ### Core Features
 - **Play with Coach**: Move-by-move coaching during opening phase (every move gets commentary)
 - **Intelligent Position Coaching**: Position-based coaching for middlegame and endgame phases using pawn structure classification, strategic plan database, and tactical detectors
+- **Human Coach Layer (NEW - 9/10 Experience)**: Lab page now provides human-coach-like insights including:
+  - **"WHY THIS HAPPENED"**: Behavioral tags (impatience, hope_chess, laziness, overconfidence, tunnel_vision, etc.) explaining the psychology behind mistakes
+  - **Reflection Questions**: Coach-like questions ("What did this move do to your pawn structure?")
+  - **Cross-Game Pattern Detection**: "This is the 3rd time you've made this type of mistake"
+  - **Coach Voice Summaries**: Natural language game narratives with actionable takeaways
+  - **Enriched Memory Tab**: Real aggregated data showing playing style, worst phase, most common mistakes
 - **Unified Opening Detection**: Now detects 22+ openings (up from 9) including Vienna, Scotch, Petrov, King's Indian, Slav, Dutch, Nimzo-Indian, Benoni, Budapest, etc.
 - **Opening Detection After Coach's Move**: Opening teaching now triggers immediately after the coach plays the defining move (e.g., French Defense detected after 1.e4 e6, not delayed)
 - **"Explain My Position" Feature**: On-demand position analysis via POST /api/coach/play/explain-position - users can ask the coach to explain their current position at any time
@@ -109,7 +115,13 @@ All P0 issues resolved in this session.
 - Admin Opening Feedback Manager MVP verified by frontend testing agent (fetch, validate, save, preview, reload persistence all working)
 - **Intelligent Position Coaching**: iteration 125-126 (19/19 backend tests passed, 7/7 frontend tests passed)
 - **Unified Opening Detection & Features**: iteration 127-128 (30/30 backend tests passed) - verifies 22+ openings, explain-position endpoint, dynamic coaching
+- **Human Coach Layer**: iteration 129 (28/28 tests passed, 13/13 backend, 15/15 frontend) - verifies behavioral insights, coach voice summaries, enriched memory tab
 - Test files: `/app/backend/tests/test_*.py`, `/app/tests/e2e/*.spec.ts`
+
+## New Files Created
+- `/app/backend/services/human_coach_layer.py`: Behavioral tagging system with 11 psychological tags, cross-game pattern detection, coach voice generation
+- `/app/backend/tests/test_human_coach_layer_api.py`: API tests for enriched analysis
+- `/app/tests/e2e/lab-human-coach-layer.spec.ts`: Frontend tests for behavioral insights UI
 
 ## Key Technical Notes
 - `move_evaluations` only contains USER's moves (not both sides)
