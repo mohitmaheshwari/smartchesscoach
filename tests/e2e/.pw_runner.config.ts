@@ -2,13 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: '/app/tests/e2e',
-  outputDir: '/root/.emergent/automation_output/20260319_150028/test-results',
+  outputDir: '/root/.emergent/automation_output/20260319_152318/test-results',
   timeout: 60000,
   retries: 0,
   workers: 1,
   reporter: [
     ['line'],
-    ['json', { outputFile: '/root/.emergent/automation_output/20260319_150028/results.json' }],
+    ['json', { outputFile: '/root/.emergent/automation_output/20260319_152318/results.json' }],
   ],
   use: {
     baseURL: 'https://habit-trainer-1.preview.emergentagent.com',

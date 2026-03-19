@@ -1057,6 +1057,37 @@ def process_job(db, job):
             # Non-fatal - log but don't fail the analysis
             logger.warning(f"[MODULE TRIGGER] Failed to detect module: {module_err}")
         
+        # =========================================================================
+        # PHASE 6: THINKING SCORE CALCULATION
+        # Calculate and store thinking scores for this game
+        # =========================================================================
+        try:
+            from services.thinking_score import calculate_game_thinking_scores
+            
+            # Build analysis dict for thinking score calculation
+            analysis_for_score = {
+                "game_id": game_id,
+                "move_evaluations": move_evaluations,
+                "critical_moments": []  # Will be populated from analysis if available
+            }
+            
+            # Calculate thinking scores
+            thinking_scores = calculate_game_thinking_scores(analysis_for_score, user_color)
+            thinking_scores["user_id"] = user_id
+            thinking_scores["game_id"] = game_id
+            
+            # Store thinking scores
+            db.thinking_scores.update_one(
+                {"user_id": user_id, "game_id": game_id},
+                {"$set": thinking_scores},
+                upsert=True
+            )
+            
+            logger.info(f"[THINKING SCORE] Calculated for {game_id}: {thinking_scores.get('overall_score', 0):.1f}")
+        except Exception as ts_err:
+            # Non-fatal - log but don't fail the analysis
+            logger.warning(f"[THINKING SCORE] Failed to calculate: {ts_err}")
+        
         logger.info(f"[SUCCESS] Analyzed game {game_id} (accuracy: {accuracy}%, duration: {elapsed:.1f}s)")
         return True
         

@@ -50,6 +50,7 @@ import LearningPath from "@/components/LearningPath";
 import MemoryLane from "@/components/MemoryLane";
 import HabitChallenge from "@/components/HabitChallenge";
 import ActiveGamesCard from "@/components/ActiveGamesCard";
+import ThinkingScoreCard from "@/components/coach/ThinkingScoreCard";
 import {
   Dialog,
   DialogContent,
@@ -796,6 +797,11 @@ const Dashboard = ({ user }) => {
             {/* Learning Path - Personalized Coach Recommendations */}
             <AnimatedItem>
               <LearningPath />
+            </AnimatedItem>
+            
+            {/* Thinking Score - Track thinking habits progress */}
+            <AnimatedItem>
+              <ThinkingScoreCard compact={true} />
             </AnimatedItem>
             
             {/* Memory Lane - Coach remembers your past games */}

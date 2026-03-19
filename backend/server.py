@@ -2499,6 +2499,181 @@ async def get_pre_move_checklist(
     }
 
 
+# ==================== THINKING SCORE ROUTES ====================
+
+@api_router.get("/thinking-score")
+async def get_user_thinking_score(user: User = Depends(get_current_user)):
+    """
+    Get the user's overall thinking score and progress.
+    
+    The score is calculated from REAL game analysis data - it measures
+    how well the player applies thinking habits based on their actual mistakes.
+    """
+    from services.thinking_score import calculate_thinking_progress, get_weakest_habits
+    
+    # Get or calculate thinking scores from recent games
+    thinking_scores = await db.thinking_scores.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("calculated_at", -1).limit(20).to_list(20)
+    
+    if not thinking_scores:
+        # No scores calculated yet - try to calculate from existing analyses
+        return {
+            "has_data": False,
+            "message": "No thinking scores calculated yet. Play and analyze some games first.",
+            "overall_score": None,
+            "progress": None,
+            "recommendations": []
+        }
+    
+    # Calculate progress from scores
+    progress = calculate_thinking_progress(thinking_scores)
+    
+    # Get recommendations for weakest areas
+    recommendations = get_weakest_habits(progress, top_n=2) if progress.get("has_enough_data") else []
+    
+    return {
+        "has_data": True,
+        "overall_score": progress.get("overall_score"),
+        "overall_trend": progress.get("overall_trend"),
+        "overall_change": progress.get("overall_change"),
+        "habit_progress": progress.get("habit_progress", {}),
+        "games_analyzed": progress.get("games_analyzed", 0),
+        "recommendations": recommendations,
+        "explanation": _get_score_explanation(progress.get("overall_score", 0))
+    }
+
+
+def _get_score_explanation(score: float) -> str:
+    """Generate explanation for overall thinking score."""
+    if score >= 90:
+        return "Excellent! You're applying strong thinking habits consistently."
+    elif score >= 80:
+        return "Great thinking process. Focus on your weak areas to reach mastery."
+    elif score >= 70:
+        return "Good foundation. The thinking checklist will help you improve further."
+    elif score >= 60:
+        return "Room for improvement. Slow down and apply the thinking process on each move."
+    else:
+        return "Focus on the basics: check threats, verify moves, keep king safe."
+
+
+@api_router.post("/thinking-score/calculate/{game_id}")
+async def calculate_game_thinking_score(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Calculate thinking score for a specific game.
+    
+    This analyzes the game's move evaluations to determine which
+    thinking habits were followed or violated.
+    """
+    from services.thinking_score import calculate_game_thinking_scores
+    
+    # Get the game analysis
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "stockfish_analysis": 1, "game_id": 1}
+    )
+    
+    if not analysis:
+        return {"error": "Game analysis not found", "game_id": game_id}
+    
+    # Extract move_evaluations from stockfish_analysis
+    stockfish_analysis = analysis.get("stockfish_analysis", {})
+    move_evaluations = stockfish_analysis.get("move_evaluations", [])
+    
+    # Get user color for this game
+    game = await db.games.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "user_color": 1}
+    )
+    user_color = game.get("user_color", "white") if game else "white"
+    
+    # Build analysis dict for thinking score calculation
+    analysis_for_score = {
+        "game_id": game_id,
+        "move_evaluations": move_evaluations,
+        "critical_moments": []
+    }
+    
+    # Calculate scores
+    scores = calculate_game_thinking_scores(analysis_for_score, user_color)
+    scores["user_id"] = user.user_id
+    scores["game_id"] = game_id
+    
+    # Store the scores
+    await db.thinking_scores.update_one(
+        {"user_id": user.user_id, "game_id": game_id},
+        {"$set": scores},
+        upsert=True
+    )
+    
+    return scores
+
+
+@api_router.get("/thinking-score/history")
+async def get_thinking_score_history(
+    limit: int = 10,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get thinking score history for recent games.
+    
+    Shows how scores have changed over time.
+    """
+    scores = await db.thinking_scores.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("calculated_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "scores": scores,
+        "count": len(scores)
+    }
+
+
+@api_router.get("/thinking-score/recommendations")
+async def get_thinking_recommendations(user: User = Depends(get_current_user)):
+    """
+    Get personalized thinking habit recommendations.
+    
+    Based on analysis of recent games, identifies the weakest
+    thinking habits and provides actionable advice.
+    """
+    from services.thinking_score import calculate_thinking_progress, get_weakest_habits
+    
+    # Get recent thinking scores
+    thinking_scores = await db.thinking_scores.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("calculated_at", -1).limit(10).to_list(10)
+    
+    if len(thinking_scores) < 2:
+        return {
+            "has_data": False,
+            "message": "Analyze more games to get personalized recommendations",
+            "recommendations": [
+                {
+                    "habit": "general",
+                    "habit_label": "Thinking Process",
+                    "priority": "medium",
+                    "recommendation": "Use the Pre-Move Checklist during your games to build good habits.",
+                    "checklist_item": "Did I follow my thinking process?",
+                    "icon": "🧠"
+                }
+            ]
+        }
+    
+    progress = calculate_thinking_progress(thinking_scores)
+    recommendations = get_weakest_habits(progress, top_n=3)
+    
+    return {
+        "has_data": True,
+        "overall_score": progress.get("overall_score"),
+        "recommendations": recommendations
+    }
+
+
 @api_router.get("/principles/opening")
 async def get_opening_principles():
     """
