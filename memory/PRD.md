@@ -94,6 +94,12 @@ All P0 issues resolved in this session.
   - `POST /api/thinking-coach/mindset-prompt` - Position-specific questions based on characteristics
   - `GET /api/thinking-coach/pre-move-checklist` - Contextual checklist items for game state
 
+### Improvement Engine - Phase 3 (Completed March 19, 2026)
+- [x] **ThoughtProcessWalkthrough UI**: `ThoughtProcessWalkthrough.jsx` component in Lab page Moments tab - shows step-by-step thinking process in REVEAL stage with "How Should I Have Thought Here?" button. Displays phases (Check Threats, King Safety, Find Targets, etc.), questions, observations, and key takeaways.
+- [x] **PrincipleFeedback UI**: `PrincipleFeedback.jsx` component in Lab page Summary tab - connects biggest mistakes to fundamental principles. Shows principle name, explanation, applied context, thinking habit, and what to do instead.
+- [x] **BehavioralIntervention UI**: `BehavioralIntervention.jsx` component in Lab page Summary tab - appears when cross-game patterns detected. Shows diagnosed pattern, intervention habit, and practice rule with commitment button.
+- [x] **Enhanced PreMoveChecklist**: Added player-specific weakness mapping (hope_chess -> response_check, impulsive_play -> verify_check, tunnel_vision -> whole_board_check, etc.) for personalized prompts.
+
 ### P1 - Next
 - [ ] Fully verify onboarding/navigation reliability with a fresh un-onboarded test user
 - [ ] Add automatic profile creation during game sync if it doesn't exist (currently relies on analysis worker)
@@ -132,11 +138,7 @@ All P0 issues resolved in this session.
 - **Human Coach Layer**: iteration 129 (28/28 tests passed, 13/13 backend, 15/15 frontend) - verifies behavioral insights, coach voice summaries, enriched memory tab
 - **Opening Fundamentals Bug Fix**: iteration 130 (19/19 tests passed, 13/13 backend, 6/6 frontend) - verifies OpeningFundamentals component renders correctly in Habits tab
 - **Thinking Coach/Improvement Engine Phase 2**: iteration 131 (32/32 tests passed, 15/15 backend, 17/17 frontend) - verifies Pre-Move Checklist, all Thinking Coach APIs, regression tests
-- Test files: `/app/backend/tests/test_*.py`, `/app/tests/e2e/*.spec.ts`
-- **Intelligent Position Coaching**: iteration 125-126 (19/19 backend tests passed, 7/7 frontend tests passed)
-- **Unified Opening Detection & Features**: iteration 127-128 (30/30 backend tests passed) - verifies 22+ openings, explain-position endpoint, dynamic coaching
-- **Human Coach Layer**: iteration 129 (28/28 tests passed, 13/13 backend, 15/15 frontend) - verifies behavioral insights, coach voice summaries, enriched memory tab
-- **Opening Fundamentals Bug Fix**: iteration 130 (19/19 tests passed, 13/13 backend, 6/6 frontend) - verifies OpeningFundamentals component renders correctly in Habits tab
+- **Improvement Engine Phase 3**: iteration 132 (42/42 tests passed, 15/15 backend, 27/27 frontend) - verifies ThoughtProcessWalkthrough in Moments tab, PrincipleFeedback/BehavioralIntervention in Summary tab, enhanced PreMoveChecklist with weakness mapping
 - Test files: `/app/backend/tests/test_*.py`, `/app/tests/e2e/*.spec.ts`
 
 ## New Files Created
@@ -151,6 +153,10 @@ All P0 issues resolved in this session.
 - `/app/frontend/src/components/coach/PreMoveChecklist.jsx`: UI component showing contextual pre-move prompts in Play with Coach
 - `/app/tests/e2e/pre-move-checklist.spec.ts`: Frontend tests for PreMoveChecklist component
 - `/app/backend/tests/test_thinking_coach_api.py`: API tests for all Thinking Coach endpoints
+- `/app/frontend/src/components/lab/ThoughtProcessWalkthrough.jsx`: UI component showing step-by-step thinking process in Moments tab
+- `/app/frontend/src/components/lab/PrincipleFeedback.jsx`: UI component connecting mistakes to fundamental principles
+- `/app/frontend/src/components/lab/BehavioralIntervention.jsx`: UI component for behavioral pattern interventions
+- `/app/tests/e2e/improvement-engine.spec.ts`: Frontend tests for ThoughtProcessWalkthrough, PrincipleFeedback, BehavioralIntervention
 
 ## Key Technical Notes
 - `move_evaluations` only contains USER's moves (not both sides)
