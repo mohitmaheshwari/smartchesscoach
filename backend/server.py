@@ -2358,6 +2358,147 @@ async def get_opening_fundamentals(game_id: str, user: User = Depends(get_curren
     return result
 
 
+# ==================== THINKING COACH ROUTES ====================
+
+class ThoughtProcessRequest(BaseModel):
+    fen: str
+    best_move: str
+    played_move: Optional[str] = None
+    position_context: Optional[Dict] = None
+
+@api_router.post("/thinking-coach/walkthrough")
+async def get_thought_process_walkthrough(req: ThoughtProcessRequest, user: User = Depends(get_current_user)):
+    """
+    Generate a step-by-step thought process walkthrough for a position.
+    
+    Shows HOW a strong player would think through this position.
+    This is the core of the "Thinking Coach" feature.
+    """
+    from services.thinking_coach import generate_thought_process_walkthrough
+    
+    result = generate_thought_process_walkthrough(
+        fen=req.fen,
+        best_move=req.best_move,
+        played_move=req.played_move,
+        position_context=req.position_context
+    )
+    
+    return result
+
+
+class PrincipleBasedFeedbackRequest(BaseModel):
+    mistake_type: str
+    fen: str
+    move_played: str
+    best_move: str
+
+@api_router.post("/thinking-coach/principle-feedback")
+async def get_principle_based_feedback(req: PrincipleBasedFeedbackRequest, user: User = Depends(get_current_user)):
+    """
+    Connect a mistake to a fundamental chess principle.
+    
+    Instead of just "this was wrong", explains WHY and gives a thinking habit.
+    """
+    from services.thinking_coach import get_principle_based_feedback
+    
+    result = get_principle_based_feedback(
+        mistake_type=req.mistake_type,
+        fen=req.fen,
+        move_played=req.move_played,
+        best_move=req.best_move
+    )
+    
+    return result
+
+
+class BehavioralInterventionRequest(BaseModel):
+    behavioral_pattern: str
+    examples: Optional[List[Dict]] = None
+
+@api_router.post("/thinking-coach/behavioral-intervention")
+async def get_behavioral_intervention(req: BehavioralInterventionRequest, user: User = Depends(get_current_user)):
+    """
+    Get a specific intervention for a diagnosed behavioral pattern.
+    
+    Returns actionable thinking habits to break bad patterns like hope_chess, impulsive_play, etc.
+    """
+    from services.thinking_coach import get_behavioral_intervention
+    
+    result = get_behavioral_intervention(
+        behavioral_pattern=req.behavioral_pattern,
+        examples=req.examples
+    )
+    
+    return result
+
+
+class MindsetPromptRequest(BaseModel):
+    fen: str
+    position_characteristics: Optional[Dict] = None
+
+@api_router.post("/thinking-coach/mindset-prompt")
+async def get_position_mindset_prompt(req: MindsetPromptRequest, user: User = Depends(get_current_user)):
+    """
+    Generate mindset prompts based on position characteristics.
+    
+    E.g., "This position has a weak back rank. What should you be looking for?"
+    """
+    from services.thinking_coach import get_position_mindset_prompt
+    
+    result = get_position_mindset_prompt(
+        fen=req.fen,
+        position_characteristics=req.position_characteristics
+    )
+    
+    return result
+
+
+class PreMoveChecklistRequest(BaseModel):
+    move_number: int
+    has_castled: bool = False
+    developed_pieces: int = 0
+    player_weaknesses: Optional[List[str]] = None
+
+@api_router.get("/thinking-coach/pre-move-checklist")
+async def get_pre_move_checklist(
+    move_number: int,
+    has_castled: bool = False,
+    developed_pieces: int = 0,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get a pre-move checklist for the player based on current game state.
+    
+    Reinforces good thinking habits before each move.
+    """
+    from services.thinking_coach import get_pre_move_checklist
+    
+    # Get player's known weaknesses from identity
+    player_weaknesses = []
+    try:
+        identity = await db.player_identities.find_one(
+            {"user_id": user.user_id},
+            {"_id": 0, "behavioral_patterns": 1}
+        )
+        if identity and identity.get("behavioral_patterns"):
+            # Extract pattern names
+            player_weaknesses = [p.get("pattern") for p in identity["behavioral_patterns"] if p.get("pattern")]
+    except:
+        pass
+    
+    result = get_pre_move_checklist(
+        move_number=move_number,
+        has_castled=has_castled,
+        developed_pieces=developed_pieces,
+        player_weaknesses=player_weaknesses
+    )
+    
+    return {
+        "checklist": result,
+        "player_weaknesses": player_weaknesses
+    }
+
+
 @api_router.get("/principles/opening")
 async def get_opening_principles():
     """

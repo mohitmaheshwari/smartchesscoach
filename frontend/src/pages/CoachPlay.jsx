@@ -60,6 +60,7 @@ import {
   LessonCompletePanel 
 } from "@/components/coach/OpeningTeachingPanel";
 import OpeningGuidePanel from "@/components/coach/OpeningGuidePanel";
+import PreMoveChecklist from "@/components/coach/PreMoveChecklist";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
 import { 
   EvalBar, 
@@ -161,6 +162,12 @@ const CoachPlay = ({ user }) => {
   const [activeTrapAlert, setActiveTrapAlert] = useState(null);
   const [cleanUIMode, setCleanUIMode] = useState(true); // Enable new clean UI
   const [openingCorrectionCount, setOpeningCorrectionCount] = useState(0);
+  
+  // Pre-move checklist state
+  const [hasCastled, setHasCastled] = useState(false);
+  const [developedPieces, setDevelopedPieces] = useState(0);
+  const [playerWeaknesses, setPlayerWeaknesses] = useState([]);
+  const [showChecklist, setShowChecklist] = useState(true);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -345,6 +352,13 @@ const CoachPlay = ({ user }) => {
         const identityData = await identityRes.json();
         if (identityData.has_identity) {
           setPlayerIdentityData(identityData.identity);
+          // Extract player weaknesses for pre-move checklist
+          if (identityData.identity?.behavioral_patterns) {
+            const weaknesses = identityData.identity.behavioral_patterns
+              .filter(p => p.pattern && p.frequency >= 2)
+              .map(p => p.pattern);
+            setPlayerWeaknesses(weaknesses);
+          }
         }
       }
     } catch (error) {
@@ -373,6 +387,33 @@ const CoachPlay = ({ user }) => {
       }
     }
   }, []);
+
+  // Track castling and development from move history
+  useEffect(() => {
+    if (!session?.move_history) return;
+    
+    const moves = session.move_history.map(m => m.move);
+    const userMoves = moves.filter((_, i) => {
+      const isWhite = i % 2 === 0;
+      return (selectedColor === "white" && isWhite) || (selectedColor === "black" && !isWhite);
+    });
+    
+    // Check for castling (O-O or O-O-O)
+    const castled = userMoves.some(m => m === "O-O" || m === "O-O-O");
+    setHasCastled(castled);
+    
+    // Count developed minor pieces (simple heuristic)
+    const knightMoves = userMoves.filter(m => m.startsWith("N")).length;
+    const bishopMoves = userMoves.filter(m => m.startsWith("B")).length;
+    // Rough estimate: each unique knight/bishop move counts as development
+    const developed = Math.min(knightMoves, 2) + Math.min(bishopMoves, 2);
+    setDevelopedPieces(developed);
+    
+    // Reset checklist visibility when new game starts
+    if (moves.length === 0) {
+      setShowChecklist(true);
+    }
+  }, [session?.move_history, selectedColor]);
 
   const checkActiveSession = async () => {
     try {
@@ -1370,6 +1411,10 @@ const CoachPlay = ({ user }) => {
     // Reset move feedback
     setMoveFeedback(null);
     setChatMessages([]);
+    // Reset pre-move checklist state
+    setHasCastled(false);
+    setDevelopedPieces(0);
+    setShowChecklist(true);
   };
 
   const canUndoLastMove = () => {
@@ -2179,6 +2224,21 @@ const CoachPlay = ({ user }) => {
                 {String(Math.floor((session?.user_time_remaining || 900) % 60)).padStart(2, "0")}
               </Badge>
             </div>
+            
+            {/* Pre-Move Checklist - Reinforces thinking habits during opening */}
+            {session && showChecklist && isPlayerTurn && !gameOver && !isInTeachingMode && (
+              <div className="mt-2">
+                <PreMoveChecklist
+                  moveNumber={Math.floor((session?.move_history?.length || 0) / 2) + 1}
+                  hasCastled={hasCastled}
+                  developedPieces={developedPieces}
+                  playerWeaknesses={playerWeaknesses}
+                  isPlayerTurn={isPlayerTurn}
+                  onDismiss={() => setShowChecklist(false)}
+                  compact={true}
+                />
+              </div>
+            )}
             
             {/* Coach turn prompt - shows when game is stuck on coach's turn */}
             {!isPlayerTurn && !gameOver && !coachThinking && session && (
