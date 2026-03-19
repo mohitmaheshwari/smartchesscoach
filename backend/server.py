@@ -9828,6 +9828,48 @@ async def _process_move_and_respond(
                     # Get new evaluation
                     eval_score, mate_in = await opponent.get_evaluation(fen_after_coach)
                     
+                    # === OPENING DETECTION AFTER COACH'S MOVE ===
+                    # This enables immediate detection for openings where the coach makes the defining move
+                    # (e.g., 1.e4 for French Defense: coach plays e4, user will play e6)
+                    if not coach_game_over and len(move_history) <= 24 and not session_doc.get("opening_offer_shown"):
+                        try:
+                            from services.opening_teaching_integration import check_opening_and_offer_teaching
+                            
+                            # Get updated move history (including coach's move)
+                            all_moves_for_detection = [m.get("move", "") for m in move_history]
+                            
+                            opening_offer = await check_opening_and_offer_teaching(
+                                db=db,
+                                session_id=session_id,
+                                move_history=all_moves_for_detection,
+                                user_color=user_color,
+                                user_id=session_doc.get("user_id", "unknown")
+                            )
+                            
+                            if opening_offer:
+                                # Store the teaching offer as a coach message
+                                await db.coach_messages.insert_one({
+                                    "session_id": session_id,
+                                    "type": "opening_teaching_offer",
+                                    "message": opening_offer["message"],
+                                    "trigger": "opening_detected",
+                                    "opening_name": opening_offer["opening_name"],
+                                    "opening_key": opening_offer["opening_key"],
+                                    "options": opening_offer["options"],
+                                    "trap_name": opening_offer.get("trap_name"),
+                                    "created_at": datetime.now(timezone.utc),
+                                    "read": False,
+                                })
+                                logger.info(f"Opening detected after coach move: {opening_offer['opening_name']}")
+                                
+                                # Mark as shown so we don't show again
+                                await db.coach_sessions.update_one(
+                                    {"session_id": session_id},
+                                    {"$set": {"opening_offer_shown": True}}
+                                )
+                        except Exception as e:
+                            logger.warning(f"Opening detection after coach move failed: {e}")
+                    
                     # === TEACHING: Generate coach's teaching message ===
                     coach_move_number = len(move_history) // 2
                     if not coach_game_over:
@@ -10857,6 +10899,154 @@ async def end_coach_play_session(
     except Exception as e:
         logger.error(f"Error ending session: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/coach/play/explain-position")
+async def explain_current_position(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    On-demand position explanation - "Coach, explain my position!"
+    
+    Uses the intelligent position coaching system to provide
+    detailed analysis of the current position including:
+    - Pawn structure identification
+    - Strategic plans for the user's color
+    - Tactical features and warnings
+    - Key squares and piece activity
+    
+    Body:
+    - session_id: Session ID
+    
+    Returns:
+    - explanation: Detailed position explanation
+    - structure: Pawn structure information
+    - plans: Strategic plans for the user
+    - tactical: Tactical features
+    - tips: Coaching tips
+    """
+    from services.intelligent_position_coach import analyze_position_and_suggest
+    
+    session_id = request.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    # Get session
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    try:
+        # Set up the board
+        board = chess.Board(session_doc.get("current_fen", chess.STARTING_FEN))
+        move_history = session_doc.get("move_history", [])
+        user_color = session_doc.get("user_color", "white")
+        
+        # Get full position analysis (skip the "already offered" check)
+        position_analysis = await analyze_position_and_suggest(
+            board=board,
+            move_history=[m.get("move", "") for m in move_history],
+            user_color=user_color,
+            user_id=user.user_id,
+            db=db,
+            skip_if_opening_offered=False  # Always provide analysis on-demand
+        )
+        
+        if not position_analysis:
+            # Fallback: provide basic position info
+            from services.position_strategy_analyzer import analyze_position_deeply
+            
+            deep_analysis = analyze_position_deeply(board.fen(), user_color)
+            
+            return {
+                "success": True,
+                "explanation": {
+                    "summary": f"You're in a {_get_game_phase_description(board, len(move_history))} position.",
+                    "main_idea": "Look for tactical opportunities and make sure all your pieces are active.",
+                    "structure_name": "Complex Position",
+                    "game_phase": _get_game_phase_description(board, len(move_history)),
+                },
+                "tactical": {
+                    "threats": len(deep_analysis.get("threats", [])),
+                    "opportunities": deep_analysis.get("threats", [])[:3],
+                    "undefended_pieces": deep_analysis.get("piece_activity", {}).get("undefended", [])
+                },
+                "tips": [
+                    "Make sure all your pieces are on active squares",
+                    "Look for any tactical patterns",
+                    "Consider your opponent's threats"
+                ]
+            }
+        
+        # Return full analysis
+        return {
+            "success": True,
+            "explanation": {
+                "summary": position_analysis.get("main_idea", ""),
+                "main_idea": position_analysis.get("main_idea", ""),
+                "structure_name": position_analysis.get("structure_name"),
+                "structure_type": position_analysis.get("structure_type"),
+                "game_phase": position_analysis.get("game_phase"),
+                "key_characteristics": position_analysis.get("key_characteristics", []),
+            },
+            "plans": position_analysis.get("strategic_plans", []),
+            "tactical": position_analysis.get("tactical_features", {}),
+            "insights": position_analysis.get("tactical_insights", []),
+            "teaching_points": position_analysis.get("teaching_points", []),
+            "critical_squares": position_analysis.get("critical_squares", []),
+            "tips": _generate_position_tips(position_analysis, user_color)
+        }
+        
+    except Exception as e:
+        logger.error(f"Position explanation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to analyze position")
+
+
+def _get_game_phase_description(board, move_count: int) -> str:
+    """Get a human-readable game phase description."""
+    import chess
+    piece_count = sum(1 for sq in chess.SQUARES if board.piece_at(sq) and board.piece_at(sq).piece_type not in [chess.PAWN, chess.KING])
+    
+    if piece_count <= 4:
+        return "endgame"
+    elif piece_count <= 8:
+        return "late middlegame"
+    elif move_count < 15:
+        return "opening"
+    else:
+        return "middlegame"
+
+
+def _generate_position_tips(analysis: dict, user_color: str) -> list:
+    """Generate actionable tips from position analysis."""
+    tips = []
+    
+    tactical = analysis.get("tactical_features", {})
+    if tactical.get("threats", 0) > 0:
+        tips.append(f"You have {tactical['threats']} tactical opportunities - look for them!")
+    
+    if tactical.get("undefended_pieces", 0) > 0:
+        tips.append(f"Warning: {tactical['undefended_pieces']} of your pieces are undefended")
+    
+    plans = analysis.get("strategic_plans", [])
+    if plans:
+        tips.append(f"Key plan: {plans[0].get('name', 'Unknown')}")
+    
+    critical_squares = analysis.get("critical_squares", [])
+    if critical_squares:
+        tips.append(f"Control these key squares: {', '.join(critical_squares[:3])}")
+    
+    if not tips:
+        tips = [
+            "Keep your pieces active",
+            "Look for tactical patterns",
+            "Consider your pawn structure"
+        ]
+    
+    return tips[:4]
 
 
 @api_router.post("/coach/play/analysis")

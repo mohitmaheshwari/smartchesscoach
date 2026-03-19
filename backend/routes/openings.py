@@ -335,7 +335,7 @@ async def start_practice_session(
         "fen": session["fen"],
         "coach_move": coach_move,
         "coach_explanation": coach_explanation,
-        "hint": f"Your move. Think about what move controls the center or develops a piece." if not expected_explanation else None,
+        "hint": "Your move. Think about what move controls the center or develops a piece." if not expected_explanation else None,
         "move_number": (expected_idx // 2) + 1,
         "is_user_turn": True
     }
@@ -386,7 +386,7 @@ async def make_practice_move(
         else:
             move = board.parse_san(request.move)
             user_san = request.move
-    except Exception as e:
+    except Exception:
         return {
             "valid": False,
             "error": f"Invalid move: {request.move}",
@@ -493,7 +493,14 @@ async def make_practice_move(
             "coach_move": coach_move_data["move"],
             "coach_explanation": coach_move_data["explanation"],
             "move_number": (final_idx // 2) + 1,
-            "is_user_turn": True
+            "is_user_turn": True,
+            # Add dynamic coaching if available
+            "dynamic_coaching": await _get_dynamic_coaching_for_practice(
+                board=board,
+                move_history=new_history,
+                user_id=user.user_id,
+                opening_name=session["opening_name"]
+            )
         }
     
     else:
@@ -610,6 +617,72 @@ async def resign_practice_session(
         raise HTTPException(status_code=404, detail="Session not found or already completed")
     
     return {"message": "Practice session ended"}
+
+
+async def _get_dynamic_coaching_for_practice(
+    board: chess.Board,
+    move_history: list,
+    user_id: str,
+    opening_name: str
+) -> dict:
+    """
+    Generate dynamic coaching suggestions for practice mode.
+    
+    Connects the Behavioral Coaching Layer and Active Teaching Engine
+    to provide personalized feedback during opening practice.
+    """
+    try:
+        global db
+        
+        # 1. Try to get behavioral coaching
+        behavioral_feedback = None
+        try:
+            from services.behavioral_coaching_layer import get_behavioral_coaching_feedback
+            behavioral_feedback = await get_behavioral_coaching_feedback(
+                db=db,
+                user_id=user_id,
+                current_position=board.fen(),
+                move_history=[m.get("move", "") for m in move_history],
+                context={
+                    "mode": "opening_practice",
+                    "opening_name": opening_name
+                }
+            )
+        except Exception as e:
+            logger.debug(f"Behavioral coaching not available: {e}")
+        
+        # 2. Try to get position analysis
+        position_insights = None
+        try:
+            from services.intelligent_position_coach import analyze_position_and_suggest
+            position_insights = await analyze_position_and_suggest(
+                board=board,
+                move_history=[m.get("move", "") for m in move_history],
+                user_color="white" if len(move_history) % 2 == 0 else "black",
+                user_id=user_id,
+                db=db
+            )
+        except Exception as e:
+            logger.debug(f"Position insights not available: {e}")
+        
+        # Build combined coaching response
+        coaching = {}
+        
+        if behavioral_feedback and behavioral_feedback.get("feedback"):
+            coaching["behavioral_tip"] = behavioral_feedback["feedback"]
+            coaching["behavioral_type"] = behavioral_feedback.get("pattern_type")
+        
+        if position_insights:
+            coaching["structure_name"] = position_insights.get("structure_name")
+            coaching["game_phase"] = position_insights.get("game_phase")
+            coaching["main_idea"] = position_insights.get("main_idea")
+            coaching["key_characteristics"] = position_insights.get("key_characteristics", [])[:2]
+        
+        return coaching if coaching else None
+        
+    except Exception as e:
+        logger.warning(f"Dynamic coaching generation failed: {e}")
+        return None
 
 
 async def generate_socratic_feedback(

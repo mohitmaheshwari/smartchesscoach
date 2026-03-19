@@ -1024,6 +1024,103 @@ const CoachPlay = ({ user }) => {
     poll();
   };
   
+  // Request on-demand position explanation
+  const requestPositionExplanation = async () => {
+    if (!session) return;
+    
+    setIsCoachThinking(true);
+    
+    // Add user request to chat
+    setChatMessages(prev => [...prev, {
+      type: "user",
+      message: "Coach, explain my position!",
+      timestamp: Date.now()
+    }]);
+    
+    try {
+      const response = await fetch(`${API}/coach/play/explain-position`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          session_id: session.session_id
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Build a comprehensive explanation message
+        let explanationParts = [];
+        
+        if (data.explanation?.structure_name) {
+          explanationParts.push(`**Position Type: ${data.explanation.structure_name}**`);
+        }
+        
+        if (data.explanation?.game_phase) {
+          explanationParts.push(`You're in the ${data.explanation.game_phase} phase.`);
+        }
+        
+        if (data.explanation?.main_idea) {
+          explanationParts.push(data.explanation.main_idea);
+        }
+        
+        if (data.explanation?.key_characteristics?.length > 0) {
+          explanationParts.push("\n**Key features:**");
+          data.explanation.key_characteristics.forEach(c => {
+            explanationParts.push(`• ${c}`);
+          });
+        }
+        
+        if (data.plans?.length > 0) {
+          explanationParts.push(`\n**Your strategic plan:** ${data.plans[0].name}`);
+          explanationParts.push(data.plans[0].description);
+        }
+        
+        if (data.tips?.length > 0) {
+          explanationParts.push("\n**Tips:**");
+          data.tips.forEach(tip => {
+            explanationParts.push(`• ${tip}`);
+          });
+        }
+        
+        const fullMessage = explanationParts.join("\n");
+        
+        setChatMessages(prev => [...prev, {
+          id: `explain_${Date.now()}`,
+          type: "coach",
+          message: fullMessage || "Let me analyze this position for you...",
+          trigger: "position_explanation",
+          timestamp: Date.now()
+        }]);
+        
+        // Also set as current insight for the clean UI
+        setCurrentInsight({
+          quality: "info",
+          main_insight: data.explanation?.main_idea || "Position analyzed",
+          why: data.plans?.[0]?.description || null,
+          next_idea: data.tips?.[0] || null,
+          can_explain: false
+        });
+      } else {
+        setChatMessages(prev => [...prev, {
+          type: "coach",
+          message: "I couldn't analyze this position right now. Try again!",
+          timestamp: Date.now()
+        }]);
+      }
+    } catch (error) {
+      console.error("Position explanation error:", error);
+      setChatMessages(prev => [...prev, {
+        type: "coach",
+        message: "Sorry, something went wrong. Let me try again later.",
+        timestamp: Date.now()
+      }]);
+    } finally {
+      setIsCoachThinking(false);
+    }
+  };
+  
   // Send chat message to coach
   const sendChatMessage = async (directMessage = null) => {
     const messageToSend = directMessage || chatInput.trim();
@@ -1031,6 +1128,12 @@ const CoachPlay = ({ user }) => {
     
     if (!directMessage) {
       setChatInput("");
+    }
+    
+    // Special handling for "Explain my position" prompt
+    if (messageToSend === "Explain my position") {
+      await requestPositionExplanation();
+      return;
     }
     
     // Add user message to chat

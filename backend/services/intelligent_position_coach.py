@@ -94,7 +94,8 @@ async def analyze_position_and_suggest(
         game_phase = _detect_game_phase(board, move_count)
         
         # Don't offer position coaching in very early opening (let opening detection handle it)
-        if move_count < 6:
+        # Unless explicitly requested via skip_if_opening_offered=False (on-demand analysis)
+        if skip_if_opening_offered and move_count < 6:
             logger.debug(f"Too early for position coaching (move {move_count})")
             return None
         

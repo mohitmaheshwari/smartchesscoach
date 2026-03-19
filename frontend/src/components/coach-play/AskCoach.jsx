@@ -12,10 +12,10 @@ import { Send, HelpCircle, Target, Lightbulb, Eye, MessageCircle } from "lucide-
 
 // Smart prompts based on game context
 const SMART_PROMPTS = [
+  { id: "explain", label: "Explain my position", icon: Eye, isSpecial: true },
   { id: "why", label: "Why was that better?", icon: HelpCircle },
   { id: "plan", label: "What's my plan?", icon: Target },
-  { id: "tactic", label: "Did I miss a tactic?", icon: Eye },
-  { id: "improve", label: "What should I improve?", icon: Lightbulb },
+  { id: "tactic", label: "Did I miss a tactic?", icon: Lightbulb },
 ];
 
 // Plan-first prompts - user states intention before moving

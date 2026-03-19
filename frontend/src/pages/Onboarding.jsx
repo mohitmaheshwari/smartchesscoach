@@ -551,7 +551,10 @@ const Onboarding = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-muted-foreground">
-                        Assessed from {gamesAnalyzed} {detectedPlatform} games
+                        {gamesAnalyzed > 0 
+                          ? `Live ${detectedPlatform} Rating • ${gamesAnalyzed} games available for analysis`
+                          : `Live ${detectedPlatform} Rating`
+                        }
                       </p>
                       <p className="text-2xl font-bold text-white">{detectedRating}</p>
                     </div>

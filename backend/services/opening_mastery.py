@@ -875,6 +875,165 @@ def _build_opening_database():
             "correct_applications": 2
         }
     )
+    
+    # ==================== ADDITIONAL OPENINGS ====================
+    # These openings are detected but use library database for content
+    
+    OPENING_DATABASE["vienna_game"] = OpeningFamily(
+        name="Vienna Game",
+        eco_range="C25-C29",
+        first_moves=["e4", "e5", "Nc3"],
+        description="A flexible opening that delays Nf3, keeping options for f4 (Vienna Gambit) or slow development.",
+        character="semi-open",
+        suitable_for=["tactical players", "gambiteers", "club players"],
+        variations=[],
+        introduction_message="The Vienna Game! Keep your options open - you can play calmly or launch the aggressive Vienna Gambit with f4!",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 3}
+    )
+    
+    OPENING_DATABASE["scotch_game"] = OpeningFamily(
+        name="Scotch Game",
+        eco_range="C44-C45",
+        first_moves=["e4", "e5", "Nf3", "Nc6", "d4"],
+        description="White immediately opens the center. Direct and principled.",
+        character="open",
+        suitable_for=["aggressive players", "tactical players"],
+        variations=[],
+        introduction_message="The Scotch Game! Immediate central action - no slow maneuvering here!",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 3}
+    )
+    
+    OPENING_DATABASE["petrov_defense"] = OpeningFamily(
+        name="Petrov Defense",
+        eco_range="C42-C43",
+        first_moves=["e4", "e5", "Nf3", "Nf6"],
+        description="A symmetrical, solid defense. Black mirrors White's knight development.",
+        character="semi-open",
+        suitable_for=["solid players", "drawish players", "defensive players"],
+        variations=[],
+        introduction_message="The Petrov Defense! Mirror, mirror - solid and symmetrical.",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 3}
+    )
+    
+    OPENING_DATABASE["kings_indian_defense"] = OpeningFamily(
+        name="King's Indian Defense",
+        eco_range="E60-E99",
+        first_moves=["d4", "Nf6", "c4", "g6"],
+        description="An aggressive counterattacking system. Let White build a big center, then destroy it!",
+        character="closed",
+        suitable_for=["aggressive players", "counterattackers", "fighters"],
+        variations=[],
+        introduction_message="The King's Indian! Let them build their center - you'll tear it down with your kingside attack!",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 5}
+    )
+    
+    OPENING_DATABASE["grunfeld_defense"] = OpeningFamily(
+        name="Grünfeld Defense",
+        eco_range="D70-D99",
+        first_moves=["d4", "Nf6", "c4", "g6", "Nc3", "d5"],
+        description="Black strikes the center immediately. Strategic and dynamic.",
+        character="closed",
+        suitable_for=["strategic players", "dynamic players"],
+        variations=[],
+        introduction_message="The Grünfeld! Strike at White's center immediately and create dynamic play!",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 5}
+    )
+    
+    OPENING_DATABASE["nimzo_indian"] = OpeningFamily(
+        name="Nimzo-Indian Defense",
+        eco_range="E20-E59",
+        first_moves=["d4", "Nf6", "c4", "e6", "Nc3", "Bb4"],
+        description="One of Black's best defenses. Pin the knight and fight for the center.",
+        character="semi-closed",
+        suitable_for=["positional players", "strategic players", "all levels"],
+        variations=[],
+        introduction_message="The Nimzo-Indian! Pin the knight, control the center, enjoy one of Black's finest defenses!",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 5}
+    )
+    
+    OPENING_DATABASE["queens_indian"] = OpeningFamily(
+        name="Queen's Indian Defense",
+        eco_range="E12-E19",
+        first_moves=["d4", "Nf6", "c4", "e6", "Nf3", "b6"],
+        description="A solid, flexible defense. Control the long diagonal with your fianchettoed bishop.",
+        character="semi-closed",
+        suitable_for=["positional players", "solid players"],
+        variations=[],
+        introduction_message="The Queen's Indian! Control the long diagonal and enjoy a solid position.",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 4}
+    )
+    
+    OPENING_DATABASE["slav_defense"] = OpeningFamily(
+        name="Slav Defense",
+        eco_range="D10-D19",
+        first_moves=["d4", "d5", "c4", "c6"],
+        description="A solid response to the Queen's Gambit. Black supports d5 with c6.",
+        character="closed",
+        suitable_for=["solid players", "positional players", "all levels"],
+        variations=[],
+        introduction_message="The Slav Defense! Solid pawn structure and the light-squared bishop stays free!",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 4}
+    )
+    
+    OPENING_DATABASE["qgd"] = OpeningFamily(
+        name="Queen's Gambit Declined",
+        eco_range="D30-D69",
+        first_moves=["d4", "d5", "c4", "e6"],
+        description="The classical response to the Queen's Gambit. Solid and strategic.",
+        character="closed",
+        suitable_for=["positional players", "solid players", "classical players"],
+        variations=[],
+        introduction_message="The Queen's Gambit Declined! Classical, solid, and full of strategic depth.",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 4}
+    )
+    
+    OPENING_DATABASE["benoni_defense"] = OpeningFamily(
+        name="Benoni Defense",
+        eco_range="A60-A79",
+        first_moves=["d4", "Nf6", "c4", "c5", "d5"],
+        description="An aggressive counterattacking defense with queenside play.",
+        character="semi-closed",
+        suitable_for=["aggressive players", "counterattackers"],
+        variations=[],
+        introduction_message="The Benoni! Fight for queenside counterplay while White has the center.",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 4}
+    )
+    
+    OPENING_DATABASE["budapest_gambit"] = OpeningFamily(
+        name="Budapest Gambit",
+        eco_range="A51-A52",
+        first_moves=["d4", "Nf6", "c4", "e5"],
+        description="A surprising gambit. Black sacrifices a pawn for active piece play.",
+        character="gambit",
+        suitable_for=["aggressive players", "gambiteers", "surprise weapon"],
+        variations=[],
+        introduction_message="The Budapest Gambit! Surprise your opponent with this aggressive pawn sacrifice!",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 3}
+    )
+    
+    OPENING_DATABASE["dutch_defense"] = OpeningFamily(
+        name="Dutch Defense",
+        eco_range="A80-A99",
+        first_moves=["d4", "f5"],
+        description="An aggressive defense aiming for kingside attack. Black immediately stakes a claim.",
+        character="semi-closed",
+        suitable_for=["aggressive players", "attacking players"],
+        variations=[],
+        introduction_message="The Dutch Defense! Ambitious and aggressive - you're fighting for the kingside from move one!",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 3}
+    )
+    
+    OPENING_DATABASE["nimzowitsch_defense"] = OpeningFamily(
+        name="Nimzowitsch Defense",
+        eco_range="B00",
+        first_moves=["e4", "Nc6"],
+        description="An unusual but flexible defense. Black develops the knight first.",
+        character="semi-open",
+        suitable_for=["hypermodern players", "surprise weapon"],
+        variations=[],
+        introduction_message="The Nimzowitsch Defense! Unusual and flexible - keep your opponent guessing!",
+        mastery_criteria={"know_main_line": True, "applied_in_games": 3}
+    )
 
 
 # Initialize the database
@@ -889,14 +1048,8 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
     """
     Detect which opening family we're in based on moves played.
     
-    IMPORTANT: Only detects when we have enough characteristic moves.
-    
-    Detection requirements:
-    - Italian Game: e4 e5 Nf3 Nc6 Bc4 (5 moves)
-    - Queen's Gambit: d4 d5 c4 (3 moves)
-    - London System: d4 [any] Bf4 (3 moves, White's 2nd must be Bf4)
-    - Sicilian: e4 c5 (2 moves)
-    - Caro-Kann: e4 c6 (2 moves)
+    UNIFIED DETECTION: Uses both OPENING_DATABASE and LIBRARY_DATABASE
+    to detect openings. Supports 23+ openings from the admin system.
     
     Returns:
         Dict with opening info or None if not recognized yet
@@ -910,10 +1063,20 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
     
     moves_lower = [m.lower() for m in moves]
     
-    # Manual priority-based detection for accuracy
-    # Check most specific openings first
+    # Import library database for extended detection
+    try:
+        from services.opening_library_service import OPENING_DATABASE as LIBRARY_DB
+    except ImportError:
+        LIBRARY_DB = {}
     
-    # Italian Game: e4 e5 Nf3 Nc6 Bc4
+    # === PRIORITY DETECTION (most specific first) ===
+    
+    # Ruy Lopez: e4 e5 Nf3 Nc6 Bb5 (5 moves)
+    if len(moves_lower) >= 5:
+        if moves_lower[:5] == ["e4", "e5", "nf3", "nc6", "bb5"]:
+            return _build_opening_result("ruy_lopez", moves)
+    
+    # Italian Game: e4 e5 Nf3 Nc6 Bc4 (5 moves)
     if len(moves_lower) >= 5:
         if moves_lower[:5] == ["e4", "e5", "nf3", "nc6", "bc4"]:
             return _build_opening_result("italian_game", moves)
@@ -921,7 +1084,74 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
         if len(moves_lower) >= 6 and moves_lower[:6] == ["e4", "e5", "nf3", "nc6", "bc4", "nf6"]:
             return _build_opening_result("italian_game", moves, "Two Knights Defense")
     
-    # Queen's Gambit: d4 d5 c4
+    # Scotch Game: e4 e5 Nf3 Nc6 d4 (5 moves)
+    if len(moves_lower) >= 5:
+        if moves_lower[:5] == ["e4", "e5", "nf3", "nc6", "d4"]:
+            return _build_opening_result("scotch_game", moves)
+    
+    # Vienna Game: e4 e5 Nc3 (3 moves)
+    if len(moves_lower) >= 3:
+        if moves_lower[:3] == ["e4", "e5", "nc3"]:
+            return _build_opening_result("vienna_game", moves)
+    
+    # Petrov Defense: e4 e5 Nf3 Nf6 (4 moves)
+    if len(moves_lower) >= 4:
+        if moves_lower[:4] == ["e4", "e5", "nf3", "nf6"]:
+            return _build_opening_result("petrov_defense", moves)
+    
+    # Philidor Defense: e4 e5 Nf3 d6 (4 moves)
+    if len(moves_lower) >= 4:
+        if moves_lower[:4] == ["e4", "e5", "nf3", "d6"]:
+            return _build_opening_result("philidor_defense", moves)
+    
+    # King's Indian Defense: d4 Nf6 c4 g6 (4 moves)
+    if len(moves_lower) >= 4:
+        if moves_lower[:4] == ["d4", "nf6", "c4", "g6"]:
+            return _build_opening_result("kings_indian_defense", moves)
+    
+    # Grünfeld Defense: d4 Nf6 c4 g6 Nc3 d5 (6 moves)
+    if len(moves_lower) >= 6:
+        if moves_lower[:6] == ["d4", "nf6", "c4", "g6", "nc3", "d5"]:
+            return _build_opening_result("grunfeld_defense", moves)
+    
+    # Nimzo-Indian: d4 Nf6 c4 e6 Nc3 Bb4 (6 moves)
+    if len(moves_lower) >= 6:
+        if moves_lower[:6] == ["d4", "nf6", "c4", "e6", "nc3", "bb4"]:
+            return _build_opening_result("nimzo_indian", moves)
+    
+    # Queen's Indian: d4 Nf6 c4 e6 Nf3 b6 (6 moves)
+    if len(moves_lower) >= 6:
+        if moves_lower[:6] == ["d4", "nf6", "c4", "e6", "nf3", "b6"]:
+            return _build_opening_result("queens_indian", moves)
+    
+    # Slav Defense: d4 d5 c4 c6 (4 moves)
+    if len(moves_lower) >= 4:
+        if moves_lower[:4] == ["d4", "d5", "c4", "c6"]:
+            return _build_opening_result("slav_defense", moves)
+    
+    # Queen's Gambit Declined: d4 d5 c4 e6 (4 moves)
+    if len(moves_lower) >= 4:
+        if moves_lower[:4] == ["d4", "d5", "c4", "e6"]:
+            return _build_opening_result("qgd", moves, "Queen's Gambit Declined")
+    
+    # Benoni Defense: d4 Nf6 c4 c5 d5 (5 moves)
+    if len(moves_lower) >= 5:
+        if moves_lower[:5] == ["d4", "nf6", "c4", "c5", "d5"]:
+            return _build_opening_result("benoni_defense", moves)
+    
+    # Budapest Gambit: d4 Nf6 c4 e5 (4 moves)
+    if len(moves_lower) >= 4:
+        if moves_lower[:4] == ["d4", "nf6", "c4", "e5"]:
+            return _build_opening_result("budapest_gambit", moves)
+    
+    # Dutch Defense: d4 f5 (2 moves)
+    if len(moves_lower) >= 2:
+        if moves_lower[:2] == ["d4", "f5"]:
+            return _build_opening_result("dutch_defense", moves)
+    
+    # === STANDARD DETECTION ===
+    
+    # Queen's Gambit: d4 d5 c4 (3 moves)
     if len(moves_lower) >= 3:
         if moves_lower[:3] == ["d4", "d5", "c4"]:
             return _build_opening_result("queens_gambit", moves)
@@ -931,35 +1161,30 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
         if moves_lower[0] == "d4" and moves_lower[2].lower() == "bf4":
             return _build_opening_result("london_system", moves)
     
-    # Sicilian Defense: e4 c5
+    # Sicilian Defense: e4 c5 (2 moves)
     if len(moves_lower) >= 2:
         if moves_lower[:2] == ["e4", "c5"]:
             return _build_opening_result("sicilian_defense", moves)
     
-    # Caro-Kann: e4 c6
+    # Caro-Kann: e4 c6 (2 moves)
     if len(moves_lower) >= 2:
         if moves_lower[:2] == ["e4", "c6"]:
             return _build_opening_result("caro_kann", moves)
     
-    # French Defense: e4 e6
+    # French Defense: e4 e6 (2 moves)
     if len(moves_lower) >= 2:
         if moves_lower[:2] == ["e4", "e6"]:
             return _build_opening_result("french_defense", moves)
     
-    # Scandinavian Defense: e4 d5
+    # Scandinavian Defense: e4 d5 (2 moves)
     if len(moves_lower) >= 2:
         if moves_lower[:2] == ["e4", "d5"]:
             return _build_opening_result("scandinavian_defense", moves)
     
-    # Ruy Lopez: e4 e5 Nf3 Nc6 Bb5 (5 moves)
-    if len(moves_lower) >= 5:
-        if moves_lower[:5] == ["e4", "e5", "nf3", "nc6", "bb5"]:
-            return _build_opening_result("ruy_lopez", moves)
-    
-    # Philidor Defense: e4 e5 Nf3 d6 (4 moves)
-    if len(moves_lower) >= 4:
-        if moves_lower[:4] == ["e4", "e5", "nf3", "d6"]:
-            return _build_opening_result("philidor_defense", moves)
+    # Nimzowitsch Defense: e4 Nc6 (2 moves)
+    if len(moves_lower) >= 2:
+        if moves_lower[:2] == ["e4", "nc6"]:
+            return _build_opening_result("nimzowitsch_defense", moves)
     
     return None
 
