@@ -51,6 +51,7 @@ import CriticalMoments from "@/components/lab/CriticalMoments";
 import StrategicThemes from "@/components/lab/StrategicThemes";
 import MissedTactics from "@/components/lab/MissedTactics";
 import HabitsToImprove from "@/components/lab/HabitsToImprove";
+import OpeningFundamentals from "@/components/lab/OpeningFundamentals";
 import TrapAnalysis from "@/components/lab/TrapAnalysis";
 import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 
@@ -1118,6 +1119,10 @@ const LabV2 = ({ user }) => {
                 
                 {/* Habits Tab */}
                 <TabsContent value="habits" className="p-4 m-0 space-y-4">
+                  {/* Opening Fundamentals Analysis */}
+                  <OpeningFundamentals gameId={game?.game_id} />
+                  
+                  {/* Existing Habits Component */}
                   <HabitsToImprove
                     patternContext={labData?.pattern_context}
                     focusModule={focusModule}

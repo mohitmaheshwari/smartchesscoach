@@ -2298,6 +2298,81 @@ async def get_memory_patterns(user: User = Depends(get_current_user)):
         }
 
 
+@api_router.get("/analysis/{game_id}/opening-fundamentals")
+async def get_opening_fundamentals(game_id: str, user: User = Depends(get_current_user)):
+    """
+    Analyze a game's opening for fundamental principle violations.
+    
+    This teaches players the THINKING PROCESS, not just answers:
+    - Did they castle early?
+    - Did they develop before attacking?
+    - Did they control the center?
+    - Did they move the same piece twice?
+    
+    Each violation comes with:
+    - What the principle is
+    - Why it matters
+    - What to THINK before each move (the habit to build)
+    """
+    from services.opening_fundamentals_checker import analyze_opening_fundamentals
+    
+    # Get the game
+    game = await db.games.find_one(
+        {"game_id": game_id, "user_id": user.user_id},
+        {"_id": 0, "pgn": 1, "user_color": 1, "result": 1}
+    )
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Parse moves from PGN
+    try:
+        import chess.pgn
+        import io
+        pgn_io = io.StringIO(game.get("pgn", ""))
+        parsed_game = chess.pgn.read_game(pgn_io)
+        
+        if parsed_game:
+            moves = [move.san() for move in parsed_game.mainline()]
+        else:
+            moves = []
+    except Exception as e:
+        logger.warning(f"Failed to parse PGN: {e}")
+        moves = []
+    
+    if not moves:
+        return {
+            "error": "Could not parse game moves",
+            "violations": [],
+            "adherences": [],
+            "score": 0
+        }
+    
+    # Analyze opening fundamentals
+    result = analyze_opening_fundamentals(
+        moves=moves,
+        user_color=game.get("user_color", "white"),
+        game_result=game.get("result")
+    )
+    
+    return result
+
+
+@api_router.get("/principles/opening")
+async def get_opening_principles():
+    """
+    Get all opening principles with their teachings.
+    
+    This is the "curriculum" - what a player needs to learn
+    to improve their opening play.
+    """
+    from services.opening_fundamentals_checker import get_all_principles
+    return {
+        "principles": get_all_principles(),
+        "recommendation": "Focus on one principle at a time. Master it before moving to the next."
+    }
+
+
 # ==================== VOICE COACHING (TTS) ROUTES ====================
 
 class TTSRequest(BaseModel):
