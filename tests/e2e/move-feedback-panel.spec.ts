@@ -12,7 +12,7 @@
 
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || 'https://habit-trainer-1.preview.emergentagent.com';
+const BASE_URL = process.env.BASE_URL || 'https://chess-coach-audit.preview.emergentagent.com';
 
 test.describe('Move Feedback Panel', () => {
   test.beforeEach(async ({ page }) => {
