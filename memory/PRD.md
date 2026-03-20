@@ -110,6 +110,23 @@ All P0 issues resolved in this session.
 - [x] **ThinkingScoreCard UI**: `ThinkingScoreCard.jsx` component added to both HomePage and Dashboard. Shows circular progress ring, habit breakdown with scores, trend indicators, and personalized recommendations.
 - [x] **Automatic Score Calculation**: Integrated into analysis_worker.py - thinking scores calculated automatically when games are analyzed.
 
+### Data Freshness System (Completed March 20, 2026)
+- [x] **Data Freshness Service**: Backend service (`data_freshness.py`) ensures all aggregated data is recalculated when games are analyzed. Fixes stale data issues across all pages.
+- [x] **Collections Updated on Analysis**:
+  - `player_identities` - Recalculated from ALL games (Memory tab, coaching context)
+  - `player_profiles` - Dashboard stats (biggest weakness, errors/game)
+  - `journey_stats` - Journey page stats
+  - `thinking_scores` - Calculated for any games missing scores
+- [x] **Data Freshness APIs**:
+  - `POST /api/data/refresh` - Manual trigger to refresh all data
+  - `GET /api/data/status` - Check freshness status of all collections
+- [x] **Fixed Issues**:
+  - Duplicate player_identities cleaned up automatically
+  - Stale consecutive losses now recalculated correctly
+  - Games processed in chronological order for correct streak state
+- [x] **Integration**: Runs automatically after every game analysis (PHASE 7 in analysis_worker.py)
+- [x] **Documentation**: Created `/app/memory/DATA_SOURCES.md` mapping all pages to their data sources
+
 ### P1 - Next
 - [ ] Fully verify onboarding/navigation reliability with a fresh un-onboarded test user
 - [ ] Add automatic profile creation during game sync if it doesn't exist (currently relies on analysis worker)
