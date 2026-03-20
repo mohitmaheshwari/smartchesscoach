@@ -33,6 +33,7 @@ import "chessground/assets/chessground.cburnett.css";
 
 import InteractivePractice from "@/components/openings/InteractivePractice";
 import TrapPractice from "@/components/openings/TrapPractice";
+import GuidedOpeningLesson from "@/components/openings/GuidedOpeningLesson";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -374,216 +375,170 @@ const OpeningLesson = () => {
       
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Board */}
-          <div>
-            <Card>
-              <CardContent className="p-4">
-                <div 
-                  ref={boardRef} 
-                  className="w-full aspect-square rounded-lg overflow-hidden"
-                  style={{ maxWidth: "500px", margin: "0 auto" }}
-                />
-                
-                {/* Navigation */}
-                {!isPracticing && (
-                  <div className="flex items-center justify-center gap-2 mt-4">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => goToMove(-1)}
-                      disabled={currentMoveIndex < 0}
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => goToMove(Math.max(-1, currentMoveIndex - 1))}
-                      disabled={currentMoveIndex < 0}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <span className="text-sm px-3 min-w-[80px] text-center">
-                      {currentMoveIndex < 0 ? "Start" : `Move ${currentMoveIndex + 1}`}
-                    </span>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => goToMove(currentMoveIndex + 1)}
-                      disabled={currentMoveIndex >= opening.main_line.length - 1}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-                
-                {/* Practice Feedback */}
-                <AnimatePresence>
-                  {feedback && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className={`mt-4 p-3 rounded-lg ${
-                        feedback.type === "correct" ? "bg-green-500/10 border border-green-500/30" :
-                        feedback.type === "complete" ? "bg-primary/10 border border-primary/30" :
-                        "bg-red-500/10 border border-red-500/30"
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        {feedback.type === "correct" && <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />}
-                        {feedback.type === "complete" && <Trophy className="w-5 h-5 text-primary flex-shrink-0" />}
-                        {feedback.type === "incorrect" && <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />}
-                        <div>
-                          <p className="text-sm">{feedback.message}</p>
-                          {feedback.hint && (
-                            <p className="text-xs text-muted-foreground mt-1">{feedback.hint}</p>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                
-                {/* Practice Controls */}
-                {isPracticing && (
-                  <div className="mt-4 flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setShowHint(!showHint)}
-                    >
-                      <Lightbulb className="w-4 h-4 mr-1" />
-                      Hint
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setIsPracticing(false);
-                        setFeedback(null);
-                        goToMove(-1);
-                      }}
-                    >
-                      Exit Practice
-                    </Button>
-                  </div>
-                )}
-                
-                {showHint && isPracticing && (
-                  <div className="mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/20 text-sm">
-                    <Lightbulb className="w-4 h-4 inline mr-1 text-amber-400" />
-                    {opening.main_line[practiceIndex]?.explanation}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+        {/* Tab Navigation - Full Width */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="learn">Learn</TabsTrigger>
+            <TabsTrigger value="practice">
+              <MessageCircle className="w-3 h-3 mr-1" />
+              Practice
+            </TabsTrigger>
+            <TabsTrigger value="traps">
+              Traps
+              {opening.traps?.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5">
+                  {opening.traps.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="mistakes">Your Mistakes</TabsTrigger>
+          </TabsList>
           
-          {/* Lesson Content */}
-          <div>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-4">
-                <TabsTrigger value="learn">Learn</TabsTrigger>
-                <TabsTrigger value="practice">
-                  <MessageCircle className="w-3 h-3 mr-1" />
-                  Practice
-                </TabsTrigger>
-                <TabsTrigger value="traps">
-                  Traps
-                  {opening.traps?.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 h-5">
-                      {opening.traps.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="mistakes">Your Mistakes</TabsTrigger>
-              </TabsList>
+          {/* Learn Tab - Full width guided experience */}
+          <TabsContent value="learn" className="space-y-4">
+            <div className="max-w-2xl mx-auto">
+              {/* Guided Interactive Lesson - This is the main experience */}
+              <GuidedOpeningLesson
+                openingKey={openingKey}
+                opening={opening}
+                onComplete={() => {
+                  console.log("Lesson completed");
+                }}
+                onStartPractice={() => setActiveTab("practice")}
+              />
               
-              <TabsContent value="learn" className="space-y-4">
-                {/* Description */}
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-sm text-muted-foreground">
-                      {opening.description}
-                    </p>
-                    
-                    <div className="mt-4 flex gap-2">
-                      <Button onClick={startPractice} className="flex-1">
-                        <Play className="w-4 h-4 mr-2" />
-                        Practice Moves
+              {/* Key Ideas - Collapsed reference */}
+              <Card className="bg-zinc-900/30 border-zinc-800 mt-4">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2 text-zinc-400">
+                    <Brain className="w-4 h-4 text-amber-500" />
+                    Key Ideas Reference
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <ul className="space-y-2">
+                    {opening.key_ideas?.map((idea, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-zinc-400">
+                        <CheckCircle2 className="w-4 h-4 text-green-500/60 flex-shrink-0 mt-0.5" />
+                        {idea}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          {/* Other Tabs - 2 column layout with board */}
+          <div className={activeTab === "learn" ? "hidden" : "grid grid-cols-1 lg:grid-cols-2 gap-6"}>
+            {/* Board */}
+            <div>
+              <Card>
+                <CardContent className="p-4">
+                  <div 
+                    ref={boardRef} 
+                    className="w-full aspect-square rounded-lg overflow-hidden"
+                    style={{ maxWidth: "500px", margin: "0 auto" }}
+                  />
+                  
+                  {/* Navigation */}
+                  {!isPracticing && activeTab !== "practice" && (
+                    <div className="flex items-center justify-center gap-2 mt-4">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => goToMove(-1)}
+                        disabled={currentMoveIndex < 0}
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => goToMove(Math.max(-1, currentMoveIndex - 1))}
+                        disabled={currentMoveIndex < 0}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <span className="text-sm px-3 min-w-[80px] text-center">
+                        {currentMoveIndex < 0 ? "Start" : `Move ${currentMoveIndex + 1}`}
+                      </span>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => goToMove(currentMoveIndex + 1)}
+                        disabled={currentMoveIndex >= opening.main_line.length - 1}
+                      >
+                        <ChevronRight className="w-4 h-4" />
                       </Button>
                     </div>
-                    
-                    {learning_progress && learning_progress.main_line_progress > 0 && (
-                      <div className="mt-4">
-                        <div className="flex justify-between text-xs mb-1">
-                          <span>Progress</span>
-                          <span>{learning_progress.main_line_progress}/{opening.main_line.length} moves</span>
-                        </div>
-                        <Progress 
-                          value={(learning_progress.main_line_progress / opening.main_line.length) * 100} 
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-                
-                {/* Key Ideas */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Brain className="w-4 h-4 text-primary" />
-                      Key Ideas
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <ul className="space-y-2">
-                      {opening.key_ideas?.map((idea, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm">
-                          <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                          {idea}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-                
-                {/* Main Line */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Main Line</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                      {opening.main_line?.map((moveData, i) => (
-                        <div 
-                          key={i}
-                          className={`p-2 rounded cursor-pointer transition-colors ${
-                            currentMoveIndex === i 
-                              ? "bg-primary/20 border border-primary/30" 
-                              : "hover:bg-muted/50"
-                          }`}
-                          onClick={() => goToMove(i)}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground w-6">
-                              {Math.floor(i / 2) + 1}.{i % 2 === 0 ? "" : ".."}
-                            </span>
-                            <span className="font-mono font-semibold text-sm">
-                              {moveData.move}
-                            </span>
+                  )}
+                  
+                  {/* Practice Feedback */}
+                  <AnimatePresence>
+                    {feedback && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className={`mt-4 p-3 rounded-lg ${
+                          feedback.type === "correct" ? "bg-green-500/10 border border-green-500/30" :
+                          feedback.type === "complete" ? "bg-primary/10 border border-primary/30" :
+                          "bg-red-500/10 border border-red-500/30"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          {feedback.type === "correct" && <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />}
+                          {feedback.type === "complete" && <Trophy className="w-5 h-5 text-primary flex-shrink-0" />}
+                          {feedback.type === "incorrect" && <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />}
+                          <div>
+                            <p className="text-sm">{feedback.message}</p>
+                            {feedback.hint && (
+                              <p className="text-xs text-muted-foreground mt-1">{feedback.hint}</p>
+                            )}
                           </div>
-                          <p className="text-xs text-muted-foreground ml-8 mt-1">
-                            {moveData.explanation}
-                          </p>
                         </div>
-                      ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  
+                  {/* Practice Controls */}
+                  {isPracticing && (
+                    <div className="mt-4 flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setShowHint(!showHint)}
+                      >
+                        <Lightbulb className="w-4 h-4 mr-1" />
+                        Hint
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setIsPracticing(false);
+                          setFeedback(null);
+                          goToMove(-1);
+                        }}
+                      >
+                        Exit Practice
+                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  )}
+                  
+                  {showHint && isPracticing && (
+                    <div className="mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/20 text-sm">
+                      <Lightbulb className="w-4 h-4 inline mr-1 text-amber-400" />
+                      {opening.main_line[practiceIndex]?.explanation}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Lesson Content for other tabs */}
+            <div>
               
               <TabsContent value="practice" className="space-y-4">
                 <InteractivePractice
@@ -747,9 +702,9 @@ const OpeningLesson = () => {
                   </Card>
                 ) : null}
               </TabsContent>
-            </Tabs>
+            </div>
           </div>
-        </div>
+        </Tabs>
       </div>
     </div>
   );
