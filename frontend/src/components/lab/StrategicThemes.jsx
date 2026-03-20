@@ -5,15 +5,23 @@
  * - concept name
  * - position (fen)
  * - move number
- * - short explanation
+ * - short explanation (RATING-ADAPTIVE)
  * - "View Position" button
+ * - "How a stronger player thinks" section
  * 
  * NO textbook fluff. Everything tied to actual game positions.
+ * 
+ * Rating Adaptation:
+ * - Beginner (< 1000): Simple, one-concept explanations
+ * - Intermediate (1000-1500): Add "why" and alternatives
+ * - Advanced (1500+): Include strategic nuances
  */
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import ThoughtProcessWalkthrough from "./ThoughtProcessWalkthrough";
 import {
   Crown,
   Shield,
@@ -24,8 +32,52 @@ import {
   Grid3X3,
   ArrowUpRight,
   Eye,
-  ChevronRight
+  ChevronRight,
+  Brain,
+  ChevronDown,
+  ChevronUp,
+  Lightbulb
 } from "lucide-react";
+
+// Rating-adaptive explanation templates
+const RATING_EXPLANATIONS = {
+  beginner: {
+    piece_activity: (move, best) => `Your ${move} left a piece doing nothing. ${best} makes it useful.`,
+    pawn_structure: (move, best) => `Your pawn move created a weakness. ${best} keeps pawns safe.`,
+    king_safety: (move, best) => `Your king was in danger! ${best} keeps it safe.`,
+    central_control: (move, best) => `Control the center! ${best} gives you more space.`,
+    tactical: (move, best) => `You missed a trick! ${best} wins material.`,
+    development: (move, best) => `Get your pieces out! ${best} develops faster.`,
+    defense: (move, best) => `Watch out for threats! ${best} defends properly.`
+  },
+  intermediate: {
+    piece_activity: (move, best) => `${move} was passive. ${best} improves piece coordination and creates threats.`,
+    pawn_structure: (move, best) => `The pawn structure after ${move} has long-term weaknesses. ${best} maintains flexibility.`,
+    king_safety: (move, best) => `${move} left attacking lines open. ${best} prioritizes king safety before attacking.`,
+    central_control: (move, best) => `${move} cedes central squares. ${best} fights for key squares e4/d4/e5/d5.`,
+    tactical: (move, best) => `${move} missed a forcing sequence. ${best} exploits the tactical opportunity.`,
+    development: (move, best) => `${move} delays development. ${best} completes development with tempo.`,
+    defense: (move, best) => `${move} ignores the threat. ${best} defends while maintaining counterplay.`
+  },
+  advanced: {
+    piece_activity: (move, best) => `${move} doesn't address piece harmony. ${best} optimizes all piece activity and creates lasting pressure.`,
+    pawn_structure: (move, best) => `The structural transformation after ${move} favors the opponent long-term. ${best} preserves dynamic potential.`,
+    king_safety: (move, best) => `${move} underestimates positional king safety. ${best} balances attack/defense ratio.`,
+    central_control: (move, best) => `${move} allows opponent piece mobility. ${best} restricts their options while expanding yours.`,
+    tactical: (move, best) => `${move} overlooks the forcing sequence. ${best} calculates through to a favorable evaluation.`,
+    development: (move, best) => `${move} is too committal too early. ${best} maintains flexibility while improving position.`,
+    defense: (move, best) => `${move} is purely reactive. ${best} defends dynamically with counter-threats.`
+  }
+};
+
+// Helper to get player level from rating
+const getPlayerLevel = (rating) => {
+  if (!rating || rating < 1000) return "beginner";
+  if (rating < 1500) return "intermediate";
+  return "advanced";
+};
+
+// Map theme types to icons and colors
 
 // Map theme types to icons and colors
 const THEME_CONFIG = {
@@ -89,8 +141,15 @@ const StrategicThemes = ({
   deepStrategy,
   labData,
   game,
-  onNavigateToMove
+  onNavigateToMove,
+  playerRating = null  // Add player rating prop
 }) => {
+  const [expandedIdea, setExpandedIdea] = useState(null);
+  const [showThinkingFor, setShowThinkingFor] = useState(null);
+  
+  // Get player level for adaptive explanations
+  const playerLevel = getPlayerLevel(playerRating || labData?.player_rating || 1200);
+  
   // Extract position-linked strategic ideas from critical moments
   const extractIdeas = () => {
     const ideas = [];
@@ -229,14 +288,23 @@ const StrategicThemes = ({
                         </span>
                       </div>
                       
-                      {/* Position-specific explanation */}
+                      {/* Rating-adaptive explanation */}
                       <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-                        {idea.explanation}
+                        {RATING_EXPLANATIONS[playerLevel]?.[idea.type] 
+                          ? RATING_EXPLANATIONS[playerLevel][idea.type](idea.yourMove, idea.bestMove)
+                          : idea.explanation}
                       </p>
+                      
+                      {/* Original insight if different */}
+                      {idea.explanation && !idea.explanation.includes(idea.yourMove) && (
+                        <p className="text-xs text-muted-foreground/70 italic mb-2">
+                          "{idea.explanation}"
+                        </p>
+                      )}
                       
                       {/* Show moves if available */}
                       {idea.yourMove && idea.bestMove && (
-                        <div className="flex items-center gap-3 text-xs mb-2">
+                        <div className="flex items-center gap-3 text-xs mb-3">
                           <span className="text-red-300/70">
                             Played: <span className="font-mono">{idea.yourMove}</span>
                           </span>
@@ -246,18 +314,48 @@ const StrategicThemes = ({
                         </div>
                       )}
                       
-                      {/* View Position button - REQUIRED for every idea */}
-                      {onNavigateToMove && idea.hasPosition && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={`text-xs ${config.color} hover:${config.color} p-0 h-auto`}
-                          onClick={() => onNavigateToMove(idea.moveNum, idea.yourMove, idea.bestMove)}
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View position
-                          <ChevronRight className="w-3 h-3 ml-0.5" />
-                        </Button>
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* View Position button - REQUIRED for every idea */}
+                        {onNavigateToMove && idea.hasPosition && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`text-xs ${config.color} hover:${config.color} p-0 h-auto`}
+                            onClick={() => onNavigateToMove(idea.moveNum, idea.yourMove, idea.bestMove)}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View position
+                            <ChevronRight className="w-3 h-3 ml-0.5" />
+                          </Button>
+                        )}
+                        
+                        {/* How a stronger player thinks */}
+                        {idea.fen && idea.bestMove && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-blue-400 hover:text-blue-300 p-0 h-auto"
+                            onClick={() => setShowThinkingFor(showThinkingFor === idx ? null : idx)}
+                          >
+                            <Brain className="w-3 h-3 mr-1" />
+                            {showThinkingFor === idx ? "Hide thinking" : "How to think here"}
+                            {showThinkingFor === idx ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {/* Thought Process Walkthrough - Expandable */}
+                      {showThinkingFor === idx && idea.fen && idea.bestMove && (
+                        <div className="mt-3 pt-3 border-t border-border/30">
+                          <ThoughtProcessWalkthrough
+                            fen={idea.fen}
+                            bestMove={idea.bestMove}
+                            playedMove={idea.yourMove}
+                            compact={false}
+                            autoFetch={true}
+                          />
+                        </div>
                       )}
                     </div>
                   </div>
@@ -266,6 +364,14 @@ const StrategicThemes = ({
             </motion.div>
           );
         })}
+      </div>
+      
+      {/* Rating level indicator */}
+      <div className="flex items-center justify-center gap-2 pt-2">
+        <Lightbulb className="w-3 h-3 text-muted-foreground" />
+        <span className="text-[10px] text-muted-foreground">
+          Explanations adapted for {playerLevel} level ({playerRating || labData?.player_rating || "~1200"} rating)
+        </span>
       </div>
     </div>
   );

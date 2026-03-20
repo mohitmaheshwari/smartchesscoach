@@ -1088,6 +1088,7 @@ const LabV2 = ({ user }) => {
                         deepStrategy={deepStrategy}
                         labData={labData}
                         game={game}
+                        playerRating={game?.user_rating || labData?.player_rating}
                         onNavigateToMove={(moveNum, yourMove, bestMove) => {
                           navigateToMoveNumber(moveNum, yourMove, bestMove);
                         }}
