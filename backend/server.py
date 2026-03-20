@@ -12290,27 +12290,48 @@ async def get_pattern_history(
     
     Returns specific game references where patterns occurred.
     """
-    from services.player_identity import PlayerIdentityService
+    # Get identity directly from DB to support both old and new format
+    identity_doc = await db.player_identities.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "pattern_history": 1}
+    )
     
-    service = PlayerIdentityService(db)
-    identity = await service.get_or_create(user.user_id)
+    if not identity_doc or not identity_doc.get("pattern_history"):
+        return {
+            "total_patterns": 0,
+            "recent_patterns": [],
+            "grouped_by_type": {},
+            "most_recent_types": []
+        }
+    
+    pattern_history = identity_doc.get("pattern_history", [])
     
     # Get most recent patterns
-    recent = identity.pattern_history[-limit:] if identity.pattern_history else []
+    recent = pattern_history[-limit:] if pattern_history else []
+    
+    # Handle both dict and object formats
+    def pattern_to_dict(p):
+        if isinstance(p, dict):
+            return p
+        elif hasattr(p, 'to_dict'):
+            return p.to_dict()
+        return {}
+    
+    recent_dicts = [pattern_to_dict(p) for p in reversed(recent)]
     
     # Group by type
     by_type = {}
-    for p in recent:
-        t = p.pattern_type
+    for p in recent_dicts:
+        t = p.get("pattern_type", "unknown")
         if t not in by_type:
             by_type[t] = []
-        by_type[t].append(p.to_dict())
+        by_type[t].append(p)
     
     return {
-        "total_patterns": len(identity.pattern_history),
-        "recent_patterns": [p.to_dict() for p in reversed(recent)],
+        "total_patterns": len(pattern_history),
+        "recent_patterns": recent_dicts,
         "grouped_by_type": by_type,
-        "most_recent_types": list(dict.fromkeys([p.pattern_type for p in reversed(recent)]))[:5]
+        "most_recent_types": list(dict.fromkeys([p.get("pattern_type", "unknown") for p in recent_dicts]))[:5]
     }
 
 

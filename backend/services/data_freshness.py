@@ -134,10 +134,13 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
             "by_phase": {},
             "most_common_type": None,
             "worst_phase": None,
-            "trend": "unknown"
+            "trend": "unknown",
+            "total_blunders": 0  # Add this field for the UI
         },
         "behavioral_patterns": [],
         "recent_performance": [],
+        "pattern_history": [],  # Clickable mistake history
+        "recent_blunders": [],  # Recent mistakes for Memory tab
         "created_at": current_time.isoformat(),
         "updated_at": current_time.isoformat()
     }
@@ -178,12 +181,16 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
         # Analyze blunders
         blunder_types = identity["blunder_taxonomy"]["by_type"]
         blunder_phases = identity["blunder_taxonomy"]["by_phase"]
+        game_id = game.get("game_id")
+        analyzed_at = game.get("analyzed_at", current_time.isoformat())
         
         for move_eval in move_evals:
             cp_loss = abs(move_eval.get("cp_loss", 0))
             if cp_loss >= 100:  # Significant mistake
                 move_num = move_eval.get("move_number", 0)
                 category = move_eval.get("category", "tactical_error")
+                move_played = move_eval.get("move", "")
+                best_move = move_eval.get("best_move", "")
                 
                 # Determine phase
                 if move_num <= 12:
@@ -196,6 +203,24 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
                 # Update counts
                 blunder_types[category] = blunder_types.get(category, 0) + 1
                 blunder_phases[phase] = blunder_phases.get(phase, 0) + 1
+                identity["blunder_taxonomy"]["total_blunders"] = identity["blunder_taxonomy"].get("total_blunders", 0) + 1
+                
+                # Add to pattern history (for clickable links in Memory tab)
+                pattern_entry = {
+                    "game_id": game_id,
+                    "move_number": move_num,
+                    "pattern_type": category,
+                    "phase": phase,
+                    "cp_loss": cp_loss,
+                    "move_played": move_played,
+                    "best_move": best_move,
+                    "date": analyzed_at if isinstance(analyzed_at, str) else analyzed_at.isoformat() if analyzed_at else current_time.isoformat()
+                }
+                identity["pattern_history"].append(pattern_entry)
+                
+                # Also track recent blunders (last 20)
+                if len(identity["recent_blunders"]) < 20:
+                    identity["recent_blunders"].append(pattern_entry)
         
         # Track recent performance (last 10 games)
         perf_entry = {
@@ -212,6 +237,25 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
         identity["blunder_taxonomy"]["most_common_type"] = max(blunder_types, key=blunder_types.get)
     if blunder_phases:
         identity["blunder_taxonomy"]["worst_phase"] = max(blunder_phases, key=blunder_phases.get)
+    
+    # Calculate style profile with confidence based on games analyzed
+    games_count = identity["games_analyzed"]
+    if games_count >= 20:
+        identity["style_profile"]["confidence"] = 0.9
+        identity["style_profile"]["primary_style"] = _determine_playing_style(identity, games_with_analysis)
+    elif games_count >= 10:
+        identity["style_profile"]["confidence"] = 0.6
+        identity["style_profile"]["primary_style"] = _determine_playing_style(identity, games_with_analysis)
+    elif games_count >= 5:
+        identity["style_profile"]["confidence"] = 0.3
+        identity["style_profile"]["primary_style"] = "developing"
+    else:
+        identity["style_profile"]["confidence"] = 0.1
+        identity["style_profile"]["primary_style"] = "developing"
+    
+    # Trim pattern_history to last 100 entries
+    if len(identity["pattern_history"]) > 100:
+        identity["pattern_history"] = identity["pattern_history"][-100:]
     
     # Detect behavioral patterns
     identity["behavioral_patterns"] = detect_behavioral_patterns(identity, games_with_analysis)
@@ -232,6 +276,51 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
         "consecutive_losses": identity["consecutive_losses"],
         "total_record": f"{identity['total_wins']}-{identity['total_losses']}-{identity['total_draws']}"
     }
+
+
+def _determine_playing_style(identity: Dict, games: List[Dict]) -> str:
+    """
+    Determine primary playing style based on game patterns.
+    """
+    blunder_phases = identity.get("blunder_taxonomy", {}).get("by_phase", {})
+    blunder_types = identity.get("blunder_taxonomy", {}).get("by_type", {})
+    
+    opening_blunders = blunder_phases.get("opening", 0)
+    middlegame_blunders = blunder_phases.get("middlegame", 0)
+    endgame_blunders = blunder_phases.get("endgame", 0)
+    total_phase_blunders = opening_blunders + middlegame_blunders + endgame_blunders
+    
+    tactical_errors = blunder_types.get("tactical_error", 0) + blunder_types.get("missed_tactic", 0)
+    positional_errors = blunder_types.get("positional_error", 0) + blunder_types.get("strategic_error", 0)
+    total_type_errors = tactical_errors + positional_errors
+    
+    # Determine style based on where/how they make mistakes
+    if total_type_errors > 10:
+        if tactical_errors > positional_errors * 1.5:
+            return "positional"  # They avoid tactical errors, so they're positional
+        elif positional_errors > tactical_errors * 1.5:
+            return "tactical"  # They avoid positional errors, so they're tactical
+    
+    # Check phase strength
+    if total_phase_blunders > 10:
+        if opening_blunders < middlegame_blunders and opening_blunders < endgame_blunders:
+            return "solid"  # Good opening prep
+        elif endgame_blunders < opening_blunders and endgame_blunders < middlegame_blunders:
+            return "technical"  # Good endgame technique
+    
+    # Check win rate for aggressive vs defensive
+    wins = identity.get("total_wins", 0)
+    losses = identity.get("total_losses", 0)
+    total_decisive = wins + losses
+    
+    if total_decisive > 10:
+        win_rate = wins / total_decisive if total_decisive > 0 else 0.5
+        if win_rate > 0.6:
+            return "aggressive"
+        elif win_rate < 0.4:
+            return "defensive"
+    
+    return "balanced"
 
 
 def detect_behavioral_patterns(identity: Dict, games: List[Dict]) -> List[Dict]:
