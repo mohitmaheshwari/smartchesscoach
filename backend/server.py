@@ -2689,6 +2689,86 @@ async def get_opening_principles():
     }
 
 
+# ==================== DATA FRESHNESS ROUTES ====================
+
+@api_router.post("/data/refresh")
+async def refresh_user_data(user: User = Depends(get_current_user)):
+    """
+    Manually trigger a refresh of all aggregated user data.
+    
+    This recalculates:
+    - Player identity (Memory tab, coaching context)
+    - Journey stats (milestones, streaks)
+    - Player profile (dashboard stats)
+    - Thinking scores
+    
+    Call this after importing games or if data seems stale.
+    """
+    from services.data_freshness import refresh_all_user_data
+    
+    # Use synchronous DB connection for the service
+    from pymongo import MongoClient
+    import os
+    
+    sync_client = MongoClient(os.environ.get('MONGO_URL'))
+    sync_db = sync_client[os.environ.get('DB_NAME', 'test_database')]
+    
+    result = refresh_all_user_data(sync_db, user.user_id)
+    
+    sync_client.close()
+    
+    return result
+
+
+@api_router.get("/data/status")
+async def get_data_status(user: User = Depends(get_current_user)):
+    """
+    Get the freshness status of user data across all collections.
+    """
+    status = {}
+    
+    # Check player_identity
+    identity = await db.player_identities.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "updated_at": 1, "games_analyzed": 1}
+    )
+    status["player_identity"] = {
+        "exists": identity is not None,
+        "games_analyzed": identity.get("games_analyzed") if identity else 0,
+        "updated_at": identity.get("updated_at") if identity else None
+    }
+    
+    # Check player_profile
+    profile = await db.player_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "updated_at": 1, "games_analyzed": 1}
+    )
+    status["player_profile"] = {
+        "exists": profile is not None,
+        "games_analyzed": profile.get("games_analyzed") if profile else 0,
+        "updated_at": profile.get("updated_at") if profile else None
+    }
+    
+    # Check thinking scores
+    score_count = await db.thinking_scores.count_documents({"user_id": user.user_id})
+    status["thinking_scores"] = {
+        "count": score_count
+    }
+    
+    # Check total games vs analyzed
+    total_games = await db.games.count_documents({"user_id": user.user_id})
+    game_ids = [g["game_id"] async for g in db.games.find({"user_id": user.user_id}, {"_id": 0, "game_id": 1})]
+    analyzed_games = await db.game_analyses.count_documents({"game_id": {"$in": game_ids}})
+    
+    status["games"] = {
+        "total": total_games,
+        "analyzed": analyzed_games,
+        "pending": total_games - analyzed_games
+    }
+    
+    return status
+
+
 # ==================== VOICE COACHING (TTS) ROUTES ====================
 
 class TTSRequest(BaseModel):

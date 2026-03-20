@@ -1088,6 +1088,18 @@ def process_job(db, job):
             # Non-fatal - log but don't fail the analysis
             logger.warning(f"[THINKING SCORE] Failed to calculate: {ts_err}")
         
+        # =========================================================================
+        # PHASE 7: DATA FRESHNESS - Refresh all aggregated data
+        # This ensures all pages show consistent, up-to-date information
+        # =========================================================================
+        try:
+            from services.data_freshness import refresh_all_user_data
+            refresh_result = refresh_all_user_data(db, user_id)
+            logger.info(f"[DATA REFRESH] Refreshed all data for {user_id}: {refresh_result.get('updates', {})}")
+        except Exception as refresh_err:
+            # Non-fatal - log but don't fail the analysis
+            logger.warning(f"[DATA REFRESH] Failed to refresh: {refresh_err}")
+        
         logger.info(f"[SUCCESS] Analyzed game {game_id} (accuracy: {accuracy}%, duration: {elapsed:.1f}s)")
         return True
         

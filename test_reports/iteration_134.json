@@ -1,0 +1,76 @@
+{
+  "summary": "Tested new Data Freshness Service that ensures all aggregated data is recalculated after game analysis. All 36 tests pass (19 backend + 17 frontend). API endpoints /api/data/refresh and /api/data/status work correctly.",
+  "mode": "generate",
+  "baseline_commit": "42636524351f05e4e9126589e350f28c3d386714",
+  "head_commit": "251f2039c41189cb3852207cf0e5723ae2c3dbd9",
+  "specs_created": [
+    "/app/backend/tests/test_data_freshness_api.py"
+  ],
+  "specs_updated": [],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_data_freshness_api.py",
+    "/app/test_reports/pytest/data_freshness_results.xml",
+    "/app/tests/e2e/thinking-score.spec.ts"
+  ],
+  "regression_results": {
+    "total_specs": 36,
+    "passed": 36,
+    "failed": 0,
+    "skipped": 1
+  },
+  "issues": [],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_data_freshness_api.py"
+  ],
+  "test_results": {
+    "backend": "100% (19/20 tests passed, 1 skipped - deep-memory endpoint not found)",
+    "frontend": "100% (17/17 tests passed)"
+  },
+  "features_verified": {
+    "DataFreshnessAPI": {
+      "status": "WORKING",
+      "endpoints_tested": [
+        "POST /api/data/refresh - Manual data refresh trigger",
+        "GET /api/data/status - Data freshness status check"
+      ],
+      "verified_behaviors": [
+        "Refresh updates player_identity with correct win/loss record",
+        "Refresh updates journey stats",
+        "Refresh updates player_profile dashboard stats",
+        "Refresh ensures thinking scores are calculated",
+        "Status returns player_identity info (exists, games_analyzed, updated_at)",
+        "Status returns player_profile info",
+        "Status returns thinking_scores count",
+        "Status returns games info (total, analyzed, pending)",
+        "Consecutive wins/losses cannot both be non-zero",
+        "Refresh is idempotent - multiple calls produce consistent results"
+      ]
+    },
+    "DataFreshnessIntegration": {
+      "status": "WORKING",
+      "integration_point": "analysis_worker.py (PHASE 7: DATA FRESHNESS)",
+      "verified_behaviors": [
+        "refresh_all_user_data() called after each game analysis",
+        "Refreshes player_identities collection",
+        "Refreshes journey_stats collection",
+        "Refreshes player_profiles collection",
+        "Ensures thinking_scores are calculated for all analyzed games"
+      ]
+    },
+    "ThinkingScoreFeature": {
+      "status": "WORKING",
+      "note": "All 17 existing frontend tests still pass after data freshness changes"
+    }
+  },
+  "verified_fix": {
+    "issue": "Consecutive losses showing incorrectly",
+    "fix_verification": "test_player_identity_consecutive_streaks_valid confirms only one streak (wins OR losses) can be active at a time",
+    "refresh_logic": "Games processed in chronological order to correctly calculate current streak state"
+  },
+  "seed_data_creation": "Used existing game data for testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Data Freshness feature fully tested. API endpoints /api/data/refresh and /api/data/status both working. The service runs automatically after each game analysis via analysis_worker.py. Win/loss record and streak calculations verified as correct."
+}
