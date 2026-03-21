@@ -9,7 +9,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://coached-chess.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-truth-engine.preview.emergentagent.com').rstrip('/')
 GAME_ID = 'ae58fb15-ca1d-43e7-a46f-12dce04959bb'
 
 

@@ -181,10 +181,27 @@ async def answer_move_question(
                 "error": f"{q_alternative} is not a legal move in this position.",
                 "legal_moves": [board.san(m) for m in list(board.legal_moves)[:10]]
             }
-    except (ValueError, chess.IllegalMoveError, chess.AmbiguousMoveError):
+    except (ValueError, chess.IllegalMoveError, chess.AmbiguousMoveError) as e:
+        # Get helpful info about what moves ARE legal for that piece type
+        piece_char = q_alternative[0].upper() if q_alternative[0].upper() in "KQRBN" else "P"
+        piece_type_map = {"K": chess.KING, "Q": chess.QUEEN, "R": chess.ROOK, "B": chess.BISHOP, "N": chess.KNIGHT, "P": chess.PAWN}
+        piece_type = piece_type_map.get(piece_char)
+        
+        legal_for_piece = []
+        if piece_type:
+            for move in board.legal_moves:
+                piece = board.piece_at(move.from_square)
+                if piece and piece.piece_type == piece_type:
+                    legal_for_piece.append(board.san(move))
+        
+        error_msg = f"'{q_alternative}' is not a legal move here."
+        if legal_for_piece:
+            error_msg += f" Legal {piece_char} moves: {', '.join(legal_for_piece[:8])}"
+        
         return {
-            "error": f"Could not understand the move '{q_alternative}'.",
-            "legal_moves": [board.san(m) for m in list(board.legal_moves)[:10]]
+            "error": error_msg,
+            "legal_moves": [board.san(m) for m in list(board.legal_moves)[:10]],
+            "legal_piece_moves": legal_for_piece[:10] if legal_for_piece else None
         }
     
     # Analyze both moves

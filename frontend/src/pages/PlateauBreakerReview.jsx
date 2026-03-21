@@ -765,7 +765,14 @@ const PlateauBreakerReview = ({ user }) => {
                                   : "bg-zinc-800/50 border border-zinc-700"
                               }`}>
                                 {qaAnswer.error ? (
-                                  <p className="text-sm text-red-400">{qaAnswer.error}</p>
+                                  <div className="space-y-2">
+                                    <p className="text-sm text-red-400">{qaAnswer.error}</p>
+                                    {qaAnswer.legal_piece_moves && qaAnswer.legal_piece_moves.length > 0 && (
+                                      <p className="text-xs text-zinc-400">
+                                        Try: {qaAnswer.legal_piece_moves.slice(0, 6).join(", ")}
+                                      </p>
+                                    )}
+                                  </div>
                                 ) : (
                                   <div className="space-y-2">
                                     <p className="text-sm text-white">{qaAnswer.answer}</p>
