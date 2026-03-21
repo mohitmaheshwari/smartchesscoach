@@ -33,6 +33,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import LichessBoard from "@/components/LichessBoard";
+import ClickableLine from "@/components/ClickableLine";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -218,6 +219,46 @@ const PlateauBreakerReview = ({ user }) => {
         setArrows(mistakeExplanation.arrows.map(arr => [arr[0], arr[1], arr[2]]));
       }
     }
+  };
+
+  /**
+   * Play moves from the explanation line on the board
+   * @param {string[]} moves - Array of moves in SAN notation to play
+   * @param {number} targetIndex - The index of the clicked move
+   */
+  const playMovesOnBoard = (moves, targetIndex) => {
+    if (!criticalMistake?.fen) return;
+    
+    // Start from the position AFTER the played move
+    const chess = new Chess();
+    
+    // First, load the position before the mistake and play the mistake
+    chess.load(criticalMistake.fen);
+    const playedMove = chess.move(criticalMistake.move);
+    
+    if (!playedMove) return;
+    
+    let lastMoveSquares = [playedMove.from, playedMove.to];
+    
+    // Now play through the PV line up to the clicked move
+    for (let i = 0; i <= targetIndex && i < moves.length; i++) {
+      try {
+        const move = chess.move(moves[i]);
+        if (move) {
+          lastMoveSquares = [move.from, move.to];
+        } else {
+          break;
+        }
+      } catch (e) {
+        console.warn(`Could not play move ${moves[i]}:`, e);
+        break;
+      }
+    }
+    
+    // Update board state
+    setCurrentFen(chess.fen());
+    setLastMove(lastMoveSquares);
+    setArrows([]); // Clear arrows when showing line
   };
 
   const showBetterMove = () => {
@@ -564,12 +605,22 @@ const PlateauBreakerReview = ({ user }) => {
 
                       {criticalMistake ? (
                         <div className="space-y-4">
-                          {/* Main explanation from the API */}
+                          {/* Main explanation with clickable moves */}
                           <p className="text-lg text-white">
-                            {mistakeExplanation?.explanation || 
-                             criticalMistake.explanation || 
-                             `You played ${criticalMistake.move || "a move"}, losing advantage.`}
+                            <ClickableLine 
+                              text={mistakeExplanation?.explanation || 
+                                    criticalMistake.explanation || 
+                                    `You played ${criticalMistake.move || "a move"}, losing advantage.`}
+                              onMoveClick={playMovesOnBoard}
+                            />
                           </p>
+                          
+                          {/* Hint for clickable moves */}
+                          {mistakeExplanation?.explanation?.includes("the line goes:") && (
+                            <p className="text-xs text-zinc-500 italic">
+                              Click any move above to see it on the board
+                            </p>
+                          )}
 
                           <div className="grid grid-cols-2 gap-3">
                             <div className="bg-red-500/10 rounded-lg p-3">

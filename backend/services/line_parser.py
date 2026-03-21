@@ -104,6 +104,20 @@ GOLDEN_RULES = {
         "short": "Your king is still in the center."
     },
     
+    # Opening theory patterns
+    "italian_d5_premature": {
+        "rule": "In the Italian/Two Knights, d5 is only good after Ng5. Play d6 first.",
+        "short": "d5 is premature - d6 is the main line."
+    },
+    "sicilian_d6_first": {
+        "rule": "In the Sicilian, play d6 to support your center before d5.",
+        "short": "Prepare d5 with d6 first."
+    },
+    "french_attack_chain": {
+        "rule": "In the French, attack the pawn chain base with c5.",
+        "short": "Attack the pawn chain with c5."
+    },
+    
     # Generic fallback
     "unknown": {
         "rule": "Calculate your opponent's best response before moving.",
@@ -314,6 +328,42 @@ def find_key_moment(events: List[MoveEvent]) -> Optional[str]:
     return None
 
 
+# =============================================================================
+# OPENING DETECTION - Known opening patterns for better rules
+# =============================================================================
+
+OPENING_PATTERNS = {
+    # Italian Game / Two Knights - d5 vs d6
+    "italian_d5": {
+        "fen_pattern": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R",  # After 1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6
+        "bad_move": "d5",
+        "good_move": "d6",
+        "pattern": "italian_d5_premature",
+        "explanation_prefix": "In the Two Knights Defense, d5 is premature when White hasn't played Ng5. "
+    },
+}
+
+
+def detect_opening_pattern(fen: str, played_move: str, best_move: str) -> Optional[Dict]:
+    """
+    Check if this position matches a known opening pattern.
+    Returns the pattern info if found, None otherwise.
+    """
+    # Extract board position (ignore move counters)
+    board_fen = fen.split()[0] if " " in fen else fen
+    
+    for name, pattern in OPENING_PATTERNS.items():
+        pattern_board = pattern["fen_pattern"].split()[0]
+        
+        # Check if position matches and moves match
+        if (board_fen == pattern_board and 
+            played_move.lower().replace("+", "").replace("#", "") == pattern["bad_move"].lower() and
+            best_move.lower().replace("+", "").replace("#", "") == pattern["good_move"].lower()):
+            return pattern
+    
+    return None
+
+
 def explain_line(
     fen_before: str,
     played_move: str,
@@ -336,6 +386,9 @@ def explain_line(
             "category": "tactical" | "positional" | "opening"
         }
     """
+    # Check for known opening patterns first
+    opening_pattern = detect_opening_pattern(fen_before, played_move or played_move_uci, best_move or best_move_uci)
+    
     # Parse both lines
     board = chess.Board(fen_before)
     
@@ -373,7 +426,8 @@ def explain_line(
         best_move_uci=best_move_uci,
         played_analysis=played_analysis,
         best_analysis=best_analysis,
-        eval_loss=eval_loss
+        eval_loss=eval_loss,
+        opening_pattern=opening_pattern
     )
 
 
@@ -383,15 +437,27 @@ def generate_explanation(
     best_move_uci: str,
     played_analysis: LineAnalysis,
     best_analysis: Optional[LineAnalysis],
-    eval_loss: int
+    eval_loss: int,
+    opening_pattern: Optional[Dict] = None
 ) -> Dict[str, Any]:
     """Generate the final explanation from parsed analysis."""
     
-    pattern = played_analysis.pattern
-    rule_data = GOLDEN_RULES.get(pattern, GOLDEN_RULES["unknown"])
+    # If we have a known opening pattern, use its rule
+    if opening_pattern:
+        pattern = opening_pattern["pattern"]
+        rule_data = GOLDEN_RULES.get(pattern, GOLDEN_RULES["unknown"])
+        explanation_prefix = opening_pattern.get("explanation_prefix", "")
+    else:
+        pattern = played_analysis.pattern
+        rule_data = GOLDEN_RULES.get(pattern, GOLDEN_RULES["unknown"])
+        explanation_prefix = ""
     
     # Build the explanation from actual events
     explanation_parts = []
+    
+    # Add opening theory prefix if available
+    if explanation_prefix:
+        explanation_parts.append(explanation_prefix)
     
     # Describe what happens in the line - trace the key moves
     if played_analysis.events:
@@ -424,16 +490,21 @@ def generate_explanation(
     if best_move:
         explanation_parts.append(f"{best_move} avoids this and keeps your position solid.")
     
-    # Build headline
-    headline = rule_data["short"]
-    if played_analysis.key_moment:
+    # Build headline - use opening pattern headline if available
+    if opening_pattern:
+        headline = rule_data["short"]
+    elif played_analysis.key_moment:
         headline = played_analysis.key_moment
+    else:
+        headline = rule_data["short"]
     
     # Determine category
     category = "tactical"
-    if pattern in ["loses_center", "weakens_king", "premature_pawn_push", "undeveloped_pieces"]:
+    if opening_pattern or pattern.startswith("italian_") or pattern.startswith("sicilian_") or pattern.startswith("french_"):
+        category = "opening"
+    elif pattern in ["loses_center", "weakens_king", "premature_pawn_push", "undeveloped_pieces"]:
         category = "positional"
-    if pattern in ["premature_pawn_push", "undeveloped_pieces", "moved_same_piece_twice", "delayed_castling"]:
+    elif pattern in ["premature_pawn_push", "undeveloped_pieces", "moved_same_piece_twice", "delayed_castling"]:
         category = "opening"
     
     # Build arrows - show best move in green
