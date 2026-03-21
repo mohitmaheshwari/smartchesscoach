@@ -230,31 +230,29 @@ async def explain_mistake_endpoint(request: ExplainMistakeRequest):
     """
     Generate a human-readable explanation for why a move was a mistake.
     
-    Uses LLM with complete chess context to generate accurate explanations.
-    The LLM receives:
-    - FEN position
-    - Actual moves (played and best) from Stockfish
-    - Evaluation numbers
-    - PV lines
-    - Opening name (from Lichess API)
+    Parses ACTUAL Stockfish PV lines - NO LLM, no hallucination.
     
-    The LLM ONLY explains the provided facts - no hallucination.
+    The explanation comes from:
+    1. Parsing each move in the PV line
+    2. Detecting captures, checks, material changes
+    3. Mapping patterns to golden rules
+    4. Generating clear English from parsed data
     """
-    from services.llm_chess_explainer import explain_mistake_with_llm
+    from services.line_parser import explain_line
     
     try:
-        explanation = await explain_mistake_with_llm(
+        # Calculate eval loss
+        eval_loss = abs(request.eval_after - request.eval_before)
+        
+        explanation = explain_line(
             fen_before=request.fen_before,
-            played_move=request.played_move or request.played_move_uci,
+            played_move=request.played_move,
             played_move_uci=request.played_move_uci,
-            best_move=request.best_move or request.best_move_uci,
+            best_move=request.best_move,
             best_move_uci=request.best_move_uci,
-            eval_before=request.eval_before,
-            eval_after=request.eval_after,
-            move_number=request.move_number,
             pv_after_played=request.pv_after_played,
             pv_after_best=request.pv_after_best,
-            user_color=request.user_color
+            eval_loss=eval_loss
         )
         
         return explanation
