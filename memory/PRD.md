@@ -53,7 +53,24 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 **Improved Illegal Move Diagnostics:**
 - Instead of "not legal", explains WHY: "your own pawn is on e5" or "Knight on f6 can't reach e1"
 
-**Testing:** 100% (8/8 backend + frontend verified - iteration 141)
+**Testing:** 100% (8/8 backend + frontend verified - iteration 141, 7/7 + frontend iteration 142)
+
+### "Try a Move" Board Q&A (March 21, 2026)
+**No more notation confusion — play the move on the board**
+
+- Users click "Try a move on board" → board becomes interactive
+- Drag/click the proposed alternative → auto-submits Q&A with "why not {SAN}?"
+- Board shows blue "Play your move" header, loading overlay during analysis
+- Cancel button to exit board mode
+- Text input still available as fallback ("Or type: why not Nxd5?")
+
+### Bug Fixes (March 21, 2026)
+- **Fixed duplicate `board.push()` bug** in `move_qa_service.py` — move was being pushed twice, causing Stockfish PV analysis to crash
+- **Fixed pawn exchange detection** — "d5 exd5" correctly identified as exchange ("material is even, but position is worse") instead of "you lose a pawn for nothing"
+- **Added engine best-move comparison** — when user asks "why not X?" without specifying what was played, system compares against engine's best to compute meaningful eval_diff
+- **Added PV pseudo-legality validation** — prevents crashes from invalid PV moves
+
+**Testing:** 100% (7/7 backend + frontend verified - iteration 142)
 
 ### UI Consistency Fix - Streak vs Blocker Display (March 21, 2026)
 **Issue**: Dashboard showed conflicting messages - "No Weakness Detected Yet" in the streak component while also showing "Your Current Blocker: You miss opponent's threats" in the blocker card.
