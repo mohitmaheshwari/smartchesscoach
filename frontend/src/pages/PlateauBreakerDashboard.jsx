@@ -30,49 +30,56 @@ import { Progress } from "@/components/ui/progress";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
-// Map mistake types to user-friendly messages
+// Map mistake types to user-friendly messages - HARSH but true
 const BLOCKER_MESSAGES = {
   "hanging_piece": {
     title: "You leave pieces undefended",
-    why: "You are losing games because you don't check if your pieces are safe before moving.",
-    rule: "Before EVERY move, ask: Is anything hanging?",
-    icon: "♟️"
+    why: "You are a player who moves without checking if pieces are safe. This is why you're stuck at your rating.",
+    rule: "Before EVERY move, count attackers vs defenders.",
+    icon: "♟️",
+    identity: "a careless player"
   },
   "tactical_error": {
     title: "You miss opponent's threats",
-    why: "You are losing games because you don't check what your opponent is threatening.",
+    why: "You are a player who ignores what the opponent is doing. You move, then get surprised. This is why you lose games you should win.",
     rule: "Before EVERY move, ask: What is my opponent threatening?",
-    icon: "⚔️"
+    icon: "⚔️",
+    identity: "an oblivious player"
   },
   "missed_tactic": {
-    title: "You miss winning tactics",
-    why: "You are missing opportunities to win material or checkmate.",
-    rule: "Before EVERY move, look for: Checks, Captures, Threats (in that order).",
-    icon: "💥"
+    title: "You miss winning moves",
+    why: "You are a player who plays 'safe' when winning moves exist. You see threats but don't look for opportunities. This is why you draw games you should win.",
+    rule: "Before EVERY move: Checks, Captures, Threats (in that order).",
+    icon: "💥",
+    identity: "a passive player"
   },
   "positional_mistake": {
-    title: "You make weak positional moves",
-    why: "You are making moves without a plan, giving your opponent easy play.",
+    title: "You make planless moves",
+    why: "You are a player who moves pieces randomly without a plan. Your pieces look active but achieve nothing. This is why stronger players crush you in the middlegame.",
     rule: "Before EVERY move, ask: What is my plan for the next 3 moves?",
-    icon: "🎯"
+    icon: "🎯",
+    identity: "a planless player"
   },
   "time_trouble": {
-    title: "You blunder under time pressure",
-    why: "You are losing won positions because you panic with low time.",
-    rule: "When under 2 minutes: Simplify. Trade pieces. Don't calculate complex lines.",
-    icon: "⏱️"
+    title: "You blunder under pressure",
+    why: "You are a player who panics with low time. All your good work disappears in the last 2 minutes. This is why you lose won games.",
+    rule: "Under 2 minutes: Simplify. Trade pieces. Don't calculate.",
+    icon: "⏱️",
+    identity: "a time-trouble player"
   },
   "opening_error": {
-    title: "You make opening mistakes",
-    why: "You are losing your advantage in the first 10 moves.",
-    rule: "In the opening: Develop pieces, Control center, Castle early.",
-    icon: "📖"
+    title: "You lose in the opening",
+    why: "You are a player who doesn't know basic opening principles. You're already losing before move 10. This is why you start every game at a disadvantage.",
+    rule: "Opening: Develop pieces, Control center, Castle early.",
+    icon: "📖",
+    identity: "an unprepared player"
   },
   "endgame_error": {
-    title: "You misplay endgames",
-    why: "You are losing or drawing won endgames.",
-    rule: "In endgames: Activate your king, Push passed pawns, Cut off the enemy king.",
-    icon: "👑"
+    title: "You can't convert wins",
+    why: "You are a player who doesn't know endgame basics. You get winning positions, then throw them away. This is why you draw games you should win.",
+    rule: "Endgame: Activate king, Push passed pawns, Cut off enemy king.",
+    icon: "👑",
+    identity: "an endgame amateur"
   }
 };
 
