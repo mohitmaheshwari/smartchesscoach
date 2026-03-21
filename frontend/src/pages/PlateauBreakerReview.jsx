@@ -155,12 +155,16 @@ const PlateauBreakerReview = ({ user }) => {
             credentials: "include",
             body: JSON.stringify({
               fen_before: biggestMistake.fen,
+              played_move: biggestMistake.move,  // SAN notation
               played_move_uci: biggestMistake.move_uci,
+              best_move: biggestMistake.better_move,  // SAN notation
               best_move_uci: biggestMistake.better_move_uci,
-              eval_before: 0, // We don't have this directly
+              eval_before: 0,
               eval_after: -(biggestMistake.eval_loss || 0),
               move_number: biggestMistake.move_number,
-              pv_after_best: biggestMistake.pv_after_best || []
+              pv_after_played: biggestMistake.pv_after_played || [],
+              pv_after_best: biggestMistake.pv_after_best || [],
+              user_color: game.user_color || "white"
             })
           });
           

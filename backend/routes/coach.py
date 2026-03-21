@@ -213,12 +213,16 @@ async def get_game_summary(game_id: str, user: User = Depends(get_current_user))
 
 class ExplainMistakeRequest(BaseModel):
     fen_before: str
+    played_move: str = ""  # SAN notation
     played_move_uci: str
+    best_move: str = ""  # SAN notation
     best_move_uci: str
     eval_before: int = 0
     eval_after: int = 0
     move_number: int = 1
+    pv_after_played: List[str] = []
     pv_after_best: List[str] = []
+    user_color: str = "white"
 
 
 @router.post("/explain-mistake")
@@ -226,24 +230,31 @@ async def explain_mistake_endpoint(request: ExplainMistakeRequest):
     """
     Generate a human-readable explanation for why a move was a mistake.
     
-    Uses rule-based chess pattern recognition to explain:
-    - Opening principle violations
-    - Tactical blunders (hanging pieces, forks, pins)
-    - Positional mistakes
+    Uses LLM with complete chess context to generate accurate explanations.
+    The LLM receives:
+    - FEN position
+    - Actual moves (played and best) from Stockfish
+    - Evaluation numbers
+    - PV lines
+    - Opening name (from Lichess API)
     
-    Returns arrows for visualization.
+    The LLM ONLY explains the provided facts - no hallucination.
     """
-    from services.position_explainer import explain_mistake
+    from services.llm_chess_explainer import explain_mistake_with_llm
     
     try:
-        explanation = explain_mistake(
+        explanation = await explain_mistake_with_llm(
             fen_before=request.fen_before,
+            played_move=request.played_move or request.played_move_uci,
             played_move_uci=request.played_move_uci,
+            best_move=request.best_move or request.best_move_uci,
             best_move_uci=request.best_move_uci,
             eval_before=request.eval_before,
             eval_after=request.eval_after,
             move_number=request.move_number,
-            pv_after_best=request.pv_after_best
+            pv_after_played=request.pv_after_played,
+            pv_after_best=request.pv_after_best,
+            user_color=request.user_color
         )
         
         return explanation
