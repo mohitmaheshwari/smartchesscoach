@@ -9,6 +9,36 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
+### P0: Mistake-Free Streak + Carry-Forward Engine (March 21, 2026)
+**This is NOT gamification - it's proof of behavior change.**
+
+Implemented the core behavioral improvement system that tracks games without the user's specific focus mistake:
+- **Backend Service**: `/app/backend/services/mistake_streak_service.py`
+  - Strict Stockfish-based detection (eval_loss >= 200cp)
+  - Compensation check (recovery within 2 plies = ignore)
+  - Game validity filters (min 15 moves OR tactical opportunity)
+  - Focus mistake types: THREAT_VERIFICATION, FORCING_BLIND, STOPPED_CALCULATION_EARLY, HANGING_PIECE, TACTICAL_MISS
+- **API Endpoints**: `/app/backend/routes/streak.py`
+  - GET `/api/streak/status` - Pre-game carry-forward data
+  - GET `/api/streak/focus-types` - Available focus mistake types
+  - POST `/api/streak/set-focus` - Set user's focus mistake
+  - POST `/api/streak/update` - Update streak after game analysis
+  - GET `/api/streak/history` - Last 5 games with streak data
+- **Frontend Components**: `/app/frontend/src/components/streak/`
+  - `MistakeFreeStreak.jsx` - Dashboard display with streak, rule, trend
+  - `PreGameStreakPopup.jsx` - "You're on a 3-game streak. Don't break it."
+  - `PostGameStreakResult.jsx` - Celebrate or break message
+- **Database Schema**: `user.streak_data`
+  ```json
+  {
+    "current_focus_mistake": "THREAT_VERIFICATION",
+    "mistake_streak": { "current": 3, "best": 7, "last_game_had_mistake": false },
+    "mistake_trend": { "before_avg": 6.2, "recent_avg": 2.1, "improvement_pct": 66 },
+    "last_5_games": [...]
+  }
+  ```
+- **Testing**: 100% success rate (backend 12/12 tests, frontend verified)
+
 ### V1 Plateau Breaker Mode - LichessBoard Refactoring Fix (March 21, 2026)
 - **Fixed Critical Board Rendering Bug**: All V1 Plateau Breaker pages were using direct `Chessground` initialization instead of the app's existing `LichessBoard.jsx` wrapper component, causing boards not to render
 - **Refactored Components**:
@@ -248,14 +278,13 @@ All P0 issues resolved in this session.
 - `/api/admin/openings` now supports list/fetch, `/validate` performs schema validation, and `/save` stores MongoDB-backed opening feedback with version history in `opening_feedback_versions`
 - **Intelligent Position Coaching**: `/app/backend/services/intelligent_position_coach.py` orchestrates `PawnStructureClassifier`, `StructurePlanDatabase`, `DetectorRegistry`, and `position_strategy_analyzer` to provide contextual coaching for any position. Triggers after 12+ moves when no opening teaching is active. Frontend component: `PositionCoachingPanel.jsx`
 - **V1 Plateau Breaker Mode**: Enforced learning system that identifies the user's single biggest mistake ("blocker"), provides psychological messaging, and forces completion of puzzle training + apply mode before unlocking next game analysis. Uses `LichessBoard.jsx` wrapper for consistent board rendering across all pages.
+- **P0 Mistake-Free Streak**: Tracks games without user's focus mistake. Displays on dashboard with current/best streak, rule reminder, and improvement trend. Pre-game popup applies psychological pressure. Post-game shows celebration or break message.
 
-## Upcoming Tasks (V1 Plateau Breaker Roadmap)
-Based on user's explicit feedback for making V1 a true habit-changing system:
-1. **(P0) Build "Carry-Forward" Engine**: Pre-game popup reminding user of their focus-mistake + instant notification if they repeat it
-2. **(P1) Implement Real Progress Tracking**: Track mistake count per game over time, display visual progress on dashboard
-3. **(P1) Enhance Apply Mode**: Make it a real 10-15 move mini-game against engine that tracks if user commits focus-mistake
-4. **(P2) Server-Side Training Lock**: Migrate lock state from localStorage to backend (add `is_training_locked`, `current_mistake_focus` to user model)
-5. **(P2) Multi-Game Focus**: Lock user into fixing same mistake for 3 consecutive games before introducing new blocker
+## Next Tasks (Prioritized)
+1. **(P1) Enhance Apply Mode**: Make it a real 10-15 move mini-game against engine that tracks if user commits focus-mistake
+2. **(P1) Connect Streak to Game Analysis**: Call POST /api/streak/update from analysis worker after Stockfish analysis completes
+3. **(P2) Server-Side Training Lock**: Migrate lock state from localStorage to backend (add `is_training_locked`, `current_mistake_focus` to user model)
+4. **(P2) Multi-Game Focus**: Lock user into fixing same mistake for 3 consecutive games before introducing new blocker
 
 ## Future/Backlog Tasks
 - Monetization (Razorpay integration)
