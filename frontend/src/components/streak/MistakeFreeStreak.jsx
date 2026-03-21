@@ -86,8 +86,36 @@ const MistakeFreeStreak = ({ userId, onStartTraining }) => {
     headline,
     message,
     tone,
-    trend
+    trend,
+    needs_detection
   } = streakData;
+
+  // If no focus detected yet, show "needs detection" state
+  if (needs_detection) {
+    return (
+      <Card className="bg-zinc-900/50 border-zinc-700" data-testid="mistake-free-streak-needs-detection">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-16 h-16 rounded-full bg-zinc-800/50 flex items-center justify-center">
+              <Target className="w-8 h-8 text-zinc-500" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-white mb-1">No Weakness Detected Yet</h3>
+              <p className="text-zinc-400 text-sm mb-3">
+                Play and analyze some games first. We'll identify your biggest mistake pattern.
+              </p>
+              <div className="p-3 bg-zinc-800/50 rounded-lg">
+                <p className="text-xs text-zinc-500">HOW IT WORKS</p>
+                <p className="text-sm text-zinc-300 mt-1">
+                  Import games → We analyze → Detect your pattern → Start your streak
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Determine colors based on tone
   const toneStyles = {

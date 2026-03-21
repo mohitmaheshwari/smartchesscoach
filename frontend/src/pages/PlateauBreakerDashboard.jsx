@@ -111,6 +111,12 @@ const PlateauBreakerDashboard = ({ user }) => {
       });
       const gamesData = await gamesRes.json();
       
+      // If user is not logged in, we can't show real data
+      if (!user?.user_id) {
+        setLoading(false);
+        return;
+      }
+
       // Find the biggest blocker from pattern data
       const patterns = identityData.blunder_taxonomy || {};
       let biggestBlocker = null;
@@ -289,15 +295,16 @@ const PlateauBreakerDashboard = ({ user }) => {
           />
         </motion.div>
         
-        {/* THE BLOCKER - This is ALL that matters */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card className="bg-red-950/30 border-red-500/50 overflow-hidden">
-            <CardContent className="p-0">
-              {/* Red Alert Header */}
+        {/* THE BLOCKER - Only show if we have detected one */}
+        {blockerData?.type ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
+            <Card className="bg-red-950/30 border-red-500/50 overflow-hidden">
+              <CardContent className="p-0">
+                {/* Red Alert Header */}
               <div className="bg-red-500/20 px-6 py-4 border-b border-red-500/30">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full bg-red-500/30 flex items-center justify-center">
@@ -383,8 +390,45 @@ const PlateauBreakerDashboard = ({ user }) => {
             </CardContent>
           </Card>
         </motion.div>
+        ) : (
+          /* No blocker detected - show "needs games" state */
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
+            <Card className="bg-zinc-900/50 border-zinc-700">
+              <CardContent className="p-6">
+                <div className="text-center py-8">
+                  <Target className="w-12 h-12 text-zinc-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-white mb-2">No Weakness Detected Yet</h3>
+                  <p className="text-zinc-400 mb-6 max-w-md mx-auto">
+                    We need to analyze your games to find your biggest mistake pattern. 
+                    Import some games or play against the coach first.
+                  </p>
+                  <div className="flex gap-3 justify-center">
+                    <Button
+                      onClick={() => navigate("/import")}
+                      variant="outline"
+                      className="border-zinc-700"
+                    >
+                      Import Games
+                    </Button>
+                    <Button
+                      onClick={() => navigate("/play-with-coach")}
+                      className="bg-amber-600 hover:bg-amber-700"
+                    >
+                      Play With Coach
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
-        {/* Training Progress */}
+        {/* Training Progress - Only show if blocker exists */}
+        {blockerData?.type && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -426,6 +470,7 @@ const PlateauBreakerDashboard = ({ user }) => {
             </CardContent>
           </Card>
         </motion.div>
+        )}
 
         {/* Play with Enforcement */}
         <motion.div

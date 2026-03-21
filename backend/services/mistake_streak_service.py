@@ -615,8 +615,7 @@ def get_pregame_streak_data(user_streak_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dict with streak info and messaging for pre-game display
     """
-    focus_type = user_streak_data.get("current_focus_mistake", "THREAT_VERIFICATION")
-    focus_info = FOCUS_MISTAKE_TYPES.get(focus_type, {})
+    focus_type = user_streak_data.get("current_focus_mistake")  # Can be None!
     streak = user_streak_data.get("mistake_streak", {})
     trend = user_streak_data.get("mistake_trend", {})
     
@@ -624,7 +623,30 @@ def get_pregame_streak_data(user_streak_data: Dict[str, Any]) -> Dict[str, Any]:
     best = streak.get("best", 0)
     last_had_mistake = streak.get("last_game_had_mistake", False)
     
-    # Generate messaging
+    # Handle case where no focus has been detected yet
+    if focus_type is None:
+        return {
+            "focus_mistake_type": None,
+            "focus_mistake_name": None,
+            "rule": None,
+            "current_streak": 0,
+            "best_streak": 0,
+            "last_game_had_mistake": False,
+            "headline": "No Focus Yet",
+            "message": "Play and analyze some games first. We'll detect your biggest weakness.",
+            "tone": "needs_detection",
+            "needs_detection": True,
+            "trend": {
+                "before_avg": None,
+                "recent_avg": None,
+                "improvement_pct": None,
+                "show_trend": False
+            }
+        }
+    
+    focus_info = FOCUS_MISTAKE_TYPES.get(focus_type, {})
+    
+    # Generate messaging based on state
     if current == 0 and last_had_mistake:
         # Just broke streak
         headline = "Streak Broken"
@@ -656,6 +678,7 @@ def get_pregame_streak_data(user_streak_data: Dict[str, Any]) -> Dict[str, Any]:
         "headline": headline,
         "message": message,
         "tone": tone,
+        "needs_detection": False,
         "trend": {
             "before_avg": trend.get("before_avg"),
             "recent_avg": trend.get("recent_avg"),
@@ -1007,9 +1030,13 @@ def _enhance_postgame_messaging(
 
 
 def _get_default_streak_data() -> Dict[str, Any]:
-    """Get default streak data for new users."""
+    """Get default streak data for new users.
+    
+    IMPORTANT: current_focus_mistake is None until actual detection.
+    We don't assume a problem - we detect it from game analysis.
+    """
     return {
-        "current_focus_mistake": "THREAT_VERIFICATION",
+        "current_focus_mistake": None,  # No default! Must be detected from games
         "mistake_streak": {
             "current": 0,
             "best": 0,

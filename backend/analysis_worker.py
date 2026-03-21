@@ -1128,7 +1128,45 @@ def process_job(db, job):
                 result_type = streak_result.get("postgame_result", {}).get("result", "unknown")
                 logger.info(f"[STREAK] Updated for {user_id}: {result_type}")
             else:
-                logger.info(f"[STREAK] Game skipped (not valid for streak)")
+                logger.info("[STREAK] Game skipped (not valid for streak)")
+            
+            # =====================================================================
+            # AUTO-DETECT FOCUS: If user has no focus set, detect from patterns
+            # This ensures focus is ONLY set from real detected patterns
+            # =====================================================================
+            user_streak = db.users.find_one({"user_id": user_id}, {"streak_data": 1})
+            current_focus = user_streak.get("streak_data", {}).get("current_focus_mistake") if user_streak else None
+            
+            if current_focus is None:
+                # Get identity to find most common blunder type
+                identity = db.player_identities.find_one({"user_id": user_id})
+                if identity:
+                    blunder_by_type = identity.get("blunder_taxonomy", {}).get("by_type", {})
+                    most_common = identity.get("blunder_taxonomy", {}).get("most_common_type")
+                    
+                    # Only set focus if we have actual data (count > 0)
+                    if most_common and blunder_by_type.get(most_common, 0) > 0:
+                        # Map blunder type to streak focus type
+                        blunder_to_focus = {
+                            "tactical_error": "THREAT_VERIFICATION",
+                            "positional_error": "STOPPED_CALCULATION_EARLY",
+                            "time_trouble": "FORCING_BLIND",
+                            "opening_mistake": "FORCING_BLIND",
+                            "endgame_error": "TACTICAL_MISS",
+                            "blunder": "THREAT_VERIFICATION",
+                            "missed_win": "TACTICAL_MISS",
+                            "missed_tactic": "TACTICAL_MISS",
+                            "hanging_piece": "HANGING_PIECE"
+                        }
+                        
+                        focus_type = blunder_to_focus.get(most_common, "THREAT_VERIFICATION")
+                        
+                        db.users.update_one(
+                            {"user_id": user_id},
+                            {"$set": {"streak_data.current_focus_mistake": focus_type}},
+                            upsert=True
+                        )
+                        logger.info(f"[FOCUS] Auto-detected focus for {user_id}: {most_common} -> {focus_type}")
                 
         except Exception as streak_err:
             # Non-fatal - log but don't fail the analysis

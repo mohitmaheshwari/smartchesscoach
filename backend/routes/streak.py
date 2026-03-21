@@ -275,9 +275,12 @@ async def get_focus_types() -> Dict[str, Any]:
 # =============================================================================
 
 def _get_default_streak_data() -> Dict[str, Any]:
-    """Get default streak data for new users."""
+    """Get default streak data for new users.
+    
+    IMPORTANT: current_focus_mistake is None until detected from games.
+    """
     return {
-        "current_focus_mistake": "THREAT_VERIFICATION",
+        "current_focus_mistake": None,  # No default! Must be detected
         "mistake_streak": {
             "current": 0,
             "best": 0,
@@ -291,4 +294,43 @@ def _get_default_streak_data() -> Dict[str, Any]:
             "baseline_locked": False
         },
         "last_5_games": []
+    }
+
+
+# =============================================================================
+# RESET FOCUS (Admin/Testing)
+# =============================================================================
+
+@router.post("/reset-focus")
+async def reset_focus(request: Request) -> Dict[str, Any]:
+    """
+    Reset user's focus to None (requires re-detection from games).
+    
+    For testing or when user wants to re-analyze their patterns.
+    
+    Body:
+        user_id: str
+    """
+    global db
+    body = await request.json()
+    user_id = body.get("user_id")
+    
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id required")
+    
+    # Reset focus to None
+    await db.users.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "streak_data.current_focus_mistake": None,
+                "streak_data.mistake_streak.current": 0,
+                "streak_data.last_5_games": []
+            }
+        }
+    )
+    
+    return {
+        "success": True,
+        "message": "Focus reset. Will be re-detected from game analysis."
     }
