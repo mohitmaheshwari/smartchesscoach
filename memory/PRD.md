@@ -9,6 +9,37 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
+### Backend Truth + Enforcement Ladder + Emotional Messaging (March 21, 2026)
+**"Users don't change because of insight. They change because the system doesn't let them repeat mistakes easily."**
+
+**Phase 8: Backend Streak Update (SOURCE OF TRUTH)**
+- Added Phase 8 to `analysis_worker.py` (line 1103+) - calls `update_streak_from_analysis()` after Stockfish analysis
+- Frontend NO LONGER updates streak - backend is authoritative
+- Stores metadata: `{ source: "engine_verified", analysis_version: "v1.3" }`
+- Finds and stores critical moment (highest cp_loss move)
+
+**Enforcement Ladder (Progressive Strictness)**
+- Added `EnforcementLadder` class to `pre_move_guardian.py` (line 801+)
+- 5 escalation levels based on repeat count + risk severity:
+  1. WARNING: "Check opponent threat"
+  2. STRONG_WARNING: "You are repeating your mistake"
+  3. CHECKBOX_REQUIRED: Forces acknowledgment before proceeding
+  4. SOFT_BLOCK: "Try a different move"
+  5. ALLOW_WITH_PENALTY: "Warning ignored. Streak broken."
+- Combines `risk_level` (CRITICAL/HIGH/MEDIUM) with `repeat_count` for smart escalation
+
+**Emotional Messaging (Retention Engine)**
+- Upgraded `PostGameStreakResult.jsx`: 
+  - Broken: "You broke your streak by ignoring threats again. This is exactly why you're stuck."
+  - New Best: "This is real progress. Keep building."
+  - Critical moment hint: "Move 17 was your turning point."
+- Upgraded `PreGameStreakPopup.jsx`:
+  - Failed last game: "You ignored threat awareness and lost. Fix it now."
+  - On best streak: "You've never gone this long. Protect it."
+  - Urgency messages that create psychological pressure
+
+**Testing**: 100% success (16/16 backend tests, frontend verified)
+
 ### P0: Mistake-Free Streak + Carry-Forward Engine (March 21, 2026)
 **This is NOT gamification - it's proof of behavior change.**
 
