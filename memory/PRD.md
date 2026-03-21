@@ -279,10 +279,15 @@ All P0 issues resolved in this session.
 - **Intelligent Position Coaching**: `/app/backend/services/intelligent_position_coach.py` orchestrates `PawnStructureClassifier`, `StructurePlanDatabase`, `DetectorRegistry`, and `position_strategy_analyzer` to provide contextual coaching for any position. Triggers after 12+ moves when no opening teaching is active. Frontend component: `PositionCoachingPanel.jsx`
 - **V1 Plateau Breaker Mode**: Enforced learning system that identifies the user's single biggest mistake ("blocker"), provides psychological messaging, and forces completion of puzzle training + apply mode before unlocking next game analysis. Uses `LichessBoard.jsx` wrapper for consistent board rendering across all pages.
 - **P0 Mistake-Free Streak**: Tracks games without user's focus mistake. Displays on dashboard with current/best streak, rule reminder, and improvement trend. Pre-game popup applies psychological pressure. Post-game shows celebration or break message.
+- **V1 Guided Play Mode Integration**: CoachPlay page (`/play-with-coach`) now integrated with Plateau Breaker streak system:
+  - Streak data fetched on page load via `/api/streak/status`
+  - Focus mistake mapped to player weaknesses in PreMoveChecklist (e.g., THREAT_VERIFICATION → "What will my opponent do after this move?")
+  - Pre-game streak popup shows rule reminder before game starts
+  - Post-game streak result shows whether streak continued or broke
 
 ## Next Tasks (Prioritized)
-1. **(P1) Enhance Apply Mode**: Make it a real 10-15 move mini-game against engine that tracks if user commits focus-mistake
-2. **(P1) Connect Streak to Game Analysis**: Call POST /api/streak/update from analysis worker after Stockfish analysis completes
+1. **(P1) Connect Streak to Real Game Analysis**: Call POST /api/streak/update from backend analysis worker (not frontend) after Stockfish analysis completes with real move_evaluations
+2. **(P1) Enhance Apply Mode**: Make it a real 10-15 move mini-game against engine that tracks if user commits focus-mistake
 3. **(P2) Server-Side Training Lock**: Migrate lock state from localStorage to backend (add `is_training_locked`, `current_mistake_focus` to user model)
 4. **(P2) Multi-Game Focus**: Lock user into fixing same mistake for 3 consecutive games before introducing new blocker
 
