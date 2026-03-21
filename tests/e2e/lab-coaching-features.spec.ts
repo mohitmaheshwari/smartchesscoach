@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts } from '../fixtures/helpers';
 
-const BASE_URL = 'https://chess-coach-audit.preview.emergentagent.com';
+const BASE_URL = 'https://mistake-fixer-1.preview.emergentagent.com';
 
 /**
  * Lab Page Coaching Features Tests

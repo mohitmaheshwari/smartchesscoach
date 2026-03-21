@@ -13,7 +13,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Chess } from "chess.js";
-import { Chessground } from "chessground";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play,
@@ -34,10 +33,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-
-import "chessground/assets/chessground.base.css";
-import "chessground/assets/chessground.brown.css";
-import "chessground/assets/chessground.cburnett.css";
+import LichessBoard from "@/components/LichessBoard";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -71,7 +67,6 @@ const GuidedOpeningLesson = ({
   onStartPractice 
 }) => {
   const boardRef = useRef(null);
-  const groundRef = useRef(null);
   const chessRef = useRef(new Chess());
   const autoPlayRef = useRef(null);
   
@@ -84,29 +79,11 @@ const GuidedOpeningLesson = ({
   const [loadingDeeper, setLoadingDeeper] = useState(false);
   const [lastMoveSquares, setLastMoveSquares] = useState(null);
   const [showIntro, setShowIntro] = useState(true);
+  const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   
   const mainLine = opening?.main_line || [];
   const keyIdeas = opening?.key_ideas || [];
   const userColor = opening?.color || "white";
-  
-  // Initialize board
-  useEffect(() => {
-    if (boardRef.current && !groundRef.current) {
-      groundRef.current = Chessground(boardRef.current, {
-        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        orientation: userColor,
-        viewOnly: true,
-        animation: { duration: 400 }
-      });
-    }
-    
-    return () => {
-      if (groundRef.current) {
-        groundRef.current.destroy();
-        groundRef.current = null;
-      }
-    };
-  }, [userColor]);
   
   // Update board position
   const updateBoard = useCallback((moveIndex) => {
@@ -121,14 +98,8 @@ const GuidedOpeningLesson = ({
       }
     }
     
-    if (groundRef.current) {
-      groundRef.current.set({
-        fen: chessRef.current.fen(),
-        lastMove: lastMove ? [lastMove.from, lastMove.to] : undefined
-      });
-    }
-    
-    setLastMoveSquares(lastMove);
+    setCurrentFen(chessRef.current.fen());
+    setLastMoveSquares(lastMove ? [lastMove.from, lastMove.to] : null);
     
     // Update coach message
     if (moveIndex >= 0 && moveIndex < mainLine.length) {
@@ -269,12 +240,8 @@ const GuidedOpeningLesson = ({
     setDeeperExplanation(null);
     setShowingWhy(false);
     chessRef.current.reset();
-    if (groundRef.current) {
-      groundRef.current.set({
-        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        lastMove: undefined
-      });
-    }
+    setCurrentFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    setLastMoveSquares(null);
   };
   
   const isComplete = currentMoveIndex === mainLine.length - 1;
@@ -286,11 +253,16 @@ const GuidedOpeningLesson = ({
       <Card className="overflow-hidden">
         <CardContent className="p-0">
           <div className="relative">
-            <div 
-              ref={boardRef} 
-              className="w-full aspect-square"
-              style={{ maxWidth: "100%" }}
-            />
+            <div className="w-full aspect-square">
+              <LichessBoard
+                ref={boardRef}
+                fen={currentFen}
+                orientation={userColor}
+                lastMove={lastMoveSquares}
+                viewOnly={true}
+                interactive={false}
+              />
+            </div>
             
             {/* Move badge overlay */}
             {currentMoveIndex >= 0 && coachMessage && (

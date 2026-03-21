@@ -13,7 +13,7 @@ import requests
 import os
 import sys
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-coach-audit.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mistake-fixer-1.preview.emergentagent.com')
 
 # Add backend to path for direct imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

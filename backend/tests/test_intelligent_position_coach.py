@@ -16,7 +16,7 @@ import os
 import time
 import chess
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://chess-coach-audit.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mistake-fixer-1.preview.emergentagent.com')
 
 
 @pytest.fixture

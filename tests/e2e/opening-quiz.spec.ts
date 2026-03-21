@@ -10,7 +10,7 @@ import { test, expect } from '@playwright/test';
  * 4. Quiz submission and result display
  */
 
-const BASE_URL = 'https://chess-coach-audit.preview.emergentagent.com';
+const BASE_URL = 'https://mistake-fixer-1.preview.emergentagent.com';
 
 test.describe('Opening Quiz Mode', () => {
   test.beforeEach(async ({ page }) => {

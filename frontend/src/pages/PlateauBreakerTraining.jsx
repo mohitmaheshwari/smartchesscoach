@@ -18,7 +18,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
-import { Chessground } from "chessground";
 import {
   Target,
   CheckCircle,
@@ -37,10 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-
-import "chessground/assets/chessground.base.css";
-import "chessground/assets/chessground.brown.css";
-import "chessground/assets/chessground.cburnett.css";
+import LichessBoard from "@/components/LichessBoard";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -129,7 +125,6 @@ const PlateauBreakerTraining = ({ user }) => {
   const mistakeType = location.state?.mistakeType || blocker?.type || "tactical_error";
 
   const boardRef = useRef(null);
-  const groundRef = useRef(null);
   const chessRef = useRef(new Chess());
 
   const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0);
@@ -141,116 +136,60 @@ const PlateauBreakerTraining = ({ user }) => {
   const [trainingComplete, setTrainingComplete] = useState(false);
   const [showFailure, setShowFailure] = useState(false);
   const [attempts, setAttempts] = useState(1);
+  const [currentFen, setCurrentFen] = useState(null);
+  const [lastMove, setLastMove] = useState(null);
+  const [canMove, setCanMove] = useState(true);
 
   const puzzles = TRAINING_POSITIONS[mistakeType] || TRAINING_POSITIONS.tactical_error;
   const currentPuzzle = puzzles[currentPuzzleIndex % puzzles.length];
   const requiredPuzzles = 5;
   const maxWrongAnswers = 2; // Fail after 2 wrong
 
+  // Initialize puzzle on mount and when puzzle changes
   useEffect(() => {
-    if (boardRef.current && !groundRef.current) {
-      initializeBoard();
-    }
-    return () => {
-      if (groundRef.current) {
-        groundRef.current.destroy();
-        groundRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (groundRef.current && currentPuzzle && puzzleState === "thinking") {
-      loadPuzzle();
-    }
-  }, [currentPuzzleIndex, currentPuzzle, puzzleState]);
-
-  const initializeBoard = () => {
-    groundRef.current = Chessground(boardRef.current, {
-      fen: currentPuzzle.fen,
-      orientation: "white",
-      movable: {
-        free: false,
-        color: "white",
-        dests: new Map(),
-        events: {
-          after: onMove
-        }
-      },
-      animation: { duration: 300 }
-    });
     loadPuzzle();
-  };
+  }, [currentPuzzleIndex]);
 
   const loadPuzzle = useCallback(() => {
     chessRef.current.load(currentPuzzle.fen);
-    const dests = getLegalMoves();
-    
-    if (groundRef.current) {
-      groundRef.current.set({
-        fen: currentPuzzle.fen,
-        turnColor: chessRef.current.turn() === 'w' ? 'white' : 'black',
-        movable: {
-          free: false,
-          color: chessRef.current.turn() === 'w' ? 'white' : 'black',
-          dests: dests
-        },
-        lastMove: undefined
-      });
-    }
-    
+    setCurrentFen(currentPuzzle.fen);
+    setLastMove(null);
+    setCanMove(true);
     setPuzzleState("thinking");
     setSelectedMove(null);
     setShowHint(false);
   }, [currentPuzzle]);
 
-  const getLegalMoves = () => {
-    const dests = new Map();
-    const moves = chessRef.current.moves({ verbose: true });
+  const onMove = (moveData) => {
+    if (!moveData || puzzleState !== "thinking") return;
     
-    for (const move of moves) {
-      if (!dests.has(move.from)) {
-        dests.set(move.from, []);
-      }
-      dests.get(move.from).push(move.to);
-    }
+    const { from, to, san, fen } = moveData;
+    setSelectedMove(san);
     
-    return dests;
-  };
-
-  const onMove = (orig, dest) => {
-    const move = chessRef.current.move({ from: orig, to: dest });
+    // Check if correct (normalize move notation)
+    const isCorrect = san.replace(/[+#]/g, '') === currentPuzzle.solution.replace(/[+#]/g, '');
     
-    if (move) {
-      setSelectedMove(move.san);
+    if (isCorrect) {
+      setPuzzleState("correct");
+      setCurrentFen(fen);
+      setLastMove([from, to]);
+      setCanMove(false);
+    } else {
+      // WRONG ANSWER
+      const newWrongCount = wrongAnswers + 1;
+      setWrongAnswers(newWrongCount);
       
-      // Check if correct (normalize move notation)
-      const isCorrect = move.san.replace(/[+#]/g, '') === currentPuzzle.solution.replace(/[+#]/g, '');
-      
-      if (isCorrect) {
-        setPuzzleState("correct");
-        if (groundRef.current) {
-          groundRef.current.set({
-            fen: chessRef.current.fen(),
-            lastMove: [orig, dest],
-            movable: { dests: new Map() }
-          });
-        }
+      if (newWrongCount >= maxWrongAnswers) {
+        // FAILED - Must restart
+        setPuzzleState("failed");
+        setShowFailure(true);
+        setCanMove(false);
       } else {
-        // WRONG ANSWER
-        const newWrongCount = wrongAnswers + 1;
-        setWrongAnswers(newWrongCount);
-        
-        if (newWrongCount >= maxWrongAnswers) {
-          // FAILED - Must restart
-          setPuzzleState("failed");
-          setShowFailure(true);
-        } else {
-          setPuzzleState("incorrect");
-          setTimeout(() => {
-            loadPuzzle();
-          }, 2000);
-        }
+        setPuzzleState("incorrect");
+        setCanMove(false);
+        setTimeout(() => {
+          loadPuzzle();
+        }, 2000);
       }
     }
   };
@@ -452,10 +391,18 @@ const PlateauBreakerTraining = ({ user }) => {
           {/* Board */}
           <Card className="bg-zinc-900/50 border-zinc-800">
             <CardContent className="p-4">
-              <div 
-                ref={boardRef} 
-                className="w-full aspect-square rounded-lg overflow-hidden"
-              />
+              <div className="aspect-square">
+                <LichessBoard
+                  ref={boardRef}
+                  fen={currentFen || currentPuzzle.fen}
+                  orientation="white"
+                  lastMove={lastMove}
+                  onMove={onMove}
+                  interactive={canMove && puzzleState === "thinking"}
+                  viewOnly={!canMove || puzzleState !== "thinking"}
+                  showDests={canMove && puzzleState === "thinking"}
+                />
+              </div>
             </CardContent>
           </Card>
 

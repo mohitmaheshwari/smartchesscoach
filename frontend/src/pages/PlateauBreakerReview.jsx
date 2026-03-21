@@ -15,7 +15,6 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
-import { Chessground } from "chessground";
 import {
   AlertTriangle,
   Target,
@@ -29,10 +28,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-
-import "chessground/assets/chessground.base.css";
-import "chessground/assets/chessground.brown.css";
-import "chessground/assets/chessground.cburnett.css";
+import LichessBoard from "@/components/LichessBoard";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -43,7 +39,6 @@ const PlateauBreakerReview = ({ user }) => {
   const blocker = location.state?.blocker;
 
   const boardRef = useRef(null);
-  const groundRef = useRef(null);
   const chessRef = useRef(new Chess());
 
   const [loading, setLoading] = useState(true);
@@ -53,28 +48,15 @@ const PlateauBreakerReview = ({ user }) => {
   const [currentStep, setCurrentStep] = useState(0); // 0: mistake, 1: pattern, 2: rule, 3: demo
   const [showingDemo, setShowingDemo] = useState(false);
   const [demoStep, setDemoStep] = useState(0);
+  const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  const [lastMove, setLastMove] = useState(null);
+  const [orientation, setOrientation] = useState("white");
 
   useEffect(() => {
     if (gameId) {
       fetchGameAnalysis();
     }
   }, [gameId]);
-
-  useEffect(() => {
-    if (boardRef.current && !groundRef.current) {
-      groundRef.current = Chessground(boardRef.current, {
-        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        viewOnly: true,
-        animation: { duration: 300 }
-      });
-    }
-    return () => {
-      if (groundRef.current) {
-        groundRef.current.destroy();
-        groundRef.current = null;
-      }
-    };
-  }, []);
 
   const fetchGameAnalysis = async () => {
     try {
@@ -129,11 +111,10 @@ const PlateauBreakerReview = ({ user }) => {
       setPatternCount(taxonomy[mistakeType] || 1);
 
       // Set board to mistake position
-      if (biggestMistake?.fen && groundRef.current) {
-        groundRef.current.set({
-          fen: biggestMistake.fen,
-          orientation: game.user_color || "white"
-        });
+      if (biggestMistake?.fen) {
+        setCurrentFen(biggestMistake.fen);
+        setOrientation(game.user_color || "white");
+        setLastMove(null);
       }
 
     } catch (err) {
@@ -144,23 +125,19 @@ const PlateauBreakerReview = ({ user }) => {
   };
 
   const showMistakePosition = () => {
-    if (criticalMistake?.fen && groundRef.current) {
-      groundRef.current.set({
-        fen: criticalMistake.fen,
-        lastMove: undefined
-      });
+    if (criticalMistake?.fen) {
+      setCurrentFen(criticalMistake.fen);
+      setLastMove(null);
     }
   };
 
   const showBetterMove = () => {
-    if (criticalMistake?.fen && criticalMistake?.better_move && groundRef.current) {
+    if (criticalMistake?.fen && criticalMistake?.better_move) {
       chessRef.current.load(criticalMistake.fen);
       const move = chessRef.current.move(criticalMistake.better_move);
       if (move) {
-        groundRef.current.set({
-          fen: chessRef.current.fen(),
-          lastMove: [move.from, move.to]
-        });
+        setCurrentFen(chessRef.current.fen());
+        setLastMove([move.from, move.to]);
       }
     }
   };
@@ -258,10 +235,16 @@ const PlateauBreakerReview = ({ user }) => {
           {/* Chess Board */}
           <Card className="bg-zinc-900/50 border-zinc-800">
             <CardContent className="p-4">
-              <div 
-                ref={boardRef} 
-                className="w-full aspect-square rounded-lg overflow-hidden"
-              />
+              <div className="aspect-square">
+                <LichessBoard
+                  ref={boardRef}
+                  fen={currentFen}
+                  orientation={orientation}
+                  lastMove={lastMove}
+                  viewOnly={true}
+                  interactive={false}
+                />
+              </div>
               
               {currentStep === 3 && (
                 <div className="mt-4 flex gap-2">
