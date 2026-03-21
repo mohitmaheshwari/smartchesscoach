@@ -3,6 +3,31 @@
 ## Original Problem Statement
 Create a hyper-personalized, data-driven chess coaching application that functions as a human-like AI coach with Socratic-style, contextual feedback tailored to the user's playstyle.
 
+**Vision**: The first chess app that teaches you HOW to think, not just WHAT to play.
+
+**Target Market**: Indian chess players (5M+ active), 600-2000 ELO rating range.
+
+## Latest Updates (March 2026)
+
+### Interactive Guided Opening Lessons
+- **GuidedOpeningLesson component**: Transformed static text dumps into interactive video-style walkthroughs
+- Coach auto-plays through moves with narration ("Now watch this...", "Pay attention here...")
+- Progress bar showing lesson completion (e.g., "5 / 12")
+- Playback controls: Pause, Previous, Next, Reset, Speed slider
+- "Why this move?" button for AI-powered deeper explanations
+- Key Ideas Reference panel with collapsible summary
+
+### Opening Library Overview Page
+- New `/openings-overview` page for admin verification
+- Shows all 23 openings with source badges (library, mastery, plans)
+- Expandable cards with full content preview (key ideas, main line, traps, common mistakes)
+- Data completeness warnings for missing content
+- Quick links to lesson pages and admin editor
+
+### Comprehensive Documentation
+- Created `/app/APP.md` - Complete investor-ready product & technical documentation
+- Covers: Vision, Problem, Features, User Flows, Technical Architecture, AI Engine, Data Models, API Reference, Competitive Analysis, Monetization, Roadmap
+
 ## What's Been Implemented
 
 ### Core Features
