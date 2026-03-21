@@ -59,6 +59,103 @@ def parse_move_question(question: str) -> Tuple[Optional[str], Optional[str]]:
     return None, None
 
 
+
+def _diagnose_illegal_move(board: chess.Board, move_san: str) -> str:
+    """
+    Explain WHY a move is illegal in human-friendly terms.
+    
+    Common reasons:
+    - Target square has your own piece
+    - Piece can't reach that square (wrong movement pattern)
+    - No piece of that type exists
+    - Move would leave king in check
+    """
+    piece_names = {
+        chess.KING: "King", chess.QUEEN: "Queen", chess.ROOK: "Rook",
+        chess.BISHOP: "Bishop", chess.KNIGHT: "Knight", chess.PAWN: "Pawn"
+    }
+    
+    # Parse the move components
+    move_str = move_san.strip().replace("+", "").replace("#", "")
+    # Determine piece type
+    if move_str[0] in "KQRBN":
+        piece_char = move_str[0]
+        piece_type = {"K": chess.KING, "Q": chess.QUEEN, "R": chess.ROOK,
+                      "B": chess.BISHOP, "N": chess.KNIGHT}[piece_char]
+        rest = move_str[1:]
+    else:
+        piece_char = "P"
+        piece_type = chess.PAWN
+        rest = move_str
+    
+    piece_name = piece_names.get(piece_type, piece_char)
+    
+    # Try to extract target square
+    rest_clean = rest.replace("x", "")
+    target_sq_name = None
+    if len(rest_clean) >= 2:
+        candidate = rest_clean[-2:]
+        if candidate[0] in "abcdefgh" and candidate[1] in "12345678":
+            target_sq_name = candidate
+    
+    if not target_sq_name:
+        return f"'{move_san}' is not a valid move notation."
+    
+    try:
+        target_sq = chess.parse_square(target_sq_name)
+    except ValueError:
+        return f"'{move_san}' is not a valid move notation."
+    
+    player_color = board.turn
+    target_piece = board.piece_at(target_sq)
+    
+    # Check: is your own piece on the target square?
+    if target_piece and target_piece.color == player_color:
+        own_piece_name = piece_names.get(target_piece.piece_type, "piece")
+        return f"'{move_san}' is not legal — your own {own_piece_name.lower()} is on {target_sq_name}."
+    
+    # Check: does the player have this piece type?
+    player_pieces_of_type = list(board.pieces(piece_type, player_color))
+    if not player_pieces_of_type:
+        return f"'{move_san}' is not legal — you don't have a {piece_name.lower()} on the board."
+    
+    # Check: can any piece of this type reach the target?
+    can_reach = False
+    for from_sq in player_pieces_of_type:
+        test_move = chess.Move(from_sq, target_sq)
+        # For promotions
+        if piece_type == chess.PAWN and chess.square_rank(target_sq) in (0, 7):
+            test_move = chess.Move(from_sq, target_sq, promotion=chess.QUEEN)
+        if test_move in board.legal_moves:
+            can_reach = True
+            break
+    
+    if not can_reach:
+        # More specific: is the square unreachable or would it leave king in check?
+        if len(player_pieces_of_type) == 1:
+            from_sq = player_pieces_of_type[0]
+            # Check if the move would be pseudo-legal (ignoring check)
+            test_move = chess.Move(from_sq, target_sq)
+            if test_move in board.pseudo_legal_moves:
+                return f"'{move_san}' is not legal — it would leave your king in check."
+            else:
+                return f"'{move_san}' is not legal — your {piece_name.lower()} on {chess.square_name(from_sq)} can't reach {target_sq_name}."
+        else:
+            # Multiple pieces of this type
+            reasons = []
+            for from_sq in player_pieces_of_type:
+                sq_name = chess.square_name(from_sq)
+                test_move = chess.Move(from_sq, target_sq)
+                if test_move in board.pseudo_legal_moves:
+                    reasons.append(f"{piece_name} on {sq_name} can't move there (would leave king in check)")
+                else:
+                    reasons.append(f"{piece_name} on {sq_name} can't reach {target_sq_name}")
+            return f"'{move_san}' is not legal — " + "; ".join(reasons) + "."
+    
+    return f"'{move_san}' is not a legal move in this position."
+
+
+
 async def analyze_move_with_stockfish(
     fen: str, 
     move_san: str, 
@@ -173,7 +270,7 @@ async def answer_move_question(
     # Validate moves on the board
     board = chess.Board(fen)
     
-    # Check if alternative move is legal
+    # Check if alternative move is legal — with detailed WHY explanation
     try:
         alt_move = board.parse_san(q_alternative)
         if alt_move not in board.legal_moves:
@@ -181,8 +278,10 @@ async def answer_move_question(
                 "error": f"{q_alternative} is not a legal move in this position.",
                 "legal_moves": [board.san(m) for m in list(board.legal_moves)[:10]]
             }
-    except (ValueError, chess.IllegalMoveError, chess.AmbiguousMoveError) as e:
-        # Get helpful info about what moves ARE legal for that piece type
+    except (ValueError, chess.IllegalMoveError, chess.AmbiguousMoveError):
+        reason = _diagnose_illegal_move(board, q_alternative)
+        
+        # Get legal moves for that piece type
         piece_char = q_alternative[0].upper() if q_alternative[0].upper() in "KQRBN" else "P"
         piece_type_map = {"K": chess.KING, "Q": chess.QUEEN, "R": chess.ROOK, "B": chess.BISHOP, "N": chess.KNIGHT, "P": chess.PAWN}
         piece_type = piece_type_map.get(piece_char)
@@ -194,7 +293,7 @@ async def answer_move_question(
                 if piece and piece.piece_type == piece_type:
                     legal_for_piece.append(board.san(move))
         
-        error_msg = f"'{q_alternative}' is not a legal move here."
+        error_msg = reason
         if legal_for_piece:
             error_msg += f" Legal {piece_char} moves: {', '.join(legal_for_piece[:8])}"
         
