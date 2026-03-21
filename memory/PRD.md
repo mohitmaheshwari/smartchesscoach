@@ -9,6 +9,25 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
+### Final 2 Gaps Closed - Ready for User Testing (March 21, 2026)
+**"Until the user is forced to pause and reflect, nothing changes."**
+
+**GAP 1: EnforcementCheckboxModal (Point of No Escape)**
+- Created `/app/frontend/src/components/coach-play/EnforcementCheckboxModal.jsx`
+- At Level 3 enforcement: Board blocked, modal unavoidable
+- No close button, no skip, no escape
+- Checkbox: "I checked what my opponent is threatening"
+- Continue button disabled until checked + 400ms delay (prevents spam)
+- Micro-copy: "You are repeating your mistake. Slow down."
+
+**GAP 2: Improvement Proof (Belief Engine)**
+- Updated `_enhance_postgame_messaging()` to compare this game vs last game
+- Shows: "You missed 4 threats (last: 6)" with verdict
+- Verdicts: `improving` (green), `slipping` (red), `same` (neutral)
+- Messages: "Good. You're improving." / "You're slipping. Focus." / "You're not improving yet. Fix this."
+
+**Testing**: 100% (10/10 backend, frontend verified)
+
 ### Backend Truth + Enforcement Ladder + Emotional Messaging (March 21, 2026)
 **"Users don't change because of insight. They change because the system doesn't let them repeat mistakes easily."**
 
