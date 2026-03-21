@@ -27,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { MistakeFreeStreak } from "@/components/streak";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -225,11 +226,23 @@ const PlateauBreakerDashboard = ({ user }) => {
       {/* Main Content - Focused */}
       <div className="max-w-2xl mx-auto p-6 space-y-8">
         
+        {/* MISTAKE-FREE STREAK - Proof of improvement */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <MistakeFreeStreak 
+            userId={user?.user_id}
+            onStartTraining={() => navigate("/plateau-breaker/training", { state: { blocker: blockerData } })}
+          />
+        </motion.div>
+        
         {/* THE BLOCKER - This is ALL that matters */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
         >
           <Card className="bg-red-950/30 border-red-500/50 overflow-hidden">
             <CardContent className="p-0">
