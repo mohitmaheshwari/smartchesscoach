@@ -9,6 +9,40 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
+### Enterprise Theory Knowledge Base Refactoring (March 21, 2026)
+**From 19 patterns in 1 file → 82 patterns in 4 files, zero duplication**
+
+**Architecture Overhaul:**
+- Split monolithic `chess_theory.json` into `/data/theory/` directory:
+  - `opening_mistakes.json`: 28 opening-specific mistake patterns with FEN matching
+  - `endgame_principles.json`: 17 endgame patterns matched by material configuration
+  - `tactical_patterns.json`: 17 tactical motifs with prevention tips
+  - `positional_rules.json`: 20 golden rules for PV line classification fallback
+  - `index.json`: Metadata and data flow documentation
+- Rewrote `chess_theory_service.py` to load from new directory structure (with legacy fallback)
+- Cleaned `line_parser.py`: removed hardcoded `GOLDEN_RULES` and `OPENING_PATTERNS` dicts — now loads from theory service
+- Deleted deprecated `llm_chess_explainer.py`
+- Added `GET /api/coach/theory/rules` admin endpoint
+
+**New Opening Patterns Added (21 new):**
+- Ruy Lopez (Nxe4, early d5), Scotch Game, King's Indian (e5 break), Slav (Bf5 timing)
+- Vienna Game (f5), Scandinavian (Qd8 retreat), Philidor (Be7), Pirc (Bg7 delay)
+- Dutch (g5), Benoni (e6 vs d6), Nimzo-Indian (d5 vs O-O), English (d5 vs e5)
+- Petrov (Nxe5 trap), Grunfeld (center strategy)
+- Generic heuristic patterns: early queen, delayed castling, moving same piece twice, pawn hunting
+
+**New Endgame Patterns Added (10 new):**
+- Key squares concept, rook cutting off king, same-color bishops, knight outpost
+- Queen endgame perpetual, two bishops, wrong bishop + rook pawn
+- King activity, passed pawn creation, outside passed pawn
+
+**New Tactical Patterns Added (12 new):**
+- Pin to queen, pawn fork, discovered check, skewer, overloaded piece
+- Deflection, decoy, trapped piece, double attack, interference
+- Zwischenzug, removing the defender
+
+**Testing:** 100% (17/17 backend tests passed - iteration 140)
+
 ### UI Consistency Fix - Streak vs Blocker Display (March 21, 2026)
 **Issue**: Dashboard showed conflicting messages - "No Weakness Detected Yet" in the streak component while also showing "Your Current Blocker: You miss opponent's threats" in the blocker card.
 
@@ -175,36 +209,29 @@ Implemented the core behavioral improvement system that tracks games without the
 ```
 /app
 ├── backend/
-│   ├── routes/lab.py                    # Game analysis, turning points, deep-strategy
-│   ├── services/
-│   │   ├── move_by_move_coach.py        # NEW: Opening coaching commentary
-│   │   ├── coaching_moment_enricher.py  # Thinking lens, questions, lessons
-│   │   └── turning_point_explainer.py   # Behavioral explanations
-│   ├── coach_engine/
-│   │   ├── opening_plans.py             # Opening theory + coaching context builder + expanded variation trees
-│   │   ├── opening_schema.py            # NEW: Typed family/variation/node/trap schema + validation
-│   │   └── opening_teaching_db.py       # Curated teaching content
-│   ├── analysis_worker.py               # Queue processing + stuck-job retry logic
-│   ├── routes/admin_openings.py         # NEW: Admin feedback CRUD + validation endpoints
-│   ├── services/opening_correction_service.py # NEW: PGN/SAN correction intake + live override helpers
-│   ├── services/verified_opening_traps.py # Canonical verified trap registry + validators
-│   └── server.py                        # Main server + live move undo endpoint + fallback queue processor
+│   ├── data/
+│   │   ├── theory/                      # Enterprise knowledge base (admin-editable)
+│   │   │   ├── index.json               # Metadata and data flow docs
+│   │   │   ├── opening_mistakes.json    # 28 FEN-based opening patterns
+│   │   │   ├── endgame_principles.json  # 17 material-based endgame patterns
+│   │   │   ├── tactical_patterns.json   # 17 tactical motif patterns
+│   │   │   └── positional_rules.json    # 20 golden rules for PV fallback
+│   │   ├── eco_openings.json            # ECO reference data (static)
+│   │   └── chess_theory.json            # Legacy (kept for backwards compat)
+│   ├── routes/
+│   │   ├── coach.py                     # Theory/explain-mistake/Q&A endpoints
+│   │   └── ...
+│   └── services/
+│       ├── chess_theory_service.py      # Single source of truth - loads /data/theory/
+│       ├── line_parser.py               # PV line parsing (no hardcoded data)
+│       ├── move_qa_service.py           # "Why not move X?" feature
+│       └── ...
 └── frontend/
     └── src/
-        ├── App.js                       # Protected route + stored redirect handling
-        ├── components/lab/
-        │   ├── CriticalMoments.jsx      # Interactive training loop
-        │   └── GameSummary.jsx          # Explain Move + View Position
-        ├── components/openings/OpeningCorrectionDialog.jsx # NEW: correction submission modal
-        └── pages/
-            ├── AdminOpenings.jsx        # NEW: Monaco-based opening feedback manager
-            ├── AuthCallback.jsx         # Post-auth redirect restoration
-            ├── CoachPlay.jsx            # Play with Coach (fixed polling)
-            ├── HomePage.jsx             # Blind Spots widget
-            ├── Lab.jsx                  # Queue status UX for analysis-in-progress / failed games
-            ├── Landing.jsx              # Dev login / auth redirect entry
-            ├── Onboarding.jsx           # Demo mode bypass
-            └── LabV2.jsx                # 5-tab game review
+        ├── pages/
+        │   └── PlateauBreakerReview.jsx # Interactive review with theory + Q&A
+        └── components/
+            └── ClickableLine.jsx        # Interactive move sequences
 ```
 
 ## Prioritized Backlog
@@ -260,6 +287,7 @@ All P0 issues resolved in this session.
 - [x] **Documentation**: Created `/app/memory/DATA_SOURCES.md` mapping all pages to their data sources
 
 ### P1 - Next
+- [ ] **Admin UI for Theory Database**: Web interface to view/edit theory JSON files via browser (CRUD without code deployment)
 - [ ] Fully verify onboarding/navigation reliability with a fresh un-onboarded test user
 - [ ] Add automatic profile creation during game sync if it doesn't exist (currently relies on analysis worker)
 - [ ] Add "What You Did Well" section to Summary (celebrate good moves)
@@ -299,6 +327,7 @@ All P0 issues resolved in this session.
 - **Thinking Coach/Improvement Engine Phase 2**: iteration 131 (32/32 tests passed, 15/15 backend, 17/17 frontend) - verifies Pre-Move Checklist, all Thinking Coach APIs, regression tests
 - **Improvement Engine Phase 3**: iteration 132 (42/42 tests passed, 15/15 backend, 27/27 frontend) - verifies ThoughtProcessWalkthrough in Moments tab, PrincipleFeedback/BehavioralIntervention in Summary tab, enhanced PreMoveChecklist with weakness mapping
 - **Thinking Score System**: iteration 133 (33/33 tests passed, 16/16 backend, 17/17 frontend) - verifies all thinking score APIs, calculation from real game data, ThinkingScoreCard component
+- **Enterprise Theory Knowledge Base Refactoring**: iteration 140 (17/17 backend tests passed) - verifies split theory loading, all admin endpoints, FEN matching, PV fallback, Q&A
 - Test files: `/app/backend/tests/test_*.py`, `/app/tests/e2e/*.spec.ts`
 
 ## New Files Created
