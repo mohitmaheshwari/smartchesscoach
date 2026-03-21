@@ -158,29 +158,30 @@ def _diagnose_illegal_move(board: chess.Board, move_san: str) -> str:
 
 async def analyze_move_with_stockfish(
     fen: str, 
-    move_san: str, 
+    move_san: Optional[str], 
     depth: int = 18
 ) -> Optional[Dict[str, Any]]:
     """
-    Analyze a specific move with Stockfish.
+    Analyze a specific move with Stockfish, or get the engine's best move.
     
+    If move_san is None, analyzes the position directly (engine's best).
     Returns evaluation and best continuation.
     """
     try:
         board = chess.Board(fen)
         
-        # Parse the move
-        try:
-            move = board.parse_san(move_san)
-        except (ValueError, chess.IllegalMoveError, chess.AmbiguousMoveError) as e:
-            logger.warning(f"Could not parse move {move_san}: {e}")
-            return None
-        
-        if move not in board.legal_moves:
-            return None
-        
-        # Make the move
-        board.push(move)
+        if move_san is not None:
+            # Parse and play the user's move
+            try:
+                move = board.parse_san(move_san)
+            except (ValueError, chess.IllegalMoveError, chess.AmbiguousMoveError) as e:
+                logger.warning(f"Could not parse move {move_san}: {e}")
+                return None
+            
+            if move not in board.legal_moves:
+                return None
+            
+            board.push(move)
         
         # Run Stockfish
         transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
@@ -209,6 +210,8 @@ async def analyze_move_with_stockfish(
             temp_board = board.copy()
             for pv_move in pv[:6]:
                 try:
+                    if pv_move not in temp_board.pseudo_legal_moves:
+                        break
                     pv_san.append(temp_board.san(pv_move))
                     temp_board.push(pv_move)
                 except Exception:
@@ -219,7 +222,8 @@ async def analyze_move_with_stockfish(
                 "eval_cp": cp,
                 "mate_in": mate_in,
                 "pv": pv_san,
-                "fen_after": board.fen()
+                "fen_after": board.fen(),
+                "best_move": pv_san[0] if pv_san and move_san is None else None,
             }
             
         finally:
@@ -371,23 +375,36 @@ async def answer_move_question(
     elif "alternative" in analyses:
         alt_eval = analyses["alternative"]["eval_cp"]
 
-        # Still generate a coaching answer even without comparison
+        # Try to get engine's best move for meaningful comparison
+        real_diff = 0
+        best_move_san = None
+        best_analysis = None
+        try:
+            best_result = await analyze_move_with_stockfish(fen, None, depth)
+            if best_result:
+                best_eval = best_result.get("eval_cp", 0)
+                real_diff = alt_eval - best_eval
+                best_move_san = best_result.get("best_move")
+                best_analysis = best_result
+        except Exception as e:
+            logger.warning(f"Could not get engine best for comparison: {e}")
+
         answer = generate_coaching_answer(
             user_move=q_alternative,
-            better_move=None,
+            better_move=best_move_san,
             user_analysis=analyses["alternative"],
-            better_analysis=None,
+            better_analysis=best_analysis,
             board=board,
-            eval_diff=0,
+            eval_diff=real_diff,
         )
 
         move_char = analyze_move_character(board, q_alternative)
         thinking = detect_thinking_pattern(
             board=board,
             user_move_san=q_alternative,
-            better_move_san=None,
+            better_move_san=best_move_san,
             move_char=move_char,
-            eval_diff=0,
+            eval_diff=real_diff,
         )
 
         return {

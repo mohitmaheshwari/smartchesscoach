@@ -325,11 +325,31 @@ def generate_coaching_answer(
                     parts.append("actually a favorable exchange!")
             else:
                 # User moves piece to square, opponent captures it
-                parts.append(
-                    f"But your opponent immediately plays {opponent_first}, "
-                    f"capturing your {user_piece_name}. "
-                    f"You lose a {user_piece_name} for nothing."
-                )
+                # Special case: pawn exchange (d5 exd5 — both sides lose a pawn)
+                opp_is_pawn_capture = False
+                try:
+                    sim = board.copy()
+                    sim.push(board.parse_san(user_move))
+                    opp_move_obj = sim.parse_san(opponent_first)
+                    opp_mover = sim.piece_at(opp_move_obj.from_square)
+                    if opp_mover and opp_mover.piece_type == chess.PAWN and user_piece_name == "pawn":
+                        opp_is_pawn_capture = True
+                except Exception:
+                    pass
+
+                if opp_is_pawn_capture:
+                    # Pawn exchange — material is even, but position gets worse
+                    rest_pv = pv[1:4] if len(pv) > 1 else []
+                    parts.append(
+                        f"After {user_move} {opponent_first}, the pawns are exchanged — material is even. "
+                        f"But the position after {' '.join(rest_pv)} is much worse for you."
+                    )
+                else:
+                    parts.append(
+                        f"But your opponent immediately plays {opponent_first}, "
+                        f"capturing your {user_piece_name}. "
+                        f"You lose a {user_piece_name} for nothing."
+                    )
 
         elif mat_trace["is_trade_sequence"]:
             events = mat_trace["events"]

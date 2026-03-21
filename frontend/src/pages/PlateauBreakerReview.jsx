@@ -70,6 +70,7 @@ const PlateauBreakerReview = ({ user }) => {
   const [question, setQuestion] = useState("");
   const [qaAnswer, setQaAnswer] = useState(null);
   const [qaLoading, setQaLoading] = useState(false);
+  const [qaBoardMode, setQaBoardMode] = useState(false); // "Try a move" mode
 
   useEffect(() => {
     if (gameId) {
@@ -386,9 +387,14 @@ const PlateauBreakerReview = ({ user }) => {
 
   /**
    * Ask a question about a move, e.g., "why Na5 and not Nf5?"
+   * Can be triggered by text input OR by playing a move on the board.
    */
-  const askMoveQuestion = async () => {
-    if (!question.trim() || !criticalMistake?.fen) return;
+  const askMoveQuestion = async (moveFromBoard = null) => {
+    const questionText = moveFromBoard 
+      ? `why not ${moveFromBoard.san}?`
+      : question.trim();
+    
+    if (!questionText || !criticalMistake?.fen) return;
     
     setQaLoading(true);
     setQaAnswer(null);
@@ -400,8 +406,8 @@ const PlateauBreakerReview = ({ user }) => {
         credentials: "include",
         body: JSON.stringify({
           fen: criticalMistake.fen,
-          question: question,
-          played_move: null, // Let it parse from question
+          question: questionText,
+          played_move: null,
           depth: 18
         })
       });
@@ -410,9 +416,13 @@ const PlateauBreakerReview = ({ user }) => {
         const data = await res.json();
         setQaAnswer(data);
         
-        // If there's an alternative analysis, show the position
-        if (data.alternative_analysis?.fen_after) {
-          // Play through to show the alternative
+        // If move was from board, show the resulting position
+        if (moveFromBoard) {
+          setCurrentFen(moveFromBoard.fen);
+          setLastMove([moveFromBoard.from, moveFromBoard.to]);
+          setArrows([]);
+          setQuestion(`Why not ${moveFromBoard.san}?`);
+        } else if (data.alternative_analysis?.fen_after) {
           const chess = new Chess();
           chess.load(criticalMistake.fen);
           try {
@@ -432,7 +442,17 @@ const PlateauBreakerReview = ({ user }) => {
       setQaAnswer({ error: "Could not process the question. Try again." });
     } finally {
       setQaLoading(false);
+      setQaBoardMode(false);
     }
+  };
+
+  /**
+   * Handle a move played on the board in Q&A mode.
+   * The user dragged/clicked a piece to ask "why not this move?"
+   */
+  const handleQaBoardMove = (moveData) => {
+    if (!qaBoardMode || qaLoading) return;
+    askMoveQuestion(moveData);
   };
 
   const handlePracticeNow = () => {
@@ -528,16 +548,29 @@ const PlateauBreakerReview = ({ user }) => {
           {/* Chess Board */}
           <Card className="bg-zinc-900/50 border-zinc-800">
             <CardContent className="p-4">
-              <div className="aspect-square">
+              <div className="aspect-square relative">
                 <LichessBoard
                   ref={boardRef}
                   fen={currentFen}
                   orientation={orientation}
                   lastMove={lastMove}
                   arrows={showingLine ? [] : arrows}
-                  viewOnly={true}
-                  interactive={false}
+                  viewOnly={!qaBoardMode}
+                  interactive={qaBoardMode}
+                  showDests={qaBoardMode}
+                  onMove={qaBoardMode ? handleQaBoardMove : undefined}
                 />
+                {/* Q&A Board Mode overlay hint */}
+                {qaBoardMode && !qaLoading && (
+                  <div className="absolute top-0 left-0 right-0 bg-blue-500/90 text-white text-xs py-1.5 px-3 text-center font-medium">
+                    Play your move on the board
+                  </div>
+                )}
+                {qaLoading && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-lg">
+                    <div className="text-white text-sm font-medium animate-pulse">Analyzing...</div>
+                  </div>
+                )}
               </div>
               
               {currentStep === 3 && (
@@ -738,24 +771,70 @@ const PlateauBreakerReview = ({ user }) => {
                           {/* Q&A Input */}
                           <div className="mt-4 pt-4 border-t border-zinc-700">
                             <p className="text-xs text-zinc-500 mb-2">ASK A QUESTION</p>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={question}
-                                onChange={(e) => setQuestion(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && askMoveQuestion()}
-                                placeholder="Why Na5 and not Nf5?"
-                                className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
-                              />
+                            
+                            {/* Try a Move / Type toggle */}
+                            <div className="flex gap-2 mb-3">
                               <Button
                                 size="sm"
-                                onClick={askMoveQuestion}
-                                disabled={qaLoading || !question.trim()}
-                                className="bg-zinc-700 hover:bg-zinc-600"
+                                variant={qaBoardMode ? "default" : "outline"}
+                                onClick={() => {
+                                  if (!qaBoardMode) {
+                                    // Enter board mode — reset to mistake position
+                                    showMistakePosition();
+                                    setQaAnswer(null);
+                                  }
+                                  setQaBoardMode(!qaBoardMode);
+                                }}
+                                disabled={qaLoading}
+                                className={`flex-1 text-xs ${
+                                  qaBoardMode 
+                                    ? "bg-blue-600 hover:bg-blue-700 text-white" 
+                                    : "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                                }`}
+                                data-testid="try-move-btn"
                               >
-                                {qaLoading ? "..." : "Ask"}
+                                <Target className="w-3 h-3 mr-1.5" />
+                                {qaBoardMode ? "Playing..." : "Try a move on board"}
                               </Button>
+                              {qaBoardMode && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setQaBoardMode(false);
+                                    showMistakePosition();
+                                  }}
+                                  className="border-zinc-700 text-zinc-400 text-xs"
+                                  data-testid="cancel-try-move-btn"
+                                >
+                                  Cancel
+                                </Button>
+                              )}
                             </div>
+                            
+                            {/* Text input (always available as fallback) */}
+                            {!qaBoardMode && (
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={question}
+                                  onChange={(e) => setQuestion(e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && askMoveQuestion()}
+                                  placeholder="Or type: why not Nxd5?"
+                                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
+                                  data-testid="qa-text-input"
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => askMoveQuestion()}
+                                  disabled={qaLoading || !question.trim()}
+                                  className="bg-zinc-700 hover:bg-zinc-600"
+                                  data-testid="qa-ask-btn"
+                                >
+                                  {qaLoading ? "..." : "Ask"}
+                                </Button>
+                              </div>
+                            )}
                             
                             {/* Q&A Answer */}
                             {qaAnswer && (
