@@ -69,32 +69,63 @@ const PlateauBreakerReview = ({ user }) => {
       const game = await gameRes.json();
       setGameData(game);
 
-      // Find the most critical mistake
-      const analysis = game.analysis || {};
-      const mistakes = analysis.mistakes || [];
+      // Fetch analysis data (separate endpoint)
+      let analysisData = null;
+      try {
+        const analysisRes = await fetch(`${API}/analysis/${gameId}`, {
+          credentials: "include"
+        });
+        if (analysisRes.ok) {
+          analysisData = await analysisRes.json();
+        }
+      } catch (e) {
+        console.warn("Could not fetch analysis:", e);
+      }
+
+      // Find the most critical mistake from stockfish analysis
+      const stockfishAnalysis = analysisData?.stockfish_analysis || {};
+      const moveEvaluations = stockfishAnalysis.move_evaluations || [];
       
-      // Get biggest mistake (by eval loss)
+      // Find biggest mistake by cp_loss
       let biggestMistake = null;
       let maxLoss = 0;
       
-      for (const mistake of mistakes) {
-        const loss = Math.abs(mistake.eval_loss || mistake.evaluation_change || 0);
-        if (loss > maxLoss) {
+      for (const move of moveEvaluations) {
+        const loss = Math.abs(move.cp_loss || 0);
+        // Only consider significant mistakes (> 100 centipawns)
+        if (loss > maxLoss && loss >= 100) {
           maxLoss = loss;
-          biggestMistake = mistake;
+          biggestMistake = {
+            move_number: move.move_number,
+            move: move.move,  // SAN notation
+            move_uci: move.move_uci,
+            better_move: move.best_move,  // Best move in SAN
+            better_move_uci: move.best_move_uci,
+            fen: move.fen_before,
+            eval_loss: loss,
+            explanation: move.coaching_focus || move.cognitive_gap || 
+              `You played ${move.move}, losing ${(loss / 100).toFixed(1)} pawns worth of advantage.`,
+            type: move.critical_reason || "tactical_error",
+            is_turning_point: move.is_turning_point
+          };
         }
       }
 
-      // If no mistakes found, use turning point
-      if (!biggestMistake && analysis.turning_point) {
-        biggestMistake = {
-          move_number: analysis.turning_point.move_number,
-          move: analysis.turning_point.played_move,
-          better_move: analysis.turning_point.best_move,
-          fen: analysis.turning_point.fen,
-          explanation: analysis.turning_point.explanation,
-          type: "turning_point"
-        };
+      // Fallback: check interpretation for primary issue
+      if (!biggestMistake && analysisData?.interpretation?.primary_issue) {
+        // Find the first critical move
+        const criticalMove = moveEvaluations.find(m => m.is_critical);
+        if (criticalMove) {
+          biggestMistake = {
+            move_number: criticalMove.move_number,
+            move: criticalMove.move,
+            better_move: criticalMove.best_move,
+            fen: criticalMove.fen_before,
+            eval_loss: Math.abs(criticalMove.cp_loss || 0),
+            explanation: criticalMove.coaching_focus || `Critical moment at move ${criticalMove.move_number}`,
+            type: analysisData.interpretation.primary_issue
+          };
+        }
       }
 
       setCriticalMistake(biggestMistake);
@@ -105,8 +136,8 @@ const PlateauBreakerReview = ({ user }) => {
       });
       const identity = await identityRes.json();
       
-      // Count similar mistakes
-      const taxonomy = identity.blunder_taxonomy || {};
+      // Count similar mistakes from blunder taxonomy
+      const taxonomy = identity?.identity?.blunder_taxonomy?.by_type || identity?.blunder_taxonomy || {};
       const mistakeType = biggestMistake?.type || blocker?.type || "tactical_error";
       setPatternCount(taxonomy[mistakeType] || 1);
 
@@ -132,9 +163,11 @@ const PlateauBreakerReview = ({ user }) => {
   };
 
   const showBetterMove = () => {
-    if (criticalMistake?.fen && criticalMistake?.better_move) {
+    if (criticalMistake?.fen && (criticalMistake?.better_move || criticalMistake?.better_move_uci)) {
       chessRef.current.load(criticalMistake.fen);
-      const move = chessRef.current.move(criticalMistake.better_move);
+      // Try SAN first, then UCI
+      const moveToPlay = criticalMistake.better_move || criticalMistake.better_move_uci;
+      const move = chessRef.current.move(moveToPlay);
       if (move) {
         setCurrentFen(chessRef.current.fen());
         setLastMove([move.from, move.to]);
@@ -287,27 +320,52 @@ const PlateauBreakerReview = ({ user }) => {
                         <AlertTriangle className="w-8 h-8 text-red-400" />
                         <div>
                           <p className="text-red-400 text-sm font-medium">WHAT WENT WRONG</p>
-                          <p className="text-lg font-bold">Move {criticalMistake?.move_number}</p>
+                          <p className="text-lg font-bold">
+                            {criticalMistake?.move_number 
+                              ? `Move ${criticalMistake.move_number}` 
+                              : "No major mistakes found"}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="space-y-4">
-                        <p className="text-lg text-white">
-                          {criticalMistake?.explanation || 
-                           `You played ${criticalMistake?.move}, but this was a mistake.`}
-                        </p>
+                      {criticalMistake ? (
+                        <div className="space-y-4">
+                          <p className="text-lg text-white">
+                            {criticalMistake.explanation || 
+                             `You played ${criticalMistake.move || "a move"}, losing advantage.`}
+                          </p>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-red-500/10 rounded-lg p-3">
-                            <p className="text-xs text-red-400 mb-1">You played</p>
-                            <p className="font-mono font-bold text-lg">{criticalMistake?.move}</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-red-500/10 rounded-lg p-3">
+                              <p className="text-xs text-red-400 mb-1">You played</p>
+                              <p className="font-mono font-bold text-lg">
+                                {criticalMistake.move || "—"}
+                              </p>
+                            </div>
+                            <div className="bg-green-500/10 rounded-lg p-3">
+                              <p className="text-xs text-green-400 mb-1">Better was</p>
+                              <p className="font-mono font-bold text-lg">
+                                {criticalMistake.better_move || "—"}
+                              </p>
+                            </div>
                           </div>
-                          <div className="bg-green-500/10 rounded-lg p-3">
-                            <p className="text-xs text-green-400 mb-1">Better was</p>
-                            <p className="font-mono font-bold text-lg">{criticalMistake?.better_move || "..."}</p>
-                          </div>
+                          
+                          {criticalMistake.eval_loss > 0 && (
+                            <p className="text-sm text-zinc-500">
+                              This cost you ~{(criticalMistake.eval_loss / 100).toFixed(1)} pawns of advantage
+                            </p>
+                          )}
                         </div>
-                      </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <p className="text-zinc-400">
+                            This game had no significant mistakes detected. Good job!
+                          </p>
+                          <p className="text-sm text-zinc-500">
+                            Try reviewing a game where you lost or made blunders for more insights.
+                          </p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>
