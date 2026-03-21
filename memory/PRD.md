@@ -9,6 +9,39 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
+### Pattern Memory Feature - V1 Implementation (March 21, 2026)
+**"Evidence-based self-awareness" — Confrontation, not information**
+
+**Backend Service (`/app/backend/services/pattern_memory_service.py`):**
+- Aggregates cognitive gaps from `game_analyses` (Stockfish-verified mistakes)
+- Also aggregates thinking patterns from `question_insights` (Q&A revealed patterns)
+- Normalizes pattern types (e.g., "threat_oversight" → "ignore_threat")
+- Calculates severity based on recent + total counts
+- Returns: `total_count`, `recent_count`, `recent_games` (20), `severity`, `sample_games`
+
+**API Endpoints:**
+- `GET /api/coach/patterns/summary` - Full aggregated pattern summary
+- `GET /api/coach/patterns/top?limit=3` - Top N worst patterns for dashboard
+- `GET /api/coach/patterns/for-mistake/{cognitive_gap}` - Pattern data with confrontation message
+
+**Dashboard "Your Patterns" Section (`/app/frontend/src/components/patterns/YourPatterns.jsx`):**
+- Shows top 3 recurring blind spots
+- Sharp, minimal design (no progress bars, no analytics-style UI)
+- Each card shows: label, recent count ("13 times in last 20 games"), overall count if different
+- "Fix This" CTA on each pattern → navigates to Plateau Breaker
+
+**Review Page Integration (`/plateau-breaker/review/:gameId`):**
+- Step 2 (The Pattern) now shows confrontational message from Pattern Memory API
+- Format: "You've had {label} {recent_count} times in your last {recent_games} games."
+- Shows "Overall: {total_count} times" when lifetime > recent
+- Falls back to old count display when pattern not found
+
+**Cleanup:**
+- Removed deprecated `/app/frontend/src/pages/PlateauBreakerTraining.jsx`
+- Removed `/plateau-breaker/training` route from `App.js`
+
+**Testing:** 100% (10/10 backend + frontend verified - iteration 143)
+
 ### Enterprise Theory Knowledge Base Refactoring (March 21, 2026)
 **From 19 patterns in 1 file → 82 patterns in 4 files, zero duplication**
 
@@ -408,12 +441,16 @@ All P0 issues resolved in this session.
   - Post-game streak result shows whether streak continued or broke
 
 ## Next Tasks (Prioritized)
-1. **(P1) Connect Streak to Real Game Analysis**: Call POST /api/streak/update from backend analysis worker (not frontend) after Stockfish analysis completes with real move_evaluations
-2. **(P1) Enhance Apply Mode**: Make it a real 10-15 move mini-game against engine that tracks if user commits focus-mistake
-3. **(P2) Server-Side Training Lock**: Migrate lock state from localStorage to backend (add `is_training_locked`, `current_mistake_focus` to user model)
-4. **(P2) Multi-Game Focus**: Lock user into fixing same mistake for 3 consecutive games before introducing new blocker
+1. **(P1) Admin UI for Theory Database**: Build a simple web interface for an admin to perform CRUD operations on the JSON files in `/app/backend/data/theory/`
+2. **(P1) Connect Streak to Real Game Analysis**: Call POST /api/streak/update from backend analysis worker (not frontend) after Stockfish analysis completes with real move_evaluations
+3. **(P1) Enhance Apply Mode**: Make it a real 10-15 move mini-game against engine that tracks if user commits focus-mistake
+4. **(P2) Inject Pattern Memory into Guided Play**: Show confrontational pattern messages at critical moments during coached games
+5. **(P2) Opening-based Categorization**: Group mistakes by opening type for targeted training
+6. **(P2) Server-Side Training Lock**: Migrate lock state from localStorage to backend (add `is_training_locked`, `current_mistake_focus` to user model)
+7. **(P2) Multi-Game Focus**: Lock user into fixing same mistake for 3 consecutive games before introducing new blocker
 
 ## Future/Backlog Tasks
+- "Trajectory Coaching" rating growth plan (V3 - carefully)
 - Monetization (Razorpay integration)
 - Content population for opening lessons
 - Positive reinforcement features ("What You Did Well")
