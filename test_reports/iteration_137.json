@@ -1,0 +1,91 @@
+{
+  "summary": "V1 Guided Play Mode - Streak integration with CoachPlay tested. Fixed critical bug where PreGameStreakPopup was not rendering on setup screen (early return issue). All 5 features verified working: page loads, streak data fetched, pre-move checklist with weaknesses, pre-game popup, post-game result.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/frontend/src/pages/CoachPlay.jsx",
+    "/app/frontend/src/components/streak/PreGameStreakPopup.jsx",
+    "/app/frontend/src/components/streak/PostGameStreakResult.jsx",
+    "/app/frontend/src/components/coach/PreMoveChecklist.jsx"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/frontend/src/pages/CoachPlay.jsx",
+    "/app/frontend/src/components/streak/PreGameStreakPopup.jsx"
+  ],
+  "success_rate": {
+    "backend": "N/A (frontend only testing)",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "None - used existing Dev User",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Streak integration with CoachPlay fully working. Key fix: PreGameStreakPopup was not rendering because it was placed after the early return for setup screen. Fixed by adding the popup component inside the setup screen's Layout. All streak features verified: 1) Streak data fetched on page load via /api/streak/status, 2) Focus mistake mapped to player weaknesses in pre-move checklist (THREAT_VERIFICATION -> hope_chess -> 'What will my opponent do after this move?'), 3) Pre-game popup shows with rule reminder before game starts, 4) Post-game streak result shows after resign with 'Streak Broken' message.",
+  "bugs_fixed": {
+    "pregame_popup_not_rendering": {
+      "file": "/app/frontend/src/pages/CoachPlay.jsx",
+      "issue": "PreGameStreakPopup was placed after the main game UI return statement, so it never rendered when on setup screen (early return at line 1793)",
+      "fix": "Added PreGameStreakPopup component inside the setup screen's Layout component (before the closing </Layout> tag)",
+      "lines_changed": "2013-2024"
+    }
+  },
+  "features_verified": {
+    "1_page_loads": {
+      "route": "/play-with-coach",
+      "status": "WORKING",
+      "verified": "CoachPlay page loads with setup screen showing color selection, time control, coaching style options"
+    },
+    "2_streak_data_fetched": {
+      "api": "GET /api/streak/status?user_id={user_id}",
+      "status": "WORKING",
+      "verified": "Streak API called on page load, returns focus_mistake_type, rule, current_streak, best_streak"
+    },
+    "3_premove_checklist_with_weaknesses": {
+      "component": "PreMoveChecklist",
+      "status": "WORKING",
+      "verified": [
+        "Checklist visible during game with 'Before You Move' header",
+        "Focus mistake mapped to weakness: THREAT_VERIFICATION -> hope_chess",
+        "Shows 'What will my opponent do after this move?' with Focus badge",
+        "Shows 'You tend to play moves without considering opponent responses' explanation",
+        "Additional checklist items: development check, center control"
+      ]
+    },
+    "4_pregame_streak_popup": {
+      "component": "PreGameStreakPopup",
+      "status": "WORKING",
+      "verified": [
+        "Popup appears when clicking Start Game",
+        "Shows 'Start Your Streak' headline",
+        "Shows 'Play a game without threat awareness mistakes' message",
+        "Shows 'REMEMBER YOUR RULE' section with rule text",
+        "Begin button starts the game"
+      ]
+    },
+    "5_postgame_streak_result": {
+      "component": "PostGameStreakResult",
+      "status": "WORKING",
+      "verified": [
+        "Popup appears after game ends (resign)",
+        "Shows 'Streak Broken at 0' headline (red styling)",
+        "Shows 'You repeated your core mistake. Start fresh.' message",
+        "Shows previous streak and best streak info",
+        "Two CTAs: 'Fix This Now' and 'Continue'"
+      ]
+    }
+  },
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": [
+      "POST /api/streak/update uses mock move_evaluations from session.move_history - in production should come from full Stockfish analysis"
+    ]
+  }
+}

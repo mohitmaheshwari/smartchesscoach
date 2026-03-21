@@ -54,6 +54,7 @@ import CoachMemoryPanel from "@/components/CoachMemoryPanel";
 import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 import PostGameLesson from "@/components/PostGameLesson";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
+import { PreGameStreakPopup, PostGameStreakResult } from "@/components/streak";
 import { 
   OpeningTeachingOffer, 
   ActiveLessonPanel, 
@@ -168,11 +169,62 @@ const CoachPlay = ({ user }) => {
   const [developedPieces, setDevelopedPieces] = useState(0);
   const [playerWeaknesses, setPlayerWeaknesses] = useState([]);
   const [showChecklist, setShowChecklist] = useState(true);
+  
+  // NEW: Streak integration state (Plateau Breaker)
+  const [streakData, setStreakData] = useState(null);
+  const [showPreGameStreakPopup, setShowPreGameStreakPopup] = useState(false);
+  const [showPostGameStreakResult, setShowPostGameStreakResult] = useState(false);
+  const [postGameStreakResult, setPostGameStreakResult] = useState(null);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
+  
+  // NEW: Update streak when game ends
+  useEffect(() => {
+    if (gameOver && session && user?.user_id && !postGameStreakResult) {
+      updateStreakAfterGame();
+    }
+  }, [gameOver, session?.session_id]);
+  
+  // NEW: Function to update streak after game
+  const updateStreakAfterGame = async () => {
+    if (!session?.session_id || !user?.user_id) return;
+    
+    try {
+      // Note: In production, this should be called from backend after full game analysis
+      // For now, we do a simple update with the session data
+      const response = await fetch(`${API}/streak/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          user_id: user.user_id,
+          game_id: session.session_id,
+          user_color: selectedColor,
+          // Simple mock analysis - in production, this comes from Stockfish
+          stockfish_analysis: {
+            move_evaluations: session.move_history?.map((m, i) => ({
+              move_number: Math.floor(i / 2) + 1,
+              is_user_move: (selectedColor === "white" && i % 2 === 0) || 
+                            (selectedColor === "black" && i % 2 === 1),
+              cp_loss: m.evaluation?.cp_loss || 0,
+              classification: m.classification || "good"
+            })) || []
+          }
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPostGameStreakResult(data.postgame_result);
+        setShowPostGameStreakResult(true);
+      }
+    } catch (error) {
+      console.error("Error updating streak:", error);
+    }
+  };
 
   // Poll for coach messages when game is active
   useEffect(() => {
@@ -338,9 +390,10 @@ const CoachPlay = ({ user }) => {
   const fetchPastGamesAndIdentity = async () => {
     setLoadingHistory(true);
     try {
-      const [historyRes, identityRes] = await Promise.all([
+      const [historyRes, identityRes, streakRes] = await Promise.all([
         fetch(`${API}/coach/play/history?limit=5`, { credentials: "include" }),
-        fetch(`${API}/coach/play/identity`, { credentials: "include" })
+        fetch(`${API}/coach/play/identity`, { credentials: "include" }),
+        fetch(`${API}/streak/status?user_id=${user?.user_id}`, { credentials: "include" })
       ]);
       
       if (historyRes.ok) {
@@ -359,6 +412,28 @@ const CoachPlay = ({ user }) => {
               .map(p => p.pattern);
             setPlayerWeaknesses(weaknesses);
           }
+        }
+      }
+      
+      // NEW: Fetch streak data for Plateau Breaker integration
+      if (streakRes.ok) {
+        const data = await streakRes.json();
+        setStreakData(data);
+        
+        // Map focus mistake to player weaknesses for pre-move checklist
+        const focusToWeakness = {
+          "THREAT_VERIFICATION": "hope_chess",
+          "FORCING_BLIND": "missed_tactics",
+          "STOPPED_CALCULATION_EARLY": "impulsive_play",
+          "HANGING_PIECE": "hanging_pieces",
+          "TACTICAL_MISS": "missed_tactics"
+        };
+        
+        const focusMistake = data.focus_mistake_type;
+        const mappedWeakness = focusToWeakness[focusMistake];
+        
+        if (mappedWeakness && !playerWeaknesses.includes(mappedWeakness)) {
+          setPlayerWeaknesses(prev => [mappedWeakness, ...prev.filter(w => w !== mappedWeakness)]);
         }
       }
     } catch (error) {
@@ -591,6 +666,17 @@ const CoachPlay = ({ user }) => {
   };
 
   const startGame = async () => {
+    // NEW: Show pre-game streak popup if streak data exists
+    if (streakData && streakData.current_streak >= 0) {
+      setShowPreGameStreakPopup(true);
+      return; // Will call actuallyStartGame when popup is dismissed
+    }
+    
+    await actuallyStartGame();
+  };
+  
+  const actuallyStartGame = async () => {
+    setShowPreGameStreakPopup(false);
     setLoading(true);
     // Reset emotional state tracking for new game
     setBlundersThisGame(0);
@@ -1932,6 +2018,14 @@ const CoachPlay = ({ user }) => {
             </CardContent>
           </Card>
         </div>
+        
+        {/* Pre-Game Streak Popup - shown on setup screen */}
+        <PreGameStreakPopup
+          userId={user?.user_id}
+          isOpen={showPreGameStreakPopup}
+          onClose={() => setShowPreGameStreakPopup(false)}
+          onStartGame={actuallyStartGame}
+        />
       </Layout>
     );
   }
@@ -3030,6 +3124,23 @@ const CoachPlay = ({ user }) => {
             </CardContent>
           </Card>
         </div>
+      )}
+      
+      {/* NEW: Pre-Game Streak Popup */}
+      <PreGameStreakPopup
+        userId={user?.user_id}
+        isOpen={showPreGameStreakPopup}
+        onClose={() => setShowPreGameStreakPopup(false)}
+        onStartGame={actuallyStartGame}
+      />
+      
+      {/* NEW: Post-Game Streak Result */}
+      {showPostGameStreakResult && postGameStreakResult && (
+        <PostGameStreakResult
+          result={postGameStreakResult}
+          onContinue={() => setShowPostGameStreakResult(false)}
+          onGoToTraining={() => navigate("/plateau-breaker/training")}
+        />
       )}
     </Layout>
   );
