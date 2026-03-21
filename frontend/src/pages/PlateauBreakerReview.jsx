@@ -24,7 +24,11 @@ import {
   Repeat,
   Zap,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Play,
+  SkipBack,
+  SkipForward,
+  RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +55,12 @@ const PlateauBreakerReview = ({ user }) => {
   const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   const [lastMove, setLastMove] = useState(null);
   const [orientation, setOrientation] = useState("white");
+  
+  // Line visualization state
+  const [showingLine, setShowingLine] = useState(null); // "played" | "best" | null
+  const [lineIndex, setLineIndex] = useState(0);
+  const [lineMoves, setLineMoves] = useState([]);
+  const [linePositions, setLinePositions] = useState([]); // [{fen, lastMove}]
 
   useEffect(() => {
     if (gameId) {
@@ -102,11 +112,15 @@ const PlateauBreakerReview = ({ user }) => {
             better_move: move.best_move,  // Best move in SAN
             better_move_uci: move.best_move_uci,
             fen: move.fen_before,
+            fen_after_played: move.fen_after,
             eval_loss: loss,
             explanation: move.coaching_focus || move.cognitive_gap || 
               `You played ${move.move}, losing ${(loss / 100).toFixed(1)} pawns worth of advantage.`,
             type: move.critical_reason || "tactical_error",
-            is_turning_point: move.is_turning_point
+            is_turning_point: move.is_turning_point,
+            // PV lines for showing the continuation
+            pv_after_played: move.pv_after_played || [],
+            pv_after_best: move.pv_after_best || []
           };
         }
       }
@@ -173,6 +187,110 @@ const PlateauBreakerReview = ({ user }) => {
         setLastMove([move.from, move.to]);
       }
     }
+  };
+
+  // Build the line positions for stepping through
+  const buildLinePositions = (startFen, firstMove, pvMoves) => {
+    const positions = [];
+    const chess = new Chess();
+    chess.load(startFen);
+    
+    // Add starting position
+    positions.push({ fen: startFen, lastMove: null, moveLabel: "Start" });
+    
+    // Play first move
+    const first = chess.move(firstMove);
+    if (first) {
+      positions.push({ 
+        fen: chess.fen(), 
+        lastMove: [first.from, first.to],
+        moveLabel: firstMove
+      });
+    }
+    
+    // Play PV continuation
+    for (const moveStr of pvMoves) {
+      const m = chess.move(moveStr);
+      if (m) {
+        positions.push({ 
+          fen: chess.fen(), 
+          lastMove: [m.from, m.to],
+          moveLabel: moveStr
+        });
+      } else {
+        break; // Stop if move is invalid
+      }
+    }
+    
+    return positions;
+  };
+
+  const showPlayedLine = () => {
+    if (!criticalMistake) return;
+    
+    const positions = buildLinePositions(
+      criticalMistake.fen,
+      criticalMistake.move,
+      criticalMistake.pv_after_played || []
+    );
+    
+    setLinePositions(positions);
+    setLineMoves([criticalMistake.move, ...(criticalMistake.pv_after_played || [])]);
+    setLineIndex(0);
+    setShowingLine("played");
+    
+    // Show starting position
+    if (positions.length > 0) {
+      setCurrentFen(positions[0].fen);
+      setLastMove(positions[0].lastMove);
+    }
+  };
+
+  const showBestLine = () => {
+    if (!criticalMistake) return;
+    
+    const positions = buildLinePositions(
+      criticalMistake.fen,
+      criticalMistake.better_move || criticalMistake.better_move_uci,
+      criticalMistake.pv_after_best || []
+    );
+    
+    setLinePositions(positions);
+    setLineMoves([criticalMistake.better_move, ...(criticalMistake.pv_after_best || [])]);
+    setLineIndex(0);
+    setShowingLine("best");
+    
+    // Show starting position
+    if (positions.length > 0) {
+      setCurrentFen(positions[0].fen);
+      setLastMove(positions[0].lastMove);
+    }
+  };
+
+  const stepForward = () => {
+    if (lineIndex < linePositions.length - 1) {
+      const newIndex = lineIndex + 1;
+      setLineIndex(newIndex);
+      setCurrentFen(linePositions[newIndex].fen);
+      setLastMove(linePositions[newIndex].lastMove);
+    }
+  };
+
+  const stepBackward = () => {
+    if (lineIndex > 0) {
+      const newIndex = lineIndex - 1;
+      setLineIndex(newIndex);
+      setCurrentFen(linePositions[newIndex].fen);
+      setLastMove(linePositions[newIndex].lastMove);
+    }
+  };
+
+  const resetLine = () => {
+    setShowingLine(null);
+    setLineIndex(0);
+    setLinePositions([]);
+    setLineMoves([]);
+    showMistakePosition();
   };
 
   const handlePracticeNow = () => {
@@ -280,24 +398,94 @@ const PlateauBreakerReview = ({ user }) => {
               </div>
               
               {currentStep === 3 && (
-                <div className="mt-4 flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={showMistakePosition}
-                    className="flex-1 border-zinc-700"
-                  >
-                    <Eye className="w-4 h-4 mr-1" />
-                    Your Move
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={showBetterMove}
-                    className="flex-1 bg-green-600 hover:bg-green-700"
-                  >
-                    <Target className="w-4 h-4 mr-1" />
-                    Better Move
-                  </Button>
+                <div className="mt-4 space-y-3">
+                  {/* Line indicator when showing a line */}
+                  {showingLine && (
+                    <div className={`p-2 rounded-lg text-sm ${
+                      showingLine === "best" 
+                        ? "bg-green-500/10 border border-green-500/30" 
+                        : "bg-red-500/10 border border-red-500/30"
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={showingLine === "best" ? "text-green-400" : "text-red-400"}>
+                          {showingLine === "best" ? "Best Line" : "Played Line"}
+                        </span>
+                        <span className="text-zinc-500 text-xs">
+                          Move {lineIndex}/{linePositions.length - 1}
+                        </span>
+                      </div>
+                      {/* Show moves with current highlighted */}
+                      <div className="flex flex-wrap gap-1">
+                        {lineMoves.map((move, idx) => (
+                          <span 
+                            key={idx}
+                            className={`font-mono text-xs px-1.5 py-0.5 rounded ${
+                              idx === lineIndex - 1
+                                ? (showingLine === "best" ? "bg-green-500 text-black" : "bg-red-500 text-white")
+                                : idx < lineIndex - 1
+                                  ? "bg-zinc-700 text-zinc-300"
+                                  : "bg-zinc-800 text-zinc-500"
+                            }`}
+                          >
+                            {move}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Controls */}
+                  {showingLine ? (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={stepBackward}
+                        disabled={lineIndex === 0}
+                        className="border-zinc-700"
+                      >
+                        <SkipBack className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={stepForward}
+                        disabled={lineIndex >= linePositions.length - 1}
+                        className="flex-1 border-zinc-700"
+                      >
+                        <Play className="w-4 h-4 mr-1" />
+                        Next
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={resetLine}
+                        className="border-zinc-700"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={showPlayedLine}
+                        className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/10"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        Your Line
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={showBestLine}
+                        className="flex-1 bg-green-600 hover:bg-green-700"
+                      >
+                        <Target className="w-4 h-4 mr-1" />
+                        Best Line
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -453,20 +641,37 @@ const PlateauBreakerReview = ({ user }) => {
                       <div className="flex items-center gap-3 mb-4">
                         <Eye className="w-8 h-8 text-green-400" />
                         <div>
-                          <p className="text-green-400 text-sm font-medium">SEE IT</p>
-                          <p className="text-lg font-bold">The Difference</p>
+                          <p className="text-green-400 text-sm font-medium">SEE THE LINES</p>
+                          <p className="text-lg font-bold">Step Through the Variations</p>
                         </div>
                       </div>
 
                       <div className="space-y-4">
                         <p className="text-zinc-300">
-                          Click the buttons below to see your move vs the better move.
+                          Step through each line to see why {criticalMistake?.better_move || "the best move"} is better.
                         </p>
 
-                        <div className="bg-zinc-900/50 rounded-lg p-4">
-                          <p className="text-sm text-zinc-400 mb-2">What you should have seen:</p>
-                          <p className="text-white">
-                            If you had followed the rule, you would have noticed the threat and played {criticalMistake?.better_move || "the better move"}.
+                        {/* Line comparison */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20">
+                            <p className="text-xs text-red-400 mb-1">Your line</p>
+                            <p className="font-mono text-sm text-white">
+                              {criticalMistake?.move} {(criticalMistake?.pv_after_played || []).slice(0, 3).join(" ")}
+                              {(criticalMistake?.pv_after_played?.length || 0) > 3 ? "..." : ""}
+                            </p>
+                          </div>
+                          <div className="bg-green-500/10 rounded-lg p-3 border border-green-500/20">
+                            <p className="text-xs text-green-400 mb-1">Best line</p>
+                            <p className="font-mono text-sm text-white">
+                              {criticalMistake?.better_move} {(criticalMistake?.pv_after_best || []).slice(0, 3).join(" ")}
+                              {(criticalMistake?.pv_after_best?.length || 0) > 3 ? "..." : ""}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="bg-zinc-900/50 rounded-lg p-4 text-sm">
+                          <p className="text-zinc-400">
+                            Use the controls below the board to step through each move and see how the position evolves.
                           </p>
                         </div>
                       </div>
