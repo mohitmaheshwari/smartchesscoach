@@ -759,3 +759,259 @@ def evaluate_move_for_guardian(
     guardian = PreMoveGuardian(remaining_interventions)
     result = guardian.evaluate_move(fen, move_san, user_color)
     return result.to_dict()
+
+
+# =============================================================================
+# ENFORCEMENT LADDER (Progressive Strictness)
+# Escalates friction based on repeated mistakes in the same game
+# =============================================================================
+
+class EnforcementLevel(Enum):
+    """Escalating enforcement levels based on repeat count."""
+    WARNING = 1          # "Check opponent threat"
+    STRONG_WARNING = 2   # "You are repeating your mistake"
+    CHECKBOX_REQUIRED = 3  # Force acknowledgment
+    SOFT_BLOCK = 4       # "Try a different move"
+    ALLOW_WITH_PENALTY = 5  # Allow but mark for streak
+
+@dataclass
+class EnforcementResult:
+    """Result of enforcement ladder evaluation."""
+    level: EnforcementLevel
+    should_block: bool
+    requires_checkbox: bool
+    message: str
+    explanation: str
+    repeat_count: int
+    risk_type: Optional[RiskType]
+    
+    def to_dict(self) -> Dict:
+        return {
+            "enforcement_level": self.level.value,
+            "enforcement_name": self.level.name,
+            "should_block": self.should_block,
+            "requires_checkbox": self.requires_checkbox,
+            "message": self.message,
+            "explanation": self.explanation,
+            "repeat_count": self.repeat_count,
+            "risk_type": self.risk_type.value if self.risk_type else None
+        }
+
+
+class EnforcementLadder:
+    """
+    Tracks repeated mistakes in a game and escalates enforcement.
+    
+    Escalation Logic:
+    - 1st occurrence: Warning
+    - 2nd occurrence: Strong warning  
+    - 3rd occurrence: Checkbox required ("I checked opponent threats")
+    - 4th occurrence: Soft block ("Try a different move")
+    - 5th+: Allow but mark as ignored warning (streak penalty)
+    
+    Risk Severity Modifier:
+    - CRITICAL risk: Escalate by +1 level
+    - HIGH risk at repeat 2+: Also escalate by +1
+    """
+    
+    # Mapping of risk types to user-facing categories
+    RISK_CATEGORIES = {
+        RiskType.HANGING_PIECE: "hanging_piece",
+        RiskType.IGNORE_THREAT: "ignore_threat", 
+        RiskType.MATERIAL_LOSS: "bad_trade",
+        RiskType.BLUNDER_INTO_TACTIC: "tactical_blunder",
+        RiskType.KING_SAFETY: "king_danger"
+    }
+    
+    # Messages per enforcement level
+    MESSAGES = {
+        EnforcementLevel.WARNING: {
+            "ignore_threat": "What is your opponent threatening?",
+            "hanging_piece": "Is your piece safe after this move?",
+            "bad_trade": "Are you sure about this trade?",
+            "tactical_blunder": "Is there a tactic you're missing?",
+            "king_danger": "Is your king safe?",
+            "default": "Check your move carefully."
+        },
+        EnforcementLevel.STRONG_WARNING: {
+            "ignore_threat": "You are repeating your mistake. What is your opponent threatening?",
+            "hanging_piece": "You are leaving pieces hanging again. Stop and check.",
+            "bad_trade": "You made a bad trade earlier. Think again.",
+            "tactical_blunder": "You missed a tactic before. Look harder.",
+            "king_danger": "Your king was in danger before. Check again.",
+            "default": "You are repeating your mistake."
+        },
+        EnforcementLevel.CHECKBOX_REQUIRED: {
+            "ignore_threat": "I have checked what my opponent is threatening.",
+            "hanging_piece": "I have verified my piece is safe.",
+            "bad_trade": "I understand this trade and accept it.",
+            "tactical_blunder": "I have looked for tactics.",
+            "king_danger": "I have verified my king is safe.",
+            "default": "I have checked my move."
+        },
+        EnforcementLevel.SOFT_BLOCK: {
+            "default": "You've been warned multiple times. Try a different move."
+        },
+        EnforcementLevel.ALLOW_WITH_PENALTY: {
+            "default": "You ignored the warning. This will affect your streak."
+        }
+    }
+    
+    def __init__(self):
+        """Initialize with empty mistake tracking."""
+        self.mistake_counts: Dict[str, int] = {}  # category -> count
+        self.total_warnings_shown = 0
+        self.ignored_warnings = 0
+    
+    def track_mistake(self, risk_type: RiskType) -> None:
+        """Track a mistake occurrence."""
+        category = self.RISK_CATEGORIES.get(risk_type, "default")
+        self.mistake_counts[category] = self.mistake_counts.get(category, 0) + 1
+    
+    def get_repeat_count(self, risk_type: RiskType) -> int:
+        """Get how many times this mistake type has occurred."""
+        category = self.RISK_CATEGORIES.get(risk_type, "default")
+        return self.mistake_counts.get(category, 0)
+    
+    def evaluate_enforcement(
+        self,
+        guardian_result: GuardianResult
+    ) -> Optional[EnforcementResult]:
+        """
+        Evaluate what enforcement level applies based on guardian result and history.
+        
+        Args:
+            guardian_result: Result from PreMoveGuardian.evaluate_move()
+        
+        Returns:
+            EnforcementResult if enforcement needed, None if move is fine
+        """
+        if not guardian_result.should_intervene:
+            return None
+        
+        risk_type = guardian_result.risk_type
+        risk_level = guardian_result.risk_level
+        
+        if not risk_type:
+            return None
+        
+        # Get repeat count BEFORE incrementing (this is the Nth occurrence)
+        repeat_count = self.get_repeat_count(risk_type) + 1
+        
+        # Calculate base enforcement level
+        base_level = min(repeat_count, 5)
+        
+        # Apply risk severity modifier
+        if risk_level == RiskLevel.CRITICAL:
+            base_level = min(base_level + 1, 5)
+        elif risk_level == RiskLevel.HIGH and repeat_count >= 2:
+            base_level = min(base_level + 1, 5)
+        
+        # Map to enforcement level
+        enforcement_level = EnforcementLevel(base_level)
+        
+        # Determine behavior
+        should_block = enforcement_level == EnforcementLevel.SOFT_BLOCK
+        requires_checkbox = enforcement_level == EnforcementLevel.CHECKBOX_REQUIRED
+        
+        # Get appropriate message
+        category = self.RISK_CATEGORIES.get(risk_type, "default")
+        level_messages = self.MESSAGES.get(enforcement_level, {})
+        message = level_messages.get(category, level_messages.get("default", ""))
+        
+        # Build explanation based on level
+        if enforcement_level == EnforcementLevel.WARNING:
+            explanation = guardian_result.explanation
+        elif enforcement_level == EnforcementLevel.STRONG_WARNING:
+            explanation = f"This is the {repeat_count}{'st' if repeat_count == 1 else 'nd' if repeat_count == 2 else 'rd' if repeat_count == 3 else 'th'} time this game. {guardian_result.explanation}"
+        elif enforcement_level == EnforcementLevel.CHECKBOX_REQUIRED:
+            explanation = f"You must confirm you've checked before proceeding. {guardian_result.explanation}"
+        elif enforcement_level == EnforcementLevel.SOFT_BLOCK:
+            explanation = f"You've been warned {repeat_count} times about this. Find a better move."
+        else:
+            explanation = "Warning ignored. This mistake will count against your streak."
+        
+        return EnforcementResult(
+            level=enforcement_level,
+            should_block=should_block,
+            requires_checkbox=requires_checkbox,
+            message=message,
+            explanation=explanation,
+            repeat_count=repeat_count,
+            risk_type=risk_type
+        )
+    
+    def record_warning_shown(self, risk_type: RiskType) -> None:
+        """Record that a warning was shown (call after showing to user)."""
+        self.track_mistake(risk_type)
+        self.total_warnings_shown += 1
+    
+    def record_warning_ignored(self) -> None:
+        """Record that user proceeded despite warning."""
+        self.ignored_warnings += 1
+    
+    def get_game_summary(self) -> Dict:
+        """Get summary for post-game analysis."""
+        return {
+            "mistake_counts": self.mistake_counts.copy(),
+            "total_warnings_shown": self.total_warnings_shown,
+            "ignored_warnings": self.ignored_warnings,
+            "warning_compliance_rate": round(
+                (self.total_warnings_shown - self.ignored_warnings) / max(1, self.total_warnings_shown) * 100,
+                1
+            )
+        }
+
+
+def evaluate_with_enforcement(
+    fen: str,
+    move_san: str,
+    user_color: str,
+    enforcement_ladder: EnforcementLadder,
+    remaining_interventions: int = 3,
+    stockfish_eval_before: float = None,
+    stockfish_eval_after: float = None
+) -> Dict:
+    """
+    Evaluate a move with enforcement ladder escalation.
+    
+    Args:
+        fen: Current position
+        move_san: Move to evaluate
+        user_color: "white" or "black"
+        enforcement_ladder: EnforcementLadder instance tracking this game
+        remaining_interventions: How many base warnings left
+        stockfish_eval_before: Optional eval before move
+        stockfish_eval_after: Optional eval after move
+    
+    Returns:
+        Dict with guardian result + enforcement data
+    """
+    guardian = PreMoveGuardian(remaining_interventions)
+    guardian_result = guardian.evaluate_move(
+        fen, move_san, user_color,
+        stockfish_eval_before=stockfish_eval_before,
+        stockfish_eval_after=stockfish_eval_after
+    )
+    
+    result = guardian_result.to_dict()
+    
+    # Apply enforcement ladder
+    enforcement = enforcement_ladder.evaluate_enforcement(guardian_result)
+    
+    if enforcement:
+        result["enforcement"] = enforcement.to_dict()
+        result["should_intervene"] = True  # Override if enforcement requires
+        
+        # Update intervention type based on enforcement
+        if enforcement.should_block:
+            result["intervention_type"] = InterventionType.BLOCK.value
+        elif enforcement.requires_checkbox:
+            result["intervention_type"] = "CHECKBOX"  # New type
+        
+        # Use enforcement message if stronger
+        if enforcement.level.value >= EnforcementLevel.STRONG_WARNING.value:
+            result["message"] = enforcement.message
+            result["explanation"] = enforcement.explanation
+    
+    return result

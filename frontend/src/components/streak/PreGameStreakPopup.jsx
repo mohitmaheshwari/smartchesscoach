@@ -120,37 +120,41 @@ const StreakContent = ({ data, onClose, onStartGame }) => {
   const isOnStreak = current_streak > 0;
   const isNewBest = current_streak >= best_streak && current_streak > 0;
 
-  // Different messaging based on state
-  let icon, iconBg, headline, subtext, buttonText;
+  // SHARPER messaging based on state - creates psychological pressure
+  let icon, iconBg, headline, subtext, buttonText, urgencyMessage;
 
   if (last_game_had_mistake) {
-    // Just broke streak
+    // Just broke streak - ACCOUNTABILITY
     icon = <AlertTriangle className="w-8 h-8 text-red-400" />;
     iconBg = "bg-red-500/20";
-    headline = "Streak Broken";
-    subtext = "You repeated your core mistake. Start fresh.";
+    headline = "Last Game: Failed";
+    subtext = `You ignored ${focus_mistake_name.toLowerCase()} and lost. Fix it now.`;
     buttonText = "Redeem Yourself";
+    urgencyMessage = "This is the mistake that's holding you back.";
   } else if (current_streak === 0) {
-    // No streak yet
+    // No streak yet - MOTIVATION
     icon = <Target className="w-8 h-8 text-zinc-400" />;
     iconBg = "bg-zinc-800";
     headline = "Start Your Streak";
     subtext = `Play a game without ${focus_mistake_name.toLowerCase()} mistakes.`;
     buttonText = "Begin";
+    urgencyMessage = "One clean game is all it takes to start.";
   } else if (isNewBest) {
-    // On a personal best streak
+    // On a personal best streak - PRESSURE TO MAINTAIN
     icon = <Flame className="w-8 h-8 text-amber-400" />;
     iconBg = "bg-gradient-to-br from-amber-500/20 to-orange-500/20";
-    headline = `${current_streak}-Game Streak`;
+    headline = `🔥 ${current_streak}-Game Streak`;
     subtext = "This is your BEST. Don't break it.";
     buttonText = "Keep It Going";
+    urgencyMessage = "You've never gone this long. Protect it.";
   } else {
-    // Active streak, not best
+    // Active streak, not best - CHALLENGE
     icon = <Shield className="w-8 h-8 text-blue-400" />;
     iconBg = "bg-blue-500/20";
     headline = `${current_streak}-Game Streak`;
-    subtext = `Best is ${best_streak}. Can you beat it?`;
+    subtext = `Best is ${best_streak}. ${best_streak - current_streak} more to beat it.`;
     buttonText = "Continue";
+    urgencyMessage = "Stay focused. One mistake resets everything.";
   }
 
   return (
@@ -185,11 +189,22 @@ const StreakContent = ({ data, onClose, onStartGame }) => {
           {headline}
         </h2>
 
-        <p className="text-zinc-400 text-center mb-6">{subtext}</p>
+        <p className="text-zinc-400 text-center mb-2">{subtext}</p>
+        
+        {/* Urgency Message - psychological pressure */}
+        <p className={`text-xs text-center mb-6 italic ${
+          last_game_had_mistake ? "text-red-400/70" : "text-zinc-500"
+        }`}>
+          {urgencyMessage}
+        </p>
 
         {/* Rule Box */}
-        <div className="bg-zinc-900/50 rounded-lg p-4 mb-6 border border-zinc-800">
-          <p className="text-xs text-zinc-500 mb-2 text-center">REMEMBER YOUR RULE</p>
+        <div className={`rounded-lg p-4 mb-6 border ${
+          last_game_had_mistake 
+            ? "bg-red-900/20 border-red-500/30" 
+            : "bg-zinc-900/50 border-zinc-800"
+        }`}>
+          <p className="text-xs text-zinc-500 mb-2 text-center">YOUR RULE</p>
           <p className="text-white text-center font-semibold">{rule}</p>
         </div>
 
@@ -210,6 +225,7 @@ const StreakContent = ({ data, onClose, onStartGame }) => {
         {/* CTA */}
         <Button
           onClick={onStartGame}
+          data-testid="start-game-btn"
           className={`w-full h-12 text-lg ${
             last_game_had_mistake 
               ? "bg-red-600 hover:bg-red-700"

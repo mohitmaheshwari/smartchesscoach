@@ -1100,6 +1100,40 @@ def process_job(db, job):
             # Non-fatal - log but don't fail the analysis
             logger.warning(f"[DATA REFRESH] Failed to refresh: {refresh_err}")
         
+        # =========================================================================
+        # PHASE 8: STREAK UPDATE (Mistake-Free Streak - Backend Truth)
+        # Updates user's streak based on focus mistake detection
+        # This is the SOURCE OF TRUTH - frontend does NOT update streaks
+        # =========================================================================
+        try:
+            from services.mistake_streak_service import update_streak_from_analysis
+            
+            game_metadata = {
+                "result": game.get("result"),
+                "user_rating": user_rating,
+                "opponent_rating": game.get("opponent_rating"),
+                "time_control": game.get("time_control")
+            }
+            
+            streak_result = update_streak_from_analysis(
+                db=db,
+                user_id=user_id,
+                game_id=game_id,
+                move_evaluations=move_evaluations,
+                user_color=user_color,
+                game_metadata=game_metadata
+            )
+            
+            if streak_result.get("streak_changed"):
+                result_type = streak_result.get("postgame_result", {}).get("result", "unknown")
+                logger.info(f"[STREAK] Updated for {user_id}: {result_type}")
+            else:
+                logger.info(f"[STREAK] Game skipped (not valid for streak)")
+                
+        except Exception as streak_err:
+            # Non-fatal - log but don't fail the analysis
+            logger.warning(f"[STREAK] Failed to update: {streak_err}")
+        
         logger.info(f"[SUCCESS] Analyzed game {game_id} (accuracy: {accuracy}%, duration: {elapsed:.1f}s)")
         return True
         

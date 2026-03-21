@@ -716,3 +716,261 @@ def get_postgame_streak_result(
             "previous_streak": current_before,
             "tone": "warning"
         }
+
+
+# =============================================================================
+# BACKEND ANALYSIS INTEGRATION (Phase 8)
+# Called by analysis_worker.py after Stockfish analysis completes
+# =============================================================================
+
+def update_streak_from_analysis(
+    db,
+    user_id: str,
+    game_id: str,
+    move_evaluations: List[Dict],
+    user_color: str,
+    game_metadata: Dict[str, Any] = None
+) -> Dict[str, Any]:
+    """
+    Update user's streak from backend analysis (SOURCE OF TRUTH).
+    
+    This is called by analysis_worker.py after Stockfish analysis completes.
+    Frontend should NOT call streak update - backend is authoritative.
+    
+    Args:
+        db: MongoDB database connection
+        user_id: User identifier
+        game_id: Game identifier  
+        move_evaluations: Full move evaluations from Stockfish
+        user_color: "white" or "black"
+        game_metadata: Optional metadata (result, rating, etc.)
+    
+    Returns:
+        Dict with:
+        - streak_data: Updated streak state
+        - game_summary: Summary of this game for display
+        - postgame_result: Message data for UI
+    """
+    logger.info(f"[STREAK] Updating streak from backend analysis for {user_id}, game {game_id}")
+    
+    # Get user's current streak data
+    user = db.users.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "streak_data": 1}
+    )
+    
+    streak_before = user.get("streak_data") if user else None
+    if not streak_before:
+        streak_before = _get_default_streak_data()
+    
+    focus_type = streak_before.get("current_focus_mistake", "THREAT_VERIFICATION")
+    
+    # Detect focus mistake with strict rules
+    game_data = detect_focus_mistake(move_evaluations, focus_type, user_color)
+    game_data.game_id = game_id
+    
+    # Build game summary for storage and display
+    game_summary = {
+        "game_id": game_id,
+        "focus_mistake_occurred": game_data.had_focus_mistake,
+        "mistake_count": game_data.focus_mistake_count,
+        "total_moves": game_data.total_moves,
+        "is_valid_for_streak": game_data.is_valid_for_streak,
+        "detected_at": datetime.now(timezone.utc).isoformat(),
+        "source": "engine_verified",
+        "analysis_version": "v1.3"
+    }
+    
+    # Find critical moment (highest cp_loss move for focus type)
+    critical_moment = _find_critical_moment(move_evaluations, focus_type, user_color)
+    if critical_moment:
+        game_summary["critical_moment_move"] = critical_moment.get("move_number")
+        game_summary["critical_moment_fen"] = critical_moment.get("fen_before")
+        game_summary["critical_moment_loss"] = critical_moment.get("cp_loss")
+    
+    # Check game validity
+    if not game_data.is_valid_for_streak:
+        logger.info(f"[STREAK] Game {game_id} not valid for streak (too short/no tactical content)")
+        game_summary["skipped"] = True
+        
+        # Still store in last_5 but don't update streak
+        last_5 = streak_before.get("last_5_games", [])
+        last_5.append(game_summary)
+        last_5 = last_5[-5:]
+        
+        streak_before["last_5_games"] = last_5
+        
+        # Save without changing streak
+        db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "streak_data": streak_before,
+                "streak_data.updated_at": datetime.now(timezone.utc)
+            }},
+            upsert=True
+        )
+        
+        return {
+            "streak_data": streak_before,
+            "game_summary": game_summary,
+            "postgame_result": None,
+            "streak_changed": False
+        }
+    
+    # Update streak using core logic
+    streak_after = update_streak_after_game(
+        user_streak_data=streak_before,
+        game_analysis={"move_evaluations": move_evaluations},
+        game_id=game_id,
+        user_color=user_color
+    )
+    
+    # Save to database
+    db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "streak_data": streak_after,
+            "streak_data.updated_at": datetime.now(timezone.utc)
+        }},
+        upsert=True
+    )
+    
+    # Also store game summary in game_analyses for easy access
+    db.game_analyses.update_one(
+        {"game_id": game_id, "user_id": user_id},
+        {"$set": {"streak_summary": game_summary}},
+        upsert=False  # Only update if analysis exists
+    )
+    
+    # Generate post-game result
+    postgame_result = get_postgame_streak_result(streak_before, streak_after)
+    
+    # Enhance messaging based on game state
+    postgame_result = _enhance_postgame_messaging(
+        postgame_result, 
+        game_summary, 
+        focus_type
+    )
+    
+    logger.info(f"[STREAK] Updated for {user_id}: {postgame_result['result']} - {game_summary['mistake_count']} focus mistakes")
+    
+    return {
+        "streak_data": streak_after,
+        "game_summary": game_summary,
+        "postgame_result": postgame_result,
+        "streak_changed": True
+    }
+
+
+def _find_critical_moment(
+    move_evaluations: List[Dict],
+    focus_type: str,
+    user_color: str
+) -> Optional[Dict]:
+    """
+    Find the most critical moment related to the focus mistake.
+    Returns the move with highest cp_loss that matches the focus type.
+    """
+    critical = None
+    max_loss = 0
+    
+    for move in move_evaluations:
+        if not move.get("is_user_move"):
+            continue
+        
+        cp_loss = abs(move.get("cp_loss", 0))
+        if cp_loss < CP_LOSS_MISTAKE:
+            continue
+        
+        # Check if this is a focus-type mistake
+        is_focus = False
+        if focus_type == "THREAT_VERIFICATION":
+            is_focus = _is_threat_miss(move)
+        elif focus_type == "FORCING_BLIND":
+            is_focus = _is_forcing_miss(move)
+        elif focus_type == "HANGING_PIECE":
+            is_focus = _is_hanging_piece(move)
+        elif focus_type == "TACTICAL_MISS":
+            is_focus = _is_tactical_miss(move)
+        else:
+            is_focus = cp_loss >= CP_LOSS_MISTAKE
+        
+        if is_focus and cp_loss > max_loss:
+            max_loss = cp_loss
+            critical = {
+                "move_number": move.get("move_number"),
+                "fen_before": move.get("fen_before"),
+                "cp_loss": cp_loss,
+                "played_move": move.get("move_san"),
+                "best_move": move.get("best_move_san")
+            }
+    
+    return critical
+
+
+def _enhance_postgame_messaging(
+    postgame_result: Dict,
+    game_summary: Dict,
+    focus_type: str
+) -> Dict:
+    """
+    Enhance post-game messaging with emotional, specific copy.
+    
+    This is the RETENTION ENGINE - makes users feel accountability + progress.
+    """
+    focus_info = FOCUS_MISTAKE_TYPES.get(focus_type, {})
+    focus_short = focus_info.get("short_name", "this").lower()
+    mistake_count = game_summary.get("mistake_count", 0)
+    
+    if postgame_result["result"] == "broken":
+        # STREAK BROKEN - Emotional hit
+        if mistake_count >= 3:
+            postgame_result["headline"] = "❌ Streak Broken"
+            postgame_result["message"] = f"You made {mistake_count} {focus_short} mistakes. This is exactly why you're stuck."
+        elif mistake_count >= 2:
+            postgame_result["headline"] = "❌ Streak Broken"  
+            postgame_result["message"] = f"You ignored {focus_short} warnings twice. You saw it coming."
+        else:
+            postgame_result["headline"] = "❌ Streak Broken"
+            postgame_result["message"] = f"You broke your streak by ignoring {focus_short} again. Start fresh."
+        
+        # Add critical moment reference
+        if game_summary.get("critical_moment_move"):
+            postgame_result["critical_hint"] = f"Move {game_summary['critical_moment_move']} was your turning point."
+    
+    elif postgame_result["result"] == "new_best":
+        # NEW BEST - Big celebration
+        postgame_result["headline"] = "🔥 New Personal Best!"
+        postgame_result["message"] = f"You played {postgame_result['streak']} clean games. This is how your rating improves."
+    
+    elif postgame_result["result"] == "continued":
+        # STREAK CONTINUES - Positive reinforcement
+        streak = postgame_result.get("streak", 0)
+        if streak >= 5:
+            postgame_result["message"] = f"5+ games without {focus_short} mistakes. You're building real habits."
+        elif streak >= 3:
+            postgame_result["message"] = f"Good. {streak} clean games. Keep building."
+        else:
+            postgame_result["message"] = f"Clean game. No {focus_short} mistakes. This is how you climb."
+    
+    return postgame_result
+
+
+def _get_default_streak_data() -> Dict[str, Any]:
+    """Get default streak data for new users."""
+    return {
+        "current_focus_mistake": "THREAT_VERIFICATION",
+        "mistake_streak": {
+            "current": 0,
+            "best": 0,
+            "last_game_had_mistake": False,
+            "streak_started_at": None
+        },
+        "mistake_trend": {
+            "before_avg": None,
+            "recent_avg": None,
+            "improvement_pct": None,
+            "baseline_locked": False
+        },
+        "last_5_games": []
+    }

@@ -5,6 +5,8 @@
  * - Continued their streak (celebration)
  * - Achieved a new best (big celebration)
  * - Broke their streak (emotional hit)
+ * 
+ * EMOTIONAL COPY IS THE RETENTION ENGINE
  */
 
 import { motion } from "framer-motion";
@@ -13,13 +15,15 @@ import {
   Trophy,
   XCircle,
   CheckCircle,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle,
+  Target
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 const PostGameStreakResult = ({ 
-  result,  // { result, headline, message, streak, best, tone, previous_streak }
+  result,  // { result, headline, message, streak, best, tone, previous_streak, critical_hint }
   onContinue,
   onGoToTraining
 }) => {
@@ -38,7 +42,9 @@ const PostGameStreakResult = ({
       <Card className={`max-w-md w-full ${
         isBroken 
           ? "bg-red-950/50 border-red-500/50" 
-          : "bg-green-950/30 border-green-500/50"
+          : isNewBest
+            ? "bg-amber-950/30 border-amber-500/50"
+            : "bg-green-950/30 border-green-500/50"
       }`}>
         <CardContent className="p-8 text-center">
           {/* Icon */}
@@ -71,8 +77,20 @@ const PostGameStreakResult = ({
             {result.headline}
           </h2>
 
-          {/* Message */}
-          <p className="text-zinc-300 mb-6">{result.message}</p>
+          {/* Message - EMOTIONAL COPY */}
+          <p className={`mb-4 ${isBroken ? "text-zinc-200" : "text-zinc-300"}`}>
+            {result.message}
+          </p>
+          
+          {/* Critical moment hint for broken streak */}
+          {isBroken && result.critical_hint && (
+            <div className="bg-red-900/30 rounded-lg p-3 mb-4 border border-red-500/20">
+              <div className="flex items-center gap-2 justify-center text-sm text-red-300">
+                <Target className="w-4 h-4" />
+                <span>{result.critical_hint}</span>
+              </div>
+            </div>
+          )}
 
           {/* Streak Display */}
           {!isBroken ? (
@@ -95,12 +113,26 @@ const PostGameStreakResult = ({
           ) : (
             <div className="bg-red-900/30 rounded-lg p-4 mb-6">
               <p className="text-sm text-zinc-300">
-                Previous streak: <span className="font-bold text-white">{result.previous_streak}</span> games
+                Previous streak: <span className="font-bold text-white">{result.previous_streak || 0}</span> games
               </p>
               <p className="text-xs text-zinc-500 mt-1">
                 Your best ({result.best}) is still saved.
               </p>
             </div>
+          )}
+          
+          {/* Accountability message for broken streaks */}
+          {isBroken && (
+            <p className="text-xs text-zinc-500 mb-4 italic">
+              "Players don't improve by making the same mistakes. Break the pattern."
+            </p>
+          )}
+          
+          {/* Success reinforcement */}
+          {isNewBest && (
+            <p className="text-xs text-amber-400/80 mb-4">
+              This is real progress. Keep building.
+            </p>
           )}
 
           {/* CTAs */}
@@ -109,7 +141,9 @@ const PostGameStreakResult = ({
               <Button
                 onClick={onGoToTraining}
                 className="flex-1 bg-red-600 hover:bg-red-700"
+                data-testid="fix-this-now-btn"
               >
+                <AlertTriangle className="w-4 h-4 mr-2" />
                 Fix This Now
               </Button>
             )}
@@ -117,8 +151,10 @@ const PostGameStreakResult = ({
               onClick={onContinue}
               variant={isBroken ? "outline" : "default"}
               className={`flex-1 ${
+                isNewBest ? "bg-amber-600 hover:bg-amber-700" :
                 !isBroken ? "bg-green-600 hover:bg-green-700" : "border-zinc-700"
               }`}
+              data-testid="continue-btn"
             >
               {isBroken ? "Continue" : "Keep Going"}
               <ArrowRight className="w-4 h-4 ml-2" />

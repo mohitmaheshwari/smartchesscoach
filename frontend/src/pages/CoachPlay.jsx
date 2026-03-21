@@ -184,45 +184,61 @@ const CoachPlay = ({ user }) => {
   // NEW: Update streak when game ends
   useEffect(() => {
     if (gameOver && session && user?.user_id && !postGameStreakResult) {
-      updateStreakAfterGame();
+      // Wait a moment for backend to process, then fetch result
+      setTimeout(fetchStreakResultAfterGame, 1500);
     }
   }, [gameOver, session?.session_id]);
   
-  // NEW: Function to update streak after game
-  const updateStreakAfterGame = async () => {
+  // NEW: Fetch streak result after game (backend is source of truth)
+  // The actual streak update happens in backend analysis_worker.py
+  // Frontend only fetches the result for display
+  const fetchStreakResultAfterGame = async () => {
     if (!session?.session_id || !user?.user_id) return;
     
     try {
-      // Note: In production, this should be called from backend after full game analysis
-      // For now, we do a simple update with the session data
-      const response = await fetch(`${API}/streak/update`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          user_id: user.user_id,
-          game_id: session.session_id,
-          user_color: selectedColor,
-          // Simple mock analysis - in production, this comes from Stockfish
-          stockfish_analysis: {
-            move_evaluations: session.move_history?.map((m, i) => ({
-              move_number: Math.floor(i / 2) + 1,
-              is_user_move: (selectedColor === "white" && i % 2 === 0) || 
-                            (selectedColor === "black" && i % 2 === 1),
-              cp_loss: m.evaluation?.cp_loss || 0,
-              classification: m.classification || "good"
-            })) || []
-          }
-        })
+      // Fetch the latest streak status (backend has already updated it)
+      const response = await fetch(`${API}/streak/status?user_id=${user.user_id}`, {
+        credentials: "include"
       });
       
       if (response.ok) {
         const data = await response.json();
-        setPostGameStreakResult(data.postgame_result);
-        setShowPostGameStreakResult(true);
+        
+        // Check if last game had mistake to determine result
+        const hadMistake = data.last_game_had_mistake;
+        const currentStreak = data.current_streak || 0;
+        const bestStreak = data.best_streak || 0;
+        
+        // Build post-game result from status
+        let result;
+        if (hadMistake) {
+          result = {
+            result: "broken",
+            headline: "❌ Streak Broken",
+            message: "You repeated your core mistake. This is exactly why you're stuck.",
+            streak: 0,
+            best: bestStreak,
+            previous_streak: currentStreak,
+            tone: "warning"
+          };
+        } else if (currentStreak > 0) {
+          result = {
+            result: currentStreak === bestStreak ? "new_best" : "continued",
+            headline: currentStreak === bestStreak ? `🔥 New Best: ${currentStreak} Games!` : `✅ Streak: ${currentStreak} Games`,
+            message: "Clean game. This is how your rating improves.",
+            streak: currentStreak,
+            best: bestStreak,
+            tone: currentStreak === bestStreak ? "celebration" : "success"
+          };
+        }
+        
+        if (result) {
+          setPostGameStreakResult(result);
+          setShowPostGameStreakResult(true);
+        }
       }
     } catch (error) {
-      console.error("Error updating streak:", error);
+      console.error("Error fetching streak result:", error);
     }
   };
 
