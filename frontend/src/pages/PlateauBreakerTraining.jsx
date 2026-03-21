@@ -260,8 +260,10 @@ const PlateauBreakerTraining = ({ user }) => {
     setPuzzlesCompleted(newCompleted);
     
     if (newCompleted >= requiredPuzzles) {
-      setTrainingComplete(true);
-      saveTrainingProgress(true);
+      // Puzzles complete - now go to Apply Mode
+      navigate("/plateau-breaker/apply", {
+        state: { blocker, fromTraining: true }
+      });
     } else {
       setCurrentPuzzleIndex(prev => prev + 1);
       setPuzzleState("thinking");

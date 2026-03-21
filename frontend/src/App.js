@@ -36,6 +36,7 @@ import OpeningsOverview from "@/pages/OpeningsOverview";
 import PlateauBreakerDashboard from "@/pages/PlateauBreakerDashboard";
 import PlateauBreakerReview from "@/pages/PlateauBreakerReview";
 import PlateauBreakerTraining from "@/pages/PlateauBreakerTraining";
+import ApplyMode from "@/pages/ApplyMode";
 
 // Components
 import { Toaster } from "@/components/ui/sonner";
@@ -322,6 +323,11 @@ function AppRouter() {
       <Route path="/plateau-breaker/training" element={
         <ProtectedRoute>
           {({ user }) => <PlateauBreakerTraining user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/plateau-breaker/apply" element={
+        <ProtectedRoute>
+          {({ user }) => <ApplyMode user={user} />}
         </ProtectedRoute>
       } />
     </Routes>
