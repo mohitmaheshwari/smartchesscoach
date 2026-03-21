@@ -774,20 +774,25 @@ const PlateauBreakerReview = ({ user }) => {
                                     )}
                                   </div>
                                 ) : (
-                                  <div className="space-y-2">
-                                    <p className="text-sm text-white">{qaAnswer.answer}</p>
-                                    {qaAnswer.alternative_analysis?.pv && (
-                                      <p className="text-xs text-zinc-400">
-                                        Line: {qaAnswer.alternative_move} {qaAnswer.alternative_analysis.pv.slice(0, 4).join(" ")}
-                                      </p>
+                                  <div className="space-y-3">
+                                    <p className="text-sm text-white leading-relaxed">{qaAnswer.answer}</p>
+                                    
+                                    {/* Thinking Pattern Insight */}
+                                    {qaAnswer.thinking_pattern && qaAnswer.thinking_pattern.id !== "unknown" && (
+                                      <div className={`rounded-md px-3 py-2 text-xs ${
+                                        qaAnswer.thinking_pattern.coaching_signal === "concerning"
+                                          ? "bg-amber-500/10 border border-amber-500/30 text-amber-300"
+                                          : qaAnswer.thinking_pattern.coaching_signal === "positive"
+                                          ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
+                                          : "bg-zinc-800 border border-zinc-700 text-zinc-300"
+                                      }`}>
+                                        <span className="font-medium">{qaAnswer.thinking_pattern.label}:</span>{" "}
+                                        {qaAnswer.thinking_pattern.description}
+                                      </div>
                                     )}
-                                    {qaAnswer.comparison === "worse" && (
-                                      <p className="text-xs text-red-400">
-                                        Eval: {(qaAnswer.eval_difference / 100).toFixed(1)} pawns worse
-                                      </p>
-                                    )}
+
                                     {qaAnswer.comparison === "better" && (
-                                      <p className="text-xs text-green-400">
+                                      <p className="text-xs text-emerald-400 font-medium">
                                         Actually {(Math.abs(qaAnswer.eval_difference) / 100).toFixed(1)} pawns better!
                                       </p>
                                     )}
@@ -796,6 +801,7 @@ const PlateauBreakerReview = ({ user }) => {
                                       variant="ghost"
                                       onClick={showMistakePosition}
                                       className="text-xs text-zinc-500 hover:text-zinc-300 p-0 h-auto"
+                                      data-testid="back-to-position-btn"
                                     >
                                       ← Back to original position
                                     </Button>

@@ -305,92 +305,102 @@ async def answer_move_question(
     
     # Analyze both moves
     analyses = {}
-    
+
     if q_played:
         played_analysis = await analyze_move_with_stockfish(fen, q_played, depth)
         if played_analysis:
             analyses["played"] = played_analysis
-    
+
     alt_analysis = await analyze_move_with_stockfish(fen, q_alternative, depth)
     if alt_analysis:
         analyses["alternative"] = alt_analysis
-    
+
+    # Import coaching answer generator
+    from services.coaching_answer import (
+        generate_coaching_answer,
+        detect_thinking_pattern,
+        analyze_move_character,
+    )
+
     # Generate comparison and answer
     if "played" in analyses and "alternative" in analyses:
         played_eval = analyses["played"]["eval_cp"]
         alt_eval = analyses["alternative"]["eval_cp"]
-        
-        # Note: Evals are from opponent's perspective after the move
-        # So more negative = better for the player who moved
+
         diff = alt_eval - played_eval
-        
+
         if abs(diff) < 30:
             comparison = "roughly equal"
-            verdict = f"Both {q_played} and {q_alternative} are about equally good here."
         elif diff > 0:
-            # Alternative is worse (higher eval for opponent)
             comparison = "worse"
-            pawns_diff = abs(diff) / 100
-            verdict = f"{q_alternative} is about {pawns_diff:.1f} pawns worse than {q_played}."
         else:
-            # Alternative is better (lower eval for opponent)
             comparison = "better"
-            pawns_diff = abs(diff) / 100
-            verdict = f"Actually, {q_alternative} might be slightly better! It's about {pawns_diff:.1f} pawns better than {q_played}."
-        
-        # Build detailed answer
-        answer_parts = [verdict]
-        
-        # Explain why played move is good
-        if q_played and "played" in analyses:
-            pv_played = analyses["played"]["pv"]
-            if pv_played:
-                answer_parts.append(f"After {q_played}, the line continues: {' '.join(pv_played[:4])}.")
-        
-        # Explain what's wrong with alternative
-        if comparison == "worse":
-            pv_alt = analyses["alternative"]["pv"]
-            if pv_alt:
-                answer_parts.append(f"After {q_alternative}, your opponent can play {pv_alt[0]}, leading to: {' '.join(pv_alt[:4])}.")
-                
-                # Try to explain WHY it's worse
-                if alt_analysis.get("mate_in"):
-                    answer_parts.append(f"This leads to checkmate in {abs(alt_analysis['mate_in'])} moves!")
-                elif abs(diff) >= 300:
-                    answer_parts.append("This loses material.")
-                elif abs(diff) >= 100:
-                    answer_parts.append("This gives your opponent a significant advantage.")
-        
+
+        # Coaching-quality answer
+        answer = generate_coaching_answer(
+            user_move=q_alternative,
+            better_move=q_played,
+            user_analysis=analyses["alternative"],
+            better_analysis=analyses["played"],
+            board=board,
+            eval_diff=diff,
+        )
+
+        # Detect thinking pattern
+        move_char = analyze_move_character(board, q_alternative)
+        thinking = detect_thinking_pattern(
+            board=board,
+            user_move_san=q_alternative,
+            better_move_san=q_played,
+            move_char=move_char,
+            eval_diff=diff,
+        )
+
         return {
             "question": question,
-            "answer": " ".join(answer_parts),
+            "answer": answer,
             "played_move": q_played,
             "alternative_move": q_alternative,
             "comparison": comparison,
             "eval_difference": diff,
+            "thinking_pattern": thinking,
             "played_analysis": analyses.get("played"),
-            "alternative_analysis": analyses.get("alternative")
+            "alternative_analysis": analyses.get("alternative"),
         }
-    
+
     elif "alternative" in analyses:
-        # Only have alternative analysis
         alt_eval = analyses["alternative"]["eval_cp"]
-        pv_alt = analyses["alternative"]["pv"]
-        
-        answer = f"After {q_alternative}, the evaluation is {alt_eval/100:.1f}."
-        if pv_alt:
-            answer += f" The line continues: {' '.join(pv_alt[:4])}."
-        
+
+        # Still generate a coaching answer even without comparison
+        answer = generate_coaching_answer(
+            user_move=q_alternative,
+            better_move=None,
+            user_analysis=analyses["alternative"],
+            better_analysis=None,
+            board=board,
+            eval_diff=0,
+        )
+
+        move_char = analyze_move_character(board, q_alternative)
+        thinking = detect_thinking_pattern(
+            board=board,
+            user_move_san=q_alternative,
+            better_move_san=None,
+            move_char=move_char,
+            eval_diff=0,
+        )
+
         return {
             "question": question,
             "answer": answer,
             "alternative_move": q_alternative,
-            "alternative_analysis": analyses.get("alternative")
+            "thinking_pattern": thinking,
+            "alternative_analysis": analyses.get("alternative"),
         }
-    
+
     return {
         "error": "Could not analyze the moves.",
-        "question": question
+        "question": question,
     }
 
 

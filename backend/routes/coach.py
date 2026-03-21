@@ -356,11 +356,12 @@ class MoveQuestionRequest(BaseModel):
 async def ask_move_question(request: MoveQuestionRequest):
     """
     Answer a question about a move, like "why Na5 and not Nf5?"
-    
-    Uses Stockfish to compare moves and explain the difference.
+
+    Uses Stockfish to compare moves and explains the difference in coaching language.
+    Also detects and logs the user's thinking pattern for personalization.
     """
     from services.move_qa_service import answer_move_question
-    
+
     try:
         result = await answer_move_question(
             fen=request.fen,
@@ -368,6 +369,26 @@ async def ask_move_question(request: MoveQuestionRequest):
             played_move=request.played_move,
             depth=request.depth
         )
+
+        # Log the question as coaching data (non-blocking)
+        if not result.get("error") and request.fen:
+            try:
+                from datetime import datetime, timezone
+                await db.question_insights.insert_one({
+                    "fen": request.fen,
+                    "question": request.question,
+                    "parsed_move": result.get("alternative_move"),
+                    "comparison": result.get("comparison"),
+                    "eval_difference": result.get("eval_difference"),
+                    "thinking_pattern": result.get("thinking_pattern", {}).get("id", "unknown"),
+                    "thinking_label": result.get("thinking_pattern", {}).get("label", "Unknown"),
+                    "coaching_signal": result.get("thinking_pattern", {}).get("coaching_signal", "neutral"),
+                    "severity": result.get("thinking_pattern", {}).get("severity", "unknown"),
+                    "asked_at": datetime.now(timezone.utc).isoformat(),
+                })
+            except Exception as log_err:
+                logger.warning(f"Failed to log question insight: {log_err}")
+
         return result
     except Exception as e:
         logger.error(f"Error answering move question: {e}")
