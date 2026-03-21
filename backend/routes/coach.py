@@ -209,6 +209,55 @@ async def get_game_summary(game_id: str, user: User = Depends(get_current_user))
     }
 
 
+# ==================== MISTAKE EXPLANATION ====================
+
+class ExplainMistakeRequest(BaseModel):
+    fen_before: str
+    played_move_uci: str
+    best_move_uci: str
+    eval_before: int = 0
+    eval_after: int = 0
+    move_number: int = 1
+    pv_after_best: List[str] = []
+
+
+@router.post("/explain-mistake")
+async def explain_mistake_endpoint(request: ExplainMistakeRequest):
+    """
+    Generate a human-readable explanation for why a move was a mistake.
+    
+    Uses rule-based chess pattern recognition to explain:
+    - Opening principle violations
+    - Tactical blunders (hanging pieces, forks, pins)
+    - Positional mistakes
+    
+    Returns arrows for visualization.
+    """
+    from services.position_explainer import explain_mistake
+    
+    try:
+        explanation = explain_mistake(
+            fen_before=request.fen_before,
+            played_move_uci=request.played_move_uci,
+            best_move_uci=request.best_move_uci,
+            eval_before=request.eval_before,
+            eval_after=request.eval_after,
+            move_number=request.move_number,
+            pv_after_best=request.pv_after_best
+        )
+        
+        return explanation
+    except Exception as e:
+        logger.error(f"Error explaining mistake: {e}")
+        return {
+            "headline": "Analysis unavailable",
+            "explanation": "Could not analyze this position. Please try another move.",
+            "rule": "Review the suggested move to understand what was missed.",
+            "arrows": [],
+            "category": "unknown"
+        }
+
+
 @router.get("/last-game-summary")
 async def get_last_game_summary(user: User = Depends(get_current_user)):
     """Get summary of the most recent game."""

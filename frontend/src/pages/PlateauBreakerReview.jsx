@@ -48,6 +48,7 @@ const PlateauBreakerReview = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [gameData, setGameData] = useState(null);
   const [criticalMistake, setCriticalMistake] = useState(null);
+  const [mistakeExplanation, setMistakeExplanation] = useState(null); // From explain API
   const [patternCount, setPatternCount] = useState(0);
   const [currentStep, setCurrentStep] = useState(0); // 0: mistake, 1: pattern, 2: rule, 3: demo
   const [showingDemo, setShowingDemo] = useState(false);
@@ -55,6 +56,7 @@ const PlateauBreakerReview = ({ user }) => {
   const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   const [lastMove, setLastMove] = useState(null);
   const [orientation, setOrientation] = useState("white");
+  const [arrows, setArrows] = useState([]); // For board visualization
   
   // Line visualization state
   const [showingLine, setShowingLine] = useState(null); // "played" | "best" | null
@@ -144,6 +146,40 @@ const PlateauBreakerReview = ({ user }) => {
 
       setCriticalMistake(biggestMistake);
 
+      // Now call the explain API to get a proper human explanation
+      if (biggestMistake?.fen && biggestMistake?.move_uci && biggestMistake?.better_move_uci) {
+        try {
+          const explainRes = await fetch(`${API}/coach/explain-mistake`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              fen_before: biggestMistake.fen,
+              played_move_uci: biggestMistake.move_uci,
+              best_move_uci: biggestMistake.better_move_uci,
+              eval_before: 0, // We don't have this directly
+              eval_after: -(biggestMistake.eval_loss || 0),
+              move_number: biggestMistake.move_number,
+              pv_after_best: biggestMistake.pv_after_best || []
+            })
+          });
+          
+          if (explainRes.ok) {
+            const explanation = await explainRes.json();
+            setMistakeExplanation(explanation);
+            
+            // Set arrows for visualization
+            if (explanation.arrows && explanation.arrows.length > 0) {
+              // Convert to format expected by LichessBoard: [[from, to, color], ...]
+              const boardArrows = explanation.arrows.map(arr => [arr[0], arr[1], arr[2]]);
+              setArrows(boardArrows);
+            }
+          }
+        } catch (e) {
+          console.warn("Could not get mistake explanation:", e);
+        }
+      }
+
       // Get pattern count from player identity
       const identityRes = await fetch(`${API}/coach/deep-memory?user_id=${user?.user_id}`, {
         credentials: "include"
@@ -173,6 +209,10 @@ const PlateauBreakerReview = ({ user }) => {
     if (criticalMistake?.fen) {
       setCurrentFen(criticalMistake.fen);
       setLastMove(null);
+      // Restore arrows when showing mistake position
+      if (mistakeExplanation?.arrows?.length > 0) {
+        setArrows(mistakeExplanation.arrows.map(arr => [arr[0], arr[1], arr[2]]));
+      }
     }
   };
 
@@ -392,6 +432,7 @@ const PlateauBreakerReview = ({ user }) => {
                   fen={currentFen}
                   orientation={orientation}
                   lastMove={lastMove}
+                  arrows={showingLine ? [] : arrows}
                   viewOnly={true}
                   interactive={false}
                 />
@@ -509,17 +550,20 @@ const PlateauBreakerReview = ({ user }) => {
                         <div>
                           <p className="text-red-400 text-sm font-medium">WHAT WENT WRONG</p>
                           <p className="text-lg font-bold">
-                            {criticalMistake?.move_number 
+                            {mistakeExplanation?.headline || 
+                             (criticalMistake?.move_number 
                               ? `Move ${criticalMistake.move_number}` 
-                              : "No major mistakes found"}
+                              : "No major mistakes found")}
                           </p>
                         </div>
                       </div>
 
                       {criticalMistake ? (
                         <div className="space-y-4">
+                          {/* Main explanation from the API */}
                           <p className="text-lg text-white">
-                            {criticalMistake.explanation || 
+                            {mistakeExplanation?.explanation || 
+                             criticalMistake.explanation || 
                              `You played ${criticalMistake.move || "a move"}, losing advantage.`}
                           </p>
 
@@ -542,6 +586,23 @@ const PlateauBreakerReview = ({ user }) => {
                             <p className="text-sm text-zinc-500">
                               This cost you ~{(criticalMistake.eval_loss / 100).toFixed(1)} pawns of advantage
                             </p>
+                          )}
+                          
+                          {/* Category badge */}
+                          {mistakeExplanation?.category && (
+                            <div className="flex gap-2">
+                              <span className={`text-xs px-2 py-1 rounded ${
+                                mistakeExplanation.category === "opening" 
+                                  ? "bg-blue-500/20 text-blue-400" 
+                                  : mistakeExplanation.category === "tactical"
+                                    ? "bg-red-500/20 text-red-400"
+                                    : "bg-yellow-500/20 text-yellow-400"
+                              }`}>
+                                {mistakeExplanation.category === "opening" ? "Opening Principle" :
+                                 mistakeExplanation.category === "tactical" ? "Tactical Error" : 
+                                 "Positional Mistake"}
+                              </span>
+                            </div>
                           )}
                         </div>
                       ) : (
@@ -616,7 +677,7 @@ const PlateauBreakerReview = ({ user }) => {
 
                       <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-6">
                         <p className="text-xl font-bold text-white leading-relaxed">
-                          {blocker?.rule || "Before EVERY move, ask: What is my opponent threatening?"}
+                          {mistakeExplanation?.rule || blocker?.rule || "Before EVERY move, ask: What is my opponent threatening?"}
                         </p>
                       </div>
 
