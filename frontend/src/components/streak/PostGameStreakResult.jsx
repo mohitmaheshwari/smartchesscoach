@@ -23,7 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 const PostGameStreakResult = ({ 
-  result,  // { result, headline, message, streak, best, tone, previous_streak, critical_hint }
+  result,  // { result, headline, message, streak, best, tone, previous_streak, critical_hint, improvement, improvement_message }
   onContinue,
   onGoToTraining
 }) => {
@@ -32,6 +32,10 @@ const PostGameStreakResult = ({
   const isNewBest = result.result === "new_best";
   const isContinued = result.result === "continued";
   const isBroken = result.result === "broken";
+  
+  // Improvement data
+  const improvement = result.improvement;
+  const improvementMessage = result.improvement_message;
 
   return (
     <motion.div
@@ -89,6 +93,32 @@ const PostGameStreakResult = ({
                 <Target className="w-4 h-4" />
                 <span>{result.critical_hint}</span>
               </div>
+            </div>
+          )}
+          
+          {/* IMPROVEMENT PROOF - Compare to last game */}
+          {improvement && improvement.text && (
+            <div className={`rounded-lg p-3 mb-4 border ${
+              improvement.verdict === "improving" 
+                ? "bg-green-900/20 border-green-500/20" 
+                : improvement.verdict === "slipping"
+                  ? "bg-red-900/20 border-red-500/20"
+                  : "bg-zinc-900/30 border-zinc-700"
+            }`}>
+              <p className={`text-sm font-medium ${
+                improvement.verdict === "improving" ? "text-green-400" :
+                improvement.verdict === "slipping" ? "text-red-400" : "text-zinc-300"
+              }`}>
+                {improvement.text}
+              </p>
+              {improvementMessage && (
+                <p className={`text-xs mt-1 ${
+                  improvement.verdict === "improving" ? "text-green-400/70" :
+                  improvement.verdict === "slipping" ? "text-red-400/70" : "text-zinc-500"
+                }`}>
+                  {improvementMessage}
+                </p>
+              )}
             </div>
           )}
 

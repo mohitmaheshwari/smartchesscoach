@@ -55,6 +55,7 @@ import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 import PostGameLesson from "@/components/PostGameLesson";
 import EmotionalStateIndicator from "@/components/coach/EmotionalStateIndicator";
 import { PreGameStreakPopup, PostGameStreakResult } from "@/components/streak";
+import EnforcementCheckboxModal from "@/components/coach-play/EnforcementCheckboxModal";
 import { 
   OpeningTeachingOffer, 
   ActiveLessonPanel, 
@@ -943,6 +944,7 @@ const CoachPlay = ({ user }) => {
   // Guardian intervention state
   const [guardianIntervention, setGuardianIntervention] = useState(null);
   const [pendingMove, setPendingMove] = useState(null);
+  const [showEnforcementCheckbox, setShowEnforcementCheckbox] = useState(false);
   const [remainingInterventions, setRemainingInterventions] = useState(3);
 
   // Evaluate move with guardian before making it
@@ -3027,8 +3029,8 @@ const CoachPlay = ({ user }) => {
         </div>
       </div>
 
-      {/* Guardian Intervention Modal */}
-      {guardianIntervention && pendingMove && (
+      {/* Guardian Intervention Modal - Standard Warning */}
+      {guardianIntervention && pendingMove && !guardianIntervention.enforcement?.requires_checkbox && (
         <div 
           className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
           data-testid="guardian-intervention-modal"
@@ -3140,6 +3142,19 @@ const CoachPlay = ({ user }) => {
             </CardContent>
           </Card>
         </div>
+      )}
+      
+      {/* Level 3 Enforcement: Checkbox Modal - Cannot be dismissed */}
+      {guardianIntervention && pendingMove && guardianIntervention.enforcement?.requires_checkbox && (
+        <EnforcementCheckboxModal
+          isOpen={true}
+          riskType={guardianIntervention.risk_type || guardianIntervention.enforcement?.risk_type}
+          repeatCount={guardianIntervention.enforcement?.repeat_count || 3}
+          onConfirm={() => {
+            // User acknowledged - proceed with the move
+            confirmRiskyMove();
+          }}
+        />
       )}
       
       {/* NEW: Pre-Game Streak Popup */}

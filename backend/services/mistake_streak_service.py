@@ -845,11 +845,12 @@ def update_streak_from_analysis(
     # Generate post-game result
     postgame_result = get_postgame_streak_result(streak_before, streak_after)
     
-    # Enhance messaging based on game state
+    # Enhance messaging based on game state + improvement comparison
     postgame_result = _enhance_postgame_messaging(
         postgame_result, 
         game_summary, 
-        focus_type
+        focus_type,
+        last_5_games=streak_after.get("last_5_games", [])
     )
     
     logger.info(f"[STREAK] Updated for {user_id}: {postgame_result['result']} - {game_summary['mistake_count']} focus mistakes")
@@ -911,16 +912,54 @@ def _find_critical_moment(
 def _enhance_postgame_messaging(
     postgame_result: Dict,
     game_summary: Dict,
-    focus_type: str
+    focus_type: str,
+    last_5_games: List[Dict] = None
 ) -> Dict:
     """
     Enhance post-game messaging with emotional, specific copy.
     
     This is the RETENTION ENGINE - makes users feel accountability + progress.
+    
+    IMPROVEMENT PROOF: Compare to last game (not average)
+    - "You missed 4 threats this game (last: 6)" + "Good. You're improving."
     """
     focus_info = FOCUS_MISTAKE_TYPES.get(focus_type, {})
     focus_short = focus_info.get("short_name", "this").lower()
     mistake_count = game_summary.get("mistake_count", 0)
+    
+    # Get last game's mistake count for comparison
+    last_game_mistakes = None
+    if last_5_games and len(last_5_games) >= 2:
+        # Get second-to-last game (last is current)
+        last_game = last_5_games[-2] if len(last_5_games) >= 2 else None
+        if last_game and last_game.get("is_valid", True):
+            last_game_mistakes = last_game.get("mistake_count")
+    
+    # Build improvement comparison
+    improvement_text = None
+    improvement_verdict = None
+    
+    if last_game_mistakes is not None:
+        if mistake_count < last_game_mistakes:
+            improvement_text = f"You missed {mistake_count} {focus_short} (last: {last_game_mistakes})"
+            improvement_verdict = "improving"
+        elif mistake_count > last_game_mistakes:
+            improvement_text = f"You missed {mistake_count} {focus_short} (last: {last_game_mistakes})"
+            improvement_verdict = "slipping"
+        else:
+            improvement_text = f"You missed {mistake_count} {focus_short} again"
+            improvement_verdict = "same"
+    elif mistake_count > 0:
+        improvement_text = f"You missed {mistake_count} {focus_short}"
+        improvement_verdict = "first_tracked"
+    
+    # Add improvement data to result
+    postgame_result["improvement"] = {
+        "this_game": mistake_count,
+        "last_game": last_game_mistakes,
+        "text": improvement_text,
+        "verdict": improvement_verdict
+    }
     
     if postgame_result["result"] == "broken":
         # STREAK BROKEN - Emotional hit
@@ -937,11 +976,19 @@ def _enhance_postgame_messaging(
         # Add critical moment reference
         if game_summary.get("critical_moment_move"):
             postgame_result["critical_hint"] = f"Move {game_summary['critical_moment_move']} was your turning point."
+        
+        # Add improvement context for broken streaks
+        if improvement_verdict == "slipping":
+            postgame_result["improvement_message"] = "You're slipping. Focus."
+        elif improvement_verdict == "same":
+            postgame_result["improvement_message"] = "You're not improving yet. Fix this."
     
     elif postgame_result["result"] == "new_best":
         # NEW BEST - Big celebration
         postgame_result["headline"] = "🔥 New Personal Best!"
         postgame_result["message"] = f"You played {postgame_result['streak']} clean games. This is how your rating improves."
+        if improvement_verdict == "improving":
+            postgame_result["improvement_message"] = "Good. You're improving."
     
     elif postgame_result["result"] == "continued":
         # STREAK CONTINUES - Positive reinforcement
@@ -952,6 +999,9 @@ def _enhance_postgame_messaging(
             postgame_result["message"] = f"Good. {streak} clean games. Keep building."
         else:
             postgame_result["message"] = f"Clean game. No {focus_short} mistakes. This is how you climb."
+        
+        if improvement_verdict == "improving":
+            postgame_result["improvement_message"] = "Good. You're improving."
     
     return postgame_result
 
