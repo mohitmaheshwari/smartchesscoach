@@ -32,6 +32,11 @@ import CoachPlay from "@/pages/CoachPlay";
 import AdminOpenings from "@/pages/AdminOpenings";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 
+// V1 Plateau Breaker Mode (Enforced Learning)
+import PlateauBreakerDashboard from "@/pages/PlateauBreakerDashboard";
+import PlateauBreakerReview from "@/pages/PlateauBreakerReview";
+import PlateauBreakerTraining from "@/pages/PlateauBreakerTraining";
+
 // Components
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -300,6 +305,23 @@ function AppRouter() {
       <Route path="/recover/:gameId" element={
         <ProtectedRoute>
           {({ user }) => <PostLossRecovery user={user} />}
+        </ProtectedRoute>
+      } />
+      
+      {/* V1 Plateau Breaker Mode (Enforced Learning) */}
+      <Route path="/plateau-breaker" element={
+        <ProtectedRoute>
+          {({ user }) => <PlateauBreakerDashboard user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/plateau-breaker/review/:gameId" element={
+        <ProtectedRoute>
+          {({ user }) => <PlateauBreakerReview user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/plateau-breaker/training" element={
+        <ProtectedRoute>
+          {({ user }) => <PlateauBreakerTraining user={user} />}
         </ProtectedRoute>
       } />
     </Routes>

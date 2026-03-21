@@ -1,0 +1,378 @@
+/**
+ * PlateauBreakerDashboard.jsx - V1 Enforced Dashboard
+ * 
+ * PHILOSOPHY: "One game = One mistake = One rule = One enforced action"
+ * 
+ * Shows ONLY:
+ * 1. Your Current Blocker (biggest mistake)
+ * 2. How many times it happened
+ * 3. "Fix This Now" CTA
+ * 
+ * Nothing else. No distractions.
+ */
+
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { 
+  AlertTriangle, 
+  Target, 
+  ArrowRight, 
+  Lock,
+  Unlock,
+  TrendingDown,
+  Zap,
+  CheckCircle
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+
+const API = process.env.REACT_APP_BACKEND_URL + "/api";
+
+// Map mistake types to user-friendly messages
+const BLOCKER_MESSAGES = {
+  "hanging_piece": {
+    title: "You leave pieces undefended",
+    why: "You are losing games because you don't check if your pieces are safe before moving.",
+    rule: "Before EVERY move, ask: Is anything hanging?",
+    icon: "♟️"
+  },
+  "tactical_error": {
+    title: "You miss opponent's threats",
+    why: "You are losing games because you don't check what your opponent is threatening.",
+    rule: "Before EVERY move, ask: What is my opponent threatening?",
+    icon: "⚔️"
+  },
+  "missed_tactic": {
+    title: "You miss winning tactics",
+    why: "You are missing opportunities to win material or checkmate.",
+    rule: "Before EVERY move, look for: Checks, Captures, Threats (in that order).",
+    icon: "💥"
+  },
+  "positional_mistake": {
+    title: "You make weak positional moves",
+    why: "You are making moves without a plan, giving your opponent easy play.",
+    rule: "Before EVERY move, ask: What is my plan for the next 3 moves?",
+    icon: "🎯"
+  },
+  "time_trouble": {
+    title: "You blunder under time pressure",
+    why: "You are losing won positions because you panic with low time.",
+    rule: "When under 2 minutes: Simplify. Trade pieces. Don't calculate complex lines.",
+    icon: "⏱️"
+  },
+  "opening_error": {
+    title: "You make opening mistakes",
+    why: "You are losing your advantage in the first 10 moves.",
+    rule: "In the opening: Develop pieces, Control center, Castle early.",
+    icon: "📖"
+  },
+  "endgame_error": {
+    title: "You misplay endgames",
+    why: "You are losing or drawing won endgames.",
+    rule: "In endgames: Activate your king, Push passed pawns, Cut off the enemy king.",
+    icon: "👑"
+  }
+};
+
+const PlateauBreakerDashboard = ({ user }) => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [blockerData, setBlockerData] = useState(null);
+  const [trainingStatus, setTrainingStatus] = useState(null);
+  const [recentGame, setRecentGame] = useState(null);
+
+  useEffect(() => {
+    fetchBlockerData();
+  }, [user]);
+
+  const fetchBlockerData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch player identity for weakness data
+      const identityRes = await fetch(`${API}/coach/deep-memory?user_id=${user?.user_id}`, {
+        credentials: "include"
+      });
+      const identityData = await identityRes.json();
+      
+      // Fetch recent games
+      const gamesRes = await fetch(`${API}/games?user_id=${user?.user_id}&limit=10`, {
+        credentials: "include"
+      });
+      const gamesData = await gamesRes.json();
+      
+      // Find the biggest blocker from pattern data
+      const patterns = identityData.blunder_taxonomy || {};
+      let biggestBlocker = null;
+      let maxCount = 0;
+      
+      for (const [type, count] of Object.entries(patterns)) {
+        if (count > maxCount) {
+          maxCount = count;
+          biggestBlocker = type;
+        }
+      }
+      
+      // Default if no data
+      if (!biggestBlocker) {
+        biggestBlocker = "tactical_error";
+        maxCount = 0;
+      }
+      
+      // Get message config
+      const blockerConfig = BLOCKER_MESSAGES[biggestBlocker] || BLOCKER_MESSAGES["tactical_error"];
+      
+      // Calculate occurrence rate
+      const totalGames = identityData.games_analyzed || 10;
+      const occurrenceRate = Math.round((maxCount / totalGames) * 100);
+      
+      setBlockerData({
+        type: biggestBlocker,
+        count: maxCount,
+        totalGames,
+        occurrenceRate,
+        ...blockerConfig
+      });
+      
+      // Get most recent unreviewed game
+      const games = gamesData.games || gamesData || [];
+      const analyzedGames = games.filter(g => g.is_analyzed);
+      if (analyzedGames.length > 0) {
+        setRecentGame(analyzedGames[0]);
+      }
+      
+      // Check training status (localStorage for now, should be backend)
+      const savedStatus = localStorage.getItem(`training_status_${user?.user_id}`);
+      if (savedStatus) {
+        setTrainingStatus(JSON.parse(savedStatus));
+      } else {
+        setTrainingStatus({
+          puzzlesCompleted: 0,
+          puzzlesRequired: 5,
+          coachGamesPlayed: 0,
+          isUnlocked: false
+        });
+      }
+      
+    } catch (err) {
+      console.error("Error fetching blocker data:", err);
+      // Set defaults
+      setBlockerData({
+        type: "tactical_error",
+        count: 0,
+        totalGames: 0,
+        occurrenceRate: 0,
+        ...BLOCKER_MESSAGES["tactical_error"]
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFixNow = () => {
+    // Navigate to focused review with blocker context
+    if (recentGame) {
+      navigate(`/plateau-breaker/review/${recentGame.game_id}`, {
+        state: { blocker: blockerData }
+      });
+    } else {
+      // No game to review, go to training
+      navigate("/plateau-breaker/training", {
+        state: { blocker: blockerData }
+      });
+    }
+  };
+
+  const handlePlayCoached = () => {
+    navigate("/plateau-breaker/play", {
+      state: { blocker: blockerData, enforced: true }
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full"
+        />
+      </div>
+    );
+  }
+
+  const isTrainingComplete = trainingStatus?.puzzlesCompleted >= trainingStatus?.puzzlesRequired;
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white">
+      {/* Header - Minimal */}
+      <div className="border-b border-zinc-800 p-4">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <h1 className="text-lg font-semibold text-amber-500">Chess Coach</h1>
+          <span className="text-sm text-zinc-500">Plateau Breaker Mode</span>
+        </div>
+      </div>
+
+      {/* Main Content - Focused */}
+      <div className="max-w-2xl mx-auto p-6 space-y-8">
+        
+        {/* THE BLOCKER - This is ALL that matters */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Card className="bg-red-950/30 border-red-500/50 overflow-hidden">
+            <CardContent className="p-0">
+              {/* Red Alert Header */}
+              <div className="bg-red-500/20 px-6 py-4 border-b border-red-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-red-500/30 flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-red-400" />
+                  </div>
+                  <div>
+                    <p className="text-red-400 text-sm font-medium uppercase tracking-wide">
+                      Your Current Blocker
+                    </p>
+                    <h2 className="text-2xl font-bold text-white">
+                      {blockerData?.title}
+                    </h2>
+                  </div>
+                </div>
+              </div>
+
+              {/* The Why */}
+              <div className="px-6 py-5 space-y-4">
+                <p className="text-lg text-zinc-300">
+                  {blockerData?.why}
+                </p>
+
+                {/* Stats - Make it painful */}
+                <div className="flex items-center gap-4 py-3 px-4 bg-zinc-900/50 rounded-lg">
+                  <TrendingDown className="w-5 h-5 text-red-400" />
+                  <div>
+                    <p className="text-white font-bold">
+                      {blockerData?.count} times in your last {blockerData?.totalGames} games
+                    </p>
+                    <p className="text-sm text-zinc-500">
+                      {blockerData?.occurrenceRate}% of your games have this problem
+                    </p>
+                  </div>
+                </div>
+
+                {/* The Rule */}
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Target className="w-5 h-5 text-amber-400 mt-0.5" />
+                    <div>
+                      <p className="text-amber-400 text-sm font-medium mb-1">Your Rule</p>
+                      <p className="text-white font-semibold text-lg">
+                        {blockerData?.rule}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <div className="px-6 py-4 bg-zinc-900/30 border-t border-zinc-800">
+                <Button 
+                  onClick={handleFixNow}
+                  className="w-full h-14 text-lg font-bold bg-red-600 hover:bg-red-700"
+                >
+                  <Zap className="w-5 h-5 mr-2" />
+                  Fix This Now
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Training Progress */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <Card className="bg-zinc-900/50 border-zinc-800">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  {isTrainingComplete ? (
+                    <Unlock className="w-5 h-5 text-green-400" />
+                  ) : (
+                    <Lock className="w-5 h-5 text-zinc-500" />
+                  )}
+                  <span className="font-medium">
+                    {isTrainingComplete ? "Training Complete" : "Training Required"}
+                  </span>
+                </div>
+                <span className="text-sm text-zinc-500">
+                  {trainingStatus?.puzzlesCompleted || 0} / {trainingStatus?.puzzlesRequired || 5} puzzles
+                </span>
+              </div>
+              
+              <Progress 
+                value={(trainingStatus?.puzzlesCompleted / trainingStatus?.puzzlesRequired) * 100} 
+                className="h-2 mb-4"
+              />
+
+              {isTrainingComplete ? (
+                <div className="flex items-center gap-2 text-green-400 text-sm">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>You can now play your next game!</span>
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-500">
+                  Complete {trainingStatus?.puzzlesRequired - trainingStatus?.puzzlesCompleted} more puzzles to unlock your next game analysis.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Play with Enforcement */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          <Card className="bg-zinc-900/50 border-zinc-800">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-white">Play with Enforced Coaching</h3>
+                  <p className="text-sm text-zinc-500 mt-1">
+                    Play a game where the coach blocks mistakes before they happen
+                  </p>
+                </div>
+                <Button 
+                  onClick={handlePlayCoached}
+                  variant="outline"
+                  className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+                >
+                  Play Now
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Back to Classic Mode */}
+        <div className="text-center pt-4">
+          <button 
+            onClick={() => navigate("/home")}
+            className="text-sm text-zinc-600 hover:text-zinc-400 transition-colors"
+          >
+            Switch to Classic Mode →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PlateauBreakerDashboard;
