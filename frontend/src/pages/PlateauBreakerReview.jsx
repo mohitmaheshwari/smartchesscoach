@@ -28,7 +28,8 @@ import {
   Play,
   SkipBack,
   SkipForward,
-  RotateCcw
+  RotateCcw,
+  MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,6 +65,11 @@ const PlateauBreakerReview = ({ user }) => {
   const [lineIndex, setLineIndex] = useState(0);
   const [lineMoves, setLineMoves] = useState([]);
   const [linePositions, setLinePositions] = useState([]); // [{fen, lastMove}]
+  
+  // Q&A state
+  const [question, setQuestion] = useState("");
+  const [qaAnswer, setQaAnswer] = useState(null);
+  const [qaLoading, setQaLoading] = useState(false);
 
   useEffect(() => {
     if (gameId) {
@@ -378,6 +384,57 @@ const PlateauBreakerReview = ({ user }) => {
     showMistakePosition();
   };
 
+  /**
+   * Ask a question about a move, e.g., "why Na5 and not Nf5?"
+   */
+  const askMoveQuestion = async () => {
+    if (!question.trim() || !criticalMistake?.fen) return;
+    
+    setQaLoading(true);
+    setQaAnswer(null);
+    
+    try {
+      const res = await fetch(`${API}/coach/ask-move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen: criticalMistake.fen,
+          question: question,
+          played_move: null, // Let it parse from question
+          depth: 18
+        })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setQaAnswer(data);
+        
+        // If there's an alternative analysis, show the position
+        if (data.alternative_analysis?.fen_after) {
+          // Play through to show the alternative
+          const chess = new Chess();
+          chess.load(criticalMistake.fen);
+          try {
+            const move = chess.move(data.alternative_move);
+            if (move) {
+              setCurrentFen(chess.fen());
+              setLastMove([move.from, move.to]);
+              setArrows([]);
+            }
+          } catch (e) {
+            console.warn("Could not show alternative move:", e);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error asking question:", e);
+      setQaAnswer({ error: "Could not process the question. Try again." });
+    } finally {
+      setQaLoading(false);
+    }
+  };
+
   const handlePracticeNow = () => {
     navigate("/plateau-breaker/training", {
       state: { 
@@ -645,20 +702,101 @@ const PlateauBreakerReview = ({ user }) => {
                           
                           {/* Category badge */}
                           {mistakeExplanation?.category && (
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                               <span className={`text-xs px-2 py-1 rounded ${
                                 mistakeExplanation.category === "opening" 
                                   ? "bg-blue-500/20 text-blue-400" 
                                   : mistakeExplanation.category === "tactical"
                                     ? "bg-red-500/20 text-red-400"
-                                    : "bg-yellow-500/20 text-yellow-400"
+                                    : mistakeExplanation.category === "endgame"
+                                      ? "bg-purple-500/20 text-purple-400"
+                                      : "bg-yellow-500/20 text-yellow-400"
                               }`}>
-                                {mistakeExplanation.category === "opening" ? "Opening Principle" :
+                                {mistakeExplanation.category === "opening" ? "Opening Theory" :
                                  mistakeExplanation.category === "tactical" ? "Tactical Error" : 
+                                 mistakeExplanation.category === "endgame" ? "Endgame Theory" :
                                  "Positional Mistake"}
                               </span>
+                              {mistakeExplanation?.theory_match && (
+                                <span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400">
+                                  Theory Match
+                                </span>
+                              )}
                             </div>
                           )}
+                          
+                          {/* Golden Rule from Theory */}
+                          {mistakeExplanation?.rule && (
+                            <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                              <p className="text-xs text-amber-400 mb-1">GOLDEN RULE</p>
+                              <p className="text-sm text-amber-200 font-medium">
+                                {mistakeExplanation.rule}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Q&A Input */}
+                          <div className="mt-4 pt-4 border-t border-zinc-700">
+                            <p className="text-xs text-zinc-500 mb-2">ASK A QUESTION</p>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={question}
+                                onChange={(e) => setQuestion(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && askMoveQuestion()}
+                                placeholder="Why Na5 and not Nf5?"
+                                className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={askMoveQuestion}
+                                disabled={qaLoading || !question.trim()}
+                                className="bg-zinc-700 hover:bg-zinc-600"
+                              >
+                                {qaLoading ? "..." : "Ask"}
+                              </Button>
+                            </div>
+                            
+                            {/* Q&A Answer */}
+                            {qaAnswer && (
+                              <div className={`mt-3 p-3 rounded-lg ${
+                                qaAnswer.error 
+                                  ? "bg-red-500/10 border border-red-500/30" 
+                                  : "bg-zinc-800/50 border border-zinc-700"
+                              }`}>
+                                {qaAnswer.error ? (
+                                  <p className="text-sm text-red-400">{qaAnswer.error}</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <p className="text-sm text-white">{qaAnswer.answer}</p>
+                                    {qaAnswer.alternative_analysis?.pv && (
+                                      <p className="text-xs text-zinc-400">
+                                        Line: {qaAnswer.alternative_move} {qaAnswer.alternative_analysis.pv.slice(0, 4).join(" ")}
+                                      </p>
+                                    )}
+                                    {qaAnswer.comparison === "worse" && (
+                                      <p className="text-xs text-red-400">
+                                        Eval: {(qaAnswer.eval_difference / 100).toFixed(1)} pawns worse
+                                      </p>
+                                    )}
+                                    {qaAnswer.comparison === "better" && (
+                                      <p className="text-xs text-green-400">
+                                        Actually {(Math.abs(qaAnswer.eval_difference) / 100).toFixed(1)} pawns better!
+                                      </p>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={showMistakePosition}
+                                      className="text-xs text-zinc-500 hover:text-zinc-300 p-0 h-auto"
+                                    >
+                                      ← Back to original position
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-4">

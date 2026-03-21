@@ -331,6 +331,40 @@ async def reload_theory():
     }
 
 
+# ==================== MOVE Q&A ====================
+
+class MoveQuestionRequest(BaseModel):
+    fen: str
+    question: str
+    played_move: Optional[str] = None
+    depth: int = 18
+
+
+@router.post("/ask-move")
+async def ask_move_question(request: MoveQuestionRequest):
+    """
+    Answer a question about a move, like "why Na5 and not Nf5?"
+    
+    Uses Stockfish to compare moves and explain the difference.
+    """
+    from services.move_qa_service import answer_move_question
+    
+    try:
+        result = await answer_move_question(
+            fen=request.fen,
+            question=request.question,
+            played_move=request.played_move,
+            depth=request.depth
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error answering move question: {e}")
+        return {
+            "error": "Could not process the question.",
+            "details": str(e)
+        }
+
+
 @router.get("/last-game-summary")
 async def get_last_game_summary(user: User = Depends(get_current_user)):
     """Get summary of the most recent game."""
