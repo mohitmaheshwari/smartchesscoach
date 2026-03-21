@@ -123,26 +123,77 @@ const PlateauBreakerDashboard = ({ user }) => {
         }
       }
       
-      // Default if no data
-      if (!biggestBlocker) {
-        biggestBlocker = "tactical_error";
-        maxCount = 0;
+      // Also check streak data for current focus (backend source of truth)
+      let streakFocusMistake = null;
+      try {
+        const streakRes = await fetch(`${API}/streak/status?user_id=${user?.user_id}`, {
+          credentials: "include"
+        });
+        if (streakRes.ok) {
+          const streakData = await streakRes.json();
+          streakFocusMistake = streakData.focus_mistake_type;
+        }
+      } catch (e) {
+        console.warn("Could not fetch streak data");
+      }
+      
+      // Determine blocker source:
+      // 1. If we have real pattern data with count > 0, use that
+      // 2. Otherwise use streak focus (which is the active training focus)
+      // 3. Only show "no data" state if truly no focus set
+      
+      let blockerSource = "pattern";
+      if (!biggestBlocker || maxCount === 0) {
+        if (streakFocusMistake) {
+          // Map streak focus to blocker type
+          const focusToBlocker = {
+            "THREAT_VERIFICATION": "tactical_error",
+            "FORCING_BLIND": "missed_tactic",
+            "STOPPED_CALCULATION_EARLY": "calculation_error",
+            "HANGING_PIECE": "hanging_piece",
+            "TACTICAL_MISS": "missed_tactic"
+          };
+          biggestBlocker = focusToBlocker[streakFocusMistake] || "tactical_error";
+          blockerSource = "streak_focus";
+        } else {
+          // Truly no data - will show "needs games" state
+          biggestBlocker = null;
+        }
       }
       
       // Get message config
-      const blockerConfig = BLOCKER_MESSAGES[biggestBlocker] || BLOCKER_MESSAGES["tactical_error"];
+      const blockerConfig = biggestBlocker 
+        ? (BLOCKER_MESSAGES[biggestBlocker] || BLOCKER_MESSAGES["tactical_error"])
+        : null;
       
       // Calculate occurrence rate
       const totalGames = identityData.games_analyzed || 10;
-      const occurrenceRate = Math.round((maxCount / totalGames) * 100);
+      const occurrenceRate = maxCount > 0 ? Math.round((maxCount / totalGames) * 100) : 0;
       
-      setBlockerData({
-        type: biggestBlocker,
-        count: maxCount,
-        totalGames,
-        occurrenceRate,
-        ...blockerConfig
-      });
+      // Set blocker data based on source
+      if (blockerConfig) {
+        setBlockerData({
+          type: biggestBlocker,
+          count: maxCount,
+          totalGames,
+          occurrenceRate,
+          source: blockerSource, // "pattern" or "streak_focus"
+          isActiveTraining: blockerSource === "streak_focus",
+          ...blockerConfig
+        });
+      } else {
+        // No blocker data at all - needs more games
+        setBlockerData({
+          type: null,
+          count: 0,
+          totalGames: 0,
+          occurrenceRate: 0,
+          source: "none",
+          title: "Play More Games",
+          why: "We need to analyze your games to find your biggest weakness. Import or play some games first.",
+          rule: "Start by playing a few games so we can identify your pattern."
+        });
+      }
       
       // Get most recent unreviewed game
       const games = gamesData.games || gamesData || [];
@@ -269,16 +320,38 @@ const PlateauBreakerDashboard = ({ user }) => {
                   {blockerData?.why}
                 </p>
 
-                {/* Stats - Make it painful */}
+                {/* Stats - Show based on data source */}
                 <div className="flex items-center gap-4 py-3 px-4 bg-zinc-900/50 rounded-lg">
                   <TrendingDown className="w-5 h-5 text-red-400" />
                   <div>
-                    <p className="text-white font-bold">
-                      {blockerData?.count} times in your last {blockerData?.totalGames} games
-                    </p>
-                    <p className="text-sm text-zinc-500">
-                      {blockerData?.occurrenceRate}% of your games have this problem
-                    </p>
+                    {blockerData?.source === "pattern" && blockerData?.count > 0 ? (
+                      <>
+                        <p className="text-white font-bold">
+                          {blockerData?.count} times in your last {blockerData?.totalGames} games
+                        </p>
+                        <p className="text-sm text-zinc-500">
+                          {blockerData?.occurrenceRate}% of your games have this problem
+                        </p>
+                      </>
+                    ) : blockerData?.source === "streak_focus" ? (
+                      <>
+                        <p className="text-white font-bold">
+                          This is your current training focus
+                        </p>
+                        <p className="text-sm text-zinc-500">
+                          Practice until you stop making this mistake
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-white font-bold">
+                          No data yet
+                        </p>
+                        <p className="text-sm text-zinc-500">
+                          Play some games to identify your patterns
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
 
