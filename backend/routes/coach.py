@@ -267,6 +267,70 @@ async def explain_mistake_endpoint(request: ExplainMistakeRequest):
         }
 
 
+# ==================== THEORY DATABASE (Admin) ====================
+
+@router.get("/theory/stats")
+async def get_theory_stats():
+    """Get statistics about the theory database."""
+    from services.chess_theory_service import get_theory_service
+    
+    service = get_theory_service()
+    return {
+        "stats": service.get_theory_stats(),
+        "status": "ok"
+    }
+
+
+@router.get("/theory/openings")
+async def get_opening_patterns():
+    """Get all opening theory patterns (admin view)."""
+    from services.chess_theory_service import get_theory_service
+    
+    service = get_theory_service()
+    return {
+        "patterns": service.get_all_opening_patterns(),
+        "count": len(service.get_all_opening_patterns())
+    }
+
+
+@router.get("/theory/endgames")
+async def get_endgame_patterns():
+    """Get all endgame theory patterns (admin view)."""
+    from services.chess_theory_service import get_theory_service
+    
+    service = get_theory_service()
+    return {
+        "patterns": service.get_all_endgame_patterns(),
+        "count": len(service.get_all_endgame_patterns())
+    }
+
+
+@router.get("/theory/tactical")
+async def get_tactical_patterns():
+    """Get all tactical patterns (admin view)."""
+    from services.chess_theory_service import get_theory_service
+    
+    service = get_theory_service()
+    return {
+        "patterns": service.get_all_tactical_patterns(),
+        "count": len(service.get_all_tactical_patterns())
+    }
+
+
+@router.post("/theory/reload")
+async def reload_theory():
+    """Reload theory database from JSON (after admin edits)."""
+    from services.chess_theory_service import get_theory_service
+    
+    service = get_theory_service()
+    service.reload_theory()
+    
+    return {
+        "status": "reloaded",
+        "stats": service.get_theory_stats()
+    }
+
+
 @router.get("/last-game-summary")
 async def get_last_game_summary(user: User = Depends(get_current_user)):
     """Get summary of the most recent game."""

@@ -5,10 +5,11 @@ Parses actual PV lines from Stockfish and converts them to human-readable explan
 NO LLM - pure chess logic and rule mapping.
 
 Flow:
-1. Parse each move in the PV line
-2. Detect what's happening (captures, checks, threats, material changes)
-3. Map the pattern to a golden rule
-4. Generate clear, SHORT English explanation
+1. Check theory database for known patterns (opening/endgame theory)
+2. If no theory match, parse the PV line
+3. Detect what's happening (captures, checks, threats, material changes)
+4. Map the pattern to a golden rule
+5. Generate clear, SHORT English explanation
 """
 
 import chess
@@ -377,19 +378,74 @@ def explain_line(
     """
     Generate explanation by parsing the actual Stockfish lines.
     
+    Priority:
+    1. Check theory database for known opening/endgame patterns
+    2. Fall back to hardcoded opening patterns
+    3. Parse PV lines and generate explanation
+    
     Returns:
         {
             "headline": "Short title",
             "explanation": "What happens in the line",
             "rule": "Golden rule to remember",
             "arrows": [[from, to, color], ...],
-            "category": "tactical" | "positional" | "opening"
+            "category": "tactical" | "positional" | "opening",
+            "theory_match": bool  # Whether this matched a theory pattern
         }
     """
-    # Check for known opening patterns first
+    # 1. Check theory database first (admin-editable JSON)
+    try:
+        from services.chess_theory_service import get_theory_service
+        theory_service = get_theory_service()
+        
+        # Try to match opening theory
+        theory_match = theory_service.match_opening_theory(
+            fen_before, 
+            played_move or played_move_uci, 
+            best_move or best_move_uci
+        )
+        
+        if theory_match:
+            # Build arrows
+            arrows = []
+            if best_move_uci and len(best_move_uci) >= 4:
+                arrows.append([best_move_uci[:2], best_move_uci[2:4], "green"])
+            
+            return {
+                "headline": theory_match.get("name", "Opening Theory"),
+                "explanation": theory_match.get("explanation", ""),
+                "rule": theory_match.get("rule", ""),
+                "arrows": arrows,
+                "category": theory_match.get("category", "opening"),
+                "theory_match": True,
+                "why_bad": theory_match.get("why_bad"),
+                "why_good": theory_match.get("why_good")
+            }
+        
+        # Try to match endgame theory
+        endgame_match = theory_service.match_endgame_theory(fen_before)
+        if endgame_match:
+            arrows = []
+            if best_move_uci and len(best_move_uci) >= 4:
+                arrows.append([best_move_uci[:2], best_move_uci[2:4], "green"])
+            
+            return {
+                "headline": endgame_match.get("name", "Endgame Theory"),
+                "explanation": endgame_match.get("explanation", ""),
+                "rule": endgame_match.get("rule", "") or endgame_match.get("key_rule", ""),
+                "arrows": arrows,
+                "category": "endgame",
+                "theory_match": True,
+                "common_mistake": endgame_match.get("common_mistake"),
+                "correct_technique": endgame_match.get("correct_technique")
+            }
+    except Exception as e:
+        logger.warning(f"Theory service error: {e}")
+    
+    # 2. Check hardcoded opening patterns (legacy fallback)
     opening_pattern = detect_opening_pattern(fen_before, played_move or played_move_uci, best_move or best_move_uci)
     
-    # Parse both lines
+    # 3. Parse the PV lines
     board = chess.Board(fen_before)
     
     # First, make the played move to get the position after
