@@ -27,7 +27,14 @@ import { Button } from "@/components/ui/button";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
-const MistakeFreeStreak = ({ userId, onStartTraining }) => {
+/**
+ * @param {Object} props
+ * @param {string} props.userId - User ID for fetching streak data
+ * @param {boolean} props.blockerDetected - Whether the parent dashboard has detected a blocker (prevents conflicting UI)
+ * @param {Object} props.blockerInfo - Blocker info from parent (type, name, rule) to use as fallback
+ * @param {Function} props.onStartTraining - Callback when training CTA is clicked
+ */
+const MistakeFreeStreak = ({ userId, blockerDetected = false, blockerInfo = null, onStartTraining }) => {
   const [streakData, setStreakData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -77,7 +84,8 @@ const MistakeFreeStreak = ({ userId, onStartTraining }) => {
     return null; // Silently fail
   }
 
-  const {
+  // Extract data from streak API
+  let {
     focus_mistake_name,
     rule,
     current_streak,
@@ -90,7 +98,23 @@ const MistakeFreeStreak = ({ userId, onStartTraining }) => {
     needs_detection
   } = streakData;
 
-  // If no focus detected yet, show "needs detection" state
+  // CRITICAL FIX: If streak API says "needs_detection" but parent dashboard found a blocker,
+  // use the blocker info instead of showing conflicting "No Weakness Detected" message.
+  // This happens when blunder_taxonomy has data but streak_data.current_focus_mistake is null.
+  if (needs_detection && blockerDetected && blockerInfo) {
+    // Override with blocker info from parent
+    focus_mistake_name = blockerInfo.name || "Your Current Blocker";
+    rule = blockerInfo.rule || "Fix this pattern to improve";
+    headline = "Start Your Streak";
+    message = "Play a game without this mistake to begin your streak.";
+    tone = "neutral";
+    needs_detection = false; // Don't show "no detection" state
+    current_streak = 0;
+    best_streak = 0;
+  }
+  
+  // If still needs detection after fallback check, show "needs detection" state
+  // This should only happen if NO blocker was found anywhere
   if (needs_detection) {
     return (
       <Card className="bg-zinc-900/50 border-zinc-700" data-testid="mistake-free-streak-needs-detection">

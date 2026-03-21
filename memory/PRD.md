@@ -9,6 +9,20 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
+### UI Consistency Fix - Streak vs Blocker Display (March 21, 2026)
+**Issue**: Dashboard showed conflicting messages - "No Weakness Detected Yet" in the streak component while also showing "Your Current Blocker: You miss opponent's threats" in the blocker card.
+
+**Root Cause**: Two independent data sources were not synchronized:
+1. `MistakeFreeStreak` component fetched `/api/streak/status` which returns `needs_detection: true` when `streak_data.current_focus_mistake` is null
+2. `PlateauBreakerDashboard` fetched `/api/coach/deep-memory` and found blunder data in `identity.blunder_taxonomy.by_type`
+
+**Fix**: 
+- Modified `PlateauBreakerDashboard.jsx` to pass `blockerDetected` and `blockerInfo` props to `MistakeFreeStreak`
+- Modified `MistakeFreeStreak.jsx` to accept these props and use blocker info as fallback when streak API says `needs_detection` but parent has detected a blocker
+- Now shows consistent "Start Your Streak - Tracking: Threat Awareness" with the blocker data
+
+**Testing**: Screenshot verified - both components now show consistent "Threat Awareness" / "You miss opponent's threats" data
+
 ### Final 2 Gaps Closed - Ready for User Testing (March 21, 2026)
 **"Until the user is forced to pause and reflect, nothing changes."**
 

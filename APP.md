@@ -890,7 +890,7 @@ Interactive guided walkthroughs with auto-playing moves, coach narration, and "W
 
 ## Contact & Links
 
-- **Live Demo**: https://mistake-fixer-1.preview.emergentagent.com
+- **Live Demo**: https://coached-chess.preview.emergentagent.com
 - **API Documentation**: /api/docs (FastAPI auto-generated)
 
 ---

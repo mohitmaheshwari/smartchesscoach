@@ -118,16 +118,26 @@ const PlateauBreakerDashboard = ({ user }) => {
       }
 
       // Find the biggest blocker from pattern data
-      const patterns = identityData.blunder_taxonomy || {};
-      let biggestBlocker = null;
-      let maxCount = 0;
+      // API returns: { identity: { blunder_taxonomy: { by_type: { tactical_error: 43 }, ... } } }
+      const identity = identityData.identity || identityData || {};
+      const taxonomy = identity.blunder_taxonomy || {};
+      const patterns = taxonomy.by_type || {};
+      const totalBlunders = taxonomy.total_blunders || 0;
       
-      for (const [type, count] of Object.entries(patterns)) {
-        if (count > maxCount) {
-          maxCount = count;
-          biggestBlocker = type;
+      let biggestBlocker = taxonomy.most_common_type || null;
+      let maxCount = patterns[biggestBlocker] || 0;
+      
+      // Fallback: iterate to find if most_common_type is missing
+      if (!biggestBlocker || maxCount === 0) {
+        for (const [type, count] of Object.entries(patterns)) {
+          if (count > maxCount) {
+            maxCount = count;
+            biggestBlocker = type;
+          }
         }
       }
+      
+      console.log("Blocker detection:", { biggestBlocker, maxCount, totalBlunders, patterns });
       
       // Also check streak data for current focus (backend source of truth)
       let streakFocusMistake = null;
@@ -172,8 +182,11 @@ const PlateauBreakerDashboard = ({ user }) => {
         ? (BLOCKER_MESSAGES[biggestBlocker] || BLOCKER_MESSAGES["tactical_error"])
         : null;
       
-      // Calculate occurrence rate
-      const totalGames = identityData.games_analyzed || 10;
+      // Calculate occurrence rate - this should be "what % of games had this mistake"
+      // Not "mistakes / games" which can exceed 100%
+      const totalGames = identityData.games_analyzed || identity.games_analyzed || 10;
+      // For now, show average mistakes per game instead of percentage
+      const avgPerGame = maxCount > 0 ? (maxCount / totalGames).toFixed(1) : 0;
       const occurrenceRate = maxCount > 0 ? Math.round((maxCount / totalGames) * 100) : 0;
       
       // Set blocker data based on source
@@ -182,7 +195,7 @@ const PlateauBreakerDashboard = ({ user }) => {
           type: biggestBlocker,
           count: maxCount,
           totalGames,
-          occurrenceRate,
+          avgPerGame,
           source: blockerSource, // "pattern" or "streak_focus"
           isActiveTraining: blockerSource === "streak_focus",
           ...blockerConfig
@@ -284,16 +297,25 @@ const PlateauBreakerDashboard = ({ user }) => {
       <div className="max-w-2xl mx-auto p-6 space-y-8">
         
         {/* MISTAKE-FREE STREAK - Proof of improvement */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <MistakeFreeStreak 
-            userId={user?.user_id}
-            onStartTraining={() => navigate("/plateau-breaker/training", { state: { blocker: blockerData } })}
-          />
-        </motion.div>
+        {/* Only show if blocker is detected - prevents conflicting "no weakness" messages */}
+        {blockerData?.type && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <MistakeFreeStreak 
+              userId={user?.user_id}
+              blockerDetected={!!blockerData?.type}
+              blockerInfo={{
+                type: blockerData?.type,
+                name: blockerData?.title,
+                rule: blockerData?.rule
+              }}
+              onStartTraining={() => navigate("/plateau-breaker/training", { state: { blocker: blockerData } })}
+            />
+          </motion.div>
+        )}
         
         {/* THE BLOCKER - Only show if we have detected one */}
         {blockerData?.type ? (
@@ -337,7 +359,7 @@ const PlateauBreakerDashboard = ({ user }) => {
                           {blockerData?.count} times in your last {blockerData?.totalGames} games
                         </p>
                         <p className="text-sm text-zinc-500">
-                          {blockerData?.occurrenceRate}% of your games have this problem
+                          ~{blockerData?.avgPerGame} mistakes per game on average
                         </p>
                       </>
                     ) : blockerData?.source === "streak_focus" ? (
