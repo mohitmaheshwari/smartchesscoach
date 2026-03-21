@@ -317,6 +317,18 @@ async def get_tactical_patterns():
     }
 
 
+@router.get("/theory/rules")
+async def get_positional_rules():
+    """Get all positional rules / golden rules (admin view)."""
+    from services.chess_theory_service import get_theory_service
+    
+    service = get_theory_service()
+    return {
+        "rules": service.get_all_positional_rules(),
+        "count": len(service.get_all_positional_rules())
+    }
+
+
 @router.post("/theory/reload")
 async def reload_theory():
     """Reload theory database from JSON (after admin edits)."""

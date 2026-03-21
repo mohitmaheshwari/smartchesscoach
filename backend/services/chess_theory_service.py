@@ -1,18 +1,16 @@
 """
-Chess Theory Service
+Chess Theory Service — Enterprise Knowledge Base
 
-Reads the admin-editable chess_theory.json and matches positions against known patterns.
-Provides explanations based on documented opening and endgame theory.
+Loads the split theory knowledge base from /data/theory/ directory:
+  - opening_mistakes.json: FEN-based opening mistake patterns
+  - endgame_principles.json: Material-based endgame patterns
+  - tactical_patterns.json: Tactical motif patterns
+  - positional_rules.json: Generic rules for PV classification fallback
 
-This is the "smart class" that:
-1. Loads theory from JSON
-2. Matches Stockfish analysis to known patterns
-3. Returns theory-based explanations when available
-4. Falls back to line parsing when no theory match
+Single source of truth for all chess theory matching.
 """
 
 import json
-import os
 import chess
 from typing import Dict, Any, List, Optional
 from pathlib import Path
@@ -20,277 +18,311 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Path to the theory database
-THEORY_DB_PATH = Path(__file__).parent.parent / "data" / "chess_theory.json"
+THEORY_DIR = Path(__file__).parent.parent / "data" / "theory"
+
+# Legacy path for backwards compatibility
+LEGACY_THEORY_PATH = Path(__file__).parent.parent / "data" / "chess_theory.json"
 
 
 class ChessTheoryService:
-    """Service to match positions against the theory database."""
-    
+    """Service to match positions against the theory knowledge base."""
+
     def __init__(self):
-        self.theory_db = None
+        self.opening_patterns: Dict[str, Dict] = {}
+        self.endgame_patterns: Dict[str, Dict] = {}
+        self.tactical_patterns: Dict[str, Dict] = {}
+        self.positional_rules: Dict[str, Dict] = {}
+        self._load_theory()
+
+    # ------------------------------------------------------------------
+    # Loading
+    # ------------------------------------------------------------------
+
+    def _load_json(self, path: Path) -> Dict:
+        """Load a single JSON file, stripping _meta / _description keys."""
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+            data.pop("_meta", None)
+            data.pop("_description", None)
+            return {k: v for k, v in data.items() if isinstance(v, dict)}
+        except Exception as e:
+            logger.error(f"Error loading {path}: {e}")
+            return {}
+
+    def _load_theory(self):
+        """Load theory from the split directory structure."""
+        if THEORY_DIR.exists():
+            self.opening_patterns = self._load_json(THEORY_DIR / "opening_mistakes.json")
+            self.endgame_patterns = self._load_json(THEORY_DIR / "endgame_principles.json")
+            self.tactical_patterns = self._load_json(THEORY_DIR / "tactical_patterns.json")
+            self.positional_rules = self._load_json(THEORY_DIR / "positional_rules.json")
+            logger.info(
+                f"Theory loaded: {len(self.opening_patterns)} openings, "
+                f"{len(self.endgame_patterns)} endgames, "
+                f"{len(self.tactical_patterns)} tactics, "
+                f"{len(self.positional_rules)} rules"
+            )
+        elif LEGACY_THEORY_PATH.exists():
+            logger.warning("Using legacy chess_theory.json — migrate to data/theory/")
+            self._load_legacy()
+        else:
+            logger.warning("No theory database found")
+
+    def _load_legacy(self):
+        """Fallback: load from single legacy chess_theory.json."""
+        try:
+            with open(LEGACY_THEORY_PATH, "r") as f:
+                data = json.load(f)
+            raw_open = data.get("opening_theory", {})
+            raw_open.pop("_description", None)
+            self.opening_patterns = {k: v for k, v in raw_open.items() if isinstance(v, dict)}
+
+            raw_end = data.get("endgame_theory", {})
+            raw_end.pop("_description", None)
+            self.endgame_patterns = {k: v for k, v in raw_end.items() if isinstance(v, dict)}
+
+            raw_tac = data.get("tactical_patterns", {})
+            raw_tac.pop("_description", None)
+            self.tactical_patterns = {k: v for k, v in raw_tac.items() if isinstance(v, dict)}
+        except Exception as e:
+            logger.error(f"Error loading legacy theory: {e}")
+
+    def reload_theory(self):
+        """Reload theory from disk (call after admin updates)."""
         self.opening_patterns = {}
         self.endgame_patterns = {}
         self.tactical_patterns = {}
+        self.positional_rules = {}
         self._load_theory()
-    
-    def _load_theory(self):
-        """Load theory database from JSON."""
-        try:
-            if THEORY_DB_PATH.exists():
-                with open(THEORY_DB_PATH, 'r') as f:
-                    self.theory_db = json.load(f)
-                
-                # Index patterns for fast lookup
-                self.opening_patterns = self.theory_db.get("opening_theory", {})
-                self.endgame_patterns = self.theory_db.get("endgame_theory", {})
-                self.tactical_patterns = self.theory_db.get("tactical_patterns", {})
-                
-                # Remove meta fields
-                for patterns in [self.opening_patterns, self.endgame_patterns, self.tactical_patterns]:
-                    patterns.pop("_description", None)
-                
-                logger.info(f"Loaded {len(self.opening_patterns)} opening patterns, "
-                           f"{len(self.endgame_patterns)} endgame patterns, "
-                           f"{len(self.tactical_patterns)} tactical patterns")
-            else:
-                logger.warning(f"Theory database not found at {THEORY_DB_PATH}")
-        except Exception as e:
-            logger.error(f"Error loading theory database: {e}")
-    
-    def reload_theory(self):
-        """Reload theory from JSON (call after admin updates)."""
-        self._load_theory()
-    
+
+    # ------------------------------------------------------------------
+    # Matching — Openings
+    # ------------------------------------------------------------------
+
     def match_opening_theory(
-        self, 
-        fen: str, 
-        played_move: str, 
-        best_move: str
+        self, fen: str, played_move: str, best_move: str
     ) -> Optional[Dict[str, Any]]:
-        """
-        Check if position + moves match a known opening pattern.
-        
-        Returns theory dict if match found, None otherwise.
-        """
-        # Normalize moves
-        played_clean = played_move.lower().replace("+", "").replace("#", "").replace("x", "")
-        best_clean = best_move.lower().replace("+", "").replace("#", "").replace("x", "")
-        
-        # Extract board position (ignore castling rights, move counters)
+        """Check if position + moves match a known opening pattern."""
+        played_clean = self._normalize_move(played_move)
+        best_clean = self._normalize_move(best_move)
+
         try:
             board = chess.Board(fen)
-            board_fen = board.board_fen()  # Just piece positions
+            board_fen = board.board_fen()
         except (ValueError, chess.InvalidMoveError):
             return None
-        
+
         for pattern_id, pattern in self.opening_patterns.items():
-            # Skip non-dict entries
             if not isinstance(pattern, dict):
                 continue
-            
-            # Check FEN pattern match
-            pattern_fen = pattern.get("fen_pattern", "")
-            if not pattern_fen:
+
+            # Skip heuristic patterns (no FEN)
+            if pattern.get("match_type") == "heuristic" or not pattern.get("fen_pattern"):
                 continue
-            
+
             try:
-                pattern_board = chess.Board(pattern_fen)
-                pattern_board_fen = pattern_board.board_fen()
+                pattern_board = chess.Board(pattern["fen_pattern"])
+                if board_fen != pattern_board.board_fen():
+                    continue
             except (ValueError, chess.InvalidMoveError):
                 continue
-            
-            # Check if positions match (just pieces, ignore other FEN parts)
-            if board_fen != pattern_board_fen:
-                continue
-            
-            # Check if moves match
-            pattern_bad = pattern.get("bad_move", "").lower()
-            pattern_good = pattern.get("good_move", "").lower()
-            
-            # Normalize pattern moves
-            pattern_bad_clean = pattern_bad.replace("+", "").replace("#", "").replace("x", "")
-            pattern_good_clean = pattern_good.replace("+", "").replace("#", "").replace("x", "")
-            
-            if played_clean == pattern_bad_clean and best_clean == pattern_good_clean:
+
+            pattern_bad = self._normalize_move(pattern.get("bad_move", ""))
+            pattern_good = self._normalize_move(pattern.get("good_move", ""))
+
+            if played_clean == pattern_bad and best_clean == pattern_good:
                 return {
                     "pattern_id": pattern_id,
                     "name": pattern.get("name", "Opening Pattern"),
                     "eco": pattern.get("eco"),
+                    "family": pattern.get("family"),
                     "explanation": pattern.get("explanation", ""),
                     "why_bad": pattern.get("why_bad", ""),
                     "why_good": pattern.get("why_good", ""),
                     "rule": pattern.get("rule", ""),
-                    "category": pattern.get("category", "opening"),
-                    "difficulty": pattern.get("difficulty", "intermediate")
+                    "category": "opening",
+                    "difficulty": pattern.get("difficulty", "intermediate"),
                 }
-        
+
         return None
-    
+
+    # ------------------------------------------------------------------
+    # Matching — Endgames
+    # ------------------------------------------------------------------
+
     def match_endgame_theory(self, fen: str) -> Optional[Dict[str, Any]]:
-        """
-        Check if position matches a known endgame pattern.
-        
-        Returns theory dict if match found, None otherwise.
-        """
+        """Check if position matches a known endgame pattern by material."""
         try:
             board = chess.Board(fen)
         except (ValueError, chess.InvalidMoveError):
             return None
-        
-        # Count material to determine endgame type
-        white_pieces = {
-            "K": len(board.pieces(chess.KING, chess.WHITE)),
-            "Q": len(board.pieces(chess.QUEEN, chess.WHITE)),
-            "R": len(board.pieces(chess.ROOK, chess.WHITE)),
-            "B": len(board.pieces(chess.BISHOP, chess.WHITE)),
-            "N": len(board.pieces(chess.KNIGHT, chess.WHITE)),
-            "P": len(board.pieces(chess.PAWN, chess.WHITE)),
-        }
-        black_pieces = {
-            "K": len(board.pieces(chess.KING, chess.BLACK)),
-            "Q": len(board.pieces(chess.QUEEN, chess.BLACK)),
-            "R": len(board.pieces(chess.ROOK, chess.BLACK)),
-            "B": len(board.pieces(chess.BISHOP, chess.BLACK)),
-            "N": len(board.pieces(chess.KNIGHT, chess.BLACK)),
-            "P": len(board.pieces(chess.PAWN, chess.BLACK)),
-        }
-        
-        # Determine endgame type
-        total_material = sum(white_pieces.values()) + sum(black_pieces.values()) - 2  # Exclude kings
-        
-        # Only match endgame theory in actual endgames
-        if total_material > 10:
+
+        pieces = self._count_material(board)
+        total = pieces["total_non_king"]
+
+        if total > 10:
             return None
-        
-        # Check for specific endgame types
-        pattern_type = None
-        
-        # Rook endgames
-        if (white_pieces["R"] >= 1 or black_pieces["R"] >= 1) and \
-           white_pieces["Q"] == 0 and black_pieces["Q"] == 0:
-            pattern_type = "rook_endgame"
-        
-        # King and pawn
-        elif total_material <= 3 and (white_pieces["P"] >= 1 or black_pieces["P"] >= 1):
-            pattern_type = "KP_vs_K"
-        
-        # Bishop endgames
-        elif (white_pieces["B"] >= 1 or black_pieces["B"] >= 1) and \
-             white_pieces["R"] == 0 and black_pieces["R"] == 0 and \
-             white_pieces["Q"] == 0 and black_pieces["Q"] == 0:
-            
-            # Check for opposite colored bishops
-            white_bishops = list(board.pieces(chess.BISHOP, chess.WHITE))
-            black_bishops = list(board.pieces(chess.BISHOP, chess.BLACK))
-            
-            if white_bishops and black_bishops:
-                white_square_color = chess.square_color(white_bishops[0])
-                black_square_color = chess.square_color(black_bishops[0])
-                
-                if white_square_color != black_square_color:
-                    pattern_type = "bishop_endgame"
-        
-        # Minor piece endgames
-        elif (white_pieces["B"] + white_pieces["N"] + black_pieces["B"] + black_pieces["N"]) >= 1:
-            pattern_type = "minor_piece_endgame"
-        
-        # Find matching theory
-        if pattern_type:
-            for pattern_id, pattern in self.endgame_patterns.items():
-                if not isinstance(pattern, dict):
-                    continue
-                
-                if pattern.get("pattern_type") == pattern_type:
-                    return {
-                        "pattern_id": pattern_id,
-                        "name": pattern.get("name", "Endgame Pattern"),
-                        "key_rule": pattern.get("key_rule", ""),
-                        "explanation": pattern.get("explanation", ""),
-                        "common_mistake": pattern.get("common_mistake", ""),
-                        "correct_technique": pattern.get("correct_technique", ""),
-                        "rule": pattern.get("rule", ""),
-                        "category": pattern.get("category", "endgame"),
-                        "difficulty": pattern.get("difficulty", "intermediate")
-                    }
-        
+
+        pattern_type = self._classify_endgame(board, pieces)
+        if not pattern_type:
+            return None
+
+        for pattern_id, pattern in self.endgame_patterns.items():
+            if not isinstance(pattern, dict):
+                continue
+            if pattern.get("pattern_type") == pattern_type:
+                return {
+                    "pattern_id": pattern_id,
+                    "name": pattern.get("name", "Endgame Pattern"),
+                    "key_rule": pattern.get("key_rule", ""),
+                    "explanation": pattern.get("explanation", ""),
+                    "common_mistake": pattern.get("common_mistake", ""),
+                    "correct_technique": pattern.get("correct_technique", ""),
+                    "rule": pattern.get("rule", "") or pattern.get("key_rule", ""),
+                    "category": "endgame",
+                    "difficulty": pattern.get("difficulty", "intermediate"),
+                }
+
         return None
-    
+
+    # ------------------------------------------------------------------
+    # Matching — Tactics
+    # ------------------------------------------------------------------
+
     def match_tactical_pattern(self, pattern_type: str) -> Optional[Dict[str, Any]]:
-        """
-        Get tactical pattern info by type.
-        
-        pattern_type: "hanging_piece", "pin", "fork", "back_rank", "discovered"
-        """
+        """Get tactical pattern info by type."""
         for pattern_id, pattern in self.tactical_patterns.items():
             if not isinstance(pattern, dict):
                 continue
-            
             if pattern.get("pattern_type") == pattern_type:
                 return {
                     "pattern_id": pattern_id,
                     "name": pattern.get("name", "Tactical Pattern"),
                     "rule": pattern.get("rule", ""),
                     "explanation": pattern.get("explanation", ""),
-                    "category": pattern.get("category", "tactical"),
-                    "difficulty": pattern.get("difficulty", "beginner")
+                    "prevention": pattern.get("prevention", ""),
+                    "category": "tactical",
+                    "difficulty": pattern.get("difficulty", "beginner"),
                 }
-        
         return None
-    
-    def get_all_opening_patterns(self) -> List[Dict[str, Any]]:
-        """Get all opening patterns (for admin view)."""
-        patterns = []
-        for pattern_id, pattern in self.opening_patterns.items():
-            if isinstance(pattern, dict):
-                patterns.append({
-                    "id": pattern_id,
-                    **pattern
-                })
-        return patterns
-    
-    def get_all_endgame_patterns(self) -> List[Dict[str, Any]]:
-        """Get all endgame patterns (for admin view)."""
-        patterns = []
-        for pattern_id, pattern in self.endgame_patterns.items():
-            if isinstance(pattern, dict):
-                patterns.append({
-                    "id": pattern_id,
-                    **pattern
-                })
-        return patterns
-    
-    def get_all_tactical_patterns(self) -> List[Dict[str, Any]]:
-        """Get all tactical patterns (for admin view)."""
-        patterns = []
-        for pattern_id, pattern in self.tactical_patterns.items():
-            if isinstance(pattern, dict):
-                patterns.append({
-                    "id": pattern_id,
-                    **pattern
-                })
-        return patterns
-    
-    def get_theory_stats(self) -> Dict[str, int]:
-        """Get counts of theory patterns."""
+
+    # ------------------------------------------------------------------
+    # Positional Rules (for line_parser fallback)
+    # ------------------------------------------------------------------
+
+    def get_positional_rule(self, pattern_key: str) -> Dict[str, str]:
+        """Get the golden rule for a detected pattern (used by line_parser)."""
+        rule = self.positional_rules.get(pattern_key)
+        if rule and isinstance(rule, dict):
+            return {
+                "rule": rule.get("rule", ""),
+                "short": rule.get("short", ""),
+                "severity": rule.get("severity", "unknown"),
+            }
         return {
-            "opening_patterns": len([p for p in self.opening_patterns.values() if isinstance(p, dict)]),
-            "endgame_patterns": len([p for p in self.endgame_patterns.values() if isinstance(p, dict)]),
-            "tactical_patterns": len([p for p in self.tactical_patterns.values() if isinstance(p, dict)]),
-            "total": (
-                len([p for p in self.opening_patterns.values() if isinstance(p, dict)]) +
-                len([p for p in self.endgame_patterns.values() if isinstance(p, dict)]) +
-                len([p for p in self.tactical_patterns.values() if isinstance(p, dict)])
-            )
+            "rule": "Calculate your opponent's best response before moving.",
+            "short": "This move has a tactical flaw.",
+            "severity": "unknown",
         }
 
+    # ------------------------------------------------------------------
+    # Admin / Read endpoints
+    # ------------------------------------------------------------------
 
-# Singleton instance
-_theory_service = None
+    def get_all_opening_patterns(self) -> List[Dict[str, Any]]:
+        return [{"id": k, **v} for k, v in self.opening_patterns.items() if isinstance(v, dict)]
+
+    def get_all_endgame_patterns(self) -> List[Dict[str, Any]]:
+        return [{"id": k, **v} for k, v in self.endgame_patterns.items() if isinstance(v, dict)]
+
+    def get_all_tactical_patterns(self) -> List[Dict[str, Any]]:
+        return [{"id": k, **v} for k, v in self.tactical_patterns.items() if isinstance(v, dict)]
+
+    def get_all_positional_rules(self) -> List[Dict[str, Any]]:
+        return [{"id": k, **v} for k, v in self.positional_rules.items() if isinstance(v, dict)]
+
+    def get_theory_stats(self) -> Dict[str, int]:
+        counts = {
+            "opening_patterns": len(self.opening_patterns),
+            "endgame_patterns": len(self.endgame_patterns),
+            "tactical_patterns": len(self.tactical_patterns),
+            "positional_rules": len(self.positional_rules),
+        }
+        counts["total"] = sum(counts.values())
+        return counts
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_move(move: str) -> str:
+        return move.lower().replace("+", "").replace("#", "").replace("x", "")
+
+    @staticmethod
+    def _count_material(board: chess.Board) -> Dict:
+        result = {}
+        for color_name, color in [("white", chess.WHITE), ("black", chess.BLACK)]:
+            for piece_name, piece_type in [
+                ("K", chess.KING), ("Q", chess.QUEEN), ("R", chess.ROOK),
+                ("B", chess.BISHOP), ("N", chess.KNIGHT), ("P", chess.PAWN),
+            ]:
+                result[f"{color_name}_{piece_name}"] = len(board.pieces(piece_type, color))
+        total = sum(v for k, v in result.items() if not k.endswith("_K"))
+        result["total_non_king"] = total
+        return result
+
+    @staticmethod
+    def _classify_endgame(board: chess.Board, pieces: Dict) -> Optional[str]:
+        has_rook = (pieces["white_R"] + pieces["black_R"]) > 0
+        has_queen = (pieces["white_Q"] + pieces["black_Q"]) > 0
+        has_bishop = (pieces["white_B"] + pieces["black_B"]) > 0
+        has_knight = (pieces["white_N"] + pieces["black_N"]) > 0
+        has_pawn = (pieces["white_P"] + pieces["black_P"]) > 0
+
+        # Queen endgame
+        if has_queen and not has_rook and not has_bishop and not has_knight:
+            return "queen_endgame"
+
+        # Rook endgames
+        if has_rook and not has_queen:
+            return "rook_endgame"
+
+        # Pure pawn endgame
+        if pieces["total_non_king"] <= 3 and has_pawn and not has_rook and not has_queen and not has_bishop and not has_knight:
+            return "KP_vs_K"
+
+        # Bishop endgames
+        if has_bishop and not has_rook and not has_queen:
+            wb = list(board.pieces(chess.BISHOP, chess.WHITE))
+            bb = list(board.pieces(chess.BISHOP, chess.BLACK))
+            if wb and bb and chess.square_color(wb[0]) != chess.square_color(bb[0]):
+                return "bishop_endgame"
+            if wb and bb:
+                return "bishop_endgame"
+            if not has_knight:
+                return "bishop_endgame"
+
+        # Minor piece endgames
+        if (has_bishop or has_knight) and not has_rook and not has_queen:
+            return "minor_piece_endgame"
+
+        # General endgame
+        if pieces["total_non_king"] <= 6:
+            return "general_endgame"
+
+        return None
+
+
+# ------------------------------------------------------------------
+# Singleton
+# ------------------------------------------------------------------
+
+_theory_service: Optional[ChessTheoryService] = None
 
 
 def get_theory_service() -> ChessTheoryService:
-    """Get the singleton theory service instance."""
     global _theory_service
     if _theory_service is None:
         _theory_service = ChessTheoryService()

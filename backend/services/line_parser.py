@@ -2,14 +2,16 @@
 Stockfish Line Parser & Explainer
 
 Parses actual PV lines from Stockfish and converts them to human-readable explanations.
-NO LLM - pure chess logic and rule mapping.
+NO LLM — pure chess logic and rule mapping.
 
 Flow:
 1. Check theory database for known patterns (opening/endgame theory)
 2. If no theory match, parse the PV line
 3. Detect what's happening (captures, checks, threats, material changes)
-4. Map the pattern to a golden rule
+4. Map the pattern to a golden rule from the theory knowledge base
 5. Generate clear, SHORT English explanation
+
+Golden rules and opening patterns live in /data/theory/*.json — NOT hardcoded here.
 """
 
 import chess
@@ -20,111 +22,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
-# GOLDEN RULES - Patterns mapped to memorable rules
-# =============================================================================
-
-GOLDEN_RULES = {
-    # Material loss patterns
-    "loses_pawn": {
-        "rule": "Don't give away pawns without compensation.",
-        "short": "You lost a pawn."
-    },
-    "loses_piece": {
-        "rule": "Never leave pieces undefended.",
-        "short": "You lost a piece."
-    },
-    "loses_exchange": {
-        "rule": "Don't trade a rook for a minor piece.",
-        "short": "You lost the exchange (rook for bishop/knight)."
-    },
-    "loses_queen": {
-        "rule": "Protect your queen at all costs.",
-        "short": "You lost your queen."
-    },
-    
-    # Tactical patterns
-    "allows_fork": {
-        "rule": "Watch for knight forks on your king and queen.",
-        "short": "This allowed a fork."
-    },
-    "allows_pin": {
-        "rule": "Avoid placing pieces on lines with your king.",
-        "short": "This created a pin."
-    },
-    "allows_skewer": {
-        "rule": "Keep your valuable pieces off the same line.",
-        "short": "This allowed a skewer."
-    },
-    "allows_discovered_attack": {
-        "rule": "Watch for pieces that can move to reveal attacks.",
-        "short": "This allowed a discovered attack."
-    },
-    "misses_check": {
-        "rule": "Always look for checks first - they force responses.",
-        "short": "You missed a check that wins material."
-    },
-    "allows_back_rank": {
-        "rule": "Give your king an escape square (luft).",
-        "short": "This weakened your back rank."
-    },
-    
-    # Positional patterns  
-    "loses_center": {
-        "rule": "Control the center - don't give it up easily.",
-        "short": "You gave up central control."
-    },
-    "weakens_king": {
-        "rule": "Don't push pawns in front of your castled king.",
-        "short": "This weakened your king's safety."
-    },
-    "trades_when_behind": {
-        "rule": "When behind in material, avoid trades.",
-        "short": "Trading when behind helps your opponent."
-    },
-    "trades_when_ahead": {
-        "rule": "When ahead in material, trade pieces to simplify.",
-        "short": "You should trade pieces when ahead."
-    },
-    
-    # Opening patterns
-    "premature_pawn_push": {
-        "rule": "Don't push pawns past the 4th rank before developing.",
-        "short": "This pawn push was premature."
-    },
-    "undeveloped_pieces": {
-        "rule": "Develop all pieces before attacking.",
-        "short": "You attacked with pieces still undeveloped."
-    },
-    "moved_same_piece_twice": {
-        "rule": "Don't move the same piece twice in the opening.",
-        "short": "Moving the same piece twice loses time."
-    },
-    "delayed_castling": {
-        "rule": "Castle early to protect your king.",
-        "short": "Your king is still in the center."
-    },
-    
-    # Opening theory patterns
-    "italian_d5_premature": {
-        "rule": "In the Italian/Two Knights, d5 is only good after Ng5. Play d6 first.",
-        "short": "d5 is premature - d6 is the main line."
-    },
-    "sicilian_d6_first": {
-        "rule": "In the Sicilian, play d6 to support your center before d5.",
-        "short": "Prepare d5 with d6 first."
-    },
-    "french_attack_chain": {
-        "rule": "In the French, attack the pawn chain base with c5.",
-        "short": "Attack the pawn chain with c5."
-    },
-    
-    # Generic fallback
-    "unknown": {
-        "rule": "Calculate your opponent's best response before moving.",
-        "short": "This move has a tactical flaw."
-    }
-}
+def _get_golden_rule(pattern_key: str) -> Dict[str, str]:
+    """Fetch a golden rule from the theory service (positional_rules.json)."""
+    try:
+        from services.chess_theory_service import get_theory_service
+        return get_theory_service().get_positional_rule(pattern_key)
+    except Exception:
+        return {"rule": "Calculate your opponent's best response before moving.", "short": "This move has a tactical flaw."}
 
 
 # Piece values for material calculation
@@ -329,42 +233,6 @@ def find_key_moment(events: List[MoveEvent]) -> Optional[str]:
     return None
 
 
-# =============================================================================
-# OPENING DETECTION - Known opening patterns for better rules
-# =============================================================================
-
-OPENING_PATTERNS = {
-    # Italian Game / Two Knights - d5 vs d6
-    "italian_d5": {
-        "fen_pattern": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R",  # After 1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6
-        "bad_move": "d5",
-        "good_move": "d6",
-        "pattern": "italian_d5_premature",
-        "explanation_prefix": "In the Two Knights Defense, d5 is premature when White hasn't played Ng5. "
-    },
-}
-
-
-def detect_opening_pattern(fen: str, played_move: str, best_move: str) -> Optional[Dict]:
-    """
-    Check if this position matches a known opening pattern.
-    Returns the pattern info if found, None otherwise.
-    """
-    # Extract board position (ignore move counters)
-    board_fen = fen.split()[0] if " " in fen else fen
-    
-    for name, pattern in OPENING_PATTERNS.items():
-        pattern_board = pattern["fen_pattern"].split()[0]
-        
-        # Check if position matches and moves match
-        if (board_fen == pattern_board and 
-            played_move.lower().replace("+", "").replace("#", "") == pattern["bad_move"].lower() and
-            best_move.lower().replace("+", "").replace("#", "") == pattern["good_move"].lower()):
-            return pattern
-    
-    return None
-
-
 def explain_line(
     fen_before: str,
     played_move: str,
@@ -442,10 +310,7 @@ def explain_line(
     except Exception as e:
         logger.warning(f"Theory service error: {e}")
     
-    # 2. Check hardcoded opening patterns (legacy fallback)
-    opening_pattern = detect_opening_pattern(fen_before, played_move or played_move_uci, best_move or best_move_uci)
-    
-    # 3. Parse the PV lines
+    # 2. Parse the PV lines (no theory match found)
     board = chess.Board(fen_before)
     
     # First, make the played move to get the position after
@@ -482,8 +347,7 @@ def explain_line(
         best_move_uci=best_move_uci,
         played_analysis=played_analysis,
         best_analysis=best_analysis,
-        eval_loss=eval_loss,
-        opening_pattern=opening_pattern
+        eval_loss=eval_loss
     )
 
 
@@ -493,27 +357,15 @@ def generate_explanation(
     best_move_uci: str,
     played_analysis: LineAnalysis,
     best_analysis: Optional[LineAnalysis],
-    eval_loss: int,
-    opening_pattern: Optional[Dict] = None
+    eval_loss: int
 ) -> Dict[str, Any]:
     """Generate the final explanation from parsed analysis."""
-    
-    # If we have a known opening pattern, use its rule
-    if opening_pattern:
-        pattern = opening_pattern["pattern"]
-        rule_data = GOLDEN_RULES.get(pattern, GOLDEN_RULES["unknown"])
-        explanation_prefix = opening_pattern.get("explanation_prefix", "")
-    else:
-        pattern = played_analysis.pattern
-        rule_data = GOLDEN_RULES.get(pattern, GOLDEN_RULES["unknown"])
-        explanation_prefix = ""
-    
+
+    pattern = played_analysis.pattern
+    rule_data = _get_golden_rule(pattern)
+
     # Build the explanation from actual events
     explanation_parts = []
-    
-    # Add opening theory prefix if available
-    if explanation_prefix:
-        explanation_parts.append(explanation_prefix)
     
     # Describe what happens in the line - trace the key moves
     if played_analysis.events:
@@ -546,32 +398,27 @@ def generate_explanation(
     if best_move:
         explanation_parts.append(f"{best_move} avoids this and keeps your position solid.")
     
-    # Build headline - use opening pattern headline if available
-    if opening_pattern:
-        headline = rule_data["short"]
-    elif played_analysis.key_moment:
+    # Build headline
+    if played_analysis.key_moment:
         headline = played_analysis.key_moment
     else:
-        headline = rule_data["short"]
-    
+        headline = rule_data.get("short", "This move has a tactical flaw.")
+
     # Determine category
     category = "tactical"
-    if opening_pattern or pattern.startswith("italian_") or pattern.startswith("sicilian_") or pattern.startswith("french_"):
-        category = "opening"
-    elif pattern in ["loses_center", "weakens_king", "premature_pawn_push", "undeveloped_pieces"]:
+    if pattern in ["loses_center", "weakens_king", "premature_pawn_push", "undeveloped_pieces",
+                    "moved_same_piece_twice", "delayed_castling"]:
         category = "positional"
-    elif pattern in ["premature_pawn_push", "undeveloped_pieces", "moved_same_piece_twice", "delayed_castling"]:
-        category = "opening"
-    
-    # Build arrows - show best move in green
+
+    # Build arrows — show best move in green
     arrows = []
     if best_move_uci and len(best_move_uci) >= 4:
         arrows.append([best_move_uci[:2], best_move_uci[2:4], "green"])
-    
+
     return {
-        "headline": headline[:50],  # Cap length
+        "headline": headline[:50],
         "explanation": " ".join(explanation_parts) if explanation_parts else f"Playing {played_move} loses about {eval_loss // 100} pawns. {best_move} was better.",
-        "rule": rule_data["rule"],
+        "rule": rule_data.get("rule", "Calculate your opponent's best response before moving."),
         "arrows": arrows,
         "category": category
     }

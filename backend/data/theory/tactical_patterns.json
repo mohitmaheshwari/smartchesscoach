@@ -1,0 +1,179 @@
+{
+  "_meta": {
+    "description": "Tactical patterns and motifs — common combinations to watch for",
+    "version": "2.0.0",
+    "last_updated": "2026-02-15",
+    "admin_editable": true,
+    "match_strategy": "Pattern type detected from PV line analysis"
+  },
+
+  "undefended_piece": {
+    "name": "Undefended Pieces",
+    "pattern_type": "hanging_piece",
+    "trigger": "Piece attacked but not defended",
+    "rule": "Before EVERY move, check: Are any of my pieces undefended?",
+    "explanation": "Many tactics work because a piece was left undefended. An undefended piece is a target for forks, discovered attacks, and double attacks.",
+    "prevention": "After deciding your move, do a final 'blunder check' — scan all your pieces.",
+    "difficulty": "beginner"
+  },
+
+  "pin_to_king": {
+    "name": "Pin to the King",
+    "pattern_type": "pin",
+    "trigger": "Piece on line between attacker and king",
+    "rule": "Avoid placing valuable pieces on lines with your king.",
+    "explanation": "A pinned piece cannot move without exposing the king to check. The pinned piece is essentially paralyzed.",
+    "prevention": "Before developing a piece, check if it will be on the same file/diagonal as your king.",
+    "difficulty": "beginner"
+  },
+
+  "pin_to_queen": {
+    "name": "Pin to the Queen",
+    "pattern_type": "pin",
+    "trigger": "Piece on line between attacker and queen",
+    "rule": "Watch for bishops and rooks that line up with your queen.",
+    "explanation": "A relative pin (to the queen) doesn't prevent movement, but moving the pinned piece loses the queen.",
+    "prevention": "Keep your queen off exposed diagonals and files where she can be pinned.",
+    "difficulty": "beginner"
+  },
+
+  "knight_fork": {
+    "name": "Knight Fork",
+    "pattern_type": "fork",
+    "trigger": "Knight attacks multiple valuable pieces simultaneously",
+    "rule": "Watch for knight fork squares when your king and queen are on the same color complex.",
+    "explanation": "Knights can attack multiple pieces at once. The most deadly forks target king and queen simultaneously.",
+    "prevention": "After every opponent knight move, check what squares it attacks. Can it fork your pieces?",
+    "difficulty": "beginner"
+  },
+
+  "pawn_fork": {
+    "name": "Pawn Fork",
+    "pattern_type": "fork",
+    "trigger": "Pawn advance attacks two pieces diagonally",
+    "rule": "Watch for pawn advances that attack two pieces at once.",
+    "explanation": "A pawn fork is devastating because the pawn is worth the least — you always profit.",
+    "prevention": "Don't place two pieces on adjacent files where a pawn can attack both.",
+    "difficulty": "beginner"
+  },
+
+  "back_rank_weakness": {
+    "name": "Back Rank Mate",
+    "pattern_type": "back_rank",
+    "trigger": "King trapped on back rank with no escape squares",
+    "rule": "Give your king an escape square (luft) — push h6 or g6.",
+    "explanation": "If your king has no escape and your back rank is weak, a rook or queen delivers mate.",
+    "prevention": "Create luft (h3/g3 or h6/g6) before it's too late. Do it during a quiet moment.",
+    "difficulty": "beginner"
+  },
+
+  "discovered_attack": {
+    "name": "Discovered Attack",
+    "pattern_type": "discovered",
+    "trigger": "Piece moves to reveal an attack by another piece behind it",
+    "rule": "Watch for pieces lined up behind your pieces — moving one reveals the other.",
+    "explanation": "Discovered attacks are powerful because you make two threats at once. The moving piece attacks one target while uncovering an attack on another.",
+    "prevention": "Check for enemy pieces lurking behind other pieces on your key lines.",
+    "difficulty": "intermediate"
+  },
+
+  "discovered_check": {
+    "name": "Discovered Check",
+    "pattern_type": "discovered",
+    "trigger": "Piece moves to reveal check from a piece behind it",
+    "rule": "Discovered check is one of the most powerful tactical motifs.",
+    "explanation": "The piece giving the discovered check forces the king to move, while the moving piece can capture anything freely.",
+    "prevention": "Avoid placing your king on the same line as enemy long-range pieces with blockers.",
+    "difficulty": "intermediate"
+  },
+
+  "skewer": {
+    "name": "Skewer",
+    "pattern_type": "skewer",
+    "trigger": "Valuable piece attacked, and a less valuable piece behind it on the same line",
+    "rule": "Keep your valuable pieces off the same diagonal/file/rank.",
+    "explanation": "A skewer is a reverse pin — the more valuable piece must move, exposing the less valuable one behind.",
+    "prevention": "After each move, check if your king/queen is on the same line as another piece.",
+    "difficulty": "intermediate"
+  },
+
+  "overloaded_piece": {
+    "name": "Overloaded Piece",
+    "pattern_type": "overloaded",
+    "trigger": "One piece defending two or more critical things simultaneously",
+    "rule": "If one piece is doing too many jobs, something will break.",
+    "explanation": "An overloaded piece can't defend everything. Attack one of its responsibilities, and the others collapse.",
+    "prevention": "Distribute defensive duties across multiple pieces. Don't rely on one piece for everything.",
+    "difficulty": "intermediate"
+  },
+
+  "deflection": {
+    "name": "Deflection",
+    "pattern_type": "deflection",
+    "trigger": "A piece is lured away from defending a critical square or piece",
+    "rule": "Force the defender away from its duty, then strike.",
+    "explanation": "Deflection forces a key defender to abandon its post by attacking it or offering a sacrifice.",
+    "prevention": "Identify your key defenders and ensure they can't be lured away.",
+    "difficulty": "intermediate"
+  },
+
+  "decoy": {
+    "name": "Decoy",
+    "pattern_type": "decoy",
+    "trigger": "A piece is lured to a bad square where it becomes vulnerable",
+    "rule": "Don't take gifts blindly — check if the square is a trap.",
+    "explanation": "A decoy sacrifice lures the enemy piece to a specific square where a tactic then works.",
+    "prevention": "Before capturing, ask: Why is my opponent offering this? What happens on this square?",
+    "difficulty": "intermediate"
+  },
+
+  "trapped_piece": {
+    "name": "Trapped Piece",
+    "pattern_type": "trapped_piece",
+    "trigger": "A piece has no safe squares to move to",
+    "rule": "Always have an escape route for your pieces, especially bishops and knights.",
+    "explanation": "A trapped piece is one that has no safe squares. It will be captured even if it's currently defended.",
+    "prevention": "Before advancing a piece deep into enemy territory, ensure it has a retreat.",
+    "difficulty": "intermediate"
+  },
+
+  "double_attack": {
+    "name": "Double Attack",
+    "pattern_type": "double_attack",
+    "trigger": "A single move creates two threats simultaneously",
+    "rule": "The strongest moves create multiple threats. Look for double attacks.",
+    "explanation": "A double attack forces your opponent to choose which threat to address — they can't deal with both.",
+    "prevention": "After opponent moves, count ALL the threats, not just the most obvious one.",
+    "difficulty": "beginner"
+  },
+
+  "interference": {
+    "name": "Interference",
+    "pattern_type": "interference",
+    "trigger": "A piece blocks the connection between two enemy pieces",
+    "rule": "If two enemy pieces protect each other on a line, block the connection.",
+    "explanation": "Interference breaks the coordination between enemy pieces by placing a piece on the connecting line.",
+    "prevention": "Keep defensive lines clear. Don't rely on distant pieces protecting each other.",
+    "difficulty": "advanced"
+  },
+
+  "zwischenzug": {
+    "name": "Zwischenzug (In-Between Move)",
+    "pattern_type": "zwischenzug",
+    "trigger": "An unexpected intermediate move before the expected recapture",
+    "rule": "Before recapturing, check if there's a stronger move first.",
+    "explanation": "An in-between move (usually a check or serious threat) before the expected recapture changes the position favorably.",
+    "prevention": "After a capture, don't automatically recapture. Look for checks and threats first.",
+    "difficulty": "intermediate"
+  },
+
+  "removing_the_defender": {
+    "name": "Removing the Defender",
+    "pattern_type": "removing_defender",
+    "trigger": "Capturing or chasing a piece that defends a key square or piece",
+    "rule": "If something is defended by only one piece, attack the defender.",
+    "explanation": "Remove the defender and the whole position collapses. Target the piece that holds everything together.",
+    "prevention": "Ensure critical squares and pieces have multiple defenders.",
+    "difficulty": "intermediate"
+  }
+}

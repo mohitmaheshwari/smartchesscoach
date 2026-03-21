@@ -1,0 +1,107 @@
+{
+  "summary": "Theory refactoring testing complete. All 17 backend tests pass. The theory knowledge base was successfully refactored from a single chess_theory.json into 4 files in /data/theory/: opening_mistakes.json (28 patterns), endgame_principles.json (17 patterns), tactical_patterns.json (17 patterns), positional_rules.json (20 rules). Total: 82 patterns. All admin endpoints return correct counts, theory matching works for Italian d5 and French attack chain patterns, PV fallback works for non-theory positions, and the new /theory/rules endpoint is functional.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_theory_refactoring.py",
+    "/app/test_reports/pytest/test_theory_refactoring.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_theory_refactoring.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests passed)",
+    "frontend": "N/A (backend only testing)"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Theory refactoring verified. Key endpoints tested: GET /api/coach/theory/stats (82 total), GET /api/coach/theory/openings (28), GET /api/coach/theory/endgames (17), GET /api/coach/theory/tactical (17), GET /api/coach/theory/rules (20 - NEW), POST /api/coach/theory/reload, POST /api/coach/explain-mistake (theory matching for Italian d5 and French attack chain works), POST /api/coach/ask-move (requires comparison format like 'Why X and not Y?'). The chess_theory_service.py loads from /data/theory/ directory structure. line_parser.py no longer has hardcoded GOLDEN_RULES or OPENING_PATTERNS - they're loaded from theory service.",
+  "features_verified": {
+    "theory_stats_endpoint": {
+      "endpoint": "GET /api/coach/theory/stats",
+      "status": "WORKING",
+      "verified": [
+        "Returns 82 total patterns",
+        "28 opening_patterns",
+        "17 endgame_patterns",
+        "17 tactical_patterns",
+        "20 positional_rules"
+      ]
+    },
+    "opening_patterns_endpoint": {
+      "endpoint": "GET /api/coach/theory/openings",
+      "status": "WORKING",
+      "verified": [
+        "Returns 28 opening patterns",
+        "Contains italian_two_knights_d5 pattern",
+        "Pattern structure includes id, bad_move, good_move"
+      ]
+    },
+    "endgame_patterns_endpoint": {
+      "endpoint": "GET /api/coach/theory/endgames",
+      "status": "WORKING",
+      "verified": [
+        "Returns 17 endgame patterns",
+        "Contains lucena_position pattern",
+        "Pattern structure includes key_rule"
+      ]
+    },
+    "tactical_patterns_endpoint": {
+      "endpoint": "GET /api/coach/theory/tactical",
+      "status": "WORKING",
+      "verified": [
+        "Returns 17 tactical patterns",
+        "Contains knight_fork pattern",
+        "Pattern structure includes pattern_type"
+      ]
+    },
+    "positional_rules_endpoint_NEW": {
+      "endpoint": "GET /api/coach/theory/rules",
+      "status": "WORKING",
+      "verified": [
+        "Returns 20 positional rules",
+        "Contains loses_pawn rule with severity='minor'",
+        "Rule structure includes id, rule, short, severity"
+      ]
+    },
+    "theory_reload_endpoint": {
+      "endpoint": "POST /api/coach/theory/reload",
+      "status": "WORKING",
+      "verified": [
+        "Returns status='reloaded'",
+        "Returns updated stats with 82 total"
+      ]
+    },
+    "explain_mistake_theory_matching": {
+      "endpoint": "POST /api/coach/explain-mistake",
+      "status": "WORKING",
+      "verified": [
+        "Italian d5 pattern matches (FEN + bad_move=d5 + good_move=d6) - theory_match=true",
+        "French attack chain pattern matches (FEN + bad_move=f6 + good_move=c5) - theory_match=true",
+        "Non-theory positions fall back to PV parsing with golden rules from positional_rules.json"
+      ]
+    },
+    "ask_move_endpoint": {
+      "endpoint": "POST /api/coach/ask-move",
+      "status": "WORKING",
+      "verified": [
+        "Illegal move returns helpful error message",
+        "Legal move comparison (Why X and not Y?) returns Stockfish analysis"
+      ]
+    }
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}

@@ -1,0 +1,196 @@
+{
+  "_meta": {
+    "description": "Endgame principles and patterns — position-type based rules",
+    "version": "2.0.0",
+    "last_updated": "2026-02-15",
+    "admin_editable": true,
+    "match_strategy": "Material count + piece configuration on the board"
+  },
+
+  "king_and_pawn_opposition": {
+    "name": "King and Pawn — Opposition",
+    "pattern_type": "KP_vs_K",
+    "key_rule": "The attacking king must get in FRONT of the pawn to win.",
+    "explanation": "With king and pawn vs king, the attacker wins only if their king reaches the 6th rank in front of the pawn.",
+    "common_mistake": "Pushing the pawn before the king is in front",
+    "correct_technique": "Use the king to gain opposition, then advance the pawn",
+    "rule": "King in FRONT of the pawn wins. King BEHIND the pawn draws.",
+    "difficulty": "beginner"
+  },
+
+  "king_and_pawn_key_squares": {
+    "name": "King and Pawn — Key Squares",
+    "pattern_type": "KP_vs_K",
+    "key_rule": "Each pawn has key squares. If your king reaches them, you win.",
+    "explanation": "Key squares are the three squares two ranks ahead of the pawn. If your king occupies any of them, the pawn promotes.",
+    "common_mistake": "Not knowing which squares guarantee promotion",
+    "correct_technique": "Learn the key squares for each pawn file — they determine the win/draw boundary",
+    "rule": "Learn the key squares for your pawn. King on a key square = guaranteed promotion.",
+    "difficulty": "intermediate"
+  },
+
+  "rook_endgame_activity": {
+    "name": "Rook Endgames — Rook Activity",
+    "pattern_type": "rook_endgame",
+    "key_rule": "Rook activity is more important than material.",
+    "explanation": "In rook endgames, an active rook on the 7th rank is often worth more than a pawn.",
+    "common_mistake": "Defending passively to save material",
+    "correct_technique": "Activate your rook even if it costs a pawn",
+    "rule": "Active rook > extra pawn. Get your rook to the 7th rank.",
+    "difficulty": "intermediate"
+  },
+
+  "rook_behind_passed_pawn": {
+    "name": "Rook Endgames — Rook Behind Passed Pawn",
+    "pattern_type": "rook_endgame",
+    "key_rule": "Place your rook BEHIND passed pawns (yours or opponent's).",
+    "explanation": "A rook behind a passed pawn gains activity as the pawn advances. A rook in front loses activity.",
+    "common_mistake": "Putting rook in front of passed pawn",
+    "correct_technique": "Rook behind your passed pawn to support. Rook behind opponent's to stop it.",
+    "rule": "Rooks belong BEHIND passed pawns, never in front.",
+    "difficulty": "intermediate"
+  },
+
+  "lucena_position": {
+    "name": "Lucena Position — Building a Bridge",
+    "pattern_type": "rook_endgame",
+    "key_rule": "Win by building a bridge with your rook.",
+    "explanation": "With rook and pawn on the 7th rank and enemy king cut off, use your rook to block checks.",
+    "common_mistake": "Trying to promote immediately without the bridge",
+    "correct_technique": "Rook to the 4th rank, then use it to shield the king from checks",
+    "rule": "Lucena: Build the bridge. Rook to 4th rank, then shield the king.",
+    "difficulty": "advanced"
+  },
+
+  "philidor_position": {
+    "name": "Philidor Position — Third Rank Defense",
+    "pattern_type": "rook_endgame",
+    "key_rule": "Defend by keeping your rook on the 3rd rank until the pawn advances.",
+    "explanation": "With rook and pawn vs rook, the defender draws by keeping their rook on the 3rd rank.",
+    "common_mistake": "Going to the back rank too early",
+    "correct_technique": "Stay on 3rd rank. Only go to back rank when pawn reaches 6th.",
+    "rule": "Philidor defense: 3rd rank until pawn advances, then back rank for checks.",
+    "difficulty": "advanced"
+  },
+
+  "rook_endgame_cut_off_king": {
+    "name": "Rook Endgames — Cutting Off the King",
+    "pattern_type": "rook_endgame",
+    "key_rule": "Cut the enemy king off from the passed pawn with your rook.",
+    "explanation": "The further the enemy king is cut off from the pawn, the easier it is to promote.",
+    "common_mistake": "Not using the rook to create a barrier between the enemy king and pawn",
+    "correct_technique": "Place rook on a file or rank that blocks the enemy king from approaching your pawn",
+    "rule": "Cut off the king with your rook. Every file of distance makes the pawn harder to stop.",
+    "difficulty": "intermediate"
+  },
+
+  "opposite_bishops_draw": {
+    "name": "Opposite Colored Bishops — Drawing Tendency",
+    "pattern_type": "bishop_endgame",
+    "key_rule": "Opposite colored bishops favor the defender.",
+    "explanation": "With opposite colored bishops, even a 2-pawn advantage may not be enough to win.",
+    "common_mistake": "Assuming material advantage wins",
+    "correct_technique": "Place pawns on squares your bishop controls, blockade on enemy bishop color",
+    "rule": "Opposite bishops: defense has huge drawing chances. Don't trade into this if you're winning!",
+    "difficulty": "intermediate"
+  },
+
+  "same_color_bishops_technique": {
+    "name": "Same Colored Bishops — Active Bishop Wins",
+    "pattern_type": "bishop_endgame",
+    "key_rule": "The bishop that controls more space usually wins.",
+    "explanation": "In same-colored bishop endings, the active bishop dominates. Place pawns on opposite color.",
+    "common_mistake": "Placing pawns on the same color as your bishop, restricting it",
+    "correct_technique": "Put pawns on the opposite color from your bishop so it has maximum scope",
+    "rule": "Put your pawns on the OPPOSITE color of your bishop. Keep the bishop's diagonals open.",
+    "difficulty": "intermediate"
+  },
+
+  "knight_vs_bishop_endgame": {
+    "name": "Knight vs Bishop — Pawn Structure Matters",
+    "pattern_type": "minor_piece_endgame",
+    "key_rule": "Knight prefers closed positions, bishop prefers open positions.",
+    "explanation": "Knights are better with locked pawns. Bishops are better in open positions with pawns on both sides.",
+    "common_mistake": "Not considering pawn structure when trading pieces",
+    "correct_technique": "Trade into knight endgame if position is closed. Trade into bishop endgame if open.",
+    "rule": "Knight = closed positions. Bishop = open positions with pawns on both sides.",
+    "difficulty": "intermediate"
+  },
+
+  "knight_endgame_outpost": {
+    "name": "Knight Endgames — Central Outpost",
+    "pattern_type": "minor_piece_endgame",
+    "key_rule": "A knight on an outpost in the center dominates the endgame.",
+    "explanation": "A knight on a protected central square (d5, e5, d4, e4) that can't be challenged by pawns is a monster.",
+    "common_mistake": "Trading the knight when it's on a strong outpost",
+    "correct_technique": "Plant the knight on an outpost and use it as a launching pad for the king march",
+    "rule": "A knight on an outpost is worth a rook in the endgame. Never trade it voluntarily.",
+    "difficulty": "intermediate"
+  },
+
+  "queen_endgame_checks": {
+    "name": "Queen Endgames — Perpetual Check Drawing",
+    "pattern_type": "queen_endgame",
+    "key_rule": "Queen endgames are very drawish due to perpetual checks.",
+    "explanation": "Queens are the best piece for giving perpetual checks. If you're behind, look for perpetual.",
+    "common_mistake": "Assuming a pawn up with queens on the board is winning",
+    "correct_technique": "When behind, look for perpetual check. When ahead, shelter your king before pushing pawns.",
+    "rule": "Queen endgames: pawn up often draws. Always check for perpetual before playing on.",
+    "difficulty": "advanced"
+  },
+
+  "two_bishops_advantage": {
+    "name": "Two Bishops — Bishop Pair Advantage",
+    "pattern_type": "minor_piece_endgame",
+    "key_rule": "The two bishops are strong in open positions.",
+    "explanation": "Two bishops work together to control both color complexes. In open positions, they dominate knights.",
+    "common_mistake": "Trading a bishop unnecessarily, giving up the bishop pair",
+    "correct_technique": "Keep the bishop pair, open the position, and use them to dominate the diagonals",
+    "rule": "Two bishops beat two knights in open positions. Protect your bishop pair.",
+    "difficulty": "intermediate"
+  },
+
+  "wrong_bishop_rook_pawn": {
+    "name": "Wrong Bishop + Rook Pawn — Fortress Draw",
+    "pattern_type": "bishop_endgame",
+    "key_rule": "A bishop that doesn't control the promotion square of a rook pawn = draw.",
+    "explanation": "If your bishop doesn't control the corner square where the rook pawn promotes (a8/h8), the enemy king just sits in the corner.",
+    "common_mistake": "Playing for a win when you have the wrong bishop",
+    "correct_technique": "If you have the wrong bishop, don't trade all the pawns. Keep pawns on both sides.",
+    "rule": "Wrong bishop + rook pawn = draw. The enemy king sits in the corner and you can't get it out.",
+    "difficulty": "intermediate"
+  },
+
+  "king_activity_endgame": {
+    "name": "General Endgame — King Activity",
+    "pattern_type": "general_endgame",
+    "key_rule": "In the endgame, the king is a fighting piece.",
+    "explanation": "Once queens are off the board, centralize your king immediately. A centralized king is worth a piece.",
+    "common_mistake": "Leaving the king on the back rank in the endgame",
+    "correct_technique": "March your king to the center (d4/e4/d5/e5) as soon as the queens come off",
+    "rule": "Centralize the king in endgames. A king on e4 is worth half a piece.",
+    "difficulty": "beginner"
+  },
+
+  "passed_pawn_creation": {
+    "name": "General Endgame — Creating Passed Pawns",
+    "pattern_type": "general_endgame",
+    "key_rule": "A passed pawn is the most valuable asset in the endgame.",
+    "explanation": "A passed pawn (no opposing pawns blocking or guarding its advance) ties down enemy pieces.",
+    "common_mistake": "Not creating passed pawns when you have a pawn majority",
+    "correct_technique": "Use your pawn majority to create a passed pawn. Push the candidate pawn forward.",
+    "rule": "Create a passed pawn from your pawn majority. It ties down your opponent's pieces.",
+    "difficulty": "intermediate"
+  },
+
+  "outside_passed_pawn": {
+    "name": "General Endgame — Outside Passed Pawn",
+    "pattern_type": "general_endgame",
+    "key_rule": "An outside passed pawn wins by distracting the enemy king.",
+    "explanation": "An outside passed pawn (far from the remaining pawns) forces the enemy king to run to stop it, leaving the other pawns undefended.",
+    "common_mistake": "Not recognizing the power of a distant passed pawn",
+    "correct_technique": "Push the outside passed pawn, force the king to chase it, then capture the remaining pawns with your king",
+    "rule": "Outside passed pawn = decoy. Push it, distract the king, win the other pawns.",
+    "difficulty": "intermediate"
+  }
+}
