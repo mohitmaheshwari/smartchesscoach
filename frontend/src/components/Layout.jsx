@@ -27,7 +27,8 @@ import {
   Swords,
   ChevronLeft,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Zap
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { API } from "@/App";
@@ -259,6 +260,23 @@ const Layout = ({ children, user }) => {
             </Link>
           </div>
 
+          {/* Plateau Breaker - V1 Training Mode */}
+          <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
+            <Link to="/plateau-breaker">
+              <Button
+                variant="outline"
+                className={`w-full gap-2 border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-400 ${
+                  sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
+                }`}
+                data-testid="nav-plateau-breaker"
+                title={sidebarCollapsed ? "Plateau Breaker" : undefined}
+              >
+                <Zap className="w-4 h-4 flex-shrink-0" />
+                {!sidebarCollapsed && <span className="text-sm">Plateau Breaker</span>}
+              </Button>
+            </Link>
+          </div>
+
           {/* Coach Pulse */}
           {coachPulse && (
             <div className={`pt-2 ${sidebarCollapsed ? 'px-0' : 'px-1'}`}>
@@ -476,6 +494,13 @@ const Layout = ({ children, user }) => {
                   <Button variant="default" className="w-full justify-start gap-3">
                     <Swords className="w-4 h-4" />
                     Play with Coach
+                  </Button>
+                </Link>
+
+                <Link to="/plateau-breaker" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="outline" className="w-full justify-start gap-3 border-red-500/50 text-red-500">
+                    <Zap className="w-4 h-4" />
+                    Plateau Breaker
                   </Button>
                 </Link>
 
