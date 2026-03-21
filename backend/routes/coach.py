@@ -343,6 +343,101 @@ async def reload_theory():
     }
 
 
+# ==================== PATTERN MEMORY ====================
+
+@router.get("/patterns/summary")
+async def get_patterns_summary(user: User = Depends(get_current_user)):
+    """
+    Get aggregated pattern summary for Pattern Memory feature.
+    
+    This is the core "confrontation" data:
+    - "You've ignored opponent threats 23 times in your last 20 games"
+    - "Overall: 113 times"
+    
+    Returns:
+        {
+            "patterns": [
+                {
+                    "pattern_type": "ignore_threat",
+                    "label": "Ignoring Opponent Threats",
+                    "total_count": 113,
+                    "recent_count": 23,
+                    "recent_games": 20,
+                    "severity": "critical",
+                    "sample_games": ["game_abc", ...]
+                },
+                ...
+            ],
+            "total_games_analyzed": 50,
+            "worst_pattern": "ignore_threat"
+        }
+    """
+    global db
+    from services.pattern_memory_service import get_pattern_summary
+    
+    try:
+        summary = await get_pattern_summary(db, user.user_id)
+        return summary
+    except Exception as e:
+        logger.error(f"Error getting pattern summary: {e}")
+        return {
+            "patterns": [],
+            "total_games_analyzed": 0,
+            "worst_pattern": None,
+            "error": str(e)
+        }
+
+
+@router.get("/patterns/top")
+async def get_top_patterns_endpoint(
+    limit: int = 3,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get user's top N worst patterns for dashboard display.
+    
+    Simple endpoint for the "Your Patterns" dashboard section.
+    Returns patterns sorted by severity and count.
+    """
+    global db
+    from services.pattern_memory_service import get_top_patterns
+    
+    try:
+        patterns = await get_top_patterns(db, user.user_id, limit)
+        return {"patterns": patterns}
+    except Exception as e:
+        logger.error(f"Error getting top patterns: {e}")
+        return {"patterns": [], "error": str(e)}
+
+
+@router.get("/patterns/for-mistake/{cognitive_gap}")
+async def get_pattern_for_mistake_endpoint(
+    cognitive_gap: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get pattern data for a specific cognitive gap/mistake type.
+    
+    Used on the review page when showing a mistake:
+    "You've made this mistake 23 times in your last 20 games. Overall: 113 times."
+    
+    Args:
+        cognitive_gap: The cognitive gap type (e.g., "ignore_threat", "tactical_oversight")
+    
+    Returns:
+        Pattern data with confrontation message, or null if not found.
+    """
+    global db
+    from services.pattern_memory_service import get_pattern_for_mistake
+    
+    try:
+        pattern = await get_pattern_for_mistake(db, user.user_id, cognitive_gap)
+        return {"pattern": pattern}
+    except Exception as e:
+        logger.error(f"Error getting pattern for mistake: {e}")
+        return {"pattern": None, "error": str(e)}
+
+
 # ==================== MOVE Q&A ====================
 
 class MoveQuestionRequest(BaseModel):

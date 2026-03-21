@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { MistakeFreeStreak } from "@/components/streak";
+import YourPatterns from "@/components/patterns/YourPatterns";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -316,6 +317,15 @@ const PlateauBreakerDashboard = ({ user }) => {
             />
           </motion.div>
         )}
+        
+        {/* YOUR PATTERNS - Top 3 blind spots */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <YourPatterns user={user} />
+        </motion.div>
         
         {/* THE BLOCKER - Only show if we have detected one */}
         {blockerData?.type ? (

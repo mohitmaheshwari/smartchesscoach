@@ -71,6 +71,9 @@ const PlateauBreakerReview = ({ user }) => {
   const [qaAnswer, setQaAnswer] = useState(null);
   const [qaLoading, setQaLoading] = useState(false);
   const [qaBoardMode, setQaBoardMode] = useState(false); // "Try a move" mode
+  
+  // Pattern Memory state (confrontation data)
+  const [patternMemory, setPatternMemory] = useState(null);
 
   useEffect(() => {
     if (gameId) {
@@ -126,7 +129,7 @@ const PlateauBreakerReview = ({ user }) => {
             eval_loss: loss,
             explanation: move.coaching_focus || move.cognitive_gap || 
               `You played ${move.move}, losing ${(loss / 100).toFixed(1)} pawns worth of advantage.`,
-            type: move.critical_reason || "tactical_error",
+            type: move.cognitive_gap || move.critical_reason || "tactical_error",
             is_turning_point: move.is_turning_point,
             // PV lines for showing the continuation
             pv_after_played: move.pv_after_played || [],
@@ -192,16 +195,34 @@ const PlateauBreakerReview = ({ user }) => {
         }
       }
 
-      // Get pattern count from player identity
-      const identityRes = await fetch(`${API}/coach/deep-memory?user_id=${user?.user_id}`, {
-        credentials: "include"
-      });
-      const identity = await identityRes.json();
-      
-      // Count similar mistakes from blunder taxonomy
-      const taxonomy = identity?.identity?.blunder_taxonomy?.by_type || identity?.blunder_taxonomy || {};
-      const mistakeType = biggestMistake?.type || blocker?.type || "tactical_error";
-      setPatternCount(taxonomy[mistakeType] || 1);
+      // Get pattern memory data (confrontation data)
+      // This replaces the old identity-based count with proper aggregation
+      const cognitiveGap = biggestMistake?.type || blocker?.type || "tactical_error";
+      try {
+        const patternRes = await fetch(
+          `${API}/coach/patterns/for-mistake/${encodeURIComponent(cognitiveGap)}`,
+          { credentials: "include" }
+        );
+        if (patternRes.ok) {
+          const patternData = await patternRes.json();
+          if (patternData.pattern) {
+            setPatternMemory(patternData.pattern);
+            setPatternCount(patternData.pattern.total_count || 1);
+          } else {
+            // Fallback to old method
+            const identityRes = await fetch(`${API}/coach/deep-memory?user_id=${user?.user_id}`, {
+              credentials: "include"
+            });
+            const identity = await identityRes.json();
+            const taxonomy = identity?.identity?.blunder_taxonomy?.by_type || identity?.blunder_taxonomy || {};
+            setPatternCount(taxonomy[cognitiveGap] || 1);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not get pattern memory:", e);
+        // Fallback to 1
+        setPatternCount(1);
+      }
 
       // Set board to mistake position
       if (biggestMistake?.fen) {
@@ -924,9 +945,25 @@ const PlateauBreakerReview = ({ user }) => {
                       </div>
 
                       <div className="space-y-4">
-                        <p className="text-2xl font-bold text-white">
-                          This is your <span className="text-amber-400">{patternCount}th</span> time making this mistake.
-                        </p>
+                        {/* Confrontational message with recent + lifetime */}
+                        {patternMemory ? (
+                          <>
+                            <p className="text-xl font-bold text-white" data-testid="pattern-confrontation">
+                              You've had {patternMemory.label?.toLowerCase() || "this mistake"}{" "}
+                              <span className="text-red-400">{patternMemory.recent_count}</span> times 
+                              in your last <span className="text-zinc-300">{patternMemory.recent_games}</span> games.
+                            </p>
+                            {patternMemory.total_count > patternMemory.recent_count && (
+                              <p className="text-lg text-zinc-400" data-testid="pattern-lifetime">
+                                Overall: <span className="text-amber-400 font-bold">{patternMemory.total_count}</span> times
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-2xl font-bold text-white">
+                            This is your <span className="text-amber-400">{patternCount}th</span> time making this mistake.
+                          </p>
+                        )}
 
                         <div className="bg-zinc-900/50 rounded-lg p-4">
                           <p className="text-zinc-300">
