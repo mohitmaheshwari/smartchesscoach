@@ -9,6 +9,19 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
+### V1 Plateau Breaker Mode - LichessBoard Refactoring Fix (March 21, 2026)
+- **Fixed Critical Board Rendering Bug**: All V1 Plateau Breaker pages were using direct `Chessground` initialization instead of the app's existing `LichessBoard.jsx` wrapper component, causing boards not to render
+- **Refactored Components**:
+  - `PlateauBreakerTraining.jsx` - Now uses LichessBoard for puzzle training
+  - `PlateauBreakerReview.jsx` - Now uses LichessBoard for game review
+  - `GuidedOpeningLesson.jsx` - Now uses LichessBoard for opening walkthrough
+  - `ApplyMode.jsx` - Was already using LichessBoard (verified working)
+- **Testing**: All V1 pages tested with 100% success rate. Boards render correctly, pieces are interactive, move validation works
+- **Routes**:
+  - `/plateau-breaker` - Dashboard showing user's blocker and rule
+  - `/plateau-breaker/training` - Forced puzzle training with fail state
+  - `/plateau-breaker/apply` - Mini-game with enforced rule check before each move
+
 ### Interactive Guided Opening Lessons
 - **GuidedOpeningLesson component**: Transformed static text dumps into interactive video-style walkthroughs
 - Coach auto-plays through moves with narration ("Now watch this...", "Pay attention here...")
@@ -234,3 +247,21 @@ All P0 issues resolved in this session.
 - `/api/openings/corrections` now accepts corrected PGN or SAN plus current moves/FEN and stores DB-backed live overrides that the /openings lesson flow and coach trap flow can consume immediately
 - `/api/admin/openings` now supports list/fetch, `/validate` performs schema validation, and `/save` stores MongoDB-backed opening feedback with version history in `opening_feedback_versions`
 - **Intelligent Position Coaching**: `/app/backend/services/intelligent_position_coach.py` orchestrates `PawnStructureClassifier`, `StructurePlanDatabase`, `DetectorRegistry`, and `position_strategy_analyzer` to provide contextual coaching for any position. Triggers after 12+ moves when no opening teaching is active. Frontend component: `PositionCoachingPanel.jsx`
+- **V1 Plateau Breaker Mode**: Enforced learning system that identifies the user's single biggest mistake ("blocker"), provides psychological messaging, and forces completion of puzzle training + apply mode before unlocking next game analysis. Uses `LichessBoard.jsx` wrapper for consistent board rendering across all pages.
+
+## Upcoming Tasks (V1 Plateau Breaker Roadmap)
+Based on user's explicit feedback for making V1 a true habit-changing system:
+1. **(P0) Build "Carry-Forward" Engine**: Pre-game popup reminding user of their focus-mistake + instant notification if they repeat it
+2. **(P1) Implement Real Progress Tracking**: Track mistake count per game over time, display visual progress on dashboard
+3. **(P1) Enhance Apply Mode**: Make it a real 10-15 move mini-game against engine that tracks if user commits focus-mistake
+4. **(P2) Server-Side Training Lock**: Migrate lock state from localStorage to backend (add `is_training_locked`, `current_mistake_focus` to user model)
+5. **(P2) Multi-Game Focus**: Lock user into fixing same mistake for 3 consecutive games before introducing new blocker
+
+## Future/Backlog Tasks
+- Monetization (Razorpay integration)
+- Content population for opening lessons
+- Positive reinforcement features ("What You Did Well")
+- Mistake Replay Trainer and Spaced Repetition Queue
+- Shareable "Chess DNA Report"
+- Native mobile app (React Native)
+- Localization (Hindi)
