@@ -7,7 +7,7 @@ The LLM receives COMPLETE chess context to prevent hallucination:
 - Actual moves (played and best)
 - Engine evaluation numbers
 - PV lines from Stockfish
-- Opening name (from lichess API)
+- Opening detection from moves
 - Move number and game phase
 
 The LLM's job is ONLY to explain the provided facts - NOT to analyze chess.
@@ -15,7 +15,6 @@ The LLM's job is ONLY to explain the provided facts - NOT to analyze chess.
 
 import os
 import logging
-import httpx
 import chess
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
@@ -24,28 +23,86 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Lichess opening API for opening detection
-LICHESS_OPENING_API = "https://explorer.lichess.ovh/masters"
+
+# Common opening positions and their names (for when API fails)
+KNOWN_OPENINGS = {
+    # Italian Game positions
+    "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R": "Italian Game (C50)",
+    "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1": "Italian Game (C50)",
+    "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R": "Italian Game: Giuoco Piano (C53)",
+    # Ruy Lopez
+    "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R": "Ruy Lopez (C60)",
+    "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R": "Ruy Lopez: Berlin Defense (C65)",
+    # Sicilian
+    "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR": "Sicilian Defense (B20)",
+    "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R": "Sicilian Defense (B27)",
+    # French
+    "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR": "French Defense (C00)",
+    # Caro-Kann
+    "rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR": "Caro-Kann Defense (B10)",
+    # Queen's Gambit
+    "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR": "Queen's Gambit (D06)",
+    # London System
+    "rnbqkb1r/ppp1pppp/5n2/3p4/3P1B2/5N2/PPP1PPPP/RN1QKB1R": "London System (D00)",
+}
+
+# Opening-specific theory and rules
+OPENING_THEORY = {
+    "Italian Game": {
+        "d5_mistake": "In the Italian Game, playing d5 prematurely allows exd5, after which Black loses central control. The main line is d6, solidifying the center and preparing Bg4 or Be6.",
+        "rule": "In the Italian Game, play d6 to support your center - don't rush d5."
+    },
+    "Ruy Lopez": {
+        "a6_purpose": "In the Ruy Lopez, a6 is played to ask the bishop 'what are your intentions?' - forcing Ba4 or Bxc6.",
+        "rule": "In the Ruy Lopez, a6 (Morphy Defense) is the main line - it challenges the bishop."
+    },
+    "Sicilian": {
+        "d6_vs_d5": "In the Sicilian, Black typically plays d6 first, keeping the c5-pawn as a central outpost. d5 is often premature.",
+        "rule": "In the Sicilian, control the center with pieces before pushing d5."
+    },
+    "French Defense": {
+        "e5_chain": "In the French, Black's plan is to attack White's d4-e5 pawn chain with c5 and f6.",
+        "rule": "In the French, attack the base of the pawn chain with c5."
+    },
+    "Caro-Kann": {
+        "c6_support": "In the Caro-Kann, c6 supports a future d5 push, giving Black a solid center.",
+        "rule": "In the Caro-Kann, c6 prepares d5 - this is the whole point of the opening."
+    }
+}
 
 
-async def get_opening_name(fen: str) -> Optional[str]:
+def detect_opening_from_fen(fen: str) -> Optional[str]:
     """
-    Get the opening name from Lichess opening explorer.
-    Returns None if position is not in the opening book.
+    Detect opening from FEN using local database.
+    Returns opening name or None.
     """
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(
-                LICHESS_OPENING_API,
-                params={"fen": fen}
-            )
-            if response.status_code == 200:
-                data = response.json()
-                opening = data.get("opening")
-                if opening:
-                    return f"{opening.get('eco', '')} {opening.get('name', '')}".strip()
-    except Exception as e:
-        logger.warning(f"Could not fetch opening name: {e}")
+    # Extract just the piece positions (first part of FEN)
+    board_fen = fen.split()[0] if " " in fen else fen
+    
+    for known_fen, opening_name in KNOWN_OPENINGS.items():
+        known_board = known_fen.split()[0] if " " in known_fen else known_fen
+        if board_fen == known_board:
+            return opening_name
+    
+    return None
+
+
+def get_opening_theory_hint(opening_name: str, played_move: str, best_move: str) -> Optional[str]:
+    """
+    Get opening-specific theory if available.
+    """
+    if not opening_name:
+        return None
+    
+    # Check for known theory hints
+    for opening_key, theory in OPENING_THEORY.items():
+        if opening_key.lower() in opening_name.lower():
+            # Check if this is a d5 vs d6 situation
+            if "d5" in played_move.lower() and "d6" in best_move.lower():
+                if "d5_mistake" in theory:
+                    return theory["d5_mistake"]
+            return None
+    
     return None
 
 
@@ -102,19 +159,43 @@ async def explain_mistake_with_llm(
         return _fallback_explanation(played_move, best_move, eval_before, eval_after)
     
     # Gather all context
-    opening_name = await get_opening_name(fen_before)
+    opening_name = detect_opening_from_fen(fen_before)
     game_phase = get_game_phase(fen_before)
     eval_loss = abs(eval_after - eval_before)
+    
+    # Get opening theory hint if available
+    theory_hint = get_opening_theory_hint(opening_name, played_move, best_move)
     
     # Determine whose perspective
     board = chess.Board(fen_before)
     side_to_move = "White" if board.turn == chess.WHITE else "Black"
+    
+    # Build theory context for LLM
+    theory_context = ""
+    if opening_name and theory_hint:
+        theory_context = f"""
+=== KNOWN OPENING THEORY ===
+This is the {opening_name}.
+VERIFIED THEORY: {theory_hint}
+Use this theory in your explanation - it's from established opening books.
+=== END THEORY ===
+"""
+    elif opening_name:
+        theory_context = f"""
+=== OPENING CONTEXT ===
+This appears to be the {opening_name}.
+If you know specific, DOCUMENTED theory about this position, mention it.
+If you're not 100% sure of the theory, don't make it up - just explain tactically.
+=== END OPENING CONTEXT ===
+"""
     
     # Format the context for LLM
     context = f"""
 CHESS POSITION ANALYSIS - EXPLAIN THIS TO THE PLAYER
 
 You are explaining a chess mistake to a {user_color} player rated around 1200-1600.
+
+{theory_context}
 
 === VERIFIED FACTS (from Stockfish engine) ===
 Position (FEN): {fen_before}
@@ -135,23 +216,20 @@ Line after {best_move}: {format_pv_line(pv_after_best)}
 === END FACTS ===
 
 YOUR TASK:
-Based ONLY on the facts above, explain WHY {played_move} is worse than {best_move}.
+Based on the facts above, explain WHY {played_move} is worse than {best_move}.
 
-Focus on:
-1. What specific problem does {played_move} create? (loses material, weakens structure, allows tactic, gives up control, etc.)
-2. What does {best_move} achieve that {played_move} doesn't?
-3. If this is an opening position, what opening principle was violated?
-
-DO NOT:
-- Invent moves or lines not shown above
-- Claim things you can't verify from the position
-- Use vague phrases like "weakens your position" without saying HOW
+GUIDELINES:
+1. If VERIFIED THEORY is provided above, USE IT - start your explanation with the opening theory.
+2. If opening context is provided but no verified theory, you MAY mention theory ONLY if you are 100% certain it's documented in standard opening books.
+3. Be SPECIFIC - name the pieces, squares, and tactical threats.
+4. Reference the PV lines to show the concrete consequence.
+5. DO NOT invent theory. If unsure, explain purely tactically.
 
 RESPOND IN THIS EXACT JSON FORMAT:
 {{
-    "headline": "Short 3-6 word title (e.g., 'You gave up the center', 'Your knight is now trapped')",
-    "explanation": "2-3 sentences explaining the specific problem. Reference the actual moves and lines.",
-    "rule": "One memorable rule the player should remember (e.g., 'Don't trade center pawns without compensation')",
+    "headline": "Short 3-6 word title (specific, e.g., 'You gave up the center', 'Knight trapped on a5')",
+    "explanation": "2-4 sentences. If there's opening theory, start with: 'In the [Opening], [theory].' Then explain the tactical consequence.",
+    "rule": "One memorable rule. For openings, state the opening-specific principle if known.",
     "category": "opening" or "tactical" or "positional" or "endgame"
 }}
 """
