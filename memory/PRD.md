@@ -24,24 +24,36 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 - Deleted deprecated `llm_chess_explainer.py`
 - Added `GET /api/coach/theory/rules` admin endpoint
 
-**New Opening Patterns Added (21 new):**
-- Ruy Lopez (Nxe4, early d5), Scotch Game, King's Indian (e5 break), Slav (Bf5 timing)
-- Vienna Game (f5), Scandinavian (Qd8 retreat), Philidor (Be7), Pirc (Bg7 delay)
-- Dutch (g5), Benoni (e6 vs d6), Nimzo-Indian (d5 vs O-O), English (d5 vs e5)
-- Petrov (Nxe5 trap), Grunfeld (center strategy)
-- Generic heuristic patterns: early queen, delayed castling, moving same piece twice, pawn hunting
-
-**New Endgame Patterns Added (10 new):**
-- Key squares concept, rook cutting off king, same-color bishops, knight outpost
-- Queen endgame perpetual, two bishops, wrong bishop + rook pawn
-- King activity, passed pawn creation, outside passed pawn
-
-**New Tactical Patterns Added (12 new):**
-- Pin to queen, pawn fork, discovered check, skewer, overloaded piece
-- Deflection, decoy, trapped piece, double attack, interference
-- Zwischenzug, removing the defender
-
 **Testing:** 100% (17/17 backend tests passed - iteration 140)
+
+### Coaching-Quality Q&A Engine (March 21, 2026)
+**From chess.com eval dumps → real coaching that reads the student's mind**
+
+**Coaching Answer Generator (`coaching_answer.py`):**
+- Acknowledges what the user was thinking ("You're looking at capturing that pawn...")
+- Traces material consequences through the PV line
+- Detects "piece gets immediately recaptured" pattern
+- Explains WHY the better move is better ("attacks the bishop, forcing a reaction")
+- Provides a principle/takeaway ("Before moving, check: can opponent just take it?")
+
+**Thinking Pattern Detection:**
+- `short_calculation`: User calculates 1 ply but misses the reply
+- `pawn_grabbing`: User sees a "free" pawn that isn't free
+- `check_first`: User wants to give check that wastes time
+- `capture_instinct`: User is drawn to captures over better quiet moves
+- `positional_misread`: User plays a natural-looking move that misses tactics
+- `material_awareness` (positive): User spots a good capture
+- `positional_sense` (positive): User considers good quiet moves
+
+**Question Insights Logging:**
+- All Q&A questions stored in `question_insights` MongoDB collection
+- Logs: fen, question, parsed_move, thinking_pattern, coaching_signal, severity
+- This data reveals the student's blind spots for future personalization
+
+**Improved Illegal Move Diagnostics:**
+- Instead of "not legal", explains WHY: "your own pawn is on e5" or "Knight on f6 can't reach e1"
+
+**Testing:** 100% (8/8 backend + frontend verified - iteration 141)
 
 ### UI Consistency Fix - Streak vs Blocker Display (March 21, 2026)
 **Issue**: Dashboard showed conflicting messages - "No Weakness Detected Yet" in the streak component while also showing "Your Current Blocker: You miss opponent's threats" in the blocker card.
