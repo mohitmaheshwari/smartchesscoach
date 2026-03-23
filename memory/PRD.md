@@ -9,39 +9,42 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
-### Game Decryption Feature - V2 (Opening-Aware) - March 23, 2026
-**"Every move explained in plain English" — Opening-aware, context-rich coaching**
+### Game Decryption Feature - V3 (Coach Quality) - March 23, 2026
+**"A great coach first understands your thinking, then guides you forward"**
 
-**V2 Key Improvements:**
-1. **Opening Detection**: Extracts ECO code and opening name from PGN, uses opening-specific explanations
-2. **Opening Knowledge Base**: `opening_plans.json` with 8+ openings (Queen's Indian, London, Sicilian Najdorf, Italian, Caro-Kann, French, King's Indian, Ruy Lopez)
-3. **Rich Opponent Ideas**: "They played b6 - Preparing to fianchetto the bishop to b7, controlling the long diagonal"
-4. **Dynamic Focus**: Phase-appropriate, not repetitive
+**V3 Key Improvements over V2:**
+1. **Move Intent Recognition**: System understands WHY the user played a move (e.g., h6 to prevent Ng5) and acknowledges it empathetically before correcting
+2. **Opening Introduction Card**: Rich context card at game start — opening name, description, Your Plan, Their Plan, Key Focus
+3. **Main Line Theory**: When a sideline is detected, explains what theory recommends and WHY (e.g., Bc5 = Giuoco Piano, Nf6 = Two Knights Defense)
+4. **Empathetic Sideline Warnings**: Validates the user's thinking ("That's a reasonable thought!") before explaining the theoretical preference
 
 **Backend Service (`/app/backend/services/game_decryption_service.py`):**
-- `detect_opening_from_pgn()`: Extracts ECO and opening name
-- `get_opening_data()`: Matches opening to knowledge base
-- `describe_move_rich()`: Opening-aware move descriptions
-- `analyze_opponent_idea_rich()`: Tactical + opening-specific analysis
-- `get_dynamic_focus()`: Context-aware focus messages
+- `recognize_move_intent()`: Pattern-based intent recognition (opening-specific + positional fallback)
+- `build_intent_coaching()`: Constructs empathetic what_happened + move_idea from intent data
+- `generate_opening_introduction()`: Creates rich opening context card
+- `generate_move_coaching_v3()`: Intent-aware coaching generation
+- `generate_game_summary()`: Now includes opening_introduction in summary
+- `describe_move_rich()`: Now intent-aware, acknowledges user thinking
+- `check_sideline()`: Returns main_line_theory with explanations per move
+- `analyze_mistake_rich()`: Intent-aware mistake analysis (empathetic corrections)
 
-**JSON Knowledge Base (`/app/backend/data/coaching/`):**
-- `opening_plans.json`: Per-opening plans, typical_ideas, common_mistakes, phase_focus
-- `move_ideas.json`, `opponent_threats.json`, `phase_principles.json`
+**New MoveCoaching fields (V3):**
+- `intent_acknowledged`: "I see what you're doing — preventing Ng5. That shows good awareness!"
+- `main_line_theory`: `{position, best, explanation, lines: {Bc5: "...", Nf6: "..."}}`
 
-**API Endpoints:**
-- `GET /api/coach/decryption/{gameId}` - Full move-by-move coaching
-- `POST /api/coach/decryption/feedback` - User corrections
-- On-demand generation for pre-existing games
+**Frontend (`/app/frontend/src/components/GameDecryption.jsx` V3):**
+- `OpeningIntroCard`: Displays About this Opening with Your Plan / Their Plan / Key Focus
+- Intent Acknowledgment card (indigo, "Your Coach" label)
+- Main Line Theory section ("Why these moves are recommended")
+- Empathetic sideline warnings with move badges
+- Move list highlights sidelines in orange with `~` indicator
 
-**Frontend (`/app/frontend/src/components/GameDecryption.jsx`):**
-- Coach/Decrypt toggle on `/game/{gameId}` page
-- Game Overview with opening name, stats, key moments
-- Move Coaching cards with rich explanations
-- Navigation: ← → ↑ ↓ keyboard controls
-- "Not Helpful" feedback button
-
-**Testing:** iteration 144 (11/11 passed) + manual V2 verification
+**Testing:** iteration 145 (12/12 backend + frontend 100% verified)
+- All V3 fields verified for h6 move in Italian Game
+- Opening Introduction card rendering verified
+- Intent acknowledgment display verified
+- Main line theory section verified
+- Coach/Decrypt toggle, navigation, feedback all working
 
 ### Pattern Memory Feature - V1 Implementation (March 21, 2026)
 **"Evidence-based self-awareness" — Confrontation, not information**
