@@ -9,42 +9,68 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
-### Game Decryption Feature - V3 (Coach Quality) - March 23, 2026
-**"A great coach first understands your thinking, then guides you forward"**
+### Game Decryption Feature - V4 (Thinking Simulator) - March 23, 2026
+**"You are NOT building a move explanation system. You ARE building a thinking simulator."**
 
-**V3 Key Improvements over V2:**
-1. **Move Intent Recognition**: System understands WHY the user played a move (e.g., h6 to prevent Ng5) and acknowledges it empathetically before correcting
-2. **Opening Introduction Card**: Rich context card at game start — opening name, description, Your Plan, Their Plan, Key Focus
-3. **Main Line Theory**: When a sideline is detected, explains what theory recommends and WHY (e.g., Bc5 = Giuoco Piano, Nf6 = Two Knights Defense)
-4. **Empathetic Sideline Warnings**: Validates the user's thinking ("That's a reasonable thought!") before explaining the theoretical preference
+**V4 = Paradigm Shift from V3:**
+- V3 was rule-based (opening-aware, intent-aware but still generic)
+- V4 integrates LLM (gpt-4.1-mini) for position-specific, coach-quality narratives
+- Only mistakes/key moments get LLM treatment (cost-efficient)
+- Good moves stay rule-based, openings stay JSON-based
 
-**Backend Service (`/app/backend/services/game_decryption_service.py`):**
-- `recognize_move_intent()`: Pattern-based intent recognition (opening-specific + positional fallback)
-- `build_intent_coaching()`: Constructs empathetic what_happened + move_idea from intent data
-- `generate_opening_introduction()`: Creates rich opening context card
-- `generate_move_coaching_v3()`: Intent-aware coaching generation
-- `generate_game_summary()`: Now includes opening_introduction in summary
-- `describe_move_rich()`: Now intent-aware, acknowledges user thinking
-- `check_sideline()`: Returns main_line_theory with explanations per move
-- `analyze_mistake_rich()`: Intent-aware mistake analysis (empathetic corrections)
+**Architecture:**
+1. Parse PGN → classify every move by eval_loss
+2. eval_loss < 30cp → good move → short rule-based narrative
+3. eval_loss 30-100cp → inaccuracy → LLM medium depth
+4. eval_loss 100-250cp → mistake → LLM full depth
+5. eval_loss > 250cp → blunder → LLM full depth
+6. Opening theory → always from JSON knowledge base
+7. Single LLM call per game (batched mistakes)
+8. Cached forever in DB
 
-**New MoveCoaching fields (V3):**
-- `intent_acknowledged`: "I see what you're doing — preventing Ng5. That shows good awareness!"
-- `main_line_theory`: `{position, best, explanation, lines: {Bc5: "...", Nf6: "..."}}`
+**New Output Structure (V4):**
+```json
+{
+  "narrative": "flowing coach story (THE HOOK)",
+  "position_breakdown": {
+    "your_intent": "what player was trying",
+    "opponent_counterplay": "what opponent gets",
+    "hidden_problem": "non-obvious issue"
+  },
+  "mistake_analysis": {
+    "type": "strategic|tactical|calculation|impatience",
+    "why_it_fails": "concrete position-specific reason",
+    "severity": "inaccuracy|mistake|blunder"
+  },
+  "better_plan": {
+    "move": "d6",
+    "idea": "why it's better",
+    "what_happens_next": "1-2 move continuation"
+  },
+  "thinking_gap": "THE MOAT — what question they didn't ask",
+  "principle": "position-specific takeaway",
+  "confidence": "low|medium|high"
+}
+```
 
-**Frontend (`/app/frontend/src/components/GameDecryption.jsx` V3):**
-- `OpeningIntroCard`: Displays About this Opening with Your Plan / Their Plan / Key Focus
-- Intent Acknowledgment card (indigo, "Your Coach" label)
-- Main Line Theory section ("Why these moves are recommended")
-- Empathetic sideline warnings with move badges
-- Move list highlights sidelines in orange with `~` indicator
+**Backend Services:**
+- `/app/backend/services/game_decryption_service.py` — Orchestrator (classify → route → merge)
+- `/app/backend/services/game_decryption_llm_service.py` — NEW: LLM coaching via gpt-4.1-mini
+- Uses Emergent Universal Key (EMERGENT_LLM_KEY)
 
-**Testing:** iteration 145 (12/12 backend + frontend 100% verified)
-- All V3 fields verified for h6 move in Italian Game
-- Opening Introduction card rendering verified
-- Intent acknowledgment display verified
-- Main line theory section verified
-- Coach/Decrypt toggle, navigation, feedback all working
+**Frontend (`GameDecryption.jsx` V4) — Card Structure:**
+- TOP: Narrative (flowing story)
+- MIDDLE: "YOU MISSED THIS" (red/orange gradient, BIG + BOLD)
+- BOTTOM: Better Plan → expandable (Position Breakdown, Why It Fails, Principle)
+- Badge: mistake type (strategic/tactical/calculation/impatience)
+- Footer: confidence indicator + Not Helpful feedback
+
+**Testing:** iteration 146 (13/13 backend + 100% frontend verified)
+
+**Previous versions (superseded):**
+- V3: Intent-aware, empathetic sideline warnings (iteration 145)
+- V2: Opening-aware, sideline detection (iteration 144)
+- V1: Basic move-by-move explainer (rejected as too generic)
 
 ### Pattern Memory Feature - V1 Implementation (March 21, 2026)
 **"Evidence-based self-awareness" — Confrontation, not information**
