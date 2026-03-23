@@ -1178,7 +1178,10 @@ def process_job(db, job):
         # This is stored once during analysis and loaded instantly on Lab page.
         # =========================================================================
         try:
-            from services.game_decryption_service import generate_game_decryption, generate_game_summary
+            from services.game_decryption_service import (
+                generate_game_decryption, generate_game_summary,
+                detect_opening_from_pgn, get_opening_data
+            )
             
             logger.info(f"[DECRYPTION] Generating move-by-move coaching for {game_id}...")
             
@@ -1193,8 +1196,10 @@ def process_job(db, job):
             )
             
             if decryption_data:
-                # Generate summary
-                decryption_summary = generate_game_summary(decryption_data, user_color)
+                # V3: Pass opening data for richer summary with opening introduction
+                opening_name_d, eco_code_d = detect_opening_from_pgn(pgn)
+                opening_data_d = get_opening_data(eco_code_d, opening_name_d)
+                decryption_summary = generate_game_summary(decryption_data, user_color, opening_data_d)
                 
                 # Store in analysis document
                 db.game_analyses.update_one(

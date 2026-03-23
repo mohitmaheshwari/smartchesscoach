@@ -1,21 +1,17 @@
 /**
- * GameDecryption.jsx - Move-by-Move Game Understanding
+ * GameDecryption.jsx - V3: Coach-Quality Game Understanding
  * 
- * Philosophy: "Decrypting a game" - making every move understandable
+ * Philosophy: "A great coach first understands your thinking, then guides you forward"
  * 
- * For each move, shows:
- * - What happened (plain English)
- * - What opponent was trying to do
- * - What you should be thinking about
- * - Why the move was good/bad
- * - The principle to remember
+ * V3 Features:
+ * - Opening Introduction Card: Sets context at the start
+ * - Intent Acknowledgment: "I see you played h6 to prevent Ng5..."
+ * - Main Line Theory: Shows what theory recommends and why
+ * - Empathetic Sideline Warnings: Validates your thinking before correcting
  * 
  * Controls:
- * - → (Right arrow) or Next button: Forward
- * - ← (Left arrow) or Back button: Backward  
- * - ↑ (Up arrow): Reset to start
- * - ↓ (Down arrow): Jump to end
- * - Not Helpful button: Submit feedback with correction
+ * - Arrow keys for navigation
+ * - Not Helpful button for feedback
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -37,21 +33,20 @@ import {
   Lightbulb,
   Target,
   ThumbsDown,
-  ThumbsUp,
   Send,
   X,
   Loader2,
   BookOpen,
   Brain,
   Eye,
-  Clock
+  Swords,
+  GraduationCap,
+  MessageCircle,
+  Sparkles
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
-/**
- * Main Game Decryption Component
- */
 const GameDecryption = ({ 
   gameId, 
   analysis, 
@@ -59,35 +54,28 @@ const GameDecryption = ({
   userColor,
   onBack 
 }) => {
-  // State
   const [decryptionData, setDecryptionData] = useState(null);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Navigation state
-  const [currentMoveIndex, setCurrentMoveIndex] = useState(-1); // -1 = starting position
+  const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
   const [boardFen, setBoardFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   
-  // Feedback state
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
-  const [submittedFeedback, setSubmittedFeedback] = useState(new Set()); // Track which moves have feedback
+  const [submittedFeedback, setSubmittedFeedback] = useState(new Set());
   
-  // Chess.js instance for move navigation
   const chessRef = useRef(new Chess());
   const containerRef = useRef(null);
   
-  // Load decryption data
   useEffect(() => {
     fetchDecryptionData();
   }, [gameId]);
   
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Don't navigate if typing in textarea
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
       
       switch (e.key) {
@@ -131,7 +119,6 @@ const GameDecryption = ({
       
       if (data.error || !data.decryption_data) {
         setError(data.error || "Decryption data not available");
-        // Check if needs reanalysis
         if (data.needs_reanalysis) {
           setError("This game was analyzed before the decryption feature. Please re-analyze to see explanations.");
         }
@@ -141,10 +128,9 @@ const GameDecryption = ({
       setDecryptionData(data.decryption_data);
       setSummary(data.summary);
       
-      // Initialize chess with PGN
       if (pgn) {
         chessRef.current.loadPgn(pgn);
-        chessRef.current.reset(); // Start from beginning
+        chessRef.current.reset();
       }
       
     } catch (err) {
@@ -155,7 +141,6 @@ const GameDecryption = ({
     }
   };
   
-  // Navigation functions
   const goForward = useCallback(() => {
     if (!decryptionData) return;
     if (currentMoveIndex < decryptionData.length - 1) {
@@ -202,7 +187,6 @@ const GameDecryption = ({
     }
   }, [decryptionData]);
   
-  // Feedback submission
   const handleSubmitFeedback = async () => {
     if (!feedbackText.trim() || currentMoveIndex < 0) return;
     
@@ -242,17 +226,14 @@ const GameDecryption = ({
     }
   };
   
-  // Get current move data
   const currentMove = currentMoveIndex >= 0 ? decryptionData?.[currentMoveIndex] : null;
-  
-  // Determine board orientation
   const orientation = userColor === "black" ? "black" : "white";
   
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96" data-testid="decryption-loading">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-        <span className="ml-3 text-zinc-400">Loading game analysis...</span>
+        <span className="ml-3 text-zinc-400">Decrypting your game...</span>
       </div>
     );
   }
@@ -277,7 +258,6 @@ const GameDecryption = ({
     >
       {/* LEFT: Board + Controls */}
       <div className="lg:w-1/2 space-y-4">
-        {/* Board */}
         <div className="aspect-square max-w-[500px] mx-auto">
           <LichessBoard
             fen={boardFen}
@@ -294,7 +274,7 @@ const GameDecryption = ({
             size="icon"
             onClick={goToStart}
             disabled={currentMoveIndex === -1}
-            title="Go to start (↑)"
+            title="Go to start"
             data-testid="btn-go-start"
           >
             <ChevronsLeft className="w-4 h-4" />
@@ -304,7 +284,7 @@ const GameDecryption = ({
             size="icon"
             onClick={goBackward}
             disabled={currentMoveIndex === -1}
-            title="Previous move (←)"
+            title="Previous move"
             data-testid="btn-go-back"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -320,7 +300,7 @@ const GameDecryption = ({
             size="icon"
             onClick={goForward}
             disabled={!decryptionData || currentMoveIndex >= decryptionData.length - 1}
-            title="Next move (→)"
+            title="Next move"
             data-testid="btn-go-forward"
           >
             <ChevronRight className="w-4 h-4" />
@@ -330,14 +310,13 @@ const GameDecryption = ({
             size="icon"
             onClick={goToEnd}
             disabled={!decryptionData || currentMoveIndex >= decryptionData.length - 1}
-            title="Go to end (↓)"
+            title="Go to end"
             data-testid="btn-go-end"
           >
             <ChevronsRight className="w-4 h-4" />
           </Button>
         </div>
         
-        {/* Move List */}
         <MoveList 
           decryptionData={decryptionData}
           currentMoveIndex={currentMoveIndex}
@@ -349,10 +328,8 @@ const GameDecryption = ({
       {/* RIGHT: Coaching Panel */}
       <div className="lg:w-1/2 space-y-4">
         {currentMoveIndex === -1 ? (
-          /* Starting position - show summary */
           <GameSummaryCard summary={summary} decryptionData={decryptionData} />
         ) : (
-          /* Current move coaching */
           <MoveCoachingCard 
             move={currentMove}
             hasFeedback={submittedFeedback.has(currentMoveIndex)}
@@ -360,7 +337,6 @@ const GameDecryption = ({
           />
         )}
         
-        {/* Feedback Modal */}
         {feedbackOpen && currentMove && (
           <FeedbackPanel
             move={currentMove}
@@ -372,9 +348,8 @@ const GameDecryption = ({
           />
         )}
         
-        {/* Keyboard shortcuts hint */}
         <div className="text-xs text-zinc-600 text-center">
-          Use arrow keys: ← → to navigate, ↑ to start, ↓ to end
+          Use arrow keys: left/right to navigate, up to start, down to end
         </div>
       </div>
     </div>
@@ -383,7 +358,48 @@ const GameDecryption = ({
 
 
 /**
- * Game Summary Card - shown at starting position
+ * Opening Introduction Card - V3 feature
+ */
+const OpeningIntroCard = ({ intro }) => {
+  if (!intro) return null;
+  
+  return (
+    <div className="bg-gradient-to-br from-indigo-500/10 to-violet-500/10 rounded-lg p-4 border border-indigo-500/20" data-testid="opening-intro-card">
+      <div className="flex items-center gap-2 mb-3">
+        <GraduationCap className="w-4 h-4 text-indigo-400" />
+        <p className="text-sm font-semibold text-indigo-300">About this Opening</p>
+      </div>
+      
+      <p className="text-zinc-300 text-sm mb-3 leading-relaxed">{intro.description}</p>
+      
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-zinc-800/50 rounded-lg p-3">
+          <p className="text-xs text-emerald-400 mb-1 flex items-center gap-1">
+            <Swords className="w-3 h-3" /> Your Plan
+          </p>
+          <p className="text-zinc-300 text-xs leading-relaxed">{intro.your_plan}</p>
+        </div>
+        <div className="bg-zinc-800/50 rounded-lg p-3">
+          <p className="text-xs text-red-400 mb-1 flex items-center gap-1">
+            <Target className="w-3 h-3" /> Their Plan
+          </p>
+          <p className="text-zinc-300 text-xs leading-relaxed">{intro.their_plan}</p>
+        </div>
+      </div>
+      
+      {intro.key_focus && (
+        <div className="mt-3 bg-zinc-800/30 rounded-lg p-2.5">
+          <p className="text-xs text-amber-400 mb-0.5">Key Focus</p>
+          <p className="text-zinc-400 text-xs">{intro.key_focus}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+/**
+ * Game Summary Card - shown at starting position. V3: includes opening intro
  */
 const GameSummaryCard = ({ summary, decryptionData }) => {
   if (!summary) return null;
@@ -402,6 +418,11 @@ const GameSummaryCard = ({ summary, decryptionData }) => {
             <p className="text-xs text-emerald-400 mb-1">Opening</p>
             <p className="text-white font-medium">{summary.opening_name}</p>
           </div>
+        )}
+        
+        {/* V3: Opening Introduction */}
+        {summary.opening_introduction && (
+          <OpeningIntroCard intro={summary.opening_introduction} />
         )}
         
         {/* Stats */}
@@ -445,7 +466,7 @@ const GameSummaryCard = ({ summary, decryptionData }) => {
         <div className="pt-2 border-t border-zinc-800">
           <p className="text-sm text-emerald-400 flex items-center gap-2">
             <ChevronRight className="w-4 h-4" />
-            Press → or click Next to begin
+            Press right arrow or click Next to begin
           </p>
         </div>
       </CardContent>
@@ -455,7 +476,7 @@ const GameSummaryCard = ({ summary, decryptionData }) => {
 
 
 /**
- * Move Coaching Card - shows coaching for current move
+ * Move Coaching Card - V3: shows intent acknowledgment & main line theory
  */
 const MoveCoachingCard = ({ move, hasFeedback, onFeedbackClick }) => {
   if (!move) return null;
@@ -500,6 +521,16 @@ const MoveCoachingCard = ({ move, hasFeedback, onFeedbackClick }) => {
           </Badge>
         </div>
         
+        {/* V3: Intent Acknowledgment — the empathetic coach speaks first */}
+        {move.intent_acknowledged && isUserMove && (
+          <div className="bg-indigo-500/10 rounded-lg p-3 border border-indigo-500/20" data-testid="intent-acknowledged">
+            <p className="text-xs text-indigo-400 mb-1 flex items-center gap-1">
+              <MessageCircle className="w-3 h-3" /> Your Coach
+            </p>
+            <p className="text-indigo-200 text-sm italic">{move.intent_acknowledged}</p>
+          </div>
+        )}
+        
         {/* What happened */}
         <div className="space-y-3">
           <div>
@@ -517,7 +548,7 @@ const MoveCoachingCard = ({ move, hasFeedback, onFeedbackClick }) => {
             </div>
           )}
           
-          {/* Opponent's last idea (only for user moves) */}
+          {/* Opponent's last idea */}
           {isUserMove && move.opponent_last_idea && (
             <div className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20">
               <p className="text-xs text-amber-400 mb-1 flex items-center gap-1">
@@ -527,31 +558,55 @@ const MoveCoachingCard = ({ move, hasFeedback, onFeedbackClick }) => {
             </div>
           )}
           
-          {/* Your focus */}
+          {/* SIDELINE WARNING — V3: Empathetic, with main line theory */}
+          {move.is_sideline && move.sideline_warning && (
+            <div className="bg-orange-500/10 rounded-lg p-3 border border-orange-500/30" data-testid="sideline-warning">
+              <p className="text-xs text-orange-400 mb-1 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" /> Opening Theory
+              </p>
+              <p className="text-orange-200 text-sm">{move.sideline_warning}</p>
+              
+              {/* Main line moves */}
+              {move.main_line_moves && move.main_line_moves.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-orange-500/20">
+                  <p className="text-xs text-zinc-400 mb-1">Main line moves:</p>
+                  <div className="flex gap-2">
+                    {move.main_line_moves.map((m, i) => (
+                      <span key={i} className="text-white font-mono bg-zinc-800/60 px-2 py-0.5 rounded text-sm">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* V3: Main line theory explanations */}
+              {move.main_line_theory && move.main_line_theory.lines && (
+                <div className="mt-2 pt-2 border-t border-orange-500/20 space-y-1.5" data-testid="main-line-theory">
+                  <p className="text-xs text-zinc-400 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Why these moves are recommended:
+                  </p>
+                  {Object.entries(move.main_line_theory.lines).map(([moveName, explanation]) => (
+                    <div key={moveName} className="flex gap-2 text-sm">
+                      <span className="text-white font-mono font-semibold shrink-0">{moveName}:</span>
+                      <span className="text-zinc-400">{explanation}</span>
+                    </div>
+                  ))}
+                  {move.main_line_theory.explanation && (
+                    <p className="text-zinc-500 text-xs mt-1 italic">{move.main_line_theory.explanation}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Your focus (only when no sideline) */}
           {move.your_focus && !move.is_sideline && (
             <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
               <p className="text-xs text-blue-400 mb-1 flex items-center gap-1">
                 <Target className="w-3 h-3" /> What to think about here
               </p>
               <p className="text-zinc-300">{move.your_focus}</p>
-            </div>
-          )}
-          
-          {/* SIDELINE WARNING - Opening theory deviation */}
-          {move.is_sideline && move.sideline_warning && (
-            <div className="bg-orange-500/10 rounded-lg p-3 border border-orange-500/30">
-              <p className="text-xs text-orange-400 mb-1 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> Opening Theory Warning
-              </p>
-              <p className="text-orange-300 font-medium">{move.sideline_warning}</p>
-              {move.main_line_moves && move.main_line_moves.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-orange-500/20">
-                  <p className="text-xs text-zinc-400">Main line moves:</p>
-                  <p className="text-white font-mono">
-                    {move.main_line_moves.join(', ')}
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -584,7 +639,7 @@ const MoveCoachingCard = ({ move, hasFeedback, onFeedbackClick }) => {
             {move.principle && (
               <div className="bg-zinc-800/50 rounded-lg p-3">
                 <p className="text-xs text-amber-400 mb-1 flex items-center gap-1">
-                  <BookOpen className="w-3 h-3" /> Remember this principle
+                  <BookOpen className="w-3 h-3" /> Remember this
                 </p>
                 <p className="text-white italic">"{move.principle}"</p>
               </div>
@@ -625,7 +680,7 @@ const MoveCoachingCard = ({ move, hasFeedback, onFeedbackClick }) => {
 
 
 /**
- * Feedback Panel - for submitting corrections
+ * Feedback Panel
  */
 const FeedbackPanel = ({ move, feedbackText, setFeedbackText, onSubmit, onCancel, submitting }) => {
   return (
@@ -675,12 +730,11 @@ const FeedbackPanel = ({ move, feedbackText, setFeedbackText, onSubmit, onCancel
 
 
 /**
- * Move List - scrollable list of all moves
+ * Move List
  */
 const MoveList = ({ decryptionData, currentMoveIndex, onMoveClick, userColor }) => {
   if (!decryptionData || decryptionData.length === 0) return null;
   
-  // Group moves into pairs (white + black)
   const movePairs = [];
   for (let i = 0; i < decryptionData.length; i += 2) {
     const whiteMove = decryptionData[i];
@@ -701,7 +755,6 @@ const MoveList = ({ decryptionData, currentMoveIndex, onMoveClick, userColor }) 
           <div key={pair.moveNumber} className="flex items-center gap-1 text-sm">
             <span className="w-8 text-zinc-500 text-right">{pair.moveNumber}.</span>
             
-            {/* White's move */}
             <button
               onClick={() => onMoveClick(pair.whiteIndex)}
               className={`px-2 py-0.5 rounded font-mono ${
@@ -709,14 +762,16 @@ const MoveList = ({ decryptionData, currentMoveIndex, onMoveClick, userColor }) 
                   ? 'bg-emerald-500/30 text-white' 
                   : pair.white.is_mistake 
                     ? 'text-red-400 hover:bg-red-500/10' 
-                    : 'text-zinc-300 hover:bg-zinc-800'
+                    : pair.white.is_sideline
+                      ? 'text-orange-400 hover:bg-orange-500/10'
+                      : 'text-zinc-300 hover:bg-zinc-800'
               }`}
             >
               {pair.white.move_san}
               {pair.white.is_mistake && <span className="text-red-400 ml-0.5">?</span>}
+              {pair.white.is_sideline && !pair.white.is_mistake && <span className="text-orange-400 ml-0.5">~</span>}
             </button>
             
-            {/* Black's move */}
             {pair.black && (
               <button
                 onClick={() => onMoveClick(pair.blackIndex)}
@@ -725,11 +780,14 @@ const MoveList = ({ decryptionData, currentMoveIndex, onMoveClick, userColor }) 
                     ? 'bg-emerald-500/30 text-white' 
                     : pair.black.is_mistake 
                       ? 'text-red-400 hover:bg-red-500/10' 
-                      : 'text-zinc-300 hover:bg-zinc-800'
+                      : pair.black.is_sideline
+                        ? 'text-orange-400 hover:bg-orange-500/10'
+                        : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
               >
                 {pair.black.move_san}
                 {pair.black.is_mistake && <span className="text-red-400 ml-0.5">?</span>}
+                {pair.black.is_sideline && !pair.black.is_mistake && <span className="text-orange-400 ml-0.5">~</span>}
               </button>
             )}
           </div>
@@ -740,9 +798,6 @@ const MoveList = ({ decryptionData, currentMoveIndex, onMoveClick, userColor }) 
 };
 
 
-/**
- * Helper: Get last move squares for board highlighting
- */
 const getLastMoveSquares = (move) => {
   if (!move || !move.fen_before || !move.move_san) return null;
   

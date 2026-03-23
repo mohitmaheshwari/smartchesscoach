@@ -520,7 +520,10 @@ async def get_game_decryption(
             logger.info(f"[DECRYPTION] full_analysis: {full_analysis is not None}, game: {game is not None}")
             
             if full_analysis and game:
-                from services.game_decryption_service import generate_game_decryption, generate_game_summary
+                from services.game_decryption_service import (
+                    generate_game_decryption, generate_game_summary,
+                    detect_opening_from_pgn, get_opening_data
+                )
                 
                 user_color = game.get("user_color") or game.get("user_plays_as", "white")
                 pgn = game.get("pgn", "")
@@ -533,7 +536,10 @@ async def get_game_decryption(
                 decryption_data = generate_game_decryption(pgn, user_color, move_evaluations)
                 
                 if decryption_data:
-                    decryption_summary = generate_game_summary(decryption_data, user_color)
+                    # V3: Pass opening data for richer summary
+                    opening_name, eco_code = detect_opening_from_pgn(pgn)
+                    opening_data = get_opening_data(eco_code, opening_name)
+                    decryption_summary = generate_game_summary(decryption_data, user_color, opening_data)
                     
                     # Save it for future
                     from datetime import datetime, timezone
