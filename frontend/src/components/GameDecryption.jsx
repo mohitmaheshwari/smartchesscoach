@@ -74,13 +74,22 @@ const GameDecryption = ({ gameId, analysis, pgn, userColor, onBack }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [decryptionData, currentMoveIndex]);
 
-  const fetchDecryptionData = async () => {
+  const fetchDecryptionData = async (isRetry = false) => {
     try {
-      setLoading(true);
+      if (!isRetry) setLoading(true);
       setError(null);
       const res = await fetch(`${API}/coach/decryption/${gameId}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch decryption data");
       const data = await res.json();
+      
+      // Handle "generating" status — poll until ready
+      if (data.status === "generating") {
+        setError(null);
+        setLoading(true);
+        setTimeout(() => fetchDecryptionData(true), 5000);
+        return;
+      }
+      
       if (data.error || !data.decryption_data) {
         setError(data.error || "Decryption data not available");
         if (data.needs_reanalysis) setError("This game needs re-analysis for the decryption feature.");
@@ -154,9 +163,10 @@ const GameDecryption = ({ gameId, analysis, pgn, userColor, onBack }) => {
   const orientation = userColor === "black" ? "black" : "white";
 
   if (loading) return (
-    <div className="flex items-center justify-center h-96" data-testid="decryption-loading">
+    <div className="flex flex-col items-center justify-center h-96" data-testid="decryption-loading">
       <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-      <span className="ml-3 text-zinc-400">Decrypting your game...</span>
+      <span className="mt-3 text-zinc-400">Your coach is analyzing the game...</span>
+      <span className="mt-1 text-zinc-600 text-sm">This can take up to 30 seconds for the first analysis</span>
     </div>
   );
 

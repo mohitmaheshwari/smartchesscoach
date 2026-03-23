@@ -287,12 +287,16 @@ def generate_game_decryption(
 
         moves = list(game.mainline_moves())
 
-        # Build eval lookup
-        eval_lookup = {}
+        # Build eval lookup BY FEN (position-based matching)
+        # Stockfish evals are indexed by user moves only, but PGN indices
+        # include both colors. FEN matching is the only reliable way.
+        eval_lookup_by_fen = {}
         for eval_data in move_evaluations:
-            idx = eval_data.get("move_index", -1)
-            if idx >= 0:
-                eval_lookup[idx] = eval_data
+            fen = eval_data.get("fen_before", "")
+            if fen:
+                # Use just the board+turn+castling+ep part (skip move counters)
+                fen_key = " ".join(fen.split()[:4])
+                eval_lookup_by_fen[fen_key] = eval_data
 
         # ── PHASE 1: Classify all moves ──────────────────────────
         all_moves_data = []
@@ -304,7 +308,7 @@ def generate_game_decryption(
             full_move_number = (idx // 2) + 1
             is_white = (idx % 2 == 0)
             is_user = (user_color == "white" and is_white) or (user_color == "black" and not is_white)
-            eval_data = eval_lookup.get(idx, {})
+            eval_data = eval_lookup_by_fen.get(" ".join(temp_board.fen().split()[:4]), {})
             cp_loss = abs(eval_data.get("cp_loss", 0))
             phase = detect_phase(temp_board, full_move_number)
             severity = classify_move(cp_loss) if is_user else "context"
@@ -361,19 +365,10 @@ def generate_game_decryption(
                 llm_moves.append(md)
                 llm_indices.add(md["idx"])
 
-                # Include the preceding opponent move for context
-                if md["idx"] > 0:
-                    prev = all_moves_data[md["idx"] - 1]
-                    if prev["idx"] not in llm_indices:
-                        prev["severity"] = "context"
-                        prev["opening_hint"] = ""
-                        llm_moves.append(prev)
-                        llm_indices.add(prev["idx"])
-
         # Sort by move index for proper ordering
         llm_moves.sort(key=lambda m: m["idx"])
 
-        logger.info(f"[DECRYPTION V4] {len(llm_moves)} moves going to LLM ({len([m for m in llm_moves if m['is_user_move']])} user mistakes)")
+        logger.info(f"[DECRYPTION V4] {len(llm_moves)} user mistakes going to LLM")
 
         # ── PHASE 3: Call LLM for mistakes ───────────────────────
         llm_results = {}

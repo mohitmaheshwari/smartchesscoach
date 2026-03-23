@@ -505,65 +505,85 @@ async def get_game_decryption(
             return {"error": "Game analysis not found", "decryption_data": None}
         
         if not analysis.get("decryption_data"):
-            # Decryption not yet generated - try to generate on-demand
-            logger.info(f"[DECRYPTION] No decryption_data, attempting on-demand generation")
-            # Fetch full analysis and game data
+            # Check if generation is already in progress
+            if analysis.get("decryption_generating"):
+                return {
+                    "decryption_data": None,
+                    "status": "generating",
+                    "message": "Your game is being analyzed by the coach. This takes about 30 seconds..."
+                }
+            
+            # Kick off background generation
+            logger.info(f"[DECRYPTION] No decryption_data, starting background generation")
+            
             full_analysis = await db.game_analyses.find_one(
-                {"game_id": game_id},
-                {"_id": 0}
+                {"game_id": game_id}, {"_id": 0}
             )
             game = await db.games.find_one(
                 {"game_id": game_id},
                 {"_id": 0, "pgn": 1, "user_color": 1, "user_plays_as": 1}
             )
             
-            logger.info(f"[DECRYPTION] full_analysis: {full_analysis is not None}, game: {game is not None}")
-            
             if full_analysis and game:
-                from services.game_decryption_service import (
-                    generate_game_decryption, generate_game_summary,
-                    detect_opening_from_pgn, get_opening_data
+                # Mark as generating
+                await db.game_analyses.update_one(
+                    {"game_id": game_id},
+                    {"$set": {"decryption_generating": True}}
                 )
+                
                 import asyncio
                 
-                user_color = game.get("user_color") or game.get("user_plays_as", "white")
-                pgn = game.get("pgn", "")
-                move_evaluations = full_analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+                async def _background_generate():
+                    try:
+                        from services.game_decryption_service import (
+                            generate_game_decryption, generate_game_summary,
+                            detect_opening_from_pgn, get_opening_data
+                        )
+                        user_color = game.get("user_color") or game.get("user_plays_as", "white")
+                        pgn = game.get("pgn", "")
+                        move_evaluations = full_analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+                        
+                        loop = asyncio.get_event_loop()
+                        decryption_data = await loop.run_in_executor(
+                            None, generate_game_decryption, pgn, user_color, move_evaluations
+                        )
+                        
+                        if decryption_data:
+                            opening_name, eco_code = detect_opening_from_pgn(pgn)
+                            opening_data = get_opening_data(eco_code, opening_name)
+                            decryption_summary = generate_game_summary(decryption_data, user_color, opening_data)
+                            
+                            from datetime import datetime, timezone
+                            await db.game_analyses.update_one(
+                                {"game_id": game_id},
+                                {"$set": {
+                                    "decryption_data": decryption_data,
+                                    "decryption_summary": decryption_summary,
+                                    "decryption_generated_at": datetime.now(timezone.utc).isoformat(),
+                                    "decryption_generating": False
+                                }}
+                            )
+                            logger.info(f"[DECRYPTION] Background generation complete for {game_id}")
+                        else:
+                            await db.game_analyses.update_one(
+                                {"game_id": game_id},
+                                {"$set": {"decryption_generating": False}}
+                            )
+                    except Exception as e:
+                        logger.error(f"[DECRYPTION] Background generation failed: {e}")
+                        await db.game_analyses.update_one(
+                            {"game_id": game_id},
+                            {"$set": {"decryption_generating": False}}
+                        )
                 
-                # Add move_index for lookup
-                for idx, eval_data in enumerate(move_evaluations):
-                    eval_data["move_index"] = idx
+                asyncio.create_task(_background_generate())
                 
-                # Run in thread to avoid blocking event loop (LLM calls are sync)
-                loop = asyncio.get_event_loop()
-                decryption_data = await loop.run_in_executor(
-                    None, generate_game_decryption, pgn, user_color, move_evaluations
-                )
-                
-                if decryption_data:
-                    opening_name, eco_code = detect_opening_from_pgn(pgn)
-                    opening_data = get_opening_data(eco_code, opening_name)
-                    decryption_summary = generate_game_summary(decryption_data, user_color, opening_data)
-                    
-                    # Save it for future
-                    from datetime import datetime, timezone
-                    await db.game_analyses.update_one(
-                        {"game_id": game_id},
-                        {"$set": {
-                            "decryption_data": decryption_data,
-                            "decryption_summary": decryption_summary,
-                            "decryption_generated_at": datetime.now(timezone.utc).isoformat()
-                        }}
-                    )
-                    
-                    return {
-                        "decryption_data": decryption_data,
-                        "summary": decryption_summary,
-                        "generated_at": datetime.now(timezone.utc).isoformat(),
-                        "generated_on_demand": True
-                    }
+                return {
+                    "decryption_data": None,
+                    "status": "generating",
+                    "message": "Your game is being analyzed by the coach. This takes about 30 seconds..."
+                }
             
-            # Still couldn't generate
             return {
                 "error": "Decryption data not available. Game may need re-analysis.",
                 "decryption_data": None,

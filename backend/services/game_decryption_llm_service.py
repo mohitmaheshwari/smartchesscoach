@@ -207,13 +207,7 @@ async def generate_llm_coaching_async(
 ) -> List[Dict]:
     """
     Generate LLM-powered coaching for a batch of moves.
-
-    Args:
-        moves_to_analyze: List of move dicts with FEN, eval, best_move etc.
-        game_context: Game-level context (opening, color, PGN)
-
-    Returns:
-        List of coaching dicts matching the V4 output structure.
+    Splits into chunks of MAX_BATCH to avoid timeouts.
     """
     if not moves_to_analyze:
         return []
@@ -222,27 +216,33 @@ async def generate_llm_coaching_async(
         logger.warning("[LLM] No EMERGENT_LLM_KEY found, skipping LLM coaching")
         return []
 
-    prompt = _build_moves_prompt(moves_to_analyze, game_context)
+    MAX_BATCH = 6
+    all_results = []
 
-    try:
-        logger.info(f"[LLM] Sending {len(moves_to_analyze)} moves for coaching...")
-        response_text = await _call_llm_async(prompt)
-        logger.info(f"[LLM] Got response ({len(response_text)} chars)")
+    # Split into chunks
+    chunks = [moves_to_analyze[i:i + MAX_BATCH] for i in range(0, len(moves_to_analyze), MAX_BATCH)]
 
-        coaching_data = _parse_llm_response(response_text, len(moves_to_analyze))
+    for chunk_idx, chunk in enumerate(chunks):
+        prompt = _build_moves_prompt(chunk, game_context)
 
-        if len(coaching_data) != len(moves_to_analyze):
-            logger.warning(
-                f"[LLM] Expected {len(moves_to_analyze)} results, got {len(coaching_data)}"
-            )
+        try:
+            logger.info(f"[LLM] Batch {chunk_idx + 1}/{len(chunks)}: {len(chunk)} moves")
+            response_text = await _call_llm_async(prompt)
+            logger.info(f"[LLM] Batch {chunk_idx + 1} response ({len(response_text)} chars)")
 
-        return coaching_data
+            coaching_data = _parse_llm_response(response_text, len(chunk))
 
-    except Exception as e:
-        logger.error(f"[LLM] Error generating coaching: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
+            if len(coaching_data) != len(chunk):
+                logger.warning(f"[LLM] Expected {len(chunk)} results, got {len(coaching_data)}")
+
+            all_results.extend(coaching_data)
+
+        except Exception as e:
+            logger.error(f"[LLM] Batch {chunk_idx + 1} error: {e}")
+            # Pad with empty dicts so indices still align
+            all_results.extend([{} for _ in chunk])
+
+    return all_results
 
 
 def generate_llm_coaching_sync(
