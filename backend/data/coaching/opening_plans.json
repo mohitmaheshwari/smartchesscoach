@@ -92,23 +92,36 @@
     "key_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4"],
     "white_plan": "Target f7 weakness, develop quickly, castle and attack",
     "black_plan": "Solid development with Bc5 or Nf6, challenge e4 with d6 or d5",
+    "main_lines": {
+      "after_Bc4": {
+        "theory": ["Bc5", "Nf6"],
+        "best": "Bc5",
+        "explanation": "Bc5 (Giuoco Piano) or Nf6 (Two Knights) are the main theoretical responses. Bc5 mirrors White's setup and also targets f2."
+      }
+    },
+    "sideline_warnings": {
+      "h6": "h6 is a passive sideline that wastes time. Better is Bc5 or Nf6 to develop a piece.",
+      "a6": "a6 is too slow here. Develop with Bc5 or Nf6 first.",
+      "d6": "d6 is playable but passive. Bc5 or Nf6 are more active."
+    },
     "typical_ideas": {
       "Bc4": "Targeting f7, the weakest point in Black's position",
-      "Bc5": "Mirroring White, also targeting f2",
+      "Bc5": "The main response! Mirrors White's setup and targets f2",
+      "Nf6": "The Two Knights Defense - developing while attacking e4",
       "d3": "The Giuoco Pianissimo - slow but solid",
       "c3": "Preparing d4 to challenge the center",
-      "d6": "Supporting e5, keeping the position solid",
-      "Nf6": "Developing and attacking e4",
+      "d6": "Supporting e5, but more passive than Bc5 or Nf6",
       "h3": "Preventing Bg4 pins",
       "O-O": "King safety first",
       "d5": "The main break - only play when ready!"
     },
     "common_mistakes": {
       "premature_d5": "d5 too early loses the center after exd5",
-      "forgetting_castling": "Don't delay castling - the center can open quickly"
+      "forgetting_castling": "Don't delay castling - the center can open quickly",
+      "passive_moves": "Moves like h6 or a6 waste time - develop pieces instead!"
     },
     "phase_focus": {
-      "opening": "Develop pieces toward the center, castle kingside",
+      "opening": "Develop pieces toward the center, castle kingside. Main moves: Bc5 or Nf6!",
       "middlegame": "Look for d4 break (White) or d5 break (Black)"
     }
   },

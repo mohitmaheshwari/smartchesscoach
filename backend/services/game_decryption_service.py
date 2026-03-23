@@ -82,6 +82,11 @@ class MoveCoaching:
     is_good_move: bool
     praise: Optional[str]
     
+    # Opening theory check
+    is_sideline: bool
+    sideline_warning: Optional[str]
+    main_line_moves: Optional[List[str]]
+    
     # Engine data
     eval_before: Optional[int]
     eval_after: Optional[int]
@@ -187,6 +192,52 @@ def detect_phase(board: chess.Board, move_number: int) -> str:
     if piece_count <= 18:
         return "endgame"
     return "middlegame"
+
+
+def check_sideline(
+    move_san: str,
+    move_number: int,
+    is_user_move: bool,
+    opening_data: dict,
+    phase: str
+) -> Tuple[bool, Optional[str], Optional[List[str]]]:
+    """
+    Check if a move is a sideline (deviation from main theory).
+    
+    Returns:
+        (is_sideline, warning_message, main_line_moves)
+    """
+    if phase != "opening":
+        return False, None, None
+    
+    if not is_user_move:
+        return False, None, None
+    
+    # Check for explicit sideline warnings
+    sideline_warnings = opening_data.get("sideline_warnings", {})
+    if move_san in sideline_warnings:
+        warning = sideline_warnings[move_san]
+        
+        # Get main line moves if available
+        main_lines = opening_data.get("main_lines", {})
+        main_moves = None
+        for key, line_data in main_lines.items():
+            if isinstance(line_data, dict) and "theory" in line_data:
+                main_moves = line_data["theory"]
+                break
+        
+        return True, warning, main_moves
+    
+    # Check if move is NOT in typical_ideas and we're in early opening
+    if move_number <= 6:
+        typical_ideas = opening_data.get("typical_ideas", {})
+        if move_san not in typical_ideas:
+            # It's an unusual move - check if it's a pawn move that's not developing
+            if len(move_san) == 2 and move_san[0] in 'abcdefgh':  # Pawn move like h6, a6
+                if move_san not in ['e4', 'e5', 'd4', 'd5', 'c4', 'c5', 'c6', 'e6', 'd6', 'b6', 'g6']:
+                    return True, f"{move_san} is unusual here. Consider developing a piece instead.", None
+    
+    return False, None, None
 
 
 def get_piece_name(piece: chess.Piece) -> str:
@@ -710,6 +761,18 @@ def generate_move_coaching_v2(
         else:
             praise = "Good move - solid choice."
     
+    # Check for sideline (deviation from opening theory)
+    is_sideline, sideline_warning, main_line_moves = check_sideline(
+        move_san, move_number, is_user_move, opening_data, phase
+    )
+    
+    # If sideline detected, update the focus to warn about it
+    if is_sideline and sideline_warning:
+        your_focus = f"⚠️ THEORY WARNING: {sideline_warning}"
+        # Don't praise sidelines even if engine says it's okay
+        if praise and not is_mistake:
+            praise = None
+    
     return MoveCoaching(
         move_number=move_number,
         is_user_move=is_user_move,
@@ -731,6 +794,9 @@ def generate_move_coaching_v2(
         principle=principle,
         is_good_move=is_good_move,
         praise=praise,
+        is_sideline=is_sideline,
+        sideline_warning=sideline_warning,
+        main_line_moves=main_line_moves,
         eval_before=eval_data.get("eval_before"),
         eval_after=eval_data.get("eval_after"),
         best_move_san=eval_data.get("best_move")

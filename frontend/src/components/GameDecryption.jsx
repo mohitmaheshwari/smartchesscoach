@@ -396,6 +396,14 @@ const GameSummaryCard = ({ summary, decryptionData }) => {
           <h3 className="font-semibold text-white">Game Overview</h3>
         </div>
         
+        {/* Opening Name */}
+        {summary.opening_name && (
+          <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20">
+            <p className="text-xs text-emerald-400 mb-1">Opening</p>
+            <p className="text-white font-medium">{summary.opening_name}</p>
+          </div>
+        )}
+        
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 text-center">
           <div className="bg-zinc-800/50 rounded-lg p-3">
@@ -520,12 +528,30 @@ const MoveCoachingCard = ({ move, hasFeedback, onFeedbackClick }) => {
           )}
           
           {/* Your focus */}
-          {move.your_focus && (
+          {move.your_focus && !move.is_sideline && (
             <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
               <p className="text-xs text-blue-400 mb-1 flex items-center gap-1">
                 <Target className="w-3 h-3" /> What to think about here
               </p>
               <p className="text-zinc-300">{move.your_focus}</p>
+            </div>
+          )}
+          
+          {/* SIDELINE WARNING - Opening theory deviation */}
+          {move.is_sideline && move.sideline_warning && (
+            <div className="bg-orange-500/10 rounded-lg p-3 border border-orange-500/30">
+              <p className="text-xs text-orange-400 mb-1 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" /> Opening Theory Warning
+              </p>
+              <p className="text-orange-300 font-medium">{move.sideline_warning}</p>
+              {move.main_line_moves && move.main_line_moves.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-orange-500/20">
+                  <p className="text-xs text-zinc-400">Main line moves:</p>
+                  <p className="text-white font-mono">
+                    {move.main_line_moves.join(', ')}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
