@@ -274,5 +274,63 @@
       "middlegame": "Create a plan based on the pawn structure",
       "endgame": "Activate your king, create passed pawns"
     }
+  },
+
+  "scotch_game": {
+    "name": "Scotch Game",
+    "eco_prefix": ["C44", "C45"],
+    "key_moves": ["e4", "e5", "Nf3", "Nc6", "d4"],
+    "introduction": "The Scotch Game is an aggressive opening where White immediately opens the center with 3.d4. Unlike the Italian or Ruy Lopez, White doesn't waste time with preparatory moves — they challenge Black's center head-on. This leads to open positions where piece activity and tactical awareness matter more than pawn structure.",
+    "white_plan": "Open the center early, develop aggressively, exploit the open d-file and active piece placement. The early d4 gives White space but also means White must be careful about overextending.",
+    "black_plan": "Equalize by challenging White's center, develop quickly and fight for initiative. After ...exd4, Black can aim for ...Bc5 or ...Bb4+ lines. The key is not to be passive — counter-attack!",
+    "typical_ideas": {
+      "d4": "Immediately challenging the center — the hallmark of the Scotch",
+      "Nxd4": "Recapturing the pawn, maintaining central presence",
+      "Nf3": "Developing the knight to its most natural square",
+      "Bc4": "Targeting f7, the weakest point in Black's camp",
+      "Be2": "Solid development, preparing to castle",
+      "Nc3": "Developing and supporting the center",
+      "O-O": "Getting the king safe before the center opens",
+      "Be3": "Developing the bishop and supporting d4",
+      "Qd2": "Connecting the rooks and preparing to castle queenside"
+    },
+    "sideline_warnings": {
+      "Qxd4": "Bringing the queen out this early makes it a target. Black can gain tempo with Nc6 attacking the queen. Prefer Nxd4 which develops naturally.",
+      "f4": "This weakens the kingside pawn cover drastically. Your king becomes vulnerable to attacks along the e-file and diagonals."
+    },
+    "move_intents": {
+      "Qxd4": {
+        "likely_idea": "Recapturing the pawn with the most powerful piece to dominate the center",
+        "evaluation": "Natural instinct, but it exposes the queen too early. Black gains tempo by developing with threats against the queen.",
+        "suggestion": "Nxd4 is better — it develops the knight centrally without exposing the queen to tempo attacks."
+      },
+      "f4": {
+        "likely_idea": "Trying to launch a kingside attack or support the center",
+        "evaluation": "Aggressive but premature. The king hasn't castled yet, and this weakens the e1-h4 diagonal and the g1-a7 diagonal.",
+        "suggestion": "Complete development first with Bc4 or Be2 followed by O-O. Attack only when your pieces are ready."
+      }
+    },
+    "main_lines": {
+      "after_d4": {
+        "position": "After 1.e4 e5 2.Nf3 Nc6 3.d4 exd4 4.Nxd4",
+        "best": "Nxd4",
+        "explanation": "Recapture with the knight to keep central control without exposing pieces",
+        "theory": ["Nxd4", "Bc4"],
+        "lines": {
+          "Nxd4": "The main move — recaptures naturally, the knight is well-placed in the center. After 4...Nf6 or 4...Bc5, a rich middlegame follows.",
+          "Bc4": "The Scotch Gambit — White sacrifices a tempo for rapid development and pressure on f7. Aggressive but sound."
+        }
+      }
+    },
+    "common_mistakes": {
+      "early_queen_out": "Don't bring the queen out early in the Scotch — it becomes a target for Black's developing moves",
+      "ignoring_development": "In open positions, piece activity is everything. Don't push pawns when you should be developing",
+      "weakening_king": "With an open center, king safety is critical. Don't weaken your pawn shelter before castling"
+    },
+    "phase_focus": {
+      "opening": "Get pieces out FAST. The center is already open — whoever develops first gets the initiative.",
+      "middlegame": "Use your active pieces to create threats. Look for tactics — open positions reward calculation.",
+      "endgame": "If you reach an endgame, the open position means rook activity and passed pawns are key."
+    }
   }
 }

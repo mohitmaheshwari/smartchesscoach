@@ -437,20 +437,20 @@ def generate_game_decryption(
             if idx in llm_results:
                 llm = llm_results[idx]
                 move_output["narrative"] = llm.get("narrative")
-                move_output["position_breakdown"] = llm.get("position_breakdown")
-                move_output["mistake_analysis"] = llm.get("mistake_analysis")
-                move_output["better_plan"] = llm.get("better_plan")
-                move_output["thinking_gap"] = llm.get("thinking_gap")
-                move_output["principle"] = llm.get("principle")
-                move_output["confidence"] = llm.get("confidence")
 
-                # Override severity from LLM if provided
-                if llm.get("mistake_analysis") and llm["mistake_analysis"].get("severity"):
-                    sev = llm["mistake_analysis"]["severity"]
-                    if sev == "blunder":
-                        move_output["is_mistake"] = True
-                    elif sev == "mistake":
-                        move_output["is_mistake"] = True
+                # ONLY set coaching fields for USER moves — never for opponent
+                if is_user:
+                    move_output["position_breakdown"] = llm.get("position_breakdown")
+                    move_output["mistake_analysis"] = llm.get("mistake_analysis")
+                    move_output["better_plan"] = llm.get("better_plan")
+                    move_output["thinking_gap"] = llm.get("thinking_gap")
+                    move_output["principle"] = llm.get("principle")
+                    move_output["confidence"] = llm.get("confidence")
+
+                    if llm.get("mistake_analysis") and llm["mistake_analysis"].get("severity"):
+                        sev = llm["mistake_analysis"]["severity"]
+                        if sev in ("blunder", "mistake"):
+                            move_output["is_mistake"] = True
             else:
                 # Rule-based narrative for good/non-LLM moves
                 move_output["narrative"] = _rule_based_narrative(
