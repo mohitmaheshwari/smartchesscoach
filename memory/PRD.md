@@ -9,6 +9,41 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
+### Game Decryption Feature - V1 Implementation (March 23, 2026)
+**"Every move explained in plain English" — Decrypting the game for human understanding**
+
+**Philosophy:** Stop showing engine lines. Make the entire game story understandable like a coach would explain it.
+
+**Backend Service (`/app/backend/services/game_decryption_service.py`):**
+- Generates move-by-move coaching narratives during analysis (Phase 9)
+- For EACH move explains: what happened, move idea, opponent's idea, what to think about
+- Detects game phase (opening/middlegame/endgame)
+- For mistakes: what you missed, better move idea, principle to remember
+- For good moves: praise
+
+**JSON Knowledge Base (`/app/backend/data/coaching/`):**
+- `move_ideas.json`: Piece intentions, move types, common mistakes
+- `opponent_threats.json`: Tactical and positional threats, common plans
+- `phase_principles.json`: Opening/middlegame/endgame goals and principles
+
+**API Endpoints:**
+- `GET /api/coach/decryption/{gameId}` - Full move-by-move coaching data
+- `POST /api/coach/decryption/feedback` - Submit "not helpful" with user correction
+- `GET /api/coach/decryption/feedback/{gameId}` - Get feedback for a game
+
+**On-Demand Generation:**
+- For games analyzed before feature added, decryption is generated on first request
+- Cached in `game_analyses.decryption_data` for instant subsequent loads
+
+**Frontend (`/app/frontend/src/components/GameDecryption.jsx`):**
+- Coach/Decrypt toggle on `/game/{gameId}` page
+- Game Overview card at start: total moves, good moves, mistakes, key moments
+- Move Coaching cards with all sections (what happened, idea, opponent idea, focus)
+- Navigation: ← → ↑ ↓ keyboard and button controls
+- "Not Helpful" button with feedback textarea
+
+**Testing:** 100% (11/11 backend + frontend verified - iteration 144)
+
 ### Pattern Memory Feature - V1 Implementation (March 21, 2026)
 **"Evidence-based self-awareness" — Confrontation, not information**
 
@@ -349,7 +384,11 @@ All P0 issues resolved in this session.
 - [x] **Documentation**: Created `/app/memory/DATA_SOURCES.md` mapping all pages to their data sources
 
 ### P1 - Next
+- [ ] **Enrich Game Decryption Knowledge Base**: Add more patterns to `opponent_threats.json`, `move_ideas.json` for richer explanations
+- [ ] **Review Feedback Dashboard**: Admin page to view and analyze "Not Helpful" feedback submissions
 - [ ] **Admin UI for Theory Database**: Web interface to view/edit theory JSON files via browser (CRUD without code deployment)
+- [ ] **Inject Pattern Memory into Guided Play**: Show confrontational pattern messages at critical moments during coached games
+- [ ] **Opening-based Categorization**: Group mistakes by opening type for targeted training
 - [ ] Fully verify onboarding/navigation reliability with a fresh un-onboarded test user
 - [ ] Add automatic profile creation during game sync if it doesn't exist (currently relies on analysis worker)
 - [ ] Add "What You Did Well" section to Summary (celebrate good moves)
@@ -371,6 +410,8 @@ All P0 issues resolved in this session.
 - [ ] Enhanced "Ask Coach" prompts
 
 ## Testing Status
+- **Game Decryption Feature**: iteration 144 (11/11 backend + frontend verified) - verifies decryption API, feedback API, on-demand generation, Coach/Decrypt toggle, navigation, move coaching cards
+- **Pattern Memory Feature**: iteration 143 (10/10 backend + frontend verified) - verifies pattern aggregation APIs, dashboard YourPatterns, review page confrontation messages
 - All features tested: iterations 120, 121, 122 (all passed)
 - Deep opening teaching fix tested: iteration 123 (30/30 backend tests passed)
 - Expanded opening coverage self-tested + unit-tested (`test_play_with_coach_opening_context.py`, `test_expanded_opening_variations.py` → 10/10 passed)
