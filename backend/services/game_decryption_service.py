@@ -456,10 +456,18 @@ def generate_game_decryption(
                 if is_user:
                     move_output["position_breakdown"] = llm.get("position_breakdown")
                     move_output["mistake_analysis"] = llm.get("mistake_analysis")
-                    move_output["better_plan"] = llm.get("better_plan")
                     move_output["thinking_gap"] = llm.get("thinking_gap")
                     move_output["principle"] = llm.get("principle")
                     move_output["confidence"] = llm.get("confidence")
+
+                    # ENFORCE: better_plan.move ALWAYS comes from Stockfish, not LLM
+                    llm_plan = llm.get("better_plan")
+                    if llm_plan and isinstance(llm_plan, dict):
+                        sf_best = md.get("best_move", "")
+                        llm_plan["move"] = sf_best or llm_plan.get("move", "")
+                        move_output["better_plan"] = llm_plan
+                    elif md.get("best_move"):
+                        move_output["better_plan"] = {"move": md["best_move"], "idea": "", "what_happens_next": ""}
 
                     if llm.get("mistake_analysis") and llm["mistake_analysis"].get("severity"):
                         sev = llm["mistake_analysis"]["severity"]
