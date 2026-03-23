@@ -1,0 +1,241 @@
+{
+  "_meta": {
+    "description": "Opening-specific plans, ideas, and typical themes for Game Decryption",
+    "version": "1.0"
+  },
+  
+  "queens_indian": {
+    "name": "Queen's Indian Defense",
+    "eco_prefix": ["E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19"],
+    "key_moves": ["d4", "Nf6", "c4", "e6", "Nf3", "b6"],
+    "white_plan": "Control the center with d4+c4, develop pieces actively, often fianchetto kingside with g3+Bg2",
+    "black_plan": "Fianchetto bishop to b7 to pressure e4 and the long diagonal, flexible center with d6 or d5",
+    "typical_ideas": {
+      "b6": "Preparing to fianchetto the bishop to b7, controlling the long diagonal",
+      "Bb7": "Completing the fianchetto, the bishop now pressures e4 and the long diagonal toward g2",
+      "d6": "Supporting e5 if needed, keeping options open",
+      "d5": "Challenging White's center directly",
+      "c5": "Attacking White's d4 pawn, fighting for central space",
+      "Be7": "Solid development, preparing to castle",
+      "Bb4+": "Pinning the knight, or forcing White to make a decision",
+      "g3": "Preparing the fianchetto, mirrors Black's setup",
+      "Bg2": "Completing White's fianchetto, controlling the long diagonal",
+      "Nc3": "Developing and controlling d5",
+      "a3": "Preventing Bb4 check or preparing b4 expansion"
+    },
+    "common_mistakes": {
+      "early_e5": "e5 too early can leave the d5 square weak",
+      "passive_bishop": "Don't leave the bishop on c8 too long - it belongs on b7"
+    },
+    "phase_focus": {
+      "opening": "Complete fianchetto setup, castle, connect rooks",
+      "middlegame": "Use the bishop on b7 to pressure White's center, look for d5 or c5 breaks"
+    }
+  },
+  
+  "london_system": {
+    "name": "London System",
+    "eco_prefix": ["D00", "A46", "A48"],
+    "key_moves": ["d4", "Nf3", "Bf4"],
+    "white_plan": "Solid pawn structure d4+e3, bishop to f4 before e3, develop harmoniously",
+    "black_plan": "Challenge the bishop with Nh5 or c5, don't let White get a comfortable position",
+    "typical_ideas": {
+      "Bf4": "The signature London move - develop bishop BEFORE playing e3",
+      "e3": "Solidifying the center, but must be played AFTER Bf4",
+      "c3": "Supporting d4, preparing Nbd2 or Qb3",
+      "Bd3": "Aiming at h7, standard development",
+      "Nbd2": "Flexible - can go to f3, e4, or b3",
+      "h3": "Preventing Bg4 pins",
+      "c5": "Black's main break - attacking d4",
+      "Nh5": "Kicking the London bishop, forcing Bg3 or Be5",
+      "Qb6": "Attacking b2 and pressuring the queenside"
+    },
+    "common_mistakes": {
+      "e3_before_bf4": "Playing e3 before Bf4 locks the bishop inside - major London sin!",
+      "passive_play": "Don't just develop - have a plan to create pressure"
+    },
+    "phase_focus": {
+      "opening": "Bf4 before e3! Then solid development and castle",
+      "middlegame": "Look for kingside attack with pieces or queenside pressure"
+    }
+  },
+  
+  "sicilian_najdorf": {
+    "name": "Sicilian Najdorf",
+    "eco_prefix": ["B90", "B91", "B92", "B93", "B94", "B95", "B96", "B97", "B98", "B99"],
+    "key_moves": ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "a6"],
+    "white_plan": "Use the central space advantage, launch kingside attack or play f3+Be3 setup",
+    "black_plan": "Use a6 to prepare b5 expansion, counterplay on queenside while White attacks kingside",
+    "typical_ideas": {
+      "a6": "The Najdorf move - prevents Bb5, prepares b5 expansion",
+      "e5": "Controlling d4 and f4, cramping Black but weakening d5",
+      "f3": "Supporting e4, preparing Be3-Qd2-O-O-O setup",
+      "Be3": "Developing and preparing to castle queenside",
+      "b5": "Black's queenside expansion - very thematic",
+      "Bb7": "After b5, the bishop becomes active",
+      "Nbd7": "Flexible development, can go to c5, b6, or e5",
+      "Be7": "Solid, preparing to castle"
+    },
+    "common_mistakes": {
+      "premature_e5": "Playing e5 without preparation can be met with d5!",
+      "forgetting_development": "Don't push pawns without developing pieces"
+    },
+    "phase_focus": {
+      "opening": "Complete development, prepare for sharp middlegame",
+      "middlegame": "Black attacks queenside (b5-b4), White attacks kingside (g4-h4 or f4-f5)"
+    }
+  },
+  
+  "italian_game": {
+    "name": "Italian Game",
+    "eco_prefix": ["C50", "C51", "C52", "C53", "C54"],
+    "key_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+    "white_plan": "Target f7 weakness, develop quickly, castle and attack",
+    "black_plan": "Solid development with Bc5 or Nf6, challenge e4 with d6 or d5",
+    "typical_ideas": {
+      "Bc4": "Targeting f7, the weakest point in Black's position",
+      "Bc5": "Mirroring White, also targeting f2",
+      "d3": "The Giuoco Pianissimo - slow but solid",
+      "c3": "Preparing d4 to challenge the center",
+      "d6": "Supporting e5, keeping the position solid",
+      "Nf6": "Developing and attacking e4",
+      "h3": "Preventing Bg4 pins",
+      "O-O": "King safety first",
+      "d5": "The main break - only play when ready!"
+    },
+    "common_mistakes": {
+      "premature_d5": "d5 too early loses the center after exd5",
+      "forgetting_castling": "Don't delay castling - the center can open quickly"
+    },
+    "phase_focus": {
+      "opening": "Develop pieces toward the center, castle kingside",
+      "middlegame": "Look for d4 break (White) or d5 break (Black)"
+    }
+  },
+  
+  "caro_kann": {
+    "name": "Caro-Kann Defense",
+    "eco_prefix": ["B10", "B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18", "B19"],
+    "key_moves": ["e4", "c6"],
+    "white_plan": "Occupy the center with d4, try to limit Black's light-squared bishop",
+    "black_plan": "Solid pawn structure, develop bishop outside the pawn chain before e6",
+    "typical_ideas": {
+      "c6": "Preparing d5 to challenge e4 immediately",
+      "d5": "The point of c6 - challenging the center",
+      "Bf5": "Getting the bishop out BEFORE playing e6",
+      "e6": "Solid but locks the bishop - play Bf5 first!",
+      "Nd7": "Flexible development",
+      "Nf6": "Natural development, attacking e4",
+      "Nc3": "Defending e4, developing",
+      "Bd3": "White often trades this bishop for Black's good Bf5"
+    },
+    "common_mistakes": {
+      "e6_before_bf5": "Playing e6 before Bf5 locks the bishop inside - bad!",
+      "passive_play": "Don't be too solid - look for counterplay"
+    },
+    "phase_focus": {
+      "opening": "Get Bf5 out before e6! Solid development.",
+      "middlegame": "Use the solid structure to outplay opponent in the long term"
+    }
+  },
+  
+  "french_defense": {
+    "name": "French Defense",
+    "eco_prefix": ["C00", "C01", "C02", "C03", "C04", "C05", "C06", "C07", "C08", "C09", "C10", "C11", "C12", "C13", "C14", "C15", "C16", "C17", "C18", "C19"],
+    "key_moves": ["e4", "e6"],
+    "white_plan": "Use space advantage, attack the kingside, restrict Black's light bishop",
+    "black_plan": "Attack the pawn chain with c5 and f6, activate the bad bishop",
+    "typical_ideas": {
+      "e6": "Solid, preparing d5, but locks in the light bishop",
+      "d5": "Challenging White's center",
+      "c5": "THE key break - attacking the base of White's pawn chain",
+      "f6": "Secondary break - attacking e5, but weakens the king",
+      "Bd7": "Often necessary to connect rooks, but passive",
+      "b6+Bb7": "Fianchetto can activate the bad bishop",
+      "e5": "White's space-gaining move, but creates a target",
+      "f4": "White reinforces e5 and prepares kingside attack"
+    },
+    "common_mistakes": {
+      "forgetting_c5": "c5 is essential - without it Black suffocates",
+      "bad_bishop": "Don't ignore the light bishop problem - find ways to activate it"
+    },
+    "phase_focus": {
+      "opening": "Play c5 early! It's the key to counterplay.",
+      "middlegame": "Attack the pawn chain, try to trade the bad bishop"
+    }
+  },
+  
+  "kings_indian": {
+    "name": "King's Indian Defense",
+    "eco_prefix": ["E60", "E61", "E62", "E63", "E64", "E65", "E66", "E67", "E68", "E69", "E70", "E71", "E72", "E73", "E74", "E75", "E76", "E77", "E78", "E79", "E80", "E81", "E82", "E83", "E84", "E85", "E86", "E87", "E88", "E89", "E90", "E91", "E92", "E93", "E94", "E95", "E96", "E97", "E98", "E99"],
+    "key_moves": ["d4", "Nf6", "c4", "g6", "Nc3", "Bg7"],
+    "white_plan": "Control center, expand on queenside with c5, play in the center",
+    "black_plan": "Fianchetto kingside, prepare f5 or e5 breaks, launch kingside attack",
+    "typical_ideas": {
+      "g6+Bg7": "The fianchetto setup - the bishop becomes a monster on the diagonal",
+      "O-O": "Castle quickly, then attack!",
+      "e5": "THE main break - creates closed center, then f5-f4 attack",
+      "f5": "Kingside attack begins!",
+      "f4": "Cramping White, preparing g5-g4",
+      "d5": "White closes the center - now it's a race: queenside vs kingside",
+      "c5": "White's queenside expansion",
+      "b4": "White gains space on the queenside"
+    },
+    "common_mistakes": {
+      "passive_play": "KID is about attack - don't play passively!",
+      "wrong_timing": "e5 and f5 need proper timing - don't rush"
+    },
+    "phase_focus": {
+      "opening": "Fianchetto, castle, prepare e5",
+      "middlegame": "After d5, race begins - Black attacks kingside with f5-f4, White attacks queenside"
+    }
+  },
+  
+  "ruy_lopez": {
+    "name": "Ruy Lopez (Spanish Game)",
+    "eco_prefix": ["C60", "C61", "C62", "C63", "C64", "C65", "C66", "C67", "C68", "C69", "C70", "C71", "C72", "C73", "C74", "C75", "C76", "C77", "C78", "C79", "C80", "C81", "C82", "C83", "C84", "C85", "C86", "C87", "C88", "C89", "C90", "C91", "C92", "C93", "C94", "C95", "C96", "C97", "C98", "C99"],
+    "key_moves": ["e4", "e5", "Nf3", "Nc6", "Bb5"],
+    "white_plan": "Pressure the e5 pawn through the knight on c6, slow maneuvering game",
+    "black_plan": "Solid defense, prepare d5 break, counterplay with a5/b5",
+    "typical_ideas": {
+      "Bb5": "Putting pressure on Nc6 which defends e5",
+      "a6": "The Morphy Defense - kicking the bishop, preparing b5",
+      "Ba4": "Maintaining the pin/pressure",
+      "b5": "Expanding on queenside, giving the bishop a retreat square",
+      "Bb3": "Safe square for the bishop, still eyes f7",
+      "d6": "Defending e5, solid but passive",
+      "O-O": "White castles, central pressure continues",
+      "d3": "Slow buildup, closed center",
+      "c3": "Preparing d4"
+    },
+    "common_mistakes": {
+      "losing_e5": "Don't lose the e5 pawn without compensation",
+      "passive_defense": "Black must find counterplay, not just defend"
+    },
+    "phase_focus": {
+      "opening": "Solid development, don't panic about the bishop on b5",
+      "middlegame": "White slowly builds pressure, Black looks for d5 break"
+    }
+  },
+
+  "default": {
+    "name": "General Opening",
+    "white_plan": "Control the center, develop pieces, castle for king safety",
+    "black_plan": "Contest the center, develop pieces actively, ensure king safety",
+    "typical_ideas": {
+      "e4": "Classic center pawn, controls d5 and f5, opens diagonals for queen and bishop",
+      "d4": "Classic center pawn, controls c5 and e5, opens diagonal for queen-bishop",
+      "Nf3": "Developing toward center, controlling e5 and d4",
+      "Nc3": "Developing toward center, supporting e4 or d5",
+      "Bc4": "Active development, targeting f7",
+      "Bb5": "Pinning or pressuring the knight",
+      "O-O": "King safety - essential in most openings",
+      "castling": "Get your king safe and connect your rooks"
+    },
+    "phase_focus": {
+      "opening": "1) Control center, 2) Develop pieces, 3) Castle, 4) Connect rooks",
+      "middlegame": "Create a plan based on the pawn structure",
+      "endgame": "Activate your king, create passed pawns"
+    }
+  }
+}

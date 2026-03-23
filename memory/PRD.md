@@ -9,40 +9,39 @@ Create a hyper-personalized, data-driven chess coaching application that functio
 
 ## Latest Updates (March 2026)
 
-### Game Decryption Feature - V1 Implementation (March 23, 2026)
-**"Every move explained in plain English" — Decrypting the game for human understanding**
+### Game Decryption Feature - V2 (Opening-Aware) - March 23, 2026
+**"Every move explained in plain English" — Opening-aware, context-rich coaching**
 
-**Philosophy:** Stop showing engine lines. Make the entire game story understandable like a coach would explain it.
+**V2 Key Improvements:**
+1. **Opening Detection**: Extracts ECO code and opening name from PGN, uses opening-specific explanations
+2. **Opening Knowledge Base**: `opening_plans.json` with 8+ openings (Queen's Indian, London, Sicilian Najdorf, Italian, Caro-Kann, French, King's Indian, Ruy Lopez)
+3. **Rich Opponent Ideas**: "They played b6 - Preparing to fianchetto the bishop to b7, controlling the long diagonal"
+4. **Dynamic Focus**: Phase-appropriate, not repetitive
 
 **Backend Service (`/app/backend/services/game_decryption_service.py`):**
-- Generates move-by-move coaching narratives during analysis (Phase 9)
-- For EACH move explains: what happened, move idea, opponent's idea, what to think about
-- Detects game phase (opening/middlegame/endgame)
-- For mistakes: what you missed, better move idea, principle to remember
-- For good moves: praise
+- `detect_opening_from_pgn()`: Extracts ECO and opening name
+- `get_opening_data()`: Matches opening to knowledge base
+- `describe_move_rich()`: Opening-aware move descriptions
+- `analyze_opponent_idea_rich()`: Tactical + opening-specific analysis
+- `get_dynamic_focus()`: Context-aware focus messages
 
 **JSON Knowledge Base (`/app/backend/data/coaching/`):**
-- `move_ideas.json`: Piece intentions, move types, common mistakes
-- `opponent_threats.json`: Tactical and positional threats, common plans
-- `phase_principles.json`: Opening/middlegame/endgame goals and principles
+- `opening_plans.json`: Per-opening plans, typical_ideas, common_mistakes, phase_focus
+- `move_ideas.json`, `opponent_threats.json`, `phase_principles.json`
 
 **API Endpoints:**
-- `GET /api/coach/decryption/{gameId}` - Full move-by-move coaching data
-- `POST /api/coach/decryption/feedback` - Submit "not helpful" with user correction
-- `GET /api/coach/decryption/feedback/{gameId}` - Get feedback for a game
-
-**On-Demand Generation:**
-- For games analyzed before feature added, decryption is generated on first request
-- Cached in `game_analyses.decryption_data` for instant subsequent loads
+- `GET /api/coach/decryption/{gameId}` - Full move-by-move coaching
+- `POST /api/coach/decryption/feedback` - User corrections
+- On-demand generation for pre-existing games
 
 **Frontend (`/app/frontend/src/components/GameDecryption.jsx`):**
 - Coach/Decrypt toggle on `/game/{gameId}` page
-- Game Overview card at start: total moves, good moves, mistakes, key moments
-- Move Coaching cards with all sections (what happened, idea, opponent idea, focus)
-- Navigation: ← → ↑ ↓ keyboard and button controls
-- "Not Helpful" button with feedback textarea
+- Game Overview with opening name, stats, key moments
+- Move Coaching cards with rich explanations
+- Navigation: ← → ↑ ↓ keyboard controls
+- "Not Helpful" feedback button
 
-**Testing:** 100% (11/11 backend + frontend verified - iteration 144)
+**Testing:** iteration 144 (11/11 passed) + manual V2 verification
 
 ### Pattern Memory Feature - V1 Implementation (March 21, 2026)
 **"Evidence-based self-awareness" — Confrontation, not information**
