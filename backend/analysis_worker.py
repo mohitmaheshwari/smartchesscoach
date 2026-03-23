@@ -1172,6 +1172,49 @@ def process_job(db, job):
             # Non-fatal - log but don't fail the analysis
             logger.warning(f"[STREAK] Failed to update: {streak_err}")
         
+        # =========================================================================
+        # PHASE 9: GAME DECRYPTION (Move-by-Move Coaching Narratives)
+        # Generates coaching explanations for EVERY move in the game.
+        # This is stored once during analysis and loaded instantly on Lab page.
+        # =========================================================================
+        try:
+            from services.game_decryption_service import generate_game_decryption, generate_game_summary
+            
+            logger.info(f"[DECRYPTION] Generating move-by-move coaching for {game_id}...")
+            
+            # Add move_index to each evaluation for lookup
+            for idx, eval_data in enumerate(move_evaluations):
+                eval_data["move_index"] = idx
+            
+            decryption_data = generate_game_decryption(
+                pgn=pgn,
+                user_color=user_color,
+                move_evaluations=move_evaluations
+            )
+            
+            if decryption_data:
+                # Generate summary
+                decryption_summary = generate_game_summary(decryption_data, user_color)
+                
+                # Store in analysis document
+                db.game_analyses.update_one(
+                    {"game_id": game_id, "user_id": user_id},
+                    {"$set": {
+                        "decryption_data": decryption_data,
+                        "decryption_summary": decryption_summary,
+                        "decryption_generated_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+                logger.info(f"[DECRYPTION] Generated {len(decryption_data)} move narratives for {game_id}")
+            else:
+                logger.warning(f"[DECRYPTION] No data generated for {game_id}")
+                
+        except Exception as decrypt_err:
+            # Non-fatal - log but don't fail the analysis
+            logger.warning(f"[DECRYPTION] Failed to generate: {decrypt_err}")
+            import traceback
+            traceback.print_exc()
+        
         logger.info(f"[SUCCESS] Analyzed game {game_id} (accuracy: {accuracy}%, duration: {elapsed:.1f}s)")
         return True
         

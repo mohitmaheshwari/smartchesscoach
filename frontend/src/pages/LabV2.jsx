@@ -57,6 +57,7 @@ import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 
 // Feedback modal (reused from Lab.jsx)
 import FeedbackModal from "@/components/FeedbackModal";
+import GameDecryption from "@/components/GameDecryption";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -232,6 +233,7 @@ const LabV2 = ({ user }) => {
   const [activeTab, setActiveTab] = useState("summary");
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState(null);
+  const [viewMode, setViewMode] = useState("coach"); // "coach" (current) or "decrypt" (step-by-step)
   
   // Derived data
   const userColor = game?.user_color || "white";
@@ -882,9 +884,49 @@ const LabV2 = ({ user }) => {
               </span>
             </div>
           </div>
+          
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-800/50 border border-gray-700">
+            <button
+              onClick={() => setViewMode("coach")}
+              className={`px-2 py-1 text-xs rounded transition-colors ${
+                viewMode === "coach" 
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+              data-testid="coach-view-btn"
+            >
+              <Brain className="w-3 h-3 inline mr-1" />
+              Coach
+            </button>
+            <button
+              onClick={() => setViewMode("decrypt")}
+              className={`px-2 py-1 text-xs rounded transition-colors ${
+                viewMode === "decrypt" 
+                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+              data-testid="decrypt-view-btn"
+            >
+              <BookOpen className="w-3 h-3 inline mr-1" />
+              Decrypt
+            </button>
+          </div>
         </div>
         
-        {/* Main Content - Board left, Analysis right */}
+        {/* MAIN CONTENT - Conditional based on viewMode */}
+        {viewMode === "decrypt" ? (
+          /* Game Decryption View - Step-by-step explanations */
+          <div className="flex-1 overflow-auto">
+            <GameDecryption
+              gameId={gameId}
+              analysis={analysis}
+              pgn={game?.pgn}
+              userColor={userColor}
+              onBack={() => navigate(-1)}
+            />
+          </div>
+        ) : (
         <div className="flex-1 flex overflow-hidden">
           {/* Left: Board and controls */}
           <div className="w-[55%] flex flex-col border-r border-border">
@@ -1147,6 +1189,7 @@ const LabV2 = ({ user }) => {
             </Tabs>
           </div>
         </div>
+        )}
         
         {/* Feedback Modal */}
         <FeedbackModal

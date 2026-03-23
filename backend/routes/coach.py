@@ -438,6 +438,201 @@ async def get_pattern_for_mistake_endpoint(
         return {"pattern": None, "error": str(e)}
 
 
+# ==================== GAME DECRYPTION ====================
+
+class FeedbackRequest(BaseModel):
+    """Request model for submitting coaching feedback."""
+    game_id: str
+    move_number: int
+    fen: str
+    coach_explanation: str
+    user_feedback: str  # "not_helpful" or "helpful"
+    user_correction: Optional[str] = None  # User's suggested correction
+    is_user_move: bool = True
+
+
+@router.get("/decryption/{game_id}")
+async def get_game_decryption(
+    game_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the complete move-by-move coaching decryption for a game.
+    
+    This data is pre-computed during analysis and stored in game_analyses.
+    Returns coaching narratives for every move in the game.
+    
+    Returns:
+        {
+            "decryption_data": [
+                {
+                    "move_number": 1,
+                    "is_user_move": true,
+                    "move_san": "e4",
+                    "phase": "opening",
+                    "what_happened": "Advanced the king pawn two squares",
+                    "move_idea": "Fighting for central control",
+                    "opponent_last_idea": null,
+                    "your_focus": "Focus on developing pieces...",
+                    "is_mistake": false,
+                    ...
+                },
+                ...
+            ],
+            "summary": {
+                "total_moves": 45,
+                "mistakes": 3,
+                "key_moments": [...],
+                "overall_message": "..."
+            }
+        }
+    """
+    global db
+    
+    try:
+        logger.info(f"[DECRYPTION] Looking for analysis for game_id: {game_id}")
+        analysis = await db.game_analyses.find_one(
+            {"game_id": game_id},
+            {"_id": 0, "game_id": 1, "decryption_data": 1, "decryption_summary": 1, "decryption_generated_at": 1}
+        )
+        
+        logger.info(f"[DECRYPTION] Analysis query result: {analysis}")
+        
+        if not analysis or "game_id" not in analysis:
+            # Debug: count total documents
+            total = await db.game_analyses.count_documents({})
+            logger.info(f"[DECRYPTION] Total game_analyses documents: {total}")
+            return {"error": "Game analysis not found", "decryption_data": None}
+        
+        if not analysis.get("decryption_data"):
+            # Decryption not yet generated - try to generate on-demand
+            logger.info(f"[DECRYPTION] No decryption_data, attempting on-demand generation")
+            # Fetch full analysis and game data
+            full_analysis = await db.game_analyses.find_one(
+                {"game_id": game_id},
+                {"_id": 0}
+            )
+            game = await db.games.find_one(
+                {"game_id": game_id},
+                {"_id": 0, "pgn": 1, "user_color": 1, "user_plays_as": 1}
+            )
+            
+            logger.info(f"[DECRYPTION] full_analysis: {full_analysis is not None}, game: {game is not None}")
+            
+            if full_analysis and game:
+                from services.game_decryption_service import generate_game_decryption, generate_game_summary
+                
+                user_color = game.get("user_color") or game.get("user_plays_as", "white")
+                pgn = game.get("pgn", "")
+                move_evaluations = full_analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+                
+                # Add move_index for lookup
+                for idx, eval_data in enumerate(move_evaluations):
+                    eval_data["move_index"] = idx
+                
+                decryption_data = generate_game_decryption(pgn, user_color, move_evaluations)
+                
+                if decryption_data:
+                    decryption_summary = generate_game_summary(decryption_data, user_color)
+                    
+                    # Save it for future
+                    from datetime import datetime, timezone
+                    await db.game_analyses.update_one(
+                        {"game_id": game_id},
+                        {"$set": {
+                            "decryption_data": decryption_data,
+                            "decryption_summary": decryption_summary,
+                            "decryption_generated_at": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
+                    
+                    return {
+                        "decryption_data": decryption_data,
+                        "summary": decryption_summary,
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                        "generated_on_demand": True
+                    }
+            
+            # Still couldn't generate
+            return {
+                "error": "Decryption data not available. Game may need re-analysis.",
+                "decryption_data": None,
+                "needs_reanalysis": True
+            }
+        
+        return {
+            "decryption_data": analysis.get("decryption_data", []),
+            "summary": analysis.get("decryption_summary", {}),
+            "generated_at": analysis.get("decryption_generated_at")
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting game decryption: {e}")
+        return {"error": str(e), "decryption_data": None}
+
+
+@router.post("/decryption/feedback")
+async def submit_coaching_feedback(
+    request: FeedbackRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Submit feedback on a coaching explanation.
+    
+    Users can mark explanations as "not helpful" and provide corrections.
+    This data is stored for improving the coaching system.
+    """
+    global db
+    
+    try:
+        feedback_doc = {
+            "user_id": user.user_id,
+            "game_id": request.game_id,
+            "move_number": request.move_number,
+            "fen": request.fen,
+            "is_user_move": request.is_user_move,
+            "coach_explanation": request.coach_explanation,
+            "user_feedback": request.user_feedback,
+            "user_correction": request.user_correction,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.coaching_feedback.insert_one(feedback_doc)
+        
+        logger.info(f"Coaching feedback submitted for game {request.game_id}, move {request.move_number}")
+        
+        return {
+            "success": True,
+            "message": "Thank you for your feedback! This helps improve the coaching."
+        }
+        
+    except Exception as e:
+        logger.error(f"Error submitting coaching feedback: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/decryption/feedback/{game_id}")
+async def get_feedback_for_game(
+    game_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Get all feedback submitted for a game by the current user."""
+    global db
+    
+    try:
+        feedback_cursor = db.coaching_feedback.find(
+            {"game_id": game_id, "user_id": user.user_id},
+            {"_id": 0}
+        )
+        feedback_list = await feedback_cursor.to_list(100)
+        
+        return {"feedback": feedback_list}
+        
+    except Exception as e:
+        logger.error(f"Error getting feedback: {e}")
+        return {"feedback": [], "error": str(e)}
+
+
 # ==================== MOVE Q&A ====================
 
 class MoveQuestionRequest(BaseModel):
