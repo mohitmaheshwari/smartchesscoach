@@ -90,39 +90,63 @@
     "name": "Italian Game",
     "eco_prefix": ["C50", "C51", "C52", "C53", "C54"],
     "key_moves": ["e4", "e5", "Nf3", "Nc6", "Bc4"],
-    "white_plan": "Target f7 weakness, develop quickly, castle and attack",
-    "black_plan": "Solid development with Bc5 or Nf6, challenge e4 with d6 or d5",
+    "introduction": "The Italian Game is one of the oldest openings in chess. White develops the bishop to c4, targeting the weak f7 square. Black must decide between solid development (Bc5) or counterattack (Nf6).",
+    "white_plan": "Target the f7 weakness with Bc4, develop quickly, castle kingside, and look for attacking chances. The bishop on c4 is very active.",
+    "black_plan": "Develop solidly with Bc5 (Giuoco Piano) or counterattack with Nf6 (Two Knights). Later, challenge the center with d6 and prepare d5 break.",
     "main_lines": {
       "after_Bc4": {
+        "position": "after 3.Bc4",
         "theory": ["Bc5", "Nf6"],
         "best": "Bc5",
-        "explanation": "Bc5 (Giuoco Piano) or Nf6 (Two Knights) are the main theoretical responses. Bc5 mirrors White's setup and also targets f2."
+        "lines": {
+          "Bc5": "The Giuoco Piano (quiet game). Black mirrors White's development. Main continuation: 4.c3 Nf6 5.d4 exd4 6.cxd4 Bb4+",
+          "Nf6": "The Two Knights Defense. Black counterattacks e4 immediately. White often plays 4.Ng5 attacking f7, leading to sharp play."
+        },
+        "explanation": "Both Bc5 and Nf6 are excellent. Bc5 is solid and strategic, Nf6 is more tactical and aggressive."
+      }
+    },
+    "move_intents": {
+      "h6": {
+        "likely_idea": "Preparing Ng5 to kick the bishop from c4, or preventing Ng5 by White",
+        "evaluation": "Creative but slow. The main lines develop faster, but your idea has logic.",
+        "suggestion": "If you want to play ...Ng5, consider developing first with Bc5 or Nf6, then ...h6 and ...Ng5 later when you have more pieces active."
+      },
+      "a6": {
+        "likely_idea": "Preparing b5 to kick the bishop, or preventing Bb5 pin",
+        "evaluation": "Flexible but slow. Better to develop pieces first.",
+        "suggestion": "Develop with Bc5 or Nf6 first. You can always play a6 later."
+      },
+      "d6": {
+        "likely_idea": "Solid defense of e5, preparing to develop the bishop",
+        "evaluation": "Playable but passive. Allows White to dictate the pace.",
+        "suggestion": "Bc5 or Nf6 are more active. d6 can come later."
       }
     },
     "sideline_warnings": {
-      "h6": "h6 is a passive sideline that wastes time. Better is Bc5 or Nf6 to develop a piece.",
-      "a6": "a6 is too slow here. Develop with Bc5 or Nf6 first.",
-      "d6": "d6 is playable but passive. Bc5 or Nf6 are more active."
+      "h6": "This prepares Ng5 to challenge the bishop - an interesting idea! However, it's slower than the main lines (Bc5 or Nf6) which develop a piece immediately.",
+      "a6": "This prepares b5 expansion, but developing with Bc5 or Nf6 is faster.",
+      "d6": "Solid but passive. Bc5 or Nf6 give Black more active play."
     },
     "typical_ideas": {
       "Bc4": "Targeting f7, the weakest point in Black's position",
-      "Bc5": "The main response! Mirrors White's setup and targets f2",
-      "Nf6": "The Two Knights Defense - developing while attacking e4",
-      "d3": "The Giuoco Pianissimo - slow but solid",
-      "c3": "Preparing d4 to challenge the center",
-      "d6": "Supporting e5, but more passive than Bc5 or Nf6",
-      "h3": "Preventing Bg4 pins",
-      "O-O": "King safety first",
-      "d5": "The main break - only play when ready!"
+      "Bc5": "The Giuoco Piano! Solid development, mirrors White, also eyes f2",
+      "Nf6": "The Two Knights Defense - counterattacking e4 immediately",
+      "c3": "White prepares d4 to build a strong center",
+      "d3": "The Giuoco Pianissimo - slow but very solid",
+      "d6": "Supports e5, but more passive than Bc5/Nf6",
+      "h3": "Prevents Bg4 pin on the knight",
+      "O-O": "King safety - essential before opening the center",
+      "d5": "The key break for Black - only when well prepared!",
+      "Ng5": "Attacking f7 directly - sharp and dangerous"
     },
     "common_mistakes": {
-      "premature_d5": "d5 too early loses the center after exd5",
-      "forgetting_castling": "Don't delay castling - the center can open quickly",
-      "passive_moves": "Moves like h6 or a6 waste time - develop pieces instead!"
+      "premature_d5": "d5 too early loses the pawn after exd5",
+      "forgetting_development": "Don't play too many pawn moves - develop pieces!",
+      "ignoring_f7": "Always be aware of threats to f7 in the Italian"
     },
     "phase_focus": {
-      "opening": "Develop pieces toward the center, castle kingside. Main moves: Bc5 or Nf6!",
-      "middlegame": "Look for d4 break (White) or d5 break (Black)"
+      "opening": "The Italian Game: Develop pieces, castle, prepare for central battle. Main responses to Bc4 are Bc5 (solid) or Nf6 (sharp).",
+      "middlegame": "Look for d4/d5 breaks. Control the center. Watch f7 weakness."
     }
   },
   

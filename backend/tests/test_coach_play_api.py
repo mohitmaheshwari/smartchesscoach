@@ -12,7 +12,7 @@ Tests:
 import pytest
 import uuid
 
-BASE_URL = "https://mistake-tracker-3.preview.emergentagent.com"
+BASE_URL = "https://move-intent-engine.preview.emergentagent.com"
 
 
 class TestCoachPlayStart:

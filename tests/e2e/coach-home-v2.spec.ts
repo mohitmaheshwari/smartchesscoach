@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, dismissToasts, hideEmergentBadge } from '../fixtures/helpers';
 
-const BASE_URL = 'https://mistake-tracker-3.preview.emergentagent.com';
+const BASE_URL = 'https://move-intent-engine.preview.emergentagent.com';
 
 /**
  * Coach Home V2 - Personalized Chess Coaching Tests

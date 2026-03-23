@@ -14,7 +14,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mistake-tracker-3.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://move-intent-engine.preview.emergentagent.com')
 
 # Test FEN for Italian Game (from agent context)
 ITALIAN_GAME_FEN = "r1bqk2r/pppp1pp1/2n2n1p/2b1p3/2B1P3/2N2N1P/PPPP1PP1/R1BQ1RK1 b kq - 0 6"
