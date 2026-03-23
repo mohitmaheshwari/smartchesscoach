@@ -297,6 +297,7 @@ def generate_game_decryption(
         # ── PHASE 1: Classify all moves ──────────────────────────
         all_moves_data = []
         temp_board = chess.Board()
+        prev_move = None  # Track opponent's last move for recapture detection
 
         for idx, move in enumerate(moves):
             move_san = temp_board.san(move)
@@ -308,7 +309,24 @@ def generate_game_decryption(
             phase = detect_phase(temp_board, full_move_number)
             severity = classify_move(cp_loss) if is_user else "context"
 
+            # ── FORCED RECAPTURE DETECTION ──────────────────
+            # If the user's move is a capture on the same square the opponent
+            # just captured on, AND it's the only legal capture on that square,
+            # treat it as "good" regardless of engine eval.
+            is_forced_recapture = False
+            if is_user and temp_board.is_capture(move) and prev_move:
+                target_sq = move.to_square
+                prev_target = prev_move.to_square
+                if target_sq == prev_target:
+                    # Check if this is the only legal capture on that square
+                    captures_on_sq = [m for m in temp_board.legal_moves
+                                      if m.to_square == target_sq and temp_board.is_capture(m)]
+                    if len(captures_on_sq) <= 1:
+                        is_forced_recapture = True
+                        severity = "good"  # Don't send forced recaptures to LLM
+
             fen_before = temp_board.fen()
+            prev_move = move
             temp_board.push(move)
             fen_after = temp_board.fen()
 
@@ -330,6 +348,7 @@ def generate_game_decryption(
                 "cognitive_gap": eval_data.get("cognitive_gap"),
                 "coaching_focus": eval_data.get("coaching_focus"),
                 "eval_data": eval_data,
+                "is_forced_recapture": is_forced_recapture,
             })
 
         # ── PHASE 2: Identify moves needing LLM ─────────────────
@@ -453,14 +472,24 @@ def generate_game_decryption(
                             move_output["is_mistake"] = True
             else:
                 # Rule-based narrative for good/non-LLM moves
-                move_output["narrative"] = _rule_based_narrative(
-                    board, md["move"], md["move_san"],
-                    opening_data, md["phase"], is_user,
-                    severity == "good"
-                )
+                if md.get("is_forced_recapture"):
+                    # Forced recapture — acknowledge it as the natural move
+                    piece = board.piece_at(md["move"].from_square)
+                    piece_name = get_piece_name(piece) if piece else "piece"
+                    captured = board.piece_at(md["move"].to_square)
+                    captured_name = get_piece_name(captured) if captured else "piece"
+                    move_output["narrative"] = f"Forced recapture — {md['move_san']} takes back the {captured_name}. This is the only way to recover the material."
+                    move_output["is_mistake"] = False  # Never flag forced recaptures
+                else:
+                    move_output["narrative"] = _rule_based_narrative(
+                        board, md["move"], md["move_san"],
+                        opening_data, md["phase"], is_user,
+                        severity == "good"
+                    )
 
             # ── Opening theory checks (always rule-based) ────
-            if is_user and md["phase"] == "opening":
+            # Skip sideline warnings for forced recaptures
+            if is_user and md["phase"] == "opening" and not md.get("is_forced_recapture"):
                 is_sideline, warning, main_moves, main_theory = _check_sideline(
                     md["move_san"], md["move_number"], opening_data
                 )
