@@ -102,25 +102,20 @@ Moves to analyze:
     for i, move_data in enumerate(moves_to_analyze):
         move_san = move_data["move_san"]
         is_user = move_data["is_user_move"]
-        fen = move_data.get("fen_before", "")
         cp_loss = move_data.get("cp_loss", 0)
         best_move = move_data.get("best_move", "")
         eval_before = move_data.get("eval_before", 0)
         eval_after = move_data.get("eval_after", 0)
         phase = move_data.get("phase", "middlegame")
         move_number = move_data.get("move_number", 0)
-        role = "USER" if is_user else "OPPONENT"
+        role = "USER" if is_user else "OPP"
         severity = move_data.get("severity", "")
         opening_hint = move_data.get("opening_hint", "")
 
         prompt += f"""
 {i+1}. Move {move_number}. {move_san} [{role}, {severity.upper() if severity else 'CONTEXT'}]
-   FEN: {fen}
-   Phase: {phase}
-   Eval: {eval_before}cp → {eval_after}cp (loss: {cp_loss}cp)
-   Engine best: {best_move}
-{f"   Opening note: {opening_hint}" if opening_hint else ""}
-"""
+   Phase: {phase}, Eval: {eval_before}→{eval_after}cp (loss:{cp_loss}cp), Best: {best_move}
+{f"   Note: {opening_hint}" if opening_hint else ""}"""
 
     prompt += f"""
 Return a JSON array with exactly {len(moves_to_analyze)} objects, one per move above, in order.

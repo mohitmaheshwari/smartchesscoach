@@ -524,6 +524,7 @@ async def get_game_decryption(
                     generate_game_decryption, generate_game_summary,
                     detect_opening_from_pgn, get_opening_data
                 )
+                import asyncio
                 
                 user_color = game.get("user_color") or game.get("user_plays_as", "white")
                 pgn = game.get("pgn", "")
@@ -533,10 +534,13 @@ async def get_game_decryption(
                 for idx, eval_data in enumerate(move_evaluations):
                     eval_data["move_index"] = idx
                 
-                decryption_data = generate_game_decryption(pgn, user_color, move_evaluations)
+                # Run in thread to avoid blocking event loop (LLM calls are sync)
+                loop = asyncio.get_event_loop()
+                decryption_data = await loop.run_in_executor(
+                    None, generate_game_decryption, pgn, user_color, move_evaluations
+                )
                 
                 if decryption_data:
-                    # V3: Pass opening data for richer summary
                     opening_name, eco_code = detect_opening_from_pgn(pgn)
                     opening_data = get_opening_data(eco_code, opening_name)
                     decryption_summary = generate_game_summary(decryption_data, user_color, opening_data)
