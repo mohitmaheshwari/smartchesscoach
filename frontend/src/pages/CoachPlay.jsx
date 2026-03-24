@@ -79,6 +79,8 @@ import {
 
 // V5 Coaching Component
 import V5CoachingCard from "@/components/shared/V5CoachingCard";
+// Interactive Coaching Panel - Two-part coaching dialogue
+import InteractiveCoachingPanel from "@/components/shared/InteractiveCoachingPanel";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
@@ -164,6 +166,12 @@ const CoachPlay = ({ user }) => {
   // V5 Coaching State - Unified with Lab
   const [v5Coaching, setV5Coaching] = useState(null);
   const [acknowledgedConcepts, setAcknowledgedConcepts] = useState(new Set());
+  
+  // Interactive Coaching State - Two-part dialogue (user move + coach move)
+  const [interactiveCoaching, setInteractiveCoaching] = useState({
+    userMoveCoaching: null,
+    coachMoveCoaching: null
+  });
   
   // NEW: Clean UX State - One insight at a time
   const [currentInsight, setCurrentInsight] = useState(null);
@@ -563,7 +571,7 @@ const CoachPlay = ({ user }) => {
           
           // Fetch feedback for the last move on resume
           setTimeout(() => {
-            fetchMoveFeedbackForSession(sessionId);
+            fetchInteractiveCoaching(sessionId);
           }, 500);
         }
         
@@ -668,7 +676,7 @@ const CoachPlay = ({ user }) => {
               // For SAN moves, we need to get UCI from the API response
               // For now, just refetch the state to get proper lastMove
               setTimeout(() => {
-                fetchMoveFeedbackForSession(sessionId);
+                fetchInteractiveCoaching(sessionId);
               }, 500);
             }
           }
@@ -898,6 +906,70 @@ const CoachPlay = ({ user }) => {
     }
   };
   
+  // Fetch interactive two-part coaching (user move feedback + coach move explanation)
+  const fetchInteractiveCoaching = async (sessionId) => {
+    if (!sessionId) return;
+    
+    setLoadingFeedback(true);
+    setIsCoachThinking(true);
+    
+    try {
+      const response = await fetch(`${API}/coach/play/v5/interactive-feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ session_id: sessionId })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Store the two-part interactive coaching
+        setInteractiveCoaching({
+          userMoveCoaching: data.user_move_coaching || null,
+          coachMoveCoaching: data.coach_move_coaching || null
+        });
+        
+        // Also update v5Coaching for compatibility with any remaining V5 references
+        if (data.user_move_coaching) {
+          setV5Coaching({
+            narrative: data.user_move_coaching.narrative,
+            severity: data.user_move_coaching.severity,
+            consequence: data.user_move_coaching.consequence,
+            better_approach: data.user_move_coaching.better_approach,
+            transferable_learning: data.user_move_coaching.transferable_learning,
+            concept_id: data.user_move_coaching.concept_id,
+            candidate_moves: data.user_move_coaching.candidate_moves,
+            best_move: data.user_move_coaching.best_move,
+            move_san: data.user_move_coaching.move_san
+          });
+        }
+        
+        // Update currentInsight for any remaining legacy references
+        if (data.user_move_coaching) {
+          const uc = data.user_move_coaching;
+          setCurrentInsight({
+            quality: uc.severity || "neutral",
+            main_insight: uc.narrative || "Let's continue.",
+            why: uc.consequence,
+            next_idea: uc.better_approach,
+            has_better_move: !!uc.best_move,
+            can_explain: !!uc.transferable_learning,
+            deeper_explanation: uc.transferable_learning,
+            best_move: uc.best_move,
+            candidate_moves: uc.candidate_moves,
+            concept_id: uc.concept_id
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching interactive coaching:", error);
+    } finally {
+      setLoadingFeedback(false);
+      setIsCoachThinking(false);
+    }
+  };
+
   // Transform feedback message to fun V5 language
   const transformToFunLanguage = (feedback, severity) => {
     const move = feedback.user_move || "that move";
@@ -1355,9 +1427,8 @@ const CoachPlay = ({ user }) => {
             
             setCoachThinking(false);
             
-            // Fetch comprehensive move feedback after coach responds
-            // This now transforms to V5 format - NO EXTRA STOCKFISH CALL!
-            fetchMoveFeedback();
+            // Fetch interactive two-part coaching after coach responds
+            fetchInteractiveCoaching(session.session_id);
             
             return;
           }
@@ -1721,6 +1792,7 @@ const CoachPlay = ({ user }) => {
     // Reset move feedback
     setMoveFeedback(null);
     setV5Coaching(null);  // Reset V5 coaching
+    setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setChatMessages([]);
     // Reset pre-move checklist state
     setHasCastled(false);
@@ -2660,32 +2732,17 @@ const CoachPlay = ({ user }) => {
                   />
                 )}
                 
-                {/* V5 Coaching Card - Same style as Lab! */}
-                {v5Coaching ? (
-                  <V5CoachingCard
-                    coaching={v5Coaching}
-                    moveSan={v5Coaching.move_san}
-                    onShowAlternativeMove={showAlternativeMove}
-                    onAcknowledge={handleAcknowledgeConcept}
-                    isAcknowledged={acknowledgedConcepts.has(v5Coaching.concept_id)}
-                    showAcknowledgeButton={true}
-                  />
-                ) : (
-                  /* Fallback to legacy Coach Insight Card */
-                  <CoachInsightCard
-                    insight={currentInsight}
-                    isLoading={isCoachThinking}
-                    coachingMode={coachingMode}
-                    onAskWhy={() => {
-                      // Send "Why?" to coach
-                      sendChatMessage("Why was that better?");
-                    }}
-                    onShowBetterMove={() => {
-                      // Show better move
-                      sendChatMessage("Show me the better move");
-                    }}
-                  />
-                )}
+                {/* Interactive Coaching Panel - Two-part dialogue */}
+                <InteractiveCoachingPanel
+                  userMoveCoaching={interactiveCoaching.userMoveCoaching}
+                  coachMoveCoaching={interactiveCoaching.coachMoveCoaching}
+                  isUserTurn={isPlayerTurn}
+                  onShowMove={showAlternativeMove}
+                  onAcknowledge={handleAcknowledgeConcept}
+                  acknowledgedConcepts={acknowledgedConcepts}
+                  onAskCoach={(msg) => sendChatMessage(msg)}
+                  isCoachThinking={isCoachThinking}
+                />
                 
                 {/* Teaching Mode Instruction - if active */}
                 {isInTeachingMode && activeLesson && lessonInstruction && !lessonComplete && (
