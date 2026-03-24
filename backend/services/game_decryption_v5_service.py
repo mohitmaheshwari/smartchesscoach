@@ -1005,20 +1005,29 @@ def _detect_tactical_issue(
                     sim2 = sim.copy()
                     sim2.push(opp_response)
                     attacked = []
+                    attacked_values = []
                     for sq in chess.SQUARES:
                         if sim2.is_attacked_by(not user_color, sq):
                             piece = sim2.piece_at(sq)
                             if piece and piece.color == user_color:
-                                attacked.append(_get_fun_piece_name(piece))
-                    if len(attacked) >= 2 and "King" in attacked:
-                        pattern = tactical_patterns.get("knight_fork", {})
-                        other_piece = [p for p in attacked if p != "King"][0]
+                                piece_name = _get_fun_piece_name(piece)
+                                attacked.append(piece_name)
+                                attacked_values.append(_piece_value(piece))
+                    
+                    # Fork detected if attacking 2+ valuable pieces (total value >= 5)
+                    if len(attacked) >= 2 and sum(attacked_values) >= 5:
+                        # Sort by value to get the two most valuable pieces
+                        attacked_with_values = list(zip(attacked, attacked_values))
+                        attacked_with_values.sort(key=lambda x: x[1], reverse=True)
+                        piece1 = attacked_with_values[0][0]
+                        piece2 = attacked_with_values[1][0]
+                        
                         return ChessPlan(
                             goal="Avoid tactical vulnerabilities",
                             current_problem=f"Oops! {played_san} allows a Horsey fork!",
-                            consequence=f"After {pv[0]}, their knight forks your King and {other_piece}!",
+                            consequence=f"After {pv[0]}, their knight forks your {piece1} and {piece2}!",
                             better_approach="Knights can fork pieces that are on the same color square!",
-                            transferable_learning="Watch out for Horsey forks! King + Queen on same color = danger!",
+                            transferable_learning=f"Watch out for Horsey forks! When your {piece1} and {piece2} are on the same color square, a knight can attack both!",
                             concept_id="knight_fork",
                             concept_type="tactical"
                         )
