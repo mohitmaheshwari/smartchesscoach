@@ -9,7 +9,7 @@
 
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'https://deep-move-analysis.preview.emergentagent.com';
+const BASE_URL = 'https://thinking-simulator.preview.emergentagent.com';
 
 // Helper to login via dev login API
 async function devLogin(page) {

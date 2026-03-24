@@ -779,3 +779,201 @@ def derive_transferable_learning(candidate_types: List[str], piece_type: Optiona
         return "Good positions have many good moves. Bad positions have only one! Think about ALL your options."
     
     return ""
+
+
+
+# ─── COACH MOVE EXPLANATION ────────────────────────────────────────
+
+def generate_coach_move_explanation(
+    board_before: chess.Board,
+    move: chess.Move,
+    user_color: str = "white"
+) -> Dict:
+    """
+    Generate a rich explanation for the COACH's move.
+    
+    This tells the user:
+    - What the coach is doing
+    - What plan the coach is following
+    - What threats this creates
+    - What the user should watch out for
+    - Teaching point (why this is a good move)
+    
+    This makes the game EDUCATIONAL, not just playing moves.
+    """
+    move_san = board_before.san(move)
+    piece = board_before.piece_at(move.from_square)
+    piece_name = get_fun_piece_name(piece) if piece else "piece"
+    
+    board_after = board_before.copy()
+    board_after.push(move)
+    
+    is_user_white = user_color.lower() == "white"
+    user_chess_color = chess.WHITE if is_user_white else chess.BLACK
+    coach_color = not user_chess_color
+    
+    to_square = move.to_square
+    to_file = chess.square_file(to_square)
+    to_rank = chess.square_rank(to_square)
+    
+    explanation = ""
+    plan = ""
+    threats = []
+    teaching_point = ""
+    hint_for_user = ""
+    
+    # ═══ DETECT WHAT THE MOVE DOES ═══
+    
+    # 1. CHECK
+    if board_after.is_check():
+        explanation = f"Check! I'm attacking your King with {move_san}."
+        plan = "Force you to deal with the check before anything else."
+        threats.append("Your King is in check!")
+        teaching_point = "Checks are forcing moves - they limit your opponent's options."
+        hint_for_user = "You MUST get out of check. Block, move the King, or capture the attacker."
+        
+        return {
+            "move_san": move_san,
+            "explanation": explanation,
+            "plan": plan,
+            "threats": threats,
+            "teaching_point": teaching_point,
+            "hint_for_user": hint_for_user
+        }
+    
+    # 2. CAPTURE
+    if board_before.is_capture(move):
+        captured = board_before.piece_at(to_square)
+        if captured:
+            captured_name = get_fun_piece_name(captured)
+            explanation = f"I'm taking your {captured_name} with {move_san}!"
+            plan = "Win material and improve my position."
+            teaching_point = f"Material advantage matters! I'm now up a {captured_name}."
+            
+            # Check if user can recapture
+            if board_after.is_attacked_by(user_chess_color, to_square):
+                hint_for_user = f"Can you recapture on {chess.square_name(to_square)}? Check if it's safe!"
+            else:
+                hint_for_user = "I've won material. Look for ways to fight back - maybe a counter-attack?"
+            
+            return {
+                "move_san": move_san,
+                "explanation": explanation,
+                "plan": plan,
+                "threats": threats,
+                "teaching_point": teaching_point,
+                "hint_for_user": hint_for_user
+            }
+    
+    # 3. CASTLING
+    if board_before.is_castling(move):
+        side = "kingside" if chess.square_file(to_square) > 4 else "queenside"
+        explanation = f"I'm castling {side} to get my King safe."
+        plan = "King safety is crucial! Now my King is tucked away and my Rook is connected."
+        teaching_point = "Castling does two things: protects the King AND activates the Rook!"
+        hint_for_user = "Have you castled yet? King safety should be a priority in the opening."
+        
+        return {
+            "move_san": move_san,
+            "explanation": explanation,
+            "plan": plan,
+            "threats": threats,
+            "teaching_point": teaching_point,
+            "hint_for_user": hint_for_user
+        }
+    
+    # 4. FIND NEW THREATS CREATED
+    for sq in chess.SQUARES:
+        user_piece = board_after.piece_at(sq)
+        if user_piece and user_piece.color == user_chess_color:
+            # Check if this piece is NOW attacked but wasn't before
+            now_attacked = board_after.is_attacked_by(coach_color, sq)
+            was_attacked = board_before.is_attacked_by(coach_color, sq)
+            
+            if now_attacked and not was_attacked:
+                target_name = get_fun_piece_name(user_piece)
+                sq_name = chess.square_name(sq)
+                threats.append(f"Your {target_name} on {sq_name} is now under attack!")
+    
+    # 5. PIECE-SPECIFIC EXPLANATIONS
+    if piece:
+        if piece.piece_type == chess.KNIGHT:
+            # Knight move
+            center_squares = [chess.D4, chess.D5, chess.E4, chess.E5, chess.C3, chess.F3, chess.C6, chess.F6]
+            if to_square in center_squares:
+                explanation = f"I'm bringing my Horsey to {chess.square_name(to_square)} - a powerful central square!"
+                plan = "Knights are strongest in the center where they control many squares."
+                teaching_point = "Knights love the center! From there they can jump in any direction."
+            else:
+                explanation = f"My Horsey hops to {chess.square_name(to_square)}."
+                plan = "Repositioning the knight for future action."
+            
+            # Check if knight attacks multiple pieces
+            attacked_count = 0
+            for sq in chess.SQUARES:
+                if board_after.is_attacked_by(coach_color, sq):
+                    target = board_after.piece_at(sq)
+                    if target and target.color == user_chess_color:
+                        attacked_count += 1
+            if attacked_count >= 2:
+                teaching_point = "Watch out for knight forks! My knight attacks multiple pieces."
+                
+        elif piece.piece_type == chess.BISHOP:
+            explanation = f"My Slicey Boi slides to {chess.square_name(to_square)}."
+            # Check diagonal length
+            plan = "Bishops love long diagonals - they can control the whole board from there!"
+            teaching_point = "Bishops need open diagonals. Don't block them with your own pawns!"
+            
+        elif piece.piece_type == chess.ROOK:
+            # Check if on open file
+            file_pawns = 0
+            for rank in range(8):
+                sq = chess.square(to_file, rank)
+                p = board_after.piece_at(sq)
+                if p and p.piece_type == chess.PAWN:
+                    file_pawns += 1
+            
+            if file_pawns == 0:
+                explanation = f"My Tower lands on an open file with {move_san}!"
+                plan = "Rooks dominate on open files. From here, I control the whole file."
+                teaching_point = "Open files are rook highways! Put your rooks on files with no pawns."
+            else:
+                explanation = f"I'm activating my Tower with {move_san}."
+                plan = "Getting my heavy pieces into the game."
+                
+        elif piece.piece_type == chess.QUEEN:
+            explanation = f"My Queen moves to {chess.square_name(to_square)}."
+            plan = "The Queen is powerful but needs to be careful not to get chased around."
+            teaching_point = "Don't bring your Queen out too early - she can become a target!"
+            
+        elif piece.piece_type == chess.PAWN:
+            if to_file in [3, 4]:  # d or e file
+                explanation = f"I push my central pawn with {move_san}."
+                plan = "Control the center! Central pawns are the foundation of a good position."
+                teaching_point = "The center is king! Control d4, d5, e4, e5 and your pieces will be powerful."
+            elif abs(chess.square_rank(move.from_square) - to_rank) == 2:
+                explanation = f"My pawn advances two squares with {move_san}."
+                plan = "Gaining space and fighting for central control."
+            else:
+                explanation = f"I push a pawn with {move_san}."
+                plan = "Improving my pawn structure."
+    
+    # Default fallback
+    if not explanation:
+        explanation = f"I play {move_san}."
+        plan = "Improving my position step by step."
+    
+    # Generate hint for user
+    if threats:
+        hint_for_user = f"Careful! {threats[0].replace('Your ', 'your ')}"
+    elif not hint_for_user:
+        hint_for_user = "Think about what you want to achieve. Development? King safety? Attack?"
+    
+    return {
+        "move_san": move_san,
+        "explanation": explanation,
+        "plan": plan,
+        "threats": threats,
+        "teaching_point": teaching_point,
+        "hint_for_user": hint_for_user
+    }

@@ -330,7 +330,7 @@ frontend:
         comment: |
           ✅ COMPREHENSIVE VERIFICATION COMPLETE - Admin Opening Feedback Manager MVP FULLY WORKING
           
-          Tested on: https://deep-move-analysis.preview.emergentagent.com/admin/openings
+          Tested on: https://thinking-simulator.preview.emergentagent.com/admin/openings
           
           FEATURE VERIFICATION RESULTS (10/10 tests passed):
           
@@ -822,7 +822,7 @@ frontend:
           DEPLOYMENT STATUS:
           - Frontend service restarted to apply changes
           - Live site now serves correct configuration
-          - Fix verified on production URL: https://deep-move-analysis.preview.emergentagent.com
+          - Fix verified on production URL: https://thinking-simulator.preview.emergentagent.com
           
           CONCLUSION:
           The PostHog console error has been completely resolved. The error was caused by 
@@ -1158,7 +1158,7 @@ agent_communication:
     message: |
       ✅ COMPLETED: Admin Opening Feedback Manager Testing - ALL REQUIREMENTS VERIFIED (10/10 tests passed)
       
-      Successfully tested the Admin → Opening Feedback Manager on https://deep-move-analysis.preview.emergentagent.com/admin/openings
+      Successfully tested the Admin → Opening Feedback Manager on https://thinking-simulator.preview.emergentagent.com/admin/openings
       
       COMPREHENSIVE TEST RESULTS:
       
@@ -1248,7 +1248,7 @@ agent_communication:
     message: |
       ✅ COMPLETED: Opening/Trap Correction Loop Testing - ALL REQUIREMENTS VERIFIED (11/11 tests passed)
       
-      Successfully tested the new opening/trap correction feature on https://deep-move-analysis.preview.emergentagent.com
+      Successfully tested the new opening/trap correction feature on https://thinking-simulator.preview.emergentagent.com
       
       COMPREHENSIVE TEST RESULTS:
       
@@ -1420,7 +1420,7 @@ agent_communication:
       COMPLETED: Frontend Routing & Auth Flow Testing (User Request)
       
       Tested frontend routing and authentication flows as requested.
-      Test URL: https://deep-move-analysis.preview.emergentagent.com
+      Test URL: https://thinking-simulator.preview.emergentagent.com
       
       ✅ WORKING:
       - Landing page loads with all buttons (Get Started, Start Training Free, Dev Login)
@@ -1585,7 +1585,7 @@ agent_communication:
       COMPLETED: Frontend Routing & Auth Flow Testing (User Request)
       
       Tested frontend routing and authentication flows as requested.
-      Test URL: https://deep-move-analysis.preview.emergentagent.com
+      Test URL: https://thinking-simulator.preview.emergentagent.com
       
       ✅ WORKING:
       - Landing page loads with all buttons (Get Started, Start Training Free, Dev Login)

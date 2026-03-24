@@ -890,7 +890,7 @@ Interactive guided walkthroughs with auto-playing moves, coach narration, and "W
 
 ## Contact & Links
 
-- **Live Demo**: https://deep-move-analysis.preview.emergentagent.com
+- **Live Demo**: https://thinking-simulator.preview.emergentagent.com
 - **API Documentation**: /api/docs (FastAPI auto-generated)
 
 ---

@@ -1774,6 +1774,142 @@ async def get_v5_coaching_feedback(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
+@router.post("/v5/interactive-feedback")
+async def get_interactive_coaching(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get INTERACTIVE coaching for Play with Coach.
+    
+    This returns coaching for BOTH:
+    1. User's move (feedback, better moves, golden rules)
+    2. Coach's move (explanation, plan, threats, teaching point)
+    
+    This creates a TRUE coaching dialogue, not just move evaluation.
+    
+    Body:
+    - session_id: Coach play session ID
+    
+    Returns:
+    - user_move_coaching: Feedback on user's last move
+    - coach_move_coaching: Explanation of coach's last move
+    - is_user_turn: Whether it's user's turn now
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    from services.shared_coaching_v5 import generate_coach_move_explanation
+    
+    session_id = request.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    
+    # Get session
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    user_color = session_doc.get("user_color", "white")
+    move_history = session_doc.get("move_history", [])
+    
+    result = {
+        "user_move_coaching": None,
+        "coach_move_coaching": None,
+        "is_user_turn": True
+    }
+    
+    if not move_history:
+        return result
+    
+    # Find last user move and last coach move
+    last_user_move = None
+    last_coach_move = None
+    
+    for m in reversed(move_history):
+        if m.get("by") == "player" and not last_user_move:
+            last_user_move = m
+        elif m.get("by") == "coach" and not last_coach_move:
+            last_coach_move = m
+        if last_user_move and last_coach_move:
+            break
+    
+    # Determine whose turn it is
+    if move_history:
+        last_move = move_history[-1]
+        result["is_user_turn"] = last_move.get("by") == "coach"
+    
+    # Get coaching for user's move (from existing feedback endpoint logic)
+    if last_user_move:
+        feedback = await db.coach_sessions.find_one(
+            {"session_id": session_id},
+            {"last_feedback": 1}
+        )
+        if feedback and feedback.get("last_feedback"):
+            fb = feedback["last_feedback"]
+            severity = fb.get("user_move_quality", "good")
+            
+            result["user_move_coaching"] = {
+                "move_san": last_user_move.get("move"),
+                "severity": severity,
+                "narrative": _transform_to_fun_language(fb, severity, last_user_move.get("move")),
+                "consequence": fb.get("consequence"),
+                "better_approach": fb.get("best_move_explanation"),
+                "transferable_learning": fb.get("golden_rule") or fb.get("pattern_reference"),
+                "concept_id": fb.get("concept_id"),
+                "candidate_moves": fb.get("candidate_moves"),
+                "best_move": fb.get("best_move")
+            }
+    
+    # Get coaching for coach's move
+    if last_coach_move and last_coach_move.get("fen_before"):
+        try:
+            board = chess.Board(last_coach_move["fen_before"])
+            move = board.parse_san(last_coach_move["move"])
+            
+            coach_explanation = generate_coach_move_explanation(
+                board, move, user_color
+            )
+            result["coach_move_coaching"] = coach_explanation
+        except Exception as e:
+            logger.warning(f"Error generating coach move explanation: {e}")
+    
+    return result
+
+
+def _transform_to_fun_language(feedback: Dict, severity: str, move_san: str) -> str:
+    """Transform feedback to fun V5 language."""
+    piece = feedback.get("piece_moved", "")
+    
+    if severity in ["good", "best", "great"]:
+        return feedback.get("coaching_message") or f"Nice! {move_san} is a solid choice!"
+    
+    if "knight" in piece.lower() or (move_san and move_san[0] == "N"):
+        if severity in ["blunder", "mistake"]:
+            return f"Naughty Knight! {move_san} gets your Horsey in trouble!"
+        return f"Hmm, {move_san} - what's your Horsey doing there?"
+    
+    if "bishop" in piece.lower() or (move_san and move_san[0] == "B"):
+        return f"Your Slicey Boi looks sad after {move_san}!"
+    
+    if "pawn" in piece.lower():
+        return f"Careful with {move_san} - Little Soldiers can't go backwards!"
+    
+    if severity == "blunder":
+        return f"Oops! {move_san} is a blunder - let's see why."
+    if severity == "mistake":
+        return f"{move_san} is a mistake - there was something better."
+    if severity == "inaccuracy":
+        return f"{move_san} is okay, but there's a stronger idea."
+    
+    return feedback.get("coaching_message") or f"Let's look at {move_san}."
+
+
+
 @router.get("/v5/session/{session_id}/moves")
 async def get_v5_session_moves_coaching(
     session_id: str,

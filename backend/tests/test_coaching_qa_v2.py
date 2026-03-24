@@ -17,7 +17,7 @@ import os
 from datetime import datetime
 
 # Use the public URL for testing
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://deep-move-analysis.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://thinking-simulator.preview.emergentagent.com').rstrip('/')
 
 # Test FEN: Italian Game position (from previous iterations)
 # r1bqk2r/pppp1pp1/2n2n1p/2b1p3/2B1P3/2N2N1P/PPPP1PP1/R1BQ1RK1 b kq - 0 6
