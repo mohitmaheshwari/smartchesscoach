@@ -663,6 +663,296 @@ async def get_feedback_for_game(
         return {"feedback": [], "error": str(e)}
 
 
+# ==================== DECRYPTION V5 (Thinking Simulator) ====================
+
+@router.get("/decryption/v5/{game_id}")
+async def get_game_decryption_v5(
+    game_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get V5 "Thinking Simulator" coaching for a game.
+    
+    V5 Key Features:
+    - Coaches EVERY move (user + opponent)
+    - Extracts PLANS (transferable knowledge, not just moves)
+    - Tracks concept acknowledgment
+    - Simple, 1200-friendly language
+    
+    Returns:
+        {
+            "decryption_data": [...],  # V5 coaching for each move
+            "status": "complete" | "generating",
+            "concepts_to_acknowledge": [...],  # Concepts with "I understand" buttons
+        }
+    """
+    global db
+    
+    try:
+        logger.info(f"[DECRYPTION V5] Looking for analysis for game_id: {game_id}")
+        
+        # Check for existing V5 data
+        analysis = await db.game_analyses.find_one(
+            {"game_id": game_id},
+            {"_id": 0, "game_id": 1, "decryption_v5_data": 1, "decryption_v5_generated_at": 1, "decryption_v5_generating": 1}
+        )
+        
+        if not analysis or "game_id" not in analysis:
+            return {"error": "Game analysis not found", "decryption_data": None}
+        
+        # If V5 data exists, return it
+        if analysis.get("decryption_v5_data"):
+            # Get concepts that need acknowledgment
+            concepts_to_acknowledge = []
+            for move_data in analysis.get("decryption_v5_data", []):
+                if move_data.get("needs_acknowledgment") and not move_data.get("already_acknowledged"):
+                    if move_data.get("concept_id"):
+                        concepts_to_acknowledge.append({
+                            "concept_id": move_data["concept_id"],
+                            "concept_type": move_data.get("concept_type"),
+                            "move_number": move_data.get("move_number"),
+                            "prompt": move_data.get("acknowledgment_prompt")
+                        })
+            
+            return {
+                "decryption_data": analysis.get("decryption_v5_data", []),
+                "status": "complete",
+                "generated_at": analysis.get("decryption_v5_generated_at"),
+                "concepts_to_acknowledge": concepts_to_acknowledge
+            }
+        
+        # Check if generation is in progress
+        if analysis.get("decryption_v5_generating"):
+            return {
+                "decryption_data": None,
+                "status": "generating",
+                "message": "Your coach is analyzing every move. This takes about 45 seconds..."
+            }
+        
+        # Start background generation
+        full_analysis = await db.game_analyses.find_one(
+            {"game_id": game_id}, {"_id": 0}
+        )
+        game = await db.games.find_one(
+            {"game_id": game_id},
+            {"_id": 0, "pgn": 1, "user_color": 1, "user_plays_as": 1}
+        )
+        
+        if full_analysis and game:
+            # Mark as generating
+            await db.game_analyses.update_one(
+                {"game_id": game_id},
+                {"$set": {"decryption_v5_generating": True}}
+            )
+            
+            import asyncio
+            
+            async def _background_generate_v5():
+                try:
+                    from services.game_decryption_v5_service import generate_game_decryption_v5
+                    
+                    user_color = game.get("user_color") or game.get("user_plays_as", "white")
+                    pgn = game.get("pgn", "")
+                    move_evaluations = full_analysis.get("stockfish_analysis", {}).get("move_evaluations", [])
+                    
+                    decryption_data = await generate_game_decryption_v5(
+                        pgn, user_color, move_evaluations, user.user_id, db
+                    )
+                    
+                    if decryption_data:
+                        await db.game_analyses.update_one(
+                            {"game_id": game_id},
+                            {"$set": {
+                                "decryption_v5_data": decryption_data,
+                                "decryption_v5_generated_at": datetime.now(timezone.utc).isoformat(),
+                                "decryption_v5_generating": False
+                            }}
+                        )
+                        logger.info(f"[DECRYPTION V5] Background generation complete for {game_id}")
+                    else:
+                        await db.game_analyses.update_one(
+                            {"game_id": game_id},
+                            {"$set": {"decryption_v5_generating": False}}
+                        )
+                except Exception as e:
+                    logger.error(f"[DECRYPTION V5] Background generation failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    await db.game_analyses.update_one(
+                        {"game_id": game_id},
+                        {"$set": {"decryption_v5_generating": False}}
+                    )
+            
+            asyncio.create_task(_background_generate_v5())
+            
+            return {
+                "decryption_data": None,
+                "status": "generating",
+                "message": "Your coach is analyzing every move. This takes about 45 seconds..."
+            }
+        
+        return {
+            "error": "Game data not available for V5 analysis.",
+            "decryption_data": None
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting game decryption V5: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e), "decryption_data": None}
+
+
+class ConceptAcknowledgmentRequest(BaseModel):
+    concept_id: str
+
+
+@router.post("/decryption/acknowledge")
+async def acknowledge_concept(
+    request: ConceptAcknowledgmentRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Mark a concept as understood by the user.
+    
+    Called when user clicks "I understand" button on a coaching insight.
+    This affects future coaching - the coach won't explain this concept
+    in detail again, just briefly reference it.
+    """
+    global db
+    
+    try:
+        from services.game_decryption_v5_service import acknowledge_concept as ack_concept
+        
+        success = await ack_concept(db, user.user_id, request.concept_id)
+        
+        if success:
+            logger.info(f"User {user.user_id} acknowledged concept: {request.concept_id}")
+            return {
+                "success": True,
+                "message": "Got it! I'll remember you understand this concept."
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Concept not found or already acknowledged."
+            }
+        
+    except Exception as e:
+        logger.error(f"Error acknowledging concept: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/concepts/acknowledged")
+async def get_acknowledged_concepts(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get all concepts the user has acknowledged understanding.
+    
+    This shows what the user has learned over time.
+    """
+    global db
+    
+    try:
+        cursor = db.user_concept_understanding.find(
+            {"user_id": user.user_id, "acknowledged": True},
+            {"_id": 0, "concept_id": 1, "concept_type": 1, "concept_text": 1, "acknowledged_at": 1}
+        )
+        concepts = await cursor.to_list(100)
+        
+        # Group by type
+        by_type = {
+            "opening": [],
+            "endgame": [],
+            "tactical": [],
+            "positional": []
+        }
+        
+        for c in concepts:
+            ct = c.get("concept_type", "positional")
+            if ct in by_type:
+                by_type[ct].append(c)
+        
+        return {
+            "total": len(concepts),
+            "by_type": by_type,
+            "concepts": concepts
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting acknowledged concepts: {e}")
+        return {"total": 0, "by_type": {}, "concepts": [], "error": str(e)}
+
+
+@router.get("/concepts/learning-progress")
+async def get_learning_progress(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get the user's learning progress - what they're getting better at.
+    """
+    global db
+    
+    try:
+        # Get concept application stats
+        pipeline = [
+            {"$match": {"user_id": user.user_id}},
+            {"$group": {
+                "_id": "$concept_type",
+                "total_shown": {"$sum": "$shown_count"},
+                "acknowledged": {"$sum": {"$cond": ["$acknowledged", 1, 0]}},
+                "applied_correctly": {"$sum": "$applied_correctly_count"},
+                "failed_to_apply": {"$sum": "$failed_to_apply_count"}
+            }}
+        ]
+        
+        stats = await db.user_concept_understanding.aggregate(pipeline).to_list(10)
+        
+        # Get recent good moves (concepts applied)
+        recent_good = await db.game_analyses.aggregate([
+            {"$match": {"decryption_v5_data": {"$exists": True}}},
+            {"$unwind": "$decryption_v5_data"},
+            {"$match": {
+                "decryption_v5_data.is_best_move": True,
+                "decryption_v5_data.concept_applied": {"$ne": None}
+            }},
+            {"$group": {
+                "_id": "$decryption_v5_data.concept_applied",
+                "count": {"$sum": 1}
+            }},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]).to_list(5)
+        
+        return {
+            "by_type": {s["_id"]: s for s in stats},
+            "strengths": recent_good,
+            "message": _generate_progress_message(stats, recent_good)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting learning progress: {e}")
+        return {"by_type": {}, "strengths": [], "error": str(e)}
+
+
+def _generate_progress_message(stats: list, strengths: list) -> str:
+    """Generate a personalized progress message."""
+    if not stats:
+        return "Keep playing! Your coach is learning about your chess understanding."
+    
+    total_ack = sum(s.get("acknowledged", 0) for s in stats)
+    
+    if total_ack == 0:
+        return "You haven't acknowledged any concepts yet. Click 'I understand' when lessons are clear."
+    
+    if strengths:
+        top = strengths[0]["_id"].replace("_", " ") if strengths[0]["_id"] else "good moves"
+        return f"You're getting better at {top}! Keep it up."
+    
+    return f"You've learned {total_ack} concepts. Great progress!"
+
+
 # ==================== MOVE Q&A ====================
 
 class MoveQuestionRequest(BaseModel):

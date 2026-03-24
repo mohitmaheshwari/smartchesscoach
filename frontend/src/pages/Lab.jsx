@@ -11,7 +11,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
-import GameDecryption from "@/components/GameDecryption";
+import GameDecryptionV5 from "@/components/GameDecryptionV5";
 import LabClassic from "@/pages/LabClassic";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -176,7 +176,7 @@ const Lab = ({ user }) => {
         
         {/* Main Content: Game Decryption */}
         <div className="flex-1 overflow-auto">
-          <GameDecryption
+          <GameDecryptionV5
             gameId={gameId}
             analysis={analysis}
             pgn={game?.pgn}

@@ -57,7 +57,7 @@ import DeepMemoryPanel from "@/components/DeepMemoryPanel";
 
 // Feedback modal (reused from Lab.jsx)
 import FeedbackModal from "@/components/FeedbackModal";
-import GameDecryption from "@/components/GameDecryption";
+import GameDecryptionV5 from "@/components/GameDecryptionV5";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -918,7 +918,7 @@ const LabV2 = ({ user }) => {
         {viewMode === "decrypt" ? (
           /* Game Decryption View - Step-by-step explanations */
           <div className="flex-1 overflow-auto">
-            <GameDecryption
+            <GameDecryptionV5
               gameId={gameId}
               analysis={analysis}
               pgn={game?.pgn}
