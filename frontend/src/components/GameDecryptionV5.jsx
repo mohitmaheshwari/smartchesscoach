@@ -387,6 +387,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
             acknowledgedConcepts={acknowledgedConcepts}
             onAcknowledge={acknowledgeConceptHandler}
             onShowFutureMoves={showFutureMoves}
+            onShowAlternativeMove={showAlternativeMove}
             onFeedbackClick={() => setFeedbackOpen(true)}
           />
         )}
@@ -473,7 +474,7 @@ const GameStartCard = ({ decryptionData }) => {
 
 // ─── MOVE COACHING CARD V5 ──────────────────────────────────────────
 
-const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowFutureMoves, onFeedbackClick }) => {
+const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowFutureMoves, onShowAlternativeMove, onFeedbackClick }) => {
   const [expanded, setExpanded] = useState(false);
   if (!move) return null;
 
@@ -588,7 +589,7 @@ const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowF
                           ? 'bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20' 
                           : 'bg-zinc-800/50 hover:bg-zinc-700/50'
                       }`}
-                      onClick={() => showAlternativeMove(candidate.move)}
+                      onClick={() => onShowAlternativeMove(candidate.move)}
                       title={`Click to see ${candidate.move} on the board`}
                     >
                       <button
@@ -599,7 +600,7 @@ const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowF
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          showAlternativeMove(candidate.move);
+                          onShowAlternativeMove(candidate.move);
                         }}
                       >
                         {candidate.move}
