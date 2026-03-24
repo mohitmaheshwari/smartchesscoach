@@ -181,7 +181,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
     setArrows([]);
   };
 
-  // Play future moves on the board (clickable line feature)
+  // Play future moves on the board (clickable line feature) - from position AFTER user's move
   const showFutureMoves = useCallback((moves, upToIndex) => {
     if (!decryptionData || currentMoveIndex < 0) return;
     
@@ -209,6 +209,38 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
       }
     } catch (err) {
       console.error("Error showing future moves:", err);
+    }
+  }, [decryptionData, currentMoveIndex]);
+
+  // Show ALTERNATIVE moves from position BEFORE the current move (for candidate moves)
+  const showAlternativeMove = useCallback((move) => {
+    if (!decryptionData || currentMoveIndex < 0) return;
+    
+    const currentMove = decryptionData[currentMoveIndex];
+    const startFen = currentMove.fen_before; // Use position BEFORE the move!
+    
+    if (!startFen) {
+      console.error("No fen_before available");
+      return;
+    }
+    
+    try {
+      const chess = new Chess(startFen);
+      const result = chess.move(move);
+      
+      if (!result) {
+        console.error("Invalid move:", move, "from FEN:", startFen);
+        return;
+      }
+      
+      setBoardFen(chess.fen());
+      setShowingFutureMoves(true);
+      setFutureMoveIndex(0);
+      
+      // Draw arrow showing the alternative move
+      setArrows([[result.from, result.to, "blue"]]);
+    } catch (err) {
+      console.error("Error showing alternative move:", err, move);
     }
   }, [decryptionData, currentMoveIndex]);
 
@@ -556,7 +588,7 @@ const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowF
                           ? 'bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20' 
                           : 'bg-zinc-800/50 hover:bg-zinc-700/50'
                       }`}
-                      onClick={() => onShowFutureMoves([candidate.move], 0)}
+                      onClick={() => showAlternativeMove(candidate.move)}
                       title={`Click to see ${candidate.move} on the board`}
                     >
                       <button
@@ -567,7 +599,7 @@ const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowF
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onShowFutureMoves([candidate.move], 0);
+                          showAlternativeMove(candidate.move);
                         }}
                       >
                         {candidate.move}
