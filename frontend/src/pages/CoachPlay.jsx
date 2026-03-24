@@ -924,42 +924,16 @@ const CoachPlay = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         
-        // Store the two-part interactive coaching
+        // Store coach move explanation
         setInteractiveCoaching({
           userMoveCoaching: data.user_move_coaching || null,
           coachMoveCoaching: data.coach_move_coaching || null
         });
         
-        // Also update v5Coaching for compatibility with any remaining V5 references
+        // Set V5 coaching directly from the real V5 pipeline response
+        // This is the SAME format Lab uses - candidate moves, consequences, golden rules
         if (data.user_move_coaching) {
-          setV5Coaching({
-            narrative: data.user_move_coaching.narrative,
-            severity: data.user_move_coaching.severity,
-            consequence: data.user_move_coaching.consequence,
-            better_approach: data.user_move_coaching.better_approach,
-            transferable_learning: data.user_move_coaching.transferable_learning,
-            concept_id: data.user_move_coaching.concept_id,
-            candidate_moves: data.user_move_coaching.candidate_moves,
-            best_move: data.user_move_coaching.best_move,
-            move_san: data.user_move_coaching.move_san
-          });
-        }
-        
-        // Update currentInsight for any remaining legacy references
-        if (data.user_move_coaching) {
-          const uc = data.user_move_coaching;
-          setCurrentInsight({
-            quality: uc.severity || "neutral",
-            main_insight: uc.narrative || "Let's continue.",
-            why: uc.consequence,
-            next_idea: uc.better_approach,
-            has_better_move: !!uc.best_move,
-            can_explain: !!uc.transferable_learning,
-            deeper_explanation: uc.transferable_learning,
-            best_move: uc.best_move,
-            candidate_moves: uc.candidate_moves,
-            concept_id: uc.concept_id
-          });
+          setV5Coaching(data.user_move_coaching);
         }
       }
     } catch (error) {
@@ -2732,17 +2706,53 @@ const CoachPlay = ({ user }) => {
                   />
                 )}
                 
-                {/* Interactive Coaching Panel - Two-part dialogue */}
-                <InteractiveCoachingPanel
-                  userMoveCoaching={interactiveCoaching.userMoveCoaching}
-                  coachMoveCoaching={interactiveCoaching.coachMoveCoaching}
-                  isUserTurn={isPlayerTurn}
-                  onShowMove={showAlternativeMove}
-                  onAcknowledge={handleAcknowledgeConcept}
-                  acknowledgedConcepts={acknowledgedConcepts}
-                  onAskCoach={(msg) => sendChatMessage(msg)}
-                  isCoachThinking={isCoachThinking}
-                />
+                {/* === COACH'S MOVE EXPLANATION === */}
+                {interactiveCoaching.coachMoveCoaching && (
+                  <div data-testid="coach-move-explanation" className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-400 font-bold text-sm tracking-wide uppercase">Coach played</span>
+                      <span className="font-mono text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded text-sm">
+                        {interactiveCoaching.coachMoveCoaching.move_san}
+                      </span>
+                    </div>
+                    
+                    {interactiveCoaching.coachMoveCoaching.explanation && (
+                      <p className="text-white text-sm">{interactiveCoaching.coachMoveCoaching.explanation}</p>
+                    )}
+                    
+                    {interactiveCoaching.coachMoveCoaching.plan && (
+                      <div className="flex items-start gap-2 mt-1">
+                        <span className="text-blue-400 text-xs font-semibold shrink-0">PLAN:</span>
+                        <p className="text-blue-200 text-sm">{interactiveCoaching.coachMoveCoaching.plan}</p>
+                      </div>
+                    )}
+                    
+                    {interactiveCoaching.coachMoveCoaching.threats?.length > 0 && (
+                      <div className="flex items-start gap-2 mt-1">
+                        <span className="text-red-400 text-xs font-semibold shrink-0">THREATS:</span>
+                        <p className="text-red-300 text-sm">{interactiveCoaching.coachMoveCoaching.threats.join(", ")}</p>
+                      </div>
+                    )}
+                    
+                    {interactiveCoaching.coachMoveCoaching.teaching_point && (
+                      <div className="mt-2 pt-2 border-t border-blue-500/20">
+                        <p className="text-amber-300 text-xs italic">{interactiveCoaching.coachMoveCoaching.teaching_point}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* === USER'S MOVE FEEDBACK (Same V5CoachingCard as Lab!) === */}
+                {v5Coaching && (
+                  <V5CoachingCard
+                    coaching={v5Coaching}
+                    moveSan={v5Coaching.move_san}
+                    onShowAlternativeMove={showAlternativeMove}
+                    onAcknowledge={handleAcknowledgeConcept}
+                    isAcknowledged={acknowledgedConcepts.has(v5Coaching.concept_id)}
+                    showAcknowledgeButton={true}
+                  />
+                )}
                 
                 {/* Teaching Mode Instruction - if active */}
                 {isInTeachingMode && activeLesson && lessonInstruction && !lessonComplete && (
