@@ -40,7 +40,13 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 - Added V5 endpoints to `coach_play.py`:
   - `POST /api/coach/play/v5/feedback` - Get V5 coaching for a move during live play
   - `GET /api/coach/play/v5/session/{session_id}/moves` - Get V5 coaching for all moves after game ends
+  - `POST /api/coach/play/v5/interactive-feedback` - Two-part coaching: user move + coach move explanation
 - Updated `CoachPlay.jsx` to fetch and display V5 coaching
+- **Interactive Coaching Panel** integrated (March 2025): After each move cycle, the panel shows:
+  1. Feedback on user's move (severity, narrative, consequence, better approach, candidate moves)
+  2. Coach's move explanation (what the coach is doing, its plan, threats created, teaching point)
+  3. "Your turn!" prompt with hints and threat reminders
+- Uses `InteractiveCoachingPanel.jsx` shared component for the coaching dialogue
 - V5 coaching displays when available, falls back to legacy UI otherwise
 
 #### 4. Game Decryption V5 Service (`game_decryption_v5_service.py`)
@@ -171,12 +177,17 @@ Alternative Ideas:
 
 ## Files of Reference
 - `/app/backend/services/game_decryption_v5_service.py` (Main V5 orchestrator)
+- `/app/backend/services/shared_coaching_v5.py` (Shared V5 coaching logic for Lab + Play)
 - `/app/backend/services/v5_llm_narrator.py` (LLM integration)
 - `/app/backend/services/v5_learning_tracker.py` (Learning tracking)
 - `/app/backend/services/opening_theory_tree_service.py` (Theory tree service)
 - `/app/backend/data/coaching/opening_theory_tree.json` (Opening theory data)
 - `/app/frontend/src/components/GameDecryptionV5.jsx` (V5 UI component)
-- `/app/backend/routes/coach.py` (API endpoints)
+- `/app/frontend/src/components/shared/InteractiveCoachingPanel.jsx` (Two-part coaching dialogue)
+- `/app/frontend/src/components/shared/V5CoachingCard.jsx` (Shared V5 coaching card)
+- `/app/frontend/src/pages/CoachPlay.jsx` (Play with Coach page)
+- `/app/backend/routes/coach_play.py` (Play with Coach API endpoints)
+- `/app/backend/routes/coach.py` (Lab API endpoints)
 
 ---
 
@@ -185,6 +196,7 @@ Alternative Ideas:
 ### P1 - High Priority
 - [ ] Player Type Detection (adapt coaching tone based on playing style)
 - [ ] Pattern Memory Injection ("You've made this mistake 3 times...")
+- [ ] Refactor `GameDecryptionV5.jsx` to use shared `V5CoachingCard.jsx`
 - [ ] More opening theory trees (Sicilian Najdorf, Queen's Gambit, etc.)
 
 ### P2 - Medium Priority
@@ -212,6 +224,7 @@ Alternative Ideas:
 - "I understand" button: Saves to database
 - Frontend rendering: All components displaying correctly
 - **Consequence analysis: FIXED and tested (March 2025)**
+- **Interactive Coaching Panel: INTEGRATED and tested (March 2025)** - Backend 8/8 tests passed, Frontend 100% verified
 
 ---
 
