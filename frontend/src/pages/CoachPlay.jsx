@@ -79,8 +79,6 @@ import {
 
 // V5 Coaching Component
 import V5CoachingCard from "@/components/shared/V5CoachingCard";
-// Interactive Coaching Panel - Two-part coaching dialogue
-import InteractiveCoachingPanel from "@/components/shared/InteractiveCoachingPanel";
 
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();

@@ -225,6 +225,7 @@ Alternative Ideas:
 - Frontend rendering: All components displaying correctly
 - **Consequence analysis: FIXED and tested (March 2025)**
 - **Interactive Coaching Panel: INTEGRATED and tested (March 2025)** - Backend 8/8 tests passed, Frontend 100% verified
+- **V5 Pipeline Unified (March 2025)** - Play with Coach now uses the EXACT same `generate_move_coaching()` as Lab. Coach move explanations show plan, threats, teaching points. User move feedback shows V5CoachingCard with clickable candidates. Generic "What's your plan?" removed. Backend 10/10, Frontend 100%.
 
 ---
 
