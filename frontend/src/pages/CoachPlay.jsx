@@ -836,7 +836,7 @@ const CoachPlay = ({ user }) => {
     if (!sessionId) return;
     
     setLoadingFeedback(true);
-    setIsCoachThinking(true); // Show thinking state in clean UI
+    setIsCoachThinking(true);
     try {
       const response = await fetch(`${API}/coach/play/feedback/${sessionId}`, {
         credentials: "include"
@@ -847,17 +847,46 @@ const CoachPlay = ({ user }) => {
         if (data.feedback) {
           setMoveFeedback(data.feedback);
           
-          // Transform feedback for clean UI mode
+          // Determine severity from quality
+          const quality = data.feedback.user_move_quality || data.feedback.quality || "neutral";
+          const severity = quality === "best" ? "good" :
+                          quality === "good" ? "good" :
+                          quality === "inaccuracy" ? "inaccuracy" :
+                          quality === "mistake" ? "mistake" :
+                          quality === "blunder" ? "blunder" : "good";
+          
+          // Transform to V5 format - NO EXTRA API CALL!
+          // Use the analysis data that's already available
+          const v5Data = {
+            narrative: transformToFunLanguage(data.feedback, severity),
+            severity: severity,
+            current_problem: data.feedback.best_move_explanation || data.feedback.detailed_feedback,
+            consequence: data.feedback.consequence || data.feedback.what_happens_next,
+            better_approach: data.feedback.best_move ? 
+              `${data.feedback.best_move} was better${data.feedback.best_move_explanation ? ` - ${data.feedback.best_move_explanation}` : ''}` : null,
+            transferable_learning: data.feedback.pattern_reference || data.feedback.golden_rule || data.feedback.learning,
+            concept_id: data.feedback.concept_id || data.feedback.pattern_id,
+            candidate_moves: data.feedback.candidate_moves || transformCandidates(data.feedback),
+            best_move: data.feedback.best_move,
+            your_plan_now: data.feedback.suggestion || data.feedback.next_idea,
+            move_san: data.feedback.user_move,
+            fen_before: data.feedback.fen_before
+          };
+          
+          setV5Coaching(v5Data);
+          
+          // Also update currentInsight for compatibility
           setCurrentInsight({
-            quality: data.feedback.user_move_quality || data.feedback.quality || "neutral",
-            main_insight: data.feedback.coaching_message || data.feedback.explanation || data.feedback.message || "Let's continue playing.",
-            why: data.feedback.best_move_explanation || data.feedback.detailed_feedback,
-            next_idea: data.feedback.socratic_question || data.feedback.suggestion,
+            quality: quality,
+            main_insight: v5Data.narrative,
+            why: v5Data.consequence || v5Data.current_problem,
+            next_idea: v5Data.your_plan_now || v5Data.better_approach,
             has_better_move: data.feedback.best_move && data.feedback.best_move !== data.feedback.user_move,
-            can_explain: true,
-            deeper_explanation: data.feedback.pattern_reference || data.feedback.pattern_explanation,
-            encouragement: data.feedback.encouragement,
-            best_move: data.feedback.best_move
+            can_explain: !!v5Data.transferable_learning,
+            deeper_explanation: v5Data.transferable_learning,
+            best_move: data.feedback.best_move,
+            candidate_moves: v5Data.candidate_moves,
+            concept_id: v5Data.concept_id
           });
         }
       }
@@ -867,6 +896,78 @@ const CoachPlay = ({ user }) => {
       setLoadingFeedback(false);
       setIsCoachThinking(false);
     }
+  };
+  
+  // Transform feedback message to fun V5 language
+  const transformToFunLanguage = (feedback, severity) => {
+    const move = feedback.user_move || "that move";
+    const piece = feedback.piece_moved || "";
+    
+    // Fun language based on severity and piece
+    if (severity === "good" || severity === "best") {
+      const goodPhrases = [
+        `Nice! ${move} is a solid choice!`,
+        `Good thinking! ${move} works well here.`,
+        `That's the spirit! ${move} keeps you in the game.`
+      ];
+      return goodPhrases[Math.floor(Math.random() * goodPhrases.length)];
+    }
+    
+    if (piece?.toLowerCase().includes("knight") || move?.toLowerCase().startsWith("n")) {
+      if (severity === "blunder" || severity === "mistake") {
+        return `Naughty Knight! ${move} gets your Horsey in trouble!`;
+      }
+      return `Hmm, ${move} - what's your Horsey doing there?`;
+    }
+    
+    if (piece?.toLowerCase().includes("bishop") || move?.toLowerCase().startsWith("b")) {
+      return `Your Slicey Boi looks a bit sad after ${move}!`;
+    }
+    
+    if (piece?.toLowerCase().includes("pawn") || /^[a-h]/.test(move?.toLowerCase() || "")) {
+      return `Careful with ${move} - Little Soldiers can't go backwards!`;
+    }
+    
+    if (severity === "blunder") {
+      return `Oops! ${move} is a blunder - let's see why.`;
+    }
+    if (severity === "mistake") {
+      return `${move} is a mistake - there was something better here.`;
+    }
+    if (severity === "inaccuracy") {
+      return `${move} is okay, but there's a stronger idea here.`;
+    }
+    
+    return feedback.coaching_message || feedback.explanation || `Let's look at ${move}.`;
+  };
+  
+  // Transform existing feedback to candidate moves format
+  const transformCandidates = (feedback) => {
+    const candidates = [];
+    
+    // Add best move if available
+    if (feedback.best_move && feedback.best_move !== feedback.user_move) {
+      candidates.push({
+        move: feedback.best_move,
+        idea: feedback.best_move_explanation || `${feedback.best_move} was the engine's top choice`,
+        type: feedback.best_move_type || "engine_choice",
+        is_best: true
+      });
+    }
+    
+    // Add alternative moves if available
+    if (feedback.alternative_moves) {
+      for (const alt of feedback.alternative_moves.slice(0, 2)) {
+        candidates.push({
+          move: alt.move || alt,
+          idea: alt.explanation || alt.idea || `${alt.move || alt} is another good option`,
+          type: alt.type || "alternative",
+          is_best: false
+        });
+      }
+    }
+    
+    return candidates.length > 0 ? candidates : null;
   };
 
   // Fetch V5 coaching feedback - Same style as Lab!
@@ -1255,25 +1356,8 @@ const CoachPlay = ({ user }) => {
             setCoachThinking(false);
             
             // Fetch comprehensive move feedback after coach responds
+            // This now transforms to V5 format - NO EXTRA STOCKFISH CALL!
             fetchMoveFeedback();
-            
-            // Also fetch V5 coaching for both the user's move and coach's move
-            // Get the user's last move from move history
-            const moveHistory = data.session.move_history || [];
-            if (moveHistory.length >= 2) {
-              // User's move (second to last)
-              const userMoveData = moveHistory[moveHistory.length - 2];
-              if (userMoveData) {
-                fetchV5Coaching(
-                  userMoveData.move,
-                  userMoveData.fen_before || data.session.previous_fen,
-                  true, // is user move
-                  userMoveData.best_move,
-                  userMoveData.pv || [],
-                  userMoveData.cp_loss || 0
-                );
-              }
-            }
             
             return;
           }

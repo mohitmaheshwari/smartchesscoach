@@ -65,6 +65,13 @@ class MoveFeedback:
     pattern_reference: Optional[str] = None  # Reference to recurring pattern
     memory_reference: Optional[str] = None  # Reference to past games/lessons
     
+    # NEW: V5 Candidate moves (for unified coaching)
+    candidate_moves: Optional[List[Dict]] = None  # Alternative moves with ideas
+    golden_rule: Optional[str] = None  # Transferable learning
+    consequence: Optional[str] = None  # Specific consequence of the move
+    fen_before: Optional[str] = None  # Position before the move
+    piece_moved: Optional[str] = None  # Which piece moved
+    
     def to_dict(self) -> Dict:
         result = {
             "user_move": self.user_move,
@@ -84,7 +91,13 @@ class MoveFeedback:
             "socratic_question": self.socratic_question,
             "expects_response": self.expects_response,
             "pattern_reference": self.pattern_reference,
-            "memory_reference": self.memory_reference
+            "memory_reference": self.memory_reference,
+            # V5 fields
+            "candidate_moves": self.candidate_moves,
+            "golden_rule": self.golden_rule,
+            "consequence": self.consequence,
+            "fen_before": self.fen_before,
+            "piece_moved": self.piece_moved
         }
         if self.trap_suggestion:
             result["trap_suggestion"] = self.trap_suggestion
@@ -585,6 +598,74 @@ async def generate_move_feedback(
     except Exception as e:
         logger.warning(f"Error checking for traps: {e}")
     
+    # Build V5 candidate moves
+    candidate_moves = []
+    if best_move and best_move != user_move:
+        # Best move as primary candidate
+        candidate_moves.append({
+            "move": best_move,
+            "idea": best_move_explanation or f"{best_move} was the engine's top choice",
+            "type": _determine_move_type(tactical, best_move),
+            "is_best": True
+        })
+    
+    # Add missed opportunities as alternative candidates
+    if tactical.get("best_move_attacks"):
+        for i, attack in enumerate(tactical["best_move_attacks"][:2]):
+            if i == 0:
+                continue  # Skip first (already covered by best_move)
+            candidate_moves.append({
+                "move": attack.split()[0] if " " in attack else attack,
+                "idea": attack,
+                "type": "tactical",
+                "is_best": False
+            })
+    
+    # Determine consequence (what happens after the user's move)
+    consequence = None
+    if quality in ["mistake", "blunder"]:
+        if tactical.get("threats_created"):
+            consequence = f"After {user_move}, your opponent gets: {', '.join(tactical['threats_created'][:2])}"
+        elif tactical.get("user_move_captures") is None and tactical.get("best_move_captures"):
+            consequence = f"You missed winning the {tactical['best_move_captures']}"
+    
+    # Determine golden rule based on the type of mistake
+    golden_rule = pattern_reference
+    if not golden_rule and quality in ["mistake", "blunder"]:
+        if fen_before:
+            try:
+                board = chess.Board(fen_before)
+                move_obj = board.parse_san(user_move)
+                piece = board.piece_at(move_obj.from_square)
+                if piece:
+                    if piece.piece_type == chess.KNIGHT:
+                        to_file = chess.square_file(move_obj.to_square)
+                        to_rank = chess.square_rank(move_obj.to_square)
+                        if to_file in [0, 7] or to_rank in [0, 7]:
+                            golden_rule = "Knights on the rim are dim! They have fewer squares to jump to."
+                        else:
+                            golden_rule = "Every piece needs a job! Ask: what is this piece doing for me?"
+                    elif piece.piece_type == chess.PAWN:
+                        golden_rule = "Pawns can NEVER go back! Every pawn move creates a weakness somewhere."
+                    elif piece.piece_type == chess.BISHOP:
+                        golden_rule = "Bishops need OPEN diagonals. If pawns block them, they're sad!"
+                    elif piece.piece_type == chess.QUEEN:
+                        golden_rule = "Don't bring the Queen out too early - she'll get chased around!"
+            except Exception:
+                pass
+    
+    # Get piece moved for fun language
+    piece_moved = None
+    if fen_before:
+        try:
+            board = chess.Board(fen_before)
+            move_obj = board.parse_san(user_move)
+            piece = board.piece_at(move_obj.from_square)
+            if piece:
+                piece_moved = _get_piece_name(piece)
+        except Exception:
+            pass
+    
     return MoveFeedback(
         user_move=user_move,
         user_move_quality=quality,
@@ -604,8 +685,23 @@ async def generate_move_feedback(
         socratic_question=socratic_question,
         expects_response=expects_response,
         pattern_reference=pattern_reference,
-        memory_reference=memory_reference
+        memory_reference=memory_reference,
+        # V5 fields
+        candidate_moves=candidate_moves if candidate_moves else None,
+        golden_rule=golden_rule,
+        consequence=consequence,
+        fen_before=fen_before,
+        piece_moved=piece_moved
     )
+
+
+def _determine_move_type(tactical: Dict, move: str) -> str:
+    """Determine the strategic type of a move."""
+    if tactical.get("best_move_captures"):
+        return "tactical"
+    if tactical.get("best_move_attacks"):
+        return "counter_attack"
+    return "positional"
 
 
 async def get_last_move_feedback(db, session_id: str, user_id: str) -> Optional[Dict]:
