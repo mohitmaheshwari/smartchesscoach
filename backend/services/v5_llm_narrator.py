@@ -25,23 +25,37 @@ logger = logging.getLogger(__name__)
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 
 # System prompt for concise narrative generation
-NARRATOR_SYSTEM_PROMPT = """You are a chess coach creating MEMORABLE, CONCISE explanations.
+NARRATOR_SYSTEM_PROMPT = """You are a FUN, MEMORABLE chess coach. Your students NEVER forget what you teach because you make it STICK.
 
-CRITICAL RULES:
-1. MAXIMUM 20 words per response
-2. Sound like a wise human coach, not a textbook
-3. Focus on the PLAN and WHY, not just the move
-4. Make it stick in memory - use vivid language
-5. If there's a pawn loss, mention it
-6. Show the FUTURE (what happens next)
+YOUR STYLE:
+- Talk like a friendly human, NOT a textbook
+- Use SIMPLE words a 12-year-old understands
+- Give pieces PERSONALITY:
+  • Knights are "Naughty Knights" when they wander without a plan
+  • Bishops are "Slicey Bois" - they love open diagonals
+  • Rooks are "Tower Power" - they need open files
+  • The Queen is "Your Majesty" - powerful but needs protection
+  • Pawns are "Little Soldiers" - slow but they control space
+- Create HOOKS that stick in memory:
+  • "Knights on the rim are dim!" (bad knight placement)
+  • "Castle early, sleep safely!" (king safety)
+  • "Develop before you attack!" (opening principles)
+  • "Loose pieces drop off!" (hanging pieces)
 
-DO NOT:
-- Use generic phrases like "control the center"
-- Sound robotic or formal
-- Exceed 20 words
-- Explain obvious things
+RULES:
+1. MAX 15 words
+2. Sound like a FRIEND teaching chess, not a computer
+3. Use ONE memorable phrase or hook per move
+4. Make it FUN - they should SMILE and learn
+5. If there's a tactic, give it a fun name
 
-RETURN ONLY the coaching text, nothing else. No quotes, no JSON."""
+EXAMPLE OUTPUTS:
+- "Naughty Knight wandered off! Now Nb5 forks your pawn. Knights need a job!"
+- "Tower Power! Rook on the open file = trouble for them."
+- "Castle early, sleep safely! Your king thanks you."
+- "Oops! Loose piece = free piece. Always check who's undefended."
+
+Return ONLY the coaching text. No quotes, no JSON."""
 
 
 async def generate_concise_narrative(
@@ -225,26 +239,30 @@ Don't say "great move" or "well done" - be more specific."""
 
 
 def _generate_fallback_narrative(move_san: str, plan_data: Dict, severity: str) -> str:
-    """Fallback when LLM is unavailable."""
+    """Fallback when LLM is unavailable - still make it FUN and MEMORABLE."""
     if not plan_data:
         if severity == "blunder":
-            return f"{move_san} is a serious mistake."
+            return f"Ouch! {move_san} hurts. Big oops here!"
         elif severity == "mistake":
-            return f"{move_san} loses something here."
+            return f"Hmm, {move_san} isn't great. Let's see why..."
         elif severity == "inaccuracy":
-            return f"{move_san} isn't the best — there's a better plan."
+            return f"{move_san} - not bad, but there's a sneakier move!"
         return f"{move_san}."
     
-    parts = []
-    parts.append(f"You played {move_san}.")
+    # Use the plan data to create a fun narrative
+    problem = plan_data.get("current_problem", "")
     
-    if plan_data.get("current_problem"):
-        parts.append(plan_data["current_problem"])
-    
-    if plan_data.get("better_approach"):
-        parts.append(plan_data["better_approach"])
-    
-    return " ".join(parts)
+    # Make it memorable based on what went wrong
+    if "knight" in problem.lower():
+        return f"Naughty Knight alert! {problem[:50]}"
+    elif "bishop" in problem.lower():
+        return f"Slicey Boi wants freedom! {problem[:50]}"
+    elif "pawn" in problem.lower():
+        return f"Little Soldier needs backup! {problem[:50]}"
+    elif "king" in problem.lower():
+        return f"King safety first! {problem[:50]}"
+    else:
+        return f"{move_san} - {problem[:60]}" if problem else f"{move_san} needs a rethink."
 
 
 def _fallback_opponent_narrative(move_san: str, eval_swing: int, weak_squares: List[str]) -> tuple:

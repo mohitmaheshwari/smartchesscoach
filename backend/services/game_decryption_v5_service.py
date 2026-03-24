@@ -620,95 +620,124 @@ def _explain_opponent_move_with_context(
     pv_after: List[str]
 ) -> Tuple[str, str]:
     """
-    Explain opponent's move with REAL context - what are they trying to do?
-    This is where the coaching happens.
+    Explain opponent's move with FUN, MEMORABLE language!
     """
     move_san = board.san(move)
     piece = board.piece_at(move.from_square)
-    piece_name = get_piece_name(piece) if piece else "piece"
     
     sim = board.copy()
     sim.push(move)
     
     # Check what this move threatens
     threats = []
-    ideas = []
     
     # 1. Does it create a direct threat?
     for sq, p in sim.piece_map().items():
         if p.color == (user_color == "white"):  # User's pieces
             attackers = sim.attackers(not (user_color == "white"), sq)
-            if move.to_square in attackers or any(sim.is_attacked_by(not (user_color == "white"), sq) for sq in attackers):
-                # Check if this piece is now attacked more than defended
-                defenders = sim.attackers(user_color == "white", sq)
-                if len(attackers) > len(defenders):
-                    threats.append(f"attacks your {get_piece_name(p)} on {chess.square_name(sq)}")
+            defenders = sim.attackers(user_color == "white", sq)
+            if len(attackers) > len(defenders):
+                piece_name = _get_fun_piece_name(p)
+                threats.append(f"eyeing your {piece_name} on {chess.square_name(sq)}")
     
-    # 2. Check for development/control ideas based on the piece
-    if piece:
-        if piece.piece_type == chess.PAWN:
-            # Pawn moves - check for center control or space
-            to_file = chess.square_file(move.to_square)
-            if to_file in [3, 4]:  # d or e file
-                ideas.append("controls the center")
-        
-        elif piece.piece_type == chess.KNIGHT:
-            # Knights - good squares
-            to_sq = move.to_square
-            if to_sq in [chess.C3, chess.F3, chess.C6, chess.F6]:
-                ideas.append("develops to a natural square")
-            if to_sq in [chess.D5, chess.E5, chess.D4, chess.E4]:
-                ideas.append("occupies a strong central outpost")
-        
-        elif piece.piece_type == chess.BISHOP:
-            # Bishops - diagonals
-            to_sq = move.to_square
-            if to_sq in [chess.F4, chess.G5, chess.F5, chess.G4, chess.C4, chess.B5]:
-                ideas.append("develops actively")
-            # Check if on long diagonal
-            if chess.square_rank(to_sq) + chess.square_file(to_sq) == 7 or \
-               chess.square_rank(to_sq) == chess.square_file(to_sq):
-                ideas.append("controls the long diagonal")
-    
-    # 3. Check for castling preparation
-    if board.has_kingside_castling_rights(not (user_color == "white")):
-        if piece and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
-            back_rank = 0 if not (user_color == "white") else 7
-            if chess.square_rank(move.from_square) == back_rank:
-                ideas.append("prepares to castle")
-    
-    # 4. Is this a capture?
+    # 2. Is this a capture?
     if board.is_capture(move):
         captured = board.piece_at(move.to_square)
         if captured:
+            captured_name = _get_fun_piece_name(captured)
             return (
-                f"Opponent took your {get_piece_name(captured)} with {move_san}.",
-                "Consider if you should recapture, and with which piece."
+                f"Chomp! They took your {captured_name}.",
+                "Recapture? Check if it's worth it first!"
             )
     
-    # 5. Is this castling?
+    # 3. Is this castling?
     if board.is_castling(move):
         return (
-            "Opponent castled — their king is now safer. The middlegame begins.",
-            "Time to finalize your development and create a plan."
+            "They castled! Their King is tucked away safely now.",
+            "Time to make a plan. Where's their weakness?"
         )
     
-    # Build narrative
-    if threats:
-        narrative = f"{move_san} {threats[0]}."
-        plan = f"You need to deal with this threat first."
-    elif ideas:
-        narrative = f"{move_san} — {ideas[0]}."
-        if len(ideas) > 1:
-            plan = f"Continue developing. Your opponent is building their position."
-        else:
-            plan = "Keep developing your pieces and control the center."
-    else:
-        # Fallback - but make it useful
-        narrative = f"Opponent played {move_san}."
-        plan = "Focus on your own plan — develop pieces, control center, castle."
+    # 4. Check for piece-specific ideas with FUN names
+    if piece:
+        if piece.piece_type == chess.PAWN:
+            to_file = chess.square_file(move.to_square)
+            if to_file in [3, 4]:  # d or e file
+                return (
+                    f"Little Soldier marches to {move_san}. They want the center!",
+                    "Don't let them have all the space. Push back!"
+                )
+            return (
+                f"Pawn to {move_san}. What's the plan behind it?",
+                "Every pawn move creates a weakness. Where is it?"
+            )
+        
+        elif piece.piece_type == chess.KNIGHT:
+            to_sq = move.to_square
+            if to_sq in [chess.C3, chess.F3, chess.C6, chess.F6]:
+                return (
+                    f"Their horsey hops to {move_san}. Classic development!",
+                    "Keep developing. Don't fall behind!"
+                )
+            if to_sq in [chess.D5, chess.E5, chess.D4, chess.E4]:
+                return (
+                    f"Whoa! Their knight lands in the center with {move_san}. Strong!",
+                    "Can you kick it out? Challenge that knight!"
+                )
+            return (
+                f"Knight to {move_san}. Where's it heading?",
+                "Watch where that horsey wants to jump next!"
+            )
+        
+        elif piece.piece_type == chess.BISHOP:
+            return (
+                f"Slicey Boi slides to {move_san}. Bishops love open diagonals!",
+                "Make sure your pieces aren't on that diagonal!"
+            )
+        
+        elif piece.piece_type == chess.ROOK:
+            to_file = chess.square_file(move.to_square)
+            file_pawns = len([sq for sq in chess.SQUARES if chess.square_file(sq) == to_file and board.piece_at(sq) and board.piece_at(sq).piece_type == chess.PAWN])
+            if file_pawns == 0:
+                return (
+                    f"Tower Power! Their rook hits the open file with {move_san}.",
+                    "Open files are dangerous. Contest it or block it!"
+                )
+            return (
+                f"Rook moves to {move_san}.",
+                "Rooks want open files. Don't give them one!"
+            )
+        
+        elif piece.piece_type == chess.QUEEN:
+            return (
+                f"Her Majesty enters with {move_san}. Respect the Queen!",
+                "The Queen is powerful but attackable. Can you harass her?"
+            )
     
-    return narrative, plan
+    # 5. If there's a threat, warn about it
+    if threats:
+        return (
+            f"Watch out! {move_san} is {threats[0]}.",
+            "Deal with this threat first, then continue your plan."
+        )
+    
+    # 6. Fallback - but still useful
+    return (
+        f"They played {move_san}.",
+        "Keep developing! Castle if you haven't."
+    )
+
+
+def _get_fun_piece_name(piece: chess.Piece) -> str:
+    """Get fun, memorable piece names."""
+    names = {
+        chess.PAWN: "Little Soldier",
+        chess.KNIGHT: "Horsey",
+        chess.BISHOP: "Slicey Boi",
+        chess.ROOK: "Tower",
+        chess.QUEEN: "Queen",
+        chess.KING: "King"
+    }
+    return names.get(piece.piece_type, "piece")
 
 
 # ─── GOOD MOVE RECOGNITION ───────────────────────────────────────────
@@ -723,14 +752,13 @@ def recognize_good_move(
     pv_after_best: List[str] = None
 ) -> Tuple[str, Optional[str], bool]:
     """
-    Recognize when user plays a good move and explain WHY it's good.
+    Recognize when user plays a good move - use FUN, MEMORABLE language!
     Returns: (narrative, concept_applied, is_best_move)
     """
     move_san = board.san(move)
     is_best = best_move and move_san.lower().replace("+", "").replace("#", "") == best_move.lower().replace("+", "").replace("#", "")
     
     piece = board.piece_at(move.from_square)
-    piece_name = get_piece_name(piece) if piece else "piece"
     
     concept_applied = None
     narrative = ""
@@ -740,23 +768,22 @@ def recognize_good_move(
     if move_san in typical_ideas:
         concept_applied = f"opening_{move_san.lower()}"
         if is_best:
-            narrative = f"Perfect! {move_san} — {typical_ideas[move_san]}"
+            narrative = f"Boom! {move_san} — {typical_ideas[move_san]}"
         else:
-            narrative = f"Good — {move_san}. {typical_ideas[move_san]}"
+            narrative = f"Nice! {move_san}. {typical_ideas[move_san]}"
         return narrative, concept_applied, is_best
     
-    # Castling - explain the timing
+    # Castling - FUN language
     if board.is_castling(move):
         concept_applied = "king_safety_castling"
-        # Check if this was good timing
         move_num = len(list(board.move_stack)) // 2 + 1
         if move_num <= 10:
-            narrative = "Good timing — you castled before the center opens. Your king is safe."
+            narrative = "Castle early, sleep safely! Your King is tucked in nice and cozy."
         else:
-            narrative = "Finally castled — your king was getting vulnerable. Better late than never."
+            narrative = "Finally! Your King was getting nervous out there. Safe at last!"
         return narrative, concept_applied, is_best
     
-    # Development - explain what the piece does
+    # Development with FUN piece names
     if piece:
         back_rank = 0 if piece.color == chess.WHITE else 7
         
@@ -764,81 +791,75 @@ def recognize_good_move(
             to_sq = move.to_square
             if to_sq in [chess.F3, chess.C3, chess.F6, chess.C6]:
                 concept_applied = "knight_development"
-                narrative = f"{move_san} — knight to a natural square, controlling the center."
+                narrative = f"Good horsey! {move_san} — Knights love f3/c3. They control the center from here."
                 if is_best:
-                    narrative = f"Perfect! {narrative}"
+                    narrative = f"Perfect horsey! {move_san} is THE spot."
                 return narrative, concept_applied, is_best
             elif to_sq in [chess.E5, chess.D5, chess.E4, chess.D4]:
                 concept_applied = "central_knight"
-                narrative = f"Strong! {move_san} plants the knight in the center where it's powerful."
+                narrative = f"BOSS KNIGHT! {move_san} in the center is a monster. Hard to kick out!"
                 return narrative, concept_applied, is_best
         
         elif piece.piece_type == chess.BISHOP:
             if chess.square_rank(move.from_square) == back_rank:
                 concept_applied = "bishop_development"
-                # Check where it's going
                 to_sq = move.to_square
                 to_file = chess.square_file(to_sq)
                 if to_file in [1, 2, 5, 6]:  # b, c, f, g files - active squares
-                    narrative = f"{move_san} — bishop on an active diagonal."
+                    narrative = f"Slicey Boi unleashed! {move_san} — bishop on a killer diagonal."
                 else:
-                    narrative = f"{move_san} — developing the bishop."
+                    narrative = f"Slicey Boi is out! {move_san} — bishops love open diagonals."
                 if is_best:
-                    narrative = f"Great! {narrative}"
+                    narrative = f"Perfect! {narrative}"
                 return narrative, concept_applied, is_best
         
         elif piece.piece_type == chess.PAWN:
-            # Center pawns
             to_file = chess.square_file(move.to_square)
             if to_file in [3, 4]:  # d or e file
                 to_rank = chess.square_rank(move.to_square)
                 if (piece.color == chess.WHITE and to_rank == 3) or (piece.color == chess.BLACK and to_rank == 4):
                     concept_applied = "center_control"
-                    narrative = f"{move_san} — claiming your share of the center."
+                    narrative = f"Little Soldier marches! {move_san} grabs space in the center."
                     if is_best:
-                        narrative = f"Correct! {narrative}"
+                        narrative = f"Perfect! {narrative}"
                     return narrative, concept_applied, is_best
         
         elif piece.piece_type == chess.ROOK:
-            # Check if moving to open file
             to_file = chess.square_file(move.to_square)
             file_pawns = len([sq for sq in chess.SQUARES if chess.square_file(sq) == to_file and board.piece_at(sq) and board.piece_at(sq).piece_type == chess.PAWN])
             if file_pawns == 0:
                 concept_applied = "rook_on_open_file"
-                narrative = f"{move_san} — rook on the open file. This will be powerful."
+                narrative = f"Tower Power! {move_san} — rook on an open file is DEADLY."
                 return narrative, concept_applied, is_best
     
     # Check if this is a capture that wins material
     if board.is_capture(move):
         captured = board.piece_at(move.to_square)
         if captured:
-            # Check if we're winning the exchange
             attacker_value = _piece_value(piece)
             captured_value = _piece_value(captured)
             if captured_value > attacker_value:
                 concept_applied = "winning_material"
-                narrative = f"Good capture! {move_san} wins material."
+                narrative = f"Chomp! {move_san} wins material. Free stuff!"
                 return narrative, concept_applied, is_best
     
-    # Generic good move - but try to explain why
+    # Generic good move
     if is_best:
-        # Try to understand what makes this move best
         sim = board.copy()
         sim.push(move)
         
-        # Check if it creates threats
         for sq, p in sim.piece_map().items():
             if p.color != piece.color:
                 attackers = sim.attackers(piece.color, sq)
                 if attackers:
-                    narrative = f"You found the best move! {move_san} creates a threat."
+                    narrative = f"Sneaky! {move_san} creates a threat. Your opponent's in trouble!"
                     return narrative, "found_best_move", True
         
-        narrative = f"You found the best move! {move_san}."
+        narrative = f"Nailed it! {move_san} is the best move here."
         return narrative, "found_best_move", True
     
     if cp_loss < 10:
-        return f"Solid — {move_san}.", None, False
+        return f"Solid! {move_san}.", None, False
     
     return f"{move_san}.", None, False
 
