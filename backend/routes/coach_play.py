@@ -1674,3 +1674,209 @@ async def trigger_coach_move_endpoint(
     except Exception as e:
         logger.error(f"Error triggering coach move: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+# ==================== V5 COACHING INTEGRATION ====================
+
+@router.post("/v5/feedback")
+async def get_v5_coaching_feedback(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get V5 "Thinking Simulator" coaching feedback for a move.
+    
+    This uses the SAME coaching logic as Lab (Game Decryption), ensuring
+    consistent coaching tone and quality across both pages.
+    
+    Body:
+    - session_id: Coach play session ID
+    - move_san: The move just played (SAN notation)
+    - fen_before: Position before the move
+    - fen_after: Position after the move
+    - is_user_move: Whether this was the user's move (vs coach's move)
+    - best_move: Best move according to engine (optional)
+    - pv_after_played: PV after the played move (optional)
+    - pv_after_best: PV after the best move (optional)
+    - cp_loss: Centipawn loss (optional)
+    
+    Returns:
+    - V5Coaching object with narrative, consequence, candidates, learning, etc.
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    from services.shared_coaching_v5 import generate_move_coaching, CoachingContext
+    
+    session_id = request.get("session_id")
+    move_san = request.get("move_san")
+    fen_before = request.get("fen_before")
+    is_user_move = request.get("is_user_move", True)
+    best_move = request.get("best_move")
+    pv_after_played = request.get("pv_after_played", [])
+    pv_after_best = request.get("pv_after_best", [])
+    cp_loss = request.get("cp_loss", 0)
+    
+    if not move_san or not fen_before:
+        raise HTTPException(status_code=400, detail="move_san and fen_before are required")
+    
+    # Verify session belongs to user
+    if session_id:
+        session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+        if session_doc and session_doc.get("user_id") != user.user_id:
+            raise HTTPException(status_code=403, detail="Not your session")
+    
+    try:
+        board = chess.Board(fen_before)
+        move = board.parse_san(move_san)
+        
+        # Get user's color from session
+        user_color = "white"
+        if session_id:
+            session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+            if session_doc:
+                user_color = session_doc.get("user_color", "white")
+        
+        # Determine game phase based on move count
+        fullmove = board.fullmove_number
+        if fullmove <= 10:
+            phase = "opening"
+        elif fullmove <= 30:
+            phase = "middlegame"
+        else:
+            phase = "endgame"
+        
+        # Determine coaching context
+        context = CoachingContext.LIVE_AFTER_USER if is_user_move else CoachingContext.LIVE_AFTER_COACH
+        
+        # Generate V5 coaching
+        coaching = await generate_move_coaching(
+            board_before=board,
+            move=move,
+            best_move_san=best_move,
+            pv_after_played=pv_after_played,
+            pv_after_best=pv_after_best,
+            cp_loss=cp_loss,
+            phase=phase,
+            is_user_move=is_user_move,
+            context=context,
+            user_color=user_color
+        )
+        
+        return coaching.to_dict()
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid move or FEN: {e}")
+    except Exception as e:
+        logger.error(f"Error generating V5 coaching: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/v5/session/{session_id}/moves")
+async def get_v5_session_moves_coaching(
+    session_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get V5 coaching for all moves in a session.
+    
+    This allows the frontend to display a full game review with V5 coaching
+    after a Play with Coach session ends.
+    
+    Returns:
+    - moves: List of moves with V5 coaching for each
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    # Verify session belongs to user
+    session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+    if not session_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session_doc.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    
+    # Check if V5 analysis already exists
+    v5_data = session_doc.get("v5_coaching_data")
+    if v5_data:
+        return {"moves": v5_data, "cached": True}
+    
+    # If not, generate it now (for completed sessions)
+    if session_doc.get("status") == "ended":
+        from services.shared_coaching_v5 import generate_move_coaching, CoachingContext
+        
+        moves_data = []
+        pgn = session_doc.get("pgn", "")
+        user_color = session_doc.get("user_color", "white")
+        is_user_white = user_color.lower() == "white"
+        
+        # Parse PGN and generate coaching for each move
+        try:
+            import chess.pgn
+            import io
+            
+            game = chess.pgn.read_game(io.StringIO(pgn))
+            if game:
+                board = game.board()
+                move_number = 0
+                
+                for move in game.mainline_moves():
+                    move_number += 1
+                    is_user_move = (board.turn == chess.WHITE) == is_user_white
+                    fen_before = board.fen()
+                    move_san = board.san(move)
+                    
+                    # Determine phase
+                    fullmove = board.fullmove_number
+                    if fullmove <= 10:
+                        phase = "opening"
+                    elif fullmove <= 30:
+                        phase = "middlegame"
+                    else:
+                        phase = "endgame"
+                    
+                    # Get evaluation data if available
+                    move_evals = session_doc.get("move_evaluations", [])
+                    eval_data = next((e for e in move_evals if e.get("move_number") == move_number), {})
+                    
+                    context = CoachingContext.LIVE_AFTER_USER if is_user_move else CoachingContext.LIVE_AFTER_COACH
+                    
+                    coaching = await generate_move_coaching(
+                        board_before=board,
+                        move=move,
+                        best_move_san=eval_data.get("best_move"),
+                        pv_after_played=eval_data.get("pv_after_played", []),
+                        pv_after_best=eval_data.get("pv_after_best", []),
+                        cp_loss=eval_data.get("cp_loss", 0),
+                        phase=phase,
+                        is_user_move=is_user_move,
+                        context=context,
+                        user_color=user_color
+                    )
+                    
+                    board.push(move)
+                    
+                    moves_data.append({
+                        "move_number": move_number,
+                        "move_san": move_san,
+                        "fen_before": fen_before,
+                        "fen_after": board.fen(),
+                        "is_user_move": is_user_move,
+                        **coaching.to_dict()
+                    })
+                
+                # Cache the V5 data
+                await db.coach_sessions.update_one(
+                    {"session_id": session_id},
+                    {"$set": {"v5_coaching_data": moves_data}}
+                )
+                
+                return {"moves": moves_data, "cached": False}
+        except Exception as e:
+            logger.error(f"Error generating V5 session coaching: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    return {"moves": [], "message": "Session still in progress"}

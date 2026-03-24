@@ -1,0 +1,781 @@
+"""
+Shared Coaching V5 Layer
+========================
+
+This is the SINGLE source of truth for V5 "Thinking Simulator" coaching.
+Used by BOTH:
+- Lab (Game Decryption) - analyzing past games
+- Play with Coach - live coaching during play
+
+Key Principles:
+1. SAME coaching tone everywhere (Horsey, Naughty Knight, Slicey Boi)
+2. SAME specific consequences (never generic "position weakens")
+3. SAME Stockfish candidate moves with ideas
+4. SAME "I understand" tracking
+5. SAME transferable learning / Golden Rules
+
+This ensures: Improve one place → Both pages get smarter!
+"""
+
+import chess
+import chess.engine
+import logging
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass, asdict
+from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+STOCKFISH_PATH = "/usr/games/stockfish"
+
+
+# ─── ENUMS & DATA CLASSES ───────────────────────────────────────────
+
+class MoveSeverity(str, Enum):
+    """How good/bad was the move?"""
+    BRILLIANT = "brilliant"
+    GREAT = "great"
+    GOOD = "good"
+    BOOK = "book"
+    INACCURACY = "inaccuracy"
+    MISTAKE = "mistake"
+    BLUNDER = "blunder"
+
+
+class CoachingContext(str, Enum):
+    """Where is the coaching happening?"""
+    LAB_REVIEW = "lab_review"           # Reviewing a past game
+    LIVE_AFTER_USER = "live_after_user"  # User just played (live game)
+    LIVE_AFTER_COACH = "live_after_coach" # Coach just played (live game)
+    LIVE_BEFORE_USER = "live_before_user" # User is thinking (live game)
+
+
+@dataclass
+class CandidateMove:
+    """A candidate move with its strategic idea."""
+    move: str              # SAN notation
+    idea: str              # The strategic explanation
+    move_type: str         # "counter_attack", "prophylactic", "development", etc.
+    is_best: bool          # Is this the engine's top choice?
+    eval_cp: Optional[int] = None  # Centipawn evaluation
+
+
+@dataclass 
+class V5Coaching:
+    """
+    Complete V5 coaching output for a move.
+    This is the SHARED format used by both Lab and Play with Coach.
+    """
+    # Core coaching
+    narrative: str                    # Main coaching message (fun language!)
+    severity: str                     # good/inaccuracy/mistake/blunder
+    
+    # Plan (for mistakes)
+    goal: Optional[str] = None        # What we're trying to achieve
+    current_problem: Optional[str] = None  # Why the move is bad
+    consequence: Optional[str] = None      # SPECIFIC consequence (not generic!)
+    better_approach: Optional[str] = None  # What to do instead
+    
+    # Learning
+    transferable_learning: Optional[str] = None  # Golden rule / pattern
+    concept_id: Optional[str] = None             # For "I understand" tracking
+    concept_type: Optional[str] = None           # opening/tactical/positional/endgame
+    
+    # Candidate moves (from Stockfish!)
+    candidate_moves: List[Dict] = None  # Alternative moves with ideas
+    
+    # For clickable moves
+    future_moves: List[str] = None      # PV to show on board
+    
+    # Metadata
+    is_user_move: bool = True
+    best_move: Optional[str] = None
+    your_plan_now: Optional[str] = None  # For opponent moves - what should user do?
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for JSON response."""
+        result = asdict(self)
+        # Remove None values for cleaner response
+        return {k: v for k, v in result.items() if v is not None}
+
+
+# ─── FUN PIECE NAMES ───────────────────────────────────────────────
+
+PIECE_NAMES = {
+    chess.PAWN: "Little Soldier",
+    chess.KNIGHT: "Horsey",
+    chess.BISHOP: "Slicey Boi", 
+    chess.ROOK: "Tower",
+    chess.QUEEN: "Queen",
+    chess.KING: "King"
+}
+
+PIECE_VALUES = {
+    chess.PAWN: 1,
+    chess.KNIGHT: 3,
+    chess.BISHOP: 3,
+    chess.ROOK: 5,
+    chess.QUEEN: 9,
+    chess.KING: 0
+}
+
+
+def get_fun_piece_name(piece: chess.Piece) -> str:
+    """Get the fun V5 name for a piece."""
+    return PIECE_NAMES.get(piece.piece_type, "piece")
+
+
+def get_piece_value(piece: chess.Piece) -> int:
+    """Get the material value of a piece."""
+    return PIECE_VALUES.get(piece.piece_type, 0)
+
+
+# ─── STOCKFISH CANDIDATE MOVES ─────────────────────────────────────
+
+async def get_stockfish_candidates(
+    board: chess.Board, 
+    num_moves: int = 3, 
+    depth: int = 12
+) -> List[CandidateMove]:
+    """
+    Get top candidate moves from Stockfish using multi-PV.
+    
+    This ensures we only suggest GOOD moves (not blunders like Qd6 hanging the queen).
+    """
+    candidates = []
+    
+    try:
+        transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+        
+        try:
+            result = await engine.analyse(
+                board,
+                chess.engine.Limit(depth=depth),
+                multipv=num_moves
+            )
+            
+            for i, info in enumerate(result):
+                if "pv" not in info or not info["pv"]:
+                    continue
+                
+                move = info["pv"][0]
+                san = board.san(move)
+                
+                # Get evaluation
+                score = info.get("score")
+                if score:
+                    if score.is_mate():
+                        cp = 10000 if score.relative.mate() > 0 else -10000
+                    else:
+                        cp = score.relative.score(mate_score=10000)
+                else:
+                    cp = 0
+                
+                # Explain the idea behind this move
+                idea, move_type = explain_move_idea(board, san)
+                
+                candidates.append(CandidateMove(
+                    move=san,
+                    idea=idea,
+                    move_type=move_type,
+                    is_best=(i == 0),
+                    eval_cp=cp
+                ))
+        finally:
+            await engine.quit()
+            
+    except Exception as e:
+        logger.error(f"Stockfish multi-PV failed: {e}")
+    
+    return candidates
+
+
+def explain_move_idea(board: chess.Board, move_san: str) -> tuple:
+    """
+    Explain the strategic idea behind a move.
+    Returns (explanation, move_type).
+    """
+    try:
+        move = board.parse_san(move_san)
+    except Exception:
+        return (f"{move_san} is a strong move here", "engine_choice")
+    
+    piece = board.piece_at(move.from_square)
+    if not piece:
+        return (f"{move_san} is a strong move here", "engine_choice")
+    
+    sim = board.copy()
+    sim.push(move)
+    
+    user_color = board.turn
+    to_sq = move.to_square
+    to_file = chess.square_file(to_sq)
+    to_rank = chess.square_rank(to_sq)
+    
+    # Check for different move ideas
+    
+    # 1. COUNTER-ATTACK: Creates a threat
+    for sq in chess.SQUARES:
+        opp_piece = sim.piece_at(sq)
+        if opp_piece and opp_piece.color != user_color:
+            if sim.is_attacked_by(user_color, sq) and not board.is_attacked_by(user_color, sq):
+                target_name = get_fun_piece_name(opp_piece)
+                return (f"{move_san} attacks their {target_name} - forces them to respond!", "counter_attack")
+    
+    # 2. CASTLING: King safety
+    if board.is_castling(move):
+        return (f"{move_san} tucks the King away safely!", "king_safety")
+    
+    # 3. CHECK
+    if sim.is_check():
+        return (f"{move_san} gives check - forces their hand!", "tactical")
+    
+    # 4. CAPTURE (winning material)
+    if board.is_capture(move):
+        captured = board.piece_at(move.to_square)
+        if captured:
+            captured_name = get_fun_piece_name(captured)
+            return (f"{move_san} wins the {captured_name}!", "tactical")
+    
+    # 5. CENTRAL CONTROL
+    center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
+    if to_sq in center_squares:
+        piece_name = get_fun_piece_name(piece)
+        return (f"{move_san} plants the {piece_name} in the center - maximum power!", "central")
+    
+    # 6. DEVELOPMENT (minor pieces)
+    if piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
+        back_rank = 0 if user_color == chess.WHITE else 7
+        if chess.square_rank(move.from_square) == back_rank:
+            center_distance = abs(to_file - 3.5) + abs(to_rank - 3.5)
+            if center_distance < 3:
+                return (f"{move_san} develops with a purpose - aims at the center!", "development")
+            return (f"{move_san} gets a piece into the game!", "development")
+    
+    # 7. PROPHYLACTIC (pawn moves on wings preventing invasions)
+    if piece.piece_type == chess.PAWN and to_file in [0, 7]:
+        return (f"{move_san} prevents opponent's piece from invading!", "prophylactic")
+    
+    # 8. PAWN PUSH (central)
+    if piece.piece_type == chess.PAWN and to_file in [3, 4]:
+        return (f"{move_san} fights for central space!", "central")
+    
+    # Default
+    return (f"{move_san} improves the position!", "positional")
+
+
+# ─── CONSEQUENCE ANALYSIS ──────────────────────────────────────────
+
+def describe_consequence(pv: List[str], board_after_move: chess.Board) -> str:
+    """
+    Describe SPECIFICALLY what goes wrong after the move.
+    
+    NO MORE "position weakens" - must explain WHAT and WHY!
+    """
+    if not pv:
+        return "Something's not right here!"
+    
+    sim = board_after_move.copy()
+    user_color = not board_after_move.turn  # User just moved
+    first_move_san = pv[0]
+    
+    # Try to play the opponent's response
+    try:
+        first_move = sim.parse_san(first_move_san)
+        sim.push(first_move)
+        
+        # Check for attacked pieces
+        for sq in chess.SQUARES:
+            piece = sim.piece_at(sq)
+            if piece and piece.color == user_color:
+                attackers = list(sim.attackers(not user_color, sq))
+                defenders = list(sim.attackers(user_color, sq))
+                
+                if attackers:
+                    piece_name = get_fun_piece_name(piece)
+                    sq_name = chess.square_name(sq)
+                    
+                    if len(attackers) > len(defenders):
+                        if piece.piece_type == chess.PAWN:
+                            if len(defenders) == 0:
+                                return f"After {first_move_san}, your pawn on {sq_name} is totally undefended!"
+                            return f"After {first_move_san}, your pawn on {sq_name} is outnumbered - {len(attackers)} attackers vs {len(defenders)} defender!"
+                        else:
+                            if len(defenders) == 0:
+                                return f"After {first_move_san}, your {piece_name} on {sq_name} is hanging!"
+                            return f"After {first_move_san}, your {piece_name} on {sq_name} is outnumbered!"
+                    elif not defenders and piece.piece_type != chess.KING:
+                        return f"After {first_move_san}, your {piece_name} on {sq_name} has no defenders!"
+        
+        # Check for check
+        if sim.is_check():
+            return f"After {first_move_san}, your King gets checked!"
+        
+    except Exception:
+        pass
+    
+    # Check for material loss in PV
+    sim = board_after_move.copy()
+    for san in pv[:4]:
+        try:
+            move = sim.parse_san(san)
+            if sim.is_capture(move):
+                captured = sim.piece_at(move.to_square)
+                if captured and captured.color == user_color:
+                    captured_name = get_fun_piece_name(captured)
+                    return f"After {san}, your {captured_name} gets captured!"
+            sim.push(move)
+        except Exception:
+            break
+    
+    # Fallback to positional analysis
+    return analyze_positional_weakness(board_after_move, user_color, first_move_san)
+
+
+def analyze_positional_weakness(board: chess.Board, user_color: bool, opponent_move: str) -> str:
+    """Find positional issues when no tactical problems found."""
+    
+    # Check center control
+    center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
+    user_center = sum(len(list(board.attackers(user_color, sq))) for sq in center_squares)
+    opp_center = sum(len(list(board.attackers(not user_color, sq))) for sq in center_squares)
+    
+    if opp_center > user_center + 2:
+        return f"After {opponent_move}, your opponent dominates the center!"
+    
+    # Check development
+    undeveloped = 0
+    back_rank_squares = [chess.B1, chess.C1, chess.F1, chess.G1] if user_color == chess.WHITE else [chess.B8, chess.C8, chess.F8, chess.G8]
+    for sq in back_rank_squares:
+        piece = board.piece_at(sq)
+        if piece and piece.color == user_color and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
+            undeveloped += 1
+    
+    if undeveloped >= 2:
+        return f"After {opponent_move}, you're behind in development!"
+    
+    # Default - still specific!
+    return f"After {opponent_move}, your opponent gains the initiative!"
+
+
+# ─── FORK DETECTION ────────────────────────────────────────────────
+
+def detect_fork_in_pv(board: chess.Board, pv: List[str], user_color: bool) -> Optional[Dict]:
+    """
+    Detect if the PV contains a fork threat.
+    Returns details about which pieces get forked.
+    """
+    if not pv:
+        return None
+    
+    sim = board.copy()
+    
+    try:
+        for san in pv[:2]:
+            move = sim.parse_san(san)
+            moving_piece = sim.piece_at(move.from_square)
+            
+            # Check for knight forks
+            if moving_piece and moving_piece.piece_type == chess.KNIGHT:
+                sim.push(move)
+                
+                # Find attacked valuable pieces
+                attacked = []
+                attacked_values = []
+                
+                for sq in chess.SQUARES:
+                    if sim.is_attacked_by(not user_color, sq):
+                        piece = sim.piece_at(sq)
+                        if piece and piece.color == user_color:
+                            attacked.append(get_fun_piece_name(piece))
+                            attacked_values.append(get_piece_value(piece))
+                
+                # Fork detected if 2+ valuable pieces attacked
+                if len(attacked) >= 2 and sum(attacked_values) >= 5:
+                    attacked_with_values = list(zip(attacked, attacked_values))
+                    attacked_with_values.sort(key=lambda x: x[1], reverse=True)
+                    piece1 = attacked_with_values[0][0]
+                    piece2 = attacked_with_values[1][0]
+                    
+                    return {
+                        "type": "knight_fork",
+                        "piece1": piece1,
+                        "piece2": piece2,
+                        "fork_move": san
+                    }
+            else:
+                sim.push(move)
+                
+    except Exception:
+        pass
+    
+    return None
+
+
+# ─── MAIN COACHING GENERATION ──────────────────────────────────────
+
+async def generate_move_coaching(
+    board_before: chess.Board,
+    move: chess.Move,
+    best_move_san: Optional[str],
+    pv_after_played: List[str],
+    pv_after_best: List[str],
+    cp_loss: int,
+    phase: str = "opening",
+    is_user_move: bool = True,
+    context: CoachingContext = CoachingContext.LAB_REVIEW,
+    user_color: str = "white"
+) -> V5Coaching:
+    """
+    Generate V5 coaching for a move.
+    
+    This is the MAIN ENTRY POINT used by both Lab and Play with Coach.
+    """
+    move_san = board_before.san(move)
+    board_after = board_before.copy()
+    board_after.push(move)
+    
+    # Determine severity
+    if not is_user_move:
+        severity = "context"
+    elif cp_loss < 30:
+        severity = "good"
+    elif cp_loss < 100:
+        severity = "inaccuracy"
+    elif cp_loss < 250:
+        severity = "mistake"
+    else:
+        severity = "blunder"
+    
+    # Get piece info
+    piece = board_before.piece_at(move.from_square)
+    piece_name = get_fun_piece_name(piece) if piece else "piece"
+    piece_type = piece.piece_type if piece else None
+    
+    # ─── OPPONENT MOVE (context) ───
+    if not is_user_move:
+        narrative, your_plan = generate_opponent_move_coaching(
+            board_before, move, pv_after_played, user_color
+        )
+        return V5Coaching(
+            narrative=narrative,
+            severity="context",
+            is_user_move=False,
+            your_plan_now=your_plan,
+            future_moves=pv_after_played[:3] if pv_after_played else None
+        )
+    
+    # ─── GOOD USER MOVE ───
+    if severity == "good":
+        narrative = generate_good_move_narrative(board_before, move, best_move_san, piece_name)
+        return V5Coaching(
+            narrative=narrative,
+            severity="good",
+            is_user_move=True,
+            best_move=best_move_san
+        )
+    
+    # ─── MISTAKE/INACCURACY ───
+    # Get Stockfish candidates
+    stockfish_candidates = await get_stockfish_candidates(board_before, num_moves=3, depth=12)
+    
+    # Build candidate moves list (excluding the played move)
+    candidate_moves = []
+    for c in stockfish_candidates:
+        if c.move != move_san:
+            candidate_moves.append({
+                "move": c.move,
+                "idea": c.idea,
+                "type": c.move_type,
+                "is_best": c.is_best,
+                "eval_cp": c.eval_cp
+            })
+    
+    # Get specific consequence
+    consequence = describe_consequence(pv_after_played, board_after)
+    
+    # Check for fork
+    fork_info = detect_fork_in_pv(board_after, pv_after_played, 
+                                   board_before.turn == chess.WHITE)
+    
+    if fork_info:
+        return V5Coaching(
+            narrative=f"Uh oh! {move_san} allows a nasty Horsey fork!",
+            severity=severity,
+            goal="Avoid tactical vulnerabilities",
+            current_problem=f"{move_san} allows a fork!",
+            consequence=f"After {fork_info['fork_move']}, their knight forks your {fork_info['piece1']} and {fork_info['piece2']}!",
+            better_approach=candidate_moves[0]["idea"] if candidate_moves else f"{best_move_san} was better",
+            transferable_learning=f"Watch out for Horsey forks! When your {fork_info['piece1']} and {fork_info['piece2']} are on the same color square, a knight can attack both!",
+            concept_id="knight_fork",
+            concept_type="tactical",
+            candidate_moves=candidate_moves,
+            future_moves=pv_after_played[:4] if pv_after_played else None,
+            is_user_move=True,
+            best_move=best_move_san
+        )
+    
+    # Generate coaching based on piece type and position
+    coaching = generate_piece_specific_coaching(
+        board_before, move, piece_type, consequence, 
+        candidate_moves, best_move_san, severity
+    )
+    
+    coaching.future_moves = pv_after_played[:4] if pv_after_played else None
+    coaching.is_user_move = True
+    coaching.best_move = best_move_san
+    
+    return coaching
+
+
+def generate_opponent_move_coaching(
+    board: chess.Board, 
+    move: chess.Move,
+    pv: List[str],
+    user_color: str
+) -> tuple:
+    """
+    Generate coaching for opponent's move.
+    Returns (narrative, your_plan_now).
+    """
+    move_san = board.san(move)
+    piece = board.piece_at(move.from_square)
+    piece_name = get_fun_piece_name(piece) if piece else "piece"
+    
+    board_after = board.copy()
+    board_after.push(move)
+    
+    # Check if it's a capture
+    if board.is_capture(move):
+        captured = board.piece_at(move.to_square)
+        if captured:
+            captured_name = get_fun_piece_name(captured)
+            narrative = f"Opponent takes your {captured_name} with {move_san}!"
+            your_plan = "Can you recapture? Or is there a better response?"
+            return (narrative, your_plan)
+    
+    # Check if it creates a threat
+    is_user_white = user_color.lower() == "white"
+    user_chess_color = chess.WHITE if is_user_white else chess.BLACK
+    
+    for sq in chess.SQUARES:
+        user_piece = board_after.piece_at(sq)
+        if user_piece and user_piece.color == user_chess_color:
+            if board_after.is_attacked_by(not user_chess_color, sq):
+                if not board.is_attacked_by(not user_chess_color, sq):
+                    # New attack!
+                    attacked_name = get_fun_piece_name(user_piece)
+                    narrative = f"Watch out! {move_san} attacks your {attacked_name}!"
+                    your_plan = f"Your {attacked_name} is under attack. Defend it or find a counter-threat!"
+                    return (narrative, your_plan)
+    
+    # Check if it's a check
+    if board_after.is_check():
+        narrative = f"Check! {move_san} attacks your King!"
+        your_plan = "You must get out of check first!"
+        return (narrative, your_plan)
+    
+    # Development move
+    if piece and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
+        narrative = f"Opponent develops the {piece_name} to {chess.square_name(move.to_square)}."
+        your_plan = "Keep developing your pieces and fight for the center!"
+        return (narrative, your_plan)
+    
+    # Central pawn
+    if piece and piece.piece_type == chess.PAWN:
+        to_file = chess.square_file(move.to_square)
+        if to_file in [3, 4]:  # d or e file
+            narrative = f"Opponent pushes a central pawn with {move_san}."
+            your_plan = "Fight for the center! Don't let them dominate."
+            return (narrative, your_plan)
+    
+    # Default
+    narrative = f"Opponent plays {move_san}."
+    your_plan = "What's your plan? Think about what you want to achieve."
+    return (narrative, your_plan)
+
+
+def generate_good_move_narrative(
+    board: chess.Board,
+    move: chess.Move,
+    best_move_san: Optional[str],
+    piece_name: str
+) -> str:
+    """Generate encouraging narrative for a good move."""
+    move_san = board.san(move)
+    
+    # Best move?
+    if best_move_san and move_san == best_move_san:
+        celebrations = [
+            f"Perfect! {move_san} is exactly right!",
+            f"Yes! {move_san} - that's the best move!",
+            f"Excellent! {move_san} is spot on!",
+            f"Great find! {move_san} is the engine's top choice!"
+        ]
+        import random
+        return random.choice(celebrations)
+    
+    # Check/capture
+    board_after = board.copy()
+    board_after.push(move)
+    
+    if board_after.is_check():
+        return f"Nice! {move_san} gives check!"
+    
+    if board.is_capture(move):
+        captured = board.piece_at(move.to_square)
+        if captured:
+            captured_name = get_fun_piece_name(captured)
+            return f"Good capture! {move_san} takes the {captured_name}!"
+    
+    # Castling
+    if board.is_castling(move):
+        return f"Smart! {move_san} gets your King to safety!"
+    
+    # Default good
+    return f"Good move! {move_san} keeps you in the game."
+
+
+def generate_piece_specific_coaching(
+    board: chess.Board,
+    move: chess.Move,
+    piece_type: Optional[int],
+    consequence: str,
+    candidate_moves: List[Dict],
+    best_move_san: Optional[str],
+    severity: str
+) -> V5Coaching:
+    """Generate coaching based on the piece that moved."""
+    
+    move_san = board.san(move)
+    to_square = move.to_square
+    better_approach = candidate_moves[0]["idea"] if candidate_moves else f"{best_move_san} was better"
+    
+    # Derive learning from candidate types
+    candidate_types = [c.get("type", "") for c in candidate_moves]
+    transferable_learning = derive_transferable_learning(candidate_types, piece_type)
+    
+    # Knight mistakes
+    if piece_type == chess.KNIGHT:
+        # Knight on the rim
+        if chess.square_file(to_square) in [0, 7] or chess.square_rank(to_square) in [0, 7]:
+            return V5Coaching(
+                narrative=f"Naughty Knight! {move_san} goes to the edge!",
+                severity=severity,
+                goal="Keep knights active",
+                current_problem=f"Your Horsey wandered to the edge with {move_san}!",
+                consequence=consequence,
+                better_approach=better_approach,
+                transferable_learning=transferable_learning or "Knights on the rim are dim! They have fewer squares to jump to.",
+                concept_id="knight_on_rim",
+                concept_type="positional",
+                candidate_moves=candidate_moves
+            )
+        # Knight without purpose
+        return V5Coaching(
+            narrative=f"Hmm, {move_san} - what's your Horsey doing there?",
+            severity=severity,
+            goal="Give pieces a job",
+            current_problem=f"Naughty Knight! {move_san} doesn't have a clear purpose.",
+            consequence=consequence,
+            better_approach=better_approach,
+            transferable_learning=transferable_learning or "Every piece needs a job! Ask: what is this piece doing for me?",
+            concept_id="piece_without_purpose",
+            concept_type="positional",
+            candidate_moves=candidate_moves
+        )
+    
+    # Bishop mistakes
+    if piece_type == chess.BISHOP:
+        return V5Coaching(
+            narrative=f"Your Slicey Boi looks sad after {move_san}!",
+            severity=severity,
+            goal="Keep bishops active",
+            current_problem=f"Your Slicey Boi at {move_san} doesn't have good diagonals!",
+            consequence=consequence,
+            better_approach=better_approach,
+            transferable_learning=transferable_learning or "Bishops need OPEN diagonals. If pawns block them, they're sad!",
+            concept_id="blocked_bishop",
+            concept_type="positional",
+            candidate_moves=candidate_moves
+        )
+    
+    # Pawn mistakes
+    if piece_type == chess.PAWN:
+        return V5Coaching(
+            narrative=f"Careful with {move_san} - pawns can't go back!",
+            severity=severity,
+            goal="Think before pushing pawns",
+            current_problem=f"That Little Soldier at {move_san} can't retreat!",
+            consequence=consequence,
+            better_approach=better_approach,
+            transferable_learning=transferable_learning or "Pawns can NEVER go back! Every pawn move creates a weakness somewhere.",
+            concept_id="premature_pawn",
+            concept_type="positional",
+            candidate_moves=candidate_moves
+        )
+    
+    # Queen mistakes
+    if piece_type == chess.QUEEN:
+        return V5Coaching(
+            narrative=f"Your Queen might be in danger after {move_san}!",
+            severity=severity,
+            goal="Keep your Queen safe",
+            current_problem=f"The Queen is your most powerful piece - {move_san} might expose her!",
+            consequence=consequence,
+            better_approach=better_approach,
+            transferable_learning=transferable_learning or "Don't bring the Queen out too early - she'll get chased around!",
+            concept_id="queen_safety",
+            concept_type="tactical",
+            candidate_moves=candidate_moves
+        )
+    
+    # Rook mistakes  
+    if piece_type == chess.ROOK:
+        return V5Coaching(
+            narrative=f"Is your Tower happy at {move_san}?",
+            severity=severity,
+            goal="Activate your rooks",
+            current_problem=f"{move_san} - your Tower needs open files to shine!",
+            consequence=consequence,
+            better_approach=better_approach,
+            transferable_learning=transferable_learning or "Rooks love open files and the 7th rank! Put them where they can see far.",
+            concept_id="rook_placement",
+            concept_type="positional",
+            candidate_moves=candidate_moves
+        )
+    
+    # Generic
+    return V5Coaching(
+        narrative=f"Let's think about {move_san}...",
+        severity=severity,
+        goal="Think before you move",
+        current_problem=f"Hmm, {move_san} has a problem!",
+        consequence=consequence,
+        better_approach=better_approach,
+        transferable_learning=transferable_learning or "Before EVERY move, ask: what can my opponent do after this?",
+        concept_id="generic_mistake",
+        concept_type="general",
+        candidate_moves=candidate_moves
+    )
+
+
+def derive_transferable_learning(candidate_types: List[str], piece_type: Optional[int]) -> str:
+    """Derive a golden rule from the types of good moves available."""
+    
+    if "counter_attack" in candidate_types:
+        return "Look for counter-attacks! When your opponent threatens, don't just defend - find YOUR threat!"
+    
+    if "prophylactic" in candidate_types:
+        return "Ask: what does my opponent WANT to do next? Then stop it!"
+    
+    if "development" in candidate_types:
+        return "In the opening, develop with a purpose. Each piece should aim at something!"
+    
+    if "central" in candidate_types:
+        return "The center is king! Control d4, d5, e4, e5 and your pieces will be powerful."
+    
+    if len(set(candidate_types)) >= 2:
+        return "Good positions have many good moves. Bad positions have only one! Think about ALL your options."
+    
+    return ""
