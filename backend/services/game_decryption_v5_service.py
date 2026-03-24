@@ -299,6 +299,10 @@ def extract_plan_from_pv(
     
     played_san = board.san(played_move)
     
+    # Create a board with the user's move played (for consequence analysis)
+    board_after_move = board.copy()
+    board_after_move.push(played_move)
+    
     # Try opening theory tree first (more comprehensive)
     try:
         from services.opening_theory_tree_service import get_mistake_from_theory
@@ -308,7 +312,7 @@ def extract_plan_from_pv(
             return ChessPlan(
                 goal="Follow opening principles",
                 current_problem=theory_mistake.get("why_bad", f"{played_san} is a theoretical mistake"),
-                consequence=theory_mistake.get("consequence", _describe_consequence(pv_after_played, board)),
+                consequence=theory_mistake.get("consequence", _describe_consequence(pv_after_played, board_after_move)),
                 better_approach=f"{theory_mistake.get('better_move', best_move)} is better" if theory_mistake.get('better_move') else (f"{best_move} was better" if best_move else ""),
                 transferable_learning=theory_mistake.get("learning", ""),
                 concept_id=f"theory_{theory_mistake.get('position_name', 'unknown').lower().replace(' ', '_').replace(':', '_')}",
@@ -333,7 +337,7 @@ def extract_plan_from_pv(
                     return ChessPlan(
                         goal="Control the center and develop safely",
                         current_problem=pattern.get("why_bad", f"{played_san} is premature here"),
-                        consequence=_describe_consequence(pv_after_played, board),
+                        consequence=_describe_consequence(pv_after_played, board_after_move),
                         better_approach=f"{pattern.get('good_move', best_move)} — {pattern.get('why_good', 'keeps the position solid')}",
                         transferable_learning=pattern.get("rule", ""),
                         concept_id=pattern_id,
@@ -344,44 +348,188 @@ def extract_plan_from_pv(
     
     # Try endgame principles
     if phase == "endgame":
-        endgame_plan = _match_endgame_principle(board, played_move, best_move, pv_after_played)
+        endgame_plan = _match_endgame_principle(board_after_move, played_move, best_move, pv_after_played)
         if endgame_plan:
             return endgame_plan
     
     # Try tactical patterns
-    tactical_plan = _detect_tactical_issue(board, played_move, pv_after_played, cp_loss)
+    tactical_plan = _detect_tactical_issue(board_after_move, played_move, pv_after_played, cp_loss, played_san)
     if tactical_plan:
         return tactical_plan
     
+    # Get the piece type for generic plan
+    piece_type = board.piece_at(played_move.from_square).piece_type if board.piece_at(played_move.from_square) else None
+    
     # Generic positional plan
-    return _generate_generic_plan(board, played_move, best_move, pv_after_played, pv_after_best, cp_loss)
+    return _generate_generic_plan(board_after_move, played_san, piece_type, played_move.to_square, best_move, pv_after_played, cp_loss)
 
 
 def _describe_consequence(pv: List[str], board: chess.Board) -> str:
-    """Describe what happens in the PV in simple terms."""
+    """
+    Describe what SPECIFICALLY gets weak in the PV.
+    NO MORE "position weakens" garbage!
+    
+    Must answer: WHAT gets weak and WHY?
+    """
     if not pv:
-        return "The position becomes worse"
+        return "Something's not right here!"
     
-    # Play through the line and describe key events
+    # The user just made a move, so now it's opponent's turn
+    # After opponent responds (pv[0]), we check what's weak for the user
     sim = board.copy()
-    events = []
+    user_color = not board.turn  # User just moved, so opponent is to move
+    first_move_san = pv[0]
     
-    for i, san in enumerate(pv[:4]):
-        try:
-            move = sim.parse_san(san)
-            if sim.is_capture(move):
-                captured = sim.piece_at(move.to_square)
-                if captured:
-                    events.append(f"loses the {get_piece_name(captured)}")
-            if sim.gives_check(move):
-                events.append("check")
-            sim.push(move)
-        except Exception:
-            break
+    problems = []
+    move_parsed = False
     
-    if events:
-        return f"After {' '.join(pv[:3])}, you {events[0]}"
-    return f"After {' '.join(pv[:2])}, your position weakens"
+    # First, play the first opponent move and see what it threatens
+    try:
+        first_move = sim.parse_san(first_move_san)
+        move_parsed = True
+        
+        # Play the opponent's response
+        sim.push(first_move)
+        
+        # Check ALL user pieces for new attacks
+        for sq in chess.SQUARES:
+            piece = sim.piece_at(sq)
+            if piece and piece.color == user_color:
+                attackers = list(sim.attackers(not user_color, sq))
+                defenders = list(sim.attackers(user_color, sq))
+                
+                if attackers:
+                    piece_name = _get_fun_piece_name(piece)
+                    sq_name = chess.square_name(sq)
+                    
+                    # Attacked more than defended = problem!
+                    if len(attackers) > len(defenders):
+                        if piece.piece_type == chess.PAWN:
+                            if len(defenders) == 0:
+                                problems.append(f"your pawn on {sq_name} is totally undefended with {len(attackers)} pieces eyeing it!")
+                            else:
+                                problems.append(f"your pawn on {sq_name} is outnumbered - {len(attackers)} attackers vs {len(defenders)} defender!")
+                        else:
+                            if len(defenders) == 0:
+                                problems.append(f"your {piece_name} on {sq_name} is hanging with no defenders!")
+                            else:
+                                problems.append(f"your {piece_name} on {sq_name} is outnumbered - {len(attackers)} vs {len(defenders)}!")
+                    # Attacked and not defended at all
+                    elif not defenders and piece.piece_type != chess.KING:
+                        problems.append(f"your {piece_name} on {sq_name} is naked! Nobody defending!")
+                
+                if problems:
+                    break
+        
+        # Check for checks
+        if sim.is_check():
+            problems.append("your King gets checked! Gotta deal with that first!")
+        
+    except Exception:
+        # Move couldn't be parsed - analyze position directly instead
+        pass
+    
+    # Continue through the line if no problems found yet
+    if not problems and move_parsed:
+        sim = board.copy()
+        for i, san in enumerate(pv[:4]):
+            try:
+                move = sim.parse_san(san)
+                
+                # Check for material loss
+                if sim.is_capture(move):
+                    captured = sim.piece_at(move.to_square)
+                    if captured and captured.color == user_color:
+                        captured_name = _get_fun_piece_name(captured)
+                        sq_name = chess.square_name(move.to_square)
+                        problems.append(f"your {captured_name} on {sq_name} gets chomped!")
+                        break
+                
+                sim.push(move)
+                
+            except Exception:
+                break
+    
+    # If still no problems found, do positional analysis
+    if not problems:
+        problems = _analyze_positional_weakness(board, user_color)
+    
+    # Build the consequence message
+    if problems:
+        return f"After {first_move_san}, {problems[0]}"
+    
+    # Absolute last resort - describe what the opponent's move threatens
+    return f"After {first_move_san}, your opponent gains space and activity. You'll need to defend!"
+
+
+def _analyze_positional_weakness(board: chess.Board, user_color: bool) -> List[str]:
+    """
+    Find positional weaknesses when no tactical issues are found.
+    Returns a list of specific problems.
+    """
+    problems = []
+    
+    # Check for center control issues
+    center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
+    user_center_control = 0
+    opp_center_control = 0
+    
+    for sq in center_squares:
+        user_attackers = len(list(board.attackers(user_color, sq)))
+        opp_attackers = len(list(board.attackers(not user_color, sq)))
+        user_center_control += user_attackers
+        opp_center_control += opp_attackers
+    
+    if opp_center_control > user_center_control + 2:
+        problems.append("your opponent controls the center! Your pieces have fewer good squares.")
+    
+    # Check for development issues (pieces still on back rank)
+    undeveloped = 0
+    back_rank_squares = [chess.B1, chess.C1, chess.F1, chess.G1] if user_color == chess.WHITE else [chess.B8, chess.C8, chess.F8, chess.G8]
+    for sq in back_rank_squares:
+        piece = board.piece_at(sq)
+        if piece and piece.color == user_color and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
+            undeveloped += 1
+    
+    if undeveloped >= 2:
+        problems.append("you're behind in development! Get those pieces out!")
+    
+    # Check for king safety (castling rights)
+    if user_color == chess.WHITE:
+        if not board.has_kingside_castling_rights(chess.WHITE) and not board.has_queenside_castling_rights(chess.WHITE):
+            king_sq = board.king(chess.WHITE)
+            if king_sq and chess.square_file(king_sq) in [3, 4]:  # King still in center
+                problems.append("your King is stuck in the center without castling rights. Dangerous!")
+    else:
+        if not board.has_kingside_castling_rights(chess.BLACK) and not board.has_queenside_castling_rights(chess.BLACK):
+            king_sq = board.king(chess.BLACK)
+            if king_sq and chess.square_file(king_sq) in [3, 4]:
+                problems.append("your King is stuck in the center without castling rights. Dangerous!")
+    
+    # Check for weak pawns
+    for sq in chess.SQUARES:
+        piece = board.piece_at(sq)
+        if piece and piece.color == user_color and piece.piece_type == chess.PAWN:
+            # Check if pawn is isolated
+            file = chess.square_file(sq)
+            has_neighbor = False
+            for neighbor_file in [file - 1, file + 1]:
+                if 0 <= neighbor_file <= 7:
+                    for rank in range(8):
+                        neighbor_sq = chess.square(neighbor_file, rank)
+                        neighbor_piece = board.piece_at(neighbor_sq)
+                        if neighbor_piece and neighbor_piece.color == user_color and neighbor_piece.piece_type == chess.PAWN:
+                            has_neighbor = True
+                            break
+            
+            if not has_neighbor:
+                sq_name = chess.square_name(sq)
+                attackers = list(board.attackers(not user_color, sq))
+                if attackers:
+                    problems.append(f"your isolated pawn on {sq_name} is a target!")
+                    break
+    
+    return problems
 
 
 def _match_endgame_principle(
@@ -435,10 +583,11 @@ def _match_endgame_principle(
 
 
 def _detect_tactical_issue(
-    board: chess.Board,
+    board_after: chess.Board,
     played_move: chess.Move,
     pv: List[str],
-    cp_loss: int
+    cp_loss: int,
+    played_san: str
 ) -> Optional[ChessPlan]:
     """Detect if the move allows a tactical pattern."""
     if cp_loss < 100:
@@ -446,9 +595,9 @@ def _detect_tactical_issue(
     
     tactical_patterns = get_theory_data("tactical_patterns")
     
-    # Play the move and check opponent's response
-    sim = board.copy()
-    sim.push(played_move)
+    # Board already has the move played
+    sim = board_after.copy()
+    user_color = not board_after.turn  # The user just moved
     
     if pv:
         try:
@@ -462,33 +611,34 @@ def _detect_tactical_issue(
                     sim2.push(opp_response)
                     attacked = []
                     for sq in chess.SQUARES:
-                        if sim2.is_attacked_by(not board.turn, sq):
+                        if sim2.is_attacked_by(not user_color, sq):
                             piece = sim2.piece_at(sq)
-                            if piece and piece.color == board.turn:
-                                attacked.append(get_piece_name(piece))
-                    if len(attacked) >= 2 and "king" in attacked:
+                            if piece and piece.color == user_color:
+                                attacked.append(_get_fun_piece_name(piece))
+                    if len(attacked) >= 2 and "King" in attacked:
                         pattern = tactical_patterns.get("knight_fork", {})
+                        other_piece = [p for p in attacked if p != "King"][0]
                         return ChessPlan(
                             goal="Avoid tactical vulnerabilities",
-                            current_problem=f"This allows a knight fork on your king and {attacked[1] if attacked[1] != 'king' else attacked[0]}",
-                            consequence=f"After {pv[0]}, your opponent forks and wins material",
-                            better_approach="Keep your king and queen on different color squares",
-                            transferable_learning=pattern.get("rule", "Watch for knight fork squares"),
+                            current_problem=f"Oops! {played_san} allows a Horsey fork!",
+                            consequence=f"After {pv[0]}, their knight forks your King and {other_piece}!",
+                            better_approach="Knights can fork pieces that are on the same color square!",
+                            transferable_learning="Watch out for Horsey forks! King + Queen on same color = danger!",
                             concept_id="knight_fork",
                             concept_type="tactical"
                         )
             
             # Check for back rank issues
             if sim.is_check():
-                king_sq = sim.king(board.turn)
+                king_sq = sim.king(user_color)
                 if king_sq and chess.square_rank(king_sq) in [0, 7]:
                     pattern = tactical_patterns.get("back_rank_weakness", {})
                     return ChessPlan(
                         goal="Keep your king safe",
-                        current_problem="This weakens your back rank",
-                        consequence=f"After {pv[0]}, you face back rank threats",
-                        better_approach="Give your king an escape square (h3 or g3)",
-                        transferable_learning=pattern.get("rule", "Give your king luft before it's too late"),
+                        current_problem=f"{played_san} weakens your back rank!",
+                        consequence=f"After {pv[0]}, you face nasty back rank threats!",
+                        better_approach="Give your King some air! Push h3 or g3 to create an escape square.",
+                        transferable_learning=pattern.get("rule", "Luft = Life! Always give your King an escape square."),
                         concept_id="back_rank_weakness",
                         concept_type="tactical"
                     )
@@ -499,47 +649,77 @@ def _detect_tactical_issue(
 
 
 def _generate_generic_plan(
-    board: chess.Board,
-    played_move: chess.Move,
+    board_after: chess.Board,
+    played_san: str,
+    piece_type: Optional[int],
+    to_square: int,
     best_move: Optional[str],
     pv_after_played: List[str],
-    pv_after_best: List[str],
     cp_loss: int
 ) -> ChessPlan:
-    """Generate a generic plan when no specific pattern matches."""
-    played_san = board.san(played_move)
-    piece = board.piece_at(played_move.from_square)
-    piece_name = get_piece_name(piece) if piece else "piece"
+    """Generate a plan with FUN language and SPECIFIC golden rules."""
     
-    # Determine the type of issue
-    if board.is_capture(played_move):
-        concept_type = "tactical"
-        goal = "Calculate captures carefully"
-        problem = f"This {piece_name} capture has a flaw"
+    # Analyze what went wrong SPECIFICALLY
+    consequence = _describe_consequence(pv_after_played, board_after)
+    
+    # Determine the type of issue and pick a MEMORABLE golden rule
+    if piece_type == chess.KNIGHT:
+        # Knight on the rim?
+        if chess.square_file(to_square) in [0, 7] or chess.square_rank(to_square) in [0, 7]:
+            return ChessPlan(
+                goal="Keep knights active",
+                current_problem=f"Your Horsey wandered to the edge with {played_san}!",
+                consequence=consequence,
+                better_approach=f"{best_move} keeps the knight in the game" if best_move else "Knights belong in the center!",
+                transferable_learning="Knights on the rim are dim! They have fewer squares to jump to.",
+                concept_id="knight_on_rim",
+                concept_type="positional"
+            )
+        # Knight with no purpose?
+        else:
+            return ChessPlan(
+                goal="Give pieces a job",
+                current_problem=f"Naughty Knight! {played_san} doesn't do anything useful.",
+                consequence=consequence,
+                better_approach=f"{best_move} was better" if best_move else "Find a square where the knight attacks or defends something!",
+                transferable_learning="Every piece needs a job! Ask: what is this piece doing for me?",
+                concept_id="piece_without_purpose",
+                concept_type="positional"
+            )
+    
+    elif piece_type == chess.BISHOP:
+        return ChessPlan(
+            goal="Keep bishops active",
+            current_problem=f"Your Slicey Boi at {played_san} doesn't have good diagonals!",
+            consequence=consequence,
+            better_approach=f"{best_move} gives the bishop more scope" if best_move else "Bishops love open diagonals!",
+            transferable_learning="Bishops need OPEN diagonals. If pawns block them, they're sad!",
+            concept_id="blocked_bishop",
+            concept_type="positional"
+        )
+    
+    elif piece_type == chess.PAWN:
+        return ChessPlan(
+            goal="Think before pushing pawns",
+            current_problem=f"That Little Soldier at {played_san} can't go backwards!",
+            consequence=consequence,
+            better_approach=f"{best_move} was safer" if best_move else "Pawns can't retreat. Make sure it's the right time!",
+            transferable_learning="Pawns can NEVER go back! Every pawn move creates a weakness somewhere.",
+            concept_id="premature_pawn",
+            concept_type="positional"
+        )
+    
     else:
-        concept_type = "positional"
-        goal = "Improve your pieces"
-        problem = f"Moving the {piece_name} here doesn't help your position"
-    
-    consequence = _describe_consequence(pv_after_played, board)
-    
-    better = ""
-    if best_move:
-        better = f"{best_move} was better"
-        if pv_after_best:
-            better += f" — the idea is {' '.join(pv_after_best[:2])}"
-    
-    severity = "inaccuracy" if cp_loss < 100 else ("mistake" if cp_loss < 250 else "blunder")
-    
-    return ChessPlan(
-        goal=goal,
-        current_problem=problem,
-        consequence=consequence,
-        better_approach=better,
-        transferable_learning="Before moving, ask: what does my opponent do next?",
-        concept_id=f"generic_{severity}",
-        concept_type=concept_type
-    )
+        # Generic but still SPECIFIC
+        return ChessPlan(
+            goal="Think before you move",
+            current_problem=f"Hmm, {played_san} has a problem!",
+            consequence=consequence,
+            better_approach=f"{best_move} was the move here" if best_move else "Look at what your opponent can do next!",
+            transferable_learning="Before EVERY move, ask: what can my opponent do after this?",
+            concept_id="generic_mistake",
+            concept_type="general"
+        )
 
 
 # ─── OPPONENT MOVE ANALYSIS ──────────────────────────────────────────

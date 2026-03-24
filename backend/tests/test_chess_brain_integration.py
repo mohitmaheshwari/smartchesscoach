@@ -21,7 +21,7 @@ import uuid
 import time
 from typing import Dict, Any
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://think-chess-coach.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://deep-move-analysis.preview.emergentagent.com').rstrip('/')
 
 
 class TestChessBrainDetectorRegistry:

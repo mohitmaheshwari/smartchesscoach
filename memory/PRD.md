@@ -13,10 +13,11 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 4. **Smart theory** (track what user has acknowledged understanding)
 5. **Simple language** (1200-friendly, under 20 words)
 6. **Show the future** (next 1-2 moves in the variation)
+7. **SPECIFIC consequences** - Never generic "position weakens", always explain WHAT gets weak and WHY
 
 ---
 
-## V5 Implementation Status: ✅ COMPLETE
+## V5 Implementation Status: COMPLETE
 
 ### What's Been Implemented (December 2025)
 
@@ -26,6 +27,10 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 - Integrates opening theory tree
 - Tracks concept acknowledgment
 - LLM enhancement for mistakes
+- **FIXED**: Specific consequence analysis (March 2025)
+  - Fixed syntax error in tactical pattern detection
+  - Enhanced `_describe_consequence` function with fallback positional analysis
+  - Added `_analyze_positional_weakness` for non-tactical issues
 
 #### 2. LLM Narrator (`v5_llm_narrator.py`)
 - GPT-4.1-mini via emergentintegrations
@@ -45,11 +50,37 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 - Detects improvement trends
 
 #### 5. Frontend V5 Component (`GameDecryptionV5.jsx`)
-- "I understand ✓" button for concept acknowledgment
+- "I understand" button for concept acknowledgment
 - Clickable moves in explanations (shows future on board)
 - Opponent moves coaching ("What's your plan now?")
 - Good move recognition with concept tracking
 - Color-coded severity indicators
+
+---
+
+## Bug Fixes (March 2025)
+
+### P0: Consequence Explanation Specificity
+**Problem**: The consequence explanations were generic (e.g., "your position weakens") instead of specific (e.g., "your c7 pawn is attacked by 2 pieces and defended by only 1").
+
+**Root Cause**:
+1. Syntax error in `_detect_tactical_issue` function (duplicate/malformed return statement)
+2. No fallback analysis when PV moves couldn't be parsed or no tactical issues found
+
+**Fix Applied**:
+1. Fixed syntax error in tactical pattern detection (back_rank_weakness handling)
+2. Enhanced `_describe_consequence` to track whether PV was successfully parsed
+3. Added new `_analyze_positional_weakness` function that checks:
+   - Center control imbalances
+   - Development issues (pieces on back rank)
+   - King safety (castling rights lost, king in center)
+   - Weak/isolated pawns
+4. Consequence function now always returns SPECIFIC feedback
+
+**Test Results**: All tests pass with specific output:
+- "After d5, your pawn on e4 is totally undefended with 1 pieces eyeing it!"
+- "After Nxe4, your Little Soldier on e4 gets chomped!"
+- "After Nb5, you're behind in development! Get those pieces out!"
 
 ---
 
@@ -142,11 +173,12 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 ---
 
 ## Testing Status
-- V5 endpoint: ✅ Tested with multiple games
-- LLM integration: ✅ Working with GPT-4.1-mini
-- "I understand" button: ✅ Saves to database
-- Frontend rendering: ✅ All components displaying correctly
+- V5 endpoint: Tested with multiple games
+- LLM integration: Working with GPT-4.1-mini
+- "I understand" button: Saves to database
+- Frontend rendering: All components displaying correctly
+- **Consequence analysis: FIXED and tested (March 2025)**
 
 ---
 
-*Last Updated: December 2025*
+*Last Updated: March 2025*
