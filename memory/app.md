@@ -605,7 +605,7 @@ EMERGENT_LLM_KEY=<key>
 
 ### Frontend `.env`
 ```bash
-REACT_APP_BACKEND_URL=https://move-intent-engine.preview.emergentagent.com
+REACT_APP_BACKEND_URL=https://think-chess-coach.preview.emergentagent.com
 ```
 
 ### Key Constants
