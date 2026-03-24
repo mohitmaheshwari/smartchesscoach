@@ -132,6 +132,89 @@ def get_piece_value(piece: chess.Piece) -> int:
 
 # ─── STOCKFISH CANDIDATE MOVES ─────────────────────────────────────
 
+async def quick_stockfish_eval(fen_before: str, move_san: str, user_color: str, depth: int = 12) -> dict:
+    """
+    Quick Stockfish evaluation for a move. Returns best_move, eval_before, eval_after, cp_loss.
+    Used by Play with Coach to get instant move quality without waiting for analysis worker.
+    """
+    try:
+        board = chess.Board(fen_before)
+        move = board.parse_san(move_san)
+        
+        transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+        try:
+            # Eval BEFORE the move
+            info_before = await engine.analyse(board, chess.engine.Limit(depth=depth))
+            score_before = info_before.get("score")
+            eval_before = 0.0
+            if score_before:
+                if score_before.white().is_mate():
+                    eval_before = 100.0 if score_before.white().mate() > 0 else -100.0
+                else:
+                    eval_before = score_before.white().score(mate_score=10000) / 100.0
+            
+            # Get best move
+            best_move_obj = info_before.get("pv", [None])[0]
+            best_move_san = board.san(best_move_obj) if best_move_obj else move_san
+            pv_after_best = []
+            if info_before.get("pv"):
+                temp_board = board.copy()
+                for pv_move in info_before["pv"][:5]:
+                    try:
+                        pv_after_best.append(temp_board.san(pv_move))
+                        temp_board.push(pv_move)
+                    except Exception:
+                        break
+            
+            # Apply the played move and eval AFTER
+            board.push(move)
+            info_after = await engine.analyse(board, chess.engine.Limit(depth=depth))
+            score_after = info_after.get("score")
+            eval_after = 0.0
+            if score_after:
+                if score_after.white().is_mate():
+                    eval_after = 100.0 if score_after.white().mate() > 0 else -100.0
+                else:
+                    eval_after = score_after.white().score(mate_score=10000) / 100.0
+            
+            # PV after played move
+            pv_after_played = []
+            if info_after.get("pv"):
+                temp_board = board.copy()
+                for pv_move in info_after["pv"][:5]:
+                    try:
+                        pv_after_played.append(temp_board.san(pv_move))
+                        temp_board.push(pv_move)
+                    except Exception:
+                        break
+            
+            # Calculate cp_loss (from user's perspective)
+            if user_color == "white":
+                cp_loss = max(0, int((eval_before - eval_after) * 100))
+            else:
+                cp_loss = max(0, int((eval_after - eval_before) * 100))
+            
+            return {
+                "best_move": best_move_san,
+                "eval_before": eval_before,
+                "eval_after": eval_after,
+                "cp_loss": cp_loss,
+                "pv_after_played": pv_after_played,
+                "pv_after_best": pv_after_best
+            }
+        finally:
+            await engine.quit()
+    except Exception as e:
+        logger.warning(f"Quick Stockfish eval failed: {e}")
+        return {
+            "best_move": None,
+            "eval_before": 0,
+            "eval_after": 0,
+            "cp_loss": 0,
+            "pv_after_played": [],
+            "pv_after_best": []
+        }
+
 async def get_stockfish_candidates(
     board: chess.Board, 
     num_moves: int = 3, 

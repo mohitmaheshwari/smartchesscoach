@@ -1783,21 +1783,20 @@ async def get_interactive_coaching(
     """
     Get INTERACTIVE coaching for Play with Coach.
     
-    Uses the SAME V5 pipeline as Lab (generate_move_coaching) for user moves,
-    ensuring identical quality: Stockfish candidates, consequences, golden rules.
-    
-    Returns:
-    - user_move_coaching: V5 coaching for user's last move (same as Lab!)
-    - coach_move_coaching: Explanation of coach's last move (plan, threats)
-    - is_user_turn: Whether it's user's turn now
+    Supports phased calls:
+    - phase="user_move" → Return only user move V5 coaching (call RIGHT after user moves)
+    - phase="coach_move" → Return only coach move explanation (call after coach responds)
+    - phase=None → Return both (default, backward compat)
     """
     global db
     if db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    from services.shared_coaching_v5 import generate_move_coaching, generate_coach_move_explanation, CoachingContext
+    from services.shared_coaching_v5 import generate_move_coaching, generate_coach_move_explanation, CoachingContext, quick_stockfish_eval
     
     session_id = request.get("session_id")
+    phase = request.get("phase")  # "user_move", "coach_move", or None (both)
+    
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required")
     
@@ -1836,20 +1835,22 @@ async def get_interactive_coaching(
     if move_history:
         result["is_user_turn"] = move_history[-1].get("by") == "coach"
     
-    # === USER MOVE: Run through REAL V5 pipeline (same as Lab!) ===
-    if last_user_move and last_user_move.get("fen_before"):
+    # === USER MOVE COACHING (phase="user_move" or both) ===
+    if phase in (None, "user_move") and last_user_move and last_user_move.get("fen_before"):
         try:
             fen_before = last_user_move["fen_before"]
             move_san = last_user_move["move"]
             board = chess.Board(fen_before)
             move = board.parse_san(move_san)
             
-            # Get Stockfish data from enriched move_history or evaluations
+            # Try stored analysis data first
             best_move = last_user_move.get("best_move")
             eval_before = last_user_move.get("eval_before", 0)
             eval_after = last_user_move.get("eval_after", 0)
+            pv_after_played = last_user_move.get("pv_after_played", [])
+            pv_after_best = last_user_move.get("pv_after_best", [])
             
-            # Fallback: check evaluations list if move_history wasn't enriched yet
+            # Fallback: check evaluations list
             if not best_move and evaluations:
                 for ev in reversed(evaluations):
                     if ev.get("move") == move_san and ev.get("by") == "player":
@@ -1857,6 +1858,15 @@ async def get_interactive_coaching(
                         eval_before = ev.get("eval_before", eval_before)
                         eval_after = ev.get("eval_after", eval_after)
                         break
+            
+            # If STILL no analysis data, run quick Stockfish eval inline
+            if not best_move:
+                sf_eval = await quick_stockfish_eval(fen_before, move_san, user_color)
+                best_move = sf_eval["best_move"]
+                eval_before = sf_eval["eval_before"]
+                eval_after = sf_eval["eval_after"]
+                pv_after_played = sf_eval["pv_after_played"]
+                pv_after_best = sf_eval["pv_after_best"]
             
             # Calculate cp_loss
             if user_color == "white":
@@ -1866,17 +1876,17 @@ async def get_interactive_coaching(
             
             # Determine game phase
             fullmove = board.fullmove_number
-            phase = "opening" if fullmove <= 10 else ("middlegame" if fullmove <= 30 else "endgame")
+            phase_str = "opening" if fullmove <= 10 else ("middlegame" if fullmove <= 30 else "endgame")
             
             # Run V5 coaching — SAME function Lab uses!
             coaching = await generate_move_coaching(
                 board_before=board,
                 move=move,
                 best_move_san=best_move,
-                pv_after_played=last_user_move.get("pv_after_played", []),
-                pv_after_best=last_user_move.get("pv_after_best", []),
+                pv_after_played=pv_after_played,
+                pv_after_best=pv_after_best,
                 cp_loss=cp_loss,
-                phase=phase,
+                phase=phase_str,
                 is_user_move=True,
                 context=CoachingContext.LIVE_AFTER_USER,
                 user_color=user_color
@@ -1889,8 +1899,8 @@ async def get_interactive_coaching(
         except Exception as e:
             logger.error(f"Error generating V5 user move coaching: {e}")
     
-    # === COACH MOVE: Explain what the coach did and why ===
-    if last_coach_move and last_coach_move.get("fen_before"):
+    # === COACH MOVE COACHING (phase="coach_move" or both) ===
+    if phase in (None, "coach_move") and last_coach_move and last_coach_move.get("fen_before"):
         try:
             board = chess.Board(last_coach_move["fen_before"])
             move = board.parse_san(last_coach_move["move"])

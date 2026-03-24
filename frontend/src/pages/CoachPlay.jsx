@@ -904,12 +904,70 @@ const CoachPlay = ({ user }) => {
     }
   };
   
-  // Fetch interactive two-part coaching (user move feedback + coach move explanation)
+  // Phase 1: Fetch V5 coaching for user's move (called RIGHT after user plays)
+  const fetchUserMoveCoaching = async (sessionId) => {
+    if (!sessionId) return;
+    
+    setLoadingFeedback(true);
+    
+    try {
+      const response = await fetch(`${API}/coach/play/v5/interactive-feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ session_id: sessionId, phase: "user_move" })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.user_move_coaching) {
+          setV5Coaching(data.user_move_coaching);
+          setInteractiveCoaching(prev => ({
+            ...prev,
+            userMoveCoaching: data.user_move_coaching
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user move coaching:", error);
+    } finally {
+      setLoadingFeedback(false);
+    }
+  };
+  
+  // Phase 2: Fetch coach's move explanation (called AFTER coach responds)
+  const fetchCoachMoveExplanation = async (sessionId) => {
+    if (!sessionId) return;
+    
+    try {
+      const response = await fetch(`${API}/coach/play/v5/interactive-feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ session_id: sessionId, phase: "coach_move" })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.coach_move_coaching) {
+          setInteractiveCoaching(prev => ({
+            ...prev,
+            coachMoveCoaching: data.coach_move_coaching
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching coach move explanation:", error);
+    }
+  };
+  
+  // Combined fetch for resume/trigger (gets both at once)
   const fetchInteractiveCoaching = async (sessionId) => {
     if (!sessionId) return;
     
     setLoadingFeedback(true);
-    setIsCoachThinking(true);
     
     try {
       const response = await fetch(`${API}/coach/play/v5/interactive-feedback`, {
@@ -922,14 +980,11 @@ const CoachPlay = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
         
-        // Store coach move explanation
         setInteractiveCoaching({
           userMoveCoaching: data.user_move_coaching || null,
           coachMoveCoaching: data.coach_move_coaching || null
         });
         
-        // Set V5 coaching directly from the real V5 pipeline response
-        // This is the SAME format Lab uses - candidate moves, consequences, golden rules
         if (data.user_move_coaching) {
           setV5Coaching(data.user_move_coaching);
         }
@@ -938,7 +993,6 @@ const CoachPlay = ({ user }) => {
       console.error("Error fetching interactive coaching:", error);
     } finally {
       setLoadingFeedback(false);
-      setIsCoachThinking(false);
     }
   };
 
@@ -1312,6 +1366,12 @@ const CoachPlay = ({ user }) => {
         setCoachThinking(true);
         setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
         
+        // Clear previous coach explanation (new move cycle starting)
+        setInteractiveCoaching(prev => ({ ...prev, coachMoveCoaching: null }));
+        
+        // Fetch V5 feedback for user's move IMMEDIATELY (don't wait for coach)
+        fetchUserMoveCoaching(session.session_id);
+        
         // Add thinking message to chat
         setChatMessages(prev => [...prev, {
           type: "thinking",
@@ -1399,8 +1459,8 @@ const CoachPlay = ({ user }) => {
             
             setCoachThinking(false);
             
-            // Fetch interactive two-part coaching after coach responds
-            fetchInteractiveCoaching(session.session_id);
+            // Fetch ONLY coach's move explanation (user feedback already shown)
+            fetchCoachMoveExplanation(session.session_id);
             
             return;
           }
