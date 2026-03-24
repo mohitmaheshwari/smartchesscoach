@@ -128,7 +128,7 @@ const StreakContent = ({ data, onClose, onStartGame }) => {
     icon = <AlertTriangle className="w-8 h-8 text-red-400" />;
     iconBg = "bg-red-500/20";
     headline = "Last Game: Failed";
-    subtext = `You ignored ${focus_mistake_name.toLowerCase()} and lost. Fix it now.`;
+    subtext = `You ignored ${(focus_mistake_name || 'this mistake').toLowerCase()} and lost. Fix it now.`;
     buttonText = "Redeem Yourself";
     urgencyMessage = "This is the mistake that's holding you back.";
   } else if (current_streak === 0) {
@@ -136,7 +136,7 @@ const StreakContent = ({ data, onClose, onStartGame }) => {
     icon = <Target className="w-8 h-8 text-zinc-400" />;
     iconBg = "bg-zinc-800";
     headline = "Start Your Streak";
-    subtext = `Play a game without ${focus_mistake_name.toLowerCase()} mistakes.`;
+    subtext = `Play a game without ${(focus_mistake_name || 'common').toLowerCase()} mistakes.`;
     buttonText = "Begin";
     urgencyMessage = "One clean game is all it takes to start.";
   } else if (isNewBest) {
