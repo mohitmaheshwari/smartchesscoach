@@ -31,16 +31,21 @@ Architecture:
 
 import chess
 import chess.pgn
+import chess.engine
 import json
 import os
 import io
 import re
 import logging
+import asyncio
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+# Stockfish path
+STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "/usr/games/stockfish")
 
 # Load theory data
 THEORY_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "theory")
@@ -295,7 +300,8 @@ def extract_plan_from_pv(
     phase: str,
     opening_data: dict,
     cp_loss: int,
-    eco_code: Optional[str] = None
+    eco_code: Optional[str] = None,
+    stockfish_candidates: Optional[List[Dict]] = None
 ) -> Optional[ChessPlan]:
     """
     Extract a PLAN from the Stockfish PV (not just moves).
@@ -369,11 +375,12 @@ def extract_plan_from_pv(
     # Get the piece type for generic plan
     piece_type = board.piece_at(played_move.from_square).piece_type if board.piece_at(played_move.from_square) else None
     
-    # Generic positional plan - now with candidate moves!
+    # Generic positional plan - now with Stockfish candidate moves!
     return _generate_generic_plan(
         board_after_move, played_san, piece_type, played_move.to_square,
         best_move, pv_after_played, cp_loss,
-        board_before=board, played_move=played_move
+        board_before=board, played_move=played_move,
+        stockfish_candidates=stockfish_candidates
     )
 
 
@@ -612,21 +619,83 @@ def _is_move_safe(board: chess.Board, move_san: str, user_color: bool) -> bool:
     return True
 
 
+async def _get_stockfish_candidates(board: chess.Board, num_moves: int = 3, depth: int = 12) -> List[Dict]:
+    """
+    Use Stockfish multi-PV to get the TOP candidate moves.
+    
+    This ensures we only suggest moves that are actually GOOD according to the engine.
+    Returns moves sorted by evaluation (best first).
+    """
+    candidates = []
+    
+    try:
+        transport, engine = await chess.engine.popen_uci(STOCKFISH_PATH)
+        
+        try:
+            # Multi-PV analysis to get top N moves
+            result = await engine.analyse(
+                board,
+                chess.engine.Limit(depth=depth),
+                multipv=num_moves
+            )
+            
+            for info in result:
+                if "pv" not in info or not info["pv"]:
+                    continue
+                
+                move = info["pv"][0]
+                san = board.san(move)
+                
+                # Get evaluation
+                score = info.get("score")
+                if score:
+                    if score.is_mate():
+                        cp = 10000 if score.relative.mate() > 0 else -10000
+                    else:
+                        cp = score.relative.score(mate_score=10000)
+                else:
+                    cp = 0
+                
+                # Get PV continuation
+                pv_san = []
+                temp_board = board.copy()
+                for pv_move in info["pv"][:4]:
+                    try:
+                        pv_san.append(temp_board.san(pv_move))
+                        temp_board.push(pv_move)
+                    except Exception:
+                        break
+                
+                candidates.append({
+                    "move": san,
+                    "eval_cp": cp,
+                    "pv": pv_san,
+                    "is_best": len(candidates) == 0  # First one is best
+                })
+        finally:
+            await engine.quit()
+            
+    except Exception as e:
+        logger.error(f"Stockfish multi-PV analysis failed: {e}")
+    
+    return candidates
+
+
 def _analyze_candidate_moves(
     board_before: chess.Board,
     played_move: chess.Move,
     best_move_san: Optional[str],
-    user_color: bool
+    user_color: bool,
+    stockfish_candidates: Optional[List[Dict]] = None
 ) -> List[Dict]:
     """
-    Analyze candidate moves and explain the IDEA behind each one.
+    Analyze candidate moves from Stockfish and explain the IDEA behind each.
     
-    Returns up to 3 moves with their strategic ideas:
-    - The best move (from Stockfish)
-    - Alternative good moves with different plans
+    Uses STOCKFISH multi-PV data if available, otherwise falls back to best_move only.
+    This ensures we only suggest moves that are actually GOOD.
     
     Each move gets categorized and explained:
-    - counter_attack: Creates threats, gains initiative
+    - counter_attack: Creates threats, gains initiative  
     - prophylactic: Prevents opponent's plan
     - development: Gets pieces into the game
     - central: Controls key squares
@@ -635,8 +704,36 @@ def _analyze_candidate_moves(
     candidates = []
     played_san = board_before.san(played_move)
     
-    # Analyze the best move first (trust Stockfish - it's safe)
-    if best_move_san:
+    # Use Stockfish candidates if available
+    if stockfish_candidates:
+        for sf_candidate in stockfish_candidates:
+            move_san = sf_candidate.get("move")
+            if move_san == played_san:
+                continue  # Skip the move that was actually played
+            
+            # Get the idea behind this Stockfish-approved move
+            idea = _explain_move_idea(board_before, move_san, user_color)
+            
+            if idea:
+                candidates.append({
+                    "move": move_san,
+                    "idea": idea["explanation"],
+                    "type": idea["type"],
+                    "is_best": sf_candidate.get("is_best", False),
+                    "eval_cp": sf_candidate.get("eval_cp")
+                })
+            else:
+                # Fallback explanation if our heuristics don't match
+                candidates.append({
+                    "move": move_san,
+                    "idea": f"{move_san} is a strong move here according to the engine",
+                    "type": "engine_choice",
+                    "is_best": sf_candidate.get("is_best", False),
+                    "eval_cp": sf_candidate.get("eval_cp")
+                })
+    
+    # If no Stockfish candidates, use just the best move
+    elif best_move_san:
         idea = _explain_move_idea(board_before, best_move_san, user_color)
         if idea:
             candidates.append({
@@ -645,51 +742,13 @@ def _analyze_candidate_moves(
                 "type": idea["type"],
                 "is_best": True
             })
-    
-    # Find other interesting candidate moves
-    sim = board_before.copy()
-    legal_moves = list(sim.legal_moves)
-    
-    # Score and categorize other moves
-    alternative_ideas = []
-    for move in legal_moves:
-        san = sim.san(move)
-        if san == played_san or san == best_move_san:
-            continue
-        
-        # SAFETY CHECK: Skip moves that hang pieces!
-        if not _is_move_safe(board_before, san, user_color):
-            continue
-        
-        idea = _explain_move_idea(board_before, san, user_color)
-        if idea and idea["score"] > 0:
-            alternative_ideas.append({
-                "move": san,
-                "idea": idea["explanation"],
-                "type": idea["type"],
-                "score": idea["score"],
-                "is_best": False
+        else:
+            candidates.append({
+                "move": best_move_san,
+                "idea": f"{best_move_san} was the best move here",
+                "type": "engine_choice",
+                "is_best": True
             })
-    
-    # Sort by score and take alternatives with DIFFERENT strategic ideas
-    alternative_ideas.sort(key=lambda x: x["score"], reverse=True)
-    
-    # Track types we've already included
-    included_types = set()
-    if candidates and candidates[0].get("type"):
-        included_types.add(candidates[0]["type"])
-    
-    for alt in alternative_ideas:
-        # Prefer diverse move types for better learning
-        if alt["type"] in included_types and len(candidates) >= 2:
-            continue
-        
-        included_types.add(alt["type"])
-        del alt["score"]  # Remove internal score
-        candidates.append(alt)
-        
-        if len(candidates) >= 3:
-            break
     
     return candidates[:3]
 
@@ -993,23 +1052,25 @@ def _generate_generic_plan(
     pv_after_played: List[str],
     cp_loss: int,
     board_before: Optional[chess.Board] = None,
-    played_move: Optional[chess.Move] = None
+    played_move: Optional[chess.Move] = None,
+    stockfish_candidates: Optional[List[Dict]] = None
 ) -> ChessPlan:
     """
-    Generate a plan with FUN language, SPECIFIC consequences, and MULTIPLE candidate moves.
+    Generate a plan with FUN language, SPECIFIC consequences, and STOCKFISH candidate moves.
     
-    Key improvement: Shows multiple alternatives with their strategic ideas.
+    Key improvement: Uses Stockfish multi-PV for candidate moves (not pattern matching).
     """
     
     # Analyze what went wrong SPECIFICALLY
     consequence = _describe_consequence(pv_after_played, board_after)
     
-    # Get candidate moves with their ideas
+    # Get candidate moves with their ideas - NOW FROM STOCKFISH!
     candidate_moves = []
     if board_before and played_move:
         user_color = board_before.turn
         candidate_moves = _analyze_candidate_moves(
-            board_before, played_move, best_move, user_color
+            board_before, played_move, best_move, user_color,
+            stockfish_candidates=stockfish_candidates
         )
     
     # Build a rich "better approach" from candidates
@@ -1657,11 +1718,15 @@ async def generate_game_decryption_v5(
                 
             else:
                 # MISTAKE/INACCURACY - Extract plan
+                # Get Stockfish candidates for alternative moves
+                stockfish_candidates = await _get_stockfish_candidates(board, num_moves=3, depth=12)
+                
                 plan = extract_plan_from_pv(
                     board, move, best_move,
                     pv_after_played, pv_after_best,
                     phase, opening_data, cp_loss,
-                    eco_code=eco_code
+                    eco_code=eco_code,
+                    stockfish_candidates=stockfish_candidates
                 )
                 
                 if plan:
@@ -1821,8 +1886,6 @@ def generate_game_decryption_v5_sync(
     db
 ) -> List[Dict]:
     """Synchronous wrapper for V5 decryption."""
-    import asyncio
-    
     try:
         loop = asyncio.new_event_loop()
         result = loop.run_until_complete(
