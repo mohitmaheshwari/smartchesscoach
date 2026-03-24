@@ -58,29 +58,45 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 
 ---
 
-## Bug Fixes (March 2025)
+### Bug Fixes & Enhancements (March 2025)
 
-### P0: Consequence Explanation Specificity
+### P0: Consequence Explanation Specificity (FIXED)
 **Problem**: The consequence explanations were generic (e.g., "your position weakens") instead of specific (e.g., "your c7 pawn is attacked by 2 pieces and defended by only 1").
 
-**Root Cause**:
-1. Syntax error in `_detect_tactical_issue` function (duplicate/malformed return statement)
-2. No fallback analysis when PV moves couldn't be parsed or no tactical issues found
-
 **Fix Applied**:
-1. Fixed syntax error in tactical pattern detection (back_rank_weakness handling)
+1. Fixed syntax error in tactical pattern detection
 2. Enhanced `_describe_consequence` to track whether PV was successfully parsed
-3. Added new `_analyze_positional_weakness` function that checks:
-   - Center control imbalances
-   - Development issues (pieces on back rank)
-   - King safety (castling rights lost, king in center)
-   - Weak/isolated pawns
+3. Added new `_analyze_positional_weakness` function for fallback analysis
 4. Consequence function now always returns SPECIFIC feedback
 
-**Test Results**: All tests pass with specific output:
-- "After d5, your pawn on e4 is totally undefended with 1 pieces eyeing it!"
-- "After Nxe4, your Little Soldier on e4 gets chomped!"
-- "After Nb5, you're behind in development! Get those pieces out!"
+### Multiple Candidate Moves with Ideas (NEW)
+**Problem**: The coaching only showed "Bb5 was better" without explaining WHY or showing alternatives.
+
+**Solution**: Added rich candidate move analysis that shows:
+- Multiple alternative moves (up to 3)
+- The strategic IDEA behind each move (counter-attack, prophylactic, development, etc.)
+- Transferable learning derived from the types of good moves available
+
+**New Functions**:
+- `_analyze_candidate_moves()`: Finds up to 3 candidate moves with diverse strategic ideas
+- `_explain_move_idea()`: Categorizes moves as counter_attack, prophylactic, development, central, tactical, etc.
+- `_format_better_approach()`: Creates readable explanation from best candidate
+- `_derive_transferable_learning()`: Generates learning based on available move types
+
+**Example Output**:
+```
+Problem: Your Horsey wandered to the edge with Na3!
+Consequence: After d5, your pawn on e4 is totally undefended!
+Better approach: Bb5 attacks their Horsey - forces them to respond!
+Learning: Look for counter-attacks! When opponent threatens, find YOUR threat!
+
+Alternative Ideas:
+★ Bb5: attacks their Horsey - forces them to respond! [counter_attack]
+○ Nxe5: plants a piece in the center - maximum influence! [central]  
+○ Bc4: develops with a purpose - aims at the center [development]
+```
+
+**Frontend Update**: Added new UI section in `GameDecryptionV5.jsx` to display candidate moves with color-coded strategic types.
 
 ---
 

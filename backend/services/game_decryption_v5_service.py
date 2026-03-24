@@ -80,15 +80,24 @@ def get_theory_data(key: str) -> dict:
 # ─── DATA CLASSES ───────────────────────────────────────────────────
 
 @dataclass
+class CandidateMove:
+    """A candidate move with its strategic idea."""
+    move_san: str                # The move in SAN notation
+    idea: str                    # The strategic idea/plan behind this move
+    move_type: str               # "counter_attack" | "prophylactic" | "development" | "central" | "tactical"
+
+
+@dataclass
 class ChessPlan:
     """A transferable chess plan (not just moves)."""
     goal: str                    # What we're trying to achieve
     current_problem: str         # Why current move doesn't achieve it
     consequence: str             # What happens after (the future)
-    better_approach: str         # What to do instead
+    better_approach: str         # What to do instead (summary)
     transferable_learning: str   # The concept that applies to many games
     concept_id: str              # Unique ID for tracking acknowledgment
     concept_type: str            # "opening" | "endgame" | "tactical" | "positional"
+    candidate_moves: List[Dict] = field(default_factory=list)  # Multiple alternatives with ideas
 
 
 @dataclass
@@ -360,8 +369,12 @@ def extract_plan_from_pv(
     # Get the piece type for generic plan
     piece_type = board.piece_at(played_move.from_square).piece_type if board.piece_at(played_move.from_square) else None
     
-    # Generic positional plan
-    return _generate_generic_plan(board_after_move, played_san, piece_type, played_move.to_square, best_move, pv_after_played, cp_loss)
+    # Generic positional plan - now with candidate moves!
+    return _generate_generic_plan(
+        board_after_move, played_san, piece_type, played_move.to_square,
+        best_move, pv_after_played, cp_loss,
+        board_before=board, played_move=played_move
+    )
 
 
 def _describe_consequence(pv: List[str], board: chess.Board) -> str:
@@ -532,6 +545,258 @@ def _analyze_positional_weakness(board: chess.Board, user_color: bool) -> List[s
     return problems
 
 
+def _analyze_candidate_moves(
+    board_before: chess.Board,
+    played_move: chess.Move,
+    best_move_san: Optional[str],
+    user_color: bool
+) -> List[Dict]:
+    """
+    Analyze candidate moves and explain the IDEA behind each one.
+    
+    Returns up to 3 moves with their strategic ideas:
+    - The best move (from Stockfish)
+    - Alternative good moves with different plans
+    
+    Each move gets categorized and explained:
+    - counter_attack: Creates threats, gains initiative
+    - prophylactic: Prevents opponent's plan
+    - development: Gets pieces into the game
+    - central: Controls key squares
+    - tactical: Wins material or creates threats
+    """
+    candidates = []
+    played_san = board_before.san(played_move)
+    
+    # Analyze the best move first
+    if best_move_san:
+        idea = _explain_move_idea(board_before, best_move_san, user_color)
+        if idea:
+            candidates.append({
+                "move": best_move_san,
+                "idea": idea["explanation"],
+                "type": idea["type"],
+                "is_best": True
+            })
+    
+    # Find other interesting candidate moves
+    sim = board_before.copy()
+    legal_moves = list(sim.legal_moves)
+    
+    # Score and categorize other moves
+    alternative_ideas = []
+    for move in legal_moves:
+        san = sim.san(move)
+        if san == played_san or san == best_move_san:
+            continue
+        
+        idea = _explain_move_idea(board_before, san, user_color)
+        if idea and idea["score"] > 0:
+            alternative_ideas.append({
+                "move": san,
+                "idea": idea["explanation"],
+                "type": idea["type"],
+                "score": idea["score"],
+                "is_best": False
+            })
+    
+    # Sort by score and take alternatives with DIFFERENT strategic ideas
+    alternative_ideas.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Track types we've already included
+    included_types = set()
+    if candidates and candidates[0].get("type"):
+        included_types.add(candidates[0]["type"])
+    
+    for alt in alternative_ideas:
+        # Prefer diverse move types for better learning
+        if alt["type"] in included_types and len(candidates) >= 2:
+            continue
+        
+        included_types.add(alt["type"])
+        del alt["score"]  # Remove internal score
+        candidates.append(alt)
+        
+        if len(candidates) >= 3:
+            break
+    
+    return candidates[:3]
+
+
+def _explain_move_idea(board: chess.Board, move_san: str, user_color: bool) -> Optional[Dict]:
+    """
+    Explain the strategic idea behind a specific move.
+    Returns the idea type, explanation, and a quality score.
+    """
+    try:
+        move = board.parse_san(move_san)
+    except Exception:
+        return None
+    
+    piece = board.piece_at(move.from_square)
+    if not piece:
+        return None
+    
+    sim = board.copy()
+    sim.push(move)
+    
+    to_sq = move.to_square
+    to_file = chess.square_file(to_sq)
+    to_rank = chess.square_rank(to_sq)
+    
+    # Check different move ideas
+    ideas = []
+    
+    # 1. COUNTER-ATTACK: Does this move create a threat?
+    threats_created = []
+    for sq in chess.SQUARES:
+        opp_piece = sim.piece_at(sq)
+        if opp_piece and opp_piece.color != user_color:
+            if sim.is_attacked_by(user_color, sq):
+                # Was it attacked before?
+                if not board.is_attacked_by(user_color, sq):
+                    threats_created.append(_get_fun_piece_name(opp_piece))
+    
+    if threats_created:
+        target = threats_created[0]
+        ideas.append({
+            "type": "counter_attack",
+            "explanation": f"{move_san} attacks their {target} - forces them to respond!",
+            "score": 8 if "Queen" in target or "Tower" in target else 5
+        })
+    
+    # 2. PROPHYLACTIC: Does this move prevent an opponent threat?
+    # Check if move blocks or prevents an attack
+    if piece.piece_type == chess.PAWN:
+        # Check for moves like a6/h6 that prevent piece invasions
+        # a6 prevents Bb5 or Nb5, h6 prevents Bg5 or Ng5
+        prophylactic_targets = {
+            # Black pawns preventing White pieces
+            chess.A6: [(chess.B5, "Bb5"), (chess.B5, "Nb5")],
+            chess.H6: [(chess.G5, "Bg5"), (chess.G5, "Ng5")],
+            chess.A3: [(chess.B4, "Bb4"), (chess.B4, "Nb4")],
+            chess.H3: [(chess.G4, "Bg4"), (chess.G4, "Ng4")],
+            # White pawns preventing Black pieces
+            chess.A3: [(chess.B4, "Bb4"), (chess.B4, "Nb4")],
+            chess.H3: [(chess.G4, "Bg4"), (chess.G4, "Ng4")],
+        }
+        
+        if to_sq in prophylactic_targets:
+            for target_sq, piece_name in prophylactic_targets[to_sq]:
+                # Check if opponent could have played this move
+                opp_color = not user_color
+                for opp_move in board.legal_moves:
+                    if opp_move.to_square == target_sq:
+                        opp_piece = board.piece_at(opp_move.from_square)
+                        if opp_piece and opp_piece.color == opp_color:
+                            ideas.append({
+                                "type": "prophylactic",
+                                "explanation": f"{move_san} stops {piece_name} - no invasion allowed!",
+                                "score": 5
+                            })
+                            break
+        
+        # Generic prophylactic check for pawn moves on the wings
+        if to_file in [0, 7]:  # a or h pawn
+            # Check if this stops a knight/bishop invasion to b5/g5
+            invasion_squares = []
+            if user_color == chess.BLACK:
+                invasion_squares = [chess.B5, chess.G5] if to_file == 0 else [chess.G5, chess.B5]
+            else:
+                invasion_squares = [chess.B4, chess.G4] if to_file == 0 else [chess.G4, chess.B4]
+            
+            for inv_sq in invasion_squares:
+                if board.is_attacked_by(not user_color, inv_sq):
+                    ideas.append({
+                        "type": "prophylactic",
+                        "explanation": f"{move_san} prevents their piece from invading {chess.square_name(inv_sq)}",
+                        "score": 4
+                    })
+                    break
+        
+        # Check if pawn stops piece from coming to a square
+        blocked_squares = [to_sq + 8, to_sq + 9, to_sq + 7] if user_color == chess.WHITE else [to_sq - 8, to_sq - 9, to_sq - 7]
+        for bsq in blocked_squares:
+            if 0 <= bsq < 64 and board.is_attacked_by(not user_color, bsq):
+                ideas.append({
+                    "type": "prophylactic",
+                    "explanation": f"{move_san} blocks their piece from reaching {chess.square_name(bsq)}",
+                    "score": 3
+                })
+                break
+    
+    # 3. DEVELOPMENT: Is this developing a piece?
+    if piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
+        back_rank = 0 if user_color == chess.WHITE else 7
+        if chess.square_rank(move.from_square) == back_rank:
+            # Check if it's going to a good square
+            center_distance = abs(to_file - 3.5) + abs(to_rank - 3.5)
+            if center_distance < 3:
+                ideas.append({
+                    "type": "development",
+                    "explanation": f"{move_san} develops with a purpose - aims at the center",
+                    "score": 6
+                })
+            else:
+                ideas.append({
+                    "type": "development",
+                    "explanation": f"{move_san} gets a piece into the game",
+                    "score": 4
+                })
+    
+    # 4. CENTRAL CONTROL: Does this move improve center control?
+    center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
+    if to_sq in center_squares:
+        ideas.append({
+            "type": "central",
+            "explanation": f"{move_san} plants a piece in the center - maximum influence!",
+            "score": 7
+        })
+    elif piece.piece_type == chess.PAWN and to_file in [3, 4]:  # d or e file
+        ideas.append({
+            "type": "central",
+            "explanation": f"{move_san} fights for central space",
+            "score": 5
+        })
+    
+    # 5. CASTLING: King safety
+    if board.is_castling(move):
+        ideas.append({
+            "type": "king_safety",
+            "explanation": f"{move_san} tucks the King away safely - always a good idea!",
+            "score": 7
+        })
+    
+    # 6. TACTICAL: Check or capture
+    if sim.is_check():
+        ideas.append({
+            "type": "tactical",
+            "explanation": f"{move_san} gives check - forces their hand!",
+            "score": 6
+        })
+    
+    if board.is_capture(move):
+        captured = board.piece_at(move.to_square)
+        if captured:
+            attacker_value = _piece_value(piece)
+            captured_value = _piece_value(captured)
+            if captured_value >= attacker_value:
+                ideas.append({
+                    "type": "tactical",
+                    "explanation": f"{move_san} wins material!",
+                    "score": 9
+                })
+    
+    # Return the best idea for this move
+    if ideas:
+        ideas.sort(key=lambda x: x["score"], reverse=True)
+        return ideas[0]
+    
+    return None
+
+
+
+
 def _match_endgame_principle(
     board: chess.Board,
     played_move: chess.Move,
@@ -655,12 +920,32 @@ def _generate_generic_plan(
     to_square: int,
     best_move: Optional[str],
     pv_after_played: List[str],
-    cp_loss: int
+    cp_loss: int,
+    board_before: Optional[chess.Board] = None,
+    played_move: Optional[chess.Move] = None
 ) -> ChessPlan:
-    """Generate a plan with FUN language and SPECIFIC golden rules."""
+    """
+    Generate a plan with FUN language, SPECIFIC consequences, and MULTIPLE candidate moves.
+    
+    Key improvement: Shows multiple alternatives with their strategic ideas.
+    """
     
     # Analyze what went wrong SPECIFICALLY
     consequence = _describe_consequence(pv_after_played, board_after)
+    
+    # Get candidate moves with their ideas
+    candidate_moves = []
+    if board_before and played_move:
+        user_color = board_before.turn
+        candidate_moves = _analyze_candidate_moves(
+            board_before, played_move, best_move, user_color
+        )
+    
+    # Build a rich "better approach" from candidates
+    better_approach = _format_better_approach(candidate_moves, best_move)
+    
+    # Determine transferable learning based on the candidate types
+    transferable_learning = _derive_transferable_learning(candidate_moves, piece_type, to_square)
     
     # Determine the type of issue and pick a MEMORABLE golden rule
     if piece_type == chess.KNIGHT:
@@ -670,10 +955,11 @@ def _generate_generic_plan(
                 goal="Keep knights active",
                 current_problem=f"Your Horsey wandered to the edge with {played_san}!",
                 consequence=consequence,
-                better_approach=f"{best_move} keeps the knight in the game" if best_move else "Knights belong in the center!",
-                transferable_learning="Knights on the rim are dim! They have fewer squares to jump to.",
+                better_approach=better_approach or f"{best_move} keeps the knight in the game",
+                transferable_learning=transferable_learning or "Knights on the rim are dim! They have fewer squares to jump to.",
                 concept_id="knight_on_rim",
-                concept_type="positional"
+                concept_type="positional",
+                candidate_moves=candidate_moves
             )
         # Knight with no purpose?
         else:
@@ -681,10 +967,11 @@ def _generate_generic_plan(
                 goal="Give pieces a job",
                 current_problem=f"Naughty Knight! {played_san} doesn't do anything useful.",
                 consequence=consequence,
-                better_approach=f"{best_move} was better" if best_move else "Find a square where the knight attacks or defends something!",
-                transferable_learning="Every piece needs a job! Ask: what is this piece doing for me?",
+                better_approach=better_approach or f"{best_move} was better",
+                transferable_learning=transferable_learning or "Every piece needs a job! Ask: what is this piece doing for me?",
                 concept_id="piece_without_purpose",
-                concept_type="positional"
+                concept_type="positional",
+                candidate_moves=candidate_moves
             )
     
     elif piece_type == chess.BISHOP:
@@ -692,10 +979,11 @@ def _generate_generic_plan(
             goal="Keep bishops active",
             current_problem=f"Your Slicey Boi at {played_san} doesn't have good diagonals!",
             consequence=consequence,
-            better_approach=f"{best_move} gives the bishop more scope" if best_move else "Bishops love open diagonals!",
-            transferable_learning="Bishops need OPEN diagonals. If pawns block them, they're sad!",
+            better_approach=better_approach or f"{best_move} gives the bishop more scope",
+            transferable_learning=transferable_learning or "Bishops need OPEN diagonals. If pawns block them, they're sad!",
             concept_id="blocked_bishop",
-            concept_type="positional"
+            concept_type="positional",
+            candidate_moves=candidate_moves
         )
     
     elif piece_type == chess.PAWN:
@@ -703,10 +991,11 @@ def _generate_generic_plan(
             goal="Think before pushing pawns",
             current_problem=f"That Little Soldier at {played_san} can't go backwards!",
             consequence=consequence,
-            better_approach=f"{best_move} was safer" if best_move else "Pawns can't retreat. Make sure it's the right time!",
-            transferable_learning="Pawns can NEVER go back! Every pawn move creates a weakness somewhere.",
+            better_approach=better_approach or f"{best_move} was safer",
+            transferable_learning=transferable_learning or "Pawns can NEVER go back! Every pawn move creates a weakness somewhere.",
             concept_id="premature_pawn",
-            concept_type="positional"
+            concept_type="positional",
+            candidate_moves=candidate_moves
         )
     
     else:
@@ -715,11 +1004,66 @@ def _generate_generic_plan(
             goal="Think before you move",
             current_problem=f"Hmm, {played_san} has a problem!",
             consequence=consequence,
-            better_approach=f"{best_move} was the move here" if best_move else "Look at what your opponent can do next!",
-            transferable_learning="Before EVERY move, ask: what can my opponent do after this?",
+            better_approach=better_approach or f"{best_move} was the move here",
+            transferable_learning=transferable_learning or "Before EVERY move, ask: what can my opponent do after this?",
             concept_id="generic_mistake",
-            concept_type="general"
+            concept_type="general",
+            candidate_moves=candidate_moves
         )
+
+
+def _format_better_approach(candidates: List[Dict], best_move: Optional[str]) -> str:
+    """
+    Format the candidate moves into a readable "better approach" string.
+    Shows the main idea, not just the move.
+    """
+    if not candidates:
+        return f"{best_move} was better" if best_move else ""
+    
+    # Get the best move's idea
+    best_candidate = candidates[0] if candidates else None
+    if best_candidate:
+        return best_candidate.get("idea", f"{best_move} was better")
+    
+    return f"{best_move} was better" if best_move else ""
+
+
+def _derive_transferable_learning(
+    candidates: List[Dict],
+    piece_type: Optional[int],
+    to_square: int
+) -> str:
+    """
+    Derive a transferable learning from the candidate moves.
+    This teaches the PATTERN, not just the move.
+    """
+    if not candidates:
+        return ""
+    
+    # Analyze the types of good moves available
+    move_types = [c.get("type", "") for c in candidates]
+    
+    # If there was a counter-attack available
+    if "counter_attack" in move_types:
+        return "Look for counter-attacks! When your opponent threatens, don't just defend - find YOUR threat!"
+    
+    # If there was a prophylactic move
+    if "prophylactic" in move_types:
+        return "Ask: what does my opponent WANT to do next? Then stop it!"
+    
+    # If development was key
+    if "development" in move_types:
+        return "In the opening, develop with a purpose. Each piece should aim at something!"
+    
+    # If central control matters
+    if "central" in move_types:
+        return "The center is king! Control d4, d5, e4, e5 and your pieces will be powerful."
+    
+    # If there were multiple diverse options
+    if len(set(move_types)) >= 2:
+        return "Good positions have many good moves. Bad positions have only one! Think about ALL your options."
+    
+    return ""
 
 
 # ─── OPPONENT MOVE ANALYSIS ──────────────────────────────────────────

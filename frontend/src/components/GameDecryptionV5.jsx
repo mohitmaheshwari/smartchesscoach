@@ -541,6 +541,52 @@ const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowF
               </div>
             )}
             
+            {/* Candidate Moves with Ideas */}
+            {move.plan.candidate_moves?.length > 0 && (
+              <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20" data-testid="candidate-moves">
+                <p className="text-xs text-blue-400 mb-2 flex items-center gap-1">
+                  <Lightbulb className="w-3 h-3" /> Alternative ideas in this position
+                </p>
+                <div className="space-y-2">
+                  {move.plan.candidate_moves.map((candidate, idx) => (
+                    <div 
+                      key={idx}
+                      className={`flex items-start gap-2 p-2 rounded ${
+                        candidate.is_best 
+                          ? 'bg-emerald-500/10 border border-emerald-500/20' 
+                          : 'bg-zinc-800/50'
+                      }`}
+                    >
+                      <span className={`font-mono font-bold text-sm min-w-[40px] ${
+                        candidate.is_best ? 'text-emerald-400' : 'text-blue-400'
+                      }`}>
+                        {candidate.move}
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-sm text-zinc-200">{candidate.idea}</p>
+                        <Badge 
+                          variant="outline" 
+                          className={`mt-1 text-xs ${
+                            candidate.type === 'counter_attack' ? 'text-orange-400 border-orange-500/30' :
+                            candidate.type === 'prophylactic' ? 'text-purple-400 border-purple-500/30' :
+                            candidate.type === 'development' ? 'text-blue-400 border-blue-500/30' :
+                            candidate.type === 'central' ? 'text-yellow-400 border-yellow-500/30' :
+                            candidate.type === 'tactical' ? 'text-red-400 border-red-500/30' :
+                            'text-zinc-400 border-zinc-500/30'
+                          }`}
+                        >
+                          {candidate.type?.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      {candidate.is_best && (
+                        <Trophy className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {/* Transferable learning */}
             {move.plan.transferable_learning && (
               <div className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/30" data-testid="transferable-learning">
