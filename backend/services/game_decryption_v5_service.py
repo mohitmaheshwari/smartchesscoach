@@ -209,6 +209,72 @@ def get_opening_data(eco_code: Optional[str], opening_name: Optional[str]) -> di
     return opening_plans.get("default", {})
 
 
+def get_opening_introduction(eco_code: Optional[str], opening_name: Optional[str], move_san: str, user_color: str) -> Optional[Dict]:
+    """
+    Get opening introduction for the first few moves.
+    Returns context about what opening this is and what the plans are.
+    """
+    # Common opening patterns by first moves
+    opening_intros = {
+        # White first moves
+        "e4": {
+            "name": "King's Pawn Opening",
+            "idea": "White stakes a claim in the center. Most popular opening - leads to open games.",
+            "black_response_hint": "You can match with e5 (Open Game) or fight back with c5 (Sicilian), e6 (French), c6 (Caro-Kann), or d5 (Scandinavian)."
+        },
+        "d4": {
+            "name": "Queen's Pawn Opening", 
+            "idea": "White controls the center from the side. Games tend to be more closed and strategic.",
+            "black_response_hint": "d5 is solid (closed games), Nf6 is flexible (Indian systems), f5 is aggressive (Dutch)."
+        },
+        "c4": {
+            "name": "English Opening",
+            "idea": "White controls d5 without committing the d-pawn. Flexible and positional.",
+            "black_response_hint": "c5 for symmetry, e5 to grab space, Nf6 for flexibility."
+        },
+        "Nf3": {
+            "name": "Réti Opening",
+            "idea": "White develops without committing pawns. Can transpose to many openings.",
+            "black_response_hint": "d5 is the most principled. Nf6 mirrors White's approach."
+        },
+        
+        # Common Black responses to e4
+        "e5": {"name": "Open Game", "idea": "Symmetric center control. Leads to tactical play."},
+        "c5": {"name": "Sicilian Defense", "idea": "Asymmetric counter-attack. Black fights for d4 control."},
+        "e6": {"name": "French Defense", "idea": "Solid but cramped. Black will undermine with c5 and sometimes f6."},
+        "c6": {"name": "Caro-Kann Defense", "idea": "Very solid. Black develops the bishop to f5 or g4 before e6."},
+        
+        # Common Black responses to d4
+        "d5": {"name": "Closed Game", "idea": "Solid central control. Strategic middlegames."},
+        "Nf6": {"name": "Indian Defense", "idea": "Flexible - can become King's Indian, Nimzo-Indian, or Queen's Indian."},
+        
+        # Common follow-ups
+        "Nc3": {"idea": "Develops naturally, prepares e4 or supports d5."},
+        "Bf4": {"name": "London System", "idea": "White develops bishop before e3. Solid and easy to play."},
+        "Bg5": {"idea": "Pins the knight. White may double Black's pawns or force concessions."},
+        "Bc4": {"name": "Italian Game direction", "idea": "Aims at f7 weakness. Classic development."},
+        "Bb5": {"name": "Spanish Game direction", "idea": "Pressures e5 indirectly through the knight on c6."},
+    }
+    
+    if move_san in opening_intros:
+        intro = opening_intros[move_san]
+        return {
+            "name": intro.get("name"),
+            "idea": intro.get("idea"),
+            "hint": intro.get("black_response_hint") if user_color == "black" else None
+        }
+    
+    # Use ECO-based name if available
+    if opening_name:
+        return {
+            "name": opening_name,
+            "idea": None,
+            "hint": None
+        }
+    
+    return None
+
+
 # ─── PLAN EXTRACTION ─────────────────────────────────────────────────
 
 def extract_plan_from_pv(
@@ -535,19 +601,9 @@ def analyze_opponent_move(
             your_plan_now = "Your opponent made an error. Look for forcing moves."
             narrative = f"This {move_san} is a mistake. Find the best response."
     
-    # Opponent played a normal move
+    # Opponent played a normal move - THIS IS WHERE WE NEED TO BE SMART
     elif abs(eval_swing) < 50:
-        # Describe what the move does
-        if board.is_capture(move):
-            captured = board.piece_at(move.to_square)
-            narrative = f"Opponent took the {get_piece_name(captured) if captured else 'piece'} with {move_san}."
-        elif board.is_castling(move):
-            narrative = "Opponent castled — their king is safer now."
-        else:
-            narrative = f"Opponent played {move_san}."
-        
-        # What should user think about?
-        your_plan_now = "Check: what did this move threaten? What did it weaken?"
+        narrative, your_plan_now = _explain_opponent_move_with_context(board, move, user_color, pv_after)
     
     # Opponent made a small inaccuracy
     else:
@@ -555,6 +611,104 @@ def analyze_opponent_move(
         your_plan_now = "Look for ways to take advantage."
     
     return narrative, your_plan_now, highlight_squares
+
+
+def _explain_opponent_move_with_context(
+    board: chess.Board,
+    move: chess.Move,
+    user_color: str,
+    pv_after: List[str]
+) -> Tuple[str, str]:
+    """
+    Explain opponent's move with REAL context - what are they trying to do?
+    This is where the coaching happens.
+    """
+    move_san = board.san(move)
+    piece = board.piece_at(move.from_square)
+    piece_name = get_piece_name(piece) if piece else "piece"
+    
+    sim = board.copy()
+    sim.push(move)
+    
+    # Check what this move threatens
+    threats = []
+    ideas = []
+    
+    # 1. Does it create a direct threat?
+    for sq, p in sim.piece_map().items():
+        if p.color == (user_color == "white"):  # User's pieces
+            attackers = sim.attackers(not (user_color == "white"), sq)
+            if move.to_square in attackers or any(sim.is_attacked_by(not (user_color == "white"), sq) for sq in attackers):
+                # Check if this piece is now attacked more than defended
+                defenders = sim.attackers(user_color == "white", sq)
+                if len(attackers) > len(defenders):
+                    threats.append(f"attacks your {get_piece_name(p)} on {chess.square_name(sq)}")
+    
+    # 2. Check for development/control ideas based on the piece
+    if piece:
+        if piece.piece_type == chess.PAWN:
+            # Pawn moves - check for center control or space
+            to_file = chess.square_file(move.to_square)
+            if to_file in [3, 4]:  # d or e file
+                ideas.append("controls the center")
+        
+        elif piece.piece_type == chess.KNIGHT:
+            # Knights - good squares
+            to_sq = move.to_square
+            if to_sq in [chess.C3, chess.F3, chess.C6, chess.F6]:
+                ideas.append("develops to a natural square")
+            if to_sq in [chess.D5, chess.E5, chess.D4, chess.E4]:
+                ideas.append("occupies a strong central outpost")
+        
+        elif piece.piece_type == chess.BISHOP:
+            # Bishops - diagonals
+            to_sq = move.to_square
+            if to_sq in [chess.F4, chess.G5, chess.F5, chess.G4, chess.C4, chess.B5]:
+                ideas.append("develops actively")
+            # Check if on long diagonal
+            if chess.square_rank(to_sq) + chess.square_file(to_sq) == 7 or \
+               chess.square_rank(to_sq) == chess.square_file(to_sq):
+                ideas.append("controls the long diagonal")
+    
+    # 3. Check for castling preparation
+    if board.has_kingside_castling_rights(not (user_color == "white")):
+        if piece and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
+            back_rank = 0 if not (user_color == "white") else 7
+            if chess.square_rank(move.from_square) == back_rank:
+                ideas.append("prepares to castle")
+    
+    # 4. Is this a capture?
+    if board.is_capture(move):
+        captured = board.piece_at(move.to_square)
+        if captured:
+            return (
+                f"Opponent took your {get_piece_name(captured)} with {move_san}.",
+                "Consider if you should recapture, and with which piece."
+            )
+    
+    # 5. Is this castling?
+    if board.is_castling(move):
+        return (
+            "Opponent castled — their king is now safer. The middlegame begins.",
+            "Time to finalize your development and create a plan."
+        )
+    
+    # Build narrative
+    if threats:
+        narrative = f"{move_san} {threats[0]}."
+        plan = f"You need to deal with this threat first."
+    elif ideas:
+        narrative = f"{move_san} — {ideas[0]}."
+        if len(ideas) > 1:
+            plan = f"Continue developing. Your opponent is building their position."
+        else:
+            plan = "Keep developing your pieces and control the center."
+    else:
+        # Fallback - but make it useful
+        narrative = f"Opponent played {move_san}."
+        plan = "Focus on your own plan — develop pieces, control center, castle."
+    
+    return narrative, plan
 
 
 # ─── GOOD MOVE RECOGNITION ───────────────────────────────────────────
@@ -565,10 +719,11 @@ def recognize_good_move(
     best_move: Optional[str],
     cp_loss: int,
     phase: str,
-    opening_data: dict
+    opening_data: dict,
+    pv_after_best: List[str] = None
 ) -> Tuple[str, Optional[str], bool]:
     """
-    Recognize when user plays a good move.
+    Recognize when user plays a good move and explain WHY it's good.
     Returns: (narrative, concept_applied, is_best_move)
     """
     move_san = board.san(move)
@@ -578,38 +733,120 @@ def recognize_good_move(
     piece_name = get_piece_name(piece) if piece else "piece"
     
     concept_applied = None
+    narrative = ""
     
     # Check if this matches opening theory
     typical_ideas = opening_data.get("typical_ideas", {})
     if move_san in typical_ideas:
         concept_applied = f"opening_{move_san.lower()}"
         if is_best:
-            return f"Perfect! {move_san} — {typical_ideas[move_san]}", concept_applied, True
-        return f"Good — {move_san}. {typical_ideas[move_san]}", concept_applied, False
+            narrative = f"Perfect! {move_san} — {typical_ideas[move_san]}"
+        else:
+            narrative = f"Good — {move_san}. {typical_ideas[move_san]}"
+        return narrative, concept_applied, is_best
     
-    # Castling
+    # Castling - explain the timing
     if board.is_castling(move):
         concept_applied = "king_safety_castling"
-        if is_best:
-            return "Excellent — castling at the right moment keeps your king safe.", concept_applied, True
-        return "Good — king safety first.", concept_applied, False
+        # Check if this was good timing
+        move_num = len(list(board.move_stack)) // 2 + 1
+        if move_num <= 10:
+            narrative = "Good timing — you castled before the center opens. Your king is safe."
+        else:
+            narrative = "Finally castled — your king was getting vulnerable. Better late than never."
+        return narrative, concept_applied, is_best
     
-    # Development
-    back_rank = 0 if piece.color == chess.WHITE else 7
-    if piece and chess.square_rank(move.from_square) == back_rank and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
-        concept_applied = "development"
-        if is_best:
-            return f"Great development! The {piece_name} is now active.", concept_applied, True
-        return f"Solid — developing the {piece_name}.", concept_applied, False
+    # Development - explain what the piece does
+    if piece:
+        back_rank = 0 if piece.color == chess.WHITE else 7
+        
+        if piece.piece_type == chess.KNIGHT:
+            to_sq = move.to_square
+            if to_sq in [chess.F3, chess.C3, chess.F6, chess.C6]:
+                concept_applied = "knight_development"
+                narrative = f"{move_san} — knight to a natural square, controlling the center."
+                if is_best:
+                    narrative = f"Perfect! {narrative}"
+                return narrative, concept_applied, is_best
+            elif to_sq in [chess.E5, chess.D5, chess.E4, chess.D4]:
+                concept_applied = "central_knight"
+                narrative = f"Strong! {move_san} plants the knight in the center where it's powerful."
+                return narrative, concept_applied, is_best
+        
+        elif piece.piece_type == chess.BISHOP:
+            if chess.square_rank(move.from_square) == back_rank:
+                concept_applied = "bishop_development"
+                # Check where it's going
+                to_sq = move.to_square
+                to_file = chess.square_file(to_sq)
+                if to_file in [1, 2, 5, 6]:  # b, c, f, g files - active squares
+                    narrative = f"{move_san} — bishop on an active diagonal."
+                else:
+                    narrative = f"{move_san} — developing the bishop."
+                if is_best:
+                    narrative = f"Great! {narrative}"
+                return narrative, concept_applied, is_best
+        
+        elif piece.piece_type == chess.PAWN:
+            # Center pawns
+            to_file = chess.square_file(move.to_square)
+            if to_file in [3, 4]:  # d or e file
+                to_rank = chess.square_rank(move.to_square)
+                if (piece.color == chess.WHITE and to_rank == 3) or (piece.color == chess.BLACK and to_rank == 4):
+                    concept_applied = "center_control"
+                    narrative = f"{move_san} — claiming your share of the center."
+                    if is_best:
+                        narrative = f"Correct! {narrative}"
+                    return narrative, concept_applied, is_best
+        
+        elif piece.piece_type == chess.ROOK:
+            # Check if moving to open file
+            to_file = chess.square_file(move.to_square)
+            file_pawns = len([sq for sq in chess.SQUARES if chess.square_file(sq) == to_file and board.piece_at(sq) and board.piece_at(sq).piece_type == chess.PAWN])
+            if file_pawns == 0:
+                concept_applied = "rook_on_open_file"
+                narrative = f"{move_san} — rook on the open file. This will be powerful."
+                return narrative, concept_applied, is_best
     
-    # Generic good move
+    # Check if this is a capture that wins material
+    if board.is_capture(move):
+        captured = board.piece_at(move.to_square)
+        if captured:
+            # Check if we're winning the exchange
+            attacker_value = _piece_value(piece)
+            captured_value = _piece_value(captured)
+            if captured_value > attacker_value:
+                concept_applied = "winning_material"
+                narrative = f"Good capture! {move_san} wins material."
+                return narrative, concept_applied, is_best
+    
+    # Generic good move - but try to explain why
     if is_best:
-        return f"You found the best move! {move_san} is exactly right here.", "found_best_move", True
+        # Try to understand what makes this move best
+        sim = board.copy()
+        sim.push(move)
+        
+        # Check if it creates threats
+        for sq, p in sim.piece_map().items():
+            if p.color != piece.color:
+                attackers = sim.attackers(piece.color, sq)
+                if attackers:
+                    narrative = f"You found the best move! {move_san} creates a threat."
+                    return narrative, "found_best_move", True
+        
+        narrative = f"You found the best move! {move_san}."
+        return narrative, "found_best_move", True
     
     if cp_loss < 10:
-        return f"Very good — {move_san}.", None, False
+        return f"Solid — {move_san}.", None, False
     
     return f"{move_san}.", None, False
+
+
+def _piece_value(piece: chess.Piece) -> int:
+    """Get approximate piece value."""
+    values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
+    return values.get(piece.piece_type, 0)
 
 
 # ─── NARRATIVE GENERATION ────────────────────────────────────────────
@@ -775,6 +1012,21 @@ async def generate_game_decryption_v5(
                     user_color
                 )
                 future_moves = pv_after_played[:3] if pv_after_played else []
+                
+                # Add opening introduction for early moves
+                if idx < 10 and phase == "opening":
+                    intro = get_opening_introduction(eco_code, opening_name, move_san, user_color)
+                    if intro:
+                        intro_name = intro.get("name")
+                        intro_idea = intro.get("idea")
+                        intro_hint = intro.get("hint")
+                        
+                        if intro_name and intro_idea:
+                            narrative = f"{intro_name}: {intro_idea}"
+                            if intro_hint:
+                                your_plan_now = intro_hint
+                        elif intro_name:
+                            narrative = f"This is the {intro_name}. {narrative}"
                 
             elif severity == "good":
                 # GOOD USER MOVE - Recognize and track
