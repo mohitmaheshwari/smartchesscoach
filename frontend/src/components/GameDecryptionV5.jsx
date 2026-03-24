@@ -541,7 +541,7 @@ const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowF
               </div>
             )}
             
-            {/* Candidate Moves with Ideas */}
+            {/* Candidate Moves with Ideas - CLICKABLE */}
             {move.plan.candidate_moves?.length > 0 && (
               <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20" data-testid="candidate-moves">
                 <p className="text-xs text-blue-400 mb-2 flex items-center gap-1">
@@ -551,17 +551,27 @@ const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowF
                   {move.plan.candidate_moves.map((candidate, idx) => (
                     <div 
                       key={idx}
-                      className={`flex items-start gap-2 p-2 rounded ${
+                      className={`flex items-start gap-2 p-2 rounded cursor-pointer transition-all hover:scale-[1.01] ${
                         candidate.is_best 
-                          ? 'bg-emerald-500/10 border border-emerald-500/20' 
-                          : 'bg-zinc-800/50'
+                          ? 'bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20' 
+                          : 'bg-zinc-800/50 hover:bg-zinc-700/50'
                       }`}
+                      onClick={() => onShowFutureMoves([candidate.move], 0)}
+                      title={`Click to see ${candidate.move} on the board`}
                     >
-                      <span className={`font-mono font-bold text-sm min-w-[40px] ${
-                        candidate.is_best ? 'text-emerald-400' : 'text-blue-400'
-                      }`}>
+                      <button
+                        className={`font-mono font-bold text-sm min-w-[50px] px-2 py-1 rounded hover:ring-2 ring-offset-1 ring-offset-zinc-900 ${
+                          candidate.is_best 
+                            ? 'text-emerald-400 bg-emerald-500/20 hover:ring-emerald-500/50' 
+                            : 'text-blue-400 bg-blue-500/20 hover:ring-blue-500/50'
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShowFutureMoves([candidate.move], 0);
+                        }}
+                      >
                         {candidate.move}
-                      </span>
+                      </button>
                       <div className="flex-1">
                         <p className="text-sm text-zinc-200">{candidate.idea}</p>
                         <Badge 
