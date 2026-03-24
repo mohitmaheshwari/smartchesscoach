@@ -1,0 +1,297 @@
+{
+  "_meta": {
+    "description": "Opening theory tree structure with variations for V5 Thinking Simulator",
+    "version": "2.0",
+    "structure": "Each opening has main_line + variations as sub-trees"
+  },
+
+  "italian_game": {
+    "name": "Italian Game",
+    "eco_prefix": ["C50", "C51", "C52", "C53", "C54", "C55", "C56"],
+    "main_line": ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+    "white_plan": "Control the center, target f7 weakness, rapid development",
+    "black_plan": "Solid defense with d6 and Be7, or aggressive with Bc5",
+    
+    "critical_positions": {
+      "after_Bc4": {
+        "fen_pattern": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq -",
+        "key_decision": "How to respond to Bc4 - the character of the game depends on this",
+        "best_moves": {
+          "Bc5": {
+            "name": "Giuoco Piano",
+            "idea": "Symmetric development, solid and principled",
+            "leads_to": "giuoco_piano"
+          },
+          "Nf6": {
+            "name": "Two Knights Defense",
+            "idea": "Attacking e4, more aggressive",
+            "leads_to": "two_knights"
+          },
+          "Be7": {
+            "name": "Hungarian Defense",
+            "idea": "Very solid, preparing d6",
+            "leads_to": "hungarian"
+          }
+        },
+        "mistake_moves": {
+          "d5": {
+            "why_bad": "Too early - after exd5 Nxd5, White has a big center",
+            "consequence": "After exd5 Nxd5 Nxd5 Qxd5 Nc3, the queen must retreat and White has excellent development",
+            "learning": "In the Italian, control the center with pieces first (Bc5 or Nf6), not pawns"
+          },
+          "f6": {
+            "why_bad": "Weakens the kingside terribly",
+            "consequence": "After Nxe5! fxe5, Qh5+ wins material",
+            "learning": "Never play f6 in the opening - it invites tactics on the king"
+          }
+        }
+      }
+    },
+    
+    "variations": {
+      "giuoco_piano": {
+        "name": "Giuoco Piano",
+        "moves_from_parent": ["Bc5"],
+        "white_plan": "c3 preparing d4, control the center",
+        "black_plan": "Solid development with d6, castle, connect rooks",
+        
+        "critical_positions": {
+          "after_c3": {
+            "fen_pattern": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/2P2N2/PP1P1PPP/RNBQK2R b KQkq -",
+            "key_decision": "Black must decide how to develop - d6 or Nf6",
+            "best_moves": {
+              "d6": {
+                "idea": "Solid - preparing Be6 or Bg4, supports e5",
+                "why_good": "Controls the center with pieces, keeps tension"
+              },
+              "Nf6": {
+                "idea": "Active - immediately attacks e4",
+                "why_good": "Forces White to decide how to defend e4"
+              }
+            },
+            "mistake_moves": {
+              "d5": {
+                "why_bad": "Premature center break",
+                "consequence": "After exd5 Nxd5, White gets d4 in comfortably",
+                "better_move": "d6",
+                "learning": "Keep the tension in the Italian - don't release it too early"
+              }
+            }
+          }
+        },
+        
+        "subvariations": {
+          "evans_gambit": {
+            "name": "Evans Gambit",
+            "trigger_move": "b4",
+            "moves": ["c3", "Nf6", "d4", "exd4", "b4"],
+            "white_plan": "Sacrifice b4 pawn for rapid development and center control",
+            "black_plan": "Accept the gambit but develop quickly, return material if needed",
+            "key_ideas": {
+              "accept": "Bxb4 is critical - accept and hold if you can calculate",
+              "decline": "Bb6 is safe but passive"
+            }
+          }
+        }
+      },
+      
+      "two_knights": {
+        "name": "Two Knights Defense",
+        "moves_from_parent": ["Nf6"],
+        "white_plan": "Attack with Ng5 targeting f7, or play d3 for a quiet game",
+        "black_plan": "Counter-attack! Don't be passive.",
+        
+        "critical_positions": {
+          "after_Ng5": {
+            "fen_pattern": "r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq -",
+            "key_decision": "Black must react precisely to the f7 attack",
+            "best_moves": {
+              "d5": {
+                "idea": "Counter in the center! The Ulvestad/Traxler spirit",
+                "why_good": "Opens lines, attacks the bishop, gains tempo"
+              }
+            },
+            "mistake_moves": {
+              "Bc5": {
+                "why_bad": "Too slow - White crashes through on f7",
+                "consequence": "Bxf7+ Ke7 and Black's king is exposed",
+                "learning": "When attacked, counter-attack! d5 is the fighting move."
+              }
+            }
+          }
+        }
+      }
+    },
+    
+    "typical_ideas": {
+      "Bc5": "Developing the bishop actively, mirroring White's Bc4",
+      "d6": "Solid - supports e5, prepares Be6 exchange or Bg4 pin",
+      "c3": "Preparing d4, the key center break for White",
+      "d4": "Opening the center - leads to sharp play",
+      "O-O": "King safety first",
+      "Nf6": "Attacking e4 immediately"
+    },
+    
+    "common_learnings": [
+      "Control the center with pieces before pawns in the Italian",
+      "The d5 break is powerful but must be timed correctly",
+      "f7 is the weak point early - defend it indirectly with development",
+      "When attacked (Ng5), counter-attack (d5) rather than defend passively"
+    ]
+  },
+  
+  "sicilian_dragon": {
+    "name": "Sicilian Dragon",
+    "eco_prefix": ["B70", "B71", "B72", "B73", "B74", "B75", "B76", "B77", "B78", "B79"],
+    "main_line": ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "g6"],
+    "white_plan": "Yugoslav Attack: castle queenside, launch h4-h5 pawn storm",
+    "black_plan": "Fianchetto bishop, counter on the c-file, attack White's king",
+    
+    "critical_positions": {
+      "dragon_setup": {
+        "fen_pattern": "r1bqkb1r/pp2pp1p/2np1np1/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq -",
+        "key_decision": "White chooses between Yugoslav Attack (Be3, f3, Qd2, O-O-O) or Classical (Be2, O-O)",
+        "best_moves_white": {
+          "Be3": {
+            "idea": "Yugoslav Attack - the sharpest and most critical",
+            "leads_to": "yugoslav_attack"
+          },
+          "Be2": {
+            "idea": "Classical - safer but less ambitious",
+            "leads_to": "classical_dragon"
+          }
+        }
+      }
+    },
+    
+    "variations": {
+      "yugoslav_attack": {
+        "name": "Yugoslav Attack",
+        "moves_from_parent": ["Be3", "Bg7", "f3", "O-O", "Qd2", "Nc6", "O-O-O"],
+        "white_plan": "h4-h5-hxg6 pawn storm, Bh6 to trade dragons",
+        "black_plan": "Rc8, Qa5 or Qb6, pressure on c-file, Ne5-c4 maneuvre",
+        
+        "critical_positions": {
+          "after_O-O-O": {
+            "key_decision": "Race begins - who attacks faster?",
+            "best_moves": {
+              "Rc8": {
+                "idea": "The most important move - pressure the c-file",
+                "why_good": "Prepares Qa5 or Ne5-c4"
+              }
+            },
+            "mistake_moves": {
+              "a6": {
+                "why_bad": "Too slow - White's attack arrives first",
+                "consequence": "h4-h5 comes with devastating effect",
+                "learning": "In the Dragon Yugoslav, every tempo matters - activate immediately with Rc8"
+              }
+            }
+          }
+        }
+      }
+    },
+    
+    "common_learnings": [
+      "The Dragon is a race - whoever attacks first usually wins",
+      "Black's counterplay is on the c-file, not the a or b files",
+      "Trading the dragon bishop (Bg7) is often bad for Black",
+      "Rc8 is almost always the right move after castling"
+    ]
+  },
+  
+  "french_defense": {
+    "name": "French Defense",
+    "eco_prefix": ["C00", "C01", "C02", "C03", "C04", "C05", "C06", "C07", "C08", "C09", "C10", "C11", "C12", "C13", "C14", "C15", "C16", "C17", "C18", "C19"],
+    "main_line": ["e4", "e6"],
+    "white_plan": "Space advantage with e5, attack kingside",
+    "black_plan": "Undermine with c5 and f6, activate the light-squared bishop",
+    
+    "critical_positions": {
+      "after_e6": {
+        "fen_pattern": "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -",
+        "key_decision": "White chooses the variation",
+        "best_moves_white": {
+          "d4": {
+            "idea": "Main line - control the center",
+            "leads_to": "french_main"
+          },
+          "d3": {
+            "idea": "King's Indian Attack setup",
+            "leads_to": "kia_vs_french"
+          }
+        }
+      }
+    },
+    
+    "variations": {
+      "advance_variation": {
+        "name": "Advance Variation",
+        "moves_from_parent": ["d4", "d5", "e5"],
+        "white_plan": "Space advantage, attack on kingside",
+        "black_plan": "c5 to undermine d4, f6 to challenge e5",
+        
+        "critical_positions": {
+          "after_e5": {
+            "key_decision": "Black must decide how to fight the pawn chain",
+            "best_moves": {
+              "c5": {
+                "idea": "Attack the base of the pawn chain",
+                "why_good": "The key French principle - attack d4"
+              }
+            },
+            "mistake_moves": {
+              "f6": {
+                "why_bad": "Too early - creates weaknesses",
+                "better_move": "c5",
+                "learning": "In the French Advance, attack the base (d4) with c5 first, then consider f6"
+              }
+            }
+          }
+        }
+      }
+    },
+    
+    "common_learnings": [
+      "The French bishop on c8 is the 'problem piece' - plan to activate it",
+      "c5 attacks the base of White's pawn chain - this is the key break",
+      "f6 is thematic but must be timed carefully",
+      "Black often gets counterplay by exchanging on d4 and using the c-file"
+    ]
+  },
+  
+  "caro_kann": {
+    "name": "Caro-Kann Defense",
+    "eco_prefix": ["B10", "B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18", "B19"],
+    "main_line": ["e4", "c6"],
+    "white_plan": "Build a strong center, use space advantage",
+    "black_plan": "Solid structure with d5, develop the light bishop to f5 or g4",
+    
+    "critical_positions": {
+      "after_d5": {
+        "fen_pattern": "rnbqkbnr/pp2pppp/2p5/3pP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq -",
+        "key_decision": "Black must develop the bishop before e6",
+        "best_moves": {
+          "Bf5": {
+            "idea": "Classical - get the bishop out before e6",
+            "why_good": "Solves the 'French bishop problem' immediately"
+          }
+        },
+        "mistake_moves": {
+          "e6": {
+            "why_bad": "Locks in the light-squared bishop",
+            "consequence": "The bishop on c8 becomes passive like in the French",
+            "learning": "In the Caro-Kann, develop Bf5 or Bg4 BEFORE playing e6"
+          }
+        }
+      }
+    },
+    
+    "common_learnings": [
+      "Get the light-squared bishop out before playing e6",
+      "The pawn structure is solid - don't rush to create weaknesses",
+      "c5 is often a key break in the middlegame",
+      "The endgame is often favorable for Black due to the solid structure"
+    ]
+  }
+}

@@ -219,7 +219,8 @@ def extract_plan_from_pv(
     pv_after_best: List[str],
     phase: str,
     opening_data: dict,
-    cp_loss: int
+    cp_loss: int,
+    eco_code: Optional[str] = None
 ) -> Optional[ChessPlan]:
     """
     Extract a PLAN from the Stockfish PV (not just moves).
@@ -232,7 +233,27 @@ def extract_plan_from_pv(
     
     played_san = board.san(played_move)
     
-    # Try to match opening theory first
+    # Try opening theory tree first (more comprehensive)
+    try:
+        from services.opening_theory_tree_service import get_mistake_from_theory
+        
+        theory_mistake = get_mistake_from_theory(eco_code, played_san, board.fen())
+        if theory_mistake:
+            return ChessPlan(
+                goal="Follow opening principles",
+                current_problem=theory_mistake.get("why_bad", f"{played_san} is a theoretical mistake"),
+                consequence=theory_mistake.get("consequence", _describe_consequence(pv_after_played, board)),
+                better_approach=f"{theory_mistake.get('better_move', best_move)} is better" if theory_mistake.get('better_move') else (f"{best_move} was better" if best_move else ""),
+                transferable_learning=theory_mistake.get("learning", ""),
+                concept_id=f"theory_{theory_mistake.get('position_name', 'unknown').lower().replace(' ', '_').replace(':', '_')}",
+                concept_type="opening"
+            )
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.warning(f"Theory tree lookup failed: {e}")
+    
+    # Try to match opening theory from legacy data
     opening_mistakes = get_theory_data("opening_mistakes")
     for pattern_id, pattern in opening_mistakes.items():
         if not isinstance(pattern, dict) or not pattern.get("fen_pattern"):
@@ -771,7 +792,8 @@ async def generate_game_decryption_v5(
                 plan = extract_plan_from_pv(
                     board, move, best_move,
                     pv_after_played, pv_after_best,
-                    phase, opening_data, cp_loss
+                    phase, opening_data, cp_loss,
+                    eco_code=eco_code
                 )
                 
                 if plan:
@@ -877,6 +899,41 @@ async def generate_game_decryption_v5(
                     logger.warning(f"Could not update concept tracking: {e}")
         
         logger.info(f"[DECRYPTION V5] Generated coaching for {len(decryption_data)} moves")
+        
+        # ─── LLM ENHANCEMENT PASS ────────────────────────────────────
+        # Enhance mistakes/inaccuracies with LLM for more natural language
+        try:
+            from services.v5_llm_narrator import generate_concise_narrative, generate_opponent_narrative, generate_good_move_praise
+            
+            mistakes_to_enhance = [
+                (i, m) for i, m in enumerate(decryption_data)
+                if m.get("severity") in ("mistake", "blunder", "inaccuracy") and m.get("plan")
+            ]
+            
+            if mistakes_to_enhance:
+                logger.info(f"[DECRYPTION V5] Enhancing {len(mistakes_to_enhance)} mistakes with LLM...")
+                
+                for idx, move_data in mistakes_to_enhance:
+                    try:
+                        llm_narrative = await generate_concise_narrative(
+                            move_san=move_data.get("move_san", ""),
+                            plan_data=move_data.get("plan", {}),
+                            phase=move_data.get("phase", "middlegame"),
+                            severity=move_data.get("severity", "mistake"),
+                            is_user_move=True
+                        )
+                        if llm_narrative:
+                            decryption_data[idx]["narrative"] = llm_narrative
+                            decryption_data[idx]["llm_enhanced"] = True
+                    except Exception as e:
+                        logger.warning(f"LLM enhancement failed for move {idx}: {e}")
+                        
+                logger.info("[DECRYPTION V5] LLM enhancement complete")
+        except ImportError:
+            logger.warning("[DECRYPTION V5] LLM narrator not available, using rule-based narratives")
+        except Exception as e:
+            logger.warning(f"[DECRYPTION V5] LLM enhancement skipped: {e}")
+        
         return decryption_data
         
     except Exception as e:

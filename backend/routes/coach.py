@@ -895,7 +895,13 @@ async def get_learning_progress(
     global db
     
     try:
-        # Get concept application stats
+        from services.v5_learning_tracker import format_learning_summary_for_api
+        
+        summary = await format_learning_summary_for_api(db, user.user_id)
+        return summary
+        
+    except ImportError:
+        # Fallback to old method
         pipeline = [
             {"$match": {"user_id": user.user_id}},
             {"$group": {
@@ -908,6 +914,48 @@ async def get_learning_progress(
         ]
         
         stats = await db.user_concept_understanding.aggregate(pipeline).to_list(10)
+        
+        return {
+            "summary": "Keep playing! Your coach is learning about you.",
+            "stats": {},
+            "by_type": {s["_id"]: s for s in stats}
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting learning progress: {e}")
+        return {"summary": "", "stats": {}, "error": str(e)}
+
+
+@router.get("/learning/insights")
+async def get_learning_insights(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get detailed learning insights including strengths and trends.
+    """
+    global db
+    
+    try:
+        from services.v5_learning_tracker import get_learning_insights, get_user_strengths
+        
+        insights = await get_learning_insights(db, user.user_id)
+        strengths = await get_user_strengths(db, user.user_id, limit=5)
+        
+        return {
+            "message": insights.get("message", ""),
+            "trend": insights.get("trend", "not_enough_data"),
+            "stats": {
+                "games_analyzed": insights.get("games_analyzed", 0),
+                "best_move_rate": insights.get("overall_best_move_rate", 0),
+                "concepts_learned": insights.get("concepts_learned", 0)
+            },
+            "strengths": strengths,
+            "recent_accuracy": insights.get("recent_accuracy", [])
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting learning insights: {e}")
+        return {"message": "Keep playing!", "stats": {}, "error": str(e)}
         
         # Get recent good moves (concepts applied)
         recent_good = await db.game_analyses.aggregate([
