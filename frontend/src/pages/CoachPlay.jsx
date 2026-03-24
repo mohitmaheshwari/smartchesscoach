@@ -77,6 +77,9 @@ import {
   MoveHistorySection
 } from "@/components/coach-play";
 
+// V5 Coaching Component
+import V5CoachingCard from "@/components/shared/V5CoachingCard";
+
 const CoachPlay = ({ user }) => {
   const navigate = useNavigate();
   const boardRef = useRef(null);
@@ -157,6 +160,10 @@ const CoachPlay = ({ user }) => {
   // NEW: Real-time move feedback state
   const [moveFeedback, setMoveFeedback] = useState(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+  
+  // V5 Coaching State - Unified with Lab
+  const [v5Coaching, setV5Coaching] = useState(null);
+  const [acknowledgedConcepts, setAcknowledgedConcepts] = useState(new Set());
   
   // NEW: Clean UX State - One insight at a time
   const [currentInsight, setCurrentInsight] = useState(null);
@@ -862,6 +869,103 @@ const CoachPlay = ({ user }) => {
     }
   };
 
+  // Fetch V5 coaching feedback - Same style as Lab!
+  const fetchV5Coaching = async (moveSan, fenBefore, isUserMove = true, bestMove = null, pvAfterPlayed = [], cpLoss = 0) => {
+    if (!session?.session_id) return;
+    
+    setLoadingFeedback(true);
+    setIsCoachThinking(true);
+    
+    try {
+      const response = await fetch(`${API}/coach/play/v5/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          session_id: session.session_id,
+          move_san: moveSan,
+          fen_before: fenBefore,
+          is_user_move: isUserMove,
+          best_move: bestMove,
+          pv_after_played: pvAfterPlayed,
+          cp_loss: cpLoss
+        })
+      });
+      
+      if (response.ok) {
+        const coaching = await response.json();
+        setV5Coaching({
+          ...coaching,
+          move_san: moveSan,
+          fen_before: fenBefore
+        });
+        
+        // Also update currentInsight for compatibility with existing UI
+        setCurrentInsight({
+          quality: coaching.severity === "good" ? "good" : 
+                   coaching.severity === "inaccuracy" ? "inaccuracy" :
+                   coaching.severity === "mistake" ? "mistake" :
+                   coaching.severity === "blunder" ? "blunder" : "neutral",
+          main_insight: coaching.narrative || "Let's continue playing.",
+          why: coaching.consequence || coaching.current_problem,
+          next_idea: coaching.your_plan_now || coaching.better_approach,
+          has_better_move: coaching.best_move && coaching.best_move !== moveSan,
+          can_explain: !!coaching.transferable_learning,
+          deeper_explanation: coaching.transferable_learning,
+          best_move: coaching.best_move,
+          // V5 specific fields
+          candidate_moves: coaching.candidate_moves,
+          concept_id: coaching.concept_id
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching V5 coaching:", error);
+    } finally {
+      setLoadingFeedback(false);
+      setIsCoachThinking(false);
+    }
+  };
+
+  // Handle concept acknowledgment
+  const handleAcknowledgeConcept = async (conceptId) => {
+    if (!conceptId) return;
+    
+    try {
+      await fetch(`${API}/coach/v5/concept/acknowledge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          concept_id: conceptId,
+          session_id: session?.session_id
+        })
+      });
+      
+      setAcknowledgedConcepts(prev => new Set([...prev, conceptId]));
+    } catch (error) {
+      console.error("Error acknowledging concept:", error);
+    }
+  };
+
+  // Show alternative move on board (for clickable candidate moves)
+  const showAlternativeMove = (moveSan) => {
+    if (!session?.current_fen) return;
+    
+    try {
+      // We'll use the chess.js library to parse and show the move
+      // For now, just log it - the board integration needs more work
+      console.log("Show alternative move:", moveSan, "from", session.current_fen);
+      
+      // TODO: Implement board preview for alternative moves
+      // This would involve:
+      // 1. Creating a temporary board state
+      // 2. Playing the move
+      // 3. Showing arrows on the board
+    } catch (error) {
+      console.error("Error showing alternative move:", error);
+    }
+  };
+
   const highlightMove = (uci) => {
     if (!uci || uci.length < 4) return;
     const from = uci.slice(0, 2);
@@ -1152,6 +1256,24 @@ const CoachPlay = ({ user }) => {
             
             // Fetch comprehensive move feedback after coach responds
             fetchMoveFeedback();
+            
+            // Also fetch V5 coaching for both the user's move and coach's move
+            // Get the user's last move from move history
+            const moveHistory = data.session.move_history || [];
+            if (moveHistory.length >= 2) {
+              // User's move (second to last)
+              const userMoveData = moveHistory[moveHistory.length - 2];
+              if (userMoveData) {
+                fetchV5Coaching(
+                  userMoveData.move,
+                  userMoveData.fen_before || data.session.previous_fen,
+                  true, // is user move
+                  userMoveData.best_move,
+                  userMoveData.pv || [],
+                  userMoveData.cp_loss || 0
+                );
+              }
+            }
             
             return;
           }
@@ -1514,6 +1636,7 @@ const CoachPlay = ({ user }) => {
     setIsInTeachingMode(false);
     // Reset move feedback
     setMoveFeedback(null);
+    setV5Coaching(null);  // Reset V5 coaching
     setChatMessages([]);
     // Reset pre-move checklist state
     setHasCastled(false);
@@ -2453,20 +2576,32 @@ const CoachPlay = ({ user }) => {
                   />
                 )}
                 
-                {/* Coach Insight Card - The PRIMARY element */}
-                <CoachInsightCard
-                  insight={currentInsight}
-                  isLoading={isCoachThinking}
-                  coachingMode={coachingMode}
-                  onAskWhy={() => {
-                    // Send "Why?" to coach
-                    sendChatMessage("Why was that better?");
-                  }}
-                  onShowBetterMove={() => {
-                    // Show better move
-                    sendChatMessage("Show me the better move");
-                  }}
-                />
+                {/* V5 Coaching Card - Same style as Lab! */}
+                {v5Coaching ? (
+                  <V5CoachingCard
+                    coaching={v5Coaching}
+                    moveSan={v5Coaching.move_san}
+                    onShowAlternativeMove={showAlternativeMove}
+                    onAcknowledge={handleAcknowledgeConcept}
+                    isAcknowledged={acknowledgedConcepts.has(v5Coaching.concept_id)}
+                    showAcknowledgeButton={true}
+                  />
+                ) : (
+                  /* Fallback to legacy Coach Insight Card */
+                  <CoachInsightCard
+                    insight={currentInsight}
+                    isLoading={isCoachThinking}
+                    coachingMode={coachingMode}
+                    onAskWhy={() => {
+                      // Send "Why?" to coach
+                      sendChatMessage("Why was that better?");
+                    }}
+                    onShowBetterMove={() => {
+                      // Show better move
+                      sendChatMessage("Show me the better move");
+                    }}
+                  />
+                )}
                 
                 {/* Teaching Mode Instruction - if active */}
                 {isInTeachingMode && activeLesson && lessonInstruction && !lessonComplete && (

@@ -19,18 +19,36 @@ The system is NOT a "move explanation system" but a **"Thinking Simulator"**. It
 
 ## V5 Implementation Status: COMPLETE
 
-### What's Been Implemented (December 2025)
+### What's Been Implemented (December 2025 - March 2025)
 
-#### 1. Game Decryption V5 Service (`game_decryption_v5_service.py`)
+#### 1. Shared Coaching Layer (`shared_coaching_v5.py`) - NEW!
+- **Single source of truth** for V5 coaching used by BOTH Lab and Play with Coach
+- `generate_move_coaching()` - Main entry point for all V5 coaching
+- `get_stockfish_candidates()` - Multi-PV for real candidate moves (no more bad suggestions like Qd6!)
+- `describe_consequence()` - Specific consequences (not generic)
+- `detect_fork_in_pv()` - Detects actual forked pieces (Rook + Queen, not King + Queen)
+- Same fun language everywhere (Horsey, Naughty Knight, Slicey Boi)
+
+#### 2. Shared Frontend Component (`V5CoachingCard.jsx`) - NEW!
+- Unified UI component used by both Lab and Play with Coach
+- Clickable candidate moves from Stockfish
+- "I understand" button for concept tracking
+- Color-coded move types (counter_attack, prophylactic, development, etc.)
+- Golden Rules / Transferable Learning section
+
+#### 3. Play with Coach V5 Integration - NEW!
+- Added V5 endpoints to `coach_play.py`:
+  - `POST /api/coach/play/v5/feedback` - Get V5 coaching for a move during live play
+  - `GET /api/coach/play/v5/session/{session_id}/moves` - Get V5 coaching for all moves after game ends
+- Updated `CoachPlay.jsx` to fetch and display V5 coaching
+- V5 coaching displays when available, falls back to legacy UI otherwise
+
+#### 4. Game Decryption V5 Service (`game_decryption_v5_service.py`)
 - Coaches every single move (user and opponent)
 - Extracts PLANS from Stockfish PV (not just moves)
 - Integrates opening theory tree
 - Tracks concept acknowledgment
 - LLM enhancement for mistakes
-- **FIXED**: Specific consequence analysis (March 2025)
-  - Fixed syntax error in tactical pattern detection
-  - Enhanced `_describe_consequence` function with fallback positional analysis
-  - Added `_analyze_positional_weakness` for non-tactical issues
 
 #### 2. LLM Narrator (`v5_llm_narrator.py`)
 - GPT-4.1-mini via emergentintegrations
