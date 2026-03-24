@@ -410,7 +410,7 @@ async def start_opening_lesson(
     result = {
         "success": True,
         "mode": mode,
-        "opening_name": opening.name,
+        "opening_name": opening_name,
         "lesson_name": teaching_data.get("trap_name") or teaching_data.get("variation_name"),
         "total_moves": len(teaching_data.get("trap_moves", teaching_data.get("main_line_moves", []))),
         "current_move_index": current_idx,
