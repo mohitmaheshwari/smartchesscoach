@@ -545,6 +545,73 @@ def _analyze_positional_weakness(board: chess.Board, user_color: bool) -> List[s
     return problems
 
 
+def _is_move_safe(board: chess.Board, move_san: str, user_color: bool) -> bool:
+    """
+    Check if a move is SAFE - doesn't hang the moving piece.
+    
+    A move is unsafe if:
+    1. The piece lands on a square attacked by a lower-value piece
+    2. The piece is a Queen/Rook and lands where it can be taken
+    3. The piece becomes hanging (attacked with insufficient defense)
+    """
+    try:
+        move = board.parse_san(move_san)
+    except Exception:
+        return False
+    
+    piece = board.piece_at(move.from_square)
+    if not piece:
+        return False
+    
+    # Simulate the move
+    sim = board.copy()
+    sim.push(move)
+    
+    to_square = move.to_square
+    piece_value = _piece_value(piece)
+    
+    # Check if the piece is now attacked
+    attackers = list(sim.attackers(not user_color, to_square))
+    
+    if not attackers:
+        return True  # Not attacked = safe
+    
+    # Get defenders (excluding the piece itself)
+    defenders = list(sim.attackers(user_color, to_square))
+    
+    # For each attacker, check if it's a bad trade
+    min_attacker_value = float('inf')
+    for attacker_sq in attackers:
+        attacker = sim.piece_at(attacker_sq)
+        if attacker:
+            attacker_value = _piece_value(attacker)
+            min_attacker_value = min(min_attacker_value, attacker_value)
+    
+    # If the cheapest attacker is worth less than our piece, it's a bad trade
+    # Unless we have enough defenders to make it safe
+    if min_attacker_value < piece_value:
+        # Simple heuristic: if attacker is worth less AND we don't have more defenders than attackers
+        if len(defenders) <= len(attackers):
+            return False  # Losing material!
+    
+    # For Queen: be VERY careful - any attack is dangerous
+    if piece.piece_type == chess.QUEEN:
+        # Queen is attacked - check if we can recapture profitably
+        if len(attackers) > 0 and len(defenders) < len(attackers):
+            return False
+        # If attacked by something worth less than queen (anything except another queen)
+        if min_attacker_value < piece_value:
+            return False
+    
+    # For Rook: careful about minor pieces
+    if piece.piece_type == chess.ROOK:
+        if min_attacker_value <= 3:  # Bishop or knight value
+            if len(defenders) < len(attackers):
+                return False
+    
+    return True
+
+
 def _analyze_candidate_moves(
     board_before: chess.Board,
     played_move: chess.Move,
@@ -568,7 +635,7 @@ def _analyze_candidate_moves(
     candidates = []
     played_san = board_before.san(played_move)
     
-    # Analyze the best move first
+    # Analyze the best move first (trust Stockfish - it's safe)
     if best_move_san:
         idea = _explain_move_idea(board_before, best_move_san, user_color)
         if idea:
@@ -588,6 +655,10 @@ def _analyze_candidate_moves(
     for move in legal_moves:
         san = sim.san(move)
         if san == played_san or san == best_move_san:
+            continue
+        
+        # SAFETY CHECK: Skip moves that hang pieces!
+        if not _is_move_safe(board_before, san, user_color):
             continue
         
         idea = _explain_move_idea(board_before, san, user_color)
