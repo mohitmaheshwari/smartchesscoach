@@ -102,7 +102,7 @@ const V5CoachingCard = ({
       }`}
       data-testid="v5-coaching-card"
     >
-      {/* Header */}
+      {/* Header - Clear indication this is about YOUR move */}
       <div className={`px-4 py-3 border-b ${
         isGoodMove ? 'border-emerald-500/20' :
         isMistake ? 'border-red-500/20' :
@@ -110,8 +110,9 @@ const V5CoachingCard = ({
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
+            <span className="text-xs text-zinc-500 uppercase tracking-wide">Your move</span>
             <span className="font-mono font-bold text-lg text-white">
-              {moveNumber && `${moveNumber}. `}{moveSan}
+              {moveSan}
             </span>
             <Badge 
               variant="outline" 
