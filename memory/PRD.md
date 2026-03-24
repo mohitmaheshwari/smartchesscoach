@@ -226,6 +226,7 @@ Alternative Ideas:
 - **Consequence analysis: FIXED and tested (March 2025)**
 - **Interactive Coaching Panel: INTEGRATED and tested (March 2025)** - Backend 8/8 tests passed, Frontend 100% verified
 - **V5 Pipeline Unified (March 2025)** - Play with Coach now uses the EXACT same `generate_move_coaching()` as Lab. Coach move explanations show plan, threats, teaching points. User move feedback shows V5CoachingCard with clickable candidates. Generic "What's your plan?" removed. Backend 10/10, Frontend 100%.
+- **Two-Moment Coaching Flow (March 2025)** - User move feedback appears IMMEDIATELY after playing (before coach responds). Coach move explanation appears ONLY after coach finishes thinking. Backend supports `phase` param (user_move/coach_move). Quick Stockfish eval runs inline when stored analysis not yet available. Backend 9/9, Frontend 100%.
 
 ---
 
