@@ -12,7 +12,8 @@ import {
   Import,
   AlertTriangle,
   CheckCircle2,
-  X as XIcon,
+  Clock,
+  RefreshCw,
 } from "lucide-react";
 
 const resultDisplay = (result, userColor) => {
@@ -179,17 +180,26 @@ const GameRow = ({ game, navigate }) => {
     "Unknown";
   const result = resultDisplay(game.result, game.user_color);
   const mistake = mainMistake(game);
+  const isAnalyzed = game.is_analyzed || game.analysis_status === "analyzed";
+  const status = game.analysis_status || "pending";
 
   return (
     <button
-      onClick={() => navigate(`/game/${game.game_id}`)}
-      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-900/50 border border-zinc-800/60 hover:border-zinc-700 transition-colors group text-left"
+      onClick={() => isAnalyzed && navigate(`/game/${game.game_id}`)}
+      disabled={!isAnalyzed}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors group text-left ${
+        isAnalyzed
+          ? "bg-zinc-900/50 border-zinc-800/60 hover:border-zinc-700 cursor-pointer"
+          : "bg-zinc-900/30 border-zinc-800/40 cursor-default opacity-70"
+      }`}
       data-testid={`game-row-${game.game_id}`}
     >
       {/* Result indicator */}
       <div
         className={`w-1.5 h-10 rounded-full flex-shrink-0 ${
-          result.label === "Won"
+          !isAnalyzed
+            ? "bg-zinc-700"
+            : result.label === "Won"
             ? "bg-emerald-500"
             : result.label === "Lost"
             ? "bg-red-500"
@@ -203,27 +213,39 @@ const GameRow = ({ game, navigate }) => {
           <span className="text-sm font-medium text-white truncate">
             {opponent}
           </span>
-          <span className={`text-xs font-medium ${result.color}`}>
-            {result.label}
-          </span>
+          {isAnalyzed ? (
+            <span className={`text-xs font-medium ${result.color}`}>
+              {result.label}
+            </span>
+          ) : (
+            <StatusBadge status={status} />
+          )}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
-          {mistake.severity === "high" && (
-            <span className="flex items-center gap-1 text-xs text-red-400">
-              <AlertTriangle className="w-3 h-3" />
-              {mistake.text}
-            </span>
-          )}
-          {mistake.severity === "med" && (
-            <span className="flex items-center gap-1 text-xs text-amber-400">
-              <AlertTriangle className="w-3 h-3" />
-              {mistake.text}
-            </span>
-          )}
-          {mistake.severity === "none" && (
-            <span className="flex items-center gap-1 text-xs text-emerald-400">
-              <CheckCircle2 className="w-3 h-3" />
-              {mistake.text}
+          {isAnalyzed ? (
+            <>
+              {mistake.severity === "high" && (
+                <span className="flex items-center gap-1 text-xs text-red-400">
+                  <AlertTriangle className="w-3 h-3" />
+                  {mistake.text}
+                </span>
+              )}
+              {mistake.severity === "med" && (
+                <span className="flex items-center gap-1 text-xs text-amber-400">
+                  <AlertTriangle className="w-3 h-3" />
+                  {mistake.text}
+                </span>
+              )}
+              {mistake.severity === "none" && (
+                <span className="flex items-center gap-1 text-xs text-emerald-400">
+                  <CheckCircle2 className="w-3 h-3" />
+                  {mistake.text}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-xs text-zinc-500">
+              {status === "analyzing" ? "Analyzing moves..." : "Waiting in queue"}
             </span>
           )}
           {game.platform && (
@@ -232,10 +254,45 @@ const GameRow = ({ game, navigate }) => {
         </div>
       </div>
 
-      {/* Review arrow */}
-      <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors flex-shrink-0" />
+      {/* Right side */}
+      {isAnalyzed ? (
+        <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors flex-shrink-0" />
+      ) : (
+        status === "analyzing" ? (
+          <RefreshCw className="w-4 h-4 text-amber-500 animate-spin flex-shrink-0" />
+        ) : (
+          <Clock className="w-4 h-4 text-zinc-600 flex-shrink-0" />
+        )
+      )}
     </button>
   );
+};
+
+const StatusBadge = ({ status }) => {
+  if (status === "analyzing") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
+        <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+        Analyzing
+      </span>
+    );
+  }
+  if (status === "queued" || status === "pending") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-400 bg-zinc-700/50 px-1.5 py-0.5 rounded">
+        <Clock className="w-2.5 h-2.5" />
+        In queue
+      </span>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">
+        Failed
+      </span>
+    );
+  }
+  return null;
 };
 
 export default Dashboard;
