@@ -1,99 +1,156 @@
 /**
- * OpeningsOverview.jsx - Opening Theory Tree Browser
- * 
- * Displays all openings from the JSON theory tree with their
- * variations, move depths, plans, and critical positions.
+ * OpeningsOverview.jsx → "Your Opening World"
+ *
+ * Personal opening portrait. Not an encyclopedia — a mirror.
+ * Shows what you play, how well, your weakest opening as focus,
+ * and progress from coach + real games.
+ *
+ * Uses existing endpoints:
+ * - GET /api/openings/repertoire (what you play + win rates)
+ * - GET /api/training/opening-progress (coach lessons + real game stats)
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
-  BookOpen,
-  ChevronDown,
-  ChevronUp,
-  Search,
   Loader2,
-  GitBranch,
-  Layers,
-  Swords,
   Crown,
   Shield,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  BookOpen,
+  ChevronRight,
+  Swords,
+  Zap,
+  CheckCircle2,
+  AlertTriangle,
+  GraduationCap,
 } from "lucide-react";
+
+const masteryColors = {
+  mastered: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+  comfortable: "text-blue-400 bg-blue-500/10 border-blue-500/30",
+  learning: "text-amber-400 bg-amber-500/10 border-amber-500/30",
+  needs_work: "text-red-400 bg-red-500/10 border-red-500/30",
+  introduced: "text-purple-400 bg-purple-500/10 border-purple-500/30",
+  unknown: "text-zinc-400 bg-zinc-500/10 border-zinc-500/30",
+};
+
+const masteryLabels = {
+  mastered: "Mastered",
+  comfortable: "Comfortable",
+  learning: "Learning",
+  needs_work: "Needs Work",
+  introduced: "Introduced",
+  unknown: "New",
+};
 
 const OpeningsOverview = ({ user }) => {
   const navigate = useNavigate();
-  const [openings, setOpenings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [expandedOpening, setExpandedOpening] = useState(null);
-  const [openingDetails, setOpeningDetails] = useState({});
-  const [loadingDetails, setLoadingDetails] = useState({});
+  const [repertoire, setRepertoire] = useState(null);
+  const [progress, setProgress] = useState([]);
 
   useEffect(() => {
-    fetchOpenings();
+    fetchData();
   }, []);
 
-  const fetchOpenings = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API}/admin/openings`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const data = await response.json();
-      setOpenings(data.openings || []);
-    } catch (err) {
-      setError("Failed to fetch openings");
-      console.error(err);
+      const [repRes, progRes] = await Promise.all([
+        fetch(`${API}/openings/repertoire`, { credentials: "include" }),
+        fetch(`${API}/training/opening-progress`, { credentials: "include" }),
+      ]);
+
+      if (repRes.ok) {
+        const data = await repRes.json();
+        setRepertoire(data);
+      }
+      if (progRes.ok) {
+        const data = await progRes.json();
+        setProgress(data.progress || []);
+      }
+    } catch (e) {
+      console.error("Failed to load openings:", e);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchOpeningDetails = async (openingKey) => {
-    if (openingDetails[openingKey]) return;
-    setLoadingDetails((prev) => ({ ...prev, [openingKey]: true }));
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API}/admin/openings/${openingKey}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const data = await response.json();
-      setOpeningDetails((prev) => ({ ...prev, [openingKey]: data.feedback }));
-    } catch (err) {
-      console.error(`Failed to fetch details for ${openingKey}:`, err);
-    } finally {
-      setLoadingDetails((prev) => ({ ...prev, [openingKey]: false }));
-    }
-  };
+  // Find the weakest opening (needs most attention)
+  const focusOpening = useMemo(() => {
+    if (!progress.length) return null;
 
-  const toggleExpand = async (openingKey) => {
-    if (expandedOpening === openingKey) {
-      setExpandedOpening(null);
-    } else {
-      setExpandedOpening(openingKey);
-      await fetchOpeningDetails(openingKey);
-    }
-  };
+    // Prioritize: openings with real games + low win rate, then needs_work
+    const candidates = progress
+      .filter((p) => p.real_games >= 2 && p.real_win_rate < 55)
+      .sort((a, b) => a.real_win_rate - b.real_win_rate);
 
-  const filteredOpenings = openings.filter(
-    (o) =>
-      o.opening_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.opening_key?.toLowerCase().includes(searchTerm.toLowerCase())
+    if (candidates.length > 0) return candidates[0];
+
+    // Fallback: lowest accuracy with enough games
+    const byAccuracy = progress
+      .filter((p) => p.real_games >= 2 && p.real_accuracy > 0)
+      .sort((a, b) => a.real_accuracy - b.real_accuracy);
+
+    return byAccuracy.length > 0 ? byAccuracy[0] : null;
+  }, [progress]);
+
+  // Separate progress into coach-taught and played
+  const coachTaught = useMemo(
+    () => progress.filter((p) => p.coach_taught),
+    [progress]
   );
+
+  const allWhite = repertoire?.white_repertoire || [];
+  const allBlack = repertoire?.black_repertoire || [];
+  const totalGames =
+    allWhite.reduce((s, o) => s + o.games_played, 0) +
+    allBlack.reduce((s, o) => s + o.games_played, 0);
 
   if (loading) {
     return (
       <Layout user={user}>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+        <div
+          className="flex flex-col items-center justify-center min-h-[60vh] gap-4"
+          data-testid="openings-loading"
+        >
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading your opening world...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Empty state
+  if (totalGames === 0 && coachTaught.length === 0) {
+    return (
+      <Layout user={user}>
+        <div
+          className="flex flex-col items-center justify-center min-h-[60vh] gap-4"
+          data-testid="openings-empty"
+        >
+          <BookOpen className="w-12 h-12 text-muted-foreground" />
+          <h2 className="text-xl font-semibold">No Openings Yet</h2>
+          <p className="text-muted-foreground text-center max-w-md">
+            Play some games and your opening portrait will build itself.
+          </p>
+          <Button
+            onClick={() => navigate("/play-with-coach")}
+            data-testid="play-btn"
+          >
+            <Swords className="w-4 h-4 mr-2" />
+            Play a Game
+          </Button>
         </div>
       </Layout>
     );
@@ -101,313 +158,322 @@ const OpeningsOverview = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div
+        className="max-w-4xl mx-auto py-4 px-4 space-y-6"
+        data-testid="openings-overview"
+      >
+        {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2" data-testid="openings-overview-title">
-            <BookOpen className="w-6 h-6 text-amber-500" />
-            Opening Theory Tree
-          </h1>
-          <p className="text-zinc-400 mt-1">
-            {openings.length} openings with deep theory
+          <h1 className="text-xl font-bold tracking-tight">Your Openings</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {totalGames} games analyzed
+            {coachTaught.length > 0 &&
+              ` · ${coachTaught.length} taught by coach`}
           </p>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-          <Input
-            placeholder="Search openings..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-zinc-900 border-zinc-700"
-            data-testid="openings-search"
+        {/* FOCUS OPENING — The prescription */}
+        {focusOpening && (
+          <FocusCard
+            opening={focusOpening}
+            allWhite={allWhite}
+            allBlack={allBlack}
+            onStudy={(key) => key && navigate(`/openings/${key}`)}
           />
-        </div>
-
-        {error && (
-          <Card className="bg-red-900/20 border-red-500/30">
-            <CardContent className="p-4 text-red-400">{error}</CardContent>
-          </Card>
         )}
 
-        <div className="space-y-3" data-testid="openings-list">
-          {filteredOpenings.map((opening) => {
-            const isExpanded = expandedOpening === opening.opening_key;
-            const details = openingDetails[opening.opening_key];
-            const isLoadingDetail = loadingDetails[opening.opening_key];
-
-            return (
-              <Card
-                key={opening.opening_key}
-                className="bg-zinc-900/50 border-zinc-800 hover:border-zinc-700 transition-colors"
-                data-testid={`opening-card-${opening.opening_key}`}
-              >
-                <CardHeader
-                  className="cursor-pointer py-4"
-                  onClick={() => toggleExpand(opening.opening_key)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                        <BookOpen className="w-5 h-5 text-amber-500" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base text-white">
-                          {opening.opening_name}
-                        </CardTitle>
-                        <p className="text-xs text-zinc-500 font-mono mt-0.5">
-                          {opening.eco_prefix?.join(", ")}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/30"
-                      >
-                        <GitBranch className="w-3 h-3 mr-1" />
-                        {opening.variations_count} var
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="text-xs bg-amber-500/10 text-amber-400 border-amber-500/30"
-                      >
-                        <Layers className="w-3 h-3 mr-1" />
-                        {opening.max_depth} moves
-                      </Badge>
-                      {isExpanded ? (
-                        <ChevronUp className="w-5 h-5 text-zinc-500" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-zinc-500" />
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-
-                {isExpanded && (
-                  <CardContent className="border-t border-zinc-800 pt-4">
-                    {isLoadingDetail ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
-                      </div>
-                    ) : details ? (
-                      <div className="space-y-4">
-                        {/* Plans */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {details.white_plan && (
-                            <div className="bg-zinc-800/50 rounded-lg p-3">
-                              <p className="text-xs text-zinc-500 font-medium mb-1 flex items-center gap-1">
-                                <Crown className="w-3 h-3" /> White's Plan
-                              </p>
-                              <p className="text-sm text-white">{details.white_plan}</p>
-                            </div>
-                          )}
-                          {details.black_plan && (
-                            <div className="bg-zinc-800/50 rounded-lg p-3">
-                              <p className="text-xs text-zinc-500 font-medium mb-1 flex items-center gap-1">
-                                <Shield className="w-3 h-3" /> Black's Plan
-                              </p>
-                              <p className="text-sm text-white">{details.black_plan}</p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Main Line */}
-                        {details.main_line?.length > 0 && (
-                          <div className="bg-zinc-800/50 rounded-lg p-3">
-                            <p className="text-xs text-zinc-500 font-medium mb-2">
-                              Defining Moves
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {details.main_line.map((move, i) => (
-                                <span
-                                  key={i}
-                                  className="bg-zinc-700/60 rounded px-2 py-0.5 text-sm"
-                                >
-                                  <span className="text-zinc-500 mr-1">
-                                    {Math.floor(i / 2) + 1}
-                                    {i % 2 === 0 ? "." : "..."}
-                                  </span>
-                                  <span className="text-white font-mono">{move}</span>
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Variations */}
-                        {details.variations?.length > 0 && (
-                          <div className="bg-zinc-800/50 rounded-lg p-3">
-                            <p className="text-xs text-zinc-500 font-medium mb-2">
-                              Variations ({details.variations.length})
-                            </p>
-                            <div className="space-y-2">
-                              {details.variations.map((v, i) => (
-                                <VariationRow key={v.key || i} variation={v} />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Common Learnings */}
-                        {details.common_learnings?.length > 0 && (
-                          <div className="bg-zinc-800/50 rounded-lg p-3">
-                            <p className="text-xs text-zinc-500 font-medium mb-2">
-                              Key Takeaways
-                            </p>
-                            <ul className="space-y-1">
-                              {details.common_learnings.map((idea, i) => (
-                                <li
-                                  key={i}
-                                  className="text-sm text-zinc-300 flex items-start gap-2"
-                                >
-                                  <span className="text-amber-500 mt-0.5">*</span>
-                                  {idea}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Traps */}
-                        {details.traps?.length > 0 && (
-                          <div className="bg-zinc-800/50 rounded-lg p-3">
-                            <p className="text-xs text-zinc-500 font-medium mb-2">
-                              Traps
-                            </p>
-                            <div className="space-y-1">
-                              {details.traps.map((trap, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-center gap-2 text-sm text-white"
-                                >
-                                  <Swords className="w-3 h-3 text-red-500 flex-shrink-0" />
-                                  <span>{trap.name}</span>
-                                  {trap.difficulty && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[10px] px-1.5 py-0"
-                                    >
-                                      {trap.difficulty}
-                                    </Badge>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Action */}
-                        <div className="pt-1">
-                          <Button
-                            size="sm"
-                            onClick={() => navigate(`/openings/${opening.opening_key}`)}
-                            className="bg-amber-600 hover:bg-amber-700"
-                            data-testid={`view-lesson-${opening.opening_key}`}
-                          >
-                            Open Lesson
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-zinc-500 text-center py-4">
-                        Failed to load details
-                      </p>
-                    )}
-                  </CardContent>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-
-        {filteredOpenings.length === 0 && !loading && (
-          <Card className="bg-zinc-900/50 border-zinc-800">
-            <CardContent className="p-8 text-center">
-              <BookOpen className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
-              <p className="text-zinc-400">
-                {searchTerm
-                  ? "No openings match your search"
-                  : "No openings found"}
-              </p>
-            </CardContent>
-          </Card>
+        {/* AS WHITE */}
+        {allWhite.length > 0 && (
+          <RepertoireSection
+            title="As White"
+            icon={<Crown className="w-4 h-4 text-amber-400" />}
+            openings={allWhite}
+            progress={progress}
+            onOpeningClick={(key) => key && navigate(`/openings/${key}`)}
+          />
         )}
 
-        <Card className="bg-zinc-900/50 border-zinc-800">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-sm text-zinc-400">
-              <span>Total: {openings.length} openings</span>
-              <span>
-                {openings.reduce((a, o) => a + (o.variations_count || 0), 0)}{" "}
-                variations
-              </span>
-              <span>
-                Deepest: {Math.max(...openings.map((o) => o.max_depth || 0))} moves
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+        {/* AS BLACK */}
+        {allBlack.length > 0 && (
+          <RepertoireSection
+            title="As Black"
+            icon={<Shield className="w-4 h-4 text-blue-400" />}
+            openings={allBlack}
+            progress={progress}
+            onOpeningClick={(key) => key && navigate(`/openings/${key}`)}
+          />
+        )}
+
+        {/* COACH PROGRESS */}
+        {coachTaught.length > 0 && (
+          <CoachProgress items={coachTaught} navigate={navigate} />
+        )}
       </div>
     </Layout>
   );
 };
 
-const VariationRow = ({ variation }) => {
-  const [expanded, setExpanded] = useState(false);
+/* ============================================================
+ * FOCUS CARD — Your weakest opening, highlighted
+ * ============================================================ */
+const FocusCard = ({ opening, allWhite, allBlack, onStudy }) => {
+  // Find library key from repertoire
+  const all = [...allWhite, ...allBlack];
+  const match = all.find(
+    (o) => o.name.toLowerCase() === opening.opening_name?.toLowerCase()
+  );
+  const libraryKey = match?.library_key;
+  const winRate = opening.real_win_rate || 0;
+  const accuracy = opening.real_accuracy || 0;
 
   return (
-    <div className="bg-zinc-900/50 rounded-lg overflow-hidden">
-      <div
-        className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-zinc-800/50"
-        onClick={() => setExpanded(!expanded)}
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+      <Card
+        className="border-amber-500/30 bg-amber-500/5"
+        data-testid="focus-opening"
       >
-        <div className="flex items-center gap-2">
-          <GitBranch className="w-3.5 h-3.5 text-blue-400" />
-          <span className="text-sm text-white">{variation.name}</span>
+        <CardContent className="p-5">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-amber-500" />
+              <div>
+                <p className="text-xs text-amber-400 uppercase tracking-wide font-medium">
+                  Focus
+                </p>
+                <h2 className="font-semibold text-base mt-0.5">
+                  {opening.opening_name}
+                </h2>
+              </div>
+            </div>
+            {libraryKey && (
+              <Button
+                size="sm"
+                onClick={() => onStudy(libraryKey)}
+                data-testid="study-focus-btn"
+              >
+                Study
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mt-3">
+            <Stat
+              label="Win Rate"
+              value={`${winRate.toFixed(0)}%`}
+              color={winRate >= 50 ? "text-emerald-400" : "text-red-400"}
+            />
+            <Stat
+              label="Accuracy"
+              value={accuracy > 0 ? `${accuracy.toFixed(0)}%` : "—"}
+              color={accuracy >= 70 ? "text-emerald-400" : "text-amber-400"}
+            />
+            <Stat label="Games" value={opening.real_games} color="text-zinc-300" />
+          </div>
+
+          <p className="text-xs text-muted-foreground mt-3">
+            {winRate < 40
+              ? "This opening is costing you games. Study the key ideas and critical positions."
+              : winRate < 55
+              ? "You're close to comfortable here. A few targeted lessons could push you over."
+              : "Improving steadily. Keep applying what you've learned."}
+          </p>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
+const Stat = ({ label, value, color }) => (
+  <div>
+    <p className="text-xs text-muted-foreground">{label}</p>
+    <p className={`text-lg font-semibold ${color}`}>{value}</p>
+  </div>
+);
+
+/* ============================================================
+ * REPERTOIRE SECTION — Your openings as white/black
+ * ============================================================ */
+const RepertoireSection = ({ title, icon, openings, progress, onOpeningClick }) => {
+  // Match progress data
+  const enriched = openings.map((o) => {
+    const prog = progress.find(
+      (p) => p.opening_name?.toLowerCase() === o.name?.toLowerCase()
+    );
+    return { ...o, progress: prog };
+  });
+
+  return (
+    <div data-testid={`repertoire-${title.toLowerCase().replace(/\s/g, "-")}`}>
+      <div className="flex items-center gap-2 mb-3">
+        {icon}
+        <h2 className="text-sm font-semibold">{title}</h2>
+        <span className="text-xs text-muted-foreground">
+          {openings.length} opening{openings.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {enriched.map((o, i) => (
+          <OpeningRow
+            key={`${o.name}-${i}`}
+            opening={o}
+            onClick={() => onOpeningClick(o.library_key)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const OpeningRow = ({ opening, onClick }) => {
+  const winRate = opening.win_rate || 0;
+  const hasLibrary = !!opening.library_key;
+  const mastery = opening.progress?.mastery_level || "unknown";
+  const coachTaught = opening.progress?.coach_taught;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className={`rounded-lg border border-border/50 p-3 ${
+        hasLibrary
+          ? "cursor-pointer hover:border-primary/40 transition-all"
+          : "opacity-75"
+      }`}
+      onClick={hasLibrary ? onClick : undefined}
+      data-testid={`opening-row-${opening.library_key || opening.name}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium truncate">{opening.name}</h3>
+            {coachTaught && (
+              <GraduationCap className="w-3.5 h-3.5 text-purple-400 shrink-0" title="Coach taught" />
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-1">
+            <span className="text-xs text-muted-foreground">
+              {opening.games_played} game{opening.games_played !== 1 ? "s" : ""}
+            </span>
+            {opening.avg_accuracy > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {opening.avg_accuracy.toFixed(0)}% accuracy
+              </span>
+            )}
+            {opening.learning_progress > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="w-10 h-1 rounded-full bg-zinc-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{
+                      width: `${Math.min(opening.learning_progress * 10, 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Win rate */}
+          <div className="flex items-center gap-1">
+            {winRate >= 50 ? (
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+            )}
+            <span
+              className={`text-sm font-medium ${
+                winRate >= 50 ? "text-emerald-400" : "text-red-400"
+              }`}
+            >
+              {winRate.toFixed(0)}%
+            </span>
+          </div>
+
+          {/* Mastery badge */}
           <Badge
             variant="outline"
-            className="text-[10px] px-1.5 py-0 bg-zinc-800 border-zinc-700"
+            className={`text-xs px-1.5 py-0 ${
+              masteryColors[mastery] || masteryColors.unknown
+            }`}
           >
-            {variation.total_moves} moves
+            {masteryLabels[mastery] || "New"}
           </Badge>
-          {expanded ? (
-            <ChevronUp className="w-4 h-4 text-zinc-500" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-zinc-500" />
+
+          {hasLibrary && (
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
           )}
         </div>
       </div>
-      {expanded && (
-        <div className="px-3 pb-3 space-y-2">
-          {variation.white_plan && (
-            <p className="text-xs text-zinc-400">
-              <span className="text-zinc-500">White:</span> {variation.white_plan}
-            </p>
-          )}
-          {variation.black_plan && (
-            <p className="text-xs text-zinc-400">
-              <span className="text-zinc-500">Black:</span> {variation.black_plan}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-1">
-            {variation.moves?.map((move, i) => (
-              <span
-                key={i}
-                className="bg-zinc-800 rounded px-1.5 py-0.5 text-xs font-mono text-zinc-300"
-              >
-                {i % 2 === 0 && (
-                  <span className="text-zinc-600 mr-0.5">
-                    {Math.floor(i / 2) + 1}.
+    </motion.div>
+  );
+};
+
+/* ============================================================
+ * COACH PROGRESS — Openings the coach has taught you
+ * ============================================================ */
+const CoachProgress = ({ items, navigate }) => {
+  return (
+    <div data-testid="coach-progress">
+      <div className="flex items-center gap-2 mb-3">
+        <Zap className="w-4 h-4 text-purple-400" />
+        <h2 className="text-sm font-semibold">Coach Taught</h2>
+      </div>
+
+      <div className="space-y-2">
+        {items.map((item) => (
+          <div
+            key={item.opening_name}
+            className="flex items-center justify-between p-3 rounded-lg border border-border/50"
+            data-testid={`coach-item-${item.opening_name}`}
+          >
+            <div>
+              <p className="text-sm font-medium">{item.opening_name}</p>
+              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                <span>
+                  {item.times_practiced}x practiced
+                </span>
+                {item.real_games > 0 && (
+                  <span
+                    className={
+                      item.real_win_rate >= 50
+                        ? "text-emerald-400"
+                        : "text-red-400"
+                    }
+                  >
+                    {item.real_win_rate.toFixed(0)}% win in {item.real_games}{" "}
+                    game{item.real_games !== 1 ? "s" : ""}
                   </span>
                 )}
-                {move}
-              </span>
-            ))}
+                {item.real_games === 0 && (
+                  <span className="text-amber-400">Not tested in a game yet</span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className={`text-xs ${
+                  masteryColors[item.mastery_level] || masteryColors.unknown
+                }`}
+              >
+                {masteryLabels[item.mastery_level] || "Introduced"}
+              </Badge>
+              {item.real_games > 0 &&
+                item.real_win_rate >= 50 && (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                )}
+              {item.needs_work && (
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 };
