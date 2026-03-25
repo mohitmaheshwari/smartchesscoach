@@ -5784,6 +5784,50 @@ async def get_user_thoughts(
         return {"thoughts": []}
 
 
+# ─── PLAN ANALYSIS (Cognitive Gap Detection) ────────────────────────────────
+
+class PlanAnalysisRequest(BaseModel):
+    fen: str  # Position before user's move
+    user_move: str  # The move user played
+    plan_moves: List[str]  # User's intended continuation
+    plan_reasoning: str = ""  # User's text explanation
+
+
+@api_router.post("/analyze-plan")
+async def analyze_user_plan_endpoint(
+    data: PlanAnalysisRequest,
+    user: User = Depends(get_current_user)
+):
+    """
+    Analyze user's intended plan to identify where their calculation failed.
+    
+    Compares user's planned line with Stockfish's best responses to find
+    the exact move where calculation broke down and identify the cognitive gap.
+    """
+    try:
+        from services.plan_analysis_service import analyze_user_plan
+        from dataclasses import asdict
+        
+        analysis = await analyze_user_plan(
+            fen=data.fen,
+            user_move=data.user_move,
+            user_plan_moves=data.plan_moves,
+            user_plan_reasoning=data.plan_reasoning
+        )
+        
+        return {
+            "success": True,
+            "analysis": asdict(analysis)
+        }
+        
+    except Exception as e:
+        logger.error(f"Plan analysis failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
 @api_router.get("/blind-spots")
 async def get_blind_spots(user: User = Depends(get_current_user)):
     """

@@ -69,6 +69,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
   const [thoughtInputOpen, setThoughtInputOpen] = useState({});
   const [savingThought, setSavingThought] = useState(null);
   
+  // "Show my plan" interactive mode state
+  const [planMode, setPlanMode] = useState(false);
+  const [planMoves, setPlanMoves] = useState([]);
+  const [planBoard, setPlanBoard] = useState(null);
+  const [planReasoning, setPlanReasoning] = useState("");
+  const [analyzingPlan, setAnalyzingPlan] = useState(false);
+  const [planAnalysis, setPlanAnalysis] = useState(null);
+  
   const boardRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -188,6 +196,105 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
       toast.error("Could not save thought");
     } finally {
       setSavingThought(null);
+    }
+  };
+
+  // ─── PLAN MODE FUNCTIONS ───────────────────────────────────────────────
+  
+  // Start plan mode - user will play their intended moves
+  const startPlanMode = (moveData) => {
+    if (!moveData?.fen_after) return;
+    
+    // Initialize chess.js with position after user's move
+    const chess = new Chess(moveData.fen_after);
+    setPlanBoard(chess);
+    setPlanMoves([]);
+    setPlanReasoning("");
+    setPlanAnalysis(null);
+    setPlanMode(true);
+  };
+  
+  // Handle move made in plan mode
+  const handlePlanMove = (from, to, promotion) => {
+    if (!planBoard) return false;
+    
+    try {
+      const move = planBoard.move({ from, to, promotion: promotion || 'q' });
+      if (move) {
+        setPlanMoves(prev => [...prev, move.san]);
+        // Update board state (force re-render)
+        setPlanBoard(new Chess(planBoard.fen()));
+        return true;
+      }
+    } catch (e) {
+      console.log("Invalid move in plan mode");
+    }
+    return false;
+  };
+  
+  // Undo last plan move
+  const undoPlanMove = () => {
+    if (!planBoard || planMoves.length === 0) return;
+    
+    planBoard.undo();
+    setPlanMoves(prev => prev.slice(0, -1));
+    setPlanBoard(new Chess(planBoard.fen()));
+  };
+  
+  // Cancel plan mode
+  const cancelPlanMode = () => {
+    setPlanMode(false);
+    setPlanMoves([]);
+    setPlanBoard(null);
+    setPlanReasoning("");
+    setPlanAnalysis(null);
+  };
+  
+  // Submit plan for analysis
+  const submitPlan = async (moveData) => {
+    if (planMoves.length === 0) {
+      toast.error("Play at least one move to show your plan");
+      return;
+    }
+    
+    setAnalyzingPlan(true);
+    
+    try {
+      const res = await fetch(`${API}/analyze-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fen: moveData.fen_before,
+          user_move: moveData.move_san,
+          plan_moves: planMoves,
+          plan_reasoning: planReasoning
+        })
+      });
+      
+      if (!res.ok) throw new Error("Analysis failed");
+      
+      const data = await res.json();
+      
+      if (data.success && data.analysis) {
+        setPlanAnalysis(data.analysis);
+        setPlanMode(false);
+        
+        // Show the critical move on the board if available
+        if (data.analysis.arrows?.length > 0) {
+          setArrows(data.analysis.arrows.map(a => ({
+            orig: a.from,
+            dest: a.to,
+            brush: a.color || 'red'
+          })));
+        }
+      } else {
+        toast.error(data.error || "Could not analyze plan");
+      }
+    } catch (e) {
+      toast.error("Failed to analyze plan");
+    } finally {
+      setAnalyzingPlan(false);
     }
   };
 
@@ -398,16 +505,25 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
         <div className="aspect-square max-w-[500px] mx-auto relative">
           <LichessBoard 
             ref={boardRef}
-            fen={boardFen} 
+            fen={planMode && planBoard ? planBoard.fen() : boardFen} 
             orientation={orientation} 
-            viewOnly={true}
-            lastMove={currentMove && !showingFutureMoves ? getLastMoveSquares(currentMove) : null}
+            viewOnly={!planMode}
+            onMove={planMode ? handlePlanMove : undefined}
+            lastMove={!planMode && currentMove && !showingFutureMoves ? getLastMoveSquares(currentMove) : null}
             arrows={arrows}
             highlights={highlights}
           />
           
+          {/* Plan mode indicator */}
+          {planMode && (
+            <div className="absolute top-2 left-2 bg-cyan-500/90 text-white text-xs px-2 py-1 rounded flex items-center gap-1 animate-pulse">
+              <Swords className="w-3 h-3" />
+              Play your intended moves
+            </div>
+          )}
+          
           {/* Future moves indicator */}
-          {showingFutureMoves && (
+          {showingFutureMoves && !planMode && (
             <div className="absolute top-2 left-2 bg-emerald-500/90 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
               <Eye className="w-3 h-3" />
               Showing future line
@@ -466,6 +582,19 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
             onThoughtChange={(moveNum, text) => setUserThoughts(prev => ({ ...prev, [moveNum]: { text, saved: false } }))}
             onSaveThought={saveThought}
             savingThought={savingThought}
+            // Plan mode props
+            planMode={planMode}
+            planMoves={planMoves}
+            planBoard={planBoard}
+            planReasoning={planReasoning}
+            planAnalysis={planAnalysis}
+            analyzingPlan={analyzingPlan}
+            onStartPlanMode={() => startPlanMode(currentMove)}
+            onPlanMove={handlePlanMove}
+            onUndoPlanMove={undoPlanMove}
+            onCancelPlan={cancelPlanMode}
+            onSubmitPlan={() => submitPlan(currentMove)}
+            onPlanReasoningChange={setPlanReasoning}
           />
         )}
         
@@ -638,7 +767,20 @@ const MoveCoachingCardV5 = ({
   onToggleThoughtInput,
   onThoughtChange,
   onSaveThought,
-  savingThought
+  savingThought,
+  // Plan mode props
+  planMode,
+  planMoves,
+  planBoard,
+  planReasoning,
+  planAnalysis,
+  analyzingPlan,
+  onStartPlanMode,
+  onPlanMove,
+  onUndoPlanMove,
+  onCancelPlan,
+  onSubmitPlan,
+  onPlanReasoningChange
 }) => {
   const [expanded, setExpanded] = useState(false);
   if (!move) return null;
@@ -864,16 +1006,28 @@ const MoveCoachingCardV5 = ({
         )}
 
         {/* ─── WHAT WERE YOU THINKING? (for user mistakes) ────── */}
-        {isMistake && (
+        {isMistake && !planMode && !planAnalysis && (
           <div className="bg-violet-500/5 rounded-lg p-3 border border-violet-500/20" data-testid="thought-prompt">
             {hasThought ? (
               // Already saved thought
-              <div className="flex items-start gap-2">
-                <Eye className="w-4 h-4 text-violet-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-xs text-violet-400 mb-1">Your thinking</p>
-                  <p className="text-sm text-zinc-300 italic">"{userThought.text}"</p>
+              <div className="space-y-3">
+                <div className="flex items-start gap-2">
+                  <Eye className="w-4 h-4 text-violet-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-violet-400 mb-1">Your thinking</p>
+                    <p className="text-sm text-zinc-300 italic">"{userThought.text}"</p>
+                  </div>
                 </div>
+                {/* Show my plan button */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onStartPlanMode}
+                  className="w-full text-xs border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
+                >
+                  <Swords className="w-3 h-3 mr-2" />
+                  Show my plan on the board
+                </Button>
               </div>
             ) : thoughtInputOpen ? (
               // Input open
@@ -914,15 +1068,170 @@ const MoveCoachingCardV5 = ({
               </div>
             ) : (
               // Collapsed - show button to expand
-              <button
-                onClick={() => onToggleThoughtInput(move.move_number)}
-                className="flex items-center gap-2 text-xs text-violet-400 hover:text-violet-300 transition-colors w-full"
-              >
-                <Eye className="w-3 h-3" />
-                <span>What were you thinking here?</span>
-                <ChevronDown className="w-3 h-3 ml-auto" />
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => onToggleThoughtInput(move.move_number)}
+                  className="flex items-center gap-2 text-xs text-violet-400 hover:text-violet-300 transition-colors w-full"
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>What were you thinking here?</span>
+                  <ChevronDown className="w-3 h-3 ml-auto" />
+                </button>
+              </div>
             )}
+          </div>
+        )}
+
+        {/* ─── PLAN MODE: Interactive Board ────────────────────── */}
+        {planMode && isMistake && (
+          <div className="bg-cyan-500/5 rounded-lg p-4 border border-cyan-500/30 space-y-4" data-testid="plan-mode">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Swords className="w-4 h-4 text-cyan-400" />
+                <span className="text-sm font-medium text-cyan-400">Show Your Plan</span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onCancelPlan}
+                className="h-6 w-6 p-0 text-zinc-400 hover:text-white"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+            
+            <p className="text-xs text-zinc-400">
+              Play the moves you intended. What did you think would happen?
+            </p>
+            
+            {/* Current plan moves */}
+            {planMoves.length > 0 && (
+              <div className="bg-zinc-800/50 rounded p-2">
+                <p className="text-xs text-zinc-500 mb-1">Your line:</p>
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="font-mono text-sm text-white">{move.move_san}</span>
+                  {planMoves.map((m, i) => (
+                    <span key={i} className="font-mono text-sm text-cyan-300">{m}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Undo button */}
+            {planMoves.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onUndoPlanMove}
+                className="text-xs text-zinc-400"
+              >
+                ← Undo last move
+              </Button>
+            )}
+            
+            {/* Submit plan */}
+            <div className="space-y-2">
+              <Textarea
+                value={planReasoning}
+                onChange={(e) => onPlanReasoningChange(e.target.value)}
+                placeholder="Why did you think this would work? (optional)"
+                className="min-h-[50px] text-sm bg-zinc-800/50 border-zinc-700 resize-none"
+              />
+              <Button
+                size="sm"
+                onClick={onSubmitPlan}
+                disabled={planMoves.length === 0 || analyzingPlan}
+                className="w-full bg-cyan-600 hover:bg-cyan-700"
+              >
+                {analyzingPlan ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin mr-2" />
+                    Analyzing your calculation...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="w-3 h-3 mr-2" />
+                    Analyze my plan
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            <p className="text-xs text-zinc-600 text-center">
+              Make moves on the board to show your intended line
+            </p>
+          </div>
+        )}
+
+        {/* ─── PLAN ANALYSIS RESULTS ───────────────────────────── */}
+        {planAnalysis && isMistake && (
+          <div className="bg-gradient-to-b from-cyan-500/10 to-transparent rounded-lg p-4 border border-cyan-500/30 space-y-4" data-testid="plan-analysis">
+            <div className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-cyan-400" />
+              <span className="text-sm font-medium text-white">Calculation Analysis</span>
+              {planAnalysis.gap_severity === "critical" && (
+                <Badge className="bg-red-500/20 text-red-400 text-xs">Critical Gap</Badge>
+              )}
+              {planAnalysis.gap_severity === "significant" && (
+                <Badge className="bg-amber-500/20 text-amber-400 text-xs">Significant Gap</Badge>
+              )}
+            </div>
+            
+            {/* Gap type */}
+            <div className="p-3 rounded bg-zinc-800/50">
+              <p className="text-xs text-zinc-500 mb-1">What went wrong</p>
+              <p className="text-sm text-white font-medium">
+                {planAnalysis.gap_type === "missed_tactic" && "Missed Tactic"}
+                {planAnalysis.gap_type === "calculation_depth" && "Calculation Too Shallow"}
+                {planAnalysis.gap_type === "correct_plan" && "Your plan was actually reasonable!"}
+              </p>
+            </div>
+            
+            {/* Explanation */}
+            <p className="text-sm text-zinc-300">{planAnalysis.explanation}</p>
+            
+            {/* Divergence point */}
+            {planAnalysis.divergence_move_number > 0 && (
+              <div className="p-3 rounded bg-red-500/10 border border-red-500/20">
+                <p className="text-xs text-red-400 mb-1">The critical moment (move {planAnalysis.divergence_move_number})</p>
+                <p className="text-sm">
+                  You expected <span className="font-mono text-zinc-400">{planAnalysis.user_expected_move}</span>
+                  {" "}but <span className="font-mono text-emerald-400">{planAnalysis.actual_best_move}</span> changes everything
+                </p>
+                {planAnalysis.missed_tactic_type && (
+                  <p className="text-xs text-amber-400 mt-1">
+                    Tactic: {planAnalysis.missed_tactic_type.replace(/_/g, ' ')}
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {/* Eval swing */}
+            {planAnalysis.eval_swing > 0 && (
+              <p className="text-xs text-zinc-500">
+                Evaluation swing: <span className="text-red-400">{planAnalysis.eval_swing.toFixed(1)} pawns</span>
+              </p>
+            )}
+            
+            {/* Lesson */}
+            {planAnalysis.lesson && (
+              <div className="p-3 rounded bg-amber-500/10 border border-amber-500/20">
+                <div className="flex items-start gap-2">
+                  <Lightbulb className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-amber-200">{planAnalysis.lesson}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Try again button */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onStartPlanMode}
+              className="text-xs text-cyan-400"
+            >
+              Show a different line
+            </Button>
           </div>
         )}
 
