@@ -5723,6 +5723,67 @@ async def migrate_game_summaries(user: User = Depends(get_current_user)):
         return {"success": False, "error": str(e)}
 
 
+# ─── USER THOUGHTS (Reflection integration) ─────────────────────────────────
+
+class ThoughtSubmission(BaseModel):
+    move_number: int
+    fen: str = ""
+    thought_text: str
+
+
+@api_router.post("/games/{game_id}/thought")
+async def save_user_thought(
+    game_id: str,
+    data: ThoughtSubmission,
+    user: User = Depends(get_current_user)
+):
+    """
+    Save user's thought for a specific move ("What were you thinking?").
+    This helps build cognitive gap analysis.
+    """
+    try:
+        thought_doc = {
+            "game_id": game_id,
+            "user_id": user.user_id,
+            "move_number": data.move_number,
+            "fen": data.fen,
+            "thought_text": data.thought_text,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Upsert - one thought per move per game
+        await db.user_thoughts.update_one(
+            {"game_id": game_id, "user_id": user.user_id, "move_number": data.move_number},
+            {"$set": thought_doc},
+            upsert=True
+        )
+        
+        return {"success": True, "message": "Thought saved"}
+    except Exception as e:
+        logger.error(f"Failed to save thought: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save thought")
+
+
+@api_router.get("/games/{game_id}/thoughts")
+async def get_user_thoughts(
+    game_id: str,
+    user: User = Depends(get_current_user)
+):
+    """
+    Get all user thoughts for a game.
+    """
+    try:
+        thoughts = await db.user_thoughts.find(
+            {"game_id": game_id, "user_id": user.user_id},
+            {"_id": 0}
+        ).to_list(100)
+        
+        return {"thoughts": thoughts}
+    except Exception as e:
+        logger.error(f"Failed to get thoughts: {e}")
+        return {"thoughts": []}
+
+
 @api_router.get("/blind-spots")
 async def get_blind_spots(user: User = Depends(get_current_user)):
     """

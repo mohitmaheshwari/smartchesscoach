@@ -81,12 +81,11 @@ const Layout = ({ children, user }) => {
   }, []);
 
   const handleCoachPulseClick = () => {
-    if (coachPulse?.type === "reflect") {
-      navigate("/reflect");
-    } else if (coachPulse?.type === "loss" && coachPulse?.game_id) {
+    if (coachPulse?.type === "loss" && coachPulse?.game_id) {
       navigate(`/recover/${coachPulse.game_id}`);
     } else {
-      navigate("/reflect");
+      // Navigate to Lab (game review list) instead of Reflect
+      navigate("/lab");
     }
   };
 
@@ -166,7 +165,6 @@ const Layout = ({ children, user }) => {
     { name: 'Train', href: '/training', icon: Target },
     { name: 'Openings', href: '/openings-overview', icon: BookOpen },
     { name: 'Progress', href: '/progress', icon: TrendingUp },
-    { name: 'Reflect', href: '/reflect', icon: Brain },
   ];
 
   const isActive = (href) => location.pathname === href || 
@@ -296,7 +294,7 @@ const Layout = ({ children, user }) => {
                 </div>
                 {!sidebarCollapsed && (
                   <span className="text-sm truncate">
-                    {coachPulse.type === "loss" ? "Fix Loss" : `Reflect (${coachPulse.count})`}
+                    {coachPulse.type === "loss" ? "Fix Loss" : `Review (${coachPulse.count})`}
                   </span>
                 )}
               </Button>
@@ -512,7 +510,7 @@ const Layout = ({ children, user }) => {
                     className="w-full justify-start gap-3 border-amber-500/50 text-amber-600"
                   >
                     <Sparkles className="w-4 h-4" />
-                    {coachPulse.type === "loss" ? "Fix Loss" : `Reflect (${coachPulse.count})`}
+                    {coachPulse.type === "loss" ? "Fix Loss" : `Review (${coachPulse.count})`}
                   </Button>
                 )}
 

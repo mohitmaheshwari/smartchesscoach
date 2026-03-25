@@ -63,6 +63,12 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
   const [futureMoveIndex, setFutureMoveIndex] = useState(0);
   const [highlights, setHighlights] = useState([]);
   const [arrows, setArrows] = useState([]);
+  
+  // "What were you thinking?" state
+  const [userThoughts, setUserThoughts] = useState({});
+  const [thoughtInputOpen, setThoughtInputOpen] = useState({});
+  const [savingThought, setSavingThought] = useState(null);
+  
   const boardRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -120,10 +126,68 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
         });
         setAcknowledgedConcepts(acked);
       }
+      
+      // Fetch existing user thoughts for this game
+      fetchUserThoughts();
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Fetch existing thoughts
+  const fetchUserThoughts = async () => {
+    try {
+      const res = await fetch(`${API}/games/${gameId}/thoughts`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.thoughts?.length > 0) {
+          const thoughts = {};
+          data.thoughts.forEach(t => {
+            thoughts[t.move_number] = { text: t.thought_text, saved: true };
+          });
+          setUserThoughts(thoughts);
+        }
+      }
+    } catch (e) {
+      console.log("Could not fetch existing thoughts");
+    }
+  };
+  
+  // Save user thought for a move
+  const saveThought = async (moveNumber, fen) => {
+    const thoughtText = userThoughts[moveNumber]?.text?.trim();
+    if (!thoughtText) {
+      toast.error("Please enter your thought");
+      return;
+    }
+    
+    setSavingThought(moveNumber);
+    try {
+      const res = await fetch(`${API}/games/${gameId}/thought`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          move_number: moveNumber,
+          fen: fen || "",
+          thought_text: thoughtText
+        })
+      });
+      
+      if (!res.ok) throw new Error("Failed to save");
+      
+      setUserThoughts(prev => ({
+        ...prev,
+        [moveNumber]: { text: thoughtText, saved: true }
+      }));
+      setThoughtInputOpen(prev => ({ ...prev, [moveNumber]: false }));
+      toast.success("Thanks! This helps improve coaching.");
+    } catch (e) {
+      toast.error("Could not save thought");
+    } finally {
+      setSavingThought(null);
     }
   };
 
@@ -395,6 +459,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack }) => {
             onShowFutureMoves={showFutureMoves}
             onShowAlternativeMove={showAlternativeMove}
             onFeedbackClick={() => setFeedbackOpen(true)}
+            // Thought reflection props
+            userThought={userThoughts[currentMove?.move_number]}
+            thoughtInputOpen={thoughtInputOpen[currentMove?.move_number]}
+            onToggleThoughtInput={(moveNum) => setThoughtInputOpen(prev => ({ ...prev, [moveNum]: !prev[moveNum] }))}
+            onThoughtChange={(moveNum, text) => setUserThoughts(prev => ({ ...prev, [moveNum]: { text, saved: false } }))}
+            onSaveThought={saveThought}
+            savingThought={savingThought}
           />
         )}
         
@@ -554,7 +625,21 @@ const GameStartCard = ({ decryptionData, habitsReport }) => {
 
 // ─── MOVE COACHING CARD V5 ──────────────────────────────────────────
 
-const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowFutureMoves, onShowAlternativeMove, onFeedbackClick }) => {
+const MoveCoachingCardV5 = ({ 
+  move, 
+  acknowledgedConcepts, 
+  onAcknowledge, 
+  onShowFutureMoves, 
+  onShowAlternativeMove, 
+  onFeedbackClick,
+  // Thought reflection props
+  userThought,
+  thoughtInputOpen,
+  onToggleThoughtInput,
+  onThoughtChange,
+  onSaveThought,
+  savingThought
+}) => {
   const [expanded, setExpanded] = useState(false);
   if (!move) return null;
 
@@ -563,6 +648,10 @@ const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowF
   const hasPlan = !!move.plan;
   const needsAck = move.needs_acknowledgment && move.concept_id && !acknowledgedConcepts.has(move.concept_id);
   const wasAcked = move.concept_id && acknowledgedConcepts.has(move.concept_id);
+  
+  // Show thought prompt for user mistakes
+  const isMistake = isUser && (severity === 'blunder' || severity === 'mistake' || severity === 'inaccuracy');
+  const hasThought = userThought?.saved;
 
   // Determine card style based on move type
   let borderClass = 'border-zinc-800 bg-zinc-900/50';
@@ -771,6 +860,69 @@ const MoveCoachingCardV5 = ({ move, acknowledgedConcepts, onAcknowledge, onShowF
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* ─── WHAT WERE YOU THINKING? (for user mistakes) ────── */}
+        {isMistake && (
+          <div className="bg-violet-500/5 rounded-lg p-3 border border-violet-500/20" data-testid="thought-prompt">
+            {hasThought ? (
+              // Already saved thought
+              <div className="flex items-start gap-2">
+                <Eye className="w-4 h-4 text-violet-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-violet-400 mb-1">Your thinking</p>
+                  <p className="text-sm text-zinc-300 italic">"{userThought.text}"</p>
+                </div>
+              </div>
+            ) : thoughtInputOpen ? (
+              // Input open
+              <div className="space-y-2">
+                <p className="text-xs text-violet-400 flex items-center gap-1">
+                  <Eye className="w-3 h-3" /> What were you thinking here?
+                </p>
+                <Textarea
+                  value={userThought?.text || ""}
+                  onChange={(e) => onThoughtChange(move.move_number, e.target.value)}
+                  placeholder="e.g., I thought I was winning the exchange... / I didn't see the threat..."
+                  className="min-h-[60px] text-sm bg-zinc-800/50 border-zinc-700 resize-none"
+                  data-testid="thought-input"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => onSaveThought(move.move_number, move.fen_before)}
+                    disabled={savingThought === move.move_number || !userThought?.text?.trim()}
+                    className="text-xs bg-violet-600 hover:bg-violet-700"
+                  >
+                    {savingThought === move.move_number ? (
+                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                    ) : (
+                      <Check className="w-3 h-3 mr-1" />
+                    )}
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onToggleThoughtInput(move.move_number)}
+                    className="text-xs text-zinc-400"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // Collapsed - show button to expand
+              <button
+                onClick={() => onToggleThoughtInput(move.move_number)}
+                className="flex items-center gap-2 text-xs text-violet-400 hover:text-violet-300 transition-colors w-full"
+              >
+                <Eye className="w-3 h-3" />
+                <span>What were you thinking here?</span>
+                <ChevronDown className="w-3 h-3 ml-auto" />
+              </button>
+            )}
           </div>
         )}
 
